@@ -94,10 +94,10 @@ public class GetUserHandler : IRequestHandler<GetUserQuery, UserDto>
         CancellationToken cancellationToken = default)
     {
         var user = await _repository.GetByIdAsync(request.UserId);
-        
+
         if (user == null)
             return TransitResult<UserDto>.Failure("User not found");
-        
+
         var dto = _mapper.Map<UserDto>(user);
         return TransitResult<UserDto>.Success(dto);
     }
@@ -339,13 +339,13 @@ public class CreateUserValidator : IValidator<CreateUserCommand>
         CancellationToken ct)
     {
         var errors = new List<string>();
-        
+
         if (string.IsNullOrWhiteSpace(command.Name))
             errors.Add("Name is required");
-            
+
         if (!IsValidEmail(command.Email))
             errors.Add("Invalid email format");
-            
+
         return Task.FromResult(errors);
     }
 }
@@ -394,12 +394,12 @@ public class CreateUserHandler
         // 1. 创建用户
         var user = new User(...);
         await _repository.SaveAsync(user);
-        
+
         // 2. 发布事件序列
         await _mediator.PublishAsync(new UserCreatedEvent(...));
         await _mediator.PublishAsync(new UserProfileCreatedEvent(...));
         await _mediator.PublishAsync(new WelcomeEmailScheduledEvent(...));
-        
+
         return TransitResult<int>.Success(user.Id);
     }
 }
@@ -429,10 +429,10 @@ public class PlaceOrderHandler : IRequestHandler<PlaceOrderCommand, OrderId>
     {
         var order = new Order(...) { Status = OrderStatus.Pending };
         await _repository.SaveAsync(order);
-        
+
         // 异步处理
         await _mediator.PublishAsync(new OrderPlacedEvent(order.Id));
-        
+
         // 立即返回
         return TransitResult<OrderId>.Success(order.Id);
     }
@@ -445,7 +445,7 @@ public class ProcessPaymentHandler : IEventHandler<OrderPlacedEvent>
     {
         // 处理支付
         var result = await _paymentService.ProcessAsync(@event.OrderId);
-        
+
         if (result.Success)
             await _mediator.PublishAsync(new PaymentSuccessEvent(...));
         else
@@ -503,20 +503,20 @@ public async Task CreateUser_ShouldReturnUserId()
     var repository = new Mock<IUserRepository>();
     var mediator = new Mock<ITransitMediator>();
     var handler = new CreateUserHandler(repository.Object, mediator.Object);
-    
+
     var command = new CreateUserCommand("John Doe", "john@example.com");
-    
+
     repository
         .Setup(r => r.CreateAsync(It.IsAny<User>()))
         .ReturnsAsync(123);
-    
+
     // Act
     var result = await handler.HandleAsync(command);
-    
+
     // Assert
     Assert.True(result.IsSuccess);
     Assert.Equal(123, result.Value);
-    
+
     mediator.Verify(m => m.PublishAsync(
         It.IsAny<UserCreatedEvent>(),
         It.IsAny<CancellationToken>()), Times.Once);

@@ -88,7 +88,7 @@ public interface ITransitMediator
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>;
-    
+
     // 发布事件到所有订阅者
     Task PublishAsync<TEvent>(
         TEvent @event,
@@ -213,7 +213,7 @@ public interface ICatGaTransaction<TRequest, TResponse>
         TRequest request,
         CatGaContext context,
         CancellationToken cancellationToken = default);
-    
+
     // 补偿操作
     Task CompensateAsync(
         TRequest request,

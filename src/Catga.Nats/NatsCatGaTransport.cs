@@ -1,5 +1,6 @@
 using Catga.CatGa.Core;
 using Catga.CatGa.Models;
+using Catga.Nats.Serialization;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using System.Text.Json;
@@ -25,10 +26,8 @@ public sealed class NatsCatGaTransport : IDisposable
         _connection = connection;
         _logger = logger;
         _serviceId = serviceId ?? Guid.NewGuid().ToString("N");
-        _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
+        // 使用 AOT 兼容的 JSON 选项
+        _jsonOptions = NatsCatgaJsonExtensions.CreateNatsCatgaOptions();
     }
 
     /// <summary>

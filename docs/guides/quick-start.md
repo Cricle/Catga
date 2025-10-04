@@ -71,10 +71,10 @@ public class GetUserHandler : IRequestHandler<GetUserQuery, User>
         CancellationToken cancellationToken = default)
     {
         var user = await _repository.GetByIdAsync(request.UserId);
-        
+
         if (user == null)
             return TransitResult<User>.Failure("User not found");
-            
+
         return TransitResult<User>.Success(user);
     }
 }
@@ -102,14 +102,14 @@ public class CreateUserHandler : IRequestHandler<CreateUserCommand, long>
             Name = request.Name,
             Email = request.Email
         };
-        
+
         var userId = await _repository.CreateAsync(user);
-        
+
         // 发布事件
         await _mediator.PublishAsync(
             new UserCreatedEvent(userId, user.Name),
             cancellationToken);
-            
+
         return TransitResult<long>.Success(userId);
     }
 }
@@ -132,7 +132,7 @@ public class UserCreatedEventHandler : IEventHandler<UserCreatedEvent>
             "User created: {UserId} - {Name}",
             @event.UserId,
             @event.Name);
-            
+
         return Task.CompletedTask;
     }
 }
@@ -150,7 +150,7 @@ builder.Services.AddTransit(options =>
 {
     // 使用开发环境预设（详细日志，无限流）
     options.ForDevelopment();
-    
+
     // 或自定义配置
     // options.EnableLogging = true;
     // options.EnableTracing = true;
@@ -194,10 +194,10 @@ public class UsersController : ControllerBase
     {
         var result = await _mediator.SendAsync<GetUserQuery, User>(
             new GetUserQuery(id));
-            
+
         if (!result.IsSuccess)
             return NotFound(result.Error);
-            
+
         return Ok(result.Value);
     }
 
@@ -208,10 +208,10 @@ public class UsersController : ControllerBase
     {
         var result = await _mediator.SendAsync<CreateUserCommand, long>(
             new CreateUserCommand(request.Name, request.Email));
-            
+
         if (!result.IsSuccess)
             return BadRequest(result.Error);
-            
+
         return CreatedAtAction(
             nameof(GetUser),
             new { id = result.Value },
@@ -238,7 +238,7 @@ public class UserService
     {
         var result = await _mediator.SendAsync<GetUserQuery, User>(
             new GetUserQuery(id));
-            
+
         return result.IsSuccess ? result.Value : null;
     }
 
@@ -246,10 +246,10 @@ public class UserService
     {
         var result = await _mediator.SendAsync<CreateUserCommand, long>(
             new CreateUserCommand(name, email));
-            
+
         if (!result.IsSuccess)
             throw new InvalidOperationException(result.Error);
-            
+
         return result.Value!;
     }
 }
@@ -284,18 +284,18 @@ services.AddTransit(options =>
     options.EnableIdempotency = true;
     options.EnableValidation = true;
     options.EnableRetry = true;
-    
+
     // 性能
     options.MaxConcurrentRequests = 2000;
     options.IdempotencyShardCount = 64;
     options.IdempotencyRetentionHours = 24;
-    
+
     // 弹性
     options.EnableCircuitBreaker = true;
     options.CircuitBreakerFailureThreshold = 10;
     options.EnableRateLimiting = true;
     options.RateLimitRequestsPerSecond = 1000;
-    
+
     // 死信队列
     options.EnableDeadLetterQueue = true;
 });
@@ -341,13 +341,13 @@ public class CreateUserValidator : IValidator<CreateUserCommand>
         CancellationToken ct)
     {
         var errors = new List<string>();
-        
+
         if (string.IsNullOrEmpty(command.Name))
             errors.Add("Name is required");
-            
+
         if (string.IsNullOrEmpty(command.Email))
             errors.Add("Email is required");
-            
+
         return Task.FromResult(errors);
     }
 }
@@ -367,7 +367,7 @@ if (!result.IsSuccess)
 {
     // 处理错误
     _logger.LogError(result.Error);
-    
+
     if (result.Exception != null)
     {
         // 处理异常

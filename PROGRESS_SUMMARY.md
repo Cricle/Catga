@@ -22,7 +22,7 @@
 ### 测试覆盖
 - **单元测试**: 12 个
 - **测试文件**: 3 个
-- **覆盖模块**: 
+- **覆盖模块**:
   - CatgaMediator
   - CatgaResult
   - IdempotencyBehavior
@@ -349,10 +349,10 @@ var result = await mediator.SendAsync<CreateOrderCommand, OrderResult>(command);
 
 ---
 
-**项目状态**: 🟢 健康  
-**构建状态**: ✅ 通过  
-**测试状态**: ✅ 100% 通过  
-**准备发布**: ⚠️ 需要完善文档  
+**项目状态**: 🟢 健康
+**构建状态**: ✅ 通过
+**测试状态**: ✅ 100% 通过
+**准备发布**: ⚠️ 需要完善文档
 
 **最后更新**: 2025-10-05
 

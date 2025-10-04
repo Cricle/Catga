@@ -13,7 +13,7 @@ jobs:
   build-and-pack:
     name: Build and Create NuGet Packages
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4

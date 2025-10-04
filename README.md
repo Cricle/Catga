@@ -80,14 +80,14 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResul
         CancellationToken cancellationToken = default)
     {
         // 业务逻辑
-        var order = new Order 
-        { 
+        var order = new Order
+        {
             ProductId = request.ProductId,
             Quantity = request.Quantity
         };
-        
+
         await SaveOrderAsync(order, cancellationToken);
-        
+
         return CatgaResult<OrderResult>.Success(
             new OrderResult { OrderId = order.Id }
         );
@@ -129,12 +129,12 @@ public class OrderController : ControllerBase
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderCommand command)
     {
         var result = await _mediator.SendAsync<CreateOrderCommand, OrderResult>(command);
-        
+
         if (result.IsSuccess)
         {
             return Ok(result.Value);
         }
-        
+
         return BadRequest(result.Error);
     }
 }
@@ -168,11 +168,11 @@ public class OrderSaga : ICatGaTransaction
         // 创建订单
         var order = await CreateOrderAsync(context);
         context.SetCompensation(() => DeleteOrderAsync(order.Id));
-        
+
         // 扣减库存
         await ReduceInventoryAsync(order.ProductId, order.Quantity);
         context.SetCompensation(() => RestoreInventoryAsync(order.ProductId, order.Quantity));
-        
+
         // 支付
         await ProcessPaymentAsync(order.TotalAmount);
         context.SetCompensation(() => RefundPaymentAsync(order.PaymentId));

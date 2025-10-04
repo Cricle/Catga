@@ -14,7 +14,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         dotnet-version: ['8.0.x', '9.0.x']
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
   code-quality:
     name: Code Quality Checks
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -71,7 +71,7 @@ jobs:
     name: Run Benchmarks
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4

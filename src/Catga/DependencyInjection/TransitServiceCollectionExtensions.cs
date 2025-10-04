@@ -20,13 +20,13 @@ public static class TransitServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddTransit(
         this IServiceCollection services,
-        Action<TransitOptions>? configureOptions = null)
+        Action<CatgaOptions>? configureOptions = null)
     {
-        var options = new TransitOptions();
+        var options = new CatgaOptions();
         configureOptions?.Invoke(options);
 
         services.AddSingleton(options);
-        services.TryAddSingleton<ITransitMediator, TransitMediator>();
+        services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
 
         // High-performance sharded idempotency store
         services.TryAddSingleton<IIdempotencyStore>(new ShardedIdempotencyStore(

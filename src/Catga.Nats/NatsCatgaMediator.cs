@@ -12,23 +12,23 @@ using NATS.Client.Core;
 namespace Catga.Nats;
 
 /// <summary>
-/// Simple, high-performance NATS Transit Mediator (100% AOT, lock-free, non-blocking)
+/// Simple, high-performance NATS Catga Mediator (100% AOT, lock-free, non-blocking)
 /// </summary>
-public class NatsTransitMediator : ITransitMediator, IDisposable
+public class NatsCatgaMediator : ICatgaMediator, IDisposable
 {
     private readonly INatsConnection _connection;
-    private readonly ILogger<NatsTransitMediator> _logger;
-    private readonly TransitOptions _options;
+    private readonly ILogger<NatsCatgaMediator> _logger;
+    private readonly CatgaOptions _options;
     private readonly TimeSpan _timeout;
 
     private readonly ConcurrencyLimiter? _concurrencyLimiter;
     private readonly CircuitBreaker? _circuitBreaker;
     private readonly TokenBucketRateLimiter? _rateLimiter;
 
-    public NatsTransitMediator(
+    public NatsCatgaMediator(
         INatsConnection connection,
-        ILogger<NatsTransitMediator> logger,
-        TransitOptions options)
+        ILogger<NatsCatgaMediator> logger,
+        CatgaOptions options)
     {
         _connection = connection;
         _logger = logger;
@@ -50,7 +50,7 @@ public class NatsTransitMediator : ITransitMediator, IDisposable
                 options.RateLimitRequestsPerSecond);
     }
 
-    public async Task<TransitResult<TResponse>> SendAsync<TRequest, TResponse>(
+    public async Task<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>
@@ -58,7 +58,7 @@ public class NatsTransitMediator : ITransitMediator, IDisposable
         // Rate limiting (non-blocking)
         if (_rateLimiter != null && !_rateLimiter.TryAcquire())
         {
-            return TransitResult<TResponse>.Failure("Rate limit exceeded");
+            return CatgaResult<TResponse>.Failure("Rate limit exceeded");
         }
 
         // Concurrency limiting (non-blocking)
@@ -73,14 +73,14 @@ public class NatsTransitMediator : ITransitMediator, IDisposable
             }
             catch (ConcurrencyLimitException ex)
             {
-                return TransitResult<TResponse>.Failure(ex.Message);
+                return CatgaResult<TResponse>.Failure(ex.Message);
             }
         }
 
         return await ExecuteNatsRequestAsync<TRequest, TResponse>(request, cancellationToken);
     }
 
-    private async Task<TransitResult<TResponse>> ExecuteNatsRequestAsync<TRequest, TResponse>(
+    private async Task<CatgaResult<TResponse>> ExecuteNatsRequestAsync<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken)
         where TRequest : IRequest<TResponse>
@@ -95,14 +95,14 @@ public class NatsTransitMediator : ITransitMediator, IDisposable
             }
             catch (CircuitBreakerOpenException)
             {
-                return TransitResult<TResponse>.Failure("NATS temporarily unavailable");
+                return CatgaResult<TResponse>.Failure("NATS temporarily unavailable");
             }
         }
 
         return await SendToNatsAsync<TRequest, TResponse>(request, cancellationToken);
     }
 
-    private async Task<TransitResult<TResponse>> SendToNatsAsync<TRequest, TResponse>(
+    private async Task<CatgaResult<TResponse>> SendToNatsAsync<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken)
         where TRequest : IRequest<TResponse>
@@ -123,28 +123,28 @@ public class NatsTransitMediator : ITransitMediator, IDisposable
 
             if (reply.Data == null)
             {
-                return TransitResult<TResponse>.Failure("No response from NATS");
+                return CatgaResult<TResponse>.Failure("No response from NATS");
             }
 
-            var result = JsonSerializer.Deserialize<TransitResult<TResponse>>(reply.Data);
-            return result ?? TransitResult<TResponse>.Failure("Invalid response format");
+            var result = JsonSerializer.Deserialize<CatgaResult<TResponse>>(reply.Data);
+            return result ?? CatgaResult<TResponse>.Failure("Invalid response format");
         }
         catch (OperationCanceledException)
         {
-            return TransitResult<TResponse>.Failure(
+            return CatgaResult<TResponse>.Failure(
                 "Request timeout",
-                new TransitTimeoutException($"Timeout after {_timeout.TotalSeconds}s"));
+                new CatgaTimeoutException($"Timeout after {_timeout.TotalSeconds}s"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "NATS error: {RequestType}", typeof(TRequest).Name);
-            return TransitResult<TResponse>.Failure(
+            return CatgaResult<TResponse>.Failure(
                 "NATS communication error",
-                new TransitException("NATS error", ex, isRetryable: true));
+                new CatgaException("NATS error", ex, isRetryable: true));
         }
     }
 
-    public async Task<TransitResult> SendAsync<TRequest>(
+    public async Task<CatgaResult> SendAsync<TRequest>(
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest
@@ -164,16 +164,16 @@ public class NatsTransitMediator : ITransitMediator, IDisposable
 
             if (reply.Data == null)
             {
-                return TransitResult.Failure("No response from NATS");
+                return CatgaResult.Failure("No response from NATS");
             }
 
-            var result = JsonSerializer.Deserialize<TransitResult>(reply.Data);
-            return result ?? TransitResult.Failure("Invalid response format");
+            var result = JsonSerializer.Deserialize<CatgaResult>(reply.Data);
+            return result ?? CatgaResult.Failure("Invalid response format");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "NATS error: {RequestType}", typeof(TRequest).Name);
-            return TransitResult.Failure("NATS error");
+            return CatgaResult.Failure("NATS error");
         }
     }
 

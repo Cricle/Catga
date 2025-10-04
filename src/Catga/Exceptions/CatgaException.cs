@@ -1,22 +1,22 @@
 namespace Catga.Exceptions;
 
 /// <summary>
-/// Base exception for transit operations (100% AOT-compatible)
+/// Base exception for Catga operations (100% AOT-compatible)
 /// </summary>
-public class TransitException : Exception
+public class CatgaException : Exception
 {
     public string? ErrorCode { get; init; }
     public bool IsRetryable { get; init; }
     public Dictionary<string, string>? Details { get; init; }
 
-    public TransitException(string message, string? errorCode = null, bool isRetryable = false)
+    public CatgaException(string message, string? errorCode = null, bool isRetryable = false)
         : base(message)
     {
         ErrorCode = errorCode;
         IsRetryable = isRetryable;
     }
 
-    public TransitException(string message, Exception innerException, string? errorCode = null, bool isRetryable = false)
+    public CatgaException(string message, Exception innerException, string? errorCode = null, bool isRetryable = false)
         : base(message, innerException)
     {
         ErrorCode = errorCode;
@@ -27,9 +27,9 @@ public class TransitException : Exception
 /// <summary>
 /// Exception for timeout scenarios
 /// </summary>
-public class TransitTimeoutException : TransitException
+public class CatgaTimeoutException : CatgaException
 {
-    public TransitTimeoutException(string message)
+    public CatgaTimeoutException(string message)
         : base(message, "TIMEOUT", isRetryable: true)
     {
     }
@@ -38,11 +38,11 @@ public class TransitTimeoutException : TransitException
 /// <summary>
 /// Exception for validation failures
 /// </summary>
-public class TransitValidationException : TransitException
+public class CatgaValidationException : CatgaException
 {
     public List<string> ValidationErrors { get; init; } = new();
 
-    public TransitValidationException(string message, List<string> validationErrors)
+    public CatgaValidationException(string message, List<string> validationErrors)
         : base(message, "VALIDATION_FAILED", isRetryable: false)
     {
         ValidationErrors = validationErrors;
@@ -52,7 +52,7 @@ public class TransitValidationException : TransitException
 /// <summary>
 /// Exception for handler not found
 /// </summary>
-public class HandlerNotFoundException : TransitException
+public class HandlerNotFoundException : CatgaException
 {
     public HandlerNotFoundException(string messageType)
         : base($"No handler found for message type: {messageType}", "HANDLER_NOT_FOUND", isRetryable: false)

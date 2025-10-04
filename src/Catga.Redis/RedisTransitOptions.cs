@@ -3,7 +3,7 @@ namespace Catga.Redis;
 /// <summary>
 /// Redis Transit 配置选项
 /// </summary>
-public class RedisTransitOptions
+public class RedisCatgaOptions
 {
     /// <summary>
     /// Redis 连接字符串

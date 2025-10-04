@@ -12,9 +12,9 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
 {
     private static readonly ActivitySource ActivitySource = new("Catga", "1.0.0");
 
-    public async Task<TransitResult<TResponse>> HandleAsync(
+    public async Task<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
-        Func<Task<TransitResult<TResponse>>> next,
+        Func<Task<CatgaResult<TResponse>>> next,
         CancellationToken cancellationToken = default)
     {
         using var activity = ActivitySource.StartActivity(

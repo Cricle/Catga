@@ -13,22 +13,22 @@ using Microsoft.Extensions.Logging;
 namespace Catga;
 
 /// <summary>
-/// Simple, high-performance Transit Mediator (100% AOT, lock-free, non-blocking)
+/// Simple, high-performance Catga Mediator (100% AOT, lock-free, non-blocking)
 /// </summary>
-public class TransitMediator : ITransitMediator, IDisposable
+public class CatgaMediator : ICatgaMediator, IDisposable
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<TransitMediator> _logger;
-    private readonly TransitOptions _options;
+    private readonly ILogger<CatgaMediator> _logger;
+    private readonly CatgaOptions _options;
 
     private readonly ConcurrencyLimiter? _concurrencyLimiter;
     private readonly CircuitBreaker? _circuitBreaker;
     private readonly TokenBucketRateLimiter? _rateLimiter;
 
-    public TransitMediator(
+    public CatgaMediator(
         IServiceProvider serviceProvider,
-        ILogger<TransitMediator> logger,
-        TransitOptions options)
+        ILogger<CatgaMediator> logger,
+        CatgaOptions options)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
@@ -49,7 +49,7 @@ public class TransitMediator : ITransitMediator, IDisposable
                 options.RateLimitRequestsPerSecond);
     }
 
-    public async Task<TransitResult<TResponse>> SendAsync<TRequest, TResponse>(
+    public async Task<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>
@@ -57,7 +57,7 @@ public class TransitMediator : ITransitMediator, IDisposable
         // Rate limiting (non-blocking)
         if (_rateLimiter != null && !_rateLimiter.TryAcquire())
         {
-            return TransitResult<TResponse>.Failure("Rate limit exceeded");
+            return CatgaResult<TResponse>.Failure("Rate limit exceeded");
         }
 
         // Concurrency limiting (non-blocking with timeout)
@@ -72,14 +72,14 @@ public class TransitMediator : ITransitMediator, IDisposable
             }
             catch (ConcurrencyLimitException ex)
             {
-                return TransitResult<TResponse>.Failure(ex.Message);
+                return CatgaResult<TResponse>.Failure(ex.Message);
             }
         }
 
         return await ExecuteRequestAsync<TRequest, TResponse>(request, cancellationToken);
     }
 
-    private async Task<TransitResult<TResponse>> ExecuteRequestAsync<TRequest, TResponse>(
+    private async Task<CatgaResult<TResponse>> ExecuteRequestAsync<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken)
         where TRequest : IRequest<TResponse>
@@ -94,14 +94,14 @@ public class TransitMediator : ITransitMediator, IDisposable
             }
             catch (CircuitBreakerOpenException)
             {
-                return TransitResult<TResponse>.Failure("Service temporarily unavailable");
+                return CatgaResult<TResponse>.Failure("Service temporarily unavailable");
             }
         }
 
         return await ProcessRequestAsync<TRequest, TResponse>(request, cancellationToken);
     }
 
-    private async Task<TransitResult<TResponse>> ProcessRequestAsync<TRequest, TResponse>(
+    private async Task<CatgaResult<TResponse>> ProcessRequestAsync<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken)
         where TRequest : IRequest<TResponse>
@@ -111,7 +111,7 @@ public class TransitMediator : ITransitMediator, IDisposable
 
         if (handler == null)
         {
-            return TransitResult<TResponse>.Failure(
+            return CatgaResult<TResponse>.Failure(
                 $"No handler for {typeof(TRequest).Name}",
                 new HandlerNotFoundException(typeof(TRequest).Name));
         }
@@ -129,7 +129,7 @@ public class TransitMediator : ITransitMediator, IDisposable
         foreach (var b in behaviors)
             behaviorArray[i++] = b;
 
-        Func<Task<TransitResult<TResponse>>> pipeline = () => handler.HandleAsync(request, cancellationToken);
+        Func<Task<CatgaResult<TResponse>>> pipeline = () => handler.HandleAsync(request, cancellationToken);
 
         for (int j = behaviorArray.Length - 1; j >= 0; j--)
         {
@@ -141,7 +141,7 @@ public class TransitMediator : ITransitMediator, IDisposable
         return await pipeline();
     }
 
-    public async Task<TransitResult> SendAsync<TRequest>(
+    public async Task<CatgaResult> SendAsync<TRequest>(
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest
@@ -150,7 +150,7 @@ public class TransitMediator : ITransitMediator, IDisposable
 
         if (handler == null)
         {
-            return TransitResult.Failure(
+            return CatgaResult.Failure(
                 $"No handler for {typeof(TRequest).Name}",
                 new HandlerNotFoundException(typeof(TRequest).Name));
         }

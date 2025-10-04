@@ -68,7 +68,7 @@ public abstract class StateMachineBase<TState, TData> : IStateMachine<TState, TD
     }
 
     /// <inheritdoc/>
-    public async Task<TransitResult> FireAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
+    public async Task<CatgaResult> FireAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
         where TEvent : IEvent
     {
         var key = (CurrentState, typeof(TEvent));
@@ -77,7 +77,7 @@ public abstract class StateMachineBase<TState, TData> : IStateMachine<TState, TD
         {
             _logger.LogWarning("No transition defined for state {State} and event {Event}",
                 CurrentState, typeof(TEvent).Name);
-            return TransitResult.Failure($"No transition from {CurrentState} on {typeof(TEvent).Name}");
+            return CatgaResult.Failure($"No transition from {CurrentState} on {typeof(TEvent).Name}");
         }
 
         try
@@ -89,18 +89,18 @@ public abstract class StateMachineBase<TState, TData> : IStateMachine<TState, TD
                 return await TransitionToAsync(newState.Value, cancellationToken);
             }
 
-            return TransitResult.Success();
+            return CatgaResult.Success();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error firing event {Event} in state {State}",
                 typeof(TEvent).Name, CurrentState);
-            return TransitResult.Failure($"Transition failed: {ex.Message}");
+            return CatgaResult.Failure($"Transition failed: {ex.Message}");
         }
     }
 
     /// <inheritdoc/>
-    public async Task<TransitResult> TransitionToAsync(TState newState, CancellationToken cancellationToken = default)
+    public async Task<CatgaResult> TransitionToAsync(TState newState, CancellationToken cancellationToken = default)
     {
         var oldState = CurrentState;
 
@@ -130,12 +130,12 @@ public abstract class StateMachineBase<TState, TData> : IStateMachine<TState, TD
                 }
             }
 
-            return TransitResult.Success();
+            return CatgaResult.Success();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error transitioning from {OldState} to {NewState}", oldState, newState);
-            return TransitResult.Failure($"Transition failed: {ex.Message}");
+            return CatgaResult.Failure($"Transition failed: {ex.Message}");
         }
     }
 }

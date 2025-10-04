@@ -16,9 +16,9 @@ public static class RedisTransitServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisTransit(
         this IServiceCollection services,
-        Action<RedisTransitOptions>? configureOptions = null)
+        Action<RedisCatgaOptions>? configureOptions = null)
     {
-        var options = new RedisTransitOptions();
+        var options = new RedisCatgaOptions();
         configureOptions?.Invoke(options);
 
         // 注册 Redis 连接
@@ -69,9 +69,9 @@ public static class RedisTransitServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisCatGaStore(
         this IServiceCollection services,
-        Action<RedisTransitOptions>? configureOptions = null)
+        Action<RedisCatgaOptions>? configureOptions = null)
     {
-        var options = new RedisTransitOptions();
+        var options = new RedisCatgaOptions();
         configureOptions?.Invoke(options);
 
         services.TryAddSingleton<IConnectionMultiplexer>(sp =>
@@ -98,9 +98,9 @@ public static class RedisTransitServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisIdempotencyStore(
         this IServiceCollection services,
-        Action<RedisTransitOptions>? configureOptions = null)
+        Action<RedisCatgaOptions>? configureOptions = null)
     {
-        var options = new RedisTransitOptions();
+        var options = new RedisCatgaOptions();
         configureOptions?.Invoke(options);
 
         services.TryAddSingleton<IConnectionMultiplexer>(sp =>

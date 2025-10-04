@@ -19,7 +19,7 @@ public class RetryBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
 
     public RetryBehavior(
         ILogger<RetryBehavior<TRequest, TResponse>> logger,
-        TransitOptions options)
+        CatgaOptions options)
     {
         _logger = logger;
 
@@ -31,7 +31,7 @@ public class RetryBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
                 Delay = TimeSpan.FromMilliseconds(options.RetryDelayMs),
                 BackoffType = DelayBackoffType.Exponential,
                 UseJitter = true,
-                ShouldHandle = new PredicateBuilder().Handle<TransitException>(ex => ex.IsRetryable),
+                ShouldHandle = new PredicateBuilder().Handle<CatgaException>(ex => ex.IsRetryable),
                 OnRetry = args =>
                 {
                     _logger.LogWarning(
@@ -43,23 +43,23 @@ public class RetryBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
             .Build();
     }
 
-    public async Task<TransitResult<TResponse>> HandleAsync(
+    public async Task<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
-        Func<Task<TransitResult<TResponse>>> next,
+        Func<Task<CatgaResult<TResponse>>> next,
         CancellationToken cancellationToken = default)
     {
         try
         {
             return await _retryPipeline.ExecuteAsync(async ct => await next(), cancellationToken);
         }
-        catch (TransitException ex)
+        catch (CatgaException ex)
         {
             _logger.LogError(ex, "Request failed after retries: {RequestType}", typeof(TRequest).Name);
-            return TransitResult<TResponse>.Failure(ex.Message, ex);
+            return CatgaResult<TResponse>.Failure(ex.Message, ex);
         }
         catch (Exception ex)
         {
-            return TransitResult<TResponse>.Failure("Unexpected error", new TransitException("Unexpected error", ex));
+            return CatgaResult<TResponse>.Failure("Unexpected error", new CatgaException("Unexpected error", ex));
         }
     }
 }

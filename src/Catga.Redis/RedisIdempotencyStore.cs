@@ -20,7 +20,7 @@ public class RedisIdempotencyStore : IIdempotencyStore
     public RedisIdempotencyStore(
         IConnectionMultiplexer redis,
         ILogger<RedisIdempotencyStore> logger,
-        RedisTransitOptions? options = null)
+        RedisCatgaOptions? options = null)
     {
         _redis = redis;
         _logger = logger;

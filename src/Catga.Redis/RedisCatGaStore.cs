@@ -11,12 +11,12 @@ namespace Catga.Redis;
 public sealed class RedisCatGaStore : IDisposable
 {
     private readonly IDatabase _database;
-    private readonly RedisTransitOptions _options;
+    private readonly RedisCatgaOptions _options;
     private readonly JsonSerializerOptions _jsonOptions;
 
     public RedisCatGaStore(
         IConnectionMultiplexer redis,
-        RedisTransitOptions options)
+        RedisCatgaOptions options)
     {
         _database = redis.GetDatabase();
         _options = options;

@@ -8,9 +8,9 @@ namespace Catga.Pipeline;
 /// </summary>
 public interface IPipelineBehavior<in TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
-    Task<TransitResult<TResponse>> HandleAsync(
+    Task<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
-        Func<Task<TransitResult<TResponse>>> next,
+        Func<Task<CatgaResult<TResponse>>> next,
         CancellationToken cancellationToken = default);
 }
 
@@ -19,9 +19,9 @@ public interface IPipelineBehavior<in TRequest, TResponse> where TRequest : IReq
 /// </summary>
 public interface IPipelineBehavior<in TRequest> where TRequest : IRequest
 {
-    Task<TransitResult> HandleAsync(
+    Task<CatgaResult> HandleAsync(
         TRequest request,
-        Func<Task<TransitResult>> next,
+        Func<Task<CatgaResult>> next,
         CancellationToken cancellationToken = default);
 }
 

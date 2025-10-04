@@ -28,12 +28,12 @@ public interface IStateMachine<TState, TData>
     /// <summary>
     /// 触发事件
     /// </summary>
-    Task<TransitResult> FireAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
+    Task<CatgaResult> FireAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
         where TEvent : IEvent;
 
     /// <summary>
     /// 转换到指定状态
     /// </summary>
-    Task<TransitResult> TransitionToAsync(TState newState, CancellationToken cancellationToken = default);
+    Task<CatgaResult> TransitionToAsync(TState newState, CancellationToken cancellationToken = default);
 }
 

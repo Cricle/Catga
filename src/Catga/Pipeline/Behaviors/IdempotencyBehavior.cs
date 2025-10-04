@@ -20,9 +20,9 @@ public class IdempotencyBehavior<TRequest, TResponse> : IPipelineBehavior<TReque
         _logger = logger;
     }
 
-    public async Task<TransitResult<TResponse>> HandleAsync(
+    public async Task<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
-        Func<Task<TransitResult<TResponse>>> next,
+        Func<Task<CatgaResult<TResponse>>> next,
         CancellationToken cancellationToken = default)
     {
         // Check cache (non-blocking)
@@ -31,7 +31,7 @@ public class IdempotencyBehavior<TRequest, TResponse> : IPipelineBehavior<TReque
             _logger.LogInformation("Message {MessageId} already processed - returning cached result", request.MessageId);
 
             var cachedResult = await _store.GetCachedResultAsync<TResponse>(request.MessageId, cancellationToken);
-            return TransitResult<TResponse>.Success(cachedResult ?? default!, CreateCacheMetadata());
+            return CatgaResult<TResponse>.Success(cachedResult ?? default!, CreateCacheMetadata());
         }
 
         // Process message

@@ -71,7 +71,7 @@ public class NatsRequestSubscriber<TRequest, TResponse> : IDisposable
             {
                 _logger.LogError("No handler found for {RequestType}", typeof(TRequest).Name);
 
-                var errorResult = TransitResult<TResponse>.Failure($"No handler for {typeof(TRequest).Name}");
+                var errorResult = CatgaResult<TResponse>.Failure($"No handler for {typeof(TRequest).Name}");
                 await ReplyAsync(msg, errorResult);
                 return;
             }
@@ -82,7 +82,7 @@ public class NatsRequestSubscriber<TRequest, TResponse> : IDisposable
                 .Reverse()
                 .ToList();
 
-            Func<Task<TransitResult<TResponse>>> pipeline = () => handler.HandleAsync(request, _cts.Token);
+            Func<Task<CatgaResult<TResponse>>> pipeline = () => handler.HandleAsync(request, _cts.Token);
 
             foreach (var behavior in behaviors)
             {
@@ -100,15 +100,15 @@ public class NatsRequestSubscriber<TRequest, TResponse> : IDisposable
         {
             _logger.LogError(ex, "Error handling NATS request for {RequestType}", typeof(TRequest).Name);
 
-            var errorResult = TransitResult<TResponse>.Failure(
+            var errorResult = CatgaResult<TResponse>.Failure(
                 "Internal server error",
-                new TransitException("Request processing failed", ex));
+                new CatgaException("Request processing failed", ex));
 
             await ReplyAsync(msg, errorResult);
         }
     }
 
-    private async Task ReplyAsync(NatsMsg<byte[]> msg, TransitResult<TResponse> result)
+    private async Task ReplyAsync(NatsMsg<byte[]> msg, CatgaResult<TResponse> result)
     {
         try
         {

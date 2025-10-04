@@ -19,7 +19,7 @@ namespace CatCat.Benchmarks;
 [SimpleJob(RunStrategy.Throughput, RuntimeMoniker.Net90, warmupCount: 3, iterationCount: 10)]
 public class CqrsBenchmarks
 {
-    private ITransitMediator _mediator = null!;
+    private ICatgaMediator _mediator = null!;
     private IServiceProvider _serviceProvider = null!;
 
     [GlobalSetup]
@@ -44,7 +44,7 @@ public class CqrsBenchmarks
         services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Error));
 
         _serviceProvider = services.BuildServiceProvider();
-        _mediator = _serviceProvider.GetRequiredService<ITransitMediator>();
+        _mediator = _serviceProvider.GetRequiredService<ICatgaMediator>();
     }
 
     [GlobalCleanup]
@@ -57,7 +57,7 @@ public class CqrsBenchmarks
     /// 单次命令处理
     /// </summary>
     [Benchmark(Description = "单次命令处理")]
-    public async Task<TransitResult<TestResponse>> SendCommand_Single()
+    public async Task<CatgaResult<TestResponse>> SendCommand_Single()
     {
         var command = new TestCommand { Value = 42 };
         return await _mediator.SendAsync<TestCommand, TestResponse>(command);
@@ -67,7 +67,7 @@ public class CqrsBenchmarks
     /// 单次查询处理
     /// </summary>
     [Benchmark(Description = "单次查询处理")]
-    public async Task<TransitResult<TestResponse>> SendQuery_Single()
+    public async Task<CatgaResult<TestResponse>> SendQuery_Single()
     {
         var query = new TestQuery { Id = 1 };
         return await _mediator.SendAsync<TestQuery, TestResponse>(query);
@@ -89,7 +89,7 @@ public class CqrsBenchmarks
     [Benchmark(Description = "批量命令处理 (100)")]
     public async Task SendCommand_Batch100()
     {
-        var tasks = new Task<TransitResult<TestResponse>>[100];
+        var tasks = new Task<CatgaResult<TestResponse>>[100];
         for (int i = 0; i < 100; i++)
         {
             var command = new TestCommand { Value = i };
@@ -104,7 +104,7 @@ public class CqrsBenchmarks
     [Benchmark(Description = "批量查询处理 (100)")]
     public async Task SendQuery_Batch100()
     {
-        var tasks = new Task<TransitResult<TestResponse>>[100];
+        var tasks = new Task<CatgaResult<TestResponse>>[100];
         for (int i = 0; i < 100; i++)
         {
             var query = new TestQuery { Id = i };
@@ -134,7 +134,7 @@ public class CqrsBenchmarks
     [Benchmark(Description = "高并发命令处理 (1000)")]
     public async Task SendCommand_HighConcurrency1000()
     {
-        var tasks = new Task<TransitResult<TestResponse>>[1000];
+        var tasks = new Task<CatgaResult<TestResponse>>[1000];
         for (int i = 0; i < 1000; i++)
         {
             var command = new TestCommand { Value = i };
@@ -179,7 +179,7 @@ public class TestResponse
 
 public class TestCommandHandler : IRequestHandler<TestCommand, TestResponse>
 {
-    public Task<TransitResult<TestResponse>> HandleAsync(
+    public Task<CatgaResult<TestResponse>> HandleAsync(
         TestCommand request,
         CancellationToken cancellationToken = default)
     {
@@ -188,13 +188,13 @@ public class TestCommandHandler : IRequestHandler<TestCommand, TestResponse>
             Result = request.Value * 2,
             Message = "Command processed"
         };
-        return Task.FromResult(TransitResult<TestResponse>.Success(response));
+        return Task.FromResult(CatgaResult<TestResponse>.Success(response));
     }
 }
 
 public class TestQueryHandler : IRequestHandler<TestQuery, TestResponse>
 {
-    public Task<TransitResult<TestResponse>> HandleAsync(
+    public Task<CatgaResult<TestResponse>> HandleAsync(
         TestQuery request,
         CancellationToken cancellationToken = default)
     {
@@ -203,7 +203,7 @@ public class TestQueryHandler : IRequestHandler<TestQuery, TestResponse>
             Result = request.Id,
             Message = "Query processed"
         };
-        return Task.FromResult(TransitResult<TestResponse>.Success(response));
+        return Task.FromResult(CatgaResult<TestResponse>.Success(response));
     }
 }
 

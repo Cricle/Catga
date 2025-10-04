@@ -22,9 +22,9 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
         _logger = logger;
     }
 
-    public async Task<TransitResult<TResponse>> HandleAsync(
+    public async Task<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
-        Func<Task<TransitResult<TResponse>>> next,
+        Func<Task<CatgaResult<TResponse>>> next,
         CancellationToken cancellationToken = default)
     {
         if (!_validators.Any())
@@ -46,9 +46,9 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
                 "Validation failed for {RequestType}, MessageId: {MessageId}, Errors: {Errors}",
                 typeof(TRequest).Name, request.MessageId, string.Join("; ", errors));
 
-            return TransitResult<TResponse>.Failure(
+            return CatgaResult<TResponse>.Failure(
                 "Validation failed",
-                new TransitValidationException("Validation failed", errors));
+                new CatgaValidationException("Validation failed", errors));
         }
 
         return await next();

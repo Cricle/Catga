@@ -1,9 +1,9 @@
 namespace Catga.Configuration;
 
 /// <summary>
-/// Simple configuration for Transit with sensible defaults
+/// Simple configuration for Catga with sensible defaults
 /// </summary>
-public class TransitOptions
+public class CatgaOptions
 {
     // === Pipeline Behaviors ===
     public bool EnableLogging { get; set; } = true;
@@ -40,7 +40,7 @@ public class TransitOptions
     /// <summary>
     /// High performance: 5000 concurrent, 64 shards, no retry/validation
     /// </summary>
-    public TransitOptions WithHighPerformance()
+    public CatgaOptions WithHighPerformance()
     {
         MaxConcurrentRequests = 5000;
         IdempotencyShardCount = 64;
@@ -52,7 +52,7 @@ public class TransitOptions
     /// <summary>
     /// Full resilience: circuit breaker + rate limiting
     /// </summary>
-    public TransitOptions WithResilience()
+    public CatgaOptions WithResilience()
     {
         EnableCircuitBreaker = true;
         EnableRateLimiting = true;
@@ -62,7 +62,7 @@ public class TransitOptions
     /// <summary>
     /// Minimal: no extra features, maximum performance
     /// </summary>
-    public TransitOptions Minimal()
+    public CatgaOptions Minimal()
     {
         EnableLogging = false;
         EnableTracing = false;
@@ -79,7 +79,7 @@ public class TransitOptions
     /// <summary>
     /// Development: all logging, no rate limiting, no idempotency
     /// </summary>
-    public TransitOptions ForDevelopment()
+    public CatgaOptions ForDevelopment()
     {
         EnableLogging = true;
         EnableTracing = true;

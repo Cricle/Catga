@@ -21,9 +21,9 @@ public static class NatsTransitServiceCollectionExtensions
     public static IServiceCollection AddNatsTransit(
         this IServiceCollection services,
         string natsUrl,
-        Action<TransitOptions>? configureOptions = null)
+        Action<CatgaOptions>? configureOptions = null)
     {
-        var options = new TransitOptions();
+        var options = new CatgaOptions();
         configureOptions?.Invoke(options);
 
         services.AddSingleton(options);
@@ -36,7 +36,7 @@ public static class NatsTransitServiceCollectionExtensions
         });
 
         // Register NATS mediator
-        services.TryAddSingleton<ITransitMediator, NatsTransitMediator>();
+        services.TryAddSingleton<ICatgaMediator, NatsCatgaMediator>();
 
         // Idempotency store (shared for subscriber side)
         services.TryAddSingleton<IIdempotencyStore>(sp =>

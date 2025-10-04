@@ -16,36 +16,36 @@ public sealed class ResultMetadata
 }
 
 /// <summary>
-/// Result of a transit operation with value (100% AOT-compatible)
+/// Result of a Catga operation with value (100% AOT-compatible)
 /// </summary>
-public class TransitResult<T>
+public class CatgaResult<T>
 {
     public bool IsSuccess { get; init; }
     public T? Value { get; init; }
     public string? Error { get; init; }
-    public TransitException? Exception { get; init; }
+    public CatgaException? Exception { get; init; }
     public ResultMetadata? Metadata { get; init; }
 
-    public static TransitResult<T> Success(T value, ResultMetadata? metadata = null) =>
+    public static CatgaResult<T> Success(T value, ResultMetadata? metadata = null) =>
         new() { IsSuccess = true, Value = value, Metadata = metadata };
 
-    public static TransitResult<T> Failure(string error, TransitException? exception = null) =>
+    public static CatgaResult<T> Failure(string error, CatgaException? exception = null) =>
         new() { IsSuccess = false, Error = error, Exception = exception };
 }
 
 /// <summary>
-/// Result of a transit operation without value (100% AOT-compatible)
+/// Result of a Catga operation without value (100% AOT-compatible)
 /// </summary>
-public class TransitResult
+public class CatgaResult
 {
     public bool IsSuccess { get; init; }
     public string? Error { get; init; }
-    public TransitException? Exception { get; init; }
+    public CatgaException? Exception { get; init; }
     public ResultMetadata? Metadata { get; init; }
 
-    public static TransitResult Success(ResultMetadata? metadata = null) =>
+    public static CatgaResult Success(ResultMetadata? metadata = null) =>
         new() { IsSuccess = true, Metadata = metadata };
 
-    public static TransitResult Failure(string error, TransitException? exception = null) =>
+    public static CatgaResult Failure(string error, CatgaException? exception = null) =>
         new() { IsSuccess = false, Error = error, Exception = exception };
 }

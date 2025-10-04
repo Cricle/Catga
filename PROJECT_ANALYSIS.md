@@ -19,7 +19,7 @@
 
 #### 1.2 Pipeline 模式（责任链）
 ```
-Request → LoggingBehavior → TracingBehavior → ValidationBehavior 
+Request → LoggingBehavior → TracingBehavior → ValidationBehavior
        → IdempotencyBehavior → RetryBehavior → Handler → Response
 ```
 
@@ -153,13 +153,13 @@ JsonSerializer.Serialize(value, CatgaJsonContext.Default.MyMessage)
 
 #### 2.2 缺少单元测试
 ```
-tests/ 
+tests/
   ❌ Catga.Tests           # 不存在
   ❌ Catga.Nats.Tests      # 不存在
   ❌ Catga.Redis.Tests     # 不存在
 ```
 
-**风险**: 
+**风险**:
 - 重构困难
 - 回归风险高
 - 质量无保障

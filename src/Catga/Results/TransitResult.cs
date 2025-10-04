@@ -1,3 +1,5 @@
+using Catga.Exceptions;
+
 namespace Catga.Results;
 
 /// <summary>

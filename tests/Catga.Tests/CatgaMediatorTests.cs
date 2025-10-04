@@ -24,7 +24,7 @@ public class CatgaMediatorTests
         services.AddLogging(); // 添加 Logging 支持
         services.AddTransit();
         services.AddScoped<IRequestHandler<TestCommand, TestResponse>, TestCommandHandler>();
-        
+
         var provider = services.BuildServiceProvider();
         var mediator = provider.GetRequiredService<ICatgaMediator>();
         var command = new TestCommand { Value = "test" };
@@ -47,7 +47,7 @@ public class CatgaMediatorTests
         services.AddLogging(); // 添加 Logging 支持
         services.AddTransit();
         // 注意：没有注册 handler
-        
+
         var provider = services.BuildServiceProvider();
         var mediator = provider.GetRequiredService<ICatgaMediator>();
         var command = new TestCommand { Value = "test" };
@@ -69,7 +69,7 @@ public class CatgaMediatorTests
         services.AddLogging(); // 添加 Logging 支持
         services.AddTransit();
         services.AddScoped<IEventHandler<TestEvent>, TestEventHandler>();
-        
+
         var provider = services.BuildServiceProvider();
         var mediator = provider.GetRequiredService<ICatgaMediator>();
         var testEvent = new TestEvent { Message = "Hello" };

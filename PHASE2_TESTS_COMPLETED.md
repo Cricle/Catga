@@ -17,7 +17,7 @@
 
 ### 1. CatgaMediator核心测试 (3个测试)
 - ✅ `SendAsync_WithValidCommand_ShouldReturnSuccess` - 正常命令处理
-- ✅ `SendAsync_WithoutHandler_ShouldReturnFailure` - 缺少Handler的错误处理  
+- ✅ `SendAsync_WithoutHandler_ShouldReturnFailure` - 缺少Handler的错误处理
 - ✅ `PublishAsync_WithValidEvent_ShouldInvokeHandler` - 事件发布功能
 
 ### 2. CatgaResult类型测试 (6个测试)

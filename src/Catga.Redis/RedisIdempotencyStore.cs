@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using CatCat.Transit.Idempotency;
+using Catga.Idempotency;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 

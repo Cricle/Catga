@@ -54,7 +54,7 @@ public record UserCreatedEvent(long UserId) : IEvent;
 public class GetUserHandler : IRequestHandler<GetUserQuery, User>
 {
     public async Task<CatgaResult<User>> HandleAsync(
-        GetUserQuery request, 
+        GetUserQuery request,
         CancellationToken ct)
     {
         var user = await _db.GetUserAsync(request.UserId);

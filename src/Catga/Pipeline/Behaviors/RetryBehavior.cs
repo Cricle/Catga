@@ -1,4 +1,5 @@
 using Catga.Configuration;
+using Catga.Exceptions;
 using Catga.Messages;
 using Catga.Results;
 using Microsoft.Extensions.Logging;

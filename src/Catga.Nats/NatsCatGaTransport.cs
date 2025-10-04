@@ -1,5 +1,5 @@
-using CatCat.Transit.CatGa.Core;
-using CatCat.Transit.CatGa.Models;
+using Catga.CatGa.Core;
+using Catga.CatGa.Models;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using System.Text.Json;

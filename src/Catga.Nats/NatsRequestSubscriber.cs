@@ -1,8 +1,9 @@
 using System.Text.Json;
-using CatCat.Transit.Handlers;
-using CatCat.Transit.Messages;
-using CatCat.Transit.Pipeline;
-using CatCat.Transit.Results;
+using Catga.Exceptions;
+using Catga.Handlers;
+using Catga.Messages;
+using Catga.Pipeline;
+using Catga.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;

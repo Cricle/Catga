@@ -1,4 +1,4 @@
-using CatCat.Transit.CatGa.Models;
+using Catga.CatGa.Models;
 using StackExchange.Redis;
 using System.Text.Json;
 

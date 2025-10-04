@@ -1,5 +1,6 @@
 using Catga.Concurrency;
 using Catga.Configuration;
+using Catga.Exceptions;
 using Catga.Handlers;
 using Catga.Messages;
 using Catga.Pipeline;

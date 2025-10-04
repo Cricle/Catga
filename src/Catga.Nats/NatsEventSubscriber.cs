@@ -1,6 +1,6 @@
 using System.Text.Json;
-using CatCat.Transit.Handlers;
-using CatCat.Transit.Messages;
+using Catga.Handlers;
+using Catga.Messages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;

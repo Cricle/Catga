@@ -1,10 +1,11 @@
 using System.Text.Json;
-using CatCat.Transit.Concurrency;
-using CatCat.Transit.Configuration;
-using CatCat.Transit.Messages;
-using CatCat.Transit.RateLimiting;
-using CatCat.Transit.Resilience;
-using CatCat.Transit.Results;
+using Catga.Concurrency;
+using Catga.Configuration;
+using Catga.Exceptions;
+using Catga.Messages;
+using Catga.RateLimiting;
+using Catga.Resilience;
+using Catga.Results;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 

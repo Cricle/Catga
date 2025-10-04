@@ -1,0 +1,127 @@
+using Catga.Idempotency;
+using Catga.Messages;
+using Catga.Pipeline.Behaviors;
+using Catga.Results;
+using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+
+namespace Catga.Tests.Pipeline;
+
+/// <summary>
+/// 幂等性行为测试
+/// </summary>
+public class IdempotencyBehaviorTests
+{
+    [Fact]
+    public async Task HandleAsync_WithCachedResult_ShouldReturnCachedValue()
+    {
+        // Arrange
+        var idempotencyStore = Substitute.For<IIdempotencyStore>();
+        var logger = NullLogger<IdempotencyBehavior<TestRequest, TestResponse>>.Instance;
+        var behavior = new IdempotencyBehavior<TestRequest, TestResponse>(idempotencyStore, logger);
+
+        var request = new TestRequest { MessageId = "test-123", Value = "test" };
+        var cachedResponse = new TestResponse { Message = "Cached" };
+
+        idempotencyStore
+            .HasBeenProcessedAsync(request.MessageId, Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        idempotencyStore
+            .GetCachedResultAsync<TestResponse>(request.MessageId, Arg.Any<CancellationToken>())
+            .Returns(cachedResponse);
+
+        var nextCalled = false;
+        Func<Task<CatgaResult<TestResponse>>> next = () =>
+        {
+            nextCalled = true;
+            return Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse { Message = "New" }));
+        };
+
+        // Act
+        var result = await behavior.HandleAsync(request, next);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Message.Should().Be("Cached");
+        nextCalled.Should().BeFalse(); // next 不应该被调用
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithoutCache_ShouldExecuteAndCache()
+    {
+        // Arrange
+        var idempotencyStore = Substitute.For<IIdempotencyStore>();
+        var logger = NullLogger<IdempotencyBehavior<TestRequest, TestResponse>>.Instance;
+        var behavior = new IdempotencyBehavior<TestRequest, TestResponse>(idempotencyStore, logger);
+
+        var request = new TestRequest { MessageId = "test-456", Value = "test" };
+
+        idempotencyStore
+            .HasBeenProcessedAsync(request.MessageId, Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        var nextCalled = false;
+        Func<Task<CatgaResult<TestResponse>>> next = () =>
+        {
+            nextCalled = true;
+            return Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse { Message = "New Result" }));
+        };
+
+        // Act
+        var result = await behavior.HandleAsync(request, next);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Message.Should().Be("New Result");
+        nextCalled.Should().BeTrue(); // next 应该被调用
+
+        // 验证结果被缓存
+        await idempotencyStore
+            .Received(1)
+            .MarkAsProcessedAsync(request.MessageId, result.Value, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenNextThrows_ShouldNotCache()
+    {
+        // Arrange
+        var idempotencyStore = Substitute.For<IIdempotencyStore>();
+        var logger = NullLogger<IdempotencyBehavior<TestRequest, TestResponse>>.Instance;
+        var behavior = new IdempotencyBehavior<TestRequest, TestResponse>(idempotencyStore, logger);
+
+        var request = new TestRequest { MessageId = "test-error", Value = "test" };
+
+        idempotencyStore
+            .HasBeenProcessedAsync(request.MessageId, Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        Func<Task<CatgaResult<TestResponse>>> next = () =>
+        {
+            throw new InvalidOperationException("Test exception");
+        };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() => behavior.HandleAsync(request, next));
+
+        // 验证结果没有被缓存
+        await idempotencyStore
+            .DidNotReceive()
+            .MarkAsProcessedAsync(Arg.Any<string>(), Arg.Any<CatgaResult<TestResponse>>(), Arg.Any<CancellationToken>());
+    }
+}
+
+// 测试用的请求和响应类型
+public record TestRequest : MessageBase, IRequest<TestResponse>
+{
+    public string Value { get; init; } = string.Empty;
+}
+
+public record TestResponse
+{
+    public string Message { get; init; } = string.Empty;
+}
+

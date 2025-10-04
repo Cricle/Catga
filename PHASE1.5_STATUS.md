@@ -13,8 +13,8 @@
   - 集合类型 (Dictionary, List)
   - Catga 核心类型 (CatgaResult<T>, ResultMetadata)
   - CatGa 分布式事务类型 (CatGaContext, CatGaTransactionState, CatGaResult, CatGaOptions)
-  
-#### NATS 特定序列化上下文  
+
+#### NATS 特定序列化上下文
 - ✅ 创建 `NatsCatgaJsonContext` for NATS 消息类型
 - ✅ 添加消息包装类型 (CatGaMessageWrapper, CatGaResponseWrapper)
 - ✅ 实现 `CreateNatsCatgaOptions()` 帮助方法

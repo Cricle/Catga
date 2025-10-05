@@ -261,7 +261,7 @@ public class GetOrderByIdHandler : IRequestHandler<GetOrderByIdQuery, OrderDto>
         CancellationToken cancellationToken = default)
     {
         var order = await _readRepository.GetByIdAsync(request.OrderId, cancellationToken);
-        
+
         if (order == null)
             return CatgaResult<OrderDto>.Failure("Order not found");
 
@@ -418,7 +418,7 @@ public class OrderReadModel
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime? ConfirmedAt { get; set; }
-    
+
     // 反规范化的数据
     public int ItemCount { get; set; }
     public string ProductNames { get; set; } = string.Empty; // 逗号分隔
@@ -441,7 +441,7 @@ public class OrderItemReadModel
 
 ```csharp
 // 事件处理器更新读模型
-public class OrderReadModelUpdater : 
+public class OrderReadModelUpdater :
     IEventHandler<OrderCreatedEvent>,
     IEventHandler<OrderConfirmedEvent>,
     IEventHandler<OrderCancelledEvent>
@@ -484,7 +484,7 @@ public class ProcessOrderSaga : ICatGaTransaction
         // 步骤1：创建订单
         var createOrderResult = await context.ExecuteAsync(
             new CreateOrderStep(context.GetInput<CreateOrderCommand>()));
-        
+
         if (!createOrderResult.IsSuccess)
             return;
 
@@ -549,7 +549,7 @@ public class CachedProductQueryHandler : IRequestHandler<GetProductQuery, Produc
         CancellationToken cancellationToken = default)
     {
         var cacheKey = $"product:{request.ProductId}";
-        
+
         // 尝试从缓存获取
         var cached = await _cache.GetStringAsync(cacheKey, cancellationToken);
         if (cached != null)
@@ -626,7 +626,7 @@ public class CreateOrderHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.TotalAmount.Should().Be(200m);
-        
+
         _orderRepository.Verify(x => x.AddAsync(It.IsAny<Order>(), default), Times.Once);
         _mediator.Verify(x => x.PublishAsync(It.IsAny<OrderCreatedEvent>(), default), Times.Once);
     }
@@ -664,7 +664,7 @@ public class OrderIntegrationTests : IClassFixture<WebApplicationFactory<Program
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         var result = await response.Content.ReadFromJsonAsync<OrderCreatedResult>();
         result.Should().NotBeNull();
         result.OrderId.Should().NotBeEmpty();

@@ -45,7 +45,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResul
             // 检查库存
             if (product.Stock < request.Quantity)
             {
-                _logger.LogWarning("库存不足: {ProductId}, 需要: {Quantity}, 现有: {Stock}", 
+                _logger.LogWarning("库存不足: {ProductId}, 需要: {Quantity}, 现有: {Stock}",
                     request.ProductId, request.Quantity, product.Stock);
                 return CatgaResult<OrderResult>.Failure("库存不足");
             }
@@ -68,7 +68,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResul
             product.Stock -= request.Quantity;
             await _productRepository.UpdateAsync(product, cancellationToken);
 
-            _logger.LogInformation("订单创建成功: {OrderId}, 总金额: {TotalAmount}", 
+            _logger.LogInformation("订单创建成功: {OrderId}, 总金额: {TotalAmount}",
                 order.OrderId, order.TotalAmount);
 
             // 发布订单创建事件

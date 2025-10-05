@@ -19,7 +19,7 @@ public record OrderResult
     public DateTime CreatedAt { get; init; }
 }
 
-// 获取订单查询  
+// 获取订单查询
 public record GetOrderQuery : MessageBase, IQuery<OrderDto>
 {
     public string OrderId { get; init; } = string.Empty;

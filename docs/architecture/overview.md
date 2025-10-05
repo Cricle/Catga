@@ -207,11 +207,11 @@ public class OrderSaga : ICatGaTransaction
         // 1. 创建订单
         var order = await CreateOrderAsync(context);
         context.SetCompensation(() => DeleteOrderAsync(order.Id));
-        
+
         // 2. 扣减库存
         await ReduceInventoryAsync(order.ProductId, order.Quantity);
         context.SetCompensation(() => RestoreInventoryAsync(order.ProductId, order.Quantity));
-        
+
         // 3. 处理支付
         await ProcessPaymentAsync(order.TotalAmount);
         context.SetCompensation(() => RefundPaymentAsync(order.PaymentId));
@@ -317,7 +317,7 @@ partial class CatgaJsonContext : JsonSerializerContext { }
 ### 结构化日志
 
 ```csharp
-_logger.LogInformation("Processing {RequestType} with ID {RequestId}", 
+_logger.LogInformation("Processing {RequestType} with ID {RequestId}",
     typeof(TRequest).Name, request.MessageId);
 ```
 
@@ -347,7 +347,7 @@ builder.Services.AddTransit();
 ### 微服务
 
 ```csharp
-builder.Services.AddNatsCatga(options => 
+builder.Services.AddNatsCatga(options =>
 {
     options.Url = "nats://message-broker:4222";
 });
@@ -394,7 +394,7 @@ builder.Services.AddTransit()
 ```csharp
 builder.Services.AddTransit(options =>
 {
-    options.AddRetry(policy => 
+    options.AddRetry(policy =>
     {
         policy.MaxAttempts = 3;
         policy.Delay = TimeSpan.FromSeconds(1);

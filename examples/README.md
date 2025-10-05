@@ -199,7 +199,7 @@ if (request.MessageId == "specific-id")
 }
 
 // 使用结构化日志
-_logger.LogDebug("Processing {RequestType} with data: {@RequestData}", 
+_logger.LogDebug("Processing {RequestType} with data: {@RequestData}",
     nameof(MyCommand), request);
 ```
 
@@ -246,20 +246,20 @@ public async Task CreateOrder_ShouldReturnSuccess()
     var services = new ServiceCollection();
     services.AddTransit();
     services.AddScoped<IRequestHandler<CreateOrderCommand, OrderResult>, CreateOrderHandler>();
-    
+
     var provider = services.BuildServiceProvider();
     var mediator = provider.GetRequiredService<ICatgaMediator>();
-    
+
     var command = new CreateOrderCommand
     {
         CustomerId = "TEST-001",
         ProductId = "PROD-001",
         Quantity = 1
     };
-    
+
     // Act
     var result = await mediator.SendAsync<CreateOrderCommand, OrderResult>(command);
-    
+
     // Assert
     result.IsSuccess.Should().BeTrue();
     result.Value.OrderId.Should().NotBeEmpty();

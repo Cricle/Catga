@@ -22,13 +22,13 @@
 
 ### 1. OrderService (订单服务)
 - **端口**: 控制台应用
-- **功能**: 
+- **功能**:
   - 处理创建订单命令
   - 处理查询订单请求
   - 发布订单创建事件
   - 管理产品库存
 
-### 2. NotificationService (通知服务)  
+### 2. NotificationService (通知服务)
 - **端口**: 控制台应用
 - **功能**:
   - 监听订单创建事件
@@ -50,7 +50,7 @@
    ```bash
    # 使用 Docker 运行 NATS
    docker run -d --name nats-server -p 4222:4222 -p 8222:8222 nats:latest
-   
+
    # 或者下载并运行 NATS Server
    # https://github.com/nats-io/nats-server/releases
    ```
@@ -72,7 +72,7 @@
 
 3. **启动通知服务** (新终端)
    ```bash
-   cd examples/NatsDistributed/NotificationService  
+   cd examples/NatsDistributed/NotificationService
    dotnet run
    ```
 
@@ -175,7 +175,7 @@ builder.Services.AddNatsCatga(options =>
 3. ✅ 事件正确传播
 4. ✅ 多服务协作
 
-### 失败场景  
+### 失败场景
 1. ❌ 产品不存在
 2. ❌ 库存不足
 3. ❌ 查询不存在的订单
@@ -199,7 +199,7 @@ public class OrderCreatedInventoryHandler : IEventHandler<OrderCreatedEvent>
 ### 添加新的服务
 ```csharp
 // InventoryService - 库存服务
-// PaymentService - 支付服务  
+// PaymentService - 支付服务
 // ShippingService - 物流服务
 ```
 
@@ -219,7 +219,7 @@ public class OrderCreatedInventoryHandler : IEventHandler<OrderCreatedEvent>
    检查: NATS 主题订阅是否正确
    ```
 
-3. **序列化错误**  
+3. **序列化错误**
    ```
    检查: 事件类型定义是否在所有服务中一致
    检查: JSON 序列化配置是否正确

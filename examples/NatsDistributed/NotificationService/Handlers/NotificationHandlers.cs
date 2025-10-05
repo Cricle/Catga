@@ -26,7 +26,7 @@ public class OrderCreatedNotificationHandler : IEventHandler<OrderCreatedEvent>
 
             // 模拟发送邮件通知
             await SendEmailNotificationAsync(@event, cancellationToken);
-            
+
             // 模拟发送短信通知
             await SendSmsNotificationAsync(@event, cancellationToken);
 

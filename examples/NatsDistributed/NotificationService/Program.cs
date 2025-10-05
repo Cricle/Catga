@@ -35,7 +35,7 @@ builder.Services.AddNatsCatga(options =>
     options.EnableEventSubscription = true;
 });
 
-// 注册事件处理器  
+// 注册事件处理器
 builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedNotificationHandler>();
 builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedLogHandler>();
 

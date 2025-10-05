@@ -68,17 +68,17 @@ static async Task RunTestScenariosAsync(ICatgaMediator mediator, ILogger logger)
 
     // 场景 1: 创建订单 - 成功案例
     await TestCreateOrderSuccessAsync(mediator, logger);
-    
+
     await Task.Delay(1000);
 
     // 场景 2: 创建订单 - 库存不足
     await TestCreateOrderInsufficientStockAsync(mediator, logger);
-    
+
     await Task.Delay(1000);
 
     // 场景 3: 创建订单 - 产品不存在
     await TestCreateOrderProductNotFoundAsync(mediator, logger);
-    
+
     await Task.Delay(1000);
 
     // 场景 4: 查询订单
@@ -92,7 +92,7 @@ static async Task RunTestScenariosAsync(ICatgaMediator mediator, ILogger logger)
 static async Task TestCreateOrderSuccessAsync(ICatgaMediator mediator, ILogger logger)
 {
     logger.LogInformation("📝 场景1: 创建订单 - 成功案例");
-    
+
     try
     {
         var command = new CreateOrderCommand
@@ -102,7 +102,7 @@ static async Task TestCreateOrderSuccessAsync(ICatgaMediator mediator, ILogger l
             Quantity = 1
         };
 
-        logger.LogInformation("发送创建订单命令: 客户={CustomerId}, 产品={ProductId}, 数量={Quantity}", 
+        logger.LogInformation("发送创建订单命令: 客户={CustomerId}, 产品={ProductId}, 数量={Quantity}",
             command.CustomerId, command.ProductId, command.Quantity);
 
         var result = await mediator.SendAsync<CreateOrderCommand, OrderResult>(command);
@@ -129,7 +129,7 @@ static async Task TestCreateOrderSuccessAsync(ICatgaMediator mediator, ILogger l
 static async Task TestCreateOrderInsufficientStockAsync(ICatgaMediator mediator, ILogger logger)
 {
     logger.LogInformation("📝 场景2: 创建订单 - 库存不足");
-    
+
     try
     {
         var command = new CreateOrderCommand
@@ -139,7 +139,7 @@ static async Task TestCreateOrderInsufficientStockAsync(ICatgaMediator mediator,
             Quantity = 999 // 超过库存数量
         };
 
-        logger.LogInformation("发送创建订单命令: 客户={CustomerId}, 产品={ProductId}, 数量={Quantity} (超过库存)", 
+        logger.LogInformation("发送创建订单命令: 客户={CustomerId}, 产品={ProductId}, 数量={Quantity} (超过库存)",
             command.CustomerId, command.ProductId, command.Quantity);
 
         var result = await mediator.SendAsync<CreateOrderCommand, OrderResult>(command);
@@ -162,7 +162,7 @@ static async Task TestCreateOrderInsufficientStockAsync(ICatgaMediator mediator,
 static async Task TestCreateOrderProductNotFoundAsync(ICatgaMediator mediator, ILogger logger)
 {
     logger.LogInformation("📝 场景3: 创建订单 - 产品不存在");
-    
+
     try
     {
         var command = new CreateOrderCommand
@@ -172,7 +172,7 @@ static async Task TestCreateOrderProductNotFoundAsync(ICatgaMediator mediator, I
             Quantity = 1
         };
 
-        logger.LogInformation("发送创建订单命令: 客户={CustomerId}, 产品={ProductId} (不存在), 数量={Quantity}", 
+        logger.LogInformation("发送创建订单命令: 客户={CustomerId}, 产品={ProductId} (不存在), 数量={Quantity}",
             command.CustomerId, command.ProductId, command.Quantity);
 
         var result = await mediator.SendAsync<CreateOrderCommand, OrderResult>(command);
@@ -195,7 +195,7 @@ static async Task TestCreateOrderProductNotFoundAsync(ICatgaMediator mediator, I
 static async Task TestQueryOrderAsync(ICatgaMediator mediator, ILogger logger)
 {
     logger.LogInformation("📝 场景4: 查询订单信息");
-    
+
     try
     {
         // 首先创建一个订单
@@ -207,7 +207,7 @@ static async Task TestQueryOrderAsync(ICatgaMediator mediator, ILogger logger)
         };
 
         var createResult = await mediator.SendAsync<CreateOrderCommand, OrderResult>(createCommand);
-        
+
         if (createResult.IsSuccess)
         {
             var orderId = createResult.Value.OrderId;

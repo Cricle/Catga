@@ -7,6 +7,10 @@
 
 **Catga 是一个完整的分布式应用框架，原生支持分布式部署和集群模式。**
 
+**🔄 采用无主多从（Peer-to-Peer）架构** - 所有服务实例地位平等，无单点故障，自动故障转移。
+
+> 详细说明请查看：[PEER_TO_PEER_ARCHITECTURE.md](PEER_TO_PEER_ARCHITECTURE.md)
+
 ---
 
 ## ✅ 分布式能力全景
@@ -45,8 +49,8 @@
 services.AddNatsCatga("nats://localhost:4222");
 
 // NATS 集群 (生产环境)
-services.AddNatsCatga("nats://node1:4222,nats://node2:4222,nats://node3:4222", 
-    options => 
+services.AddNatsCatga("nats://node1:4222,nats://node2:4222,nats://node3:4222",
+    options =>
 {
     options.MaxReconnectAttempts = 10;
     options.ReconnectWaitSeconds = 2;
@@ -75,11 +79,11 @@ public class OrderSaga : ICatGaTransaction<OrderSagaData, OrderResult>
         // Step 1: 调用 Payment Service (服务 A)
         var paymentResult = await _mediator.SendAsync(
             new ProcessPaymentCommand(data.PaymentInfo));
-        
+
         // Step 2: 调用 Inventory Service (服务 B)
         var inventoryResult = await _mediator.SendAsync(
             new ReserveInventoryCommand(data.Items));
-        
+
         // Step 3: 调用 Order Service (服务 C)
         return await _mediator.SendAsync(
             new CreateOrderCommand(data));
@@ -713,9 +717,9 @@ sum(catga_sagas_active)
 
 ---
 
-**文档生成时间**: 2025-10-05  
-**框架版本**: v1.0  
-**分布式能力**: ⭐⭐⭐⭐⭐ (5/5)  
+**文档生成时间**: 2025-10-05
+**框架版本**: v1.0
+**分布式能力**: ⭐⭐⭐⭐⭐ (5/5)
 
 **Catga - 生产级分布式框架，集群原生支持！** 🌐✨
 

@@ -132,13 +132,13 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResul
     // 框架自动注入依赖
     private readonly IOrderRepository _repository;
     private readonly ILogger<CreateOrderHandler> _logger;
-    
+
     public CreateOrderHandler(IOrderRepository repository, ILogger<CreateOrderHandler> logger)
     {
         _repository = repository;
         _logger = logger;
     }
-    
+
     // 框架调用你的方法（IoC）
     public async Task<CatgaResult<OrderResult>> HandleAsync(
         CreateOrderCommand command,
@@ -149,7 +149,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResul
         await _repository.SaveAsync(order);
         return CatgaResult<OrderResult>.Success(new OrderResult(order));
     }
-    
+
     // 框架自动处理:
     // ✅ 日志记录
     // ✅ 分布式追踪
@@ -251,12 +251,12 @@ public record OrderCreatedEvent(
 // 3. 实现处理器（框架调用）
 // ========================================
 // Handlers/CreateOrderHandler.cs
-public class CreateOrderHandler 
+public class CreateOrderHandler
     : IRequestHandler<CreateOrderCommand, OrderResult>
 {
     private readonly IOrderRepository _repository;
     private readonly ICatgaMediator _mediator;
-    
+
     public CreateOrderHandler(
         IOrderRepository repository,
         ICatgaMediator mediator)
@@ -264,7 +264,7 @@ public class CreateOrderHandler
         _repository = repository;
         _mediator = mediator;
     }
-    
+
     public async Task<CatgaResult<OrderResult>> HandleAsync(
         CreateOrderCommand command,
         CancellationToken cancellationToken)
@@ -272,13 +272,13 @@ public class CreateOrderHandler
         // 业务逻辑
         var order = Order.Create(command);
         await _repository.SaveAsync(order);
-        
+
         // 发布事件（框架自动处理分布式）
         await _mediator.PublishAsync(new OrderCreatedEvent(
             order.Id,
             command.CustomerId,
             order.TotalAmount));
-        
+
         return CatgaResult<OrderResult>.Success(
             new OrderResult(order));
     }
@@ -299,7 +299,7 @@ builder.Services.AddCatga(options =>
 
 // 配置分布式能力
 builder.Services.AddNatsCatga("nats://cluster:4222");
-builder.Services.AddRedisCatga(opts => 
+builder.Services.AddRedisCatga(opts =>
     opts.ConnectionString = "redis://cluster");
 
 // 配置可观测性
@@ -310,8 +310,8 @@ builder.Services.AddOpenTelemetry()
 
 // 注册 Handlers（框架自动发现）
 builder.Services.AddRequestHandler<
-    CreateOrderCommand, 
-    OrderResult, 
+    CreateOrderCommand,
+    OrderResult,
     CreateOrderHandler>();
 
 // 构建并运行（框架接管）
@@ -352,10 +352,10 @@ await nats.SubscribeAsync("orders.create", async (msg) => {
 // 你只需要声明"是什么"，框架处理"怎么做"
 public record CreateOrderCommand(...) : ICommand<OrderResult>;
 
-public class CreateOrderHandler 
+public class CreateOrderHandler
     : IRequestHandler<CreateOrderCommand, OrderResult>
 {
-    public async Task<CatgaResult<OrderResult>> HandleAsync(...) 
+    public async Task<CatgaResult<OrderResult>> HandleAsync(...)
     {
         // 纯业务逻辑，无基础设施代码
     }
@@ -400,7 +400,7 @@ OrderCreatedEvent  → "events.order.created"
 // 框架提供的扩展点
 
 // 扩展点 1: Pipeline Behaviors
-public class CustomBehavior<TRequest, TResponse> 
+public class CustomBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
 {
     public async Task<CatgaResult<TResponse>> HandleAsync(
@@ -504,7 +504,7 @@ services.AddCatGaStore<MongoDBCatGaStore>();
 ### 框架的价值
 
 ```
-使用 Catga 框架 = 
+使用 Catga 框架 =
 
   节省 60% 基础设施代码
 + 获得 100% 生产级能力
@@ -523,8 +523,8 @@ services.AddCatGaStore<MongoDBCatGaStore>();
 
 ---
 
-**文档生成时间**: 2025-10-05  
-**定位**: 完整的分布式应用框架  
-**框架完整度**: 97%  
+**文档生成时间**: 2025-10-05
+**定位**: 完整的分布式应用框架
+**框架完整度**: 97%
 **生产就绪度**: ⭐⭐⭐⭐⭐ (5/5)
 

@@ -1,0 +1,105 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'catga-cluster'
+    environment: 'production'
+
+# 告警规则文件
+# rule_files:
+#   - 'alerts.yml'
+
+# 抓取配置
+scrape_configs:
+  # Prometheus 自身指标
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # NATS 集群指标
+  - job_name: 'nats-cluster'
+    static_configs:
+      - targets:
+          - 'nats-1:8222'
+          - 'nats-2:8222'
+          - 'nats-3:8222'
+        labels:
+          service: 'nats'
+          cluster: 'catga-cluster'
+    metrics_path: '/varz'
+    scrape_interval: 10s
+
+  # Redis 集群指标（通过 redis_exporter）
+  # 注意：需要部署 redis_exporter
+  # - job_name: 'redis-cluster'
+  #   static_configs:
+  #     - targets:
+  #         - 'redis-exporter-1:9121'
+  #         - 'redis-exporter-2:9121'
+  #         - 'redis-exporter-3:9121'
+
+  # OrderApi 指标
+  - job_name: 'order-api'
+    static_configs:
+      - targets:
+          - 'order-api-1:8080'
+          - 'order-api-2:8080'
+          - 'order-api-3:8080'
+        labels:
+          service: 'order-api'
+          app: 'catga'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # OrderService 指标（动态服务发现）
+  - job_name: 'order-service'
+    # Docker DNS 服务发现
+    dns_sd_configs:
+      - names:
+          - 'order-service'
+        type: 'A'
+        port: 8080
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'order-service'
+      - target_label: app
+        replacement: 'catga'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # NotificationService 指标
+  - job_name: 'notification-service'
+    dns_sd_configs:
+      - names:
+          - 'notification-service'
+        type: 'A'
+        port: 8080
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: 'notification-service'
+      - target_label: app
+        replacement: 'catga'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Nginx 指标
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']
+        labels:
+          service: 'nginx'
+    metrics_path: '/nginx_status'
+    scrape_interval: 10s
+
+  # Jaeger 指标
+  - job_name: 'jaeger'
+    static_configs:
+      - targets: ['jaeger:14269']
+        labels:
+          service: 'jaeger'
+    scrape_interval: 15s
+

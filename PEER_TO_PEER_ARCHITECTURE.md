@@ -37,7 +37,7 @@ Catga 对等架构（Peer-to-Peer）✅:
     └────┘    └────┘    └────┘
      ↕          ↕          ↕
     平等       平等       平等
-    
+
 所有实例地位相同：
 • 可以接收请求
 • 可以发送请求
@@ -445,16 +445,16 @@ public static class OrderServiceExtensions
     {
         // 注册 Catga
         services.AddCatga();
-        
+
         // 注册 NATS（无主模式）
         services.AddNatsCatga("nats://cluster:4222");
-        
+
         // 注册处理器
         services.AddRequestHandler<CreateOrderCommand, OrderResult, CreateOrderHandler>();
-        
+
         // 订阅 NATS（队列组）
         services.AddHostedService<OrderServiceSubscriber>();
-        
+
         return services;
     }
 }
@@ -463,7 +463,7 @@ public class OrderServiceSubscriber : BackgroundService
 {
     private readonly INatsConnection _nats;
     private readonly ICatgaMediator _mediator;
-    
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // 订阅到队列组 "order-workers"
@@ -477,7 +477,7 @@ public class OrderServiceSubscriber : BackgroundService
             {
                 // 处理消息
                 var result = await _mediator.SendAsync(msg.Data!, stoppingToken);
-                
+
                 // 回复结果
                 await msg.ReplyAsync(result);
             });
@@ -492,7 +492,7 @@ public class OrderServiceSubscriber : BackgroundService
 public class OrderClient
 {
     private readonly ICatgaMediator _mediator;
-    
+
     public async Task<OrderResult> CreateOrderAsync(CreateOrderCommand command)
     {
         // NATS 自动发现并路由到可用实例
@@ -511,22 +511,22 @@ public class OrderClient
 public class OrderSaga : ICatGaTransaction<OrderSagaData, OrderResult>
 {
     private readonly ICatgaMediator _mediator;
-    
+
     public async Task<OrderResult> ExecuteAsync(OrderSagaData data)
     {
         // Step 1: 调用 Payment Service (任意实例)
         var payment = await _mediator.SendAsync(
             new ProcessPaymentCommand(data.PaymentInfo));
-        
+
         // Step 2: 调用 Inventory Service (任意实例)
         var inventory = await _mediator.SendAsync(
             new ReserveInventoryCommand(data.Items));
-        
+
         // Step 3: 调用 Order Service (任意实例)
         return await _mediator.SendAsync(
             new CreateOrderCommand(data));
     }
-    
+
     public async Task CompensateAsync(OrderSagaData data)
     {
         // 补偿也可以由任意实例执行
@@ -590,9 +590,9 @@ var result = await _sagaExecutor.ExecuteAsync(
 
 ---
 
-**文档生成时间**: 2025-10-05  
-**架构类型**: Peer-to-Peer (无主多从)  
-**对等性**: ⭐⭐⭐⭐⭐ (5/5) - 完全对等  
+**文档生成时间**: 2025-10-05
+**架构类型**: Peer-to-Peer (无主多从)
+**对等性**: ⭐⭐⭐⭐⭐ (5/5) - 完全对等
 
 **Catga - 无主分布式架构，所有实例平等！** 🔄🚀
 

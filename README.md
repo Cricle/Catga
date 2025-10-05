@@ -6,7 +6,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-9.0-purple.svg)](https://dotnet.microsoft.com/download/dotnet/9.0)
 
-> **Catga** 是一个完整的**分布式应用框架**，专为 .NET 9+ 设计，**原生支持分布式部署和集群模式**。它不仅仅是一个 CQRS 库，而是提供了从**消息总线**、**分布式事务（Saga）**、**事件驱动**到**微服务通信**的全套基础设施，帮助您构建可扩展、可靠、高性能的分布式系统。
+> **Catga** 是一个完整的 **.NET 分布式应用框架（Framework）**，专为 .NET 9+ 设计，**原生支持分布式部署和集群模式**。
+>
+> **这是一个框架，不是库！** Catga 定义架构模式（CQRS/Saga/Event-Driven），提供控制反转（IoC），管理应用生命周期，并提供从**消息总线**、**分布式事务**、**事件驱动**到**微服务通信**的完整基础设施，帮助您构建可扩展、可靠、高性能的分布式系统。
 >
 > **🌐 完整的分布式和集群支持** - NATS 集群、Redis 集群、Kubernetes 原生、自动故障转移、水平扩展
 

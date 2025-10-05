@@ -13,8 +13,8 @@
 ### 1. 核心设计模式
 
 #### 1.1 Mediator 模式
-- **接口**: `ITransitMediator`
-- **实现**: `TransitMediator`
+- **接口**: `ICatgaMediator`
+- **实现**: `CatgaMediator`
 - **作用**: 解耦消息发送者和处理者，提供统一的消息路由
 
 #### 1.2 Pipeline 模式（责任链）
@@ -40,8 +40,8 @@ IMessage (标记接口)
 ```
 
 #### 1.4 Result 模式
-- `TransitResult<T>` - 带值的结果
-- `TransitResult` - 无值的结果
+- `CatgaResult<T>` - 带值的结果
+- `CatgaResult` - 无值的结果
 - 避免异常驱动，使用显式错误处理
 
 ### 2. 模块结构
@@ -120,11 +120,11 @@ JsonSerializer.Serialize(value, CatgaJsonContext.Default.MyMessage)
 #### 1.2 命名不一致
 **问题**: 混用了多个名字
 - ✅ 命名空间: `Catga.*`
-- ❌ 接口名: `ITransitMediator` (应该是 `ICatgaMediator`)
-- ❌ 类名: `TransitMediator` (应该是 `CatgaMediator`)
-- ❌ 结果类型: `TransitResult` (应该是 `CatgaResult`)
-- ❌ 异常: `TransitException` (应该是 `CatgaException`)
-- ❌ 配置: `TransitOptions` (应该是 `CatgaOptions`)
+- ✅ 接口名: `ICatgaMediator`
+- ✅ 类名: `CatgaMediator`
+- ✅ 结果类型: `CatgaResult`
+- ✅ 异常: `CatgaException`
+- ✅ 配置: `CatgaOptions`
 
 **影响**: 用户混淆，不专业
 
@@ -213,12 +213,12 @@ services.AddHealthChecks()
 
 #### 1.1 命名统一 ⭐⭐⭐⭐⭐
 ```
-- [ ] ITransitMediator → ICatgaMediator
-- [ ] TransitMediator → CatgaMediator
-- [ ] TransitResult → CatgaResult
-- [ ] TransitException → CatgaException
-- [ ] TransitOptions → CatgaOptions
-- [ ] 更新所有 README
+- [x] ITransitMediator → ICatgaMediator
+- [x] TransitMediator → CatgaMediator
+- [x] TransitResult → CatgaResult
+- [x] TransitException → CatgaException
+- [x] TransitOptions → CatgaOptions
+- [x] 更新所有 README
 - [ ] 更新 API 示例
 ```
 

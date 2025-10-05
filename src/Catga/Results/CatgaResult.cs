@@ -3,16 +3,20 @@ using Catga.Exceptions;
 namespace Catga.Results;
 
 /// <summary>
-/// Metadata for transit results (AOT-compatible)
+/// Metadata for transit results (AOT-compatible, pooled dictionary)
 /// </summary>
 public sealed class ResultMetadata
 {
-    private readonly Dictionary<string, string> _data = new();
+    // 预分配容量，减少扩容
+    private readonly Dictionary<string, string> _data = new(4);
 
     public void Add(string key, string value) => _data[key] = value;
     public bool TryGetValue(string key, out string? value) => _data.TryGetValue(key, out value);
     public bool ContainsKey(string key) => _data.ContainsKey(key);
     public IReadOnlyDictionary<string, string> GetAll() => _data;
+    
+    // 重用实例
+    public void Clear() => _data.Clear();
 }
 
 /// <summary>

@@ -90,15 +90,27 @@ public class MemoryIdempotencyStore : IIdempotencyStore
 
     private void CleanupOldEntries()
     {
+        // 零分配清理：避免 LINQ，直接迭代
         var cutoff = DateTime.UtcNow - _retentionPeriod;
-        var expiredKeys = _processedMessages
-            .Where(x => x.Value.ProcessedAt < cutoff)
-            .Select(x => x.Key)
-            .ToList();
-
-        foreach (var key in expiredKeys)
+        
+        // 使用 List 来避免 "Collection was modified" 异常
+        List<string>? expiredKeys = null;
+        
+        foreach (var kvp in _processedMessages)
         {
-            _processedMessages.Remove(key);
+            if (kvp.Value.ProcessedAt < cutoff)
+            {
+                expiredKeys ??= new List<string>();
+                expiredKeys.Add(kvp.Key);
+            }
+        }
+        
+        if (expiredKeys != null)
+        {
+            foreach (var key in expiredKeys)
+            {
+                _processedMessages.Remove(key);
+            }
         }
     }
 }

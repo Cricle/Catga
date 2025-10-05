@@ -26,7 +26,7 @@ var natsOpts = NatsOpts.Default with
 };
 
 // 注册服务
-builder.Services.AddSingleton<INatsConnection>(sp => 
+builder.Services.AddSingleton<INatsConnection>(sp =>
     new NatsConnection(natsOpts));
 
 // 添加 Catga 和 NATS 集成

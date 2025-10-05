@@ -1,4 +1,5 @@
 using Catga.DependencyInjection;
+using Catga.Handlers;
 using OrderApi.Commands;
 using OrderApi.Handlers;
 using OrderApi.Services;

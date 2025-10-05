@@ -1,6 +1,7 @@
 using Catga;
 using Catga.Handlers;
 using Catga.Results;
+using Microsoft.Extensions.Logging;
 using OrderService.Commands;
 using OrderService.Models;
 using OrderService.Services;

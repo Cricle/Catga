@@ -1,5 +1,6 @@
 using Catga.Handlers;
 using Catga.Results;
+using Microsoft.Extensions.Logging;
 using NotificationService.Events;
 
 namespace NotificationService.Handlers;

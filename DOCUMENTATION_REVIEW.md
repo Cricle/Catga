@@ -13,7 +13,7 @@
 ### 核心文档 (10 个 README)
 - ✅ **README.md** (根目录) - 已更新性能特性
 - ✅ **src/Catga/README.md** - 命名正确
-- ✅ **src/Catga.Nats/README.md** - 命名正确  
+- ✅ **src/Catga.Nats/README.md** - 命名正确
 - ✅ **src/Catga.Redis/README.md** - 命名正确
 - ✅ **examples/README.md** - 命名正确
 - ✅ **examples/OrderApi/README.md** - 命名正确
@@ -125,7 +125,7 @@
 $ grep -r "AddTransit" docs/ examples/ src/*/README.md
 # 无结果 ✅
 
-$ grep -r "ITransitMediator" docs/ examples/ src/*/README.md  
+$ grep -r "ITransitMediator" docs/ examples/ src/*/README.md
 # 无结果 ✅
 
 $ grep -r "TransitResult" docs/ examples/ src/*/README.md
@@ -276,9 +276,9 @@ $ grep -r "TransitResult" docs/ examples/ src/*/README.md
 
 ---
 
-**审查完成时间**: 2025-10-05  
-**文档版本**: v1.0 (优化版)  
-**审查者**: AI Assistant  
+**审查完成时间**: 2025-10-05
+**文档版本**: v1.0 (优化版)
+**审查者**: AI Assistant
 **状态**: ✅ **所有文档已审查并修复**
 
 **🎉 Catga 文档现已达到生产级质量标准！**

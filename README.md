@@ -6,11 +6,22 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-9.0-purple.svg)](https://dotnet.microsoft.com/download/dotnet/9.0)
 
-> **Catga** 是一个高性能、现代化的分布式 CQRS 框架，专为 .NET 9+ 设计。提供构建可扩展、可维护分布式系统的完整解决方案。
+> **Catga** 是一个完整的**分布式应用框架**，专为 .NET 9+ 设计。它不仅仅是一个 CQRS 库，而是提供了从**消息总线**、**分布式事务（Saga）**、**事件驱动**到**微服务通信**的全套基础设施，帮助您构建可扩展、可靠、高性能的分布式系统。
 
 ## ✨ 核心特性
 
-### 🎯 CQRS 架构
+### 🌐 分布式框架（不只是 CQRS）
+Catga 是一个**完整的分布式应用框架**，包含：
+- **消息总线**: 本地和分布式消息路由
+- **CQRS 模式**: 命令查询职责分离
+- **Saga 事务**: 分布式事务协调（CatGa）
+- **事件驱动**: 发布-订阅模式
+- **微服务通信**: NATS 分布式传输
+- **持久化**: Redis 状态存储
+- **弹性设计**: 熔断、重试、限流
+- **可观测性**: 追踪、日志、指标
+
+### 🎯 CQRS 架构（应用层）
 - **清晰分离**: 命令、查询和事件的完全分离
 - **统一调度**: `ICatgaMediator` 提供统一的消息调度
 - **强类型结果**: `CatgaResult<T>` 确保类型安全的错误处理

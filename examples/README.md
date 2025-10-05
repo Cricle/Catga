@@ -128,7 +128,7 @@ using Catga.DependencyInjection;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
-builder.Services.AddTransit();
+builder.Services.AddCatga();
 
 // 注册你的处理器
 builder.Services.AddScoped<IRequestHandler<MyCommand, MyResult>, MyHandler>();
@@ -244,7 +244,7 @@ public async Task CreateOrder_ShouldReturnSuccess()
 {
     // Arrange
     var services = new ServiceCollection();
-    services.AddTransit();
+    services.AddCatga();
     services.AddScoped<IRequestHandler<CreateOrderCommand, OrderResult>, CreateOrderHandler>();
 
     var provider = services.BuildServiceProvider();

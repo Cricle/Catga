@@ -50,6 +50,7 @@ public class RetryBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
     {
         try
         {
+            // 简化重试逻辑 - 直接使用Polly管道
             return await _retryPipeline.ExecuteAsync(async ct => await next(), cancellationToken);
         }
         catch (CatgaException ex)

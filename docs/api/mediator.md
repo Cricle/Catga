@@ -18,7 +18,7 @@ public interface ICatgaMediator
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>;
 
-    Task<CatgaResult> PublishAsync<TEvent>(
+    Task PublishAsync<TEvent>(
         TEvent @event,
         CancellationToken cancellationToken = default)
         where TEvent : IEvent;
@@ -184,7 +184,7 @@ public CatgaMediator(
 
 ```csharp
 // 注册核心服务
-services.AddTransit();
+services.AddCatga();
 
 // 注册处理器
 services.AddScoped<IRequestHandler<CreateOrderCommand, OrderResult>, CreateOrderHandler>();

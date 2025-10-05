@@ -102,7 +102,7 @@ OrderApi/
 
 ```csharp
 // 注册 Catga
-builder.Services.AddTransit();
+builder.Services.AddCatga();
 
 // 注册处理器
 builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, CreateOrderResult>, CreateOrderHandler>();
@@ -157,7 +157,7 @@ public record CreateOrderCommand : MessageBase, ICommand<CreateOrderResult>
 }
 
 // 启用验证
-builder.Services.AddTransit(options =>
+builder.Services.AddCatga(options =>
 {
     options.AddValidation();
 });

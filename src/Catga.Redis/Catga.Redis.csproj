@@ -17,6 +17,7 @@
   <ItemGroup>
     <PackageReference Include="StackExchange.Redis" VersionOverride="2.8.16" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
 </Project>

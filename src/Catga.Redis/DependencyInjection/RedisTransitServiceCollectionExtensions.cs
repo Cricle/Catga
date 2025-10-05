@@ -9,12 +9,12 @@ namespace Microsoft.Extensions.DependencyInjection;
 /// <summary>
 /// Redis Transit 依赖注入扩展
 /// </summary>
-public static class RedisTransitServiceCollectionExtensions
+public static class RedisCatgaServiceCollectionExtensions
 {
     /// <summary>
     /// 添加 Redis 持久化支持（包含 CatGa Store）
     /// </summary>
-    public static IServiceCollection AddRedisTransit(
+    public static IServiceCollection AddRedisCatga(
         this IServiceCollection services,
         Action<RedisCatgaOptions>? configureOptions = null)
     {

@@ -31,7 +31,9 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         try
         {
             var result = await next();
+            sw.Stop();
 
+            // 简化日志记录 - 合并条件判断
             _logger.Log(
                 result.IsSuccess ? LogLevel.Information : LogLevel.Warning,
                 "{Request} {Status} in {Ms}ms {MessageId} {Error}",

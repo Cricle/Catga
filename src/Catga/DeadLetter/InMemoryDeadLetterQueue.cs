@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.DeadLetter;
 
 /// <summary>
-/// Simple in-memory dead letter queue (lock-free, AOT-compatible)
+/// 精简内存死信队列（无锁，AOT 兼容）
 /// </summary>
 public class InMemoryDeadLetterQueue : IDeadLetterQueue
 {
@@ -41,15 +41,12 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
 
         _deadLetters.Enqueue(deadLetter);
 
-        // Trim if too large (simple approach)
+        // 简单修剪策略
         while (_deadLetters.Count > _maxSize)
-        {
             _deadLetters.TryDequeue(out _);
-        }
 
-        _logger.LogWarning(
-            "Message sent to DLQ: {MessageType} {MessageId}, Retry: {RetryCount}, Error: {Error}",
-            deadLetter.MessageType, deadLetter.MessageId, retryCount, exception.Message);
+        _logger.LogWarning("消息已发送到死信队列: {MessageType} {MessageId}, 重试: {RetryCount}",
+            deadLetter.MessageType, deadLetter.MessageId, retryCount);
 
         return Task.CompletedTask;
     }
@@ -58,11 +55,7 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
         int maxCount = 100,
         CancellationToken cancellationToken = default)
     {
-        var messages = _deadLetters
-            .Take(maxCount)
-            .ToList();
-
-        return Task.FromResult(messages);
+        return Task.FromResult(_deadLetters.Take(maxCount).ToList());
     }
 }
 

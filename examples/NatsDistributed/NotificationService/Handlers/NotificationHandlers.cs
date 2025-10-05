@@ -17,7 +17,7 @@ public class OrderCreatedNotificationHandler : IEventHandler<OrderCreatedEvent>
         _logger = logger;
     }
 
-    public async Task<CatgaResult> HandleAsync(
+    public async Task HandleAsync(
         OrderCreatedEvent @event,
         CancellationToken cancellationToken = default)
     {
@@ -32,13 +32,11 @@ public class OrderCreatedNotificationHandler : IEventHandler<OrderCreatedEvent>
             await SendSmsNotificationAsync(@event, cancellationToken);
 
             _logger.LogInformation("订单创建通知发送成功: {OrderId}", @event.OrderId);
-
-            return CatgaResult.Success();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "发送订单创建通知失败: {OrderId}", @event.OrderId);
-            return CatgaResult.Failure("发送通知失败");
+            throw;
         }
     }
 
@@ -73,7 +71,7 @@ public class OrderCreatedLogHandler : IEventHandler<OrderCreatedEvent>
         _logger = logger;
     }
 
-    public async Task<CatgaResult> HandleAsync(
+    public async Task HandleAsync(
         OrderCreatedEvent @event,
         CancellationToken cancellationToken = default)
     {
@@ -94,13 +92,11 @@ public class OrderCreatedLogHandler : IEventHandler<OrderCreatedEvent>
                 Timestamp = @event.OccurredAt,
                 Source = "OrderService"
             });
-
-            return CatgaResult.Success();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "记录订单审计日志失败: {OrderId}", @event.OrderId);
-            return CatgaResult.Failure("记录审计日志失败");
+            throw;
         }
     }
 }

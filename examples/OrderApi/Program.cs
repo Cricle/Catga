@@ -14,7 +14,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // 添加 Catga
-builder.Services.AddTransit();
+builder.Services.AddCatga();
 
 // 注册应用服务
 builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();

@@ -137,7 +137,7 @@ using Catga.DependencyInjection;
 var builder = WebApplication.CreateBuilder(args);
 
 // 注册 Catga
-builder.Services.AddTransit();
+builder.Services.AddCatga();
 
 // 注册处理器
 builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, CreateOrderResult>,
@@ -451,7 +451,7 @@ public async Task<IActionResult> GetOrder(string orderId)
 ### 添加日志记录
 
 ```csharp
-builder.Services.AddTransit(options =>
+builder.Services.AddCatga(options =>
 {
     options.AddLogging();
     options.AddTracing();
@@ -478,7 +478,7 @@ public record CreateOrderCommand : MessageBase, ICommand<CreateOrderResult>
 }
 
 // 启用验证
-builder.Services.AddTransit(options =>
+builder.Services.AddCatga(options =>
 {
     options.AddValidation();
 });
@@ -487,7 +487,7 @@ builder.Services.AddTransit(options =>
 ### 添加重试
 
 ```csharp
-builder.Services.AddTransit(options =>
+builder.Services.AddCatga(options =>
 {
     options.AddRetry(maxAttempts: 3);
 });

@@ -1,397 +1,460 @@
-# 快速开始
+# 🚀 5分钟快速开始
 
-本指南将帮助你在 5 分钟内启动并运行 Catga。
+> 从零到第一个 Catga CQRS 应用，只需 5 分钟！
 
-## 安装
+## 📦 第一步：安装包
 
-### 使用 NuGet Package Manager
+选择你需要的组件：
 
 ```bash
-# 安装核心包
+# ✅ 必需：核心框架
 dotnet add package Catga
 
-# 可选：安装 NATS 传输
+# 🌐 可选：NATS 分布式消息传递
 dotnet add package Catga.Nats
 
-# 可选：安装 Redis 持久化
+# 🗄️ 可选：Redis 状态存储
 dotnet add package Catga.Redis
 ```
 
-### 使用 Package Manager Console
+## 🎯 第二步：定义消息
 
-```powershell
-Install-Package Catga
-Install-Package Catga.Nats
-Install-Package Catga.Redis
-```
-
-## 第一个 CQRS 应用
-
-### 1. 定义消息
+创建你的第一个 CQRS 消息：
 
 ```csharp
 using Catga.Messages;
 
-// 查询
-public record GetUserQuery(long UserId) : IQuery<User>;
-
-// 命令
-public record CreateUserCommand(string Name, string Email) : ICommand<long>;
-
-// 事件
-public record UserCreatedEvent(long UserId, string Name) : IEvent;
-
-// 领域模型
-public class User
+// 📝 命令：创建订单
+public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
 {
-    public long Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
+    public string CustomerId { get; init; } = string.Empty;
+    public string ProductId { get; init; } = string.Empty;
+    public int Quantity { get; init; }
+}
+
+// 🔍 查询：获取订单
+public record GetOrderQuery : MessageBase, IQuery<OrderDto>
+{
+    public string OrderId { get; init; } = string.Empty;
+}
+
+// 📢 事件：订单已创建
+public record OrderCreatedEvent : EventBase
+{
+    public string OrderId { get; init; } = string.Empty;
+    public string CustomerId { get; init; } = string.Empty;
+    public decimal Amount { get; init; }
+}
+
+// 📊 响应模型
+public record OrderResult
+{
+    public string OrderId { get; init; } = string.Empty;
+    public string Status { get; init; } = string.Empty;
+    public DateTime CreatedAt { get; init; }
+}
+
+public record OrderDto
+{
+    public string OrderId { get; init; } = string.Empty;
+    public string CustomerId { get; init; } = string.Empty;
+    public string ProductId { get; init; } = string.Empty;
+    public int Quantity { get; init; }
+    public decimal Amount { get; init; }
+    public string Status { get; init; } = string.Empty;
+    public DateTime CreatedAt { get; init; }
 }
 ```
 
-### 2. 定义处理器
+## 🔧 第三步：实现处理器
+
+编写业务逻辑处理器：
 
 ```csharp
 using Catga.Handlers;
 using Catga.Results;
+using Microsoft.Extensions.Logging;
 
-// 查询处理器
-public class GetUserHandler : IRequestHandler<GetUserQuery, User>
+// 📝 命令处理器
+public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResult>
 {
-    private readonly IUserRepository _repository;
+    private readonly ILogger<CreateOrderHandler> _logger;
+    private readonly ICatgaMediator _mediator;
 
-    public GetUserHandler(IUserRepository repository)
+    public CreateOrderHandler(
+        ILogger<CreateOrderHandler> logger,
+        ICatgaMediator mediator)
     {
-        _repository = repository;
-    }
-
-    public async Task<TransitResult<User>> HandleAsync(
-        GetUserQuery request,
-        CancellationToken cancellationToken = default)
-    {
-        var user = await _repository.GetByIdAsync(request.UserId);
-
-        if (user == null)
-            return TransitResult<User>.Failure("User not found");
-
-        return TransitResult<User>.Success(user);
-    }
-}
-
-// 命令处理器
-public class CreateUserHandler : IRequestHandler<CreateUserCommand, long>
-{
-    private readonly IUserRepository _repository;
-    private readonly ITransitMediator _mediator;
-
-    public CreateUserHandler(
-        IUserRepository repository,
-        ITransitMediator mediator)
-    {
-        _repository = repository;
+        _logger = logger;
         _mediator = mediator;
     }
 
-    public async Task<TransitResult<long>> HandleAsync(
-        CreateUserCommand request,
+    public async Task<CatgaResult<OrderResult>> HandleAsync(
+        CreateOrderCommand request,
         CancellationToken cancellationToken = default)
     {
-        var user = new User
+        _logger.LogInformation("创建订单: {CustomerId} - {ProductId} x{Quantity}",
+            request.CustomerId, request.ProductId, request.Quantity);
+
+        // 🔄 模拟业务逻辑
+        await Task.Delay(50, cancellationToken);
+
+        var orderId = Guid.NewGuid().ToString("N")[..8];
+        var amount = request.Quantity * 99.99m; // 简单计算
+
+        // 📢 发布事件
+        await _mediator.PublishAsync(new OrderCreatedEvent
         {
-            Name = request.Name,
-            Email = request.Email
-        };
+            OrderId = orderId,
+            CustomerId = request.CustomerId,
+            Amount = amount
+        }, cancellationToken);
 
-        var userId = await _repository.CreateAsync(user);
-
-        // 发布事件
-        await _mediator.PublishAsync(
-            new UserCreatedEvent(userId, user.Name),
-            cancellationToken);
-
-        return TransitResult<long>.Success(userId);
+        return CatgaResult<OrderResult>.Success(new OrderResult
+        {
+            OrderId = orderId,
+            Status = "已创建",
+            CreatedAt = DateTime.UtcNow
+        });
     }
 }
 
-// 事件处理器
-public class UserCreatedEventHandler : IEventHandler<UserCreatedEvent>
+// 🔍 查询处理器
+public class GetOrderHandler : IRequestHandler<GetOrderQuery, OrderDto>
 {
-    private readonly ILogger<UserCreatedEventHandler> _logger;
+    private readonly ILogger<GetOrderHandler> _logger;
 
-    public UserCreatedEventHandler(ILogger<UserCreatedEventHandler> logger)
+    public GetOrderHandler(ILogger<GetOrderHandler> logger)
+    {
+        _logger = logger;
+    }
+
+    public async Task<CatgaResult<OrderDto>> HandleAsync(
+        GetOrderQuery request,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("查询订单: {OrderId}", request.OrderId);
+
+        // 🔄 模拟数据库查询
+        await Task.Delay(20, cancellationToken);
+
+        // 简单演示：生成模拟数据
+        return CatgaResult<OrderDto>.Success(new OrderDto
+        {
+            OrderId = request.OrderId,
+            CustomerId = "CUST001",
+            ProductId = "PROD001",
+            Quantity = 2,
+            Amount = 199.98m,
+            Status = "已创建",
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5)
+        });
+    }
+}
+
+// 📢 事件处理器
+public class OrderCreatedNotificationHandler : IEventHandler<OrderCreatedEvent>
+{
+    private readonly ILogger<OrderCreatedNotificationHandler> _logger;
+
+    public OrderCreatedNotificationHandler(ILogger<OrderCreatedNotificationHandler> logger)
     {
         _logger = logger;
     }
 
     public Task HandleAsync(
-        UserCreatedEvent @event,
+        OrderCreatedEvent @event,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation(
-            "User created: {UserId} - {Name}",
-            @event.UserId,
-            @event.Name);
+        _logger.LogInformation("🎉 订单创建通知: {OrderId} - 金额: ¥{Amount:F2}",
+            @event.OrderId, @event.Amount);
 
+        // 这里可以发送邮件、短信等通知
         return Task.CompletedTask;
     }
 }
 ```
 
-### 3. 注册服务
+## ⚙️ 第四步：配置服务
+
+在 `Program.cs` 中配置 Catga：
 
 ```csharp
 using Catga.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 注册 Catga
-builder.Services.AddTransit(options =>
+// 🚀 添加 Catga 服务
+builder.Services.AddCatga(options =>
 {
-    // 使用开发环境预设（详细日志，无限流）
-    options.ForDevelopment();
+    // 开发环境：启用详细日志和追踪
+    options.EnableLogging = true;
+    options.EnableTracing = true;
+    options.EnableValidation = true;
 
-    // 或自定义配置
-    // options.EnableLogging = true;
-    // options.EnableTracing = true;
-    // options.EnableIdempotency = true;
-    // options.MaxConcurrentRequests = 1000;
+    // 性能优化：适度并发
+    options.MaxConcurrentRequests = 1000;
 });
 
-// 注册处理器
-builder.Services.AddRequestHandler<GetUserQuery, User, GetUserHandler>();
-builder.Services.AddRequestHandler<CreateUserCommand, long, CreateUserHandler>();
-builder.Services.AddEventHandler<UserCreatedEvent, UserCreatedEventHandler>();
+// 📝 注册处理器
+builder.Services.AddRequestHandler<CreateOrderCommand, OrderResult, CreateOrderHandler>();
+builder.Services.AddRequestHandler<GetOrderQuery, OrderDto, GetOrderHandler>();
+builder.Services.AddEventHandler<OrderCreatedEvent, OrderCreatedNotificationHandler>();
 
-// 注册仓储
-builder.Services.AddSingleton<IUserRepository, InMemoryUserRepository>();
+// 🌐 添加 Web API 支持
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// 🔧 配置管道
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.MapControllers();
+
 app.Run();
 ```
 
-### 4. 使用 Mediator
+## 🌐 第五步：创建 API 控制器
 
-#### 在 API Controller 中
+创建 REST API 端点：
 
 ```csharp
 using Microsoft.AspNetCore.Mvc;
+using Catga;
 
 [ApiController]
 [Route("api/[controller]")]
-public class UsersController : ControllerBase
+public class OrdersController : ControllerBase
 {
-    private readonly ITransitMediator _mediator;
+    private readonly ICatgaMediator _mediator;
+    private readonly ILogger<OrdersController> _logger;
 
-    public UsersController(ITransitMediator mediator)
+    public OrdersController(
+        ICatgaMediator mediator,
+        ILogger<OrdersController> logger)
     {
         _mediator = mediator;
+        _logger = logger;
     }
 
-    // GET api/users/5
-    [HttpGet("{id}")]
-    public async Task<ActionResult<User>> GetUser(long id)
-    {
-        var result = await _mediator.SendAsync<GetUserQuery, User>(
-            new GetUserQuery(id));
-
-        if (!result.IsSuccess)
-            return NotFound(result.Error);
-
-        return Ok(result.Value);
-    }
-
-    // POST api/users
+    /// <summary>
+    /// 创建新订单
+    /// </summary>
     [HttpPost]
-    public async Task<ActionResult<long>> CreateUser(
-        [FromBody] CreateUserRequest request)
+    [ProducesResponseType(typeof(OrderResult), 200)]
+    [ProducesResponseType(typeof(ErrorResponse), 400)]
+    public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
     {
-        var result = await _mediator.SendAsync<CreateUserCommand, long>(
-            new CreateUserCommand(request.Name, request.Email));
+        var command = new CreateOrderCommand
+        {
+            CustomerId = request.CustomerId,
+            ProductId = request.ProductId,
+            Quantity = request.Quantity
+        };
 
-        if (!result.IsSuccess)
-            return BadRequest(result.Error);
+        var result = await _mediator.SendAsync<CreateOrderCommand, OrderResult>(command);
 
-        return CreatedAtAction(
-            nameof(GetUser),
-            new { id = result.Value },
-            result.Value);
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : BadRequest(new ErrorResponse { Error = result.Error });
+    }
+
+    /// <summary>
+    /// 获取订单详情
+    /// </summary>
+    [HttpGet("{orderId}")]
+    [ProducesResponseType(typeof(OrderDto), 200)]
+    [ProducesResponseType(typeof(ErrorResponse), 404)]
+    public async Task<IActionResult> GetOrder(string orderId)
+    {
+        var query = new GetOrderQuery { OrderId = orderId };
+        var result = await _mediator.SendAsync<GetOrderQuery, OrderDto>(query);
+
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : NotFound(new ErrorResponse { Error = result.Error });
+    }
+
+    /// <summary>
+    /// 健康检查端点
+    /// </summary>
+    [HttpGet("health")]
+    public IActionResult Health()
+    {
+        return Ok(new { Status = "Healthy", Timestamp = DateTime.UtcNow });
     }
 }
 
-public record CreateUserRequest(string Name, string Email);
-```
-
-#### 在服务中
-
-```csharp
-public class UserService
+// 📝 请求模型
+public record CreateOrderRequest
 {
-    private readonly ITransitMediator _mediator;
+    public string CustomerId { get; init; } = string.Empty;
+    public string ProductId { get; init; } = string.Empty;
+    public int Quantity { get; init; }
+}
 
-    public UserService(ITransitMediator mediator)
-    {
-        _mediator = mediator;
-    }
-
-    public async Task<User?> GetUserAsync(long id)
-    {
-        var result = await _mediator.SendAsync<GetUserQuery, User>(
-            new GetUserQuery(id));
-
-        return result.IsSuccess ? result.Value : null;
-    }
-
-    public async Task<long> CreateUserAsync(string name, string email)
-    {
-        var result = await _mediator.SendAsync<CreateUserCommand, long>(
-            new CreateUserCommand(name, email));
-
-        if (!result.IsSuccess)
-            throw new InvalidOperationException(result.Error);
-
-        return result.Value!;
-    }
+public record ErrorResponse
+{
+    public string Error { get; init; } = string.Empty;
 }
 ```
 
-## 配置选项
+## 🎮 第六步：运行和测试
 
-### 预设配置
+启动你的应用：
 
-```csharp
-// 开发环境（所有日志，无限流）
-services.AddTransit(opt => opt.ForDevelopment());
+```bash
+# 🚀 启动应用
+dotnet run
 
-// 高性能（5000 并发，64 分片）
-services.AddTransit(opt => opt.WithHighPerformance());
-
-// 完整弹性（熔断器 + 限流）
-services.AddTransit(opt => opt.WithResilience());
-
-// 最小化（零开销）
-services.AddTransit(opt => opt.Minimal());
+# 🌐 访问 Swagger UI
+# https://localhost:7xxx/swagger
 ```
 
-### 自定义配置
+测试 API：
+
+```bash
+# 📝 创建订单
+curl -X POST "https://localhost:7xxx/api/orders" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customerId": "CUST001",
+    "productId": "PROD001",
+    "quantity": 2
+  }'
+
+# 🔍 查询订单
+curl -X GET "https://localhost:7xxx/api/orders/12345678"
+```
+
+## 🎯 进阶配置
+
+### 💪 高性能配置
 
 ```csharp
-services.AddTransit(options =>
+builder.Services.AddCatga(options =>
 {
-    // Pipeline Behaviors
+    // 🚀 极简配置：最大性能
+    options.Minimal();
+
+    // 或者自定义高性能配置
+    options.EnableLogging = false;           // 关闭日志以提升性能
+    options.EnableTracing = false;           // 关闭追踪
+    options.EnableIdempotency = false;       // 关闭幂等性检查
+    options.MaxConcurrentRequests = 0;       // 无并发限制
+});
+```
+
+### 🛡️ 生产环境配置
+
+```csharp
+builder.Services.AddCatga(options =>
+{
+    // 🏢 生产环境：平衡性能和可靠性
     options.EnableLogging = true;
     options.EnableTracing = true;
     options.EnableIdempotency = true;
     options.EnableValidation = true;
     options.EnableRetry = true;
+    options.EnableCircuitBreaker = true;
+    options.EnableRateLimiting = true;
 
-    // 性能
+    // 性能参数
     options.MaxConcurrentRequests = 2000;
     options.IdempotencyShardCount = 64;
-    options.IdempotencyRetentionHours = 24;
-
-    // 弹性
-    options.EnableCircuitBreaker = true;
-    options.CircuitBreakerFailureThreshold = 10;
-    options.EnableRateLimiting = true;
     options.RateLimitRequestsPerSecond = 1000;
-
-    // 死信队列
-    options.EnableDeadLetterQueue = true;
 });
 ```
 
-## 验证安装
-
-创建一个简单的测试：
+### 🌐 分布式配置
 
 ```csharp
-// 测试查询
-var result = await _mediator.SendAsync<GetUserQuery, User>(
-    new GetUserQuery(1));
+// 添加 NATS 支持
+builder.Services.AddNatsCatga(options =>
+{
+    options.Url = "nats://localhost:4222";
+    options.ServiceId = "order-service";
+});
 
-if (result.IsSuccess)
+// 发布跨服务事件
+await _mediator.PublishAsync(new OrderCreatedEvent
 {
-    Console.WriteLine($"User found: {result.Value.Name}");
-}
-else
-{
-    Console.WriteLine($"Error: {result.Error}");
-}
+    OrderId = orderId,
+    CustomerId = customerId,
+    Amount = amount
+});
 ```
 
-## 下一步
+## ✅ 验证安装
 
-- 📖 了解 [CQRS 模式](../architecture/cqrs.md)
-- 🎯 学习 [Pipeline 行为](../architecture/pipeline-behaviors.md)
-- 🚀 探索 [分布式事务](distributed-transactions.md)
-- 📊 查看 [完整示例](../examples/simple-cqrs.md)
-
-## 常见问题
-
-### Q: 如何处理验证？
-
-使用 `ValidationBehavior`：
+运行这个简单测试来验证一切正常：
 
 ```csharp
-public class CreateUserValidator : IValidator<CreateUserCommand>
+// 在控制器或服务中测试
+public async Task<bool> TestCatga()
 {
-    public Task<List<string>> ValidateAsync(
-        CreateUserCommand command,
-        CancellationToken ct)
+    try
     {
-        var errors = new List<string>();
+        var command = new CreateOrderCommand
+        {
+            CustomerId = "TEST001",
+            ProductId = "TEST001",
+            Quantity = 1
+        };
 
-        if (string.IsNullOrEmpty(command.Name))
-            errors.Add("Name is required");
+        var result = await _mediator.SendAsync<CreateOrderCommand, OrderResult>(command);
 
-        if (string.IsNullOrEmpty(command.Email))
-            errors.Add("Email is required");
-
-        return Task.FromResult(errors);
+        return result.IsSuccess;
     }
-}
-
-// 注册
-services.AddValidator<CreateUserCommand, CreateUserValidator>();
-```
-
-### Q: 如何处理异常？
-
-使用 Result 模式：
-
-```csharp
-var result = await _mediator.SendAsync<MyCommand, Result>(command);
-
-if (!result.IsSuccess)
-{
-    // 处理错误
-    _logger.LogError(result.Error);
-
-    if (result.Exception != null)
+    catch (Exception ex)
     {
-        // 处理异常
-        _logger.LogError(result.Exception, "Command failed");
+        _logger.LogError(ex, "Catga 测试失败");
+        return false;
     }
 }
 ```
 
-### Q: 如何启用分布式追踪？
+## 🎉 恭喜！
 
-```csharp
-services.AddTransit(options =>
-{
-    options.EnableTracing = true;
-});
+你已经成功创建了第一个 Catga CQRS 应用！
 
-// 与 OpenTelemetry 集成
-builder.Services.AddOpenTelemetry()
-    .WithTracing(tracing => tracing
-        .AddSource("Catga.Transit")
-        .AddConsoleExporter());
-```
+### 📚 下一步学习
+
+| 🎯 目标 | 📖 推荐阅读 | ⏱️ 时间 |
+|---------|-------------|--------|
+| **理解架构** | [CQRS 模式详解](../architecture/cqrs.md) | 15分钟 |
+| **管道行为** | [Pipeline 行为](../architecture/pipeline-behaviors.md) | 20分钟 |
+| **分布式事务** | [CatGa 分布式事务](distributed-transactions.md) | 30分钟 |
+| **完整示例** | [OrderApi 示例](../../examples/OrderApi/README.md) | 30分钟 |
+| **微服务架构** | [分布式示例](../../examples/NatsDistributed/README.md) | 1小时 |
+
+### 🆘 遇到问题？
+
+- 🔍 **搜索文档**: [文档中心](../README.md)
+- 💬 **社区讨论**: [GitHub Discussions](https://github.com/your-org/Catga/discussions)
+- 🐛 **报告问题**: [GitHub Issues](https://github.com/your-org/Catga/issues)
+- 📧 **技术支持**: support@catga.dev
+
+### 🌟 更多资源
+
+- 📺 [视频教程](https://youtube.com/@catga-framework)
+- 💬 [Discord 社区](https://discord.gg/catga)
+- 📱 [Twitter](https://twitter.com/CatgaFramework)
 
 ---
 
-**恭喜！** 🎉 你已经成功创建了第一个 Catga 应用！
+<div align="center">
+
+**🚀 开始构建更好的分布式系统！**
+
+*用 Catga，让 CQRS 变得简单而强大* ✨
+
+</div>
 

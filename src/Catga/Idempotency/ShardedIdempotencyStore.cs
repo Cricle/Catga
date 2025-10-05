@@ -105,25 +105,25 @@ public class ShardedIdempotencyStore : IIdempotencyStore
     }
 
     /// <summary>
-    /// Lazy cleanup: only runs every 5 minutes to save resources
-    /// No LINQ allocations - direct iteration for zero-GC cleanup
+    /// 懒清理：每5分钟运行一次以节省资源
+    /// 无 LINQ 分配 - 直接迭代实现零 GC 清理
     /// </summary>
     private void TryLazyCleanup()
     {
         var now = DateTime.UtcNow.Ticks;
         var lastCleanup = Interlocked.Read(ref _lastCleanupTicks);
 
-        // Only cleanup every 5 minutes (300M ticks = 5 * 60 * 10M)
+        // 每5分钟清理一次（300M ticks = 5 * 60 * 10M）
         if (now - lastCleanup < 3000000000L)
             return;
 
-        // Try to acquire cleanup ownership (lock-free)
+        // 尝试获取清理所有权（无锁）
         if (Interlocked.CompareExchange(ref _lastCleanupTicks, now, lastCleanup) != lastCleanup)
             return;
 
         var cutoff = DateTime.UtcNow - _retentionPeriod;
 
-        // Zero-allocation cleanup: direct iteration, no LINQ
+        // 零分配清理：直接迭代，无 LINQ
         foreach (var shard in _shards)
         {
             foreach (var kvp in shard)

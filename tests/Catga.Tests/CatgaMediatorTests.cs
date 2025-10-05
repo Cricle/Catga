@@ -22,7 +22,7 @@ public class CatgaMediatorTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging(); // 添加 Logging 支持
-        services.AddTransit();
+        services.AddCatga();
         services.AddScoped<IRequestHandler<TestCommand, TestResponse>, TestCommandHandler>();
 
         var provider = services.BuildServiceProvider();
@@ -45,7 +45,7 @@ public class CatgaMediatorTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging(); // 添加 Logging 支持
-        services.AddTransit();
+        services.AddCatga();
         // 注意：没有注册 handler
 
         var provider = services.BuildServiceProvider();
@@ -67,7 +67,7 @@ public class CatgaMediatorTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging(); // 添加 Logging 支持
-        services.AddTransit();
+        services.AddCatga();
         services.AddScoped<IEventHandler<TestEvent>, TestEventHandler>();
 
         var provider = services.BuildServiceProvider();

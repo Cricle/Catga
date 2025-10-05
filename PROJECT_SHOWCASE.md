@@ -70,7 +70,7 @@ cd Catga
 dotnet add package Catga
 
 // 2. 配置服务
-builder.Services.AddTransit();
+builder.Services.AddCatga();
 
 // 3. 定义命令
 public record CreateOrderCommand : MessageBase, ICommand<OrderResult>

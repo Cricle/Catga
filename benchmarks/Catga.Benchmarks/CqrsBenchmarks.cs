@@ -9,7 +9,7 @@ using Catga.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace CatCat.Benchmarks;
+namespace Catga.Benchmarks;
 
 /// <summary>
 /// CQRS 性能基准测试
@@ -27,8 +27,8 @@ public class CqrsBenchmarks
     {
         var services = new ServiceCollection();
 
-        // 配置 Transit
-        services.AddTransit(options =>
+        // 配置 Catga
+        services.AddCatga(options =>
         {
             options.EnableIdempotency = true;
             options.EnableRetry = true;

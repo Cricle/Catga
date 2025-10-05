@@ -37,7 +37,7 @@ public sealed class TokenBucketRateLimiter
     {
         RefillTokens();
 
-        // Lock-free atomic decrement
+        // 优化的无锁原子递减
         while (true)
         {
             var current = Interlocked.Read(ref _tokens);
@@ -45,8 +45,7 @@ public sealed class TokenBucketRateLimiter
             if (current < tokens)
                 return false;
 
-            var newValue = current - tokens;
-            if (Interlocked.CompareExchange(ref _tokens, newValue, current) == current)
+            if (Interlocked.CompareExchange(ref _tokens, current - tokens, current) == current)
                 return true;
         }
     }

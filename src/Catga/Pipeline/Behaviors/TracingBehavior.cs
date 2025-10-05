@@ -5,7 +5,7 @@ using Catga.Results;
 namespace Catga.Pipeline.Behaviors;
 
 /// <summary>
-/// Distributed tracing behavior using ActivitySource (100% AOT, non-blocking)
+/// 分布式追踪行为 - 使用 ActivitySource（100% AOT，非阻塞）
 /// </summary>
 public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
@@ -17,30 +17,21 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         Func<Task<CatgaResult<TResponse>>> next,
         CancellationToken cancellationToken = default)
     {
-        using var activity = ActivitySource.StartActivity(
-            $"Transit.{typeof(TRequest).Name}",
-            ActivityKind.Internal);
+        using var activity = ActivitySource.StartActivity($"Catga.{typeof(TRequest).Name}");
 
-        if (activity != null)
-        {
-            activity.SetTag("transit.message_id", request.MessageId);
-            activity.SetTag("transit.correlation_id", request.CorrelationId);
-            activity.SetTag("transit.message_type", typeof(TRequest).Name);
-            activity.SetTag("transit.response_type", typeof(TResponse).Name);
-        }
+        activity?.SetTag("catga.message_id", request.MessageId);
+        activity?.SetTag("catga.correlation_id", request.CorrelationId);
+        activity?.SetTag("catga.message_type", typeof(TRequest).Name);
 
         try
         {
             var result = await next();
 
-            if (activity != null)
+            activity?.SetTag("catga.success", result.IsSuccess);
+            if (!result.IsSuccess)
             {
-                activity.SetTag("transit.success", result.IsSuccess);
-                if (!result.IsSuccess)
-                {
-                    activity.SetStatus(ActivityStatusCode.Error, result.Error);
-                    activity.SetTag("transit.error", result.Error);
-                }
+                activity?.SetStatus(ActivityStatusCode.Error, result.Error);
+                activity?.SetTag("catga.error", result.Error);
             }
 
             return result;
@@ -49,8 +40,6 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         {
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.SetTag("exception.type", ex.GetType().Name);
-            activity?.SetTag("exception.message", ex.Message);
-            activity?.SetTag("exception.stacktrace", ex.StackTrace);
             throw;
         }
     }

@@ -292,7 +292,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResul
 }
 
 // 3. 配置服务
-builder.Services.AddTransit();
+builder.Services.AddCatga();
 builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, OrderResult>, CreateOrderHandler>();
 
 // 4. 使用

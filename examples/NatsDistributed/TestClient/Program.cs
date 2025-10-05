@@ -16,25 +16,20 @@ builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Information);
 
 // 配置 NATS
-var natsOptions = new NatsOptions
+var natsUrl = "nats://localhost:4222";
+var natsOpts = NatsOpts.Default with
 {
-    Url = "nats://localhost:4222",
-    Name = "TestClient",
-    MaxReconnect = 10,
-    ReconnectWait = TimeSpan.FromSeconds(2)
+    Url = natsUrl,
+    Name = "TestClient"
 };
 
 // 注册服务
-builder.Services.AddSingleton(natsOptions);
-builder.Services.AddNatsCore(natsOptions);
+builder.Services.AddSingleton<INatsConnection>(sp => 
+    new NatsConnection(natsOpts));
 
 // 添加 Catga 和 NATS 集成
-builder.Services.AddTransit();
-builder.Services.AddNatsCatga(options =>
-{
-    options.ServiceId = "test-client";
-    options.EnableRequestReply = true;
-});
+builder.Services.AddCatga();
+builder.Services.AddNatsCatga(natsUrl);
 
 // 构建主机
 var host = builder.Build();

@@ -58,7 +58,7 @@ tests/
 在所有测试中添加了Logging支持：
 ```csharp
 services.AddLogging(); // 添加 Logging 支持
-services.AddTransit();
+services.AddCatga();
 ```
 
 ### 2. Idempotency测试修正

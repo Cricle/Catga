@@ -60,7 +60,7 @@ public class CatgaOptions
     }
 
     /// <summary>
-    /// Minimal: no extra features, maximum performance
+    /// 极简配置：最大性能，移除所有非必要功能
     /// </summary>
     public CatgaOptions Minimal()
     {
@@ -72,7 +72,7 @@ public class CatgaOptions
         EnableCircuitBreaker = false;
         EnableRateLimiting = false;
         EnableDeadLetterQueue = false;
-        MaxConcurrentRequests = 0; // Unlimited
+        MaxConcurrentRequests = 0; // 无限制
         return this;
     }
 

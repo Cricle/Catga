@@ -13,12 +13,12 @@ namespace Catga.Nats.DependencyInjection;
 /// <summary>
 /// NATS Transit service registration with full Pipeline Behaviors support (AOT-compatible)
 /// </summary>
-public static class NatsTransitServiceCollectionExtensions
+public static class NatsCatgaServiceCollectionExtensions
 {
     /// <summary>
-    /// Add NATS Transit with full features
+    /// Add NATS Catga with full features
     /// </summary>
-    public static IServiceCollection AddNatsTransit(
+    public static IServiceCollection AddNatsCatga(
         this IServiceCollection services,
         string natsUrl,
         Action<CatgaOptions>? configureOptions = null)

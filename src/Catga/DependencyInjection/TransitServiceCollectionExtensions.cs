@@ -11,14 +11,14 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Catga.DependencyInjection;
 
 /// <summary>
-/// Simplified Transit service registration (100% AOT-compatible)
+/// 精简的 Catga 服务注册扩展（100% AOT 兼容）
 /// </summary>
-public static class TransitServiceCollectionExtensions
+public static class CatgaServiceCollectionExtensions
 {
     /// <summary>
-    /// Add Transit with sensible defaults
+    /// 添加 Catga 服务到 DI 容器
     /// </summary>
-    public static IServiceCollection AddTransit(
+    public static IServiceCollection AddCatga(
         this IServiceCollection services,
         Action<CatgaOptions>? configureOptions = null)
     {
@@ -28,21 +28,19 @@ public static class TransitServiceCollectionExtensions
         services.AddSingleton(options);
         services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
 
-        // High-performance sharded idempotency store
+        // 高性能分片幂等存储
         services.TryAddSingleton<IIdempotencyStore>(new ShardedIdempotencyStore(
             options.IdempotencyShardCount,
             TimeSpan.FromHours(options.IdempotencyRetentionHours)));
 
-        // Dead letter queue
+        // 死信队列
         if (options.EnableDeadLetterQueue)
-        {
             services.TryAddSingleton<IDeadLetterQueue>(sp =>
                 new InMemoryDeadLetterQueue(
                     sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InMemoryDeadLetterQueue>>(),
                     options.DeadLetterQueueMaxSize));
-        }
 
-        // Register pipeline behaviors (order matters!)
+        // 管道行为（顺序很重要！）
         if (options.EnableLogging)
             services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
 
@@ -62,7 +60,7 @@ public static class TransitServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Register request handler (explicit, AOT-friendly)
+    /// 注册请求处理器（显式，AOT 友好）
     /// </summary>
     public static IServiceCollection AddRequestHandler<TRequest, TResponse, THandler>(
         this IServiceCollection services)
@@ -74,7 +72,7 @@ public static class TransitServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Register request handler without response
+    /// 注册无响应请求处理器
     /// </summary>
     public static IServiceCollection AddRequestHandler<TRequest, THandler>(
         this IServiceCollection services)
@@ -86,7 +84,7 @@ public static class TransitServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Register event handler
+    /// 注册事件处理器
     /// </summary>
     public static IServiceCollection AddEventHandler<TEvent, THandler>(
         this IServiceCollection services)
@@ -94,17 +92,6 @@ public static class TransitServiceCollectionExtensions
         where THandler : class, IEventHandler<TEvent>
     {
         services.AddTransient<IEventHandler<TEvent>, THandler>();
-        return services;
-    }
-
-    /// <summary>
-    /// Register validator
-    /// </summary>
-    public static IServiceCollection AddValidator<TRequest, TValidator>(
-        this IServiceCollection services)
-        where TValidator : class, IValidator<TRequest>
-    {
-        services.AddTransient<IValidator<TRequest>, TValidator>();
         return services;
     }
 }

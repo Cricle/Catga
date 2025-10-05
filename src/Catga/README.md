@@ -50,16 +50,16 @@ public class GetUserHandler : IRequestHandler<GetUserQuery, User>
 services.AddCatga();
 
 // 自定义
-services.AddTransit(options =>
+services.AddCatga(options =>
 {
     options.MaxConcurrentRequests = 2000;
     options.EnableCircuitBreaker = true;
 });
 
 // 或使用预设
-services.AddTransit(opt => opt.WithHighPerformance());
-services.AddTransit(opt => opt.WithResilience());
-services.AddTransit(opt => opt.ForDevelopment());
+services.AddCatga(opt => opt.WithHighPerformance());
+services.AddCatga(opt => opt.WithResilience());
+services.AddCatga(opt => opt.ForDevelopment());
 
 // 注册处理器
 services.AddRequestHandler<GetUserQuery, User, GetUserHandler>();
@@ -93,7 +93,7 @@ public class UserService(ICatgaMediator mediator)
 ### 🛡️ 弹性机制
 
 ```csharp
-services.AddTransit(options =>
+services.AddCatga(options =>
 {
     // 重试
     options.EnableRetry = true;
@@ -146,22 +146,22 @@ public class AdminController(IDeadLetterQueue dlq)
 
 ```csharp
 // 开发环境（所有日志，无限流）
-services.AddTransit(opt => opt.ForDevelopment());
+services.AddCatga(opt => opt.ForDevelopment());
 
 // 高性能（5000 并发，64 分片）
-services.AddTransit(opt => opt.WithHighPerformance());
+services.AddCatga(opt => opt.WithHighPerformance());
 
 // 完整弹性（熔断器 + 限流）
-services.AddTransit(opt => opt.WithResilience());
+services.AddCatga(opt => opt.WithResilience());
 
 // 最小化（零开销，最快）
-services.AddTransit(opt => opt.Minimal());
+services.AddCatga(opt => opt.Minimal());
 ```
 
 ## 🌐 NATS 传输
 
 ```csharp
-services.AddNatsTransit("nats://localhost:4222", opt =>
+services.AddNatsCatga("nats://localhost:4222", opt =>
 {
     opt.MaxConcurrentRequests = 1000;
     opt.EnableCircuitBreaker = true;

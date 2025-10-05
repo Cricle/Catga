@@ -16,25 +16,20 @@ builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Information);
 
 // 配置 NATS
-var natsOptions = new NatsOptions
+var natsUrl = "nats://localhost:4222";
+var natsOpts = NatsOpts.Default with
 {
-    Url = "nats://localhost:4222",
-    Name = "NotificationService",
-    MaxReconnect = 10,
-    ReconnectWait = TimeSpan.FromSeconds(2)
+    Url = natsUrl,
+    Name = "NotificationService"
 };
 
 // 注册服务
-builder.Services.AddSingleton(natsOptions);
-builder.Services.AddNatsCore(natsOptions);
+builder.Services.AddSingleton<INatsConnection>(sp => 
+    new NatsConnection(natsOpts));
 
 // 添加 Catga 和 NATS 集成
-builder.Services.AddTransit();
-builder.Services.AddNatsCatga(options =>
-{
-    options.ServiceId = "notification-service";
-    options.EnableEventSubscription = true;
-});
+builder.Services.AddCatga();
+builder.Services.AddNatsCatga(natsUrl);
 
 // 注册事件处理器
 builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedNotificationHandler>();

@@ -27,27 +27,20 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
         Func<Task<CatgaResult<TResponse>>> next,
         CancellationToken cancellationToken = default)
     {
+        // 简化验证 - 避免不必要的集合操作
         if (!_validators.Any())
-        {
             return await next();
-        }
 
         var errors = new List<string>();
-
         foreach (var validator in _validators)
-        {
-            var validationErrors = await validator.ValidateAsync(request, cancellationToken);
-            errors.AddRange(validationErrors);
-        }
+            errors.AddRange(await validator.ValidateAsync(request, cancellationToken));
 
-        if (errors.Any())
+        if (errors.Count > 0)
         {
-            _logger.LogWarning(
-                "Validation failed for {RequestType}, MessageId: {MessageId}, Errors: {Errors}",
+            _logger.LogWarning("Validation failed for {RequestType}, MessageId: {MessageId}, Errors: {Errors}",
                 typeof(TRequest).Name, request.MessageId, string.Join("; ", errors));
 
-            return CatgaResult<TResponse>.Failure(
-                "Validation failed",
+            return CatgaResult<TResponse>.Failure("Validation failed",
                 new CatgaValidationException("Validation failed", errors));
         }
 

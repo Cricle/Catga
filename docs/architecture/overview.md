@@ -51,7 +51,7 @@ public interface ICatgaMediator
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>;
 
-    Task<CatgaResult> PublishAsync<TEvent>(
+    Task PublishAsync<TEvent>(
         TEvent @event,
         CancellationToken cancellationToken = default)
         where TEvent : IEvent;
@@ -179,7 +179,7 @@ public record OrderCreatedEvent : EventBase
 
 public class OrderCreatedHandler : IEventHandler<OrderCreatedEvent>
 {
-    public async Task<CatgaResult> HandleAsync(
+    public async Task HandleAsync(
         OrderCreatedEvent @event,
         CancellationToken cancellationToken = default)
     {
@@ -341,7 +341,7 @@ activity?.SetTag("request.id", request.MessageId);
 ### 单体应用
 
 ```csharp
-builder.Services.AddTransit();
+builder.Services.AddCatga();
 ```
 
 ### 微服务
@@ -356,9 +356,9 @@ builder.Services.AddNatsCatga(options =>
 ### 混合部署
 
 ```csharp
-builder.Services.AddTransit()
-    .AddNatsCatga()  // 跨服务通信
-    .AddRedisCatga(); // 状态持久化
+builder.Services.AddCatga();
+builder.Services.AddNatsCatga();   // 跨服务通信
+builder.Services.AddRedisCatga();  // 状态持久化
 ```
 
 ## 最佳实践
@@ -392,40 +392,27 @@ builder.Services.AddTransit()
 ### 重试策略
 
 ```csharp
-builder.Services.AddTransit(options =>
+builder.Services.AddCatga(options =>
 {
-    options.AddRetry(policy =>
-    {
-        policy.MaxAttempts = 3;
-        policy.Delay = TimeSpan.FromSeconds(1);
-        policy.BackoffMultiplier = 2.0;
-    });
+    options.EnableRetry = true;
 });
 ```
 
 ### 熔断器
 
 ```csharp
-builder.Services.AddTransit(options =>
+builder.Services.AddCatga(options =>
 {
-    options.AddCircuitBreaker(policy =>
-    {
-        policy.FailureThreshold = 5;
-        policy.RecoveryTimeout = TimeSpan.FromMinutes(1);
-    });
+    options.EnableCircuitBreaker = true;
 });
 ```
 
 ### 死信队列
 
 ```csharp
-builder.Services.AddTransit(options =>
+builder.Services.AddCatga(options =>
 {
-    options.AddDeadLetterQueue(policy =>
-    {
-        policy.MaxRetries = 3;
-        policy.RetentionPeriod = TimeSpan.FromDays(7);
-    });
+    options.EnableDeadLetterQueue = true;
 });
 ```
 

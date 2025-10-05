@@ -330,7 +330,7 @@ if (builder.Environment.IsProduction())
     builder.Services.AddOpenTelemetry()
         .WithTracing(t => t.AddOtlpExporter())
         .WithMetrics(m => m.AddOtlpExporter());
-    
+
     // 采样策略 (10%)
     builder.Services.AddOpenTelemetry()
         .WithTracing(t => t
@@ -356,7 +356,7 @@ groups:
         expr: rate(catga_requests_failed_total[5m]) > 0.1
         annotations:
           summary: "Catga error rate > 10%"
-      
+
       - alert: HighLatency
         expr: histogram_quantile(0.95, rate(catga_request_duration_bucket[5m])) > 1000
         annotations:
@@ -467,10 +467,10 @@ services.AddCatgaHealthChecks(options =>
 
 ---
 
-**报告生成时间**: 2025-10-05  
-**可观测性版本**: v2.0 (完整版)  
-**状态**: ✅ 完成并验证  
-**推荐等级**: ⭐⭐⭐⭐⭐ (5/5)  
+**报告生成时间**: 2025-10-05
+**可观测性版本**: v2.0 (完整版)
+**状态**: ✅ 完成并验证
+**推荐等级**: ⭐⭐⭐⭐⭐ (5/5)
 
 **Catga - 生产级分布式框架，完整可观测性！** 📊✨
 

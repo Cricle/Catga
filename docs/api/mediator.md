@@ -70,8 +70,8 @@ public class OrderResult
 }
 
 // 使用
-var command = new CreateOrderCommand 
-{ 
+var command = new CreateOrderCommand
+{
     ProductId = "PROD-001",
     Quantity = 2
 };
@@ -259,7 +259,7 @@ public async Task<IActionResult> GetOrder(
     var result = await _mediator.SendAsync<GetOrderQuery, OrderDto>(
         query,
         cancellationToken); // 传递取消令牌
-    
+
     return Ok(result.Value);
 }
 ```

@@ -45,7 +45,7 @@ using Catga.Results;
 
 namespace MyApp.Orders.Handlers
 {
-    public class CreateOrderHandler 
+    public class CreateOrderHandler
         : IRequestHandler<CreateOrderCommand, CreateOrderResult>
     {
         private readonly IOrderRepository _orderRepository;
@@ -70,9 +70,9 @@ namespace MyApp.Orders.Handlers
             {
                 // 1. 验证产品
                 var product = await _productRepository.GetByIdAsync(
-                    request.ProductId, 
+                    request.ProductId,
                     cancellationToken);
-                
+
                 if (product == null)
                 {
                     return CatgaResult<CreateOrderResult>.Failure(
@@ -104,7 +104,7 @@ namespace MyApp.Orders.Handlers
                 await _productRepository.UpdateAsync(product, cancellationToken);
 
                 _logger.LogInformation(
-                    "Order created: {OrderId}", 
+                    "Order created: {OrderId}",
                     order.OrderId);
 
                 // 5. 返回结果
@@ -140,7 +140,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddTransit();
 
 // 注册处理器
-builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, CreateOrderResult>, 
+builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, CreateOrderResult>,
     CreateOrderHandler>();
 
 // 注册其他服务
@@ -183,10 +183,10 @@ namespace MyApp.Controllers
                 return Ok(result.Value);
             }
 
-            return BadRequest(new 
-            { 
+            return BadRequest(new
+            {
                 error = result.Error,
-                details = result.Exception?.Message 
+                details = result.Exception?.Message
             });
         }
     }
@@ -234,7 +234,7 @@ public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, OrderDto>
         CancellationToken cancellationToken = default)
     {
         var order = await _orderRepository.GetByIdAsync(
-            request.OrderId, 
+            request.OrderId,
             cancellationToken);
 
         if (order == null)
@@ -267,8 +267,8 @@ public async Task<IActionResult> GetOrder(string orderId)
     var query = new GetOrderQuery { OrderId = orderId };
     var result = await _mediator.SendAsync<GetOrderQuery, OrderDto>(query);
 
-    return result.IsSuccess 
-        ? Ok(result.Value) 
+    return result.IsSuccess
+        ? Ok(result.Value)
         : NotFound(result.Error);
 }
 ```

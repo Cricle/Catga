@@ -76,12 +76,12 @@
 public class MyClass
 {
     private readonly IService _service;
-    
+
     public MyClass(IService service)
     {
         _service = service;
     }
-    
+
     public async Task<Result> DoSomethingAsync(string input)
     {
         // 实现
@@ -146,10 +146,10 @@ public async Task SendAsync_WithValidCommand_ShouldReturnSuccess()
 {
     // Arrange
     var command = new TestCommand { Value = "test" };
-    
+
     // Act
     var result = await _mediator.SendAsync<TestCommand, TestResponse>(command);
-    
+
     // Assert
     result.IsSuccess.Should().BeTrue();
     result.Value.Should().NotBeNull();
@@ -277,7 +277,7 @@ dotnet run -c Release --project benchmarks/Catga.Benchmarks
 ### 推荐工具
 
 - **IDE**: Visual Studio 2022, JetBrains Rider, VS Code
-- **扩展**: 
+- **扩展**:
   - C# Dev Kit (VS Code)
   - ReSharper (Visual Studio)
   - CodeMaid

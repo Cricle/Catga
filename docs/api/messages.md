@@ -278,7 +278,7 @@ public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
 {
     public string ProductId { get; init; } = string.Empty;
     public int Quantity { get; init; }
-    
+
     // ❌ 不要在消息中放业务逻辑
     public decimal CalculateTotalPrice() => Quantity * GetProductPrice();
 }
@@ -294,10 +294,10 @@ public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
     [Required]
     [StringLength(50)]
     public string ProductId { get; init; } = string.Empty;
-    
+
     [Range(1, 1000)]
     public int Quantity { get; init; }
-    
+
     [EmailAddress]
     public string CustomerEmail { get; init; } = string.Empty;
 }

@@ -1,536 +1,699 @@
-# CQRS 模式
+# CQRS 架构详解
 
-Command Query Responsibility Segregation (命令查询职责分离) 是 Catga 的核心设计模式。
+## CQRS 概述
 
-## 什么是 CQRS？
+CQRS (Command Query Responsibility Segregation) 是一种架构模式，它将应用程序分为两个独立的路径：
+- **命令路径** (Command) - 处理写操作，改变系统状态
+- **查询路径** (Query) - 处理读操作，返回数据
 
-CQRS 将应用程序的**读操作**（查询）和**写操作**（命令）分离到不同的模型中。
+## Catga 中的 CQRS 实现
 
-### 传统方式 vs CQRS
+### 架构分层
 
-**传统方式**（CRUD）:
+```
+┌─────────────────────────────────────────────────────┐
+│                    应用层                            │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │
+│  │   Commands  │  │   Queries   │  │   Events    │  │
+│  └─────────────┘  └─────────────┘  └─────────────┘  │
+└─────────────────────────────────────────────────────┘
+                         │
+┌─────────────────────────────────────────────────────┐
+│                 Catga 核心层                        │
+│  ┌─────────────────────────────────────────────┐    │
+│  │            ICatgaMediator                   │    │
+│  │      (统一调度和协调中心)                    │    │
+│  └─────────────────────────────────────────────┘    │
+│                         │                           │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │
+│  │   Command   │  │    Query    │  │    Event    │  │
+│  │  Handlers   │  │  Handlers   │  │  Handlers   │  │
+│  └─────────────┘  └─────────────┘  └─────────────┘  │
+└─────────────────────────────────────────────────────┘
+                         │
+┌─────────────────────────────────────────────────────┐
+│                   数据层                            │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │
+│  │  Write DB   │  │   Read DB   │  │  Event Store│  │
+│  │  (写模型)    │  │  (读模型)    │  │  (事件存储) │  │
+│  └─────────────┘  └─────────────┘  └─────────────┘  │
+└─────────────────────────────────────────────────────┘
+```
+
+## 消息类型设计
+
+### 1. 基础消息接口
+
 ```csharp
-public interface IUserService
+public interface IMessage
 {
-    User Get(int id);           // 读
-    void Create(User user);     // 写
-    void Update(User user);     // 写
-    void Delete(int id);        // 写
+    string MessageId { get; }
+    string CorrelationId { get; }
+    DateTime CreatedAt { get; }
+}
+
+public abstract record MessageBase : IMessage
+{
+    public string MessageId { get; init; } = Guid.NewGuid().ToString();
+    public string CorrelationId { get; init; } = Guid.NewGuid().ToString();
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 }
 ```
 
-**CQRS 方式**:
+### 2. 命令 (Commands)
+
+命令表示用户的意图，用于改变系统状态：
+
 ```csharp
-// 读模型（Query）
-public record GetUserQuery(int Id) : IQuery<UserDto>;
+public interface ICommand<TResponse> : IRequest<TResponse> { }
 
-// 写模型（Command）
-public record CreateUserCommand(string Name, string Email) : ICommand<int>;
-public record UpdateUserCommand(int Id, string Name) : ICommand<Unit>;
-public record DeleteUserCommand(int Id) : ICommand<Unit>;
-```
-
-## 为什么使用 CQRS？
-
-### 优势
-
-1. **关注点分离**
-   - 读写逻辑独立
-   - 更容易理解和维护
-
-2. **独立优化**
-   - 查询可以使用只读数据库副本
-   - 命令可以使用写优化的数据库
-
-3. **可扩展性**
-   - 读写可以独立扩展
-   - 根据负载模式调整资源
-
-4. **安全性**
-   - 明确的读写权限
-   - 更容易实施访问控制
-
-5. **可测试性**
-   - 处理器单一职责
-   - 独立单元测试
-
-## Catga 中的 CQRS
-
-### 消息类型
-
-#### 1. Query（查询）
-
-**特点**:
-- 只读操作
-- 不改变系统状态
-- 返回数据
-- 幂等性
-
-**示例**:
-```csharp
-// 获取单个实体
-public record GetUserQuery(int UserId) : IQuery<UserDto>;
-
-// 获取列表
-public record ListUsersQuery(int PageIndex, int PageSize) : IQuery<PagedList<UserDto>>;
-
-// 复杂查询
-public record SearchUsersQuery(
-    string? Name,
-    string? Email,
-    bool? IsActive,
-    DateTime? CreatedAfter) : IQuery<List<UserDto>>;
-```
-
-**处理器**:
-```csharp
-public class GetUserHandler : IRequestHandler<GetUserQuery, UserDto>
+// 示例：创建订单命令
+public record CreateOrderCommand : MessageBase, ICommand<OrderCreatedResult>
 {
-    private readonly IUserRepository _repository;
+    public string CustomerId { get; init; } = string.Empty;
+    public string ProductId { get; init; } = string.Empty;
+    public int Quantity { get; init; }
+    public decimal UnitPrice { get; init; }
+}
+
+public record OrderCreatedResult
+{
+    public string OrderId { get; init; } = string.Empty;
+    public decimal TotalAmount { get; init; }
+    public DateTime CreatedAt { get; init; }
+}
+```
+
+**命令特征**：
+- ✅ 表达用户意图 ("Create Order", "Cancel Payment")
+- ✅ 包含执行操作所需的所有数据
+- ✅ 通常返回操作结果或确认信息
+- ✅ 可能失败，需要错误处理
+
+### 3. 查询 (Queries)
+
+查询用于获取数据，不改变系统状态：
+
+```csharp
+public interface IQuery<TResponse> : IRequest<TResponse> { }
+
+// 示例：获取订单查询
+public record GetOrderByIdQuery : MessageBase, IQuery<OrderDto>
+{
+    public string OrderId { get; init; } = string.Empty;
+}
+
+// 复杂查询示例
+public record GetOrdersQuery : MessageBase, IQuery<PagedResult<OrderSummaryDto>>
+{
+    public string? CustomerId { get; init; }
+    public DateTime? FromDate { get; init; }
+    public DateTime? ToDate { get; init; }
+    public int PageNumber { get; init; } = 1;
+    public int PageSize { get; init; } = 20;
+    public string SortBy { get; init; } = "CreatedAt";
+    public SortDirection SortDirection { get; init; } = SortDirection.Descending;
+}
+```
+
+**查询特征**：
+- ✅ 只读取数据，不修改状态
+- ✅ 可以优化为专门的读模型
+- ✅ 支持复杂的过滤和排序
+- ✅ 通常不会失败（除了验证错误）
+
+### 4. 事件 (Events)
+
+事件表示已经发生的事情：
+
+```csharp
+public interface IEvent : IMessage
+{
+    DateTime OccurredAt { get; }
+}
+
+public abstract record EventBase : MessageBase, IEvent
+{
+    public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
+}
+
+// 示例：订单创建事件
+public record OrderCreatedEvent : EventBase
+{
+    public string OrderId { get; init; } = string.Empty;
+    public string CustomerId { get; init; } = string.Empty;
+    public decimal TotalAmount { get; init; }
+    public List<OrderItemDto> Items { get; init; } = new();
+}
+```
+
+**事件特征**：
+- ✅ 描述过去发生的事情 ("Order Created", "Payment Processed")
+- ✅ 不可变，包含事件发生时的完整信息
+- ✅ 可以有多个处理器
+- ✅ 用于系统解耦和事件溯源
+
+## 处理器实现模式
+
+### 1. 命令处理器
+
+```csharp
+public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderCreatedResult>
+{
+    private readonly IOrderRepository _orderRepository;
+    private readonly IProductRepository _productRepository;
+    private readonly ICatgaMediator _mediator;
+    private readonly ILogger<CreateOrderHandler> _logger;
+
+    public CreateOrderHandler(
+        IOrderRepository orderRepository,
+        IProductRepository productRepository,
+        ICatgaMediator mediator,
+        ILogger<CreateOrderHandler> logger)
+    {
+        _orderRepository = orderRepository;
+        _productRepository = productRepository;
+        _mediator = mediator;
+        _logger = logger;
+    }
+
+    public async Task<CatgaResult<OrderCreatedResult>> HandleAsync(
+        CreateOrderCommand request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // 1. 验证业务规则
+            var product = await _productRepository.GetByIdAsync(request.ProductId, cancellationToken);
+            if (product == null)
+                return CatgaResult<OrderCreatedResult>.Failure("Product not found");
+
+            if (product.Stock < request.Quantity)
+                return CatgaResult<OrderCreatedResult>.Failure("Insufficient stock");
+
+            // 2. 执行业务逻辑
+            var order = new Order
+            {
+                Id = Guid.NewGuid().ToString(),
+                CustomerId = request.CustomerId,
+                ProductId = request.ProductId,
+                Quantity = request.Quantity,
+                UnitPrice = request.UnitPrice,
+                TotalAmount = request.Quantity * request.UnitPrice,
+                Status = OrderStatus.Created,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _orderRepository.AddAsync(order, cancellationToken);
+
+            // 3. 更新相关数据
+            product.Stock -= request.Quantity;
+            await _productRepository.UpdateAsync(product, cancellationToken);
+
+            // 4. 发布领域事件
+            var orderCreatedEvent = new OrderCreatedEvent
+            {
+                OrderId = order.Id,
+                CustomerId = order.CustomerId,
+                TotalAmount = order.TotalAmount,
+                Items = new List<OrderItemDto>
+                {
+                    new(request.ProductId, request.Quantity, request.UnitPrice)
+                }
+            };
+
+            await _mediator.PublishAsync(orderCreatedEvent, cancellationToken);
+
+            _logger.LogInformation("Order {OrderId} created successfully", order.Id);
+
+            return CatgaResult<OrderCreatedResult>.Success(new OrderCreatedResult
+            {
+                OrderId = order.Id,
+                TotalAmount = order.TotalAmount,
+                CreatedAt = order.CreatedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create order");
+            return CatgaResult<OrderCreatedResult>.Failure("Failed to create order", ex);
+        }
+    }
+}
+```
+
+### 2. 查询处理器
+
+```csharp
+public class GetOrderByIdHandler : IRequestHandler<GetOrderByIdQuery, OrderDto>
+{
+    private readonly IOrderReadRepository _readRepository;
     private readonly IMapper _mapper;
 
-    public async Task<TransitResult<UserDto>> HandleAsync(
-        GetUserQuery request,
+    public GetOrderByIdHandler(IOrderReadRepository readRepository, IMapper mapper)
+    {
+        _readRepository = readRepository;
+        _mapper = mapper;
+    }
+
+    public async Task<CatgaResult<OrderDto>> HandleAsync(
+        GetOrderByIdQuery request,
         CancellationToken cancellationToken = default)
     {
-        var user = await _repository.GetByIdAsync(request.UserId);
+        var order = await _readRepository.GetByIdAsync(request.OrderId, cancellationToken);
+        
+        if (order == null)
+            return CatgaResult<OrderDto>.Failure("Order not found");
 
-        if (user == null)
-            return TransitResult<UserDto>.Failure("User not found");
-
-        var dto = _mapper.Map<UserDto>(user);
-        return TransitResult<UserDto>.Success(dto);
+        var dto = _mapper.Map<OrderDto>(order);
+        return CatgaResult<OrderDto>.Success(dto);
     }
 }
-```
 
-#### 2. Command（命令）
-
-**特点**:
-- 修改系统状态
-- 有副作用
-- 表达意图
-- 可能触发事件
-
-**示例**:
-```csharp
-// 创建
-public record CreateUserCommand(
-    string Name,
-    string Email) : ICommand<int>; // 返回 UserId
-
-// 更新
-public record UpdateUserCommand(
-    int UserId,
-    string Name) : ICommand<Unit>; // 无返回值
-
-// 删除
-public record DeleteUserCommand(int UserId) : ICommand<Unit>;
-
-// 业务操作
-public record ActivateUserCommand(int UserId) : ICommand<Unit>;
-public record DeactivateUserCommand(int UserId, string Reason) : ICommand<Unit>;
-```
-
-**处理器**:
-```csharp
-public class CreateUserHandler : IRequestHandler<CreateUserCommand, int>
+// 复杂查询处理器
+public class GetOrdersHandler : IRequestHandler<GetOrdersQuery, PagedResult<OrderSummaryDto>>
 {
-    private readonly IUserRepository _repository;
-    private readonly ITransitMediator _mediator;
-    private readonly ILogger<CreateUserHandler> _logger;
+    private readonly IOrderReadRepository _readRepository;
 
-    public async Task<TransitResult<int>> HandleAsync(
-        CreateUserCommand request,
+    public async Task<CatgaResult<PagedResult<OrderSummaryDto>>> HandleAsync(
+        GetOrdersQuery request,
         CancellationToken cancellationToken = default)
     {
-        // 1. 验证（或使用 ValidationBehavior）
-        if (await _repository.EmailExistsAsync(request.Email))
-        {
-            return TransitResult<int>.Failure("Email already exists");
-        }
+        var specification = new OrderSpecification()
+            .WithCustomerId(request.CustomerId)
+            .WithDateRange(request.FromDate, request.ToDate)
+            .WithPagination(request.PageNumber, request.PageSize)
+            .WithSorting(request.SortBy, request.SortDirection);
 
-        // 2. 创建领域实体
-        var user = new User
+        var orders = await _readRepository.GetPagedAsync(specification, cancellationToken);
+        var totalCount = await _readRepository.CountAsync(specification, cancellationToken);
+
+        var result = new PagedResult<OrderSummaryDto>
         {
-            Name = request.Name,
-            Email = request.Email,
-            CreatedAt = DateTime.UtcNow
+            Items = orders.Select(o => new OrderSummaryDto
+            {
+                OrderId = o.Id,
+                CustomerId = o.CustomerId,
+                TotalAmount = o.TotalAmount,
+                Status = o.Status.ToString(),
+                CreatedAt = o.CreatedAt
+            }).ToList(),
+            TotalCount = totalCount,
+            PageNumber = request.PageNumber,
+            PageSize = request.PageSize
         };
 
-        // 3. 持久化
-        var userId = await _repository.CreateAsync(user);
-
-        // 4. 发布领域事件
-        await _mediator.PublishAsync(
-            new UserCreatedEvent(userId, user.Name, user.Email),
-            cancellationToken);
-
-        _logger.LogInformation("User created: {UserId}", userId);
-
-        return TransitResult<int>.Success(userId);
+        return CatgaResult<PagedResult<OrderSummaryDto>>.Success(result);
     }
 }
 ```
 
-#### 3. Event（事件）
+### 3. 事件处理器
 
-**特点**:
-- 描述已经发生的事情
-- 过去时命名
-- 不可变
-- 可能有多个订阅者
-
-**示例**:
 ```csharp
-// 领域事件
-public record UserCreatedEvent(
-    int UserId,
-    string Name,
-    string Email) : IEvent;
-
-public record UserUpdatedEvent(
-    int UserId,
-    string OldName,
-    string NewName) : IEvent;
-
-public record UserDeletedEvent(
-    int UserId,
-    DateTime DeletedAt) : IEvent;
-```
-
-**处理器**:
-```csharp
-// 发送欢迎邮件
-public class SendWelcomeEmailHandler : IEventHandler<UserCreatedEvent>
+// 发送邮件通知
+public class OrderCreatedEmailHandler : IEventHandler<OrderCreatedEvent>
 {
     private readonly IEmailService _emailService;
+    private readonly ICustomerRepository _customerRepository;
 
-    public async Task HandleAsync(
-        UserCreatedEvent @event,
+    public async Task<CatgaResult> HandleAsync(
+        OrderCreatedEvent @event,
         CancellationToken cancellationToken = default)
     {
-        await _emailService.SendWelcomeEmailAsync(
-            @event.Email,
-            @event.Name);
+        var customer = await _customerRepository.GetByIdAsync(@event.CustomerId, cancellationToken);
+        if (customer?.Email != null)
+        {
+            await _emailService.SendOrderConfirmationAsync(
+                customer.Email,
+                @event.OrderId,
+                @event.TotalAmount,
+                cancellationToken);
+        }
+
+        return CatgaResult.Success();
     }
 }
 
-// 更新统计
-public class UpdateUserStatisticsHandler : IEventHandler<UserCreatedEvent>
+// 更新统计信息
+public class OrderCreatedStatsHandler : IEventHandler<OrderCreatedEvent>
 {
-    private readonly IStatisticsService _statistics;
+    private readonly IStatsService _statsService;
 
-    public async Task HandleAsync(
-        UserCreatedEvent @event,
+    public async Task<CatgaResult> HandleAsync(
+        OrderCreatedEvent @event,
         CancellationToken cancellationToken = default)
     {
-        await _statistics.IncrementUserCountAsync();
+        await _statsService.IncrementOrderCountAsync(@event.CustomerId, cancellationToken);
+        await _statsService.UpdateRevenueAsync(@event.TotalAmount, cancellationToken);
+
+        return CatgaResult.Success();
     }
 }
+```
 
-// 通知管理员
-public class NotifyAdminHandler : IEventHandler<UserCreatedEvent>
+## 读写分离
+
+### 写模型 (Write Model)
+
+专注于业务逻辑和数据一致性：
+
+```csharp
+// 写模型实体 - 包含业务逻辑
+public class Order : AggregateRoot
 {
-    private readonly INotificationService _notifications;
+    public string Id { get; private set; }
+    public string CustomerId { get; private set; }
+    public OrderStatus Status { get; private set; }
+    private readonly List<OrderItem> _items = new();
+    public IReadOnlyList<OrderItem> Items => _items.AsReadOnly();
 
-    public async Task HandleAsync(
-        UserCreatedEvent @event,
+    public decimal TotalAmount => _items.Sum(item => item.TotalPrice);
+
+    public void AddItem(string productId, int quantity, decimal unitPrice)
+    {
+        if (Status != OrderStatus.Draft)
+            throw new InvalidOperationException("Cannot modify confirmed order");
+
+        var existingItem = _items.FirstOrDefault(i => i.ProductId == productId);
+        if (existingItem != null)
+        {
+            existingItem.UpdateQuantity(existingItem.Quantity + quantity);
+        }
+        else
+        {
+            _items.Add(new OrderItem(productId, quantity, unitPrice));
+        }
+
+        AddDomainEvent(new OrderItemAddedEvent(Id, productId, quantity));
+    }
+
+    public void Confirm()
+    {
+        if (Status != OrderStatus.Draft)
+            throw new InvalidOperationException("Order is already confirmed");
+
+        if (!_items.Any())
+            throw new InvalidOperationException("Cannot confirm empty order");
+
+        Status = OrderStatus.Confirmed;
+        AddDomainEvent(new OrderConfirmedEvent(Id, TotalAmount));
+    }
+}
+```
+
+### 读模型 (Read Model)
+
+优化查询性能：
+
+```csharp
+// 读模型 - 扁平化结构，优化查询
+public class OrderReadModel
+{
+    public string Id { get; set; } = string.Empty;
+    public string CustomerId { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public string CustomerEmail { get; set; } = string.Empty;
+    public decimal TotalAmount { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public DateTime? ConfirmedAt { get; set; }
+    
+    // 反规范化的数据
+    public int ItemCount { get; set; }
+    public string ProductNames { get; set; } = string.Empty; // 逗号分隔
+    public List<OrderItemReadModel> Items { get; set; } = new();
+}
+
+public class OrderItemReadModel
+{
+    public string ProductId { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
+    public decimal TotalPrice { get; set; }
+}
+```
+
+## 数据一致性策略
+
+### 1. 最终一致性
+
+```csharp
+// 事件处理器更新读模型
+public class OrderReadModelUpdater : 
+    IEventHandler<OrderCreatedEvent>,
+    IEventHandler<OrderConfirmedEvent>,
+    IEventHandler<OrderCancelledEvent>
+{
+    private readonly IOrderReadRepository _readRepository;
+
+    public async Task<CatgaResult> HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken)
+    {
+        var readModel = new OrderReadModel
+        {
+            Id = @event.OrderId,
+            CustomerId = @event.CustomerId,
+            TotalAmount = @event.TotalAmount,
+            Status = "Created",
+            CreatedAt = @event.OccurredAt,
+            Items = @event.Items.Select(item => new OrderItemReadModel
+            {
+                ProductId = item.ProductId,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                TotalPrice = item.Quantity * item.UnitPrice
+            }).ToList()
+        };
+
+        await _readRepository.UpsertAsync(readModel, cancellationToken);
+        return CatgaResult.Success();
+    }
+
+    // 其他事件处理方法...
+}
+```
+
+### 2. 分布式事务 (使用 CatGa)
+
+```csharp
+public class ProcessOrderSaga : ICatGaTransaction
+{
+    public async Task ExecuteAsync(CatGaContext context)
+    {
+        // 步骤1：创建订单
+        var createOrderResult = await context.ExecuteAsync(
+            new CreateOrderStep(context.GetInput<CreateOrderCommand>()));
+        
+        if (!createOrderResult.IsSuccess)
+            return;
+
+        var orderId = createOrderResult.Value.OrderId;
+        context.SetCompensation(() => new CancelOrderStep(orderId));
+
+        // 步骤2：扣减库存
+        await context.ExecuteAsync(new ReduceStockStep(orderId));
+        context.SetCompensation(() => new RestoreStockStep(orderId));
+
+        // 步骤3：处理支付
+        await context.ExecuteAsync(new ProcessPaymentStep(orderId));
+        context.SetCompensation(() => new RefundPaymentStep(orderId));
+    }
+}
+```
+
+## 性能优化
+
+### 1. 查询优化
+
+```csharp
+// 使用投影避免加载不需要的数据
+public class GetOrderSummariesHandler : IRequestHandler<GetOrderSummariesQuery, List<OrderSummaryDto>>
+{
+    private readonly IOrderReadRepository _repository;
+
+    public async Task<CatgaResult<List<OrderSummaryDto>>> HandleAsync(
+        GetOrderSummariesQuery request,
         CancellationToken cancellationToken = default)
     {
-        await _notifications.NotifyAdminAsync(
-            $"New user registered: {@event.Name}");
+        // 只查询需要的字段
+        var summaries = await _repository.Query()
+            .Where(o => o.CustomerId == request.CustomerId)
+            .Select(o => new OrderSummaryDto
+            {
+                OrderId = o.Id,
+                TotalAmount = o.TotalAmount,
+                Status = o.Status,
+                CreatedAt = o.CreatedAt
+            })
+            .OrderByDescending(o => o.CreatedAt)
+            .Take(request.PageSize)
+            .ToListAsync(cancellationToken);
+
+        return CatgaResult<List<OrderSummaryDto>>.Success(summaries);
+    }
+}
+```
+
+### 2. 缓存策略
+
+```csharp
+public class CachedProductQueryHandler : IRequestHandler<GetProductQuery, ProductDto>
+{
+    private readonly IProductRepository _repository;
+    private readonly IDistributedCache _cache;
+    private readonly ILogger<CachedProductQueryHandler> _logger;
+
+    public async Task<CatgaResult<ProductDto>> HandleAsync(
+        GetProductQuery request,
+        CancellationToken cancellationToken = default)
+    {
+        var cacheKey = $"product:{request.ProductId}";
+        
+        // 尝试从缓存获取
+        var cached = await _cache.GetStringAsync(cacheKey, cancellationToken);
+        if (cached != null)
+        {
+            var cachedProduct = JsonSerializer.Deserialize<ProductDto>(cached);
+            _logger.LogDebug("Product {ProductId} retrieved from cache", request.ProductId);
+            return CatgaResult<ProductDto>.Success(cachedProduct);
+        }
+
+        // 从数据库查询
+        var product = await _repository.GetByIdAsync(request.ProductId, cancellationToken);
+        if (product == null)
+            return CatgaResult<ProductDto>.Failure("Product not found");
+
+        var dto = new ProductDto
+        {
+            Id = product.Id,
+            Name = product.Name,
+            Price = product.Price,
+            Stock = product.Stock
+        };
+
+        // 缓存结果
+        var serialized = JsonSerializer.Serialize(dto);
+        await _cache.SetStringAsync(cacheKey, serialized, new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15)
+        }, cancellationToken);
+
+        return CatgaResult<ProductDto>.Success(dto);
+    }
+}
+```
+
+## 测试策略
+
+### 1. 单元测试
+
+```csharp
+public class CreateOrderHandlerTests
+{
+    private readonly Mock<IOrderRepository> _orderRepository;
+    private readonly Mock<IProductRepository> _productRepository;
+    private readonly Mock<ICatgaMediator> _mediator;
+    private readonly CreateOrderHandler _handler;
+
+    public CreateOrderHandlerTests()
+    {
+        _orderRepository = new Mock<IOrderRepository>();
+        _productRepository = new Mock<IProductRepository>();
+        _mediator = new Mock<ICatgaMediator>();
+        _handler = new CreateOrderHandler(_orderRepository.Object, _productRepository.Object, _mediator.Object, Mock.Of<ILogger<CreateOrderHandler>>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_ValidCommand_ShouldCreateOrder()
+    {
+        // Arrange
+        var command = new CreateOrderCommand
+        {
+            CustomerId = "CUST-001",
+            ProductId = "PROD-001",
+            Quantity = 2,
+            UnitPrice = 100m
+        };
+
+        var product = new Product { Id = "PROD-001", Stock = 10 };
+        _productRepository.Setup(x => x.GetByIdAsync(command.ProductId, default))
+            .ReturnsAsync(product);
+
+        // Act
+        var result = await _handler.HandleAsync(command);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.TotalAmount.Should().Be(200m);
+        
+        _orderRepository.Verify(x => x.AddAsync(It.IsAny<Order>(), default), Times.Once);
+        _mediator.Verify(x => x.PublishAsync(It.IsAny<OrderCreatedEvent>(), default), Times.Once);
+    }
+}
+```
+
+### 2. 集成测试
+
+```csharp
+public class OrderIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+{
+    private readonly WebApplicationFactory<Program> _factory;
+    private readonly HttpClient _client;
+
+    public OrderIntegrationTests(WebApplicationFactory<Program> factory)
+    {
+        _factory = factory;
+        _client = _factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task CreateOrder_ShouldReturnSuccess()
+    {
+        // Arrange
+        var command = new CreateOrderCommand
+        {
+            CustomerId = "CUST-001",
+            ProductId = "PROD-001",
+            Quantity = 1,
+            UnitPrice = 99.99m
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/orders", command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        
+        var result = await response.Content.ReadFromJsonAsync<OrderCreatedResult>();
+        result.Should().NotBeNull();
+        result.OrderId.Should().NotBeEmpty();
+        result.TotalAmount.Should().Be(99.99m);
     }
 }
 ```
 
 ## 最佳实践
 
-### 1. 命名约定
+### 1. 命令设计原则
 
-```csharp
-// ✅ 好的命名
-public record GetUserQuery(...) : IQuery<UserDto>;
-public record CreateUserCommand(...) : ICommand<int>;
-public record UserCreatedEvent(...) : IEvent;
+- ✅ **单一职责**：一个命令只做一件事
+- ✅ **包含完整信息**：命令应包含执行操作所需的所有数据
+- ✅ **验证在边界**：在命令处理器中进行业务验证
+- ✅ **幂等性**：同一命令多次执行应产生相同结果
 
-// ❌ 不好的命名
-public record UserQuery(...);     // 不明确
-public record User(...);           // 太通用
-public record CreateUser(...);    // 不明确类型
-```
+### 2. 查询优化建议
 
-### 2. 使用 record 类型
+- ✅ **专用 DTO**：为不同查询创建专用的 DTO
+- ✅ **投影查询**：只查询需要的字段
+- ✅ **分页处理**：大结果集必须分页
+- ✅ **缓存策略**：缓存频繁查询的数据
 
-```csharp
-// ✅ 使用 record（不可变）
-public record CreateUserCommand(string Name, string Email) : ICommand<int>;
+### 3. 事件设计原则
 
-// ❌ 使用 class（可变）
-public class CreateUserCommand : ICommand<int>
-{
-    public string Name { get; set; }  // 可变
-    public string Email { get; set; }
-}
-```
+- ✅ **描述过去**：事件名称应使用过去时
+- ✅ **包含完整上下文**：事件应包含处理所需的所有信息
+- ✅ **版本兼容**：考虑事件模式的向后兼容性
+- ✅ **去重处理**：事件处理器应支持重复事件
 
-### 3. 单一职责
-
-```csharp
-// ✅ 每个命令一个明确的职责
-public record UpdateUserNameCommand(int UserId, string Name) : ICommand<Unit>;
-public record UpdateUserEmailCommand(int UserId, string Email) : ICommand<Unit>;
-
-// ❌ 一个命令做太多事情
-public record UpdateUserCommand(
-    int UserId,
-    string? Name,
-    string? Email,
-    string? Phone,
-    Address? Address) : ICommand<Unit>;
-```
-
-### 4. 返回值设计
-
-```csharp
-// ✅ 返回必要的数据
-public record CreateUserCommand(...) : ICommand<int>;  // 返回 UserId
-public record GetUserQuery(...) : IQuery<UserDto>;     // 返回 DTO
-
-// ✅ 无需返回值时使用 Unit
-public record DeleteUserCommand(int UserId) : ICommand<Unit>;
-
-// ❌ 返回过多数据
-public record CreateUserCommand(...) : ICommand<User>;  // 不要返回实体
-```
-
-### 5. DTO vs 实体
-
-```csharp
-// ✅ Query 返回 DTO
-public class UserDto
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public string Email { get; set; }
-    // 只包含需要的字段
-}
-
-// ✅ Command 使用领域实体
-public class CreateUserHandler
-{
-    public async Task<TransitResult<int>> HandleAsync(...)
-    {
-        var user = new User(...);  // 领域实体
-        await _repository.SaveAsync(user);
-        return TransitResult<int>.Success(user.Id);
-    }
-}
-```
-
-### 6. 验证
-
-```csharp
-// ✅ 使用 ValidationBehavior
-public class CreateUserValidator : IValidator<CreateUserCommand>
-{
-    public Task<List<string>> ValidateAsync(
-        CreateUserCommand command,
-        CancellationToken ct)
-    {
-        var errors = new List<string>();
-
-        if (string.IsNullOrWhiteSpace(command.Name))
-            errors.Add("Name is required");
-
-        if (!IsValidEmail(command.Email))
-            errors.Add("Invalid email format");
-
-        return Task.FromResult(errors);
-    }
-}
-
-// 注册
-services.AddValidator<CreateUserCommand, CreateUserValidator>();
-```
-
-## 高级模式
-
-### 1. 读写分离数据库
-
-```csharp
-public class GetUserHandler : IRequestHandler<GetUserQuery, UserDto>
-{
-    private readonly IReadOnlyRepository<User> _readRepo;  // 只读副本
-
-    public async Task<TransitResult<UserDto>> HandleAsync(...)
-    {
-        var user = await _readRepo.GetByIdAsync(query.UserId);
-        // ...
-    }
-}
-
-public class CreateUserHandler : IRequestHandler<CreateUserCommand, int>
-{
-    private readonly IRepository<User> _writeRepo;  // 写数据库
-
-    public async Task<TransitResult<int>> HandleAsync(...)
-    {
-        var user = new User(...);
-        await _writeRepo.SaveAsync(user);
-        // ...
-    }
-}
-```
-
-### 2. 事件溯源
-
-```csharp
-// 命令产生事件
-public class CreateUserHandler
-{
-    public async Task<TransitResult<int>> HandleAsync(...)
-    {
-        // 1. 创建用户
-        var user = new User(...);
-        await _repository.SaveAsync(user);
-
-        // 2. 发布事件序列
-        await _mediator.PublishAsync(new UserCreatedEvent(...));
-        await _mediator.PublishAsync(new UserProfileCreatedEvent(...));
-        await _mediator.PublishAsync(new WelcomeEmailScheduledEvent(...));
-
-        return TransitResult<int>.Success(user.Id);
-    }
-}
-
-// 事件处理器重建状态
-public class UserProjectionHandler : IEventHandler<UserCreatedEvent>
-{
-    public async Task HandleAsync(UserCreatedEvent @event, ...)
-    {
-        await _projection.UpdateAsync(@event.UserId, projection =>
-        {
-            projection.Name = @event.Name;
-            projection.Email = @event.Email;
-            projection.CreatedAt = @event.CreatedAt;
-        });
-    }
-}
-```
-
-### 3. 最终一致性
-
-```csharp
-// 命令立即返回
-public class PlaceOrderHandler : IRequestHandler<PlaceOrderCommand, OrderId>
-{
-    public async Task<TransitResult<OrderId>> HandleAsync(...)
-    {
-        var order = new Order(...) { Status = OrderStatus.Pending };
-        await _repository.SaveAsync(order);
-
-        // 异步处理
-        await _mediator.PublishAsync(new OrderPlacedEvent(order.Id));
-
-        // 立即返回
-        return TransitResult<OrderId>.Success(order.Id);
-    }
-}
-
-// 事件处理器异步处理
-public class ProcessPaymentHandler : IEventHandler<OrderPlacedEvent>
-{
-    public async Task HandleAsync(OrderPlacedEvent @event, ...)
-    {
-        // 处理支付
-        var result = await _paymentService.ProcessAsync(@event.OrderId);
-
-        if (result.Success)
-            await _mediator.PublishAsync(new PaymentSuccessEvent(...));
-        else
-            await _mediator.PublishAsync(new PaymentFailedEvent(...));
-    }
-}
-```
-
-## 性能考虑
-
-### 1. 查询优化
-
-```csharp
-// ✅ 只查询需要的字段
-public record GetUserListQuery() : IQuery<List<UserSummaryDto>>;
-
-public class UserSummaryDto  // 轻量级 DTO
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    // 不包含关联数据
-}
-
-// ✅ 使用分页
-public record ListUsersQuery(int Page, int PageSize) : IQuery<PagedResult<UserDto>>;
-```
-
-### 2. 命令优化
-
-```csharp
-// ✅ 批量操作
-public record CreateUsersCommand(List<UserData> Users) : ICommand<List<int>>;
-
-// ✅ 异步处理
-public class CreateUserHandler
-{
-    public async Task<TransitResult<int>> HandleAsync(...)
-    {
-        // 快速返回，异步处理耗时操作
-        await _mediator.PublishAsync(new UserCreationRequestedEvent(...));
-        return TransitResult<int>.Success(tempId);
-    }
-}
-```
-
-## 测试
-
-### 单元测试
-
-```csharp
-[Fact]
-public async Task CreateUser_ShouldReturnUserId()
-{
-    // Arrange
-    var repository = new Mock<IUserRepository>();
-    var mediator = new Mock<ITransitMediator>();
-    var handler = new CreateUserHandler(repository.Object, mediator.Object);
-
-    var command = new CreateUserCommand("John Doe", "john@example.com");
-
-    repository
-        .Setup(r => r.CreateAsync(It.IsAny<User>()))
-        .ReturnsAsync(123);
-
-    // Act
-    var result = await handler.HandleAsync(command);
-
-    // Assert
-    Assert.True(result.IsSuccess);
-    Assert.Equal(123, result.Value);
-
-    mediator.Verify(m => m.PublishAsync(
-        It.IsAny<UserCreatedEvent>(),
-        It.IsAny<CancellationToken>()), Times.Once);
-}
-```
-
-## 下一步
-
-- 📖 学习 [Pipeline 行为](pipeline-behaviors.md)
-- 🔄 探索 [事件驱动架构](../guides/events.md)
-- 🌐 了解 [分布式事务](catga-transactions.md)
-- 📊 查看 [完整示例](../examples/simple-cqrs.md)
-
----
-
-**CQRS with Catga** - 简单、清晰、高性能 🚀
-
+这种 CQRS 架构设计确保了 Catga 既能处理复杂的业务逻辑，又能提供高性能的查询能力，同时保持良好的可维护性和可扩展性。

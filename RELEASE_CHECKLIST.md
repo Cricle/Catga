@@ -8,7 +8,7 @@
 - [x] 无关键编译警告
 - [x] 符合编码规范 (EditorConfig)
 
-### ✅ 文档完整性  
+### ✅ 文档完整性
 - [x] README.md 更新
 - [x] API 文档完成
 - [x] 架构文档完成
@@ -53,7 +53,7 @@ $version = "1.0.0"
 # 性能基准测试
 dotnet run --project benchmarks/Catga.Benchmarks --configuration Release
 
-# NativeAOT 编译测试  
+# NativeAOT 编译测试
 dotnet publish examples/OrderApi -c Release -r win-x64 --self-contained
 ```
 

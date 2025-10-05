@@ -71,7 +71,7 @@ PROJECT_FILES=$(find . -name "*.csproj" | wc -l | tr -d ' ')
 MARKDOWN_FILES=$(find . -name "*.md" | wc -l | tr -d ' ')
 
 echo "   📄 C# 源文件: $CSHARP_FILES"
-echo "   📦 项目文件: $PROJECT_FILES"  
+echo "   📦 项目文件: $PROJECT_FILES"
 echo "   📚 文档文件: $MARKDOWN_FILES"
 
 # 显示核心特性
@@ -96,7 +96,7 @@ if [ "$RUN_EXAMPLES" = true ]; then
     echo "   访问: https://localhost:7xxx/swagger"
     echo "   按 Ctrl+C 停止服务"
     echo ""
-    
+
     cd examples/OrderApi
     dotnet run
 fi

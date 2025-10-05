@@ -51,7 +51,7 @@ $projectFiles = (Get-ChildItem -Recurse -Filter "*.csproj" | Measure-Object).Cou
 $markdownFiles = (Get-ChildItem -Recurse -Filter "*.md" | Measure-Object).Count
 
 Write-Host "   📄 C# 源文件: $csharpFiles" -ForegroundColor White
-Write-Host "   📦 项目文件: $projectFiles" -ForegroundColor White  
+Write-Host "   📦 项目文件: $projectFiles" -ForegroundColor White
 Write-Host "   📚 文档文件: $markdownFiles" -ForegroundColor White
 
 # 显示核心特性
@@ -76,7 +76,7 @@ if ($RunExamples) {
     Write-Host "   访问: https://localhost:7xxx/swagger" -ForegroundColor Cyan
     Write-Host "   按 Ctrl+C 停止服务" -ForegroundColor Gray
     Write-Host ""
-    
+
     Set-Location "examples/OrderApi"
     dotnet run
 }

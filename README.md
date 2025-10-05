@@ -66,13 +66,13 @@ public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResult>
 {
     public async Task<CatgaResult<OrderResult>> HandleAsync(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken cancellationToken = default)
     {
         // 业务逻辑
-        return CatgaResult<OrderResult>.Success(new OrderResult 
-        { 
-            OrderId = Guid.NewGuid().ToString() 
+        return CatgaResult<OrderResult>.Success(new OrderResult
+        {
+            OrderId = Guid.NewGuid().ToString()
         });
     }
 }
@@ -86,9 +86,9 @@ builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, OrderResult>, Cre
 public class OrdersController : ControllerBase
 {
     private readonly ICatgaMediator _mediator;
-    
+
     public OrdersController(ICatgaMediator mediator) => _mediator = mediator;
-    
+
     [HttpPost]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderCommand command)
     {
@@ -109,10 +109,10 @@ builder.Services.AddNatsCatga(options =>
 });
 
 // 发布事件
-await _mediator.PublishAsync(new OrderCreatedEvent 
-{ 
+await _mediator.PublishAsync(new OrderCreatedEvent
+{
     OrderId = order.Id,
-    CustomerId = order.CustomerId 
+    CustomerId = order.CustomerId
 });
 ```
 
@@ -177,7 +177,7 @@ Catga/
 
 ## 🎯 示例项目
 
-### 1. OrderApi - 基础 Web API 
+### 1. OrderApi - 基础 Web API
 **特点**: 简单易懂，适合学习 CQRS 基础概念
 
 ```bash
@@ -201,7 +201,7 @@ docker run -d --name nats-server -p 4222:4222 nats:latest
 
 # 2. 启动服务
 cd examples/NatsDistributed/OrderService && dotnet run
-cd examples/NatsDistributed/NotificationService && dotnet run  
+cd examples/NatsDistributed/NotificationService && dotnet run
 cd examples/NatsDistributed/TestClient && dotnet run
 ```
 

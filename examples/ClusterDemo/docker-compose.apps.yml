@@ -11,7 +11,7 @@ services:
   # ============================================
   # OrderApi（HTTP API 入口）
   # ============================================
-  
+
   order-api-1:
     build:
       context: ../OrderApi
@@ -114,7 +114,7 @@ services:
   # ============================================
   # OrderService（订单处理服务，NATS 队列组）
   # ============================================
-  
+
   order-service:
     build:
       context: ../NatsDistributed/OrderService
@@ -149,7 +149,7 @@ services:
   # ============================================
   # NotificationService（通知服务，事件订阅）
   # ============================================
-  
+
   notification-service:
     build:
       context: ../NatsDistributed/NotificationService

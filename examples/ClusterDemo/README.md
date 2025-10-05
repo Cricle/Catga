@@ -195,7 +195,7 @@ for ($i=1; $i -le 10; $i++) {
                 @{ productId = "prod-1"; quantity = 2; price = 100 }
             )
         } | ConvertTo-Json)
-    
+
     Write-Host "订单 $i 已创建"
     Start-Sleep -Milliseconds 500
 }
@@ -275,17 +275,17 @@ sum(rate(catga_requests_total[1m]))
 sum(rate(catga_requests_total[1m])) by (instance)
 
 # 平均请求延迟
-histogram_quantile(0.95, 
+histogram_quantile(0.95,
   sum(rate(catga_request_duration_bucket[5m])) by (le))
 
 # 错误率
-sum(rate(catga_requests_failed[1m])) 
-/ 
+sum(rate(catga_requests_failed[1m]))
+/
 sum(rate(catga_requests_total[1m]))
 
 # NATS 队列组负载均衡效率
-stddev(rate(catga_requests_total{service="order-service"}[5m])) 
-/ 
+stddev(rate(catga_requests_total{service="order-service"}[5m]))
+/
 avg(rate(catga_requests_total{service="order-service"}[5m]))
 ```
 

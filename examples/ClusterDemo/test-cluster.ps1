@@ -47,9 +47,9 @@ for ($i = 1; $i -le $OrderCount; $i++) {
     # 创建后台任务以模拟并发
     $job = Start-Job -ScriptBlock {
         param($orderNum, $baseUrl)
-        
+
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
-        
+
         $body = @{
             customerId = "customer-$orderNum"
             items = @(
@@ -60,16 +60,16 @@ for ($i = 1; $i -le $OrderCount; $i++) {
                 }
             )
         } | ConvertTo-Json
-        
+
         try {
             $response = Invoke-RestMethod -Method POST `
                 -Uri "$baseUrl/api/orders" `
                 -ContentType "application/json" `
                 -Body $body `
                 -TimeoutSec 10
-            
+
             $sw.Stop()
-            
+
             return @{
                 Success = $true
                 OrderId = $response.orderId
@@ -86,14 +86,14 @@ for ($i = 1; $i -le $OrderCount; $i++) {
             }
         }
     } -ArgumentList $i, "http://localhost:8080"
-    
+
     $jobs += $job
-    
+
     # 控制并发数
     if ($jobs.Count -ge $ConcurrentRequests) {
         $completed = Wait-Job -Job $jobs -Any
         $result = Receive-Job -Job $completed
-        
+
         if ($result.Success) {
             $successCount++
             Write-Host "  ✅ 订单 $($result.OrderNum): $($result.OrderId) (耗时: $($result.Duration)ms)" -ForegroundColor Green
@@ -101,22 +101,22 @@ for ($i = 1; $i -le $OrderCount; $i++) {
             $failCount++
             Write-Host "  ❌ 订单 $($result.OrderNum): $($result.Error)" -ForegroundColor Red
         }
-        
+
         $totalDuration += $result.Duration
         $jobs = $jobs | Where-Object { $_.Id -ne $completed.Id }
         Remove-Job -Job $completed
     }
-    
+
     Start-Sleep -Milliseconds 100
 }
 
 # 等待剩余任务完成
 if ($jobs.Count -gt 0) {
     Wait-Job -Job $jobs | Out-Null
-    
+
     foreach ($job in $jobs) {
         $result = Receive-Job -Job $job
-        
+
         if ($result.Success) {
             $successCount++
             Write-Host "  ✅ 订单 $($result.OrderNum): $($result.OrderId) (耗时: $($result.Duration)ms)" -ForegroundColor Green
@@ -124,7 +124,7 @@ if ($jobs.Count -gt 0) {
             $failCount++
             Write-Host "  ❌ 订单 $($result.OrderNum): $($result.Error)" -ForegroundColor Red
         }
-        
+
         $totalDuration += $result.Duration
         Remove-Job -Job $job
     }

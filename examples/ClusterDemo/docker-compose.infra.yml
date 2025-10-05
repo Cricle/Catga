@@ -21,7 +21,7 @@ services:
   # ============================================
   # NATS 集群（P2P 无主架构）
   # ============================================
-  
+
   nats-1:
     image: nats:latest
     container_name: cluster-nats-1

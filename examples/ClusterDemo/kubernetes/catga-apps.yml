@@ -1,0 +1,265 @@
+---
+# OrderApi Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-api
+  namespace: catga-cluster
+  labels:
+    app: order-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: order-api
+  template:
+    metadata:
+      labels:
+        app: order-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: order-api
+          image: catga/order-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: NATS__Url
+              value: "nats://nats-0.nats.catga-cluster.svc.cluster.local:4222,nats://nats-1.nats.catga-cluster.svc.cluster.local:4222,nats://nats-2.nats.catga-cluster.svc.cluster.local:4222"
+            - name: Redis__Configuration
+              value: "redis-master:6379"
+            - name: Catga__EnableIdempotency
+              value: "true"
+            - name: Catga__EnableRetry
+              value: "true"
+            - name: Catga__EnableCircuitBreaker
+              value: "true"
+            - name: Catga__MaxRetryAttempts
+              value: "3"
+            - name: OpenTelemetry__ServiceName
+              value: "OrderApi"
+            - name: OpenTelemetry__JaegerEndpoint
+              value: "http://jaeger-collector:14268/api/traces"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+
+---
+# OrderApi Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-api
+  namespace: catga-cluster
+  labels:
+    app: order-api
+spec:
+  selector:
+    app: order-api
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+
+---
+# OrderApi HPA（水平自动扩缩容）
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: order-api-hpa
+  namespace: catga-cluster
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: order-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+---
+# OrderService Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: catga-cluster
+  labels:
+    app: order-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: order-service
+          image: catga/order-service:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DOTNET_ENVIRONMENT
+              value: "Production"
+            - name: NATS__Url
+              value: "nats://nats-0.nats.catga-cluster.svc.cluster.local:4222,nats://nats-1.nats.catga-cluster.svc.cluster.local:4222,nats://nats-2.nats.catga-cluster.svc.cluster.local:4222"
+            - name: NATS__QueueGroup
+              value: "order-processing"
+            - name: Redis__Configuration
+              value: "redis-master:6379"
+            - name: Catga__EnableIdempotency
+              value: "true"
+            - name: Catga__EnableRetry
+              value: "true"
+            - name: Catga__EnableCircuitBreaker
+              value: "true"
+            - name: Catga__MaxRetryAttempts
+              value: "3"
+            - name: OpenTelemetry__ServiceName
+              value: "OrderService"
+            - name: OpenTelemetry__JaegerEndpoint
+              value: "http://jaeger-collector:14268/api/traces"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+---
+# OrderService HPA
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: order-service-hpa
+  namespace: catga-cluster
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: order-service
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+---
+# NotificationService Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: catga-cluster
+  labels:
+    app: notification-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: notification-service
+          image: catga/notification-service:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DOTNET_ENVIRONMENT
+              value: "Production"
+            - name: NATS__Url
+              value: "nats://nats-0.nats.catga-cluster.svc.cluster.local:4222,nats://nats-1.nats.catga-cluster.svc.cluster.local:4222,nats://nats-2.nats.catga-cluster.svc.cluster.local:4222"
+            - name: OpenTelemetry__ServiceName
+              value: "NotificationService"
+            - name: OpenTelemetry__JaegerEndpoint
+              value: "http://jaeger-collector:14268/api/traces"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+
+---
+# NotificationService HPA
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: notification-service-hpa
+  namespace: catga-cluster
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: notification-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+

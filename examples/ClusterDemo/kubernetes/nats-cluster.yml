@@ -1,0 +1,164 @@
+---
+# NATS 集群配置（StatefulSet）
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats
+  namespace: catga-cluster
+  labels:
+    app: nats
+spec:
+  selector:
+    app: nats
+  clusterIP: None
+  ports:
+    - name: client
+      port: 4222
+    - name: cluster
+      port: 6222
+    - name: monitor
+      port: 8222
+    - name: metrics
+      port: 7777
+    - name: leafnodes
+      port: 7422
+    - name: gateways
+      port: 7522
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nats-config
+  namespace: catga-cluster
+data:
+  nats.conf: |
+    port: 4222
+    http: 8222
+
+    server_name: $POD_NAME
+
+    jetstream {
+      store_dir: /data/jetstream
+      max_mem: 1G
+      max_file: 10G
+    }
+
+    cluster {
+      name: catga-cluster
+      port: 6222
+      routes = [
+        nats://nats-0.nats.catga-cluster.svc.cluster.local:6222
+        nats://nats-1.nats.catga-cluster.svc.cluster.local:6222
+        nats://nats-2.nats.catga-cluster.svc.cluster.local:6222
+      ]
+      cluster_advertise: $CLUSTER_ADVERTISE
+      connect_retries: 120
+    }
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nats
+  namespace: catga-cluster
+  labels:
+    app: nats
+spec:
+  serviceName: nats
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nats
+  template:
+    metadata:
+      labels:
+        app: nats
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: nats
+          image: nats:latest
+          ports:
+            - containerPort: 4222
+              name: client
+            - containerPort: 6222
+              name: cluster
+            - containerPort: 8222
+              name: monitor
+          command:
+            - "nats-server"
+            - "--config"
+            - "/etc/nats-config/nats.conf"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CLUSTER_ADVERTISE
+              value: $(POD_NAME).nats.$(POD_NAMESPACE).svc.cluster.local
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/nats-config
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8222
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8222
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: config-volume
+          configMap:
+            name: nats-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+
+---
+# NATS 对外服务（LoadBalancer）
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats-client
+  namespace: catga-cluster
+  labels:
+    app: nats
+spec:
+  selector:
+    app: nats
+  type: LoadBalancer
+  ports:
+    - name: client
+      port: 4222
+      targetPort: 4222
+    - name: monitor
+      port: 8222
+      targetPort: 8222
+

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Catga.Messages;
 using Microsoft.Extensions.Logging;
@@ -6,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.DeadLetter;
 
 /// <summary>
-/// 精简内存死信队列（无锁，AOT 兼容）
+/// 精简内存死信队列（无锁）
 /// </summary>
 public class InMemoryDeadLetterQueue : IDeadLetterQueue
 {
@@ -20,6 +21,8 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
         _maxSize = maxSize;
     }
 
+    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     public Task SendAsync<TMessage>(
         TMessage message,
         Exception exception,

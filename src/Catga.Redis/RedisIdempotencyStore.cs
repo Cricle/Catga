@@ -1,5 +1,4 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using Catga.Redis.Serialization;
 using Catga.Idempotency;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
@@ -13,7 +12,6 @@ public class RedisIdempotencyStore : IIdempotencyStore
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly ILogger<RedisIdempotencyStore> _logger;
-    private readonly JsonSerializerOptions _jsonOptions;
     private readonly string _keyPrefix;
     private readonly TimeSpan _defaultExpiry;
 
@@ -26,12 +24,6 @@ public class RedisIdempotencyStore : IIdempotencyStore
         _logger = logger;
         _keyPrefix = options?.IdempotencyKeyPrefix ?? "idempotency:";
         _defaultExpiry = options?.IdempotencyExpiry ?? TimeSpan.FromHours(24);
-
-        _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
     }
 
     /// <inheritdoc/>
@@ -56,10 +48,10 @@ public class RedisIdempotencyStore : IIdempotencyStore
             MessageId = messageId,
             ProcessedAt = DateTime.UtcNow,
             ResultType = result?.GetType().AssemblyQualifiedName,
-            ResultJson = result != null ? JsonSerializer.Serialize(result, _jsonOptions) : null
+            ResultJson = result != null ? RedisJsonSerializer.Serialize(result) : null
         };
 
-        var json = JsonSerializer.Serialize(entry, _jsonOptions);
+        var json = RedisJsonSerializer.Serialize(entry);
         await db.StringSetAsync(key, json, _defaultExpiry);
 
         _logger.LogDebug("Marked message {MessageId} as processed in Redis", messageId);
@@ -79,7 +71,7 @@ public class RedisIdempotencyStore : IIdempotencyStore
             return default;
         }
 
-        var entry = JsonSerializer.Deserialize<IdempotencyEntry>(json!, _jsonOptions);
+        var entry = RedisJsonSerializer.Deserialize<IdempotencyEntry>(json!);
         if (entry?.ResultJson == null)
         {
             return default;
@@ -94,7 +86,7 @@ public class RedisIdempotencyStore : IIdempotencyStore
             return default;
         }
 
-        return JsonSerializer.Deserialize<TResult>(entry.ResultJson, _jsonOptions);
+        return RedisJsonSerializer.Deserialize<TResult>(entry.ResultJson);
     }
 
     private string GetKey(string messageId) => $"{_keyPrefix}{messageId}";

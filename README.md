@@ -12,6 +12,23 @@
 >
 > **🌐 完整的分布式和集群支持** - NATS 集群、Redis 集群、Kubernetes 原生、自动故障转移、水平扩展
 
+## 📚 文档导航
+
+**完整文档索引**: [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)
+
+### 快速链接
+
+- 🚀 [5 分钟快速开始](docs/guides/quick-start.md)
+- 📖 [完整架构说明](ARCHITECTURE.md)
+- 🌐 [分布式集群支持](DISTRIBUTED_CLUSTER_SUPPORT.md)
+- 🔄 [无主对等架构](PEER_TO_PEER_ARCHITECTURE.md)
+- 💻 [示例项目](examples/README.md)
+- 📊 [监控和可观测性](docs/observability/README.md)
+- 🐳 [Docker 集群部署](examples/ClusterDemo/README.md)
+- ☸️ [Kubernetes 部署](examples/ClusterDemo/kubernetes/README.md)
+
+---
+
 ## ✨ 核心特性
 
 ### 🌐 分布式与集群支持 (核心能力) ⭐

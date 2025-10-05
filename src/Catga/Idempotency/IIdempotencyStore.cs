@@ -1,7 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Catga.Idempotency;
 
 /// <summary>
-/// Store for tracking processed messages (idempotency) - 100% AOT compatible
+/// Store for tracking processed messages (idempotency)
 /// </summary>
 public interface IIdempotencyStore
 {
@@ -22,7 +24,7 @@ public interface IIdempotencyStore
 }
 
 /// <summary>
-/// In-memory idempotency store implementation (100% AOT compatible)
+/// In-memory idempotency store implementation
 /// </summary>
 public class MemoryIdempotencyStore : IIdempotencyStore
 {
@@ -44,6 +46,8 @@ public class MemoryIdempotencyStore : IIdempotencyStore
         }
     }
 
+    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     public async Task MarkAsProcessedAsync<TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);
@@ -68,6 +72,8 @@ public class MemoryIdempotencyStore : IIdempotencyStore
         }
     }
 
+    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     public async Task<TResult?> GetCachedResultAsync<TResult>(string messageId, CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);

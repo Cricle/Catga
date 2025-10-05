@@ -2,7 +2,9 @@ using Catga.Configuration;
 using Catga.DeadLetter;
 using Catga.Handlers;
 using Catga.Idempotency;
+using Catga.Inbox;
 using Catga.Messages;
+using Catga.Outbox;
 using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
 using Microsoft.Extensions.DependencyInjection;
@@ -94,4 +96,104 @@ public static class CatgaServiceCollectionExtensions
         services.AddTransient<IEventHandler<TEvent>, THandler>();
         return services;
     }
+
+    /// <summary>
+    /// 添加 Outbox 模式支持（内存版本）
+    /// 确保消息发送的可靠性
+    /// </summary>
+    public static IServiceCollection AddOutbox(
+        this IServiceCollection services,
+        Action<OutboxOptions>? configureOptions = null)
+    {
+        var options = new OutboxOptions();
+        configureOptions?.Invoke(options);
+
+        services.AddSingleton(options);
+        services.TryAddSingleton<IOutboxStore, MemoryOutboxStore>();
+
+        // 添加 Outbox Behavior
+        services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(OutboxBehavior<,>));
+
+        // 添加 Outbox Publisher 后台服务
+        if (options.EnablePublisher)
+        {
+            services.AddHostedService(sp =>
+            {
+                var store = sp.GetRequiredService<IOutboxStore>();
+                var mediator = sp.GetRequiredService<ICatgaMediator>();
+                var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<OutboxPublisher>>();
+
+                return new OutboxPublisher(
+                    store,
+                    mediator,
+                    logger,
+                    options.PollingInterval,
+                    options.BatchSize);
+            });
+        }
+
+        return services;
+    }
+
+    /// <summary>
+    /// 添加 Inbox 模式支持（内存版本）
+    /// 确保消息处理的幂等性
+    /// </summary>
+    public static IServiceCollection AddInbox(
+        this IServiceCollection services,
+        Action<InboxOptions>? configureOptions = null)
+    {
+        var options = new InboxOptions();
+        configureOptions?.Invoke(options);
+
+        services.AddSingleton(options);
+        services.TryAddSingleton<IInboxStore, MemoryInboxStore>();
+
+        // 添加 Inbox Behavior
+        services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(InboxBehavior<,>));
+
+        return services;
+    }
+}
+
+/// <summary>
+/// Outbox 配置选项
+/// </summary>
+public class OutboxOptions
+{
+    /// <summary>
+    /// 是否启用 Outbox Publisher 后台服务
+    /// </summary>
+    public bool EnablePublisher { get; set; } = true;
+
+    /// <summary>
+    /// 轮询间隔（默认 5 秒）
+    /// </summary>
+    public TimeSpan PollingInterval { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// 每批次处理的消息数量（默认 100）
+    /// </summary>
+    public int BatchSize { get; set; } = 100;
+
+    /// <summary>
+    /// 消息保留时间（默认 24 小时）
+    /// </summary>
+    public TimeSpan RetentionPeriod { get; set; } = TimeSpan.FromHours(24);
+}
+
+/// <summary>
+/// Inbox 配置选项
+/// </summary>
+public class InboxOptions
+{
+    /// <summary>
+    /// 处理锁定时长（默认 5 分钟）
+    /// </summary>
+    public TimeSpan LockDuration { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// 消息保留时间（默认 24 小时）
+    /// </summary>
+    public TimeSpan RetentionPeriod { get; set; } = TimeSpan.FromHours(24);
 }

@@ -1,8 +1,8 @@
-using System.Text.Json;
 using Catga.Concurrency;
 using Catga.Configuration;
 using Catga.Exceptions;
 using Catga.Messages;
+using Catga.Nats.Serialization;
 using Catga.RateLimiting;
 using Catga.Resilience;
 using Catga.Results;
@@ -111,7 +111,7 @@ public class NatsCatgaMediator : ICatgaMediator, IDisposable
 
         try
         {
-            var requestBytes = JsonSerializer.SerializeToUtf8Bytes(request);
+            var requestBytes = NatsJsonSerializer.SerializeToUtf8Bytes(request);
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(_timeout);
@@ -126,7 +126,7 @@ public class NatsCatgaMediator : ICatgaMediator, IDisposable
                 return CatgaResult<TResponse>.Failure("No response from NATS");
             }
 
-            var result = JsonSerializer.Deserialize<CatgaResult<TResponse>>(reply.Data);
+            var result = NatsJsonSerializer.Deserialize<CatgaResult<TResponse>>(reply.Data);
             return result ?? CatgaResult<TResponse>.Failure("Invalid response format");
         }
         catch (OperationCanceledException)
@@ -153,7 +153,7 @@ public class NatsCatgaMediator : ICatgaMediator, IDisposable
 
         try
         {
-            var requestBytes = JsonSerializer.SerializeToUtf8Bytes(request);
+            var requestBytes = NatsJsonSerializer.SerializeToUtf8Bytes(request);
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(_timeout);
 
@@ -167,7 +167,7 @@ public class NatsCatgaMediator : ICatgaMediator, IDisposable
                 return CatgaResult.Failure("No response from NATS");
             }
 
-            var result = JsonSerializer.Deserialize<CatgaResult>(reply.Data);
+            var result = NatsJsonSerializer.Deserialize<CatgaResult>(reply.Data);
             return result ?? CatgaResult.Failure("Invalid response format");
         }
         catch (Exception ex)
@@ -186,7 +186,7 @@ public class NatsCatgaMediator : ICatgaMediator, IDisposable
 
         try
         {
-            var eventBytes = JsonSerializer.SerializeToUtf8Bytes(@event);
+            var eventBytes = NatsJsonSerializer.SerializeToUtf8Bytes(@event);
             await _connection.PublishAsync(subject, eventBytes, cancellationToken: cancellationToken);
         }
         catch (Exception ex)

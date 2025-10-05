@@ -145,8 +145,8 @@ NATS Cluster (3 nodes, P2P)         │
     ▼                      ▼        ▼
 OrderService           NotificationService
 (3-20 replicas)        (2-10 replicas)
-    │                      
-    ▼                      
+    │
+    ▼
 Redis Cluster (Master + 2 Slaves)
 ```
 

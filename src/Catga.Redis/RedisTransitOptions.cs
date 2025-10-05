@@ -31,6 +31,36 @@ public class RedisCatgaOptions
     public TimeSpan IdempotencyExpiry { get; set; } = TimeSpan.FromHours(24);
 
     /// <summary>
+    /// Outbox 键前缀
+    /// </summary>
+    public string OutboxKeyPrefix { get; set; } = "outbox:";
+
+    /// <summary>
+    /// Inbox 键前缀
+    /// </summary>
+    public string InboxKeyPrefix { get; set; } = "inbox:";
+
+    /// <summary>
+    /// Outbox 消息保留时间（默认 24 小时）
+    /// </summary>
+    public TimeSpan OutboxRetentionPeriod { get; set; } = TimeSpan.FromHours(24);
+
+    /// <summary>
+    /// Inbox 消息保留时间（默认 24 小时）
+    /// </summary>
+    public TimeSpan InboxRetentionPeriod { get; set; } = TimeSpan.FromHours(24);
+
+    /// <summary>
+    /// Outbox 发布器轮询间隔（默认 5 秒）
+    /// </summary>
+    public TimeSpan OutboxPollingInterval { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// 每批次处理的 Outbox 消息数量（默认 100）
+    /// </summary>
+    public int OutboxBatchSize { get; set; } = 100;
+
+    /// <summary>
     /// 数据库编号（默认 0）
     /// </summary>
     public int Database { get; set; } = 0;

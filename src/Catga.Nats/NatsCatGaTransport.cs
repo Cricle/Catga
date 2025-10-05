@@ -3,7 +3,6 @@ using Catga.CatGa.Models;
 using Catga.Nats.Serialization;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
-using System.Text.Json;
 
 namespace Catga.Nats;
 
@@ -15,7 +14,6 @@ public sealed class NatsCatGaTransport : IDisposable
 {
     private readonly INatsConnection _connection;
     private readonly ILogger<NatsCatGaTransport> _logger;
-    private readonly JsonSerializerOptions _jsonOptions;
     private readonly string _serviceId;
 
     public NatsCatGaTransport(
@@ -26,8 +24,6 @@ public sealed class NatsCatGaTransport : IDisposable
         _connection = connection;
         _logger = logger;
         _serviceId = serviceId ?? Guid.NewGuid().ToString("N");
-        // 使用 AOT 兼容的 JSON 选项
-        _jsonOptions = NatsCatgaJsonExtensions.CreateNatsCatgaOptions();
     }
 
     /// <summary>
@@ -47,7 +43,7 @@ public sealed class NatsCatGaTransport : IDisposable
             Timestamp = DateTime.UtcNow
         };
 
-        var payload = JsonSerializer.Serialize(message, _jsonOptions);
+        var payload = NatsJsonSerializer.Serialize(message);
 
         _logger.LogDebug(
             "Publishing CatGa transaction to {Subject}, TransactionId: {TransactionId}",
@@ -58,9 +54,12 @@ public sealed class NatsCatGaTransport : IDisposable
             payload,
             cancellationToken: cancellationToken);
 
-        var result = JsonSerializer.Deserialize<CatGaResponse<TResponse>>(
-            response.Data,
-            _jsonOptions);
+        if (response.Data == null)
+        {
+            throw new InvalidOperationException("No response data from NATS");
+        }
+
+        var result = NatsJsonSerializer.Deserialize<CatGaResponse<TResponse>>(response.Data);
 
         if (result == null)
         {
@@ -92,9 +91,7 @@ public sealed class NatsCatGaTransport : IDisposable
             {
                 try
                 {
-                    var message = JsonSerializer.Deserialize<CatGaMessage<TRequest>>(
-                        msg.Data,
-                        _jsonOptions);
+                    var message = NatsJsonSerializer.Deserialize<CatGaMessage<TRequest>>(msg.Data);
 
                     if (message == null)
                     {
@@ -123,7 +120,7 @@ public sealed class NatsCatGaTransport : IDisposable
                         Timestamp = DateTime.UtcNow
                     };
 
-                    var responsePayload = JsonSerializer.Serialize(response, _jsonOptions);
+                    var responsePayload = NatsJsonSerializer.Serialize(response);
                     await msg.ReplyAsync(responsePayload, cancellationToken: cancellationToken);
 
                     _logger.LogDebug(
@@ -143,7 +140,7 @@ public sealed class NatsCatGaTransport : IDisposable
                         Timestamp = DateTime.UtcNow
                     };
 
-                    var errorPayload = JsonSerializer.Serialize(errorResponse, _jsonOptions);
+                    var errorPayload = NatsJsonSerializer.Serialize(errorResponse);
                     await msg.ReplyAsync(errorPayload, cancellationToken: cancellationToken);
                 }
             }
@@ -170,7 +167,7 @@ public sealed class NatsCatGaTransport : IDisposable
             Timestamp = DateTime.UtcNow
         };
 
-        var payload = JsonSerializer.Serialize(message, _jsonOptions);
+        var payload = NatsJsonSerializer.Serialize(message);
 
         await _connection.PublishAsync(subject, payload, cancellationToken: cancellationToken);
 
@@ -195,9 +192,9 @@ public sealed class NatsCatGaTransport : IDisposable
             {
                 try
                 {
-                    var message = JsonSerializer.Deserialize<CatGaMessage<TRequest>>(
-                        msg.Data,
-                        _jsonOptions);
+                    if (msg.Data == null) continue;
+
+                    var message = NatsJsonSerializer.Deserialize<CatGaMessage<TRequest>>(msg.Data);
 
                     if (message == null)
                     {

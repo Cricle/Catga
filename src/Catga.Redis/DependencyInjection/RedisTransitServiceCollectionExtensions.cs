@@ -1,4 +1,9 @@
+using Catga;
 using Catga.Idempotency;
+using Catga.Inbox;
+using Catga.Outbox;
+using Catga.Pipeline;
+using Catga.Pipeline.Behaviors;
 using Catga.Redis;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -119,6 +124,93 @@ public static class RedisCatgaServiceCollectionExtensions
             var logger = sp.GetRequiredService<ILogger<RedisIdempotencyStore>>();
             return new RedisIdempotencyStore(redis, logger, options);
         });
+
+        return services;
+    }
+
+    /// <summary>
+    /// 添加 Redis Outbox 存储（生产环境推荐）
+    /// 确保消息发送的可靠性
+    /// </summary>
+    public static IServiceCollection AddRedisOutbox(
+        this IServiceCollection services,
+        Action<RedisCatgaOptions>? configureOptions = null)
+    {
+        var options = new RedisCatgaOptions();
+        configureOptions?.Invoke(options);
+
+        // 确保 Redis 连接已注册
+        services.TryAddSingleton<IConnectionMultiplexer>(sp =>
+        {
+            var config = ConfigurationOptions.Parse(options.ConnectionString);
+            config.ConnectTimeout = options.ConnectTimeout;
+            config.SyncTimeout = options.SyncTimeout;
+            return ConnectionMultiplexer.Connect(config);
+        });
+
+        services.TryAddSingleton(options);
+
+        // 注册 Redis Outbox Store
+        services.TryAddSingleton<IOutboxStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var logger = sp.GetRequiredService<ILogger<RedisOutboxStore>>();
+            return new RedisOutboxStore(redis, logger, options);
+        });
+
+        // 添加 Outbox Behavior
+        services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(OutboxBehavior<,>));
+
+        // 添加 Outbox Publisher 后台服务
+        services.AddHostedService(sp =>
+        {
+            var store = sp.GetRequiredService<IOutboxStore>();
+            var mediator = sp.GetRequiredService<ICatgaMediator>();
+            var logger = sp.GetRequiredService<ILogger<OutboxPublisher>>();
+
+            return new OutboxPublisher(
+                store,
+                mediator,
+                logger,
+                options.OutboxPollingInterval,
+                options.OutboxBatchSize);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// 添加 Redis Inbox 存储（生产环境推荐）
+    /// 确保消息处理的幂等性
+    /// </summary>
+    public static IServiceCollection AddRedisInbox(
+        this IServiceCollection services,
+        Action<RedisCatgaOptions>? configureOptions = null)
+    {
+        var options = new RedisCatgaOptions();
+        configureOptions?.Invoke(options);
+
+        // 确保 Redis 连接已注册
+        services.TryAddSingleton<IConnectionMultiplexer>(sp =>
+        {
+            var config = ConfigurationOptions.Parse(options.ConnectionString);
+            config.ConnectTimeout = options.ConnectTimeout;
+            config.SyncTimeout = options.SyncTimeout;
+            return ConnectionMultiplexer.Connect(config);
+        });
+
+        services.TryAddSingleton(options);
+
+        // 注册 Redis Inbox Store
+        services.TryAddSingleton<IInboxStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var logger = sp.GetRequiredService<ILogger<RedisInboxStore>>();
+            return new RedisInboxStore(redis, logger, options);
+        });
+
+        // 添加 Inbox Behavior
+        services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(InboxBehavior<,>));
 
         return services;
     }

@@ -1,6 +1,6 @@
 using Catga.CatGa.Models;
+using Catga.Redis.Serialization;
 using StackExchange.Redis;
-using System.Text.Json;
 
 namespace Catga.Redis;
 
@@ -12,7 +12,6 @@ public sealed class RedisCatGaStore : IDisposable
 {
     private readonly IDatabase _database;
     private readonly RedisCatgaOptions _options;
-    private readonly JsonSerializerOptions _jsonOptions;
 
     public RedisCatGaStore(
         IConnectionMultiplexer redis,
@@ -20,10 +19,6 @@ public sealed class RedisCatGaStore : IDisposable
     {
         _database = redis.GetDatabase();
         _options = options;
-        _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
     }
 
     /// <summary>
@@ -45,7 +40,7 @@ public sealed class RedisCatGaStore : IDisposable
         CancellationToken cancellationToken = default)
     {
         var redisKey = GetRedisKey(key);
-        var value = JsonSerializer.Serialize(result, _jsonOptions);
+        var value = RedisJsonSerializer.Serialize(result);
         var actualExpiry = expiry ?? _options.IdempotencyExpiry;
 
         await _database.StringSetAsync(
@@ -69,7 +64,7 @@ public sealed class RedisCatGaStore : IDisposable
             return default;
         }
 
-        return JsonSerializer.Deserialize<TResult>(value!, _jsonOptions);
+        return RedisJsonSerializer.Deserialize<TResult>(value!);
     }
 
     /// <summary>
@@ -87,7 +82,7 @@ public sealed class RedisCatGaStore : IDisposable
             return (false, default);
         }
 
-        var result = JsonSerializer.Deserialize<TResult>(value!, _jsonOptions);
+        var result = RedisJsonSerializer.Deserialize<TResult>(value!);
         return (true, result);
     }
 
@@ -133,7 +128,7 @@ public sealed class RedisCatGaStore : IDisposable
             return (false, default, null);
         }
 
-        var result = JsonSerializer.Deserialize<TResult>(value!, _jsonOptions);
+        var result = RedisJsonSerializer.Deserialize<TResult>(value!);
         return (true, result, ttl);
     }
 
@@ -147,7 +142,7 @@ public sealed class RedisCatGaStore : IDisposable
         CancellationToken cancellationToken = default)
     {
         var redisKey = GetRedisKey(key);
-        var value = JsonSerializer.Serialize(result, _jsonOptions);
+        var value = RedisJsonSerializer.Serialize(result);
         var actualExpiry = expiry ?? _options.IdempotencyExpiry;
 
         return await _database.StringSetAsync(

@@ -1,7 +1,7 @@
-using System.Text.Json;
 using Catga.Exceptions;
 using Catga.Handlers;
 using Catga.Messages;
+using Catga.Nats.Serialization;
 using Catga.Pipeline;
 using Catga.Results;
 using Microsoft.Extensions.DependencyInjection;
@@ -56,7 +56,7 @@ public class NatsRequestSubscriber<TRequest, TResponse> : IDisposable
         try
         {
             // Deserialize request
-            var request = JsonSerializer.Deserialize<TRequest>(msg.Data);
+            var request = NatsJsonSerializer.Deserialize<TRequest>(msg.Data);
             if (request == null)
             {
                 _logger.LogWarning("Failed to deserialize request for {RequestType}", typeof(TRequest).Name);
@@ -112,7 +112,7 @@ public class NatsRequestSubscriber<TRequest, TResponse> : IDisposable
     {
         try
         {
-            var responseBytes = JsonSerializer.SerializeToUtf8Bytes(result);
+            var responseBytes = NatsJsonSerializer.SerializeToUtf8Bytes(result);
             await msg.ReplyAsync(responseBytes, cancellationToken: _cts.Token);
         }
         catch (Exception ex)

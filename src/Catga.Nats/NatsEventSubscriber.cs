@@ -1,6 +1,6 @@
-using System.Text.Json;
 using Catga.Handlers;
 using Catga.Messages;
+using Catga.Nats.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
@@ -43,7 +43,10 @@ public class NatsEventSubscriber<TEvent> : IDisposable
 
             await foreach (var msg in _connection.SubscribeAsync<byte[]>(subject, cancellationToken: _cts.Token))
             {
-                _ = Task.Run(async () => await HandleEventAsync(msg.Data), _cts.Token);
+                if (msg.Data != null)
+                {
+                    _ = Task.Run(async () => await HandleEventAsync(msg.Data), _cts.Token);
+                }
             }
         }, _cts.Token);
     }
@@ -53,7 +56,7 @@ public class NatsEventSubscriber<TEvent> : IDisposable
         try
         {
             // Deserialize event
-            var @event = JsonSerializer.Deserialize<TEvent>(data);
+            var @event = NatsJsonSerializer.Deserialize<TEvent>(data);
             if (@event == null)
             {
                 _logger.LogWarning("Failed to deserialize event for {EventType}", typeof(TEvent).Name);

@@ -58,14 +58,14 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
         // 零分配优化：避免 LINQ，直接构建列表
         var result = new List<DeadLetterMessage>(Math.Min(maxCount, _deadLetters.Count));
         var count = 0;
-        
+
         foreach (var item in _deadLetters)
         {
             if (count >= maxCount) break;
             result.Add(item);
             count++;
         }
-        
+
         return Task.FromResult(result);
     }
 }

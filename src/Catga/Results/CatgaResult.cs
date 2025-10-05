@@ -14,7 +14,7 @@ public sealed class ResultMetadata
     public bool TryGetValue(string key, out string? value) => _data.TryGetValue(key, out value);
     public bool ContainsKey(string key) => _data.ContainsKey(key);
     public IReadOnlyDictionary<string, string> GetAll() => _data;
-    
+
     // 重用实例
     public void Clear() => _data.Clear();
 }

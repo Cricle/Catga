@@ -92,10 +92,10 @@ public class MemoryIdempotencyStore : IIdempotencyStore
     {
         // 零分配清理：避免 LINQ，直接迭代
         var cutoff = DateTime.UtcNow - _retentionPeriod;
-        
+
         // 使用 List 来避免 "Collection was modified" 异常
         List<string>? expiredKeys = null;
-        
+
         foreach (var kvp in _processedMessages)
         {
             if (kvp.Value.ProcessedAt < cutoff)
@@ -104,7 +104,7 @@ public class MemoryIdempotencyStore : IIdempotencyStore
                 expiredKeys.Add(kvp.Key);
             }
         }
-        
+
         if (expiredKeys != null)
         {
             foreach (var key in expiredKeys)

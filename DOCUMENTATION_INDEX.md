@@ -1,363 +1,304 @@
-# 📚 Catga 框架文档索引
+# 📚 Catga 文档索引
 
-> 完整的文档导航，帮助您快速找到需要的信息
-
-## 📋 目录
-
-- [快速导航](#快速导航)
-- [核心文档](#核心文档)
-- [用户文档](#用户文档)
-- [开发者文档](#开发者文档)
-- [部署文档](#部署文档)
-- [历史文档](#历史文档)
+欢迎来到 Catga 框架文档中心！本页面提供所有文档的快速导航。
 
 ---
 
-## 🚀 快速导航
+## 🚀 快速入门
 
-### 新手入门（5 分钟）
+### 新手必读
 
-```
-1. README.md                      # 项目概览和快速开始
-   ↓
-2. docs/guides/quick-start.md     # 5 分钟快速入门
-   ↓
-3. examples/OrderApi/README.md    # 第一个示例
-```
-
-### 深入学习（30 分钟）
-
-```
-1. FRAMEWORK_DEFINITION.md        # 理解框架定位
-   ↓
-2. docs/architecture/overview.md  # 架构概览
-   ↓
-3. docs/api/README.md             # API 参考
-   ↓
-4. examples/README.md             # 完整示例
-```
-
-### 生产部署（60 分钟）
-
-```
-1. DISTRIBUTED_CLUSTER_SUPPORT.md      # 分布式能力
-   ↓
-2. examples/ClusterDemo/README.md      # Docker Compose 部署
-   ↓
-3. examples/ClusterDemo/kubernetes/    # Kubernetes 部署
-   ↓
-4. docs/observability/README.md        # 监控配置
-```
+| 文档 | 说明 | 预计时间 |
+|------|------|---------|
+| [README.md](README.md) | 项目概览和核心特性 | 5 分钟 |
+| [QUICK_START.md](QUICK_START.md) | 5分钟快速上手 | 5 分钟 |
+| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | API 速查手册 | 3 分钟 |
 
 ---
 
 ## 📖 核心文档
 
-### 项目基础
+### 架构与设计
 
-| 文档 | 说明 | 优先级 |
-|------|------|--------|
-| [README.md](README.md) | 项目主文档，概览和快速开始 | ⭐⭐⭐⭐⭐ |
-| [FRAMEWORK_DEFINITION.md](FRAMEWORK_DEFINITION.md) | 框架定义，Framework vs Library | ⭐⭐⭐⭐⭐ |
-| [CATGA_FRAMEWORK_COMPLETE.md](CATGA_FRAMEWORK_COMPLETE.md) | 框架完整性报告 | ⭐⭐⭐⭐ |
-| [LICENSE](LICENSE) | MIT 开源许可证 | ⭐⭐⭐ |
-
-### 架构文档
-
-| 文档 | 说明 | 优先级 |
-|------|------|--------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 完整架构说明（7 层架构栈） | ⭐⭐⭐⭐⭐ |
-| [ARCHITECTURE_DIAGRAM.md](ARCHITECTURE_DIAGRAM.md) | 架构可视化（ASCII 图） | ⭐⭐⭐⭐ |
-| [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | 项目结构完整分析 | ⭐⭐⭐⭐ |
-| [PEER_TO_PEER_ARCHITECTURE.md](PEER_TO_PEER_ARCHITECTURE.md) | 无主对等架构详解 | ⭐⭐⭐⭐⭐ |
-
-### 分布式和集群
-
-| 文档 | 说明 | 优先级 |
-|------|------|--------|
-| [DISTRIBUTED_CLUSTER_SUPPORT.md](DISTRIBUTED_CLUSTER_SUPPORT.md) | 分布式集群支持详解 | ⭐⭐⭐⭐⭐ |
-| [PEER_TO_PEER_ARCHITECTURE.md](PEER_TO_PEER_ARCHITECTURE.md) | P2P 架构原理和优势 | ⭐⭐⭐⭐⭐ |
-
----
-
-## 👥 用户文档
-
-### 快速开始
-
-| 文档 | 说明 | 目标读者 |
-|------|------|---------|
-| [docs/README.md](docs/README.md) | 文档主入口 | 所有人 |
-| [docs/guides/quick-start.md](docs/guides/quick-start.md) | 5 分钟快速开始 | 初学者 |
-| [docs/examples/basic-usage.md](docs/examples/basic-usage.md) | 基本用法示例 | 初学者 |
+| 文档 | 说明 |
+|------|------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 功能分层和架构设计 |
+| [docs/architecture/overview.md](docs/architecture/overview.md) | 架构概览 |
+| [docs/architecture/cqrs.md](docs/architecture/cqrs.md) | CQRS 模式详解 |
 
 ### API 文档
 
-| 文档 | 说明 | 目标读者 |
-|------|------|---------|
-| [docs/api/README.md](docs/api/README.md) | API 文档概览 | 开发者 |
-| [docs/api/mediator.md](docs/api/mediator.md) | ICatgaMediator 接口 | 开发者 |
-| [docs/api/messages.md](docs/api/messages.md) | 消息类型（Command/Query/Event） | 开发者 |
-
-### 架构指南
-
-| 文档 | 说明 | 目标读者 |
-|------|------|---------|
-| [docs/architecture/overview.md](docs/architecture/overview.md) | 架构概览 | 架构师 |
-| [docs/architecture/cqrs.md](docs/architecture/cqrs.md) | CQRS 模式详解 | 架构师 |
-
-### 可观测性
-
-| 文档 | 说明 | 目标读者 |
-|------|------|---------|
-| [docs/observability/README.md](docs/observability/README.md) | 监控和追踪完整指南 | 运维工程师 |
-| [OBSERVABILITY_COMPLETE.md](OBSERVABILITY_COMPLETE.md) | 可观测性完成报告 | 架构师 |
+| 文档 | 说明 |
+|------|------|
+| [docs/api/mediator.md](docs/api/mediator.md) | Mediator API 参考 |
+| [docs/api/messages.md](docs/api/messages.md) | 消息类型定义 |
 
 ---
 
-## 💻 开发者文档
+## 🌐 分布式与集群
 
-### 示例项目
+### 集群架构 ⭐ 重点
 
-| 文档 | 说明 | 复杂度 |
+| 文档 | 说明 | 推荐度 |
 |------|------|--------|
-| [examples/README.md](examples/README.md) | 示例项目概览 | 入门 |
-| [examples/OrderApi/README.md](examples/OrderApi/README.md) | Web API 示例 | 简单 |
-| [examples/NatsDistributed/README.md](examples/NatsDistributed/README.md) | 分布式服务示例 | 中等 |
-| [examples/ClusterDemo/README.md](examples/ClusterDemo/README.md) | 集群部署示例 | 高级 |
+| [docs/distributed/CLUSTER_ARCHITECTURE_ANALYSIS.md](docs/distributed/CLUSTER_ARCHITECTURE_ANALYSIS.md) | 集群架构全面分析 | ⭐⭐⭐⭐⭐ |
+| [docs/distributed/PEER_TO_PEER_ARCHITECTURE.md](docs/distributed/PEER_TO_PEER_ARCHITECTURE.md) | P2P 架构详解 | ⭐⭐⭐⭐ |
+| [docs/distributed/DISTRIBUTED_CLUSTER_SUPPORT.md](docs/distributed/DISTRIBUTED_CLUSTER_SUPPORT.md) | 分布式部署完整指南 | ⭐⭐⭐⭐⭐ |
+| [docs/distributed/README.md](docs/distributed/README.md) | 分布式文档索引 | - |
 
-### 组件文档
+**适合场景**:
+- 了解 Catga 集群能力
+- 生产环境部署
+- P2P vs 主从架构选择
 
-| 文档 | 说明 | 组件 |
-|------|------|------|
-| [src/Catga/README.md](src/Catga/README.md) | 核心框架 | Catga |
-| [src/Catga.Nats/README.md](src/Catga.Nats/README.md) | NATS 集成 | Catga.Nats |
-| [src/Catga.Redis/README.md](src/Catga.Redis/README.md) | Redis 集成 | Catga.Redis |
+---
 
-### 基准测试
+## 🛡️ 可靠性模式
 
-| 文档 | 说明 | 目标读者 |
-|------|------|---------|
-| [benchmarks/Catga.Benchmarks/README.md](benchmarks/Catga.Benchmarks/README.md) | 基准测试指南 | 性能工程师 |
-| [BENCHMARK_GUIDE.md](BENCHMARK_GUIDE.md) | 性能测试详细指南 | 性能工程师 |
-| [PERFORMANCE_BENCHMARK_RESULTS.md](PERFORMANCE_BENCHMARK_RESULTS.md) | 性能测试结果 | 所有人 |
-| [OPTIMIZATION_SUMMARY.md](OPTIMIZATION_SUMMARY.md) | 优化方法总结 | 开发者 |
-| [FINAL_OPTIMIZATION_REPORT.md](FINAL_OPTIMIZATION_REPORT.md) | 最终优化报告 | 架构师 |
+### Outbox/Inbox 模式
+
+| 文档 | 说明 |
+|------|------|
+| [docs/patterns/outbox-inbox.md](docs/patterns/outbox-inbox.md) | Outbox/Inbox 模式说明 |
+| [docs/patterns/OUTBOX_INBOX_IMPLEMENTATION.md](docs/patterns/OUTBOX_INBOX_IMPLEMENTATION.md) | 实现细节和代码示例 |
+
+**核心价值**:
+- ✅ 消息可靠投递 (Outbox)
+- ✅ 幂等消息处理 (Inbox)
+- ✅ 分布式事务协调 (Saga)
+
+---
+
+## ⚡ 性能优化
+
+### 性能文档 ⭐ 重点
+
+| 文档 | 说明 | 推荐度 |
+|------|------|--------|
+| [docs/performance/PERFORMANCE_IMPROVEMENTS.md](docs/performance/PERFORMANCE_IMPROVEMENTS.md) | 最新性能优化报告 | ⭐⭐⭐⭐⭐ |
+| [docs/performance/AOT_FINAL_REPORT.md](docs/performance/AOT_FINAL_REPORT.md) | Native AOT 优化 | ⭐⭐⭐⭐ |
+| [docs/performance/README.md](docs/performance/README.md) | 性能文档索引 | - |
+| [benchmarks/PERFORMANCE_BENCHMARK_RESULTS.md](benchmarks/PERFORMANCE_BENCHMARK_RESULTS.md) | 基准测试结果 | ⭐⭐⭐ |
+
+**性能成果**:
+- ✅ 吞吐量提升 18.5%
+- ✅ 延迟降低 30%
+- ✅ 内存减少 33%
+- ✅ GC 压力降低 40%
+
+---
+
+## 🎯 Native AOT
+
+### AOT 兼容性
+
+| 文档 | 说明 |
+|------|------|
+| [docs/aot/README.md](docs/aot/README.md) | AOT 概览 |
+| [docs/aot/native-aot-guide.md](docs/aot/native-aot-guide.md) | Native AOT 使用指南 |
+
+**AOT 优势**:
+- ✅ 100% AOT 兼容
+- ✅ 启动时间减少 50%
+- ✅ 内存占用减少 30%
+- ✅ 部署包减少 40%
+
+---
+
+## 📊 可观测性
+
+### 监控与追踪
+
+| 文档 | 说明 |
+|------|------|
+| [docs/observability/README.md](docs/observability/README.md) | 可观测性概览 |
+| [docs/observability/OBSERVABILITY_COMPLETE.md](docs/observability/OBSERVABILITY_COMPLETE.md) | 完整可观测性指南 |
+
+**包含内容**:
+- 📈 Metrics (Prometheus)
+- 🔍 Tracing (OpenTelemetry)
+- 📝 Logging (结构化日志)
+- 🏥 Health Checks
+
+---
+
+## 📘 使用指南
+
+### 指南文档
+
+| 文档 | 说明 |
+|------|------|
+| [docs/guides/quick-start.md](docs/guides/quick-start.md) | 详细快速开始指南 |
+| [docs/guides/API_TESTING_GUIDE.md](docs/guides/API_TESTING_GUIDE.md) | API 测试指南 |
+
+### 示例代码
+
+| 文档 | 说明 |
+|------|------|
+| [docs/examples/basic-usage.md](docs/examples/basic-usage.md) | 基础使用示例 |
+| [examples/README.md](examples/README.md) | 示例项目说明 |
+
+---
+
+## 🔧 项目管理
+
+### 项目状态
+
+| 文档 | 说明 |
+|------|------|
+| [PROJECT_STATUS.md](PROJECT_STATUS.md) | 当前项目状态 |
+| [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) | 项目结构说明 |
 
 ### 贡献指南
 
-| 文档 | 说明 | 目标读者 |
-|------|------|---------|
-| [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献指南 | 贡献者 |
-| [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) | 发布检查清单 | 维护者 |
+| 文档 | 说明 |
+|------|------|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 如何贡献代码 |
+| [LICENSE](LICENSE) | MIT 许可证 |
 
 ---
 
-## 🚀 部署文档
+## 📦 历史文档
 
-### Docker Compose
+### 归档文档
 
-| 文档 | 说明 | 环境 |
-|------|------|------|
-| [examples/ClusterDemo/README.md](examples/ClusterDemo/README.md) | 完整集群部署指南 | 开发/测试 |
-| [examples/ClusterDemo/start-cluster.ps1](examples/ClusterDemo/start-cluster.ps1) | Windows 启动脚本 | Windows |
-| [examples/ClusterDemo/start-cluster.sh](examples/ClusterDemo/start-cluster.sh) | Linux/macOS 启动脚本 | Linux/macOS |
-
-### Kubernetes
-
-| 文档 | 说明 | 环境 |
-|------|------|------|
-| [examples/ClusterDemo/kubernetes/README.md](examples/ClusterDemo/kubernetes/README.md) | K8s 部署完整指南 | 生产 |
-| [examples/ClusterDemo/kubernetes/deploy.sh](examples/ClusterDemo/kubernetes/deploy.sh) | K8s 一键部署脚本 | 生产 |
-
-### 测试和演示
-
-| 文档 | 说明 | 用途 |
-|------|------|------|
-| [API_TESTING_GUIDE.md](API_TESTING_GUIDE.md) | API 测试指南 | 测试 |
-| [LIVE_DEMO.md](LIVE_DEMO.md) | 实时演示说明 | 演示 |
-| [PROJECT_SHOWCASE.md](PROJECT_SHOWCASE.md) | 项目展示 | 演示 |
+| 文档 | 说明 |
+|------|------|
+| [docs/archive/LOCK_FREE_OPTIMIZATION.md](docs/archive/LOCK_FREE_OPTIMIZATION.md) | 无锁优化历史记录 |
+| [docs/archive/README.md](docs/archive/README.md) | 归档文档索引 |
 
 ---
 
-## 📜 历史文档
+## 🗺️ 学习路径
 
-> 这些文档记录了项目的开发历程，供参考
+### 推荐学习顺序
 
-### 项目进展
+#### 第 1 天: 入门 (30分钟)
 
-| 文档 | 说明 | 时间 |
-|------|------|------|
-| [PHASE1_COMPLETED.md](PHASE1_COMPLETED.md) | 阶段 1：命名统一完成 | 2025-10-05 |
-| [PHASE1.5_STATUS.md](PHASE1.5_STATUS.md) | 阶段 1.5：AOT 兼容性 | 2025-10-05 |
-| [PHASE2_TESTS_COMPLETED.md](PHASE2_TESTS_COMPLETED.md) | 阶段 2：单元测试完成 | 2025-10-05 |
-| [PROGRESS_SUMMARY.md](PROGRESS_SUMMARY.md) | 进度总结 | 2025-10-05 |
-| [SESSION_COMPLETE_SUMMARY.md](SESSION_COMPLETE_SUMMARY.md) | 会话完成总结 | 2025-10-05 |
+1. 阅读 [README.md](README.md)
+2. 跟随 [QUICK_START.md](QUICK_START.md)
+3. 查看 [基础示例](docs/examples/basic-usage.md)
 
-### 项目完成
+#### 第 2-3 天: 核心功能 (2小时)
 
-| 文档 | 说明 | 时间 |
-|------|------|------|
-| [PROJECT_COMPLETION_SUMMARY.md](PROJECT_COMPLETION_SUMMARY.md) | 项目完成总结 | 2025-10-05 |
-| [PROJECT_COMPLETE_2025.md](PROJECT_COMPLETE_2025.md) | 2025 项目完成报告 | 2025-10-05 |
-| [FINAL_PROJECT_STATUS.md](FINAL_PROJECT_STATUS.md) | 最终项目状态 | 2025-10-05 |
-| [PROJECT_STATUS_BOARD.md](PROJECT_STATUS_BOARD.md) | 项目状态看板 | 2025-10-05 |
-| [CATGA_FRAMEWORK_COMPLETE.md](CATGA_FRAMEWORK_COMPLETE.md) | 框架完成报告 | 2025-10-05 |
+1. 学习 [CQRS 模式](docs/architecture/cqrs.md)
+2. 掌握 [Mediator API](docs/api/mediator.md)
+3. 理解 [Pipeline Behaviors](docs/guides/quick-start.md)
 
-### 技术分析
+#### 第 4-5 天: 分布式 (3小时)
 
-| 文档 | 说明 | 类型 |
-|------|------|------|
-| [PROJECT_ANALYSIS.md](PROJECT_ANALYSIS.md) | 项目分析 | 技术分析 |
-| [DOCUMENTATION_REVIEW.md](DOCUMENTATION_REVIEW.md) | 文档审查 | 文档质量 |
-| [MIGRATION_SUMMARY.md](MIGRATION_SUMMARY.md) | 迁移总结 | 迁移记录 |
-| [PULL_REQUEST_SUMMARY.md](PULL_REQUEST_SUMMARY.md) | PR 总结 | 代码审查 |
+1. 理解 [集群架构](docs/distributed/CLUSTER_ARCHITECTURE_ANALYSIS.md)
+2. 学习 [P2P 架构](docs/distributed/PEER_TO_PEER_ARCHITECTURE.md)
+3. 阅读 [部署指南](docs/distributed/DISTRIBUTED_CLUSTER_SUPPORT.md)
 
-### 规划文档
+#### 第 2 周: 高级特性 (4小时)
 
-| 文档 | 说明 | 状态 |
-|------|------|------|
-| [NEXT_STEPS.md](NEXT_STEPS.md) | 下一步计划 | 规划 |
-| [CHOOSE_YOUR_PATH.md](CHOOSE_YOUR_PATH.md) | 选择发展路径 | 规划 |
+1. 掌握 [Outbox/Inbox](docs/patterns/outbox-inbox.md)
+2. 学习 [可观测性](docs/observability/README.md)
+3. 理解 [性能优化](docs/performance/README.md)
+
+#### 第 3 周: 生产就绪 (按需)
+
+1. AOT 优化 - [Native AOT 指南](docs/aot/native-aot-guide.md)
+2. 性能调优 - [性能报告](docs/performance/PERFORMANCE_IMPROVEMENTS.md)
+3. 监控部署 - [可观测性指南](docs/observability/OBSERVABILITY_COMPLETE.md)
+
+---
+
+## 🎯 按场景查找
+
+### 我想...
+
+#### 快速上手
+→ [QUICK_START.md](QUICK_START.md)
+
+#### 了解集群能力
+→ [集群架构分析](docs/distributed/CLUSTER_ARCHITECTURE_ANALYSIS.md)
+
+#### 部署到生产环境
+→ [分布式部署指南](docs/distributed/DISTRIBUTED_CLUSTER_SUPPORT.md)
+
+#### 优化性能
+→ [性能优化报告](docs/performance/PERFORMANCE_IMPROVEMENTS.md)
+
+#### 确保消息可靠性
+→ [Outbox/Inbox 模式](docs/patterns/outbox-inbox.md)
+
+#### 监控服务健康
+→ [可观测性指南](docs/observability/README.md)
+
+#### 使用 Native AOT
+→ [Native AOT 指南](docs/aot/native-aot-guide.md)
+
+#### 贡献代码
+→ [贡献指南](CONTRIBUTING.md)
 
 ---
 
 ## 📊 文档统计
 
-### 按类型分类
+### 文档类型分布
 
 | 类型 | 数量 | 说明 |
 |------|------|------|
-| **核心文档** | 8 | 项目基础、架构、分布式 |
-| **用户文档** | 9 | 快速开始、API、架构、可观测性 |
-| **开发者文档** | 10 | 示例、组件、测试、贡献 |
-| **部署文档** | 5 | Docker、Kubernetes、测试 |
-| **历史文档** | 19 | 进展、完成、分析、规划 |
-| **总计** | **51** | 所有 Markdown 文档 |
+| **核心文档** | 3 | README, QUICK_START, ARCHITECTURE |
+| **架构文档** | 2 | overview, cqrs |
+| **API 文档** | 2 | mediator, messages |
+| **分布式文档** | 3 | 集群架构、P2P、部署指南 |
+| **性能文档** | 2 | 性能优化、AOT 报告 |
+| **可观测性** | 2 | 监控、追踪 |
+| **指南/示例** | 3 | quick-start, testing, basic-usage |
+| **项目管理** | 3 | 状态、结构、贡献指南 |
 
-### 按目录分类
-
-```
-根目录           28 个文档  (主要文档和历史记录)
-docs/            9 个文档   (用户指南和 API 文档)
-examples/        4 个文档   (示例项目说明)
-src/             3 个文档   (组件文档)
-benchmarks/      1 个文档   (性能测试)
-kubernetes/      1 个文档   (K8s 部署)
-```
-
-### 文档质量
-
-- ✅ **完整性**: 100% （覆盖所有功能）
-- ✅ **准确性**: 100% （所有代码示例已验证）
-- ✅ **一致性**: 100% （命名和术语统一）
-- ✅ **可导航**: 100% （清晰的索引和链接）
-- ✅ **可读性**: 95% （中英文混合，待优化）
+**总计**: ~20 个主要文档
 
 ---
 
-## 🔍 快速查找
+## 🔍 快速搜索
 
-### 按场景查找
+### 常见关键词
 
-| 场景 | 推荐文档 |
-|------|---------|
-| **我想快速上手** | [docs/guides/quick-start.md](docs/guides/quick-start.md) |
-| **我想了解架构** | [ARCHITECTURE.md](ARCHITECTURE.md) |
-| **我想看示例代码** | [examples/README.md](examples/README.md) |
-| **我想部署集群** | [examples/ClusterDemo/README.md](examples/ClusterDemo/README.md) |
-| **我想配置监控** | [docs/observability/README.md](docs/observability/README.md) |
-| **我想贡献代码** | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| **我想了解性能** | [PERFORMANCE_BENCHMARK_RESULTS.md](PERFORMANCE_BENCHMARK_RESULTS.md) |
-| **我想了解分布式** | [DISTRIBUTED_CLUSTER_SUPPORT.md](DISTRIBUTED_CLUSTER_SUPPORT.md) |
-
-### 按角色查找
-
-| 角色 | 推荐文档 |
-|------|---------|
-| **初学者** | README.md → quick-start.md → OrderApi |
-| **开发者** | API 文档 → 示例项目 → 组件文档 |
-| **架构师** | ARCHITECTURE.md → DISTRIBUTED_CLUSTER_SUPPORT.md |
-| **运维工程师** | ClusterDemo → Kubernetes → Observability |
-| **性能工程师** | BENCHMARK_GUIDE.md → OPTIMIZATION_SUMMARY.md |
-| **贡献者** | CONTRIBUTING.md → PROJECT_STRUCTURE.md |
+- **集群/分布式** → [分布式文档](docs/distributed/)
+- **性能** → [性能文档](docs/performance/)
+- **P2P/无主** → [P2P 架构](docs/distributed/PEER_TO_PEER_ARCHITECTURE.md)
+- **Outbox/Inbox** → [可靠性模式](docs/patterns/)
+- **AOT** → [AOT 文档](docs/aot/)
+- **监控** → [可观测性](docs/observability/)
+- **API** → [API 文档](docs/api/)
 
 ---
 
-## 📝 文档维护
+## 💡 文档维护
 
-### 活跃文档（经常更新）
+### 文档状态
 
-- ✅ README.md
-- ✅ docs/guides/quick-start.md
-- ✅ examples/ClusterDemo/README.md
-- ✅ CONTRIBUTING.md
+| 状态 | 说明 |
+|------|------|
+| ✅ **最新** | 内容准确，与代码同步 |
+| 🔄 **维护中** | 正在更新 |
+| 📦 **归档** | 历史参考，可能过时 |
 
-### 稳定文档（很少更新）
-
-- ✅ FRAMEWORK_DEFINITION.md
-- ✅ ARCHITECTURE.md
-- ✅ LICENSE
-
-### 历史文档（不再更新）
-
-- 📜 PHASE1_COMPLETED.md
-- 📜 PHASE2_TESTS_COMPLETED.md
-- 📜 PROJECT_COMPLETION_SUMMARY.md
-- 📜 所有 *_SUMMARY.md 文件
+**最后更新**: 2025-10-06
 
 ---
 
-## 🎯 文档改进计划
+## 🤝 文档贡献
 
-### 短期（已完成）
+发现文档问题或有改进建议？
 
-- ✅ 创建文档索引
-- ✅ 统一命名规范
-- ✅ 添加导航链接
-- ✅ 完善 API 文档
-
-### 中期（可选）
-
-- ⏳ 英文版文档
-- ⏳ 视频教程
-- ⏳ 交互式示例
-- ⏳ API 自动生成文档
-
-### 长期（可选）
-
-- ⏳ 独立文档网站
-- ⏳ 在线演示环境
-- ⏳ 社区贡献的文档
-- ⏳ 多语言支持
+1. 提交 [Issue](https://github.com/你的用户名/Catga/issues)
+2. 提交 [Pull Request](https://github.com/你的用户名/Catga/pulls)
+3. 参与 [Discussions](https://github.com/你的用户名/Catga/discussions)
 
 ---
 
 ## 📞 获取帮助
 
-### 在线资源
-
-- **GitHub Issues**: https://github.com/your-org/Catga/issues
-- **Discussions**: https://github.com/your-org/Catga/discussions
-- **Documentation**: 本索引文件
-
-### 联系方式
-
-- **Email**: catga@example.com
-- **Discord**: [Catga Community](#)
-- **Stack Overflow**: Tag `catga`
+- 📖 先查阅相关文档
+- 💬 在 [Discussions](https://github.com/你的用户名/Catga/discussions) 提问
+- 🐛 在 [Issues](https://github.com/你的用户名/Catga/issues) 报告 Bug
+- 📧 通过邮件联系维护者
 
 ---
 
-## 📄 许可证
-
-Catga 框架使用 MIT 许可证，详见 [LICENSE](LICENSE)。
-
----
-
-**文档索引更新时间**: 2025-10-05
-**文档总数**: 51 个
-**文档完整度**: ⭐⭐⭐⭐⭐ (100%)
-**维护状态**: ✅ 活跃维护
-
-**Happy Reading! 📚**
-
+**Catga 文档 - 帮助你构建高性能分布式应用！** 📚✨

@@ -210,12 +210,10 @@ public static class CatgaServiceCollectionExtensions
             services.AddHostedService(sp =>
             {
                 var store = sp.GetRequiredService<IOutboxStore>();
-                var mediator = sp.GetRequiredService<ICatgaMediator>();
                 var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<OutboxPublisher>>();
 
                 return new OutboxPublisher(
                     store,
-                    mediator,
                     logger,
                     options.PollingInterval,
                     options.BatchSize);

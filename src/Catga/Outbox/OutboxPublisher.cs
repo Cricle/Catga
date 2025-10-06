@@ -1,5 +1,3 @@
-using System.Text.Json;
-using Catga.Messages;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -12,20 +10,17 @@ namespace Catga.Outbox;
 public class OutboxPublisher : BackgroundService
 {
     private readonly IOutboxStore _outboxStore;
-    private readonly ICatgaMediator _mediator;
     private readonly ILogger<OutboxPublisher> _logger;
     private readonly TimeSpan _pollingInterval;
     private readonly int _batchSize;
 
     public OutboxPublisher(
         IOutboxStore outboxStore,
-        ICatgaMediator mediator,
         ILogger<OutboxPublisher> logger,
         TimeSpan? pollingInterval = null,
         int? batchSize = null)
     {
         _outboxStore = outboxStore;
-        _mediator = mediator;
         _logger = logger;
         _pollingInterval = pollingInterval ?? TimeSpan.FromSeconds(5);
         _batchSize = batchSize ?? 100;

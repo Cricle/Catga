@@ -98,7 +98,4 @@ public sealed class TokenBucketRateLimiter
     }
 }
 
-public class RateLimitExceededException : Exception
-{
-    public RateLimitExceededException(string message) : base(message) { }
-}
+public class RateLimitExceededException(string message) : Exception(message);

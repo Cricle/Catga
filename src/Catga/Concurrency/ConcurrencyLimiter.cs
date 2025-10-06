@@ -61,7 +61,4 @@ public sealed class ConcurrencyLimiter : IDisposable
     }
 }
 
-public class ConcurrencyLimitException : Exception
-{
-    public ConcurrencyLimitException(string message) : base(message) { }
-}
+public class ConcurrencyLimitException(string message) : Exception(message);

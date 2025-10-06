@@ -103,7 +103,4 @@ public enum CircuitState
     HalfOpen = 2
 }
 
-public class CircuitBreakerOpenException : Exception
-{
-    public CircuitBreakerOpenException(string message) : base(message) { }
-}
+public class CircuitBreakerOpenException(string message) : Exception(message);

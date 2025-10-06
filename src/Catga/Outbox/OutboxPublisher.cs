@@ -48,15 +48,7 @@ public class OutboxPublisher : BackgroundService
             }
 
             // 等待下一个轮询周期
-            try
-            {
-                await Task.Delay(_pollingInterval, stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                // 正常关闭
-                break;
-            }
+            await Task.Delay(_pollingInterval, stoppingToken).ConfigureAwait(false);
         }
 
         _logger.LogInformation("Outbox Publisher stopped");

@@ -186,7 +186,7 @@ public class KubernetesServiceDiscovery : IServiceDiscovery
             }
             catch (OperationCanceledException)
             {
-                // 正常取消
+                // 正常取消，不处理
             }
             catch (Exception ex)
             {

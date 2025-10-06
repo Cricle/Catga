@@ -136,16 +136,16 @@ public class NatsMessageTransport : IMessageTransport
 {
     private readonly INatsConnection _connection;
     private readonly IMessageSerializer _serializer;
-    
+
     public string Name => "NATS";
-    
+
     public async Task PublishAsync<TMessage>(TMessage message, ...)
     {
         var subject = GetSubject<TMessage>();
         var payload = _serializer.Serialize(message);
         await _connection.PublishAsync(subject, payload, ...);
     }
-    
+
     // ... 其他方法
 }
 ```
@@ -157,9 +157,9 @@ public class RedisMessageTransport : IMessageTransport
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly IMessageSerializer _serializer;
-    
+
     public string Name => "Redis";
-    
+
     public async Task PublishAsync<TMessage>(TMessage message, ...)
     {
         var channel = GetChannel<TMessage>();
@@ -167,7 +167,7 @@ public class RedisMessageTransport : IMessageTransport
         var subscriber = _redis.GetSubscriber();
         await subscriber.PublishAsync(channel, payload);
     }
-    
+
     // ... 其他方法
 }
 ```
@@ -182,7 +182,7 @@ public class RedisOutboxPersistence : IOutboxStore
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly IMessageSerializer _serializer;
-    
+
     // 使用 Redis SortedSet + Hash 实现
     // ...
 }
@@ -192,7 +192,7 @@ public class RedisInboxPersistence : IInboxStore
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly IMessageSerializer _serializer;
-    
+
     // 使用 Redis String + TTL 实现
     // ...
 }
@@ -221,21 +221,21 @@ public class SqlInboxPersistence : IInboxStore
 ```csharp
 services.AddCatga()
     // 传输层：NATS
-    .AddNatsTransport(options => 
+    .AddNatsTransport(options =>
     {
         options.SubjectPrefix = "my-app";
     })
-    
+
     // 存储层：Redis
-    .AddRedisOutboxPersistence(options => 
+    .AddRedisOutboxPersistence(options =>
     {
         options.KeyPrefix = "outbox";
     })
-    .AddRedisInboxPersistence(options => 
+    .AddRedisInboxPersistence(options =>
     {
         options.KeyPrefix = "inbox";
     })
-    
+
     // 序列化：MemoryPack
     .AddMessageSerializer<MemoryPackMessageSerializer>();
 ```
@@ -250,7 +250,7 @@ services.AddCatga()
         configureOutbox: opt => opt.KeyPrefix = "outbox",
         configureInbox: opt => opt.KeyPrefix = "inbox"
     )
-    
+
     // 序列化：JSON
     .AddMessageSerializer<JsonMessageSerializer>();
 ```
@@ -261,7 +261,7 @@ services.AddCatga()
 services.AddCatga()
     // 传输层：内存（仅测试用）
     .AddInMemoryTransport()
-    
+
     // 存储层：Redis（生产级可靠性）
     .AddRedisOutboxPersistence()
     .AddRedisInboxPersistence();

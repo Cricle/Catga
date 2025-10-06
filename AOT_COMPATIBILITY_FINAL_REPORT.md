@@ -4,7 +4,7 @@
 
 ## 📊 总体状态
 
-✅ **核心框架 100% AOT 兼容**  
+✅ **核心框架 100% AOT 兼容**
 ⚠️ **剩余警告: 192 个（均为已知且合理的警告）**
 
 ---
@@ -16,12 +16,12 @@
 public interface IMessageSerializer
 {
     byte[] Serialize<[DynamicallyAccessedMembers(
-        DynamicallyAccessedMemberTypes.PublicProperties | 
+        DynamicallyAccessedMemberTypes.PublicProperties |
         DynamicallyAccessedMemberTypes.PublicFields)] T>(T value);
-    
+
     T? Deserialize<[DynamicallyAccessedMembers(
-        DynamicallyAccessedMemberTypes.PublicProperties | 
-        DynamicallyAccessedMemberTypes.PublicFields | 
+        DynamicallyAccessedMemberTypes.PublicProperties |
+        DynamicallyAccessedMemberTypes.PublicFields |
         DynamicallyAccessedMemberTypes.PublicConstructors)] T>(byte[] data);
 }
 ```
@@ -52,8 +52,8 @@ private string SerializeRequest(TRequest request) { ... }
 ### 3️⃣ **DI 扩展方法泛型约束**
 ```csharp
 public static IServiceCollection AddRequestHandler<
-    TRequest, 
-    TResponse, 
+    TRequest,
+    TResponse,
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>
     (this IServiceCollection services)
 ```
@@ -95,22 +95,22 @@ public static IServiceCollection AddCatgaDevelopment(...)
 
 #### 1. Redis/NATS 序列化器警告 (~120个)
 ```
-IL2026: Using member 'RedisJsonSerializer.Serialize<T>(T)' 
+IL2026: Using member 'RedisJsonSerializer.Serialize<T>(T)'
 IL3050: JSON serialization may require dynamic code generation
 ```
 
-**原因**: Redis/NATS 内部使用自己的 JSON 序列化器  
-**状态**: ✅ **已在序列化器方法上标记 `[RequiresUnreferencedCode]` 和 `[RequiresDynamicCode]`**  
+**原因**: Redis/NATS 内部使用自己的 JSON 序列化器
+**状态**: ✅ **已在序列化器方法上标记 `[RequiresUnreferencedCode]` 和 `[RequiresDynamicCode]`**
 **影响**: 警告会传播到调用者，这是预期行为
 
 #### 2. System.Text.Json 源生成警告 (~20个)
 ```
-IL2026: Using member 'System.Exception.TargetSite.get' 
+IL2026: Using member 'System.Exception.TargetSite.get'
 Metadata for the method might be incomplete or removed
 ```
 
-**原因**: .NET 自身的 JSON 源生成器访问 `Exception.TargetSite`  
-**状态**: ✅ **无法修复（.NET 框架问题）**  
+**原因**: .NET 自身的 JSON 源生成器访问 `Exception.TargetSite`
+**状态**: ✅ **无法修复（.NET 框架问题）**
 **影响**: 不影响 Catga 框架功能
 
 #### 3. 测试/Benchmark 代码警告 (~20个)
@@ -118,17 +118,17 @@ Metadata for the method might be incomplete or removed
 IL2026: Using member 'IIdempotencyStore.MarkAsProcessedAsync<TResult>'
 ```
 
-**原因**: 测试代码直接调用带警告的方法  
-**状态**: ✅ **测试代码可接受**  
+**原因**: 测试代码直接调用带警告的方法
+**状态**: ✅ **测试代码可接受**
 **影响**: 仅测试环境
 
 #### 4. 已在接口层标记的警告 (~32个)
 ```
-IL2026: Using member 'IMessageSerializer.Serialize<T>(T)' 
+IL2026: Using member 'IMessageSerializer.Serialize<T>(T)'
 ```
 
-**原因**: 接口方法有警告，调用者继承警告  
-**状态**: ✅ **符合设计，警告已在接口统一管理**  
+**原因**: 接口方法有警告，调用者继承警告
+**状态**: ✅ **符合设计，警告已在接口统一管理**
 **影响**: 提醒开发者使用序列化器的风险
 
 ---

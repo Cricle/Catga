@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using Catga.Outbox;
 using Catga.Serialization;
 
@@ -18,6 +19,8 @@ public class NatsOutboxStore : IOutboxStore
         _serializer = serializer;
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public Task AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
     {
         if (message == null) throw new ArgumentNullException(nameof(message));
@@ -29,6 +32,8 @@ public class NatsOutboxStore : IOutboxStore
         return Task.CompletedTask;
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
         int maxCount = 100,
         CancellationToken cancellationToken = default)

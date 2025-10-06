@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using Catga.Inbox;
 using Catga.Serialization;
 
@@ -18,6 +19,8 @@ public class NatsInboxStore : IInboxStore
         _serializer = serializer;
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public Task<bool> TryLockMessageAsync(
         string messageId,
         TimeSpan lockDuration,
@@ -67,6 +70,8 @@ public class NatsInboxStore : IInboxStore
         return Task.FromResult(true);
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public Task MarkAsProcessedAsync(
         InboxMessage message,
         CancellationToken cancellationToken = default)
@@ -106,6 +111,8 @@ public class NatsInboxStore : IInboxStore
         return Task.CompletedTask;
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public Task<bool> HasBeenProcessedAsync(
         string messageId,
         CancellationToken cancellationToken = default)
@@ -119,6 +126,8 @@ public class NatsInboxStore : IInboxStore
         return Task.FromResult(false);
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public Task<string?> GetProcessedResultAsync(
         string messageId,
         CancellationToken cancellationToken = default)
@@ -132,6 +141,8 @@ public class NatsInboxStore : IInboxStore
         return Task.FromResult<string?>(null);
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public Task ReleaseLockAsync(
         string messageId,
         CancellationToken cancellationToken = default)

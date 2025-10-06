@@ -28,6 +28,8 @@ public class NatsIdempotencyStore : IIdempotencyStore
 
     [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
     [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在方法签名上标记")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在方法签名上标记")]
     public Task MarkAsProcessedAsync<TResult>(
         string messageId,
         TResult? result = default,
@@ -47,6 +49,8 @@ public class NatsIdempotencyStore : IIdempotencyStore
 
     [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
     [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在方法签名上标记")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在方法签名上标记")]
     public Task<TResult?> GetCachedResultAsync<TResult>(
         string messageId,
         CancellationToken cancellationToken = default)

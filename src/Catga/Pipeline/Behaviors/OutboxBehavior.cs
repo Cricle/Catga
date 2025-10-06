@@ -99,6 +99,8 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
 
     [RequiresUnreferencedCode("使用 JsonSerializer 可能需要无法静态分析的类型")]
     [RequiresDynamicCode("使用 JsonSerializer 可能需要运行时代码生成")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在接口层标记")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在接口层标记")]
     private string SerializeRequest(TRequest request)
     {
         if (_serializer != null)

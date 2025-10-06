@@ -16,7 +16,7 @@ Catga 现在提供 **双路径 AOT 支持**：
 
 ### 1️⃣ **序列化器抽象支持**
 
-**问题**: `OutboxBehavior` 和 `InboxBehavior` 直接使用 `JsonSerializer`  
+**问题**: `OutboxBehavior` 和 `InboxBehavior` 直接使用 `JsonSerializer`
 **解决方案**: 支持 `IMessageSerializer` 接口
 
 ```csharp
@@ -37,7 +37,7 @@ return JsonSerializer.Serialize(request);
 
 ### 2️⃣ **IdempotencyBehavior 警告属性**
 
-**问题**: 实现方法与接口方法的警告属性不匹配  
+**问题**: 实现方法与接口方法的警告属性不匹配
 **解决方案**: 移除实现方法上的重复属性
 
 ```csharp
@@ -54,7 +54,7 @@ public async ValueTask<CatgaResult<TResponse>> HandleAsync(...)
 
 ### 3️⃣ **反射扫描标记**
 
-**问题**: `CatgaBuilder` 使用反射但未标记  
+**问题**: `CatgaBuilder` 使用反射但未标记
 **解决方案**: 添加明确的警告属性
 
 ```csharp
@@ -77,13 +77,13 @@ public static IServiceCollection AddCatgaProduction(...)
 
 ### 4️⃣ **ServiceCollection 辅助方法**
 
-**问题**: 反射访问私有字段的警告  
+**问题**: 反射访问私有字段的警告
 **解决方案**: 使用 `UnconditionalSuppressMessage` 抑制已知安全的警告
 
 ```csharp
 [RequiresUnreferencedCode("使用反射访问私有字段")]
 [RequiresDynamicCode("可能需要动态代码生成")]
-[UnconditionalSuppressMessage("Trimming", "IL2075", 
+[UnconditionalSuppressMessage("Trimming", "IL2075",
     Justification = "访问 CatgaBuilder 的已知私有字段")]
 private static IServiceCollection ServiceCollection(this CatgaBuilder builder)
 ```

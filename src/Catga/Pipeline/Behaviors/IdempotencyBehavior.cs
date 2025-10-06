@@ -25,6 +25,8 @@ public class IdempotencyBehavior<TRequest, TResponse> : IPipelineBehavior<TReque
     /// 🔥 优化: 使用 ValueTask 减少堆分配
     /// 注意: 序列化警告在 IIdempotencyStore 接口方法上标记
     /// </summary>
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IIdempotencyStore 接口上标记")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IIdempotencyStore 接口上标记")]
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,

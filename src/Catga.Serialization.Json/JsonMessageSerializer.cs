@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using Catga.Serialization;
@@ -17,13 +18,17 @@ public class JsonMessageSerializer : IMessageSerializer
 
     public string Name => "JSON";
 
-    public byte[] Serialize<T>(T value)
+    [RequiresUnreferencedCode("序列化可能需要无法静态分析的类型")]
+    [RequiresDynamicCode("序列化可能需要运行时代码生成")]
+    public byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(T value)
     {
         var json = JsonSerializer.Serialize(value, _options);
         return Encoding.UTF8.GetBytes(json);
     }
 
-    public T? Deserialize<T>(byte[] data)
+    [RequiresUnreferencedCode("反序列化可能需要无法静态分析的类型")]
+    [RequiresDynamicCode("反序列化可能需要运行时代码生成")]
+    public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(byte[] data)
     {
         var json = Encoding.UTF8.GetString(data);
         return JsonSerializer.Deserialize<T>(json, _options);

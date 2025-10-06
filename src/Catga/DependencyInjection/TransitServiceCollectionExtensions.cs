@@ -146,7 +146,7 @@ public static class CatgaServiceCollectionExtensions
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "访问 CatgaBuilder 的已知私有字段")]
     private static IServiceCollection ServiceCollection(this CatgaBuilder builder)
     {
-        return builder.GetType().GetField("_services", 
+        return builder.GetType().GetField("_services",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
             ?.GetValue(builder) as IServiceCollection ?? throw new InvalidOperationException();
     }

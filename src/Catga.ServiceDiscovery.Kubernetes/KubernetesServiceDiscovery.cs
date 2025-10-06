@@ -134,8 +134,8 @@ public class KubernetesServiceDiscovery : IServiceDiscovery
     {
         var channel = Channel.CreateUnbounded<ServiceChangeEvent>();
 
-        // 启动 Watch 任务
-        _ = Task.Run(async () =>
+        // 启动 Watch 任务 - 使用 LongRunning 避免线程池阻塞
+        _ = Task.Factory.StartNew(async () =>
         {
             try
             {
@@ -196,7 +196,7 @@ public class KubernetesServiceDiscovery : IServiceDiscovery
             {
                 channel.Writer.Complete();
             }
-        }, cancellationToken);
+        }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
         // 读取事件
         await foreach (var change in channel.Reader.ReadAllAsync(cancellationToken))

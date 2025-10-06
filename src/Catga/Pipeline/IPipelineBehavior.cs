@@ -5,23 +5,35 @@ namespace Catga.Pipeline;
 
 /// <summary>
 /// Pipeline behavior for requests with response
+/// 🔥 优化: 使用 ValueTask 减少堆分配
 /// </summary>
 public interface IPipelineBehavior<in TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
-    Task<CatgaResult<TResponse>> HandleAsync(
+    ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
-        Func<Task<CatgaResult<TResponse>>> next,
+        PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default);
 }
 
 /// <summary>
 /// Pipeline behavior for requests without response
+/// 🔥 优化: 使用 ValueTask 减少堆分配
 /// </summary>
 public interface IPipelineBehavior<in TRequest> where TRequest : IRequest
 {
-    Task<CatgaResult> HandleAsync(
+    ValueTask<CatgaResult> HandleAsync(
         TRequest request,
-        Func<Task<CatgaResult>> next,
+        PipelineDelegate next,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Pipeline delegate - 优化的委托类型
+/// </summary>
+public delegate ValueTask<CatgaResult<TResponse>> PipelineDelegate<TResponse>();
+
+/// <summary>
+/// Pipeline delegate without response
+/// </summary>
+public delegate ValueTask<CatgaResult> PipelineDelegate();
 

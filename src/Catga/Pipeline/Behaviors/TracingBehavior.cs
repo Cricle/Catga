@@ -13,9 +13,9 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
 {
     private static readonly ActivitySource ActivitySource = new("Catga", "1.0.0");
 
-    public async Task<CatgaResult<TResponse>> HandleAsync(
+    public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
-        Func<Task<CatgaResult<TResponse>>> next,
+        PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default)
     {
         var requestType = typeof(TRequest).Name;

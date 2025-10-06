@@ -22,9 +22,9 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
         _logger = logger;
     }
 
-    public async Task<CatgaResult<TResponse>> HandleAsync(
+    public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
-        Func<Task<CatgaResult<TResponse>>> next,
+        PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default)
     {
         // 简化验证 - 避免不必要的集合操作

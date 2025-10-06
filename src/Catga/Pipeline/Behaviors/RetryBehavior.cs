@@ -43,9 +43,12 @@ public class RetryBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
             .Build();
     }
 
-    public async Task<CatgaResult<TResponse>> HandleAsync(
+    /// <summary>
+    /// 🔥 优化: 使用 ValueTask 减少堆分配
+    /// </summary>
+    public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
-        Func<Task<CatgaResult<TResponse>>> next,
+        PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default)
     {
         try

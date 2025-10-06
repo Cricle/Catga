@@ -11,7 +11,7 @@ public interface ICatgaMediator
     /// <summary>
     /// Send a request and wait for response (AOT-compatible with explicit type parameters)
     /// </summary>
-    Task<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
+    ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>;

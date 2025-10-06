@@ -49,7 +49,11 @@ public class CatgaMediator : ICatgaMediator, IDisposable
                 options.RateLimitRequestsPerSecond);
     }
 
-    public async Task<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
+    /// <summary>
+    /// 🔥 优化: 使用 ValueTask 减少堆分配
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>
@@ -64,7 +68,7 @@ public class CatgaMediator : ICatgaMediator, IDisposable
             try
             {
                 return await _concurrencyLimiter.ExecuteAsync(
-                    () => ProcessRequestWithCircuitBreaker<TRequest, TResponse>(request, cancellationToken),
+                    () => ProcessRequestWithCircuitBreaker<TRequest, TResponse>(request, cancellationToken).AsTask(),
                     TimeSpan.FromSeconds(5), cancellationToken);
             }
             catch (ConcurrencyLimitException ex)
@@ -76,7 +80,8 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         return await ProcessRequestWithCircuitBreaker<TRequest, TResponse>(request, cancellationToken);
     }
 
-    private async Task<CatgaResult<TResponse>> ProcessRequestWithCircuitBreaker<TRequest, TResponse>(
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private async ValueTask<CatgaResult<TResponse>> ProcessRequestWithCircuitBreaker<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken)
         where TRequest : IRequest<TResponse>
@@ -87,7 +92,7 @@ public class CatgaMediator : ICatgaMediator, IDisposable
             try
             {
                 return await _circuitBreaker.ExecuteAsync(() =>
-                    ProcessRequestAsync<TRequest, TResponse>(request, cancellationToken));
+                    ProcessRequestAsync<TRequest, TResponse>(request, cancellationToken).AsTask());
             }
             catch (CircuitBreakerOpenException)
             {
@@ -98,7 +103,8 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         return await ProcessRequestAsync<TRequest, TResponse>(request, cancellationToken);
     }
 
-    private async Task<CatgaResult<TResponse>> ProcessRequestAsync<TRequest, TResponse>(
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private async ValueTask<CatgaResult<TResponse>> ProcessRequestAsync<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken)
         where TRequest : IRequest<TResponse>
@@ -113,28 +119,12 @@ public class CatgaMediator : ICatgaMediator, IDisposable
                 new HandlerNotFoundException(typeof(TRequest).Name));
         }
 
-        // 🔥 优化: 使用 Span<T> 减少数组分配，提升性能
+        // 🔥 优化: 使用优化的 PipelineExecutor，减少闭包和委托分配
         var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-
-        // 🔥 优化: 快速路径 - 如果没有 behaviors，直接执行 handler
         var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToList();
-        if (behaviorsList.Count == 0)
-        {
-            return await handler.HandleAsync(request, cancellationToken);
-        }
 
-        // 构建 pipeline
-        Func<Task<CatgaResult<TResponse>>> pipeline = () => handler.HandleAsync(request, cancellationToken);
-
-        // 反向构建管道，避免闭包分配
-        for (int i = behaviorsList.Count - 1; i >= 0; i--)
-        {
-            var behavior = behaviorsList[i];
-            var currentPipeline = pipeline;
-            pipeline = () => behavior.HandleAsync(request, currentPipeline, cancellationToken);
-        }
-
-        return await pipeline();
+        // 使用优化的 Pipeline 执行器
+        return await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
     }
 
     public async Task<CatgaResult> SendAsync<TRequest>(

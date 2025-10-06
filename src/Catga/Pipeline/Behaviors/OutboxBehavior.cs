@@ -24,9 +24,9 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
         _outboxStore = outboxStore;
     }
 
-    public async Task<CatgaResult<TResponse>> HandleAsync(
+    public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
-        Func<Task<CatgaResult<TResponse>>> next,
+        PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default)
     {
         // 如果没有配置 outbox store，直接跳过

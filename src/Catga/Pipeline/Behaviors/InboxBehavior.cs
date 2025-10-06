@@ -27,9 +27,9 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
         _lockDuration = lockDuration ?? TimeSpan.FromMinutes(5);
     }
 
-    public async Task<CatgaResult<TResponse>> HandleAsync(
+    public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
-        Func<Task<CatgaResult<TResponse>>> next,
+        PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default)
     {
         // 如果没有配置 inbox store，直接执行

@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace Catga.Transport;
 
 /// <summary>
-/// 内存消息传输 - 用于测试和本地开发
+/// In-memory message transport - for testing and local development
 /// </summary>
 public class InMemoryMessageTransport : IMessageTransport
 {
@@ -12,8 +12,8 @@ public class InMemoryMessageTransport : IMessageTransport
 
     public string Name => "InMemory";
 
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
+    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         TMessage message,
         TransportContext? context = null,
@@ -31,15 +31,19 @@ public class InMemoryMessageTransport : IMessageTransport
             SentAt = DateTime.UtcNow
         };
 
-        var tasks = handlers
-            .Cast<Func<TMessage, TransportContext, Task>>()
-            .Select(handler => handler(message, context));
+        // Avoid LINQ allocations - use direct array
+        var tasks = new Task[handlers.Count];
+        for (int i = 0; i < handlers.Count; i++)
+        {
+            var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
+            tasks[i] = handler(message, context);
+        }
 
         await Task.WhenAll(tasks);
     }
 
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
+    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         TMessage message,
         string destination,
@@ -47,11 +51,13 @@ public class InMemoryMessageTransport : IMessageTransport
         CancellationToken cancellationToken = default)
         where TMessage : class
     {
-        // 对于内存传输，Send 和 Publish 行为一致
+        // For in-memory transport, Send and Publish behave the same
         return PublishAsync(message, context, cancellationToken);
     }
 
-    public Task SubscribeAsync<TMessage>(
+    [RequiresUnreferencedCode("Message deserialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Message deserialization may require runtime code generation")]
+    public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] TMessage>(
         Func<TMessage, TransportContext, Task> handler,
         CancellationToken cancellationToken = default)
         where TMessage : class

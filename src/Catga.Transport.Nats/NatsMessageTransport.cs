@@ -96,7 +96,14 @@ public class NatsMessageTransport : IMessageTransport
         {
             try
             {
-                // 反序列化消息
+                // Validate message data
+                if (msg.Data == null || msg.Data.Length == 0)
+                {
+                    _logger.LogWarning("Received empty message from subject {Subject}", subject);
+                    continue;
+                }
+
+                // Deserialize message
                 var message = _serializer.Deserialize<TMessage>(msg.Data);
                 if (message == null)
                 {

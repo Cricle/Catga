@@ -28,14 +28,14 @@ public interface IMessageSerializer
     [RequiresUnreferencedCode("序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("序列化可能需要运行时代码生成")]
     byte[] Serialize<[DynamicallyAccessedMembers(
-        DynamicallyAccessedMemberTypes.PublicProperties | 
+        DynamicallyAccessedMemberTypes.PublicProperties |
         DynamicallyAccessedMemberTypes.PublicFields)] T>(T value);
-    
+
     [RequiresUnreferencedCode("反序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("反序列化可能需要运行时代码生成")]
     T? Deserialize<[DynamicallyAccessedMembers(
-        DynamicallyAccessedMemberTypes.PublicProperties | 
-        DynamicallyAccessedMemberTypes.PublicFields | 
+        DynamicallyAccessedMemberTypes.PublicProperties |
+        DynamicallyAccessedMemberTypes.PublicFields |
         DynamicallyAccessedMemberTypes.PublicConstructors)] T>(byte[] data);
 }
 ```
@@ -115,8 +115,8 @@ public Task<TResult?> GetCachedResultAsync<TResult>(...)
 #### **明确的构造函数约束**
 ```csharp
 public static IServiceCollection AddRequestHandler<
-    TRequest, 
-    TResponse, 
+    TRequest,
+    TResponse,
     [DynamicallyAccessedMembers(
         DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>
     (this IServiceCollection services)
@@ -173,20 +173,20 @@ public static IServiceCollection AddCatgaDevelopment(...)
 ### **详细说明**
 
 #### 1. NATS/Redis 内部序列化器 (~80个)
-**警告**: `IL2026`, `IL3050` - 序列化方法使用  
-**原因**: 内部 JSON 序列化器方法已标记警告属性  
-**状态**: ✅ **预期行为，警告传播正常**  
+**警告**: `IL2026`, `IL3050` - 序列化方法使用
+**原因**: 内部 JSON 序列化器方法已标记警告属性
+**状态**: ✅ **预期行为，警告传播正常**
 **影响**: 提醒开发者序列化器的 AOT 限制
 
 #### 2. .NET 框架警告 (~16个)
-**警告**: `IL2026` - `Exception.TargetSite.get`  
-**原因**: .NET 自身的 JSON 源生成器访问反射 API  
-**状态**: ✅ **无法修复（.NET 框架限制）**  
+**警告**: `IL2026` - `Exception.TargetSite.get`
+**原因**: .NET 自身的 JSON 源生成器访问反射 API
+**状态**: ✅ **无法修复（.NET 框架限制）**
 **影响**: 不影响 Catga 功能
 
 #### 3. 测试/Benchmark 代码 (~20个)
-**警告**: 直接调用带警告的方法  
-**状态**: ✅ **仅测试环境，完全可接受**  
+**警告**: 直接调用带警告的方法
+**状态**: ✅ **仅测试环境，完全可接受**
 **影响**: 无
 
 ---

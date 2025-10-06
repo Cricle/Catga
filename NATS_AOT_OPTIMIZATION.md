@@ -24,19 +24,19 @@ public interface IMessageSerializer
     [RequiresUnreferencedCode("...")]
     [RequiresDynamicCode("...")]
     byte[] Serialize<[DynamicallyAccessedMembers(
-        DynamicallyAccessedMemberTypes.PublicProperties | 
+        DynamicallyAccessedMemberTypes.PublicProperties |
         DynamicallyAccessedMemberTypes.PublicFields)] T>(T value);
-    
+
     [RequiresUnreferencedCode("...")]
     [RequiresDynamicCode("...")]
     T? Deserialize<[DynamicallyAccessedMembers(
-        DynamicallyAccessedMemberTypes.PublicProperties | 
-        DynamicallyAccessedMemberTypes.PublicFields | 
+        DynamicallyAccessedMemberTypes.PublicProperties |
+        DynamicallyAccessedMemberTypes.PublicFields |
         DynamicallyAccessedMemberTypes.PublicConstructors)] T>(byte[] data);
 }
 ```
 
-**效果**: 
+**效果**:
 - ✅ 明确声明动态访问的成员类型
 - ✅ AOT 裁剪器保留必要元数据
 - ✅ 类型安全的序列化/反序列化
@@ -111,21 +111,21 @@ private string SerializeRequest(TRequest request) { ... }
 
 #### 1. NATS/Redis 内部序列化器 (~80个)
 ```
-IL2026: Using member 'NatsJsonSerializer.Serialize<T>(T)' 
+IL2026: Using member 'NatsJsonSerializer.Serialize<T>(T)'
 IL3050: JSON serialization may require dynamic code generation
 ```
 
-**原因**: NATS/Redis 内部使用自己的 JSON 序列化器  
-**状态**: ✅ **序列化器方法已标记警告属性**  
+**原因**: NATS/Redis 内部使用自己的 JSON 序列化器
+**状态**: ✅ **序列化器方法已标记警告属性**
 **影响**: 警告传播是预期行为
 
 #### 2. .NET 框架警告 (~16个)
 ```
-IL2026: Using member 'System.Exception.TargetSite.get' 
+IL2026: Using member 'System.Exception.TargetSite.get'
 ```
 
-**原因**: .NET 自身的 JSON 源生成器  
-**状态**: ✅ **无法修复（框架限制）**  
+**原因**: .NET 自身的 JSON 源生成器
+**状态**: ✅ **无法修复（框架限制）**
 **影响**: 不影响框架功能
 
 #### 3. 测试代码 (~20个)
@@ -155,13 +155,13 @@ IL2026: Using member 'System.Exception.TargetSite.get'
 ```csharp
 // Serialize - 需要读取属性
 [DynamicallyAccessedMembers(
-    DynamicallyAccessedMemberTypes.PublicProperties | 
+    DynamicallyAccessedMemberTypes.PublicProperties |
     DynamicallyAccessedMemberTypes.PublicFields)]
 
 // Deserialize - 需要构造和写入属性
 [DynamicallyAccessedMembers(
-    DynamicallyAccessedMemberTypes.PublicProperties | 
-    DynamicallyAccessedMemberTypes.PublicFields | 
+    DynamicallyAccessedMemberTypes.PublicProperties |
+    DynamicallyAccessedMemberTypes.PublicFields |
     DynamicallyAccessedMemberTypes.PublicConstructors)]
 ```
 

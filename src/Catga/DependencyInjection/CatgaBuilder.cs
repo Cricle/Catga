@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Catga.Configuration;
 using Catga.Handlers;
@@ -67,8 +68,10 @@ public class CatgaBuilder
     }
 
     /// <summary>
-    /// 📦 启用 Outbox 模式（可靠消息投递）
+    /// Enable Outbox pattern (reliable message delivery)
     /// </summary>
+    [RequiresUnreferencedCode("Outbox requires serialization. Use AOT-friendly serializer in production")]
+    [RequiresDynamicCode("Outbox requires serialization. Use AOT-friendly serializer in production")]
     public CatgaBuilder WithOutbox(Action<OutboxOptions>? configure = null)
     {
         _services.AddOutbox(configure);
@@ -76,8 +79,10 @@ public class CatgaBuilder
     }
 
     /// <summary>
-    /// 📥 启用 Inbox 模式（幂等处理）
+    /// Enable Inbox pattern (idempotent processing)
     /// </summary>
+    [RequiresUnreferencedCode("Inbox requires serialization. Use AOT-friendly serializer in production")]
+    [RequiresDynamicCode("Inbox requires serialization. Use AOT-friendly serializer in production")]
     public CatgaBuilder WithInbox(Action<InboxOptions>? configure = null)
     {
         _services.AddInbox(configure);

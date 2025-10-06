@@ -85,7 +85,9 @@ public class RedisMessageTransport : IMessageTransport
         return PublishAsync(message, context, cancellationToken);
     }
 
-    public Task SubscribeAsync<TMessage>(
+    [RequiresUnreferencedCode("Message deserialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Message deserialization may require runtime code generation")]
+    public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] TMessage>(
         Func<TMessage, TransportContext, Task> handler,
         CancellationToken cancellationToken = default)
         where TMessage : class

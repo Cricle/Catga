@@ -84,7 +84,9 @@ public class NatsMessageTransport : IMessageTransport
         return PublishAsync(message, context, cancellationToken);
     }
 
-    public async Task SubscribeAsync<TMessage>(
+    [RequiresUnreferencedCode("Message deserialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Message deserialization may require runtime code generation")]
+    public async Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] TMessage>(
         Func<TMessage, TransportContext, Task> handler,
         CancellationToken cancellationToken = default)
         where TMessage : class

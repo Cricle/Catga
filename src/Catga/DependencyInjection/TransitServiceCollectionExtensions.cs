@@ -188,9 +188,11 @@ public static class CatgaServiceCollectionExtensions
     }
 
     /// <summary>
-    /// 添加 Outbox 模式支持（内存版本）
-    /// 确保消息发送的可靠性
+    /// Add Outbox pattern support (in-memory version)
+    /// Ensures reliable message delivery
     /// </summary>
+    [RequiresUnreferencedCode("Outbox behavior requires serialization support. Use AOT-friendly serializer like MemoryPack in production")]
+    [RequiresDynamicCode("Outbox behavior requires serialization support. Use AOT-friendly serializer like MemoryPack in production")]
     public static IServiceCollection AddOutbox(
         this IServiceCollection services,
         Action<OutboxOptions>? configureOptions = null)
@@ -201,7 +203,7 @@ public static class CatgaServiceCollectionExtensions
         services.AddSingleton(options);
         services.TryAddSingleton<IOutboxStore, MemoryOutboxStore>();
 
-        // 添加 Outbox Behavior
+        // Add Outbox Behavior
         services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(OutboxBehavior<,>));
 
         // 添加 Outbox Publisher 后台服务
@@ -224,9 +226,11 @@ public static class CatgaServiceCollectionExtensions
     }
 
     /// <summary>
-    /// 添加 Inbox 模式支持（内存版本）
-    /// 确保消息处理的幂等性
+    /// Add Inbox pattern support (in-memory version)
+    /// Ensures message processing idempotency
     /// </summary>
+    [RequiresUnreferencedCode("Inbox behavior requires serialization support. Use AOT-friendly serializer like MemoryPack in production")]
+    [RequiresDynamicCode("Inbox behavior requires serialization support. Use AOT-friendly serializer like MemoryPack in production")]
     public static IServiceCollection AddInbox(
         this IServiceCollection services,
         Action<InboxOptions>? configureOptions = null)
@@ -237,7 +241,7 @@ public static class CatgaServiceCollectionExtensions
         services.AddSingleton(options);
         services.TryAddSingleton<IInboxStore, MemoryInboxStore>();
 
-        // 添加 Inbox Behavior
+        // Add Inbox Behavior
         services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(InboxBehavior<,>));
 
         return services;

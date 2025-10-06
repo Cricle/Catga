@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.CatGa.Core;
 using Catga.CatGa.Models;
 using Catga.CatGa.Policies;
@@ -75,7 +76,7 @@ public static class CatGaServiceCollectionExtensions
     /// <summary>
     /// 注册 CatGa 事务处理器
     /// </summary>
-    public static IServiceCollection AddCatGaTransaction<TRequest, TResponse, TTransaction>(
+    public static IServiceCollection AddCatGaTransaction<TRequest, TResponse, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TTransaction>(
         this IServiceCollection services)
         where TTransaction : class, ICatGaTransaction<TRequest, TResponse>
     {
@@ -86,7 +87,7 @@ public static class CatGaServiceCollectionExtensions
     /// <summary>
     /// 注册 CatGa 事务处理器（无返回值）
     /// </summary>
-    public static IServiceCollection AddCatGaTransaction<TRequest, TTransaction>(
+    public static IServiceCollection AddCatGaTransaction<TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TTransaction>(
         this IServiceCollection services)
         where TTransaction : class, ICatGaTransaction<TRequest>
     {
@@ -97,7 +98,7 @@ public static class CatGaServiceCollectionExtensions
     /// <summary>
     /// 使用自定义仓储（替换默认内存仓储）
     /// </summary>
-    public static IServiceCollection AddCatGaRepository<TRepository>(
+    public static IServiceCollection AddCatGaRepository<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRepository>(
         this IServiceCollection services)
         where TRepository : class, ICatGaRepository
     {
@@ -108,7 +109,7 @@ public static class CatGaServiceCollectionExtensions
     /// <summary>
     /// 使用自定义传输（替换默认本地传输）
     /// </summary>
-    public static IServiceCollection AddCatGaTransport<TTransport>(
+    public static IServiceCollection AddCatGaTransport<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TTransport>(
         this IServiceCollection services)
         where TTransport : class, ICatGaTransport
     {
@@ -119,7 +120,7 @@ public static class CatGaServiceCollectionExtensions
     /// <summary>
     /// 使用自定义重试策略
     /// </summary>
-    public static IServiceCollection AddCatGaRetryPolicy<TPolicy>(
+    public static IServiceCollection AddCatGaRetryPolicy<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TPolicy>(
         this IServiceCollection services)
         where TPolicy : class, IRetryPolicy
     {
@@ -130,7 +131,7 @@ public static class CatGaServiceCollectionExtensions
     /// <summary>
     /// 使用自定义补偿策略
     /// </summary>
-    public static IServiceCollection AddCatGaCompensationPolicy<TPolicy>(
+    public static IServiceCollection AddCatGaCompensationPolicy<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TPolicy>(
         this IServiceCollection services)
         where TPolicy : class, ICompensationPolicy
     {

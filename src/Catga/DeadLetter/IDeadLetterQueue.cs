@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Messages;
 
 namespace Catga.DeadLetter;
@@ -10,6 +11,8 @@ public interface IDeadLetterQueue
     /// <summary>
     /// Send message to dead letter queue
     /// </summary>
+    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     Task SendAsync<TMessage>(
         TMessage message,
         Exception exception,

@@ -15,11 +15,15 @@ public interface IIdempotencyStore
     /// <summary>
     /// Mark message as processed with result (generic)
     /// </summary>
+    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     Task MarkAsProcessedAsync<TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get cached result for previously processed message (generic)
     /// </summary>
+    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     Task<TResult?> GetCachedResultAsync<TResult>(string messageId, CancellationToken cancellationToken = default);
 }
 

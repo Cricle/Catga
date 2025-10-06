@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Idempotency;
 using Catga.Messages;
 using Catga.Results;
@@ -23,6 +24,8 @@ public class IdempotencyBehavior<TRequest, TResponse> : IPipelineBehavior<TReque
     /// <summary>
     /// 🔥 优化: 使用 ValueTask 减少堆分配
     /// </summary>
+    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,

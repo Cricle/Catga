@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Configuration;
 using Catga.DeadLetter;
 using Catga.Handlers;
@@ -64,7 +65,7 @@ public static class CatgaServiceCollectionExtensions
     /// <summary>
     /// 注册请求处理器（显式，AOT 友好）
     /// </summary>
-    public static IServiceCollection AddRequestHandler<TRequest, TResponse, THandler>(
+    public static IServiceCollection AddRequestHandler<TRequest, TResponse, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>(
         this IServiceCollection services)
         where TRequest : IRequest<TResponse>
         where THandler : class, IRequestHandler<TRequest, TResponse>
@@ -76,7 +77,7 @@ public static class CatgaServiceCollectionExtensions
     /// <summary>
     /// 注册无响应请求处理器
     /// </summary>
-    public static IServiceCollection AddRequestHandler<TRequest, THandler>(
+    public static IServiceCollection AddRequestHandler<TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>(
         this IServiceCollection services)
         where TRequest : IRequest
         where THandler : class, IRequestHandler<TRequest>
@@ -88,7 +89,7 @@ public static class CatgaServiceCollectionExtensions
     /// <summary>
     /// 注册事件处理器
     /// </summary>
-    public static IServiceCollection AddEventHandler<TEvent, THandler>(
+    public static IServiceCollection AddEventHandler<TEvent, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>(
         this IServiceCollection services)
         where TEvent : IEvent
         where THandler : class, IEventHandler<TEvent>

@@ -16,7 +16,7 @@ public class CatgaHealthCheck : IHealthCheck
         _options = options ?? new CatgaHealthCheckOptions();
     }
 
-    public async Task<HealthCheckResult> CheckHealthAsync(
+    public Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
@@ -47,9 +47,9 @@ public class CatgaHealthCheck : IHealthCheck
 
                 if (memoryPressure > 0.9)
                 {
-                    return HealthCheckResult.Degraded(
+                    return Task.FromResult(HealthCheckResult.Degraded(
                         "高内存压力",
-                        data: data);
+                        data: data));
                 }
             }
 
@@ -65,15 +65,15 @@ public class CatgaHealthCheck : IHealthCheck
                 data["gc_gen2"] = gen2;
             }
 
-            return HealthCheckResult.Healthy("Catga 框架运行正常", data);
+            return Task.FromResult(HealthCheckResult.Healthy("Catga 框架运行正常", data));
         }
         catch (Exception ex)
         {
             data["error"] = ex.Message;
-            return HealthCheckResult.Unhealthy(
+            return Task.FromResult(HealthCheckResult.Unhealthy(
                 "Catga 框架健康检查失败",
                 ex,
-                data);
+                data));
         }
     }
 

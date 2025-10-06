@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Redis.Serialization;
 using Catga.Idempotency;
 using Microsoft.Extensions.Logging;

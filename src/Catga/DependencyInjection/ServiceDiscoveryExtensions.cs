@@ -12,44 +12,12 @@ namespace Catga.DependencyInjection;
 public static class ServiceDiscoveryExtensions
 {
     /// <summary>
-    /// 添加内存服务发现（单机部署）
+    /// 添加内存服务发现（开发/测试）
     /// </summary>
     public static IServiceCollection AddMemoryServiceDiscovery(this IServiceCollection services)
     {
         services.TryAddSingleton<ILoadBalancer, RoundRobinLoadBalancer>();
         services.TryAddSingleton<IServiceDiscovery, MemoryServiceDiscovery>();
-        return services;
-    }
-
-    /// <summary>
-    /// 添加 DNS 服务发现（Kubernetes）
-    /// </summary>
-    public static IServiceCollection AddDnsServiceDiscovery(
-        this IServiceCollection services,
-        Action<DnsServiceDiscoveryOptions>? configure = null)
-    {
-        services.TryAddSingleton<ILoadBalancer, RoundRobinLoadBalancer>();
-
-        services.AddSingleton<IServiceDiscovery>(sp =>
-        {
-            var logger = sp.GetService<Microsoft.Extensions.Logging.ILogger<DnsServiceDiscovery>>();
-            var loadBalancer = sp.GetRequiredService<ILoadBalancer>();
-            var discovery = new DnsServiceDiscovery(loadBalancer, logger);
-
-            if (configure != null)
-            {
-                var options = new DnsServiceDiscoveryOptions();
-                configure(options);
-
-                foreach (var (serviceName, mapping) in options.ServiceMappings)
-                {
-                    discovery.ConfigureService(serviceName, mapping.DnsName, mapping.Port);
-                }
-            }
-
-            return discovery;
-        });
-
         return services;
     }
 
@@ -63,23 +31,6 @@ public static class ServiceDiscoveryExtensions
         services.AddSingleton(options);
         services.AddHostedService<ServiceRegistrationHostedService>();
         return services;
-    }
-}
-
-/// <summary>
-/// DNS 服务发现配置选项
-/// </summary>
-public class DnsServiceDiscoveryOptions
-{
-    internal Dictionary<string, (string DnsName, int Port)> ServiceMappings { get; } = new();
-
-    /// <summary>
-    /// 配置服务 DNS 映射
-    /// </summary>
-    public DnsServiceDiscoveryOptions MapService(string serviceName, string dnsName, int port)
-    {
-        ServiceMappings[serviceName] = (dnsName, port);
-        return this;
     }
 }
 

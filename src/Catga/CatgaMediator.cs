@@ -149,11 +149,18 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         CancellationToken cancellationToken = default)
         where TEvent : IEvent
     {
+        // 🔥 优化: 避免 LINQ Select + Task.Run，直接构建任务数组
         var handlers = _serviceProvider.GetServices<IEventHandler<TEvent>>();
+        var handlerList = handlers as IList<IEventHandler<TEvent>> ?? handlers.ToArray();
+        
+        if (handlerList.Count == 0)
+            return;
 
-        // 进一步优化 - 避免Task.Run包装，直接并行执行
-        var tasks = handlers.Select(handler =>
-            Task.Run(async () =>
+        var tasks = new Task[handlerList.Count];
+        for (int i = 0; i < handlerList.Count; i++)
+        {
+            var handler = handlerList[i];
+            tasks[i] = Task.Run(async () =>
             {
                 try
                 {
@@ -163,7 +170,8 @@ public class CatgaMediator : ICatgaMediator, IDisposable
                 {
                     _logger.LogError(ex, "Event handler failed: {HandlerType}", handler.GetType().Name);
                 }
-            }, cancellationToken));
+            }, cancellationToken);
+        }
 
         await Task.WhenAll(tasks);
     }

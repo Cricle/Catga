@@ -65,10 +65,8 @@ public class MemoryServiceDiscovery : IServiceDiscovery
         string serviceName,
         CancellationToken cancellationToken = default)
     {
-        var instances = _services.Values
-            .Where(s => s.ServiceName == serviceName && s.IsHealthy)
-            .ToList();
-
+        // 🔥 优化: 避免 ToList() 分配，使用数组代替
+        var instances = _services.Values.Where(s => s.ServiceName == serviceName && s.IsHealthy).ToArray();
         return Task.FromResult<IReadOnlyList<ServiceInstance>>(instances);
     }
 

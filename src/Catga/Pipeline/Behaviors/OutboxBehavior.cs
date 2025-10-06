@@ -11,12 +11,12 @@ namespace Catga.Pipeline.Behaviors;
 
 /// <summary>
 /// Outbox 行为 - 分离存储和传输关注点
-/// 
+///
 /// 架构说明：
 /// - IOutboxStore: 负责持久化存储（可用 Redis, SQL, MongoDB 等）
 /// - IMessageTransport: 负责消息传输（NATS, Redis Pub/Sub, RabbitMQ 等）
 /// - 两者独立配置，遵循单一职责原则
-/// 
+///
 /// 流程：
 /// 1. 保存到 Outbox 存储（与业务事务同步）
 /// 2. 执行业务逻辑

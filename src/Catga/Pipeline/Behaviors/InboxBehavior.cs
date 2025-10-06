@@ -10,12 +10,12 @@ namespace Catga.Pipeline.Behaviors;
 
 /// <summary>
 /// Inbox 行为 - 专注于存储层，确保幂等性
-/// 
+///
 /// 架构说明：
 /// - IInboxStore: 负责持久化存储（可用 Redis, SQL, MongoDB 等）
 /// - 不涉及传输层（传输由 IMessageTransport 负责）
 /// - 专注于消息去重和幂等性保证
-/// 
+///
 /// 流程：
 /// 1. 尝试锁定消息（如果已处理，直接返回缓存结果）
 /// 2. 执行业务逻辑

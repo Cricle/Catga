@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Catga.Results;
-using Catga.CatGa.Models;
 
 namespace Catga.Serialization;
 
@@ -30,11 +29,6 @@ namespace Catga.Serialization;
 [JsonSerializable(typeof(CatgaResult<int>))]
 [JsonSerializable(typeof(CatgaResult<bool>))]
 [JsonSerializable(typeof(ResultMetadata))]
-// CatGa 分布式事务类型
-[JsonSerializable(typeof(CatGaContext))]
-[JsonSerializable(typeof(CatGaTransactionState))]
-[JsonSerializable(typeof(CatGaResult))]
-[JsonSerializable(typeof(CatGaOptions))]
 public partial class CatgaJsonSerializerContext : JsonSerializerContext
 {
 }

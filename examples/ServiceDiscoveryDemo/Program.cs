@@ -200,9 +200,22 @@ for (int i = 0; i < 6; i++)
     Console.WriteLine($"    请求 {i + 1}: {selected?.Address}");
 }
 
+Console.WriteLine("\n✅ 所有基础示例完成！");
+
+// ============================================================
+// 示例 6: YARP 和 Kubernetes 服务发现
+// ============================================================
+await ServiceDiscoveryDemo.YarpKubernetesExample.RunYarpExample();
+await ServiceDiscoveryDemo.YarpKubernetesExample.RunKubernetesExample();
+
+ServiceDiscoveryDemo.YarpKubernetesExample.CompareImplementations();
+ServiceDiscoveryDemo.YarpKubernetesExample.ShowRecommendations();
+
 Console.WriteLine("\n✅ 所有示例完成！");
-Console.WriteLine("\n💡 提示:");
+Console.WriteLine("\n💡 实现选择:");
 Console.WriteLine("   - 内存服务发现: 适合单机和测试");
-Console.WriteLine("   - DNS 服务发现: 适合 Kubernetes");
-Console.WriteLine("   - Consul 服务发现: 适合复杂分布式环境（需要 Catga.ServiceDiscovery.Consul 包）");
+Console.WriteLine("   - DNS 服务发现: 适合 Kubernetes（基础）");
+Console.WriteLine("   - Kubernetes API: 适合 Kubernetes（推荐）⭐");
+Console.WriteLine("   - YARP 服务发现: 适合使用 YARP 的应用");
+Console.WriteLine("   - Consul 服务发现: 适合企业级分布式环境");
 

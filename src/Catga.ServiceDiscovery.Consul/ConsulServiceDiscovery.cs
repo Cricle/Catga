@@ -45,7 +45,7 @@ public class ConsulServiceDiscovery : IServiceDiscovery
         };
 
         await _consul.Agent.ServiceRegister(registration, cancellationToken);
-        
+
         _logger.LogInformation("Service registered in Consul: {ServiceId} ({ServiceName}) at {Address}:{Port}",
             serviceId, options.ServiceName, options.Host, options.Port);
     }

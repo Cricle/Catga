@@ -29,7 +29,7 @@ public static class ServiceDiscoveryExtensions
         Action<DnsServiceDiscoveryOptions>? configure = null)
     {
         services.TryAddSingleton<ILoadBalancer, RoundRobinLoadBalancer>();
-        
+
         services.AddSingleton<IServiceDiscovery>(sp =>
         {
             var logger = sp.GetService<Microsoft.Extensions.Logging.ILogger<DnsServiceDiscovery>>();
@@ -40,7 +40,7 @@ public static class ServiceDiscoveryExtensions
             {
                 var options = new DnsServiceDiscoveryOptions();
                 configure(options);
-                
+
                 foreach (var (serviceName, mapping) in options.ServiceMappings)
                 {
                     discovery.ConfigureService(serviceName, mapping.DnsName, mapping.Port);
@@ -111,7 +111,7 @@ internal class ServiceRegistrationHostedService : IHostedService
             // 注册服务
             await _serviceDiscovery.RegisterAsync(_options, cancellationToken);
             _serviceId = $"{_options.ServiceName}-{Guid.NewGuid():N}";
-            
+
             _logger.LogInformation("Service registered: {ServiceName} at {Host}:{Port}",
                 _options.ServiceName, _options.Host, _options.Port);
 

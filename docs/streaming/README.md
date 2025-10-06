@@ -23,10 +23,10 @@ Catga 提供简洁而强大的流处理能力，用于处理持续的数据流�
 
 ### Catga 的流处理特点
 
-✅ **声明式 API** - 链式调用，代码简洁  
-✅ **异步优先** - 基于 `IAsyncEnumerable<T>`  
-✅ **零分配** - 流式处理，不缓存所有数据  
-✅ **组合性强** - 操作符可自由组合  
+✅ **声明式 API** - 链式调用，代码简洁
+✅ **异步优先** - 基于 `IAsyncEnumerable<T>`
+✅ **零分配** - 流式处理，不缓存所有数据
+✅ **组合性强** - 操作符可自由组合
 ✅ **平台无关** - 纯 .NET 实现
 
 ---
@@ -345,10 +345,10 @@ var recommendations = StreamProcessor
     {
         // 批量获取用户特征
         var userFeatures = await _mlService.GetFeaturesAsync(batch);
-        
+
         // 批量预测
         var predictions = await _mlService.PredictAsync(userFeatures);
-        
+
         return batch.Zip(predictions, (activity, pred) => new
         {
             UserId = activity.UserId,

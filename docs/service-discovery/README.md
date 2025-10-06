@@ -23,9 +23,9 @@ Catga 提供平台无关的服务发现抽象，支持多种实现方式。
 
 ### Catga 的设计原则
 
-✅ **平台无关** - 不绑定任何特定平台  
-✅ **适量抽象** - 简单易用，不过度设计  
-✅ **多种实现** - 内存、DNS、Consul 等  
+✅ **平台无关** - 不绑定任何特定平台
+✅ **适量抽象** - 简单易用，不过度设计
+✅ **多种实现** - 内存、DNS、Consul 等
 ✅ **自动切换** - 无需修改代码即可切换实现
 
 ---
@@ -283,7 +283,7 @@ public class WeightedLoadBalancer : ILoadBalancer
         // 加权随机算法
         var totalWeight = weights.Sum();
         var random = Random.Shared.Next(totalWeight);
-        
+
         var cumulative = 0;
         for (int i = 0; i < instances.Count; i++)
         {
@@ -318,11 +318,11 @@ await foreach (var change in discovery.WatchServiceAsync("order-service", cancel
         case ServiceChangeType.Registered:
             Console.WriteLine($"新实例注册: {change.Instance.Address}");
             break;
-            
+
         case ServiceChangeType.Deregistered:
             Console.WriteLine($"实例注销: {change.Instance.Address}");
             break;
-            
+
         case ServiceChangeType.HealthChanged:
             Console.WriteLine($"健康状态变化: {change.Instance.IsHealthy}");
             break;
@@ -463,7 +463,7 @@ public async Task<ServiceInstance?> GetServiceWithRetryAsync(string serviceName)
             await Task.Delay(TimeSpan.FromSeconds(1));
         }
     }
-    
+
     return null;
 }
 ```

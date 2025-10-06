@@ -240,6 +240,7 @@ record OrderCreatedEvent(
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public DateTime CreatedAt { get; init; } = CreatedAt;
     public string? CorrelationId { get; init; }
+    public DateTime OccurredAt { get; init; } = CreatedAt;
 }
 
 record OrderItemAddedEvent(
@@ -251,6 +252,7 @@ record OrderItemAddedEvent(
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     public string? CorrelationId { get; init; }
+    public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
 }
 
 record OrderConfirmedEvent(
@@ -260,6 +262,7 @@ record OrderConfirmedEvent(
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public DateTime CreatedAt { get; init; } = ConfirmedAt;
     public string? CorrelationId { get; init; }
+    public DateTime OccurredAt { get; init; } = ConfirmedAt;
 }
 
 record OrderShippedEvent(
@@ -270,6 +273,7 @@ record OrderShippedEvent(
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public DateTime CreatedAt { get; init; } = ShippedAt;
     public string? CorrelationId { get; init; }
+    public DateTime OccurredAt { get; init; } = ShippedAt;
 }
 
 // ============================================================

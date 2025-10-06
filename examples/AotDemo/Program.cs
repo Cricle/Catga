@@ -1,6 +1,7 @@
 using Catga;
 using Catga.DependencyInjection;
 using Catga.Messages;
+using Catga.Handlers;
 using Catga.Nats.Serialization;
 using Catga.Results;
 using Microsoft.Extensions.DependencyInjection;
@@ -75,7 +76,7 @@ return 0;
 // 消息定义
 // ============================================
 
-public record CalculateCommand : ICommand<int>
+public record CalculateCommand : IRequest<int>
 {
     public required int A { get; init; }
     public required int B { get; init; }
@@ -84,7 +85,7 @@ public record CalculateCommand : ICommand<int>
     public string? CorrelationId { get; init; }
 }
 
-public record GetStatusQuery : IQuery<string>
+public record GetStatusQuery : IRequest<string>
 {
     public string MessageId { get; init; } = Guid.NewGuid().ToString("N");
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
@@ -104,11 +105,11 @@ public class CalculateHandler : IRequestHandler<CalculateCommand, int>
         _logger = logger;
     }
 
-    public Task<CatgaResult<int>> HandleAsync(CalculateCommand request, CancellationToken cancellationToken)
+    public async Task<CatgaResult<int>> HandleAsync(CalculateCommand request, CancellationToken cancellationToken)
     {
         _logger.LogDebug("Calculating {A} + {B}", request.A, request.B);
         var result = request.A + request.B;
-        return Task.FromResult(CatgaResult<int>.Success(result));
+        return await Task.FromResult(CatgaResult<int>.Success(result));
     }
 }
 

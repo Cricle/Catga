@@ -14,12 +14,11 @@ using Microsoft.Extensions.Logging;
 
 // ==================== 消息定义 ====================
 
-public record CreateOrderCommand : ICommand<OrderResult>, MessageBase
+public record CreateOrderCommand(string CustomerId, decimal Amount) : ICommand<OrderResult>
 {
-    public required string CustomerId { get; init; }
-    public required decimal Amount { get; init; }
-    public MessageId MessageId { get; init; } = MessageId.Generate();
-    public CorrelationId CorrelationId { get; init; } = CorrelationId.Generate();
+    public string MessageId { get; init; } = Guid.NewGuid().ToString();
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    public string? CorrelationId { get; init; }
 }
 
 public record OrderResult
@@ -28,14 +27,12 @@ public record OrderResult
     public required string Status { get; init; }
 }
 
-public record OrderCreatedEvent : IEvent, MessageBase
+public record OrderCreatedEvent(string OrderId, string CustomerId, decimal Amount) : IEvent
 {
-    public required string OrderId { get; init; }
-    public required string CustomerId { get; init; }
-    public required decimal Amount { get; init; }
+    public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-    public MessageId MessageId { get; init; } = MessageId.Generate();
-    public CorrelationId CorrelationId { get; init; } = CorrelationId.Generate();
+    public string? CorrelationId { get; init; }
+    public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
 }
 
 // ==================== 处理器 ====================

@@ -34,7 +34,7 @@ public record CreateOrderCommand(string OrderId, decimal Amount) : ICommand;
 public class CreateOrderHandler : ICommandHandler<CreateOrderCommand>
 {
     public async Task<Result> HandleAsync(
-        CreateOrderCommand command, 
+        CreateOrderCommand command,
         CancellationToken cancellationToken)
     {
         // 你的业务逻辑
@@ -355,11 +355,11 @@ await pipeline.RunAsync();
 
 ### 你已经学会了
 
-✅ **CQRS 模式** - 命令、查询、事件分离  
-✅ **分布式消息** - NATS 跨服务通信  
-✅ **可靠消息** - Outbox/Inbox 模式  
-✅ **分布式事务** - Saga 编排  
-✅ **弹性设计** - 熔断、重试、限流  
+✅ **CQRS 模式** - 命令、查询、事件分离
+✅ **分布式消息** - NATS 跨服务通信
+✅ **可靠消息** - Outbox/Inbox 模式
+✅ **分布式事务** - Saga 编排
+✅ **弹性设计** - 熔断、重试、限流
 
 ### 下一步
 

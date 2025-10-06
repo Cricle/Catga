@@ -275,7 +275,7 @@ services.AddCatga()
 services.AddCatga();
 ```
 
-**复杂度**: ⭐⭐  
+**复杂度**: ⭐⭐
 **学习时间**: 30 分钟
 
 ---
@@ -288,7 +288,7 @@ services.AddCatga()
     .AddRedisCatgaStore("localhost:6379");
 ```
 
-**复杂度**: ⭐⭐⭐  
+**复杂度**: ⭐⭐⭐
 **学习时间**: 1 小时
 
 ---
@@ -305,7 +305,7 @@ services.AddCatga()
     .AddPipelineBehavior<RetryBehavior>();
 ```
 
-**复杂度**: ⭐⭐⭐⭐  
+**复杂度**: ⭐⭐⭐⭐
 **学习时间**: 2-3 小时
 
 ---

@@ -101,41 +101,49 @@ public class ConsulServiceDiscovery : IServiceDiscovery
 
         while (!cancellationToken.IsCancellationRequested)
         {
+            QueryResult<ServiceEntry[]>? result = null;
+            
             try
             {
                 var queryOptions = new QueryOptions { WaitIndex = lastIndex, WaitTime = TimeSpan.FromSeconds(30) };
-                var result = await _consul.Health.Service(serviceName, null, false, queryOptions, cancellationToken);
+                result = await _consul.Health.Service(serviceName, null, false, queryOptions, cancellationToken);
 
                 if (result.LastIndex > lastIndex)
                 {
                     lastIndex = result.LastIndex;
-
-                    // 简化实现：假设所有变化都是服务注册
-                    foreach (var entry in result.Response)
-                    {
-                        var instance = new ServiceInstance(
-                            entry.Service.ID,
-                            entry.Service.Service,
-                            entry.Service.Address,
-                            entry.Service.Port,
-                            ParseMetadata(entry.Service.Tags))
-                        {
-                            IsHealthy = entry.Checks.All(c => c.Status == HealthStatus.Passing)
-                        };
-
-                        yield return new ServiceChangeEvent(ServiceChangeType.Registered, instance);
-                    }
                 }
             }
             catch (OperationCanceledException)
             {
-                break;
+                yield break;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error watching Consul service: {ServiceName}", serviceName);
                 await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                continue;
             }
+
+            // 在 try-catch 外 yield return
+            if (result != null)
+            {
+                foreach (var entry in result.Response)
+                {
+                    var instance = new ServiceInstance(
+                        entry.Service.ID,
+                        entry.Service.Service,
+                        entry.Service.Address,
+                        entry.Service.Port,
+                        ParseMetadata(entry.Service.Tags))
+                    {
+                        IsHealthy = entry.Checks.All(c => c.Status == HealthStatus.Passing)
+                    };
+
+                    yield return new ServiceChangeEvent(ServiceChangeType.Registered, instance);
+                }
+            }
+
+            await Task.Delay(1000, cancellationToken);
         }
     }
 

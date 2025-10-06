@@ -89,7 +89,7 @@ public class KubernetesServiceDiscovery : IServiceDiscovery
                                     $"{serviceName}-{address.Ip}-{port.Port}",
                                     serviceName,
                                     address.Ip,
-                                    port.Port ?? 0,
+                                    port.Port,
                                     metadata)
                                 {
                                     IsHealthy = true
@@ -172,7 +172,7 @@ public class KubernetesServiceDiscovery : IServiceDiscovery
                                             $"{serviceName}-{address.Ip}-{port.Port}",
                                             serviceName,
                                             address.Ip,
-                                            port.Port ?? 0);
+                                            port.Port);
 
                                         await channel.Writer.WriteAsync(
                                             new ServiceChangeEvent(changeType, instance),

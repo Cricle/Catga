@@ -1,7 +1,7 @@
 # ⚡ Catga 性能优化总结
 
-**优化日期**: 2025-10-06  
-**框架版本**: v1.1  
+**优化日期**: 2025-10-06
+**框架版本**: v1.1
 **优化主题**: 深度性能和GC优化
 
 ---
@@ -62,7 +62,7 @@ public interface ICatgaMediator
 
 #### 优化前 - 闭包分配
 ```csharp
-Func<Task<CatgaResult<TResponse>>> pipeline = 
+Func<Task<CatgaResult<TResponse>>> pipeline =
     () => handler.HandleAsync(request, cancellationToken);
 
 for (int i = behaviorsList.Count - 1; i >= 0; i--)
@@ -94,7 +94,7 @@ private static ValueTask<CatgaResult<TResponse>> ExecuteBehaviorAsync<TRequest, 
 {
     if (index >= context.Behaviors.Count)
         return context.Handler.HandleAsync(context.Request, context.CancellationToken);
-    
+
     var behavior = context.Behaviors[index];
     PipelineDelegate<TResponse> next = () => ExecuteBehaviorAsync(context, index + 1);
     return behavior.HandleAsync(context.Request, next, context.CancellationToken);
@@ -120,12 +120,12 @@ public static class CatgaObjectPools
     // StringBuilder 池
     public static StringBuilder RentStringBuilder() { /*...*/ }
     public static void ReturnStringBuilder(StringBuilder sb) { /*...*/ }
-    
+
     // 字节数组池 (基于 ArrayPool)
-    public static byte[] RentBuffer(int minimumLength) 
+    public static byte[] RentBuffer(int minimumLength)
         => ArrayPool<byte>.Shared.Rent(minimumLength);
-    
-    public static void ReturnBuffer(byte[] buffer) 
+
+    public static void ReturnBuffer(byte[] buffer)
         => ArrayPool<byte>.Shared.Return(buffer);
 }
 
@@ -365,7 +365,7 @@ public async ValueTask<Result> ProcessAsync(...)
 {
     if (CanCompleteSync())
         return new ValueTask<Result>(result);  // 零分配
-    
+
     return await ProcessSlowPathAsync(...);
 }
 
@@ -441,19 +441,19 @@ public void ProcessData(byte[] data) { /*...*/ }
 
 通过系统化的性能和GC优化，Catga 框架实现了：
 
-✅ **GC 压力降低 60-70%**  
-✅ **内存分配减少 79%**  
-✅ **性能提升 25%**  
-✅ **延迟降低 35%**  
-✅ **CPU 使用降低 20%**  
+✅ **GC 压力降低 60-70%**
+✅ **内存分配减少 79%**
+✅ **性能提升 25%**
+✅ **延迟降低 35%**
+✅ **CPU 使用降低 20%**
 ✅ **内存占用降低 34%**
 
 **Catga 现在是一个真正的低GC、高性能、生产级CQRS框架！** 🚀⚡
 
 ---
 
-**最后更新**: 2025-10-06  
-**优化版本**: v1.1  
-**GC 友好度**: ⭐⭐⭐⭐⭐ (5/5)  
+**最后更新**: 2025-10-06
+**优化版本**: v1.1
+**GC 友好度**: ⭐⭐⭐⭐⭐ (5/5)
 **性能等级**: S 级
 

@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Catga.Redis.Persistence;
+namespace Catga.Persistence.Redis.Persistence;
 
 /// <summary>
 /// Redis Inbox 持久化存储 - 专注于存储，不涉及传输

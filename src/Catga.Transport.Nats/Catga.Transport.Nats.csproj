@@ -14,13 +14,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Catga\Catga.csproj" />
-    <ProjectReference Include="..\Catga.Serialization.Json\Catga.Serialization.Json.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="NATS.Client.Core" />
-    <PackageReference Include="NATS.Client.JetStream" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
 </Project>

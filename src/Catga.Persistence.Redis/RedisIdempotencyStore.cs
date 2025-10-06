@@ -1,10 +1,10 @@
 using System.Diagnostics.CodeAnalysis;
-using Catga.Redis.Serialization;
+using Catga.Persistence.Redis.Serialization;
 using Catga.Idempotency;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace Catga.Redis;
+namespace Catga.Persistence.Redis;
 
 /// <summary>
 /// Redis 幂等性存储 - 生产级高性能
@@ -19,12 +19,12 @@ public class RedisIdempotencyStore : IIdempotencyStore
     public RedisIdempotencyStore(
         IConnectionMultiplexer redis,
         ILogger<RedisIdempotencyStore> logger,
-        RedisCatgaOptions? options = null)
+        RedisIdempotencyOptions? options = null)
     {
         _redis = redis;
         _logger = logger;
-        _keyPrefix = options?.IdempotencyKeyPrefix ?? "idempotency:";
-        _defaultExpiry = options?.IdempotencyExpiry ?? TimeSpan.FromHours(24);
+        _keyPrefix = options?.KeyPrefix ?? "idempotency:";
+        _defaultExpiry = options?.Expiry ?? TimeSpan.FromHours(24);
     }
 
     /// <inheritdoc/>

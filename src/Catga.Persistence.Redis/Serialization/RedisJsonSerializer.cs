@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 
-namespace Catga.Redis.Serialization;
+namespace Catga.Persistence.Redis.Serialization;
 
 /// <summary>
 /// Redis JSON 序列化器 - AOT 兼容

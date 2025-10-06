@@ -4,7 +4,7 @@ using Catga.Transport;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace Catga.Redis;
+namespace Catga.Transport.Redis;
 
 /// <summary>
 /// Redis 消息传输实现 (使用 Pub/Sub)
@@ -158,16 +158,5 @@ internal class RedisTransportMessage
     public DateTime SentAt { get; set; }
     public required byte[] Payload { get; set; }
     public Dictionary<string, string>? Metadata { get; set; }
-}
-
-/// <summary>
-/// Redis 传输选项
-/// </summary>
-public class RedisTransportOptions
-{
-    /// <summary>
-    /// Channel 前缀
-    /// </summary>
-    public string ChannelPrefix { get; set; } = "catga";
 }
 

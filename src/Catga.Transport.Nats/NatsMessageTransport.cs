@@ -4,7 +4,7 @@ using Catga.Transport;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 
-namespace Catga.Nats;
+namespace Catga.Transport.Nats;
 
 /// <summary>
 /// NATS 消息传输实现
@@ -132,16 +132,5 @@ public class NatsMessageTransport : IMessageTransport
         var typeName = messageType.Name;
         return $"{_subjectPrefix}.{typeName}";
     }
-}
-
-/// <summary>
-/// NATS 传输选项
-/// </summary>
-public class NatsTransportOptions
-{
-    /// <summary>
-    /// Subject 前缀
-    /// </summary>
-    public string SubjectPrefix { get; set; } = "catga";
 }
 

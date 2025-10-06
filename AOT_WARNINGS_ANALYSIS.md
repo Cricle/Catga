@@ -1,7 +1,7 @@
 # 🔍 AOT 警告详细分析报告
 
-**生成时间**: 2024-10-06  
-**编译模式**: Release + PublishAot=true  
+**生成时间**: 2024-10-06
+**编译模式**: Release + PublishAot=true
 **总警告数**: 116个
 
 ---
@@ -25,8 +25,8 @@
 IL2026: SerializeRequest(TRequest) - JsonSerializer 序列化
 IL3050: SerializeRequest(TRequest) - 运行时代码生成
 ```
-**状态**: ✅ 已添加 `[UnconditionalSuppressMessage]`  
-**原因**: 使用 `IMessageSerializer` 序列化，警告在接口层已标记  
+**状态**: ✅ 已添加 `[UnconditionalSuppressMessage]`
+**原因**: 使用 `IMessageSerializer` 序列化，警告在接口层已标记
 **影响**: 无（已在接口层处理）
 
 #### **InboxBehavior.cs（6个）**
@@ -34,8 +34,8 @@ IL3050: SerializeRequest(TRequest) - 运行时代码生成
 IL2026 x3: SerializeRequest, DeserializeResult, SerializeResult
 IL3050 x3: SerializeRequest, DeserializeResult, SerializeResult
 ```
-**状态**: ✅ 已添加 `[UnconditionalSuppressMessage]`  
-**原因**: 使用 `IMessageSerializer` 序列化，警告在接口层已标记  
+**状态**: ✅ 已添加 `[UnconditionalSuppressMessage]`
+**原因**: 使用 `IMessageSerializer` 序列化，警告在接口层已标记
 **影响**: 无（已在接口层处理）
 
 ---
@@ -46,13 +46,13 @@ IL3050 x3: SerializeRequest, DeserializeResult, SerializeResult
 ```
 CatgaJsonSerializerContext.CatgaException.g.cs:
   - IL2026 x3: Exception.TargetSite.get
-  
+
 CatgaJsonSerializerContext.Exception.g.cs:
   - IL2026 x3: Exception.TargetSite.get
 ```
-**状态**: ⚠️ .NET 框架限制  
-**原因**: `Exception.TargetSite` 属性在 AOT 中不完全支持  
-**影响**: 低（异常序列化场景，不影响核心功能）  
+**状态**: ⚠️ .NET 框架限制
+**原因**: `Exception.TargetSite` 属性在 AOT 中不完全支持
+**影响**: 低（异常序列化场景，不影响核心功能）
 **建议**: 接受（.NET 团队的设计决策）
 
 ---
@@ -66,8 +66,8 @@ CatgaJsonSerializerContext.Exception.g.cs:
 - `RedisIdempotencyStore` - 序列化到 Redis
 - 测试和基准测试代码
 
-**状态**: ✅ 所有方法已添加 `[UnconditionalSuppressMessage]`  
-**原因**: 序列化警告已在 `IMessageSerializer` 接口层标记  
+**状态**: ✅ 所有方法已添加 `[UnconditionalSuppressMessage]`
+**原因**: 序列化警告已在 `IMessageSerializer` 接口层标记
 **影响**: 无（已通过接口层管理）
 
 ---
@@ -76,12 +76,12 @@ CatgaJsonSerializerContext.Exception.g.cs:
 
 #### **CS1998: async 方法缺少 await**
 ```
-CatgaHealthCheck.cs(19,42): 
+CatgaHealthCheck.cs(19,42):
   此异步方法缺少 "await" 运算符，将以同步方式运行
 ```
-**状态**: ⚠️ 可修复  
-**原因**: `CheckHealthAsync` 方法标记为 async 但没有 await  
-**影响**: 低（编译警告，不影响功能）  
+**状态**: ⚠️ 可修复
+**原因**: `CheckHealthAsync` 方法标记为 async 但没有 await
+**影响**: 低（编译警告，不影响功能）
 **建议**: 移除 async 关键字或添加 await
 
 ---
@@ -253,6 +253,6 @@ new MemoryPackMessageSerializer()
 
 ---
 
-*报告生成时间: 2024-10-06*  
+*报告生成时间: 2024-10-06*
 *编译器版本: .NET 9.0.304*
 

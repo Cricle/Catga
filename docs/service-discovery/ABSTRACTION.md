@@ -258,7 +258,7 @@ var discovery = builder.Configuration["ServiceDiscovery:Provider"] switch
 {
     "memory" => builder.Services.AddMemoryServiceDiscovery(),
     "dns" => builder.Services.AddDnsServiceDiscovery(),
-    "consul" => builder.Services.AddConsulServiceDiscovery(opt => 
+    "consul" => builder.Services.AddConsulServiceDiscovery(opt =>
         opt.ConsulAddress = builder.Configuration["Consul:Address"]),
     "yarp" => builder.Services.AddYarpServiceDiscovery(),
     "kubernetes" => builder.Services.AddKubernetesServiceDiscoveryInCluster(),

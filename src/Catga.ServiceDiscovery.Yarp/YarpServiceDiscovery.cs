@@ -79,7 +79,7 @@ public class YarpServiceDiscovery : IServiceDiscovery, IDisposable
     {
         // YARP 配置变化监听（简化实现）
         _logger.LogInformation("Started watching service: {ServiceName}", serviceName);
-        
+
         // 返回当前状态
         var instances = await GetServiceInstancesAsync(serviceName, cancellationToken);
         foreach (var instance in instances)

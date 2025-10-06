@@ -47,7 +47,7 @@ public static class YarpKubernetesExample
         Console.WriteLine(@"  services.AddReverseProxy()
       .LoadFromConfig(configuration.GetSection(""ReverseProxy""));
   services.AddYarpServiceDiscovery();
-  
+
   var instance = await discovery.GetServiceInstanceAsync(""order-service"");
   // 返回: localhost:5001 或 localhost:5002（负载均衡）");
 
@@ -98,14 +98,14 @@ public static class YarpKubernetesExample
 
         Console.WriteLine("\n  使用示例:");
         Console.WriteLine(@"  var discovery = provider.GetRequiredService<IServiceDiscovery>();
-  
+
   // 获取所有实例（所有 Pod）
   var instances = await discovery.GetServiceInstancesAsync(""order-service"");
   foreach (var instance in instances)
   {
       Console.WriteLine($""Pod: {instance.Host}:{instance.Port}"");
   }
-  
+
   // 监听服务变化（Pod 启动/停止）
   await foreach (var change in discovery.WatchServiceAsync(""order-service""))
   {

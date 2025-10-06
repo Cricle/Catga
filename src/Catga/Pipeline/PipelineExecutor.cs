@@ -57,7 +57,7 @@ internal static class PipelineExecutor
         }
 
         var behavior = context.Behaviors[index];
-        
+
         // 创建 next 委托 - 指向下一个 behavior
         PipelineDelegate<TResponse> next = () => ExecuteBehaviorAsync(context, index + 1);
 

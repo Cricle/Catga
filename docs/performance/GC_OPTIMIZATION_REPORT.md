@@ -1,6 +1,6 @@
 # 🗑️ GC 优化报告
 
-**日期**: 2025-10-06  
+**日期**: 2025-10-06
 **优化目标**: 减少 GC 压力，提升性能
 
 ---
@@ -87,7 +87,7 @@ private static ValueTask<CatgaResult<TResponse>> ExecuteBehaviorAsync<TRequest, 
 {
     if (index >= context.Behaviors.Count)
         return context.Handler.HandleAsync(context.Request, context.CancellationToken);
-    
+
     var behavior = context.Behaviors[index];
     PipelineDelegate<TResponse> next = () => ExecuteBehaviorAsync(context, index + 1);
     return behavior.HandleAsync(context.Request, next, context.CancellationToken);
@@ -113,7 +113,7 @@ private static ValueTask<CatgaResult<TResponse>> ExecuteBehaviorAsync<TRequest, 
 public static class CatgaObjectPools
 {
     private static readonly ConcurrentBag<StringBuilder> StringBuilderPool = new();
-    
+
     public static StringBuilder RentStringBuilder()
     {
         if (StringBuilderPool.TryTake(out var sb))
@@ -123,7 +123,7 @@ public static class CatgaObjectPools
         }
         return new StringBuilder(256);
     }
-    
+
     public static void ReturnStringBuilder(StringBuilder sb)
     {
         if (sb.Capacity <= 4096 && StringBuilderPool.Count < MaxPoolSize)
@@ -285,7 +285,7 @@ public ValueTask<Result> ProcessAsync(...)
 {
     if (CanCompleteSync())
         return new ValueTask<Result>(result);  // 零分配
-    
+
     return ProcessSlowPathAsync(...);
 }
 
@@ -411,16 +411,16 @@ public void ProcessData(byte[] data)
 
 通过系统的 GC 优化，Catga 框架实现了：
 
-✅ **GC 压力降低 60-70%**  
-✅ **内存分配减少 79%**  
-✅ **性能提升 25%**  
+✅ **GC 压力降低 60-70%**
+✅ **内存分配减少 79%**
+✅ **性能提升 25%**
 ✅ **延迟降低 35%**
 
 **Catga 现在是一个真正的低 GC、高性能框架！** 🚀
 
 ---
 
-**最后更新**: 2025-10-06  
-**优化版本**: v1.1  
+**最后更新**: 2025-10-06
+**优化版本**: v1.1
 **GC 友好度**: ⭐⭐⭐⭐⭐ (5/5)
 

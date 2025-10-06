@@ -102,7 +102,7 @@ public class ConsulServiceDiscovery : IServiceDiscovery
         while (!cancellationToken.IsCancellationRequested)
         {
             QueryResult<ServiceEntry[]>? result = null;
-            
+
             try
             {
                 var queryOptions = new QueryOptions { WaitIndex = lastIndex, WaitTime = TimeSpan.FromSeconds(30) };

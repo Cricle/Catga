@@ -8,11 +8,12 @@
 
 ### 新手必读
 
-| 文档 | 说明 | 预计时间 |
-|------|------|---------|
-| [README.md](README.md) | 项目概览和核心特性 | 5 分钟 |
-| [QUICK_START.md](QUICK_START.md) | 5分钟快速上手 | 5 分钟 |
-| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | API 速查手册 | 3 分钟 |
+| 文档 | 说明 | 预计时间 | 推荐度 |
+|------|------|---------|--------|
+| [README.md](README.md) | 项目概览和核心特性 | 5 分钟 | ⭐⭐⭐ |
+| [GETTING_STARTED.md](GETTING_STARTED.md) | 5分钟快速上手指南 | 5 分钟 | ⭐⭐⭐⭐⭐ |
+| [SIMPLIFIED_API.md](SIMPLIFIED_API.md) | 简化 API 使用指南 | 10 分钟 | ⭐⭐⭐⭐ |
+| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | API 速查手册 | 3 分钟 | ⭐⭐⭐ |
 
 ---
 
@@ -176,8 +177,8 @@
 #### 第 1 天: 入门 (30分钟)
 
 1. 阅读 [README.md](README.md)
-2. 跟随 [QUICK_START.md](QUICK_START.md)
-3. 查看 [基础示例](docs/examples/basic-usage.md)
+2. 跟随 [快速开始指南](GETTING_STARTED.md) ⭐ 推荐
+3. 参考 [简化 API](SIMPLIFIED_API.md)
 
 #### 第 2-3 天: 核心功能 (2小时)
 
@@ -210,7 +211,7 @@
 ### 我想...
 
 #### 快速上手
-→ [QUICK_START.md](QUICK_START.md)
+→ [快速开始指南](GETTING_STARTED.md) ⭐ 推荐
 
 #### 了解集群能力
 → [集群架构分析](docs/distributed/CLUSTER_ARCHITECTURE_ANALYSIS.md)

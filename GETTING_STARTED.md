@@ -49,7 +49,7 @@ public record OrderDto(string OrderId, decimal Amount, string Status);
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResult>
 {
     public async Task<CatgaResult<OrderResult>> HandleAsync(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken cancellationToken)
     {
         // 业务逻辑
@@ -121,10 +121,10 @@ public class OrderController : ControllerBase
     public async Task<IActionResult> CreateOrder(CreateOrderCommand command)
     {
         var result = await _mediator.SendAsync(command);
-        
+
         if (result.IsSuccess)
             return Ok(result.Value);
-        
+
         return BadRequest(result.Error);
     }
 
@@ -133,7 +133,7 @@ public class OrderController : ControllerBase
     {
         var query = new GetOrderQuery(id);
         var result = await _mediator.SendAsync(query);
-        
+
         return result.IsSuccess ? Ok(result.Value) : NotFound();
     }
 }
@@ -214,13 +214,13 @@ public class CustomBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
     {
         // 前置处理
         Console.WriteLine($"处理请求: {typeof(TRequest).Name}");
-        
+
         // 执行下一个 Behavior
         var result = await next();
-        
+
         // 后置处理
         Console.WriteLine($"请求完成: {result.IsSuccess}");
-        
+
         return result;
     }
 }
@@ -241,13 +241,13 @@ public class OrderSaga : ICatGaTransaction<OrderSagaData>
     {
         // 步骤 1: 创建订单
         await CreateOrder(data.OrderId);
-        
+
         // 步骤 2: 扣减库存
         await ReduceInventory(data.ProductId, data.Quantity);
-        
+
         // 步骤 3: 支付
         await ProcessPayment(data.Amount);
-        
+
         return CatGaResult.Success();
     }
 
@@ -332,7 +332,7 @@ services.AddRedisStores();
 ### **Q: 如何调试？**
 ```csharp
 // 启用日志
-builder.Services.AddLogging(config => 
+builder.Services.AddLogging(config =>
 {
     config.AddConsole();
     config.SetMinimumLevel(LogLevel.Debug);

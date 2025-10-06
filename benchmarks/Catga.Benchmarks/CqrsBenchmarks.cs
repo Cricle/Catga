@@ -93,7 +93,7 @@ public class CqrsBenchmarks
         for (int i = 0; i < 100; i++)
         {
             var command = new TestCommand { Value = i };
-            tasks[i] = _mediator.SendAsync<TestCommand, TestResponse>(command);
+            tasks[i] = _mediator.SendAsync<TestCommand, TestResponse>(command).AsTask();
         }
         await Task.WhenAll(tasks);
     }
@@ -108,7 +108,7 @@ public class CqrsBenchmarks
         for (int i = 0; i < 100; i++)
         {
             var query = new TestQuery { Id = i };
-            tasks[i] = _mediator.SendAsync<TestQuery, TestResponse>(query);
+            tasks[i] = _mediator.SendAsync<TestQuery, TestResponse>(query).AsTask();
         }
         await Task.WhenAll(tasks);
     }
@@ -138,7 +138,7 @@ public class CqrsBenchmarks
         for (int i = 0; i < 1000; i++)
         {
             var command = new TestCommand { Value = i };
-            tasks[i] = _mediator.SendAsync<TestCommand, TestResponse>(command);
+            tasks[i] = _mediator.SendAsync<TestCommand, TestResponse>(command).AsTask();
         }
         await Task.WhenAll(tasks);
     }

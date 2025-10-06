@@ -1,5 +1,6 @@
 using Catga.Idempotency;
 using Catga.Messages;
+using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
 using Catga.Results;
 using FluentAssertions;
@@ -33,10 +34,10 @@ public class IdempotencyBehaviorTests
             .Returns(cachedResponse);
 
         var nextCalled = false;
-        Func<Task<CatgaResult<TestResponse>>> next = () =>
+        PipelineDelegate<TestResponse> next = () =>
         {
             nextCalled = true;
-            return Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse { Message = "New" }));
+            return new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse { Message = "New" }));
         };
 
         // Act
@@ -64,10 +65,10 @@ public class IdempotencyBehaviorTests
             .Returns(false);
 
         var nextCalled = false;
-        Func<Task<CatgaResult<TestResponse>>> next = () =>
+        PipelineDelegate<TestResponse> next = () =>
         {
             nextCalled = true;
-            return Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse { Message = "New Result" }));
+            return new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse { Message = "New Result" }));
         };
 
         // Act
@@ -99,13 +100,13 @@ public class IdempotencyBehaviorTests
             .HasBeenProcessedAsync(request.MessageId, Arg.Any<CancellationToken>())
             .Returns(false);
 
-        Func<Task<CatgaResult<TestResponse>>> next = () =>
+        PipelineDelegate<TestResponse> next = () =>
         {
             throw new InvalidOperationException("Test exception");
         };
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => behavior.HandleAsync(request, next));
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await behavior.HandleAsync(request, next));
 
         // 验证结果没有被缓存
         await idempotencyStore

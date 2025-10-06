@@ -9,7 +9,7 @@ namespace Catga.Pipeline;
 /// <summary>
 /// 🔥 优化的 Pipeline 执行器 - 零分配设计
 /// </summary>
-internal static class PipelineExecutor
+public static class PipelineExecutor
 {
     /// <summary>
     /// 执行 Pipeline（优化版本 - 减少闭包和委托分配）

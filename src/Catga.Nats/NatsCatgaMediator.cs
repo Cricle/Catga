@@ -50,7 +50,7 @@ public class NatsCatgaMediator : ICatgaMediator, IDisposable
                 options.RateLimitRequestsPerSecond);
     }
 
-    public async Task<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
+    public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>

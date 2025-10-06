@@ -79,19 +79,14 @@ public class NatsRequestSubscriber<TRequest, TResponse> : IDisposable
             // Build pipeline with behaviors (same as Memory transport)
             var behaviors = scope.ServiceProvider
                 .GetServices<IPipelineBehavior<TRequest, TResponse>>()
-                .Reverse()
                 .ToList();
 
-            Func<Task<CatgaResult<TResponse>>> pipeline = () => handler.HandleAsync(request, _cts.Token);
-
-            foreach (var behavior in behaviors)
-            {
-                var currentPipeline = pipeline;
-                pipeline = () => behavior.HandleAsync(request, currentPipeline, _cts.Token);
-            }
-
-            // Execute pipeline
-            var result = await pipeline();
+            // 🔥 优化: 使用 PipelineExecutor 减少闭包分配
+            var result = await Pipeline.PipelineExecutor.ExecuteAsync(
+                request,
+                handler,
+                behaviors,
+                _cts.Token);
 
             // Reply
             await ReplyAsync(msg, result);

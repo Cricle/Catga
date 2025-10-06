@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Catga\Catga.csproj" />
+    <ProjectReference Include="..\Catga.Serialization.Json\Catga.Serialization.Json.csproj" />
   </ItemGroup>
 
   <ItemGroup>

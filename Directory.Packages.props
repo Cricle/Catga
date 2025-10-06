@@ -23,6 +23,9 @@
     <!-- Redis 客户端 -->
     <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />
 
+    <!-- 序列化 -->
+    <PackageVersion Include="MemoryPack" Version="1.21.3" />
+
     <!-- 服务发现客户端 -->
     <PackageVersion Include="KubernetesClient" Version="15.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="9.0.0" />

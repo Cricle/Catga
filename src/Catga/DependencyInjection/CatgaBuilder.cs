@@ -27,7 +27,7 @@ public class CatgaBuilder
     {
         var handlerTypes = assembly.GetTypes()
             .Where(t => t.IsClass && !t.IsAbstract)
-            .Where(t => t.GetInterfaces().Any(i => 
+            .Where(t => t.GetInterfaces().Any(i =>
                 i.IsGenericType && (
                     i.GetGenericTypeDefinition() == typeof(IRequestHandler<,>) ||
                     i.GetGenericTypeDefinition() == typeof(IRequestHandler<>) ||

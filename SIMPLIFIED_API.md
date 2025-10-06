@@ -156,7 +156,7 @@ app.MapPost("/orders", async (CreateOrderCommand cmd, ICatgaMediator mediator) =
 app.Run();
 
 // 命令定义
-public record CreateOrderCommand(string CustomerId, decimal Amount) 
+public record CreateOrderCommand(string CustomerId, decimal Amount)
     : IRequest<OrderResult>;
 
 public record OrderResult(string OrderId, OrderStatus Status);

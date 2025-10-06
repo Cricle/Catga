@@ -137,7 +137,7 @@ public static class CatgaServiceCollectionExtensions
     /// </summary>
     private static IServiceCollection ServiceCollection(this CatgaBuilder builder)
     {
-        return builder.GetType().GetField("_services", 
+        return builder.GetType().GetField("_services",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
             ?.GetValue(builder) as IServiceCollection ?? throw new InvalidOperationException();
     }

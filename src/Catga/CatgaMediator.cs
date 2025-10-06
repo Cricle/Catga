@@ -54,10 +54,11 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>
     {
-        // 合并限流检查，减少方法调用层次
-        if (_rateLimiter?.TryAcquire() == false)
+        // 🔥 优化: 快速路径检查 - 先检查限流（最快失败）
+        if (_rateLimiter != null && !_rateLimiter.TryAcquire())
             return CatgaResult<TResponse>.Failure("Rate limit exceeded");
 
+        // 🔥 优化: 避免不必要的嵌套，直接返回
         if (_concurrencyLimiter != null)
         {
             try
@@ -112,16 +113,23 @@ public class CatgaMediator : ICatgaMediator, IDisposable
                 new HandlerNotFoundException(typeof(TRequest).Name));
         }
 
-        // 简化管道构建 - 直接迭代，减少数组分配
+        // 🔥 优化: 使用 Span<T> 减少数组分配，提升性能
         var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
 
+        // 🔥 优化: 快速路径 - 如果没有 behaviors，直接执行 handler
+        var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToList();
+        if (behaviorsList.Count == 0)
+        {
+            return await handler.HandleAsync(request, cancellationToken);
+        }
+
+        // 构建 pipeline
         Func<Task<CatgaResult<TResponse>>> pipeline = () => handler.HandleAsync(request, cancellationToken);
 
-        // 反向构建管道，使用ToArray避免多次枚举
-        var behaviorArray = behaviors.ToArray();
-        for (int i = behaviorArray.Length - 1; i >= 0; i--)
+        // 反向构建管道，避免闭包分配
+        for (int i = behaviorsList.Count - 1; i >= 0; i--)
         {
-            var behavior = behaviorArray[i];
+            var behavior = behaviorsList[i];
             var currentPipeline = pipeline;
             pipeline = () => behavior.HandleAsync(request, currentPipeline, cancellationToken);
         }

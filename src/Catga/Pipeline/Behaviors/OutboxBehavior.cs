@@ -1,7 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Catga.Messages;
 using Catga.Outbox;
 using Catga.Results;
+using Catga.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.Pipeline.Behaviors;
@@ -14,14 +16,17 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
     where TRequest : IRequest<TResponse>
 {
     private readonly IOutboxStore? _outboxStore;
+    private readonly IMessageSerializer? _serializer;
     private readonly ILogger<OutboxBehavior<TRequest, TResponse>> _logger;
 
     public OutboxBehavior(
         ILogger<OutboxBehavior<TRequest, TResponse>> logger,
-        IOutboxStore? outboxStore = null)
+        IOutboxStore? outboxStore = null,
+        IMessageSerializer? serializer = null)
     {
         _logger = logger;
         _outboxStore = outboxStore;
+        _serializer = serializer;
     }
 
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
@@ -83,13 +88,27 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
         {
             MessageId = messageId,
             MessageType = typeof(TRequest).AssemblyQualifiedName ?? typeof(TRequest).FullName ?? typeof(TRequest).Name,
-            Payload = JsonSerializer.Serialize(request),
+            Payload = SerializeRequest(request),
             CreatedAt = DateTime.UtcNow,
             Status = OutboxStatus.Pending,
             CorrelationId = correlationId
         };
 
         await _outboxStore.AddAsync(outboxMessage, cancellationToken);
+    }
+
+    [RequiresUnreferencedCode("使用 JsonSerializer 可能需要无法静态分析的类型")]
+    [RequiresDynamicCode("使用 JsonSerializer 可能需要运行时代码生成")]
+    private string SerializeRequest(TRequest request)
+    {
+        if (_serializer != null)
+        {
+            var bytes = _serializer.Serialize(request);
+            return Convert.ToBase64String(bytes);
+        }
+
+        // 回退到 JsonSerializer（带警告）
+        return JsonSerializer.Serialize(request);
     }
 }
 

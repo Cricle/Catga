@@ -104,7 +104,10 @@ public static class CatgaServiceCollectionExtensions
 
     /// <summary>
     /// 🎯 快速启动 - 开发模式（自动扫描 + 完整功能）
+    /// ⚠️ 警告: 使用反射扫描，不完全兼容 NativeAOT
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("使用程序集扫描，不兼容 NativeAOT。生产环境请使用手动注册。")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("类型扫描可能需要动态代码生成")]
     public static IServiceCollection AddCatgaDevelopment(this IServiceCollection services)
     {
         return services.AddCatgaBuilder(builder => builder
@@ -122,7 +125,10 @@ public static class CatgaServiceCollectionExtensions
 
     /// <summary>
     /// 🚀 快速启动 - 生产模式（性能优化 + 可靠性）
+    /// ⚠️ 警告: 使用反射扫描，不完全兼容 NativeAOT
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("使用程序集扫描，不兼容 NativeAOT。生产环境请使用手动注册。")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("类型扫描可能需要动态代码生成")]
     public static IServiceCollection AddCatgaProduction(this IServiceCollection services)
     {
         return services.AddCatgaBuilder(builder => builder
@@ -135,9 +141,12 @@ public static class CatgaServiceCollectionExtensions
     /// <summary>
     /// 获取 IServiceCollection（用于链式调用）
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("使用反射访问私有字段")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("可能需要动态代码生成")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "访问 CatgaBuilder 的已知私有字段")]
     private static IServiceCollection ServiceCollection(this CatgaBuilder builder)
     {
-        return builder.GetType().GetField("_services",
+        return builder.GetType().GetField("_services", 
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
             ?.GetValue(builder) as IServiceCollection ?? throw new InvalidOperationException();
     }

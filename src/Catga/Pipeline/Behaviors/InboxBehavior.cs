@@ -1,7 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Catga.Inbox;
 using Catga.Messages;
 using Catga.Results;
+using Catga.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.Pipeline.Behaviors;
@@ -14,16 +16,19 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
     where TRequest : IRequest<TResponse>
 {
     private readonly IInboxStore? _inboxStore;
+    private readonly IMessageSerializer? _serializer;
     private readonly ILogger<InboxBehavior<TRequest, TResponse>> _logger;
     private readonly TimeSpan _lockDuration;
 
     public InboxBehavior(
         ILogger<InboxBehavior<TRequest, TResponse>> logger,
         IInboxStore? inboxStore = null,
+        IMessageSerializer? serializer = null,
         TimeSpan? lockDuration = null)
     {
         _logger = logger;
         _inboxStore = inboxStore;
+        _serializer = serializer;
         _lockDuration = lockDuration ?? TimeSpan.FromMinutes(5);
     }
 
@@ -64,7 +69,7 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
                 {
                     try
                     {
-                        var result = JsonSerializer.Deserialize<CatgaResult<TResponse>>(cachedResult);
+                        var result = DeserializeResult(cachedResult);
                         if (result != null)
                             return result;
                     }
@@ -96,8 +101,8 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
                 {
                     MessageId = messageId,
                     MessageType = typeof(TRequest).AssemblyQualifiedName ?? typeof(TRequest).FullName ?? typeof(TRequest).Name,
-                    Payload = JsonSerializer.Serialize(request),
-                    ProcessingResult = JsonSerializer.Serialize(result),
+                    Payload = SerializeRequest(request),
+                    ProcessingResult = SerializeResult(result),
                     CorrelationId = (request as IMessage)?.CorrelationId
                 };
 
@@ -119,6 +124,42 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
             _logger.LogError(ex, "Error in inbox behavior for message {MessageId}", messageId);
             throw;
         }
+    }
+
+    [RequiresUnreferencedCode("使用 JsonSerializer 可能需要无法静态分析的类型")]
+    [RequiresDynamicCode("使用 JsonSerializer 可能需要运行时代码生成")]
+    private string SerializeRequest(TRequest request)
+    {
+        if (_serializer != null)
+        {
+            var bytes = _serializer.Serialize(request);
+            return Convert.ToBase64String(bytes);
+        }
+        return JsonSerializer.Serialize(request);
+    }
+
+    [RequiresUnreferencedCode("使用 JsonSerializer 可能需要无法静态分析的类型")]
+    [RequiresDynamicCode("使用 JsonSerializer 可能需要运行时代码生成")]
+    private string SerializeResult(CatgaResult<TResponse> result)
+    {
+        if (_serializer != null)
+        {
+            var bytes = _serializer.Serialize(result);
+            return Convert.ToBase64String(bytes);
+        }
+        return JsonSerializer.Serialize(result);
+    }
+
+    [RequiresUnreferencedCode("使用 JsonSerializer 可能需要无法静态分析的类型")]
+    [RequiresDynamicCode("使用 JsonSerializer 可能需要运行时代码生成")]
+    private CatgaResult<TResponse>? DeserializeResult(string json)
+    {
+        if (_serializer != null)
+        {
+            var bytes = Convert.FromBase64String(json);
+            return _serializer.Deserialize<CatgaResult<TResponse>>(bytes);
+        }
+        return JsonSerializer.Deserialize<CatgaResult<TResponse>>(json);
     }
 }
 

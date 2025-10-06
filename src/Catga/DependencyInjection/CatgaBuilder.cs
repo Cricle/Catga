@@ -22,7 +22,10 @@ public class CatgaBuilder
 
     /// <summary>
     /// 🔍 自动扫描并注册指定程序集中的所有 Handlers
+    /// ⚠️ 警告: 使用反射，不兼容 NativeAOT
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("程序集扫描使用反射，不兼容 NativeAOT。生产环境请使用手动注册。")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("类型扫描可能需要动态代码生成，不兼容 NativeAOT")]
     public CatgaBuilder ScanHandlers(Assembly assembly)
     {
         var handlerTypes = assembly.GetTypes()
@@ -54,7 +57,10 @@ public class CatgaBuilder
 
     /// <summary>
     /// 🔍 扫描调用程序集（当前执行程序集）
+    /// ⚠️ 警告: 使用反射，不兼容 NativeAOT
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("程序集扫描使用反射，不兼容 NativeAOT。生产环境请使用手动注册。")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("类型扫描可能需要动态代码生成，不兼容 NativeAOT")]
     public CatgaBuilder ScanCurrentAssembly()
     {
         return ScanHandlers(Assembly.GetCallingAssembly());

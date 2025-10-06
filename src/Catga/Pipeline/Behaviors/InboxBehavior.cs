@@ -12,6 +12,12 @@ namespace Catga.Pipeline.Behaviors;
 /// Pipeline behavior that ensures idempotent message processing using inbox pattern
 /// Prevents duplicate processing of the same message
 /// </summary>
+/// <remarks>
+/// 注意：此 Behavior 使用序列化功能，在 NativeAOT 环境下需要 AOT 友好的序列化器（如 MemoryPack）。
+/// 或者在不需要 Inbox 模式时，不要注册此 Behavior。
+/// </remarks>
+[RequiresUnreferencedCode("Inbox Behavior 需要序列化消息。在 AOT 环境下请使用 MemoryPack 等 AOT 友好的序列化器，或不使用此 Behavior。")]
+[RequiresDynamicCode("Inbox Behavior 需要序列化消息。在 AOT 环境下请使用 MemoryPack 等 AOT 友好的序列化器，或不使用此 Behavior。")]
 public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
@@ -126,10 +132,6 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
         }
     }
 
-    [RequiresUnreferencedCode("使用 JsonSerializer 可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("使用 JsonSerializer 可能需要运行时代码生成")]
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在接口层标记")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在接口层标记")]
     private string SerializeRequest(TRequest request)
     {
         if (_serializer != null)
@@ -140,10 +142,6 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
         return JsonSerializer.Serialize(request);
     }
 
-    [RequiresUnreferencedCode("使用 JsonSerializer 可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("使用 JsonSerializer 可能需要运行时代码生成")]
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在接口层标记")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在接口层标记")]
     private string SerializeResult(CatgaResult<TResponse> result)
     {
         if (_serializer != null)
@@ -154,10 +152,6 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
         return JsonSerializer.Serialize(result);
     }
 
-    [RequiresUnreferencedCode("使用 JsonSerializer 可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("使用 JsonSerializer 可能需要运行时代码生成")]
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在接口层标记")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在接口层标记")]
     private CatgaResult<TResponse>? DeserializeResult(string json)
     {
         if (_serializer != null)

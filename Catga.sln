@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catga.Serialization.Json", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catga.Serialization.MemoryPack", "src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj", "{E040AC50-6F26-46C1-848C-1221671D608C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catga.ServiceDiscovery.Kubernetes", "src\Catga.ServiceDiscovery.Kubernetes\Catga.ServiceDiscovery.Kubernetes.csproj", "{6BA2F7D0-A388-47F7-80D5-C94B4DC54272}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -117,6 +119,18 @@ Global
 		{E040AC50-6F26-46C1-848C-1221671D608C}.Release|x64.Build.0 = Release|Any CPU
 		{E040AC50-6F26-46C1-848C-1221671D608C}.Release|x86.ActiveCfg = Release|Any CPU
 		{E040AC50-6F26-46C1-848C-1221671D608C}.Release|x86.Build.0 = Release|Any CPU
+		{6BA2F7D0-A388-47F7-80D5-C94B4DC54272}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6BA2F7D0-A388-47F7-80D5-C94B4DC54272}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6BA2F7D0-A388-47F7-80D5-C94B4DC54272}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6BA2F7D0-A388-47F7-80D5-C94B4DC54272}.Debug|x64.Build.0 = Debug|Any CPU
+		{6BA2F7D0-A388-47F7-80D5-C94B4DC54272}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6BA2F7D0-A388-47F7-80D5-C94B4DC54272}.Debug|x86.Build.0 = Debug|Any CPU
+		{6BA2F7D0-A388-47F7-80D5-C94B4DC54272}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6BA2F7D0-A388-47F7-80D5-C94B4DC54272}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6BA2F7D0-A388-47F7-80D5-C94B4DC54272}.Release|x64.ActiveCfg = Release|Any CPU
+		{6BA2F7D0-A388-47F7-80D5-C94B4DC54272}.Release|x64.Build.0 = Release|Any CPU
+		{6BA2F7D0-A388-47F7-80D5-C94B4DC54272}.Release|x86.ActiveCfg = Release|Any CPU
+		{6BA2F7D0-A388-47F7-80D5-C94B4DC54272}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -129,5 +143,6 @@ Global
 		{C8261D14-5A5A-4B1A-A257-B07262546B5D} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{3828FCD0-0D1C-4458-AD8D-900BC1228260} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{E040AC50-6F26-46C1-848C-1221671D608C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{6BA2F7D0-A388-47F7-80D5-C94B4DC54272} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

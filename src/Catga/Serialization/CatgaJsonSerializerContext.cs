@@ -46,7 +46,7 @@ public static class CatgaJsonSerializerContextExtensions
         options.TypeInfoResolver = CatgaJsonSerializerContext.Default;
         return options;
     }
-    
+
     /// <summary>
     /// 创建默认的 AOT 兼容 JSON 选项
     /// </summary>

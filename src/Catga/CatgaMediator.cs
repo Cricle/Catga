@@ -152,7 +152,7 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         // 🔥 优化: 避免 LINQ Select + Task.Run，直接构建任务数组
         var handlers = _serviceProvider.GetServices<IEventHandler<TEvent>>();
         var handlerList = handlers as IList<IEventHandler<TEvent>> ?? handlers.ToArray();
-        
+
         if (handlerList.Count == 0)
             return;
 

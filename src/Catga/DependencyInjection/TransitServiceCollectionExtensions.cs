@@ -63,6 +63,86 @@ public static class CatgaServiceCollectionExtensions
     }
 
     /// <summary>
+    /// 🚀 添加 Catga（流式配置 API）
+    /// </summary>
+    public static CatgaBuilder AddCatgaBuilder(
+        this IServiceCollection services,
+        Action<CatgaBuilder>? configure = null)
+    {
+        var options = new CatgaOptions();
+        var builder = new CatgaBuilder(services, options);
+
+        // 注册核心服务
+        services.AddSingleton(options);
+        services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
+        services.TryAddSingleton<IIdempotencyStore>(new ShardedIdempotencyStore(
+            options.IdempotencyShardCount,
+            TimeSpan.FromHours(options.IdempotencyRetentionHours)));
+
+        configure?.Invoke(builder);
+
+        // 应用配置后的选项
+        if (options.EnableDeadLetterQueue)
+            services.TryAddSingleton<IDeadLetterQueue>(sp =>
+                new InMemoryDeadLetterQueue(
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InMemoryDeadLetterQueue>>(),
+                    options.DeadLetterQueueMaxSize));
+
+        if (options.EnableLogging)
+            services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+        if (options.EnableTracing)
+            services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(TracingBehavior<,>));
+        if (options.EnableIdempotency)
+            services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(IdempotencyBehavior<,>));
+        if (options.EnableValidation)
+            services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        if (options.EnableRetry)
+            services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(RetryBehavior<,>));
+
+        return builder;
+    }
+
+    /// <summary>
+    /// 🎯 快速启动 - 开发模式（自动扫描 + 完整功能）
+    /// </summary>
+    public static IServiceCollection AddCatgaDevelopment(this IServiceCollection services)
+    {
+        return services.AddCatgaBuilder(builder => builder
+            .ScanCurrentAssembly()
+            .Configure(opt =>
+            {
+                opt.EnableLogging = true;
+                opt.EnableTracing = true;
+                opt.EnableValidation = true;
+                opt.EnableIdempotency = true;
+                opt.EnableRetry = true;
+                opt.EnableDeadLetterQueue = true;
+            })).ServiceCollection();
+    }
+
+    /// <summary>
+    /// 🚀 快速启动 - 生产模式（性能优化 + 可靠性）
+    /// </summary>
+    public static IServiceCollection AddCatgaProduction(this IServiceCollection services)
+    {
+        return services.AddCatgaBuilder(builder => builder
+            .ScanCurrentAssembly()
+            .WithPerformanceOptimization()
+            .WithReliability()
+        ).ServiceCollection();
+    }
+
+    /// <summary>
+    /// 获取 IServiceCollection（用于链式调用）
+    /// </summary>
+    private static IServiceCollection ServiceCollection(this CatgaBuilder builder)
+    {
+        return builder.GetType().GetField("_services", 
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            ?.GetValue(builder) as IServiceCollection ?? throw new InvalidOperationException();
+    }
+
+    /// <summary>
     /// 注册请求处理器（显式，AOT 友好）
     /// </summary>
     public static IServiceCollection AddRequestHandler<TRequest, TResponse, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>(

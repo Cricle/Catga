@@ -63,36 +63,52 @@ dotnet add package Catga.Redis
 dotnet add package Catga.ServiceDiscovery.Kubernetes
 ```
 
-### 基础使用
+### ⚡ 极简使用（推荐）
 
 ```csharp
-// 1. 定义消息
+// 1. 一行注册 - 自动扫描所有 Handlers
+services.AddCatgaDevelopment(); // 开发模式
+// 或
+services.AddCatgaProduction();  // 生产模式
+
+// 2. 定义消息和处理器
 public record CreateOrderCommand(string CustomerId, decimal Amount)
-    : ICommand<OrderResult>;
+    : IRequest<OrderResult>;
 
-public record OrderResult(string OrderId, OrderStatus Status);
-
-// 2. 实现处理器
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResult>
 {
-    public async Task<CatgaResult<OrderResult>> HandleAsync(
+    public async ValueTask<CatgaResult<OrderResult>> HandleAsync(
         CreateOrderCommand request,
         CancellationToken cancellationToken)
     {
-        // 处理业务逻辑
-        var order = await _orderRepository.CreateAsync(request);
-
-        return CatgaResult<OrderResult>.Success(
-            new OrderResult(order.Id, order.Status));
+        // 业务逻辑
+        return CatgaResult<OrderResult>.Success(new OrderResult(...));
     }
 }
 
-// 3. 注册服务
+// 3. 使用
+var result = await _mediator.SendAsync(new CreateOrderCommand("customer-123", 99.99m));
+```
+
+### 🔧 链式配置（高级）
+
+```csharp
+services.AddCatgaBuilder(builder => builder
+    .ScanCurrentAssembly()           // 自动扫描当前程序集
+    .WithOutbox()                    // 启用 Outbox 模式
+    .WithInbox()                     // 启用 Inbox 模式
+    .WithReliability()               // 启用可靠性特性（熔断/重试/死信队列）
+    .WithPerformanceOptimization()   // 启用性能优化
+);
+```
+
+### 📋 传统方式（手动注册）
+
+```csharp
+// 手动注册每个 Handler（AOT 友好）
 services.AddCatga();
 services.AddRequestHandler<CreateOrderCommand, OrderResult, CreateOrderHandler>();
-
-// 4. 使用 Mediator
-var result = await _mediator.SendAsync(new CreateOrderCommand("customer-123", 99.99m));
+services.AddEventHandler<OrderCreatedEvent, NotificationHandler>();
 ```
 
 ### 分布式部署

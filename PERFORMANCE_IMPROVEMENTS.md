@@ -1,7 +1,7 @@
 # ⚡ 性能优化报告
 
-**日期**: 2025-10-06  
-**版本**: 1.0  
+**日期**: 2025-10-06
+**版本**: 1.0
 **优化类型**: 零改动功能优化
 
 ---
@@ -33,7 +33,7 @@ if (_rateLimiter?.TryAcquire() == false)
 if (_rateLimiter != null && !_rateLimiter.TryAcquire())
 ```
 
-**原因**: 
+**原因**:
 - 减少 null 条件运算符的开销
 - 更明确的意图，编译器更容易优化
 - 在高频调用场景下积少成多
@@ -209,7 +209,7 @@ Total Allocations: 3.1 KB per request (40% reduction)
 ```
 ✅ All tests passed
    - CatgaMediatorTests: 3 passed
-   - CatgaResultTests: 5 passed  
+   - CatgaResultTests: 5 passed
    - OutboxStoreTests: 6 passed
    - IdempotencyBehaviorTests: 3 passed
 
@@ -244,10 +244,10 @@ Total: 17 tests, 0 failed
 
 通过精准的性能优化，在**不改变任何功能**的前提下，实现了显著的性能提升：
 
-✅ **吞吐量提升 18.5%** (平均)  
-✅ **延迟降低 30%** (P95)  
-✅ **内存减少 33%**  
-✅ **GC 压力降低 40%**  
+✅ **吞吐量提升 18.5%** (平均)
+✅ **延迟降低 30%** (P95)
+✅ **内存减少 33%**
+✅ **GC 压力降低 40%**
 
 这些优化使 Catga 框架在高并发场景下表现更加出色，同时保持了代码的简洁性和可维护性。
 

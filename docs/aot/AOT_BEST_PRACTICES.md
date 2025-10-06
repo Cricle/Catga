@@ -1,6 +1,6 @@
 # 🎯 Catga AOT 最佳实践指南
 
-**目标**: 100% NativeAOT 兼容  
+**目标**: 100% NativeAOT 兼容
 **更新时间**: 2024-10-06
 
 ---
@@ -153,19 +153,19 @@ using MemoryPack;
 
 [MemoryPackable]
 public partial record CreateOrderCommand(
-    string OrderId, 
+    string OrderId,
     decimal Amount
 ) : IRequest<OrderResult>;
 
 [MemoryPackable]
 public partial record OrderResult(
-    string OrderId, 
+    string OrderId,
     bool Success
 );
 
 [MemoryPackable]
 public partial record OrderCreatedEvent(
-    string OrderId, 
+    string OrderId,
     decimal Amount,
     DateTime OccurredAt
 ) : IEvent;

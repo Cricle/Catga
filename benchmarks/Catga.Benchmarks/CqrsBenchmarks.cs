@@ -142,6 +142,64 @@ public class CqrsBenchmarks
         }
         await Task.WhenAll(tasks);
     }
+
+    // 🔥 新增：原生批量 API 性能测试
+    [Benchmark(Description = "原生批量命令 (100)")]
+    public async Task SendCommand_NativeBatch100()
+    {
+        var commands = new TestCommand[100];
+        for (int i = 0; i < 100; i++)
+        {
+            commands[i] = new TestCommand { Value = i };
+        }
+
+        await _mediator.SendBatchAsync<TestCommand, TestResponse>(commands, default);
+    }
+
+    [Benchmark(Description = "原生批量查询 (100)")]
+    public async Task SendQuery_NativeBatch100()
+    {
+        var queries = new TestQuery[100];
+        for (int i = 0; i < 100; i++)
+        {
+            queries[i] = new TestQuery { Id = i };
+        }
+
+        await _mediator.SendBatchAsync<TestQuery, TestResponse>(queries, default);
+    }
+
+    [Benchmark(Description = "原生批量事件 (100)")]
+    public async Task PublishEvent_NativeBatch100()
+    {
+        var events = new TestEvent[100];
+        for (int i = 0; i < 100; i++)
+        {
+            events[i] = new TestEvent { Data = $"Event{i}" };
+        }
+
+        await _mediator.PublishBatchAsync(events, default);
+    }
+
+    // 🔥 新增：流式处理性能测试
+    [Benchmark(Description = "流式命令处理 (100)")]
+    public async Task SendCommand_Stream100()
+    {
+        var commands = GenerateCommandsAsync(100);
+        int count = 0;
+        await foreach (var result in _mediator.SendStreamAsync<TestCommand, TestResponse>(commands, default))
+        {
+            count++;
+        }
+    }
+
+    private async IAsyncEnumerable<TestCommand> GenerateCommandsAsync(int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            yield return new TestCommand { Value = i };
+            await Task.Yield(); // 模拟异步生成
+        }
+    }
 }
 
 // 测试消息和处理器

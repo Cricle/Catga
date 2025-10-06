@@ -93,7 +93,7 @@ dotnet run -c Release
 
 ```csharp
 // 复用高频对象
-services.AddSingleton<ObjectPool<StringBuilder>>(sp => 
+services.AddSingleton<ObjectPool<StringBuilder>>(sp =>
     new DefaultObjectPool<StringBuilder>(
         new StringBuilderPooledObjectPolicy()));
 ```
@@ -123,7 +123,7 @@ public ValueTask<Result> HandleAsync(Command cmd)
 {
     if (cache.TryGet(cmd.Id, out var result))
         return new ValueTask<Result>(result);
-    
+
     return new ValueTask<Result>(HandleSlowPath(cmd));
 }
 ```
@@ -285,9 +285,9 @@ var span = data.AsSpan();
 
 **Catga 持续优化性能，保持高性能基准！**
 
-✅ **18.5% 吞吐量提升**  
-✅ **30% 延迟降低**  
-✅ **33% 内存减少**  
+✅ **18.5% 吞吐量提升**
+✅ **30% 延迟降低**
+✅ **33% 内存减少**
 ✅ **40% GC 压力降低**
 
 **性能是 Catga 的核心竞争力！** ⚡

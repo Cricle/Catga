@@ -67,7 +67,7 @@ dotnet add package Catga.ServiceDiscovery.Kubernetes
 
 ```csharp
 // 1. 定义消息
-public record CreateOrderCommand(string CustomerId, decimal Amount) 
+public record CreateOrderCommand(string CustomerId, decimal Amount)
     : ICommand<OrderResult>;
 
 public record OrderResult(string OrderId, OrderStatus Status);
@@ -81,7 +81,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResul
     {
         // 处理业务逻辑
         var order = await _orderRepository.CreateAsync(request);
-        
+
         return CatgaResult<OrderResult>.Success(
             new OrderResult(order.Id, order.Status));
     }
@@ -247,10 +247,10 @@ Catga/
 
 ### 为什么选择 Catga？
 
-✅ **分布式优先** - 原生支持微服务架构  
-✅ **生产就绪** - 内置可靠性和可观测性  
-✅ **高性能** - 零反射，无锁设计  
-✅ **云原生** - Kubernetes 原生支持  
+✅ **分布式优先** - 原生支持微服务架构
+✅ **生产就绪** - 内置可靠性和可观测性
+✅ **高性能** - 零反射，无锁设计
+✅ **云原生** - Kubernetes 原生支持
 ✅ **简单易用** - 最小化配置，渐进增强
 
 ---

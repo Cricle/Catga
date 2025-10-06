@@ -23,6 +23,9 @@
     <!-- Redis 客户端 -->
     <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />
 
+    <!-- Consul 客户端 -->
+    <PackageVersion Include="Consul" Version="1.7.14.3" />
+
     <!-- Benchmark -->
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
 

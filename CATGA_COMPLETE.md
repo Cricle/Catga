@@ -1,7 +1,7 @@
 # 🎉 Catga 框架完全完成！
 
-**完成时间**: 2024-10-06  
-**版本**: 1.0.0  
+**完成时间**: 2024-10-06
+**版本**: 1.0.0
 **状态**: 🚀 **生产就绪 + 完美优化**
 
 ---
@@ -447,14 +447,14 @@ GC 压力:      -40%
 
 ---
 
-**开始使用**: [GETTING_STARTED.md](GETTING_STARTED.md)  
-**项目概览**: [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)  
+**开始使用**: [GETTING_STARTED.md](GETTING_STARTED.md)
+**项目概览**: [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)
 **文档中心**: [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)
 
 </div>
 
 ---
 
-*Catga 框架 - 高性能分布式 CQRS 的最佳选择！*  
+*Catga 框架 - 高性能分布式 CQRS 的最佳选择！*
 *本文档标志着 Catga 项目的完美收官 © 2024*
 

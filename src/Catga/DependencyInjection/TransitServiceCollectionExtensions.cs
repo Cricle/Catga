@@ -139,16 +139,11 @@ public static class CatgaServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Get IServiceCollection (for chaining)
+    /// Get IServiceCollection (for chaining) - No reflection, AOT-friendly
     /// </summary>
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses reflection to access private fields")]
-    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("May require dynamic code generation")]
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "Accessing known private field of CatgaBuilder")]
     private static IServiceCollection ServiceCollection(this CatgaBuilder builder)
     {
-        return builder.GetType().GetField("_services",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            ?.GetValue(builder) as IServiceCollection ?? throw new InvalidOperationException();
+        return builder.Services;
     }
 
     /// <summary>

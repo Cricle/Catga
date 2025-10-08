@@ -149,31 +149,43 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         CancellationToken cancellationToken = default)
         where TEvent : IEvent
     {
-        // Avoid LINQ Select + Task.Run, build task array directly
+        // Avoid LINQ Select, build task array directly
         var handlers = _serviceProvider.GetServices<IEventHandler<TEvent>>();
         var handlerList = handlers as IList<IEventHandler<TEvent>> ?? handlers.ToArray();
 
         if (handlerList.Count == 0)
             return;
 
+        // Execute handlers concurrently without Task.Run
+        // HandleAsync is already async, no need to queue to thread pool
         var tasks = new Task[handlerList.Count];
         for (int i = 0; i < handlerList.Count; i++)
         {
             var handler = handlerList[i];
-            tasks[i] = Task.Run(async () =>
-            {
-                try
-                {
-                    await handler.HandleAsync(@event, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Event handler failed: {HandlerType}", handler.GetType().Name);
-                }
-            }, cancellationToken);
+            // Wrap in helper method to isolate exception handling per handler
+            tasks[i] = HandleEventSafelyAsync(handler, @event, cancellationToken);
         }
 
-        await Task.WhenAll(tasks);
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Execute event handler with exception isolation
+    /// </summary>
+    private async Task HandleEventSafelyAsync<TEvent>(
+        IEventHandler<TEvent> handler,
+        TEvent @event,
+        CancellationToken cancellationToken)
+        where TEvent : IEvent
+    {
+        try
+        {
+            await handler.HandleAsync(@event, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Event handler failed: {HandlerType}", handler.GetType().Name);
+        }
     }
 
     /// <summary>

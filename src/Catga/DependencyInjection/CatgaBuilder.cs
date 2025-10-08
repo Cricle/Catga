@@ -15,6 +15,11 @@ public class CatgaBuilder
     private readonly IServiceCollection _services;
     private readonly CatgaOptions _options;
 
+    /// <summary>
+    /// Access to the service collection (for extension methods)
+    /// </summary>
+    public IServiceCollection Services => _services;
+
     public CatgaBuilder(IServiceCollection services, CatgaOptions options)
     {
         _services = services;

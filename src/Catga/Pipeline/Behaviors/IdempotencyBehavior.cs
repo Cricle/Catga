@@ -22,11 +22,11 @@ public class IdempotencyBehavior<TRequest, TResponse> : IPipelineBehavior<TReque
     }
 
     /// <summary>
-    /// 🔥 优化: 使用 ValueTask 减少堆分配
-    /// 注意: 序列化警告在 IIdempotencyStore 接口方法上标记
+    /// Optimized: Use ValueTask to reduce heap allocations
+    /// Note: Serialization warnings are marked on IIdempotencyStore interface methods
     /// </summary>
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IIdempotencyStore 接口上标记")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IIdempotencyStore 接口上标记")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IIdempotencyStore interface")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IIdempotencyStore interface")]
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,

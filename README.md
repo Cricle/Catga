@@ -17,6 +17,7 @@
 - **2.6倍吞吐量** vs MediatR (1.05M vs 400K req/s)
 - **零分配 FastPath** - 关键路径零 GC 压力
 - **完美无锁设计** - 100% lock-free 并发
+- **4.1M IDs/秒** - 分布式ID生成器，241ns延迟
 
 ### 💎 极致易用
 - **1行配置** - `AddCatga().UseProductionDefaults().AddGeneratedHandlers()`
@@ -196,8 +197,9 @@ docker-compose up -d
 - 📊 [AOT 最佳实践](docs/aot/AOT_BEST_PRACTICES.md) - 实战经验
 
 ### 性能基准
-- ⚡ [基准测试结果](docs/benchmarks/BASELINE_REPORT.md) - 详细数据
-- 📈 [性能优化总结](docs/performance/README.md) - 优化历程
+- ⚡ [基准测试结果](docs/BENCHMARK_RESULTS.md) - 详细数据
+- 📈 [性能优化报告](PERFORMANCE_REPORT.md) - P0-P3全面优化
+- 🚀 [优化历程](CODE_REVIEW_AND_OPTIMIZATION_PLAN.md) - 优化计划
 
 ---
 

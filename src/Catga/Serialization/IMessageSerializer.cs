@@ -3,26 +3,26 @@ using System.Diagnostics.CodeAnalysis;
 namespace Catga.Serialization;
 
 /// <summary>
-/// 消息序列化器接口（AOT 友好）
+/// Message serializer interface (AOT-friendly)
 /// </summary>
 public interface IMessageSerializer
 {
     /// <summary>
-    /// 序列化对象为字节数组
+    /// Serialize object to byte array
     /// </summary>
-    [RequiresUnreferencedCode("序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("序列化可能需要运行时代码生成")]
+    [RequiresUnreferencedCode("Serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Serialization may require runtime code generation")]
     byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(T value);
 
     /// <summary>
-    /// 从字节数组反序列化对象
+    /// Deserialize object from byte array
     /// </summary>
-    [RequiresUnreferencedCode("反序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("反序列化可能需要运行时代码生成")]
+    [RequiresUnreferencedCode("Deserialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Deserialization may require runtime code generation")]
     T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(byte[] data);
 
     /// <summary>
-    /// 序列化器名称
+    /// Serializer name
     /// </summary>
     string Name { get; }
 }

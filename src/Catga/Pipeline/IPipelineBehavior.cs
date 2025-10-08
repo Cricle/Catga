@@ -5,7 +5,7 @@ namespace Catga.Pipeline;
 
 /// <summary>
 /// Pipeline behavior for requests with response
-/// 🔥 优化: 使用 ValueTask 减少堆分配
+/// Optimized: Use ValueTask to reduce heap allocations
 /// </summary>
 public interface IPipelineBehavior<in TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
@@ -17,7 +17,7 @@ public interface IPipelineBehavior<in TRequest, TResponse> where TRequest : IReq
 
 /// <summary>
 /// Pipeline behavior for requests without response
-/// 🔥 优化: 使用 ValueTask 减少堆分配
+/// Optimized: Use ValueTask to reduce heap allocations
 /// </summary>
 public interface IPipelineBehavior<in TRequest> where TRequest : IRequest
 {
@@ -28,7 +28,7 @@ public interface IPipelineBehavior<in TRequest> where TRequest : IRequest
 }
 
 /// <summary>
-/// Pipeline delegate - 优化的委托类型
+/// Pipeline delegate - Optimized delegate type
 /// </summary>
 public delegate ValueTask<CatgaResult<TResponse>> PipelineDelegate<TResponse>();
 

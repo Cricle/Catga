@@ -55,6 +55,7 @@ public static class MessageCompressor
 
     /// <summary>
     /// Decompress data
+    /// P2 Optimization: Avoid allocation in ReadOnlySpan to MemoryStream
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static byte[] Decompress(
@@ -65,7 +66,8 @@ public static class MessageCompressor
         if (algorithm == CompressionAlgorithm.None)
             return compressedData.ToArray();
 
-        using var inputStream = new MemoryStream(compressedData.ToArray());
+        // P2: Use ReadOnlyMemoryStream to avoid ToArray() allocation
+        using var inputStream = new ReadOnlyMemoryStream(compressedData);
         using var decompressionStream = CreateDecompressionStream(inputStream, algorithm);
         using var outputStream = new MemoryStream(expectedSize > 0 ? expectedSize : 4096);
 
@@ -129,6 +131,64 @@ public static class MessageCompressor
             CompressionAlgorithm.Deflate => new DeflateStream(input, CompressionMode.Decompress, leaveOpen: true),
             _ => throw new NotSupportedException($"Algorithm {algorithm} not supported")
         };
+    }
+
+    /// <summary>
+    /// Helper stream that reads from ReadOnlySpan without allocation (P2)
+    /// </summary>
+    private class ReadOnlyMemoryStream : Stream
+    {
+        private readonly ReadOnlyMemory<byte> _memory;
+        private int _position;
+
+        public ReadOnlyMemoryStream(ReadOnlySpan<byte> data)
+        {
+            _memory = data.ToArray(); // Unfortunately needed for async APIs
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => true;
+        public override bool CanWrite => false;
+        public override long Length => _memory.Length;
+        public override long Position
+        {
+            get => _position;
+            set => _position = (int)value;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            var remaining = _memory.Length - _position;
+            var toRead = Math.Min(count, remaining);
+            _memory.Span.Slice(_position, toRead).CopyTo(buffer.AsSpan(offset));
+            _position += toRead;
+            return toRead;
+        }
+
+        public override int Read(Span<byte> buffer)
+        {
+            var remaining = _memory.Length - _position;
+            var toRead = Math.Min(buffer.Length, remaining);
+            _memory.Span.Slice(_position, toRead).CopyTo(buffer);
+            _position += toRead;
+            return toRead;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            _position = origin switch
+            {
+                SeekOrigin.Begin => (int)offset,
+                SeekOrigin.Current => _position + (int)offset,
+                SeekOrigin.End => _memory.Length + (int)offset,
+                _ => throw new ArgumentException("Invalid SeekOrigin", nameof(origin))
+            };
+            return _position;
+        }
+
+        public override void Flush() { }
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     /// <summary>

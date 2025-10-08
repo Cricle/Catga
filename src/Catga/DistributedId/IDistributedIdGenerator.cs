@@ -21,6 +21,13 @@ public interface IDistributedIdGenerator
     bool TryWriteNextId(Span<char> destination, out int charsWritten);
 
     /// <summary>
+    /// Try to generate next ID without throwing exceptions (P2 optimization)
+    /// </summary>
+    /// <param name="id">Generated ID if successful</param>
+    /// <returns>True if successful, false if clock moved backwards</returns>
+    bool TryNextId(out long id);
+
+    /// <summary>
     /// Batch generate IDs into a span (0 allocation, lock-free)
     /// </summary>
     /// <param name="destination">Span to fill with generated IDs</param>

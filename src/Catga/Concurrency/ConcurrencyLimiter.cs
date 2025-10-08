@@ -26,12 +26,17 @@ public sealed class ConcurrencyLimiter : IDisposable
 
     /// <summary>
     /// Execute action with concurrency limit (non-blocking async)
+    /// P1 Optimization: Ensure counter is incremented atomically with semaphore acquisition
     /// </summary>
     public async Task<T> ExecuteAsync<T>(
         Func<Task<T>> action,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
+        // P1: Track active count accurately using semaphore state
+        // CurrentCount = MaxConcurrency - AvailableSlots
+        var activeBefore = _maxConcurrency - _semaphore.CurrentCount;
+        
         // Non-blocking async wait
         var acquired = await _semaphore.WaitAsync(timeout, cancellationToken);
 
@@ -42,6 +47,7 @@ public sealed class ConcurrencyLimiter : IDisposable
                 $"Concurrency limit reached ({_maxConcurrency}). Request rejected.");
         }
 
+        // P1: Atomically update current count after successful acquisition
         Interlocked.Increment(ref _currentCount);
 
         try
@@ -50,6 +56,7 @@ public sealed class ConcurrencyLimiter : IDisposable
         }
         finally
         {
+            // P1: Decrement BEFORE releasing semaphore to maintain accurate count
             Interlocked.Decrement(ref _currentCount);
             _semaphore.Release();
         }

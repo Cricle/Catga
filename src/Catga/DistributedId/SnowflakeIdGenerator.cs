@@ -7,16 +7,40 @@ namespace Catga.DistributedId;
 /// High-performance Snowflake ID generator
 /// Thread-safe, zero-allocation, 100% lock-free, configurable bit layout
 /// Uses pure CAS (Compare-And-Swap) loop for true lock-free concurrency
+/// P3: Cache line padding to avoid false sharing in high-contention scenarios
 /// </summary>
 public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
 {
     private readonly long _workerId;
     private readonly SnowflakeBitLayout _layout;
     
+    // P3: Cache line padding (64 bytes before hot field)
+    #pragma warning disable CS0169 // Field is never used (padding for false sharing prevention)
+    private long _padding1;
+    private long _padding2;
+    private long _padding3;
+    private long _padding4;
+    private long _padding5;
+    private long _padding6;
+    private long _padding7;
+    #pragma warning restore CS0169
+
     // Packed state: timestamp (high 52 bits) | sequence (low 12 bits)
     // This allows atomic updates using a single Interlocked.CompareExchange
     // Initialize to 0 (timestamp=0, sequence=0)
+    // P3: Aligned on its own cache line to prevent false sharing
     private long _packedState = 0L;
+
+    // P3: Cache line padding (64 bytes after hot field)
+    #pragma warning disable CS0169 // Field is never used (padding for false sharing prevention)
+    private long _padding8;
+    private long _padding9;
+    private long _padding10;
+    private long _padding11;
+    private long _padding12;
+    private long _padding13;
+    private long _padding14;
+    #pragma warning restore CS0169
 
     /// <summary>
     /// Create Snowflake ID generator with default layout
@@ -158,8 +182,78 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     }
 
     /// <summary>
+    /// Try to generate next ID without throwing exceptions (P2 optimization)
+    /// Returns false instead of throwing when clock moves backwards
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryNextId(out long id)
+    {
+        SpinWait spinWait = default;
+
+        while (true)
+        {
+            // Read current packed state atomically
+            var currentState = Interlocked.Read(ref _packedState);
+            var lastTimestamp = UnpackTimestamp(currentState);
+            var lastSequence = UnpackSequence(currentState);
+
+            // Get current timestamp
+            var timestamp = GetCurrentTimestamp();
+
+            // P2: Return false instead of throwing
+            if (timestamp < lastTimestamp)
+            {
+                id = 0;
+                return false; // Clock moved backwards
+            }
+
+            long newSequence;
+            long newTimestamp;
+
+            if (timestamp == lastTimestamp)
+            {
+                // Same millisecond: increment sequence
+                newSequence = lastSequence + 1;
+
+                if (newSequence > _layout.SequenceMask)
+                {
+                    // Sequence overflow: wait for next millisecond
+                    timestamp = WaitNextMillisecond(lastTimestamp);
+                    newTimestamp = timestamp;
+                    newSequence = 0;
+                }
+                else
+                {
+                    newTimestamp = timestamp;
+                }
+            }
+            else
+            {
+                // New millisecond: reset sequence
+                newTimestamp = timestamp;
+                newSequence = 0;
+            }
+
+            // Try to update state using CAS
+            var newState = PackState(newTimestamp, newSequence);
+            if (Interlocked.CompareExchange(ref _packedState, newState, currentState) == currentState)
+            {
+                // Success! Generate ID
+                id = ((newTimestamp - _layout.EpochMilliseconds) << _layout.TimestampShift)
+                     | (_workerId << _layout.WorkerIdShift)
+                     | newSequence;
+                return true;
+            }
+
+            // CAS failed: another thread updated the state, retry
+            spinWait.SpinOnce();
+        }
+    }
+
+    /// <summary>
     /// Batch generate IDs into a span (0 allocation, lock-free)
     /// Uses optimized batch reservation to reduce CAS contention
+    /// P1 Optimization: Adaptive batch sizing for ultra-large requests (>10k IDs)
     /// </summary>
     public int NextIds(Span<long> destination)
     {
@@ -171,6 +265,11 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
         var count = destination.Length;
         var generated = 0;
         SpinWait spinWait = default;
+
+        // P1: For ultra-large batches (>10k), use adaptive reservation strategy
+        var maxBatchPerIteration = count > 10000 
+            ? Math.Min((int)_layout.SequenceMask + 1, count / 4) // Reserve up to 25% at a time
+            : (int)_layout.SequenceMask + 1; // Normal batching
 
         while (generated < count)
         {
@@ -197,7 +296,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
             {
                 // Same millisecond: try to reserve a batch of sequences
                 var available = _layout.SequenceMask - lastSequence;
-                batchSize = Math.Min(count - generated, (int)available);
+                batchSize = Math.Min(Math.Min(count - generated, maxBatchPerIteration), (int)available);
 
                 if (batchSize == 0)
                 {
@@ -205,7 +304,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
                     timestamp = WaitNextMillisecond(lastTimestamp);
                     newTimestamp = timestamp;
                     startSequence = 0;
-                    batchSize = Math.Min(count - generated, (int)_layout.SequenceMask + 1);
+                    batchSize = Math.Min(count - generated, maxBatchPerIteration);
                 }
                 else
                 {
@@ -218,7 +317,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
                 // New millisecond: can reserve from sequence 0
                 newTimestamp = timestamp;
                 startSequence = 0;
-                batchSize = Math.Min(count - generated, (int)_layout.SequenceMask + 1);
+                batchSize = Math.Min(count - generated, maxBatchPerIteration);
             }
 
             var endSequence = startSequence + batchSize - 1;
@@ -228,13 +327,14 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
             if (Interlocked.CompareExchange(ref _packedState, newState, currentState) == currentState)
             {
                 // Success! Generate IDs for the reserved batch
+                // P1: Precompute common values outside loop
                 var epochOffset = newTimestamp - _layout.EpochMilliseconds;
+                var baseId = (epochOffset << _layout.TimestampShift) | (_workerId << _layout.WorkerIdShift);
+                
                 for (int i = 0; i < batchSize; i++)
                 {
                     var seq = startSequence + i;
-                    destination[generated++] = (epochOffset << _layout.TimestampShift)
-                                               | (_workerId << _layout.WorkerIdShift)
-                                               | seq;
+                    destination[generated++] = baseId | seq;
                 }
             }
             else

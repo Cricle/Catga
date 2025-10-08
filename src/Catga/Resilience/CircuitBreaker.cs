@@ -23,7 +23,8 @@ public sealed class CircuitBreaker
     {
         get
         {
-            var currentState = (CircuitState)Interlocked.CompareExchange(ref _state, _state, _state);
+            // P1 Optimization: Use Volatile.Read instead of CAS for read-only operation
+            var currentState = (CircuitState)Volatile.Read(ref _state);
 
             if (currentState == CircuitState.Open)
             {
@@ -64,7 +65,8 @@ public sealed class CircuitBreaker
 
     private void OnSuccess()
     {
-        var currentState = (CircuitState)Interlocked.CompareExchange(ref _state, _state, _state);
+        // P1 Optimization: Use Volatile.Read instead of CAS for read-only operation
+        var currentState = (CircuitState)Volatile.Read(ref _state);
 
         if (currentState == CircuitState.HalfOpen)
         {

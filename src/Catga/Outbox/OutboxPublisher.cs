@@ -42,7 +42,7 @@ public class OutboxPublisher : BackgroundService
                 _logger.LogError(ex, "Error processing outbox messages");
             }
 
-            // 等待下一个轮询周期
+            // Wait for next polling cycle
             await Task.Delay(_pollingInterval, stoppingToken).ConfigureAwait(false);
         }
 
@@ -51,7 +51,7 @@ public class OutboxPublisher : BackgroundService
 
     private async Task ProcessPendingMessagesAsync(CancellationToken cancellationToken)
     {
-        // 获取待处理消息
+        // Get pending messages
         var messages = await _outboxStore.GetPendingMessagesAsync(_batchSize, cancellationToken);
 
         if (messages.Count == 0)
@@ -59,7 +59,7 @@ public class OutboxPublisher : BackgroundService
 
         _logger.LogDebug("Processing {Count} outbox messages", messages.Count);
 
-        // 并发处理消息
+        // Process messages concurrently
         var tasks = messages.Select(message => ProcessMessageAsync(message, cancellationToken));
         await Task.WhenAll(tasks);
     }
@@ -101,7 +101,7 @@ public class OutboxPublisher : BackgroundService
     {
         _logger.LogInformation("Outbox Publisher is stopping...");
 
-        // 处理剩余的消息
+        // Process remaining messages
         try
         {
             await ProcessPendingMessagesAsync(cancellationToken);

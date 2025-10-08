@@ -37,7 +37,7 @@ public sealed class TokenBucketRateLimiter
     {
         RefillTokens();
 
-        // 优化的无锁原子递减
+        // Optimized lock-free atomic decrement
         while (true)
         {
             var current = Interlocked.Read(ref _tokens);

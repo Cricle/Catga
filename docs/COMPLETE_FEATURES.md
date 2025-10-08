@@ -1,7 +1,7 @@
 # Catga Framework - Complete Feature Set
 
-**Version**: 1.0 with Source Generator & Analyzers  
-**Date**: 2025-10-08  
+**Version**: 1.0 with Source Generator & Analyzers
+**Date**: 2025-10-08
 **Status**: ✅ Production Ready
 
 ---
@@ -10,7 +10,7 @@
 
 ### 1. CQRS Pattern
 - ✅ **Command** - Write operations
-- ✅ **Query** - Read operations  
+- ✅ **Query** - Read operations
 - ✅ **Event** - Notifications
 - ✅ **Mediator** - Decoupled messaging
 - ✅ **Pipeline Behaviors** - Cross-cutting concerns
@@ -148,8 +148,8 @@ builder.Services.AddCatga(options =>
 ## 📚 Examples
 
 ### 1. SimpleWebApi
-**Purpose**: Learn basics in 5 minutes  
-**Tech**: Source Generator + JSON + Swagger  
+**Purpose**: Learn basics in 5 minutes
+**Tech**: Source Generator + JSON + Swagger
 **Features**:
 - REST API endpoints
 - Command/Query/Event patterns
@@ -157,8 +157,8 @@ builder.Services.AddCatga(options =>
 - Swagger UI
 
 ### 2. DistributedCluster
-**Purpose**: Production distributed system  
-**Tech**: NATS + Redis + MemoryPack  
+**Purpose**: Production distributed system
+**Tech**: NATS + Redis + MemoryPack
 **Features**:
 - Multi-node cluster
 - Load balancing
@@ -167,8 +167,8 @@ builder.Services.AddCatga(options =>
 - Idempotency
 
 ### 3. AotDemo
-**Purpose**: Verify AOT compatibility  
-**Tech**: MemoryPack + Native AOT  
+**Purpose**: Verify AOT compatibility
+**Tech**: MemoryPack + Native AOT
 **Features**:
 - Native AOT compilation
 - 55ms startup time
@@ -228,12 +228,12 @@ app.Run();
 
 ### Define Messages
 ```csharp
-public record CreateUserCommand(string Name, string Email) 
+public record CreateUserCommand(string Name, string Email)
     : IRequest<User>;
 
 public record User(string Id, string Name, string Email);
 
-public record UserCreatedEvent(string UserId, string Name) 
+public record UserCreatedEvent(string UserId, string Name)
     : IEvent;
 ```
 
@@ -249,7 +249,7 @@ public class CreateUserHandler : IRequestHandler<CreateUserCommand, User>
             Guid.NewGuid().ToString(),
             request.Name,
             request.Email);
-        
+
         return CatgaResult<User>.Success(user);
     }
 }
@@ -403,9 +403,9 @@ Built with:
 
 ---
 
-**Status**: ✅ **Production Ready**  
-**Version**: 1.0  
-**Downloads**: Coming soon to NuGet  
-**Support**: GitHub Issues  
+**Status**: ✅ **Production Ready**
+**Version**: 1.0
+**Downloads**: Coming soon to NuGet
+**Support**: GitHub Issues
 
 **Thank you for choosing Catga! 🚀**

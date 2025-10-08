@@ -65,21 +65,23 @@ dotnet add package Catga.Redis
 dotnet add package Catga.ServiceDiscovery.Kubernetes
 ```
 
-### ⚡ 极简使用（推荐）
+### ⚡ 极简使用（推荐 - 源代码生成器）
 
 ```csharp
-// 1. 一行注册 - 自动扫描所有 Handlers
-services.AddCatgaDevelopment(); // 开发模式
-// 或
-services.AddCatgaProduction();  // 生产模式
+// 1. 配置 Catga
+builder.Services.AddCatga();
 
-// 2. 定义消息和处理器
+// 2. ✨ 一行自动注册 - 源生成器在编译时发现所有 Handler！
+builder.Services.AddGeneratedHandlers();
+
+// 3. 定义消息和处理器
 public record CreateOrderCommand(string CustomerId, decimal Amount)
     : IRequest<OrderResult>;
 
+// 无需手动注册 - 源生成器自动发现！
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResult>
 {
-    public async ValueTask<CatgaResult<OrderResult>> HandleAsync(
+    public async Task<CatgaResult<OrderResult>> HandleAsync(
         CreateOrderCommand request,
         CancellationToken cancellationToken)
     {
@@ -88,16 +90,25 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResul
     }
 }
 
-// 3. 使用
-var result = await _mediator.SendAsync(new CreateOrderCommand("customer-123", 99.99m));
+// 4. 使用
+var result = await _mediator.SendAsync<CreateOrderCommand, OrderResult>(
+    new CreateOrderCommand("customer-123", 99.99m));
 ```
 
-### 🔧 链式配置（高级）
+**为什么选择源生成器？**
+- ✅ **零反射** - 完全AOT兼容
+- ✅ **编译时发现** - 忘记注册？编译时就知道
+- ✅ **更快启动** - 无运行时扫描
+- ✅ **更好的IDE体验** - 完整的IntelliSense支持
+
+### 🔧 高级配置
 
 ```csharp
-services.AddCatgaBuilder(builder => builder
-    .ScanCurrentAssembly()           // 自动扫描当前程序集
-    .WithOutbox()                    // 启用 Outbox 模式
+builder.Services.AddCatga(options => 
+{
+    options.EnableLogging = true;        // 启用日志
+    options.EnableIdempotency = true;    // 启用幂等性
+    options.EnableRetry = true;          // 启用重试
     .WithInbox()                     // 启用 Inbox 模式
     .WithReliability()               // 启用可靠性特性（熔断/重试/死信队列）
     .WithPerformanceOptimization()   // 启用性能优化

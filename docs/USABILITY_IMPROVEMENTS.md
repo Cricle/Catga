@@ -93,7 +93,7 @@ public static class CatgaGeneratedHandlerRegistrations
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Order>
 {
     public async Task<CatgaResult<Order>> HandleAsync(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken cancellationToken)
     {
         // Your logic
@@ -145,7 +145,7 @@ services.AddGeneratedHandlers();  // F12 opens generated code
   - How it works
   - Troubleshooting
   - Advanced usage
-  
+
 - **FRIENDLY_API.md** - API design philosophy
   - Design principles
   - Progressive disclosure
@@ -344,12 +344,12 @@ The Catga framework is now:
 
 ---
 
-**Status**: ✅ **Complete**  
-**Date**: 2025-10-08  
-**Commits**: 3  
-**Files Changed**: 11  
-**Lines Added**: 795  
-**Complexity Reduced**: 98%  
-**AOT Warnings**: 0  
+**Status**: ✅ **Complete**
+**Date**: 2025-10-08
+**Commits**: 3
+**Files Changed**: 11
+**Lines Added**: 795
+**Complexity Reduced**: 98%
+**AOT Warnings**: 0
 
 **Next**: Optional - Add Roslyn Analyzers for additional IDE support

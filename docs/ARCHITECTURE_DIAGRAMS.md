@@ -17,18 +17,18 @@ graph TB
     subgraph Catga["Catga框架核心"]
         direction TB
         Mediator[CatgaMediator]
-        
+
         subgraph Performance["性能优化"]
             FastPath[FastPath<br/>零分配路径]
             HandlerCache[HandlerCache<br/>Handler缓存]
             ObjectPool[ObjectPool<br/>对象池]
         end
-        
+
         subgraph Pipeline["管道系统"]
             PipelineExec[Pipeline Executor]
             Behaviors[Behaviors<br/>10+ behaviors]
         end
-        
+
         subgraph Handlers["处理器"]
             CommandH[Command Handlers]
             QueryH[Query Handlers]
@@ -51,22 +51,22 @@ graph TB
     WebAPI --> Mediator
     Console --> Mediator
     Worker --> Mediator
-    
+
     Mediator --> FastPath
     Mediator --> HandlerCache
     Mediator --> ObjectPool
     Mediator --> PipelineExec
-    
+
     PipelineExec --> Behaviors
     PipelineExec --> CommandH
     PipelineExec --> QueryH
     PipelineExec --> EventH
-    
+
     Behaviors --> NATS
     Behaviors --> Redis
-    
+
     Mediator -.-> K8s
-    
+
     SourceGen -.生成代码.-> Handlers
     Analyzers -.检查.-> Client
 
@@ -96,12 +96,12 @@ sequenceDiagram
 
     C->>+API: POST /api/orders
     API->>+M: SendAsync(CreateOrderCommand)
-    
+
     Note over M: 检查RateLimit、<br/>ConcurrencyLimit
-    
+
     M->>+Cache: GetRequestHandler<T>()
     Cache-->>-M: Handler (cached)
-    
+
     alt FastPath可用（无Behaviors）
         M->>+H: HandleAsync(command)
         H->>DB: Save Order
@@ -109,10 +109,10 @@ sequenceDiagram
         H-->>-M: CatgaResult.Success
     else 标准Pipeline
         M->>+P: ExecuteAsync()
-        
+
         P->>+L: Pre-processing
         L-->>-P: Continue
-        
+
         P->>+V: Validate(command)
         V->>V: Check rules
         alt 验证失败
@@ -120,29 +120,29 @@ sequenceDiagram
             P-->>M: ValidationError
         else 验证成功
             V-->>-P: Continue
-            
+
             P->>+O: Pre-processing
             O->>O: Save to Outbox
             O-->>-P: Continue
-            
+
             P->>+H: HandleAsync(command)
             H->>+DB: BEGIN TRANSACTION
             H->>DB: INSERT Order
             DB-->>-H: Order Created
             H-->>-P: CatgaResult.Success
-            
+
             P->>+O: Post-processing
             O->>O: Mark as Sent
             O-->>-P: Done
-            
+
             P->>+L: Post-processing
             L->>L: Log Success
             L-->>-P: Done
         end
-        
+
         P-->>-M: Final Result
     end
-    
+
     M-->>-API: CatgaResult<OrderDto>
     API-->>-C: 201 Created
 
@@ -164,10 +164,10 @@ sequenceDiagram
     participant H2 as Event Handler 2
     participant H3 as Event Handler 3
     participant Pool as ArrayPool<Task>
-    
+
     M->>+C: GetEventHandlers<T>()
     C-->>-M: List<IEventHandler> (3 handlers)
-    
+
     alt FastPath: 0 handlers
         M->>M: Return immediately (zero allocation)
     else FastPath: 1 handler
@@ -175,10 +175,10 @@ sequenceDiagram
         H1-->>-M: Done
     else Standard Path: Multiple handlers
         Note over M,Pool: 使用ArrayPool优化<br/>（>16个Handler时）
-        
+
         M->>+Pool: Rent(3)
         Pool-->>-M: Task[16] (rented)
-        
+
         par 并发执行
             M->>+H1: HandleAsync(event)
             and
@@ -186,15 +186,15 @@ sequenceDiagram
             and
             M->>+H3: HandleAsync(event)
         end
-        
+
         Note over H1,H3: 隔离执行<br/>异常不影响其他Handler
-        
+
         H1-->>-M: Done
         H2-->>-M: Done (with error)
         H3-->>-M: Done
-        
+
         M->>M: Task.WhenAll(tasks[0..2])
-        
+
         M->>+Pool: Return(array)
         Pool-->>-M: Returned
     end
@@ -221,9 +221,9 @@ sequenceDiagram
     N1->>+O1: SaveAsync(message)
     O1->>O1: INSERT INTO outbox<br/>Status=Pending
     O1-->>-N1: Saved
-    
+
     Note over N1,O1: Outbox Pattern<br/>保证At-Least-Once
-    
+
     loop Outbox Publisher (background)
         O1->>O1: GetPendingMessages()
         O1->>+N: Publish(message)
@@ -231,7 +231,7 @@ sequenceDiagram
         N-->>-O1: ACK
         O1->>O1: UPDATE Status=Published
     end
-    
+
     N->>+N2: Deliver(message)
     N2->>+I2: TryLockMessage()
     alt 消息已处理
@@ -239,14 +239,14 @@ sequenceDiagram
         N2->>N2: Skip processing
     else 首次处理
         I2-->>-N2: Locked
-        
+
         N2->>+Id2: IsProcessed(messageId)
         alt 已处理（幂等性检查）
             Id2-->>N2: true
             N2->>N2: Skip
         else 未处理
             Id2-->>-N2: false
-            
+
             N2->>N2: Handle(message)
             N2->>+I2: MarkAsProcessed()
             I2-->>-N2: Done
@@ -254,14 +254,14 @@ sequenceDiagram
             Id2-->>-N2: Done
         end
     end
-    
+
     N2->>+N: ACK
     N-->>-N2: Confirmed
 
     rect rgb(200, 230, 255)
         Note over O1,N: Outbox Pattern<br/>保证消息可靠发送
     end
-    
+
     rect rgb(255, 230, 200)
         Note over N2,Id2: Inbox + Idempotency<br/>保证Exactly-Once处理
     end
@@ -285,7 +285,7 @@ graph TB
 
     subgraph MessageBus["消息总线"]
         NATS[NATS Cluster<br/>:4222]
-        
+
         subgraph JetStream["JetStream"]
             Stream1[Stream: ORDERS]
             Stream2[Stream: EVENTS]
@@ -295,7 +295,7 @@ graph TB
     subgraph Storage["持久化存储"]
         Redis1[(Redis Primary<br/>:6379)]
         Redis2[(Redis Replica<br/>:6380)]
-        
+
         subgraph RedisData["Redis数据"]
             Outbox[Outbox Messages]
             Inbox[Inbox Messages]
@@ -328,7 +328,7 @@ graph TB
     N1 -->|Write| Redis1
     N2 -->|Write| Redis1
     N3 -->|Write| Redis1
-    
+
     Redis1 -.Replication.-> Redis2
 
     Redis1 --> Outbox
@@ -338,7 +338,7 @@ graph TB
     N1 -.Register.-> K8s
     N2 -.Register.-> K8s
     N3 -.Register.-> K8s
-    
+
     K8s -.Update.-> DNS
 
     N1 -.Export.-> Prom
@@ -377,7 +377,7 @@ sequenceDiagram
     participant Build as Build Output
 
     Dev->>Dev: 编写Handler
-    
+
     Note over Dev: public class CreateOrderHandler<br/>: IRequestHandler<...>
 
     Dev->>Roslyn: dotnet build
@@ -386,35 +386,35 @@ sequenceDiagram
 
     Roslyn->>+SG: Execute(context)
     SG->>+Syntax: AnalyzeSyntaxTree()
-    
+
     Syntax->>Syntax: Find IRequestHandler
     Syntax->>Syntax: Find IEventHandler
     Syntax->>Syntax: Collect Metadata
-    
+
     Syntax-->>-SG: Handler List
 
     SG->>SG: ValidateHandlers()
-    
+
     alt 验证失败
         SG->>Roslyn: ReportDiagnostic(error)
         Roslyn-->>Dev: ❌ Build Error
     else 验证成功
         SG->>+Gen: GenerateCode()
-        
+
         Gen->>Gen: Generate Attribute
         Note over Gen: [CatgaHandler]<br/>public sealed class...
-        
+
         Gen->>Gen: Generate Registration
         Note over Gen: public static class<br/>CatgaGeneratedHandlerRegistrations
-        
+
         Gen->>Gen: Generate Pipeline
         Note over Gen: Pre-compiled<br/>pipeline methods
-        
+
         Gen-->>-SG: Generated Source
 
         SG->>Roslyn: AddSource(name, code)
         SG-->>-Roslyn: Complete
-        
+
         Roslyn->>Roslyn: Compile All
         Roslyn->>+Build: Output Assembly
         Build-->>-Dev: ✅ Build Success
@@ -496,19 +496,19 @@ flowchart LR
 
     subgraph Processing["处理层"]
         Mediator[Mediator<br/>统一入口]
-        
+
         subgraph Commands["Commands"]
             CreateCmd[Create]
             UpdateCmd[Update]
             DeleteCmd[Delete]
         end
-        
+
         subgraph Queries["Queries"]
             GetQuery[Get]
             ListQuery[List]
             SearchQuery[Search]
         end
-        
+
         subgraph Events["Events"]
             CreatedEvt[Created]
             UpdatedEvt[Updated]
@@ -542,13 +542,13 @@ flowchart LR
     CreateCmd --> WriteDB
     UpdateCmd --> WriteDB
     DeleteCmd --> WriteDB
-    
+
     WriteDB -.Replicate.-> ReadDB
-    
+
     GetQuery --> Cache
     ListQuery --> ReadDB
     SearchQuery --> ReadDB
-    
+
     Cache -.Miss.-> ReadDB
     ReadDB -.Update.-> Cache
 

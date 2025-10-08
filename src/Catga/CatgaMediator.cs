@@ -184,7 +184,7 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         // Optimization: Use ArrayPool for large handler lists to reduce GC pressure
         Task[]? rentedArray = null;
         Task[] tasks;
-        
+
         if (handlerList.Count <= 16)
         {
             // Small array: stack allocation would be ideal but not possible for Task[]

@@ -19,6 +19,10 @@ namespace SimpleWebApi.Sagas;
 /// </summary>
 public record ProcessOrderSagaCommand : IRequest<ProcessOrderSagaResponse>
 {
+    public string MessageId { get; init; } = Guid.NewGuid().ToString();
+    public string? CorrelationId { get; init; }
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    
     public required string OrderId { get; init; }
     public required string CustomerId { get; init; }
     public required string ProductId { get; init; }
@@ -33,51 +37,71 @@ public record ProcessOrderSagaResponse
     public string? ErrorMessage { get; init; }
 }
 
-// Internal saga step commands
-internal record ReserveInventoryCommand : IRequest<ReserveInventoryResponse>
+// Saga step commands (public for source generator)
+public record ReserveInventoryCommand : IRequest<ReserveInventoryResponse>
 {
+    public string MessageId { get; init; } = Guid.NewGuid().ToString();
+    public string? CorrelationId { get; init; }
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    
     public required string OrderId { get; init; }
     public required string ProductId { get; init; }
     public required int Quantity { get; init; }
 }
 
-internal record ReserveInventoryResponse
+public record ReserveInventoryResponse
 {
     public required bool Success { get; init; }
     public required string ReservationId { get; init; }
 }
 
-internal record ProcessPaymentCommand : IRequest<ProcessPaymentResponse>
+public record ProcessPaymentCommand : IRequest<ProcessPaymentResponse>
 {
+    public string MessageId { get; init; } = Guid.NewGuid().ToString();
+    public string? CorrelationId { get; init; }
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    
     public required string OrderId { get; init; }
     public required string CustomerId { get; init; }
     public required decimal Amount { get; init; }
 }
 
-internal record ProcessPaymentResponse
+public record ProcessPaymentResponse
 {
     public required bool Success { get; init; }
     public required string TransactionId { get; init; }
 }
 
-internal record ConfirmOrderCommand : IRequest<ConfirmOrderResponse>
+public record ConfirmOrderCommand : IRequest<ConfirmOrderResponse>
 {
+    public string MessageId { get; init; } = Guid.NewGuid().ToString();
+    public string? CorrelationId { get; init; }
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    
     public required string OrderId { get; init; }
 }
 
-internal record ConfirmOrderResponse
+public record ConfirmOrderResponse
 {
     public required bool Success { get; init; }
 }
 
 // Compensation commands
-internal record CancelInventoryReservationCommand : IRequest
+public record CancelInventoryReservationCommand : IRequest
 {
+    public string MessageId { get; init; } = Guid.NewGuid().ToString();
+    public string? CorrelationId { get; init; }
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    
     public required string ReservationId { get; init; }
 }
 
-internal record RefundPaymentCommand : IRequest
+public record RefundPaymentCommand : IRequest
 {
+    public string MessageId { get; init; } = Guid.NewGuid().ToString();
+    public string? CorrelationId { get; init; }
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    
     public required string TransactionId { get; init; }
 }
 
@@ -113,7 +137,7 @@ public class ProcessOrderSaga : IRequestHandler<ProcessOrderSagaCommand, Process
         {
             // Step 1: Reserve Inventory
             _logger.LogInformation("Step 1/3: Reserving inventory...");
-            var inventoryResult = await _mediator.SendAsync(new ReserveInventoryCommand
+            var inventoryResult = await _mediator.SendAsync<ReserveInventoryCommand, ReserveInventoryResponse>(new ReserveInventoryCommand
             {
                 OrderId = request.OrderId,
                 ProductId = request.ProductId,
@@ -135,7 +159,7 @@ public class ProcessOrderSaga : IRequestHandler<ProcessOrderSagaCommand, Process
 
             // Step 2: Process Payment
             _logger.LogInformation("Step 2/3: Processing payment...");
-            var paymentResult = await _mediator.SendAsync(new ProcessPaymentCommand
+            var paymentResult = await _mediator.SendAsync<ProcessPaymentCommand, ProcessPaymentResponse>(new ProcessPaymentCommand
             {
                 OrderId = request.OrderId,
                 CustomerId = request.CustomerId,
@@ -161,7 +185,7 @@ public class ProcessOrderSaga : IRequestHandler<ProcessOrderSagaCommand, Process
 
             // Step 3: Confirm Order
             _logger.LogInformation("Step 3/3: Confirming order...");
-            var confirmResult = await _mediator.SendAsync(new ConfirmOrderCommand
+            var confirmResult = await _mediator.SendAsync<ConfirmOrderCommand, ConfirmOrderResponse>(new ConfirmOrderCommand
             {
                 OrderId = request.OrderId
             }, cancellationToken);
@@ -254,7 +278,7 @@ public class ProcessOrderSaga : IRequestHandler<ProcessOrderSagaCommand, Process
 /// Handler for inventory reservation
 /// Simulates checking and reserving inventory
 /// </summary>
-internal class ReserveInventoryHandler : IRequestHandler<ReserveInventoryCommand, ReserveInventoryResponse>
+public class ReserveInventoryHandler : IRequestHandler<ReserveInventoryCommand, ReserveInventoryResponse>
 {
     private readonly ILogger<ReserveInventoryHandler> _logger;
 
@@ -304,7 +328,7 @@ internal class ReserveInventoryHandler : IRequestHandler<ReserveInventoryCommand
 /// Handler for payment processing
 /// Simulates payment gateway interaction
 /// </summary>
-internal class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, ProcessPaymentResponse>
+public class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, ProcessPaymentResponse>
 {
     private readonly ILogger<ProcessPaymentHandler> _logger;
 
@@ -354,7 +378,7 @@ internal class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, Pr
 /// Handler for order confirmation
 /// Finalizes the order
 /// </summary>
-internal class ConfirmOrderHandler : IRequestHandler<ConfirmOrderCommand, ConfirmOrderResponse>
+public class ConfirmOrderHandler : IRequestHandler<ConfirmOrderCommand, ConfirmOrderResponse>
 {
     private readonly ILogger<ConfirmOrderHandler> _logger;
 
@@ -386,7 +410,7 @@ internal class ConfirmOrderHandler : IRequestHandler<ConfirmOrderCommand, Confir
 /// <summary>
 /// Handler for inventory compensation
 /// </summary>
-internal class CancelInventoryReservationHandler : IRequestHandler<CancelInventoryReservationCommand>
+public class CancelInventoryReservationHandler : IRequestHandler<CancelInventoryReservationCommand>
 {
     private readonly ILogger<CancelInventoryReservationHandler> _logger;
 
@@ -413,7 +437,7 @@ internal class CancelInventoryReservationHandler : IRequestHandler<CancelInvento
 /// <summary>
 /// Handler for payment compensation
 /// </summary>
-internal class RefundPaymentHandler : IRequestHandler<RefundPaymentCommand>
+public class RefundPaymentHandler : IRequestHandler<RefundPaymentCommand>
 {
     private readonly ILogger<RefundPaymentHandler> _logger;
 

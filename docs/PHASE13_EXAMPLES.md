@@ -1,6 +1,6 @@
 # ✅ Phase 13 Complete: 真实示例
 
-**状态**: ✅ 架构设计完成  
+**状态**: ✅ 架构设计完成
 **优先级**: 低 (参考示例)
 
 ---
@@ -94,7 +94,7 @@ public class OrderSaga : ISaga
         State.OrderId = Guid.NewGuid().ToString();
         State.UserId = command.UserId;
         State.Status = OrderStatus.Created;
-        
+
         return SagaResult.Success();
     }
 
@@ -106,7 +106,7 @@ public class OrderSaga : ISaga
         {
             return SagaResult.Compensate(); // 触发补偿
         }
-        
+
         State.Status = OrderStatus.InventoryReserved;
         return SagaResult.Success();
     }
@@ -119,7 +119,7 @@ public class OrderSaga : ISaga
         {
             return SagaResult.Compensate();
         }
-        
+
         State.PaymentId = paymentId;
         State.Status = OrderStatus.PaymentCreated;
         return SagaResult.Success();
@@ -157,7 +157,7 @@ public class OrderSaga : ISaga
 
 ```csharp
 // 幂等性 (使用Inbox)
-public class ProcessPaymentCallbackHandler 
+public class ProcessPaymentCallbackHandler
     : IRequestHandler<ProcessPaymentCallbackCommand, ProcessPaymentCallbackResponse>
 {
     private readonly IInboxStore _inboxStore;

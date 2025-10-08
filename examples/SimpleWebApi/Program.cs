@@ -1,10 +1,12 @@
 using Catga;
 using Catga.Configuration;
 using Catga.DependencyInjection;
+using Catga.DistributedId;
 using Catga.Handlers;
 using Catga.Messages;
 using Catga.Results;
 using Catga.Serialization.Json;
+using SimpleWebApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +22,9 @@ builder.Services.AddCatga(options =>
 
 // Add JSON serializer
 builder.Services.AddSingleton<Catga.Serialization.IMessageSerializer, JsonMessageSerializer>();
+
+// 🆔 Add distributed ID generator (auto-detects worker ID)
+builder.Services.AddDistributedId();
 
 // ✨ Auto-register all handlers using source generator (No manual registration needed!)
 builder.Services.AddGeneratedHandlers();
@@ -50,6 +55,9 @@ app.MapGet("/users/{id}", async (ICatgaMediator mediator, string id) =>
     return result.IsSuccess ? Results.Ok(result.Value) : Results.NotFound();
 })
 .WithName("GetUser");
+
+// 🆔 Map distributed ID endpoints
+app.MapDistributedIdEndpoints();
 
 app.Run();
 

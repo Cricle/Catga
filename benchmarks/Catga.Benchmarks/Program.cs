@@ -2,9 +2,9 @@ using BenchmarkDotNet.Running;
 
 namespace CatCat.Benchmarks;
 
-class Program
+internal class Program
 {
-    static void Main(string[] args)
+    private static void Main(string[] args)
     {
         Console.WriteLine("===========================================");
         Console.WriteLine("  Catga 性能基准测试");

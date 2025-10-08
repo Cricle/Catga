@@ -1,10 +1,10 @@
+using System.Text.Json.Serialization;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Order;
 using Catga.Serialization;
 using Catga.Serialization.Json;
 using Catga.Serialization.MemoryPack;
 using MemoryPack;
-using System.Text.Json.Serialization;
 
 namespace Catga.Benchmarks;
 

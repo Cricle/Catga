@@ -1,7 +1,7 @@
+using System.Buffers;
 using BenchmarkDotNet.Attributes;
 using Catga.Messages;
 using Catga.Results;
-using System.Buffers;
 
 namespace Catga.Benchmarks;
 

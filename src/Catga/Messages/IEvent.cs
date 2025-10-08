@@ -8,7 +8,7 @@ public interface IEvent : IMessage
     /// <summary>
     /// Event occurred timestamp
     /// </summary>
-    DateTime OccurredAt { get; }
+    public DateTime OccurredAt { get; }
 }
 
 /// <summary>

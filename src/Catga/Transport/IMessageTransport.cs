@@ -13,7 +13,7 @@ public interface IMessageTransport
     /// </summary>
     [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
     [RequiresDynamicCode("Message serialization may require runtime code generation")]
-    Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
+    public Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         TMessage message,
         TransportContext? context = null,
         CancellationToken cancellationToken = default)
@@ -24,7 +24,7 @@ public interface IMessageTransport
     /// </summary>
     [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
     [RequiresDynamicCode("Message serialization may require runtime code generation")]
-    Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
+    public Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         TMessage message,
         string destination,
         TransportContext? context = null,
@@ -36,7 +36,7 @@ public interface IMessageTransport
     /// </summary>
     [RequiresUnreferencedCode("Message deserialization may require types that cannot be statically analyzed")]
     [RequiresDynamicCode("Message deserialization may require runtime code generation")]
-    Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] TMessage>(
+    public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] TMessage>(
         Func<TMessage, TransportContext, Task> handler,
         CancellationToken cancellationToken = default)
         where TMessage : class;
@@ -44,7 +44,7 @@ public interface IMessageTransport
     /// <summary>
     /// Transport name (NATS, Redis, RabbitMQ, etc.)
     /// </summary>
-    string Name { get; }
+    public string Name { get; }
 }
 
 /// <summary>

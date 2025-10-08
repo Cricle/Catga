@@ -1,9 +1,9 @@
-using Microsoft.Extensions.Logging;
-using StackExchange.Redis;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis;
 

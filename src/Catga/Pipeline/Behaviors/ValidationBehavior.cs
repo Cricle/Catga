@@ -53,6 +53,6 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
 /// </summary>
 public interface IValidator<in T>
 {
-    Task<List<string>> ValidateAsync(T request, CancellationToken cancellationToken = default);
+    public Task<List<string>> ValidateAsync(T request, CancellationToken cancellationToken = default);
 }
 

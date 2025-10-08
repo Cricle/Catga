@@ -14,7 +14,7 @@ public interface IBufferedMessageSerializer : IMessageSerializer
     /// </summary>
     [RequiresUnreferencedCode("Serialization may require types that cannot be statically analyzed")]
     [RequiresDynamicCode("Serialization may require runtime code generation")]
-    void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(
+    public void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(
         T value,
         IBufferWriter<byte> bufferWriter);
 
@@ -23,12 +23,12 @@ public interface IBufferedMessageSerializer : IMessageSerializer
     /// </summary>
     [RequiresUnreferencedCode("Deserialization may require types that cannot be statically analyzed")]
     [RequiresDynamicCode("Deserialization may require runtime code generation")]
-    T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(
+    public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(
         ReadOnlySpan<byte> data);
 
     /// <summary>
     /// Get serialized size estimate (for pre-allocation)
     /// </summary>
-    int GetSizeEstimate<T>(T value);
+    public int GetSizeEstimate<T>(T value);
 }
 

@@ -35,12 +35,12 @@ public record ServiceRegistrationOptions
 /// </summary>
 public interface IServiceDiscovery
 {
-    Task RegisterAsync(ServiceRegistrationOptions options, CancellationToken cancellationToken = default);
-    Task DeregisterAsync(string serviceId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<ServiceInstance>> GetServiceInstancesAsync(string serviceName, CancellationToken cancellationToken = default);
-    Task<ServiceInstance?> GetServiceInstanceAsync(string serviceName, CancellationToken cancellationToken = default);
-    Task SendHeartbeatAsync(string serviceId, CancellationToken cancellationToken = default);
-    IAsyncEnumerable<ServiceChangeEvent> WatchServiceAsync(string serviceName, CancellationToken cancellationToken = default);
+    public Task RegisterAsync(ServiceRegistrationOptions options, CancellationToken cancellationToken = default);
+    public Task DeregisterAsync(string serviceId, CancellationToken cancellationToken = default);
+    public Task<IReadOnlyList<ServiceInstance>> GetServiceInstancesAsync(string serviceName, CancellationToken cancellationToken = default);
+    public Task<ServiceInstance?> GetServiceInstanceAsync(string serviceName, CancellationToken cancellationToken = default);
+    public Task SendHeartbeatAsync(string serviceId, CancellationToken cancellationToken = default);
+    public IAsyncEnumerable<ServiceChangeEvent> WatchServiceAsync(string serviceName, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -72,7 +72,7 @@ public enum ServiceChangeType
 /// </summary>
 public interface ILoadBalancer
 {
-    ServiceInstance? SelectInstance(IReadOnlyList<ServiceInstance> instances);
+    public ServiceInstance? SelectInstance(IReadOnlyList<ServiceInstance> instances);
 }
 
 /// <summary>

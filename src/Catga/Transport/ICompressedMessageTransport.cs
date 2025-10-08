@@ -9,7 +9,7 @@ public interface ICompressedMessageTransport : IMessageTransport
     /// <summary>
     /// Compression options
     /// </summary>
-    CompressionTransportOptions CompressionOptions { get; }
+    public CompressionTransportOptions CompressionOptions { get; }
 }
 
 /// <summary>

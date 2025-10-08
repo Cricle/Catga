@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Catga.Analyzers;
 
@@ -18,7 +18,7 @@ public class CatgaBestPracticeAnalyzers : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor HandlerAttributeRule = new(
         id: "CATGA010",
         title: "Consider adding [CatgaHandler] attribute for clarity",
-        messageFormat: "Handler '{0}' should have [CatgaHandler] attribute for explicit documentation.",
+        messageFormat: "Handler '{0}' should have [CatgaHandler] attribute for explicit documentation",
         category: "Style",
         defaultSeverity: DiagnosticSeverity.Info,
         isEnabledByDefault: true,

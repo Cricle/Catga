@@ -11,7 +11,7 @@ public interface ICatgaMediator
     /// <summary>
     /// Send a request and wait for response (AOT-compatible with explicit type parameters)
     /// </summary>
-    ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
+    public ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>;
@@ -19,7 +19,7 @@ public interface ICatgaMediator
     /// <summary>
     /// Send a request without expecting a response (AOT-compatible)
     /// </summary>
-    Task<CatgaResult> SendAsync<TRequest>(
+    public Task<CatgaResult> SendAsync<TRequest>(
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest;
@@ -27,14 +27,14 @@ public interface ICatgaMediator
     /// <summary>
     /// Publish an event to all subscribers (AOT-compatible)
     /// </summary>
-    Task PublishAsync<TEvent>(
+    public Task PublishAsync<TEvent>(
         TEvent @event,
         CancellationToken cancellationToken = default) where TEvent : IEvent;
 
     /// <summary>
     /// Batch send requests - High performance batch processing
     /// </summary>
-    ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<TRequest, TResponse>(
+    public ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<TRequest, TResponse>(
         IReadOnlyList<TRequest> requests,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>;
@@ -42,7 +42,7 @@ public interface ICatgaMediator
     /// <summary>
     /// Stream send requests - Real-time processing of large data
     /// </summary>
-    IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<TRequest, TResponse>(
+    public IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<TRequest, TResponse>(
         IAsyncEnumerable<TRequest> requests,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>;
@@ -50,7 +50,7 @@ public interface ICatgaMediator
     /// <summary>
     /// Batch publish events - High performance batch processing
     /// </summary>
-    Task PublishBatchAsync<TEvent>(
+    public Task PublishBatchAsync<TEvent>(
         IReadOnlyList<TEvent> events,
         CancellationToken cancellationToken = default)
         where TEvent : IEvent;

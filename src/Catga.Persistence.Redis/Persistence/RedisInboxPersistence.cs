@@ -1,8 +1,8 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Inbox;
 using Catga.Serialization;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Catga.Persistence.Redis.Persistence;
 

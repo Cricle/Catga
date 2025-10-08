@@ -13,7 +13,7 @@ public interface IBatchMessageTransport : IMessageTransport
     /// </summary>
     [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
     [RequiresDynamicCode("Message serialization may require runtime code generation")]
-    Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
+    public Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         IEnumerable<TMessage> messages,
         TransportContext? context = null,
         CancellationToken cancellationToken = default)
@@ -24,7 +24,7 @@ public interface IBatchMessageTransport : IMessageTransport
     /// </summary>
     [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
     [RequiresDynamicCode("Message serialization may require runtime code generation")]
-    Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
+    public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         IEnumerable<TMessage> messages,
         string destination,
         TransportContext? context = null,
@@ -34,7 +34,7 @@ public interface IBatchMessageTransport : IMessageTransport
     /// <summary>
     /// Get batch size configuration
     /// </summary>
-    BatchTransportOptions BatchOptions { get; }
+    public BatchTransportOptions BatchOptions { get; }
 }
 
 /// <summary>

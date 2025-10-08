@@ -8,7 +8,7 @@ namespace Catga.Handlers;
 /// </summary>
 public interface IRequestHandler<in TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
-    Task<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
+    public Task<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -16,6 +16,6 @@ public interface IRequestHandler<in TRequest, TResponse> where TRequest : IReque
 /// </summary>
 public interface IRequestHandler<in TRequest> where TRequest : IRequest
 {
-    Task<CatgaResult> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
+    public Task<CatgaResult> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
 }
 

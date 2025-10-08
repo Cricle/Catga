@@ -1,7 +1,7 @@
-using StackExchange.Redis;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis;
 

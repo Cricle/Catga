@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
-using Catga.Persistence.Redis.Serialization;
 using Catga.Idempotency;
+using Catga.Persistence.Redis.Serialization;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 

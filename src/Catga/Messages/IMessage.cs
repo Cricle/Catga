@@ -8,17 +8,17 @@ public interface IMessage
     /// <summary>
     /// Unique message identifier
     /// </summary>
-    string MessageId { get; }
+    public string MessageId { get; }
 
     /// <summary>
     /// Message creation timestamp
     /// </summary>
-    DateTime CreatedAt { get; }
+    public DateTime CreatedAt { get; }
 
     /// <summary>
     /// Correlation ID for tracking related messages
     /// </summary>
-    string? CorrelationId { get; }
+    public string? CorrelationId { get; }
 }
 
 /// <summary>

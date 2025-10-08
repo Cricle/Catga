@@ -13,7 +13,7 @@ public interface IDeadLetterQueue
     /// </summary>
     [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
     [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
-    Task SendAsync<TMessage>(
+    public Task SendAsync<TMessage>(
         TMessage message,
         Exception exception,
         int retryCount,
@@ -23,7 +23,7 @@ public interface IDeadLetterQueue
     /// <summary>
     /// Get failed messages for inspection
     /// </summary>
-    Task<List<DeadLetterMessage>> GetFailedMessagesAsync(
+    public Task<List<DeadLetterMessage>> GetFailedMessagesAsync(
         int maxCount = 100,
         CancellationToken cancellationToken = default);
 }

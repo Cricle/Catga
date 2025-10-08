@@ -12,18 +12,18 @@ public interface IMessageSerializer
     /// </summary>
     [RequiresUnreferencedCode("Serialization may require types that cannot be statically analyzed")]
     [RequiresDynamicCode("Serialization may require runtime code generation")]
-    byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(T value);
+    public byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(T value);
 
     /// <summary>
     /// Deserialize object from byte array
     /// </summary>
     [RequiresUnreferencedCode("Deserialization may require types that cannot be statically analyzed")]
     [RequiresDynamicCode("Deserialization may require runtime code generation")]
-    T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(byte[] data);
+    public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(byte[] data);
 
     /// <summary>
     /// Serializer name
     /// </summary>
-    string Name { get; }
+    public string Name { get; }
 }
 

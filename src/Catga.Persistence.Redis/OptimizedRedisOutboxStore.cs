@@ -1,12 +1,13 @@
-using Catga.Outbox;
-using Microsoft.Extensions.Logging;
-using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Catga.Outbox;
+using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis;
 
@@ -37,6 +38,8 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         _keyPrefix = keyPrefix;
     }
 
+    [RequiresDynamicCode()]
+    [RequiresUnreferencedCode()]
     public async Task AddAsync(
         OutboxMessage message,
         CancellationToken cancellationToken = default)
@@ -53,6 +56,8 @@ public class OptimizedRedisOutboxStore : IOutboxStore
             message.CreatedAt.Ticks);
     }
 
+    [RequiresDynamicCode()]
+    [RequiresUnreferencedCode()]
     public async Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
         int maxCount = 100,
         CancellationToken cancellationToken = default)
@@ -87,6 +92,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         return messages;
     }
 
+    [RequiresUnreferencedCode()]
     public async Task MarkAsPublishedAsync(
         string messageId,
         CancellationToken cancellationToken = default)
@@ -109,6 +115,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         }
     }
 
+    [RequiresUnreferencedCode()]
     public async Task MarkAsFailedAsync(
         string messageId,
         string errorMessage,
@@ -138,6 +145,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         }
     }
 
+    [RequiresUnreferencedCode()]
     public async Task DeletePublishedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)

@@ -9,7 +9,7 @@ public interface IInboxStore
     /// <summary>
     /// Try to lock a message for processing (returns false if already processed or locked)
     /// </summary>
-    Task<bool> TryLockMessageAsync(
+    public Task<bool> TryLockMessageAsync(
         string messageId,
         TimeSpan lockDuration,
         CancellationToken cancellationToken = default);
@@ -17,35 +17,35 @@ public interface IInboxStore
     /// <summary>
     /// Mark message as successfully processed
     /// </summary>
-    Task MarkAsProcessedAsync(
+    public Task MarkAsProcessedAsync(
         InboxMessage message,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Check if message has already been processed
     /// </summary>
-    Task<bool> HasBeenProcessedAsync(
+    public Task<bool> HasBeenProcessedAsync(
         string messageId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get processing result for a message (if available)
     /// </summary>
-    Task<string?> GetProcessedResultAsync(
+    public Task<string?> GetProcessedResultAsync(
         string messageId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Release lock on a message (in case of processing failure)
     /// </summary>
-    Task ReleaseLockAsync(
+    public Task ReleaseLockAsync(
         string messageId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Delete old processed messages (cleanup)
     /// </summary>
-    Task DeleteProcessedMessagesAsync(
+    public Task DeleteProcessedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default);
 }

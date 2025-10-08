@@ -51,7 +51,7 @@ internal sealed class RequestContextPool<TContext> where TContext : class, new()
 /// </summary>
 internal interface IResettable
 {
-    void Reset();
+    public void Reset();
 }
 
 /// <summary>

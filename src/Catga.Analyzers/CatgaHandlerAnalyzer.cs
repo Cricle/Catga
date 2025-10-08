@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Catga.Analyzers;
 
@@ -32,7 +32,7 @@ public class CatgaHandlerAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor InvalidHandlerSignatureRule = new DiagnosticDescriptor(
         id: InvalidHandlerSignatureDiagnosticId,
         title: "Invalid handler method signature",
-        messageFormat: "Handler method '{0}' has invalid signature. Must be: Task<CatgaResult<TResponse>> HandleAsync(TRequest, CancellationToken)",
+        messageFormat: "Handler method '{0}' has invalid signature. Must be: Task<CatgaResult<TResponse>> HandleAsync(TRequest, CancellationToken).",
         category: "Design",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,

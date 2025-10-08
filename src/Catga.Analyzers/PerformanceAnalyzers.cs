@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 
 namespace Catga.Analyzers;
@@ -39,7 +39,7 @@ public class CatgaPerformanceAnalyzers : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor ConfigureAwaitRule = new(
         id: "CATGA007",
         title: "Missing ConfigureAwait(false) in library code",
-        messageFormat: "Await expression should use ConfigureAwait(false) to avoid unnecessary context captures in library code.",
+        messageFormat: "Await expression should use ConfigureAwait(false) to avoid unnecessary context captures in library code",
         category: "Performance",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,

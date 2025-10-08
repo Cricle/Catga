@@ -1,13 +1,13 @@
-﻿using Catga;
+using Catga;
 using Catga.Configuration;
 using Catga.DependencyInjection;
 using Catga.Handlers;
 using Catga.Messages;
 using Catga.Results;
 using Catga.Serialization.MemoryPack;
+using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using MemoryPack;
 
 // 🎯 Native AOT Test Program for Catga Framework
 // Tests all core features with AOT-friendly manual registration

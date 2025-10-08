@@ -9,7 +9,7 @@ namespace Catga.Pipeline;
 /// </summary>
 public interface IPipelineBehavior<in TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
-    ValueTask<CatgaResult<TResponse>> HandleAsync(
+    public ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default);
@@ -21,7 +21,7 @@ public interface IPipelineBehavior<in TRequest, TResponse> where TRequest : IReq
 /// </summary>
 public interface IPipelineBehavior<in TRequest> where TRequest : IRequest
 {
-    ValueTask<CatgaResult> HandleAsync(
+    public ValueTask<CatgaResult> HandleAsync(
         TRequest request,
         PipelineDelegate next,
         CancellationToken cancellationToken = default);

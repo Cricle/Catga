@@ -9,24 +9,24 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Pipeline.Behaviors;
 
 /// <summary>
-/// Inbox 行为 - 专注于存储层，确保幂等性
+/// Inbox Behavior - Focuses on the storage layer to ensure idempotency
 ///
-/// 架构说明：
-/// - IInboxStore: 负责持久化存储（可用 Redis, SQL, MongoDB 等）
-/// - 不涉及传输层（传输由 IMessageTransport 负责）
-/// - 专注于消息去重和幂等性保证
+/// Architecture:
+/// - IInboxStore: Responsible for persistent storage (Redis, SQL, MongoDB, etc.)
+/// - Does not involve the transport layer (transport handled by IMessageTransport)
+/// - Focuses on message deduplication and idempotency guarantees
 ///
-/// 流程：
-/// 1. 尝试锁定消息（如果已处理，直接返回缓存结果）
-/// 2. 执行业务逻辑
-/// 3. 保存处理结果到 Inbox
-/// 4. 释放锁定
+/// Flow:
+/// 1. Attempt to lock message (if already processed, return cached result)
+/// 2. Execute business logic
+/// 3. Save processing result to Inbox
+/// 4. Release lock
 /// </summary>
 /// <remarks>
-/// 参考 MassTransit 的设计：Inbox 专注于幂等性，不涉及传输
+/// Inspired by MassTransit design: Inbox focuses on idempotency, not transport
 /// </remarks>
-[RequiresUnreferencedCode("Inbox 行为需要序列化支持。生产环境请使用 AOT 友好的序列化器（如 MemoryPack）")]
-[RequiresDynamicCode("Inbox 行为需要序列化支持。生产环境请使用 AOT 友好的序列化器（如 MemoryPack）")]
+[RequiresUnreferencedCode("Inbox behavior requires serialization support. Use AOT-friendly serializer (e.g., MemoryPack) in production")]
+[RequiresDynamicCode("Inbox behavior requires serialization support. Use AOT-friendly serializer (e.g., MemoryPack) in production")]
 public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : class, IRequest<TResponse>
 {
@@ -52,18 +52,18 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
         PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default)
     {
-        // 如果没有配置 inbox，直接执行
+        // If inbox is not configured, execute directly
         if (_persistence == null)
             return await next();
 
-        // 获取 MessageId
+        // Get MessageId
         string? messageId = null;
         if (request is IMessage message && !string.IsNullOrEmpty(message.MessageId))
         {
             messageId = message.MessageId;
         }
 
-        // 如果没有 MessageId，无法使用 inbox 模式，直接执行
+        // If no MessageId, cannot use inbox pattern, execute directly
         if (string.IsNullOrEmpty(messageId))
         {
             _logger.LogDebug("No MessageId found for {RequestType}, skipping inbox check", typeof(TRequest).Name);
@@ -72,13 +72,13 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
 
         try
         {
-            // 检查消息是否已经处理过
+            // Check if message has already been processed
             var hasBeenProcessed = await _persistence.HasBeenProcessedAsync(messageId, cancellationToken);
             if (hasBeenProcessed)
             {
                 _logger.LogInformation("Message {MessageId} has already been processed, returning cached result", messageId);
 
-                // 获取缓存的结果
+                // Get cached result
                 var cachedResult = await _persistence.GetProcessedResultAsync(messageId, cancellationToken);
                 if (!string.IsNullOrEmpty(cachedResult))
                 {
@@ -94,11 +94,11 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
                     }
                 }
 
-                // 如果无法反序列化缓存结果，返回成功但无值
+                // If cached result cannot be deserialized, return success with no value
                 return CatgaResult<TResponse>.Success(default!);
             }
 
-            // 尝试锁定消息
+            // Attempt to lock message
             var lockAcquired = await _persistence.TryLockMessageAsync(messageId, _lockDuration, cancellationToken);
             if (!lockAcquired)
             {
@@ -108,10 +108,10 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
 
             try
             {
-                // 执行业务逻辑
+                // Execute business logic
                 var result = await next();
 
-                // 保存处理结果到 inbox
+                // Save processing result to inbox
                 var inboxMessage = new InboxMessage
                 {
                     MessageId = messageId,
@@ -129,7 +129,7 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
             }
             catch (Exception)
             {
-                // 处理失败，释放锁
+                // Processing failed, release lock
                 await _persistence.ReleaseLockAsync(messageId, cancellationToken);
                 throw;
             }

@@ -1,7 +1,7 @@
 # Distributed Cluster Example
 
 This example demonstrates Catga in a **distributed microservices environment** with:
-- 🚀 **NATS** for distributed messaging  
+- 🚀 **NATS** for distributed messaging
 - 💾 **Redis** for persistence (optional)
 - 🤖 **Source Generator** for automatic handler registration
 - ⚡ **MemoryPack** for high-performance serialization (AOT-friendly)
@@ -233,10 +233,10 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
     {
         // Process command
         var order = CreateOrder(request);
-        
+
         // Publish event to ALL nodes
         await _mediator.PublishAsync(new OrderCreatedEvent { ... });
-        
+
         return CatgaResult.Success(response);
     }
 }
@@ -251,7 +251,7 @@ public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent>
     {
         // This runs on EVERY node!
         _logger.LogInformation("Node {Node} received event", Environment.MachineName);
-        
+
         // Update read models, send notifications, etc.
         return Task.CompletedTask;
     }
@@ -346,6 +346,6 @@ dotnet run --urls="https://localhost:6001"
 
 ---
 
-**Status**: ✅ Production-Ready  
-**AOT Compatible**: ✅ Yes  
+**Status**: ✅ Production-Ready
+**AOT Compatible**: ✅ Yes
 **Dependencies**: NATS (required), Redis (optional)

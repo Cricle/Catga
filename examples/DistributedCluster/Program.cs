@@ -99,7 +99,7 @@ public partial class CreateOrderCommand : IRequest<OrderCreatedResponse>
     public string MessageId { get; set; } = Guid.NewGuid().ToString();
     public string? CorrelationId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    
+
     public required string CustomerId { get; set; }
     public required List<OrderItemDto> Items { get; set; }
 }
@@ -128,7 +128,7 @@ public partial class GetOrderQuery : IRequest<OrderDto>
     public string MessageId { get; set; } = Guid.NewGuid().ToString();
     public string? CorrelationId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    
+
     public required string OrderId { get; set; }
 }
 
@@ -149,7 +149,7 @@ public partial class ShipOrderCommand : IRequest<Unit>
     public string MessageId { get; set; } = Guid.NewGuid().ToString();
     public string? CorrelationId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    
+
     public required string OrderId { get; set; }
 }
 
@@ -167,7 +167,7 @@ public partial class OrderCreatedEvent : IEvent
     public string? CorrelationId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime OccurredAt { get; set; } = DateTime.UtcNow;
-    
+
     public required string OrderId { get; set; }
     public required string CustomerId { get; set; }
     public decimal TotalAmount { get; set; }
@@ -180,7 +180,7 @@ public partial class OrderShippedEvent : IEvent
     public string? CorrelationId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime OccurredAt { get; set; } = DateTime.UtcNow;
-    
+
     public required string OrderId { get; set; }
     public DateTime ShippedAt { get; set; }
 }
@@ -196,7 +196,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
 {
     private readonly ILogger<CreateOrderCommandHandler> _logger;
     private readonly ICatgaMediator _mediator;
-    
+
     // Simulate database - in production use real database
     private static readonly Dictionary<string, OrderDto> _orders = new();
 
@@ -228,7 +228,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
             Status = "Created",
             CreatedAt = DateTime.UtcNow
         };
-        
+
         _orders[orderId] = order;
 
         // Publish event to all nodes via NATS
@@ -260,7 +260,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Ord
 public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, OrderDto>
 {
     private readonly ILogger<GetOrderQueryHandler> _logger;
-    
+
     // Simulate database - in production use real distributed database
     private static readonly Dictionary<string, OrderDto> _orders = new();
 
@@ -292,7 +292,7 @@ public class ShipOrderCommandHandler : IRequestHandler<ShipOrderCommand, Unit>
 {
     private readonly ILogger<ShipOrderCommandHandler> _logger;
     private readonly ICatgaMediator _mediator;
-    
+
     // Simulate database - in production use real distributed database
     private static readonly Dictionary<string, OrderDto> _orders = new();
 

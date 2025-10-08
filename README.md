@@ -104,7 +104,7 @@ var result = await _mediator.SendAsync<CreateOrderCommand, OrderResult>(
 ### 🔧 高级配置
 
 ```csharp
-builder.Services.AddCatga(options => 
+builder.Services.AddCatga(options =>
 {
     options.EnableLogging = true;        // 启用日志
     options.EnableIdempotency = true;    // 启用幂等性

@@ -15,7 +15,7 @@ public class AdvancedIdGeneratorBenchmark
 {
     private SnowflakeIdGenerator _generator = null!;
     private SnowflakeIdGenerator _warmedUpGenerator = null!;
-    
+
     // Pre-allocated buffers to avoid GC in benchmarks
     private long[] _buffer10K = null!;
     private long[] _buffer100K = null!;
@@ -25,11 +25,11 @@ public class AdvancedIdGeneratorBenchmark
     public void Setup()
     {
         _generator = new SnowflakeIdGenerator(workerId: 1);
-        
+
         // Create a warmed-up generator
         _warmedUpGenerator = new SnowflakeIdGenerator(workerId: 2);
         _warmedUpGenerator.Warmup();
-        
+
         // Pre-allocate buffers (one-time allocation)
         _buffer10K = new long[10_000];
         _buffer100K = new long[100_000];
@@ -69,13 +69,13 @@ public class AdvancedIdGeneratorBenchmark
     {
         Span<long> buffer = stackalloc long[128];
         var total = 0;
-        
+
         // Generate 10K IDs in chunks of 128
         for (int i = 0; i < 78; i++) // 78 * 128 ≈ 10K
         {
             total += _generator.NextIds(buffer);
         }
-        
+
         return total;
     }
 

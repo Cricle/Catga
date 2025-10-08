@@ -7,7 +7,8 @@ Catga 内置了高性能的分布式 ID 生成器，基于 Snowflake 算法，�
 ## ✨ 核心特性
 
 ### 🚀 高性能
-- **零分配** - 值类型设计，无 GC 压力
+- **零GC分配** - 完全值类型设计，核心路径0 bytes分配
+- **可配置bit位** - 灵活调节时间范围 (17年~1112年)
 - **无锁并发** - 线程安全，高并发场景下性能优异
 - **单机 400万+ TPS** - 极致性能
 
@@ -15,10 +16,12 @@ Catga 内置了高性能的分布式 ID 生成器，基于 Snowflake 算法，�
 - 无反射
 - 静态类型
 - AOT 友好
+- Span<T> 优化
 
 ### 💎 易用性
 - 一行代码配置
 - 自动检测 Worker ID
+- 5种预设配置
 - 清晰的 API
 - 完整的元数据解析
 
@@ -74,7 +77,7 @@ public class OrderService
     public async Task<Order> CreateOrderAsync(CreateOrderRequest request)
     {
         var orderId = _idGenerator.NextId();
-
+        
         var order = new Order
         {
             Id = orderId,
@@ -88,11 +91,47 @@ public class OrderService
 }
 ```
 
+### 4. 使用自定义bit位配置
+
+```csharp
+// 长期运行的系统（278年）
+builder.Services.AddDistributedId(options =>
+{
+    options.Layout = SnowflakeBitLayout.LongLifespan;
+    options.AutoDetectWorkerId = true;
+});
+
+// 高并发场景（16384 IDs/ms）
+builder.Services.AddDistributedId(options =>
+{
+    options.Layout = SnowflakeBitLayout.HighConcurrency;
+});
+
+// 超大集群（4096节点）
+builder.Services.AddDistributedId(options =>
+{
+    options.Layout = SnowflakeBitLayout.LargeCluster;
+});
+
+// 自定义配置
+builder.Services.AddDistributedId(options =>
+{
+    options.Layout = new SnowflakeBitLayout
+    {
+        TimestampBits = 42,  // ~139年
+        WorkerIdBits = 9,    // 512节点
+        SequenceBits = 12    // 4096 IDs/ms
+    };
+});
+```
+
 ---
 
 ## 📊 ID 结构
 
-Snowflake ID 由 64 位组成：
+Snowflake ID 由 64 位组成（**可配置**）：
+
+### 默认配置 (41-10-12)
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -103,11 +142,21 @@ Snowflake ID 由 64 位组成：
 ```
 
 - **1 bit**: 符号位（始终为 0）
-- **41 bits**: 时间戳（毫秒，约 69 年）
-- **10 bits**: Worker ID（0-1023，支持 1024 个节点）
-- **12 bits**: 序列号（0-4095，每毫秒最多 4096 个 ID）
+- **41 bits**: 时间戳（毫秒，约 **69 年**）
+- **10 bits**: Worker ID（**1024** 个节点）
+- **12 bits**: 序列号（每毫秒 **4096** 个 ID）
 
-### 理论性能
+### 5种预设配置
+
+| 配置 | bit位 | 年限 | 节点数 | IDs/ms | 适用场景 |
+|------|------|------|--------|---------|----------|
+| **Default** | 41-10-12 | ~69年 | 1024 | 4096 | 通用场景 |
+| **LongLifespan** | 43-8-12 | ~278年 | 256 | 4096 | 长期运行 |
+| **HighConcurrency** | 39-10-14 | ~17年 | 1024 | 16384 | 高并发 |
+| **LargeCluster** | 38-12-13 | ~8.7年 | 4096 | 8192 | 大集群 |
+| **UltraLongLifespan** | 45-6-12 | ~1112年 | 64 | 4096 | 超长期 |
+
+### 理论性能（默认配置）
 
 - **单机**: 4,096,000 IDs/秒（每毫秒 4096 个）
 - **集群**: 4,096,000 × 1024 = **41.9 亿 IDs/秒**
@@ -116,28 +165,40 @@ Snowflake ID 由 64 位组成：
 
 ## 🎯 高级功能
 
-### 1. 生成不同格式的 ID
+### 1. 生成ID（零GC）
 
 ```csharp
 var idGen = serviceProvider.GetRequiredService<IDistributedIdGenerator>();
 
-// Long 格式（推荐）
-long id = idGen.NextId();
+// Long 格式（推荐，零分配）
+long id = idGen.NextId();  // 0 bytes
 
 // String 格式
-string idString = idGen.NextIdString();
+string idString = idGen.NextIdString();  // 分配 string
+
+// 零GC字符串生成（使用 stackalloc）
+Span<char> buffer = stackalloc char[20];
+if (idGen.TryWriteNextId(buffer, out var charsWritten))
+{
+    var idSpan = buffer.Slice(0, charsWritten);
+    // 使用 idSpan，零分配
+}
 ```
 
-### 2. 解析 ID 元数据
+### 2. 解析ID元数据（零GC）
 
 ```csharp
 var id = idGen.NextId();
-var metadata = idGen.ParseId(id);
+
+// 零分配版本（推荐）
+idGen.ParseId(id, out var metadata);  // 0 bytes
+
+// 或传统版本
+var metadata = idGen.ParseId(id);  // 可能有装箱
 
 Console.WriteLine($"Worker ID: {metadata.WorkerId}");
 Console.WriteLine($"Sequence: {metadata.Sequence}");
 Console.WriteLine($"Generated At: {metadata.GeneratedAt}");
-Console.WriteLine($"Timestamp: {metadata.Timestamp}");
 ```
 
 **输出示例**:
@@ -145,7 +206,16 @@ Console.WriteLine($"Timestamp: {metadata.Timestamp}");
 Worker ID: 42
 Sequence: 123
 Generated At: 2024-01-15 10:30:45.678
-Timestamp: 1705315845678
+```
+
+### 3. 获取bit位配置信息
+
+```csharp
+var generator = idGen as SnowflakeIdGenerator;
+var layout = generator?.GetLayout();
+
+Console.WriteLine(layout);
+// Output: Snowflake Layout: 41-10-12 (~69y, 1024 workers, 4096 IDs/ms)
 ```
 
 ### 3. 自动检测 Worker ID

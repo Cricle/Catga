@@ -7,7 +7,7 @@
     <ImplicitUsings>false</ImplicitUsings>
     <IsRoslynComponent>true</IsRoslynComponent>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-    
+
     <!-- NuGet package metadata -->
     <PackageId>Catga.SourceGenerator</PackageId>
     <Description>Source generator for Catga framework - Automatic handler registration with AOT support</Description>

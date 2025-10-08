@@ -65,7 +65,7 @@ public record CreateUserCommand : IRequest<CreateUserResponse>
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public string? CorrelationId { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-    
+
     public required string Username { get; init; }
     public required string Email { get; init; }
 }
@@ -82,7 +82,7 @@ public record GetUserQuery : IRequest<UserDto>
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public string? CorrelationId { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-    
+
     public required string UserId { get; init; }
 }
 
@@ -99,7 +99,7 @@ public record UserCreatedEvent : IEvent
     public string? CorrelationId { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-    
+
     public required string UserId { get; init; }
     public required string Username { get; init; }
 }

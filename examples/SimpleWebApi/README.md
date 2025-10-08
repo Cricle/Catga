@@ -55,8 +55,8 @@ builder.Services.AddGeneratedHandlers();
 ```xml
 <ItemGroup>
   <PackageReference Include="Catga" />
-  <PackageReference Include="Catga.SourceGenerator" 
-                    OutputItemType="Analyzer" 
+  <PackageReference Include="Catga.SourceGenerator"
+                    OutputItemType="Analyzer"
                     ReferenceOutputAssembly="false" />
   <PackageReference Include="Catga.Serialization.Json" />
 </ItemGroup>

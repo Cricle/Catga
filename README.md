@@ -47,7 +47,7 @@
 
 ## 🚀 快速开始
 
-> 📖 **完整指南**: 查看 [快速开始指南](./GETTING_STARTED.md) 获取详细教程
+> 📖 **完整指南**: 查看 [快速开始指南](docs/guides/GETTING_STARTED.md) 获取详细教程
 
 ### 安装
 
@@ -158,9 +158,10 @@ services.AddCatga()
 
 ### 快速导航
 
-- 📘 [快速开始](QUICK_START.md) - 5分钟上手
-- 📗 [快速参考](QUICK_REFERENCE.md) - API 速查
-- 📙 [架构说明](ARCHITECTURE.md) - 功能分层
+- 📘 [快速开始](docs/guides/quick-start.md) - 5分钟上手
+- 📗 [快速参考](docs/QUICK_REFERENCE.md) - API 速查
+- 📙 [架构说明](docs/architecture/ARCHITECTURE.md) - 功能分层
+- 📙 [完整文档](docs/README.md) - 所有文档索引
 - 📕 [贡献指南](CONTRIBUTING.md) - 参与贡献
 
 ### 核心文档
@@ -183,8 +184,8 @@ services.AddCatga()
 
 ### 性能优化
 
-- ⚡ [性能优化报告](docs/performance/PERFORMANCE_IMPROVEMENTS.md)
-- 🎯 [AOT 优化指南](docs/performance/AOT_FINAL_REPORT.md)
+- ⚡ [性能优化指南](docs/performance/optimization.md)
+- 🎯 [Native AOT 指南](docs/aot/native-aot-guide.md)
 - 📊 [基准测试](benchmarks/PERFORMANCE_BENCHMARK_RESULTS.md)
 
 ### 可观测性
@@ -287,11 +288,9 @@ Catga/
 
 - ✅ **核心功能** - 稳定
 - ✅ **分布式能力** - 生产就绪
-- ✅ **AOT 兼容** - 100%
+- ✅ **AOT 兼容** - 100% (参见 [AOT验证报告](docs/aot/AOT_VERIFICATION_REPORT.md))
 - ✅ **测试覆盖** - 良好
 - ✅ **文档完整** - 详尽
-
-**当前状态**: [项目状态报告](PROJECT_STATUS.md)
 
 ---
 

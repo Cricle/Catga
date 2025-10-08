@@ -1,6 +1,6 @@
 # Catga Framework - Native AOT Verification Report
 
-**Date**: 2025-10-08  
+**Date**: 2025-10-08
 **Status**: ✅ **100% Native AOT Compatible**
 
 ## Executive Summary
@@ -199,7 +199,7 @@ public partial class CreateUserCommand : IRequest<UserResponse>
     public string MessageId { get; set; } = Guid.NewGuid().ToString();
     public string? CorrelationId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    
+
     public string Username { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
 }
@@ -250,7 +250,7 @@ dotnet publish -c Release -r osx-x64 --self-contained
 ```yaml
 - name: Publish AOT
   run: dotnet publish -c Release -r linux-x64 -p:PublishAot=true
-  
+
 - name: Verify AOT Warnings
   run: |
     if grep -q "warning IL" publish.log; then

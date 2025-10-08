@@ -5,15 +5,15 @@ using Catga.Results;
 namespace Catga.Serialization;
 
 /// <summary>
-/// JSON 源生成器上下文 - 100% AOT 兼容
-/// 为所有 Catga 消息类型提供编译时源生成支持
+/// JSON Source Generator Context - 100% AOT Compatible
+/// Provides compile-time source generation support for all Catga message types
 /// </summary>
 [JsonSourceGenerationOptions(
     WriteIndented = false,
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     GenerationMode = JsonSourceGenerationMode.Default)]
-// 基础类型
+// Basic types
 [JsonSerializable(typeof(string))]
 [JsonSerializable(typeof(int))]
 [JsonSerializable(typeof(long))]
@@ -24,7 +24,7 @@ namespace Catga.Serialization;
 [JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(Dictionary<string, object>))]
 [JsonSerializable(typeof(List<string>))]
-// Catga 核心类型
+// Catga core types
 [JsonSerializable(typeof(CatgaResult<string>))]
 [JsonSerializable(typeof(CatgaResult<int>))]
 [JsonSerializable(typeof(CatgaResult<bool>))]
@@ -34,12 +34,12 @@ public partial class CatgaJsonSerializerContext : JsonSerializerContext
 }
 
 /// <summary>
-/// 扩展方法：为 JsonSerializerOptions 配置 Catga 源生成上下文
+/// Extension methods: Configure Catga source generation context for JsonSerializerOptions
 /// </summary>
 public static class CatgaJsonSerializerContextExtensions
 {
     /// <summary>
-    /// 添加 Catga JSON 源生成器上下文（AOT 兼容）
+    /// Add Catga JSON Source Generator Context (AOT compatible)
     /// </summary>
     public static JsonSerializerOptions UseCatgaContext(this JsonSerializerOptions options)
     {
@@ -48,7 +48,7 @@ public static class CatgaJsonSerializerContextExtensions
     }
 
     /// <summary>
-    /// 创建默认的 AOT 兼容 JSON 选项
+    /// Create default AOT-compatible JSON options
     /// </summary>
     public static JsonSerializerOptions CreateCatgaOptions()
     {

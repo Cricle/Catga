@@ -1,0 +1,19 @@
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  Catga -> C:\Users\huaji\Workplace\github\Catga\src\Catga\bin\Release\net9.0\Catga.dll
+  Catga.Transport.Redis -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Transport.Redis\bin\Release\net9.0\Catga.Transport.Redis.dll
+  Catga.Persistence.Redis -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.Redis\bin\Release\net9.0\Catga.Persistence.Redis.dll
+  Catga.Serialization.Json -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Serialization.Json\bin\Release\net9.0\Catga.Serialization.Json.dll
+  Catga.Transport.Nats -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Transport.Nats\bin\Release\net9.0\Catga.Transport.Nats.dll
+  Catga.Serialization.MemoryPack -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Serialization.MemoryPack\bin\Release\net9.0\Catga.Serialization.MemoryPack.dll
+  Catga.ServiceDiscovery.Kubernetes -> C:\Users\huaji\Workplace\github\Catga\src\Catga.ServiceDiscovery.Kubernetes\bin\Release\net9.0\Catga.ServiceDiscovery.Kubernetes.dll
+  Catga.Benchmarks -> C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\Catga.Benchmarks.dll
+  Catga.Tests -> C:\Users\huaji\Workplace\github\Catga\tests\Catga.Tests\bin\Release\net9.0\Catga.Tests.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:02.08
+
+有可用的工作负载更新。有关详细信息，请运行 `dotnet workload list`。

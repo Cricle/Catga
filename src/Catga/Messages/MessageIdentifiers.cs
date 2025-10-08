@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 namespace Catga.Messages;
 
 /// <summary>
-/// 高性能消息标识符（值类型，零分配）
+/// High-performance message identifier (Value type, Zero allocation)
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public readonly struct MessageId : IEquatable<MessageId>
@@ -20,7 +20,7 @@ public readonly struct MessageId : IEquatable<MessageId>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MessageId Parse(string value) => new(Guid.Parse(value));
 
-    public override string ToString() => _value.ToString("N"); // 无连字符，更快
+    public override string ToString() => _value.ToString("N"); // No hyphens, faster
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Equals(MessageId other) => _value.Equals(other._value);
@@ -40,7 +40,7 @@ public readonly struct MessageId : IEquatable<MessageId>
 }
 
 /// <summary>
-/// 高性能关联标识符（值类型，零分配）
+/// High-performance correlation identifier (Value type, Zero allocation)
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public readonly struct CorrelationId : IEquatable<CorrelationId>

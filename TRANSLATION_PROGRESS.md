@@ -1,6 +1,6 @@
 # 中文注释英文化进度报告
 
-**日期**: 2025-10-08  
+**日期**: 2025-10-08
 **当前进度**: 6/12 任务完成 (50%)
 
 ## ✅ 已完成的文件 (89行中文注释)
@@ -8,7 +8,7 @@
 1. **TransitServiceCollectionExtensions.cs** - 32行
    - DI扩展方法
    - Outbox/Inbox配置选项
-   
+
 2. **OutboxBehavior.cs** - 30行
    - Outbox行为核心逻辑
    - 存储与传输分离架构

@@ -126,7 +126,7 @@ public static class CatgaGeneratedHandlerRegistrations
 
 **AOT Warnings**: Only 1 (from Swashbuckle, not our code)
 ```
-C:\...\Swashbuckle.AspNetCore.SwaggerGen.dll : warning IL3053: 
+C:\...\Swashbuckle.AspNetCore.SwaggerGen.dll : warning IL3053:
 Assembly 'Swashbuckle.AspNetCore.SwaggerGen' produced AOT analysis warnings.
 ```
 

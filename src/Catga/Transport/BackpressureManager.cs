@@ -38,7 +38,7 @@ public sealed class BackpressureManager
     /// <summary>
     /// Try enqueue work with backpressure check
     /// </summary>
-    public async ValueTask<bool> TryEnqueueAsync<T>(
+    public ValueTask<bool> TryEnqueueAsync<T>(
         T item,
         Func<T, CancellationToken, Task> processor,
         CancellationToken cancellationToken = default)
@@ -47,7 +47,7 @@ public sealed class BackpressureManager
         if (ShouldDrop())
         {
             Interlocked.Increment(ref _totalDropped);
-            return false;
+            return new ValueTask<bool>(false);
         }
 
         var workItem = new WorkItem
@@ -74,7 +74,7 @@ public sealed class BackpressureManager
         };
 
         // Try write to channel (non-blocking)
-        return _channel.Writer.TryWrite(workItem);
+        return new ValueTask<bool>(_channel.Writer.TryWrite(workItem));
     }
 
     /// <summary>

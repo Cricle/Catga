@@ -38,8 +38,8 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         _keyPrefix = keyPrefix;
     }
 
-    [RequiresDynamicCode()]
-    [RequiresUnreferencedCode()]
+    [RequiresDynamicCode("JSON serialization may require dynamic code")]
+    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public async Task AddAsync(
         OutboxMessage message,
         CancellationToken cancellationToken = default)
@@ -56,8 +56,8 @@ public class OptimizedRedisOutboxStore : IOutboxStore
             message.CreatedAt.Ticks);
     }
 
-    [RequiresDynamicCode()]
-    [RequiresUnreferencedCode()]
+    [RequiresDynamicCode("JSON deserialization may require dynamic code")]
+    [RequiresUnreferencedCode("JSON deserialization may require unreferenced code")]
     public async Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
         int maxCount = 100,
         CancellationToken cancellationToken = default)
@@ -92,7 +92,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         return messages;
     }
 
-    [RequiresUnreferencedCode()]
+    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public async Task MarkAsPublishedAsync(
         string messageId,
         CancellationToken cancellationToken = default)
@@ -115,7 +115,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         }
     }
 
-    [RequiresUnreferencedCode()]
+    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public async Task MarkAsFailedAsync(
         string messageId,
         string errorMessage,
@@ -145,7 +145,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         }
     }
 
-    [RequiresUnreferencedCode()]
+    [RequiresUnreferencedCode("JSON deserialization may require unreferenced code")]
     public async Task DeletePublishedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)

@@ -144,7 +144,7 @@ public class ProcessOrderSaga : IRequestHandler<ProcessOrderSagaCommand, Process
                 Quantity = request.Quantity
             }, cancellationToken);
 
-            if (!inventoryResult.IsSuccess || !inventoryResult.Value.Success)
+            if (!inventoryResult.IsSuccess || inventoryResult.Value == null || !inventoryResult.Value.Success)
             {
                 return CatgaResult<ProcessOrderSagaResponse>.Success(new ProcessOrderSagaResponse
                 {
@@ -154,7 +154,7 @@ public class ProcessOrderSaga : IRequestHandler<ProcessOrderSagaCommand, Process
                 });
             }
 
-            reservationId = inventoryResult.Value.ReservationId;
+            reservationId = inventoryResult.Value!.ReservationId;
             _logger.LogInformation("Inventory reserved: {ReservationId}", reservationId);
 
             // Step 2: Process Payment
@@ -166,7 +166,7 @@ public class ProcessOrderSaga : IRequestHandler<ProcessOrderSagaCommand, Process
                 Amount = request.Amount
             }, cancellationToken);
 
-            if (!paymentResult.IsSuccess || !paymentResult.Value.Success)
+            if (!paymentResult.IsSuccess || paymentResult.Value == null || !paymentResult.Value.Success)
             {
                 // Compensate: Cancel inventory reservation
                 _logger.LogWarning("Payment failed, compensating inventory reservation...");
@@ -180,7 +180,7 @@ public class ProcessOrderSaga : IRequestHandler<ProcessOrderSagaCommand, Process
                 });
             }
 
-            transactionId = paymentResult.Value.TransactionId;
+            transactionId = paymentResult.Value!.TransactionId;
             _logger.LogInformation("Payment processed: {TransactionId}", transactionId);
 
             // Step 3: Confirm Order
@@ -190,7 +190,7 @@ public class ProcessOrderSaga : IRequestHandler<ProcessOrderSagaCommand, Process
                 OrderId = request.OrderId
             }, cancellationToken);
 
-            if (!confirmResult.IsSuccess || !confirmResult.Value.Success)
+            if (!confirmResult.IsSuccess || confirmResult.Value == null || !confirmResult.Value.Success)
             {
                 // Compensate: Refund payment and cancel inventory
                 _logger.LogWarning("Order confirmation failed, compensating all steps...");

@@ -45,7 +45,7 @@ public sealed class CircuitBreaker
 
     public async Task<T> ExecuteAsync<T>(Func<Task<T>> action)
     {
-        // 快速路径 - 避免复杂的状态检查
+        // Fast path - avoid complex state checks
         if (State == CircuitState.Open)
             throw new CircuitBreakerOpenException("Circuit breaker is open");
 

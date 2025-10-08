@@ -62,10 +62,10 @@ public class MemoryInboxStore : IInboxStore
     {
         if (message == null) throw new ArgumentNullException(nameof(message));
 
-        // 更新或创建消息记录
+        // Update or create message record
         if (_messages.TryGetValue(message.MessageId, out var existing))
         {
-            // 更新现有记录
+            // Update existing record
             existing.MessageType = message.MessageType;
             existing.Payload = message.Payload;
             existing.ProcessedAt = DateTime.UtcNow;
@@ -77,7 +77,7 @@ public class MemoryInboxStore : IInboxStore
         }
         else
         {
-            // 创建新记录
+            // Create new record
             message.ProcessedAt = DateTime.UtcNow;
             message.Status = InboxStatus.Processed;
             message.LockExpiresAt = null;
@@ -139,7 +139,7 @@ public class MemoryInboxStore : IInboxStore
             var cutoff = DateTime.UtcNow - retentionPeriod;
             List<string>? keysToRemove = null;
 
-            // 零分配遍历
+            // Zero-allocation traversal
             foreach (var kvp in _messages)
             {
                 var message = kvp.Value;
@@ -152,7 +152,7 @@ public class MemoryInboxStore : IInboxStore
                 }
             }
 
-            // 删除过期消息
+            // Delete expired messages
             if (keysToRemove != null)
             {
                 foreach (var key in keysToRemove)

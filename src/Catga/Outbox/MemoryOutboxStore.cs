@@ -101,7 +101,7 @@ public class MemoryOutboxStore : IOutboxStore
             var cutoff = DateTime.UtcNow - retentionPeriod;
             List<string>? keysToRemove = null;
 
-            // 零分配遍历
+            // Zero-allocation traversal
             foreach (var kvp in _messages)
             {
                 var message = kvp.Value;
@@ -114,7 +114,7 @@ public class MemoryOutboxStore : IOutboxStore
                 }
             }
 
-            // 删除过期消息
+            // Delete expired messages
             if (keysToRemove != null)
             {
                 foreach (var key in keysToRemove)

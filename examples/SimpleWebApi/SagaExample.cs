@@ -22,7 +22,7 @@ public record ProcessOrderSagaCommand : IRequest<ProcessOrderSagaResponse>
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public string? CorrelationId { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-    
+
     public required string OrderId { get; init; }
     public required string CustomerId { get; init; }
     public required string ProductId { get; init; }
@@ -43,7 +43,7 @@ public record ReserveInventoryCommand : IRequest<ReserveInventoryResponse>
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public string? CorrelationId { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-    
+
     public required string OrderId { get; init; }
     public required string ProductId { get; init; }
     public required int Quantity { get; init; }
@@ -60,7 +60,7 @@ public record ProcessPaymentCommand : IRequest<ProcessPaymentResponse>
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public string? CorrelationId { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-    
+
     public required string OrderId { get; init; }
     public required string CustomerId { get; init; }
     public required decimal Amount { get; init; }
@@ -77,7 +77,7 @@ public record ConfirmOrderCommand : IRequest<ConfirmOrderResponse>
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public string? CorrelationId { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-    
+
     public required string OrderId { get; init; }
 }
 
@@ -92,7 +92,7 @@ public record CancelInventoryReservationCommand : IRequest
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public string? CorrelationId { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-    
+
     public required string ReservationId { get; init; }
 }
 
@@ -101,7 +101,7 @@ public record RefundPaymentCommand : IRequest
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public string? CorrelationId { get; init; }
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-    
+
     public required string TransactionId { get; init; }
 }
 

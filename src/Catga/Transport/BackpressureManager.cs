@@ -129,26 +129,40 @@ public sealed class BackpressureManager
     /// </summary>
     public Task StartProcessorAsync(CancellationToken cancellationToken = default)
     {
+        // Use Task.Run for long-running background task (appropriate usage)
         return Task.Run(async () =>
         {
             await foreach (var item in _channel.Reader.ReadAllAsync(cancellationToken))
             {
                 await _semaphore.WaitAsync(cancellationToken);
 
-                // Process in background
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await item.Processor(cancellationToken).ConfigureAwait(false);
-                    }
-                    finally
-                    {
-                        _semaphore.Release();
-                    }
-                }, cancellationToken);
+                // Process item asynchronously without Task.Run (already on background thread)
+                // Fire-and-forget: process in background but don't block the reader
+                _ = ProcessItemSafelyAsync(item, cancellationToken);
             }
         }, cancellationToken);
+    }
+
+    /// <summary>
+    /// Process a work item safely with proper exception handling and semaphore release
+    /// </summary>
+    private async Task ProcessItemSafelyAsync(WorkItem item, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await item.Processor(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // Swallow exceptions in fire-and-forget scenario
+            // In production, log the exception:
+            // _logger.LogError(ex, "WorkItem processing failed");
+        }
+        finally
+        {
+            // Always release semaphore, even if processing fails
+            _semaphore.Release();
+        }
     }
 
     /// <summary>

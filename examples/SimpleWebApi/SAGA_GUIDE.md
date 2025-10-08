@@ -43,16 +43,16 @@ sequenceDiagram
     participant Ord as Order Service
 
     Client->>Saga: ProcessOrderSagaCommand
-    
+
     Saga->>Inv: ReserveInventory
     Inv-->>Saga: Success (ReservationId)
-    
+
     Saga->>Pay: ProcessPayment
     Pay-->>Saga: Success (TransactionId)
-    
+
     Saga->>Ord: ConfirmOrder
     Ord-->>Saga: Success
-    
+
     Saga-->>Client: Order Completed ✅
 ```
 
@@ -66,18 +66,18 @@ sequenceDiagram
     participant Pay as Payment Service
 
     Client->>Saga: ProcessOrderSagaCommand
-    
+
     Saga->>Inv: ReserveInventory
     Inv-->>Saga: Success (ReservationId)
-    
+
     Saga->>Pay: ProcessPayment
     Pay-->>Saga: Failed ❌
-    
+
     Note over Saga: Payment failed,<br/>start compensation
-    
+
     Saga->>Inv: CancelReservation
     Inv-->>Saga: Cancelled
-    
+
     Saga-->>Client: Order Failed (compensated) ⚠️
 ```
 
@@ -390,7 +390,7 @@ var result = await _mediator.SendAsync(new ProcessPaymentCommand
                     ---> [Service C]
 ```
 
-**优点**: 
+**优点**:
 - ✅ 集中控制流程
 - ✅ 易于理解和维护
 - ✅ 清晰的补偿逻辑

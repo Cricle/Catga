@@ -30,16 +30,9 @@ internal sealed class HandlerCache
     {
         var handlerType = typeof(THandler);
 
-        // Fast path: check cache first
-        if (_handlerFactories.TryGetValue(handlerType, out var factory))
-        {
-            return ((Func<IServiceProvider, THandler>)factory)(scopedProvider);
-        }
-
-        // Slow path: create and cache factory
-        var newFactory = CreateHandlerFactory<THandler>();
-        _handlerFactories[handlerType] = newFactory;
-        return newFactory(scopedProvider);
+        // P0 Optimization: Use GetOrAdd to avoid race condition
+        var factory = _handlerFactories.GetOrAdd(handlerType, _ => CreateHandlerFactory<THandler>());
+        return ((Func<IServiceProvider, THandler>)factory)(scopedProvider);
     }
 
     /// <summary>
@@ -50,16 +43,9 @@ internal sealed class HandlerCache
     {
         var handlerType = typeof(THandler);
 
-        // Fast path: check cache first
-        if (_eventHandlerFactories.TryGetValue(handlerType, out var factory))
-        {
-            return ((Func<IServiceProvider, IReadOnlyList<THandler>>)factory)(scopedProvider);
-        }
-
-        // Slow path: create and cache factory
-        var newFactory = CreateEventHandlerFactory<THandler>();
-        _eventHandlerFactories[handlerType] = newFactory;
-        return newFactory(scopedProvider);
+        // P0 Optimization: Use GetOrAdd to avoid race condition
+        var factory = _eventHandlerFactories.GetOrAdd(handlerType, _ => CreateEventHandlerFactory<THandler>());
+        return ((Func<IServiceProvider, IReadOnlyList<THandler>>)factory)(scopedProvider);
     }
 
     /// <summary>

@@ -207,9 +207,18 @@ public class CatgaMediator : ICatgaMediator, IDisposable
             }
 
             // Wait only for the actual tasks (not the full rented array)
+            // P0 Optimization: Create a temporary view for WhenAll without extra allocations
             if (rentedArray != null)
             {
-                await Task.WhenAll(tasks.AsSpan(0, handlerList.Count).ToArray()).ConfigureAwait(false);
+                // Use a local variable to create exact-size view
+                var tempTasks = tasks;
+                if (handlerList.Count < rentedArray.Length)
+                {
+                    // Create exact-sized array for WhenAll (minimal allocation)
+                    tempTasks = new Task[handlerList.Count];
+                    Array.Copy(rentedArray, tempTasks, handlerList.Count);
+                }
+                await Task.WhenAll(tempTasks).ConfigureAwait(false);
             }
             else
             {

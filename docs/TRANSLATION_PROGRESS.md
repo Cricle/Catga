@@ -1,6 +1,6 @@
 # Translation Progress Report
 
-**Date**: 2025-10-08  
+**Date**: 2025-10-08
 **Status**: ✅ In Progress
 
 ---
@@ -68,7 +68,7 @@ e2a7d05 - refactor: Translate Chinese comments in OutboxPublisher and RateLimite
 
 1. Continue translating remaining files
 2. Complete `Idempotency` module translation
-3. Complete `Pipeline/Behaviors/TracingBehavior` translation  
+3. Complete `Pipeline/Behaviors/TracingBehavior` translation
 4. Complete `Observability` module translation
 5. Update `README.md` (largest remaining file)
 6. Final verification and commit

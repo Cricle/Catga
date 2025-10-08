@@ -100,10 +100,10 @@ public class MemoryIdempotencyStore : IIdempotencyStore
 
     private void CleanupOldEntries()
     {
-        // 零分配清理：避免 LINQ，直接迭代
+        // Zero-allocation cleanup: avoid LINQ, iterate directly
         var cutoff = DateTime.UtcNow - _retentionPeriod;
 
-        // 使用 List 来避免 "Collection was modified" 异常
+        // Use List to avoid "Collection was modified" exception
         List<string>? expiredKeys = null;
 
         foreach (var kvp in _processedMessages)

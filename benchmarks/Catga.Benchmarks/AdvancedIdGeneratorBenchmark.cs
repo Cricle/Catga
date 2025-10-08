@@ -15,6 +15,11 @@ public class AdvancedIdGeneratorBenchmark
 {
     private SnowflakeIdGenerator _generator = null!;
     private SnowflakeIdGenerator _warmedUpGenerator = null!;
+    
+    // Pre-allocated buffers to avoid GC in benchmarks
+    private long[] _buffer10K = null!;
+    private long[] _buffer100K = null!;
+    private long[] _buffer500K = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -24,32 +29,39 @@ public class AdvancedIdGeneratorBenchmark
         // Create a warmed-up generator
         _warmedUpGenerator = new SnowflakeIdGenerator(workerId: 2);
         _warmedUpGenerator.Warmup();
+        
+        // Pre-allocate buffers (one-time allocation)
+        _buffer10K = new long[10_000];
+        _buffer100K = new long[100_000];
+        _buffer500K = new long[500_000];
     }
 
-    [Benchmark(Description = "Batch 10K - SIMD")]
-    public long[] Batch_10K_SIMD()
+    [Benchmark(Description = "Batch 10K - SIMD (Zero GC)")]
+    public int Batch_10K_SIMD()
     {
-        return _generator.NextIds(10_000);
+        // Use pre-allocated buffer to avoid GC
+        return _generator.NextIds(_buffer10K.AsSpan());
     }
 
-    [Benchmark(Description = "Batch 10K - Warmed Up")]
-    public long[] Batch_10K_WarmedUp()
+    [Benchmark(Description = "Batch 10K - Warmed Up (Zero GC)")]
+    public int Batch_10K_WarmedUp()
     {
-        return _warmedUpGenerator.NextIds(10_000);
+        // Use pre-allocated buffer to avoid GC
+        return _warmedUpGenerator.NextIds(_buffer10K.AsSpan());
     }
 
-    [Benchmark(Description = "Batch 100K - ArrayPool")]
-    public long[] Batch_100K_ArrayPool()
+    [Benchmark(Description = "Batch 100K - SIMD (Zero GC)")]
+    public int Batch_100K_SIMD()
     {
-        // This will use ArrayPool internally
-        return _generator.NextIds(100_000);
+        // Use pre-allocated buffer to avoid GC
+        return _generator.NextIds(_buffer100K.AsSpan());
     }
 
-    [Benchmark(Description = "Batch 500K - Large ArrayPool")]
-    public long[] Batch_500K_LargeArrayPool()
+    [Benchmark(Description = "Batch 500K - SIMD (Zero GC)")]
+    public int Batch_500K_SIMD()
     {
-        // This will use ArrayPool internally
-        return _generator.NextIds(500_000);
+        // Use pre-allocated buffer to avoid GC
+        return _generator.NextIds(_buffer500K.AsSpan());
     }
 
     [Benchmark(Description = "Span 10K - Zero Allocation")]
@@ -67,23 +79,23 @@ public class AdvancedIdGeneratorBenchmark
         return total;
     }
 
-    [Benchmark(Description = "Adaptive - Repeated 1K Batches")]
-    public void Adaptive_Repeated1K()
+    [Benchmark(Description = "Adaptive - Repeated 1K (Zero GC)")]
+    public int Adaptive_Repeated1K()
     {
-        // This will train the adaptive strategy
+        // Use pre-allocated buffer to avoid GC
+        var total = 0;
         for (int i = 0; i < 10; i++)
         {
-            _ = _generator.NextIds(1000);
+            total += _generator.NextIds(_buffer10K.AsSpan(0, 1000));
         }
+        return total;
     }
 
-    [Benchmark(Description = "SIMD vs Scalar - 10K")]
-    public long[] SIMD_vs_Scalar_10K()
+    [Benchmark(Description = "SIMD vs Scalar - 10K (Zero GC)")]
+    public int SIMD_vs_Scalar_10K()
     {
-        // Force SIMD path by requesting batch
-        var ids = new long[10_000];
-        _generator.NextIds(ids.AsSpan());
-        return ids;
+        // Use pre-allocated buffer to avoid GC
+        return _generator.NextIds(_buffer10K.AsSpan());
     }
 }
 

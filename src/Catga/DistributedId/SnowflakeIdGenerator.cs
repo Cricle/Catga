@@ -280,10 +280,10 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
         Interlocked.Add(ref _totalIdsGenerated, count);
 
         // Adaptive Strategy: Calculate optimal batch size based on recent patterns
-        var avgBatchSize = _batchRequestCount > 0 
-            ? _totalIdsGenerated / _batchRequestCount 
+        var avgBatchSize = _batchRequestCount > 0
+            ? _totalIdsGenerated / _batchRequestCount
             : 4096;
-        
+
         // Update recent batch size (exponential moving average)
         var targetBatchSize = (long)((avgBatchSize * 0.3) + (_recentBatchSize * 0.7));
         Interlocked.Exchange(ref _recentBatchSize, Math.Clamp(targetBatchSize, 256, 16384));
@@ -392,7 +392,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
 
         // Memory Pool Optimization: Use ArrayPool for large batches (>100K)
         const int ArrayPoolThreshold = 100_000;
-        
+
         if (count > ArrayPoolThreshold)
         {
             // Rent from pool (may get larger array)
@@ -402,7 +402,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
                 // Generate IDs into rented array
                 var actualSpan = rentedArray.AsSpan(0, count);
                 NextIds(actualSpan);
-                
+
                 // Copy to exact-sized result array
                 var result = new long[count];
                 actualSpan.CopyTo(result);
@@ -474,7 +474,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     {
         // Pre-allocate small buffer to warm up memory allocator
         Span<long> warmupBuffer = stackalloc long[128];
-        
+
         // Warm up single ID generation (most common path)
         for (int i = 0; i < 100; i++)
         {
@@ -525,7 +525,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
         if (Avx2.IsSupported)
         {
             var baseIdVector = Vector256.Create(baseId);
-            
+
             // Process chunks of 4
             while (remaining >= 4)
             {

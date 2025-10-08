@@ -22,7 +22,7 @@ internal sealed class HandlerCache
     // L1: Thread-local cache (zero contention)
     [ThreadStatic]
     private static Dictionary<Type, Delegate>? _threadLocalHandlerCache;
-    
+
     [ThreadStatic]
     private static Dictionary<Type, Delegate>? _threadLocalEventHandlerCache;
 
@@ -65,10 +65,10 @@ internal sealed class HandlerCache
 
         // P3 L2: Try shared cache (ConcurrentDictionary)
         var factory = _handlerFactories.GetOrAdd(handlerType, _ => CreateHandlerFactory<THandler>());
-        
+
         // P3: Cache in thread-local for future hits
         threadCache[handlerType] = factory;
-        
+
         return ((Func<IServiceProvider, THandler>)factory)(scopedProvider);
     }
 
@@ -90,10 +90,10 @@ internal sealed class HandlerCache
 
         // P3 L2: Try shared cache (ConcurrentDictionary)
         var factory = _eventHandlerFactories.GetOrAdd(handlerType, _ => CreateEventHandlerFactory<THandler>());
-        
+
         // P3: Cache in thread-local for future hits
         threadCache[handlerType] = factory;
-        
+
         return ((Func<IServiceProvider, IReadOnlyList<THandler>>)factory)(scopedProvider);
     }
 

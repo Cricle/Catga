@@ -13,7 +13,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
 {
     private readonly long _workerId;
     private readonly SnowflakeBitLayout _layout;
-    
+
     // P3: Cache line padding (64 bytes before hot field)
     #pragma warning disable CS0169 // Field is never used (padding for false sharing prevention)
     private long _padding1;
@@ -267,7 +267,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
         SpinWait spinWait = default;
 
         // P1: For ultra-large batches (>10k), use adaptive reservation strategy
-        var maxBatchPerIteration = count > 10000 
+        var maxBatchPerIteration = count > 10000
             ? Math.Min((int)_layout.SequenceMask + 1, count / 4) // Reserve up to 25% at a time
             : (int)_layout.SequenceMask + 1; // Normal batching
 
@@ -330,7 +330,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
                 // P1: Precompute common values outside loop
                 var epochOffset = newTimestamp - _layout.EpochMilliseconds;
                 var baseId = (epochOffset << _layout.TimestampShift) | (_workerId << _layout.WorkerIdShift);
-                
+
                 for (int i = 0; i < batchSize; i++)
                 {
                     var seq = startSequence + i;

@@ -6,11 +6,11 @@ This demo project demonstrates **100% Native AOT compatibility** for the Catga f
 
 ## Features Tested
 
-✅ **Command Handling** - Send commands with handlers  
-✅ **Event Publishing** - Publish and handle events  
-✅ **Idempotency** - Ensure exactly-once processing  
-✅ **Pipeline Behaviors** - Logging, validation, etc.  
-✅ **MemoryPack Serialization** - AOT-friendly serialization  
+✅ **Command Handling** - Send commands with handlers
+✅ **Event Publishing** - Publish and handle events
+✅ **Idempotency** - Ensure exactly-once processing
+✅ **Pipeline Behaviors** - Logging, validation, etc.
+✅ **MemoryPack Serialization** - AOT-friendly serialization
 ✅ **Dependency Injection** - Manual registration (AOT-safe)
 
 ## Build & Run

@@ -40,11 +40,11 @@ Console.WriteLine("========================\n");
 
 // Test 1: Send Command
 logger.LogInformation("Test 1: Sending command...");
-var command = new TestCommand 
-{ 
+var command = new TestCommand
+{
     MessageId = Guid.NewGuid().ToString(),
     Name = "AOT Test",
-    Value = 42 
+    Value = 42
 };
 
 var result = await mediator.SendAsync<TestCommand, TestResponse>(command);
@@ -59,11 +59,11 @@ else
 
 // Test 2: Publish Event
 logger.LogInformation("\nTest 2: Publishing event...");
-var @event = new TestEvent 
-{ 
+var @event = new TestEvent
+{
     MessageId = Guid.NewGuid().ToString(),
     EventName = "AOT Event",
-    Timestamp = DateTime.UtcNow 
+    Timestamp = DateTime.UtcNow
 };
 
 await mediator.PublishAsync(@event);
@@ -71,18 +71,18 @@ logger.LogInformation("✅ Event published successfully");
 
 // Test 3: Idempotency Test
 logger.LogInformation("\nTest 3: Testing idempotency...");
-var idempotentCommand = new TestCommand 
-{ 
+var idempotentCommand = new TestCommand
+{
     MessageId = "idempotent-test-123",
     Name = "Idempotent",
-    Value = 100 
+    Value = 100
 };
 
 var firstResult = await mediator.SendAsync<TestCommand, TestResponse>(idempotentCommand);
 var secondResult = await mediator.SendAsync<TestCommand, TestResponse>(idempotentCommand);
 
-logger.LogInformation("✅ Idempotency test: First={First}, Second={Second}", 
-    firstResult.Value?.Message, 
+logger.LogInformation("✅ Idempotency test: First={First}, Second={Second}",
+    firstResult.Value?.Message,
     secondResult.Value?.Message);
 
 Console.WriteLine("\n🎉 All tests completed successfully!");
@@ -132,9 +132,9 @@ public class TestCommandHandler : IRequestHandler<TestCommand, TestResponse>
     public Task<CatgaResult<TestResponse>> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Handling command: {Name} with value {Value}", request.Name, request.Value);
-        
-        var response = new TestResponse 
-        { 
+
+        var response = new TestResponse
+        {
             Message = $"Processed: {request.Name}",
             ProcessedValue = request.Value * 2
         };

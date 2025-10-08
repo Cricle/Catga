@@ -16,11 +16,11 @@ public class RedisReadWriteCache
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly ILogger<RedisReadWriteCache> _logger;
-    
+
     // Local L1 cache (memory)
     private readonly ConcurrentDictionary<string, CacheEntry> _localCache = new();
     private readonly TimeSpan _localCacheTtl;
-    
+
     // Redis connection endpoints
     private readonly IDatabase _readDb;   // Read from replica
     private readonly IDatabase _writeDb;  // Write to master
@@ -33,7 +33,7 @@ public class RedisReadWriteCache
         _redis = redis;
         _logger = logger;
         _localCacheTtl = localCacheTtl ?? TimeSpan.FromMinutes(5);
-        
+
         // For simplicity, using same DB for read/write
         // In production, configure separate read replica
         _readDb = redis.GetDatabase();
@@ -62,10 +62,10 @@ public class RedisReadWriteCache
         if (redisValue.HasValue)
         {
             var value = redisValue.ToString();
-            
+
             // Update L1 cache
             _localCache[key] = new CacheEntry(value, _localCacheTtl);
-            
+
             _logger.LogTrace("Cache hit (L2): {Key}", key);
             return value;
         }
@@ -78,7 +78,7 @@ public class RedisReadWriteCache
             {
                 // Write to both caches
                 await SetAsync(key, dbValue, expiry, cancellationToken);
-                
+
                 _logger.LogTrace("Cache miss, loaded from DB: {Key}", key);
                 return dbValue;
             }
@@ -100,10 +100,10 @@ public class RedisReadWriteCache
     {
         // Write to Redis (master)
         await _writeDb.StringSetAsync(key, value, expiry);
-        
+
         // Write to L1 cache
         _localCache[key] = new CacheEntry(value, _localCacheTtl);
-        
+
         _logger.LogTrace("Cache set: {Key}", key);
     }
 
@@ -116,10 +116,10 @@ public class RedisReadWriteCache
     {
         // Delete from Redis
         await _writeDb.KeyDeleteAsync(key);
-        
+
         // Invalidate L1 cache
         _localCache.TryRemove(key, out _);
-        
+
         _logger.LogTrace("Cache deleted: {Key}", key);
     }
 

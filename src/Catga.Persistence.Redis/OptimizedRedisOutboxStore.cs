@@ -43,9 +43,9 @@ public class OptimizedRedisOutboxStore : IOutboxStore
     {
         var key = GetKey(message.MessageId);
         var json = JsonSerializer.Serialize(message);
-        
+
         await _db.StringSetAsync(key, json);
-        
+
         // Add to pending set for efficient querying
         await _db.SortedSetAddAsync(
             GetPendingSetKey(),
@@ -75,7 +75,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
             if (value != null)
             {
                 var message = JsonSerializer.Deserialize<OutboxMessage>(value);
-                if (message != null && 
+                if (message != null &&
                     message.Status == OutboxStatus.Pending &&
                     message.RetryCount < message.MaxRetries)
                 {
@@ -93,7 +93,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
     {
         var key = GetKey(messageId);
         var json = await _db.StringGetAsync(key);
-        
+
         if (json.HasValue)
         {
             var message = JsonSerializer.Deserialize<OutboxMessage>(json.ToString());
@@ -101,9 +101,9 @@ public class OptimizedRedisOutboxStore : IOutboxStore
             {
                 message.Status = OutboxStatus.Published;
                 message.ProcessedAt = DateTime.UtcNow;
-                
+
                 await _db.StringSetAsync(key, JsonSerializer.Serialize(message));
-                
+
                 // Remove from pending set
                 await _db.SortedSetRemoveAsync(GetPendingSetKey(), messageId);
             }
@@ -117,7 +117,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
     {
         var key = GetKey(messageId);
         var json = await _db.StringGetAsync(key);
-        
+
         if (json.HasValue)
         {
             var message = JsonSerializer.Deserialize<OutboxMessage>(json.ToString());
@@ -125,15 +125,15 @@ public class OptimizedRedisOutboxStore : IOutboxStore
             {
                 message.RetryCount++;
                 message.LastError = errorMessage;
-                
+
                 if (message.RetryCount >= message.MaxRetries)
                 {
                     message.Status = OutboxStatus.Failed;
-                    
+
                     // Remove from pending set
                     await _db.SortedSetRemoveAsync(GetPendingSetKey(), messageId);
                 }
-                
+
                 await _db.StringSetAsync(key, JsonSerializer.Serialize(message));
             }
         }
@@ -144,13 +144,13 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         CancellationToken cancellationToken = default)
     {
         var cutoff = DateTime.UtcNow - retentionPeriod;
-        
+
         // Get all published messages older than cutoff
         var allKeys = _redis.GetServer(_redis.GetEndPoints().First())
             .Keys(pattern: $"{_keyPrefix}*");
 
         var keysToDelete = new List<string>();
-        
+
         foreach (var key in allKeys)
         {
             var json = await _db.StringGetAsync(key.ToString());
@@ -171,7 +171,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         {
             // Batch delete (1 round-trip!)
             await _batchOps.BatchDeleteAsync(keysToDelete, cancellationToken);
-            
+
             _logger.LogInformation("Deleted {Count} published outbox messages", keysToDelete.Count);
         }
     }

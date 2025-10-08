@@ -79,7 +79,7 @@ public class OutboxPublisher : BackgroundService
             // This publisher only handles retry of failed messages
             // The message should already have been published by OutboxBehavior
             // If we reach here, it means the message failed and needs retry
-            
+
             // For retry logic, you should inject IMessageTransport and republish
             // For now, mark as published to prevent infinite loops
             await _outboxStore.MarkAsPublishedAsync(message.MessageId, cancellationToken);

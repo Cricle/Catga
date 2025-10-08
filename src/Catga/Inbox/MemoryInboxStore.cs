@@ -20,33 +20,33 @@ public class MemoryInboxStore : IInboxStore
         if (string.IsNullOrEmpty(messageId))
             throw new ArgumentException("MessageId is required", nameof(messageId));
 
-        // 如果消息已存在
+        // If message already exists
         if (_messages.TryGetValue(messageId, out var existingMessage))
         {
-            // 已经处理完成，不能再锁定
+            // Already processed, cannot lock again
             if (existingMessage.Status == InboxStatus.Processed)
                 return Task.FromResult(false);
 
-            // 检查锁是否已过期
+            // Check if lock has expired
             if (existingMessage.LockExpiresAt.HasValue &&
                 existingMessage.LockExpiresAt.Value > DateTime.UtcNow)
             {
-                // 锁还未过期，不能获取
+                // Lock hasn't expired, cannot acquire
                 return Task.FromResult(false);
             }
 
-            // 锁已过期或没有锁，可以重新锁定
+            // Lock expired or no lock, can relock
             existingMessage.Status = InboxStatus.Processing;
             existingMessage.LockExpiresAt = DateTime.UtcNow.Add(lockDuration);
             return Task.FromResult(true);
         }
 
-        // 首次锁定，创建新的 inbox 消息记录
+        // First lock, create new inbox message record
         var newMessage = new InboxMessage
         {
             MessageId = messageId,
-            MessageType = string.Empty, // 将在实际处理时填充
-            Payload = string.Empty,     // 将在实际处理时填充
+            MessageType = string.Empty, // Will be filled during actual processing
+            Payload = string.Empty,     // Will be filled during actual processing
             Status = InboxStatus.Processing,
             LockExpiresAt = DateTime.UtcNow.Add(lockDuration)
         };

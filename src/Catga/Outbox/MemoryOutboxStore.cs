@@ -28,12 +28,12 @@ public class MemoryOutboxStore : IOutboxStore
     {
         var pending = new List<OutboxMessage>(maxCount);
 
-        // 零分配遍历：直接迭代，避免 LINQ
+        // Zero-allocation iteration: direct iteration, avoid LINQ
         foreach (var kvp in _messages)
         {
             var message = kvp.Value;
 
-            // 只获取 Pending 状态且未超过重试次数的消息
+            // Only get Pending messages that haven't exceeded retry count
             if (message.Status == OutboxStatus.Pending &&
                 message.RetryCount < message.MaxRetries)
             {
@@ -44,8 +44,11 @@ public class MemoryOutboxStore : IOutboxStore
             }
         }
 
-        // 按创建时间排序（先进先出）
-        pending.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
+        // Sort by creation time (FIFO)
+        if (pending.Count > 1)
+        {
+            pending.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
+        }
 
         return Task.FromResult<IReadOnlyList<OutboxMessage>>(pending);
     }
@@ -73,7 +76,7 @@ public class MemoryOutboxStore : IOutboxStore
             message.RetryCount++;
             message.LastError = errorMessage;
 
-            // 如果超过最大重试次数，标记为失败
+            // If max retries exceeded, mark as failed
             if (message.RetryCount >= message.MaxRetries)
             {
                 message.Status = OutboxStatus.Failed;

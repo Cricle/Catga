@@ -68,9 +68,9 @@ public class OutboxPublisher : BackgroundService
     {
         try
         {
-            // 根据消息类型反序列化并发布
-            // 注意：这里需要动态处理不同类型的事件
-            // 实际生产环境中，可能需要使用类型注册表或约定
+            // Deserialize and publish based on message type
+            // Note: Dynamic handling of different event types is needed here
+            // In production, consider using a type registry or convention
 
             _logger.LogDebug("Publishing outbox message {MessageId} of type {MessageType}",
                 message.MessageId, message.MessageType);

@@ -4,7 +4,7 @@
 
 ### 用户要求回顾
 1. ✅ **不简单屏蔽AOT告警，要实际解决**
-2. ✅ **功能不变的情况下优化代码**  
+2. ✅ **功能不变的情况下优化代码**
 3. ✅ **减少代码量**
 4. ✅ **优化GC、线程池、内存、CPU**
 5. ✅ **优化性能、并发**
@@ -82,7 +82,7 @@ for (int i = 0; i < handlers.Count; i++)
 **修复阻塞**：
 ```csharp
 // Before: Blocks thread pool (返回Task<Task>)
-Task.Factory.StartNew(async () => { ... }, 
+Task.Factory.StartNew(async () => { ... },
     TaskCreationOptions.LongRunning)
 
 // After: Async I/O, non-blocking
@@ -102,7 +102,7 @@ Task.Run(async () => { ... })
 **关键文件已完成**：
 - ✅ IMessageTransport
 - ✅ Transport implementations
-- ✅ DI extensions  
+- ✅ DI extensions
 - ✅ IServiceDiscovery
 - ✅ Builder patterns
 
@@ -118,8 +118,8 @@ Task.Run(async () => { ... })
 [RequiresDynamicCode("...")]
 Task SubscribeAsync<
     [DynamicallyAccessedMembers(
-        DynamicallyAccessedMemberTypes.PublicConstructors | 
-        DynamicallyAccessedMemberTypes.PublicFields | 
+        DynamicallyAccessedMemberTypes.PublicConstructors |
+        DynamicallyAccessedMemberTypes.PublicFields |
         DynamicallyAccessedMemberTypes.PublicProperties
     )] TMessage>(...)
 
@@ -337,8 +337,8 @@ f0fef9e fix(aot): properly fix AOT warnings without suppression
 
 ---
 
-*Generated on: 2025-10-08*  
-*Framework: Catga*  
-*Version: Post-optimization*  
+*Generated on: 2025-10-08*
+*Framework: Catga*
+*Version: Post-optimization*
 *Status: Production Ready* ✅
 

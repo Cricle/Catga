@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.DeadLetter;
 
 /// <summary>
-/// 精简内存死信队列（无锁）
+/// Streamlined in-memory dead letter queue (lock-free)
 /// </summary>
 public class InMemoryDeadLetterQueue : IDeadLetterQueue
 {
@@ -44,11 +44,11 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
 
         _deadLetters.Enqueue(deadLetter);
 
-        // 简单修剪策略
+        // Simple trimming strategy
         while (_deadLetters.Count > _maxSize)
             _deadLetters.TryDequeue(out _);
 
-        _logger.LogWarning("消息已发送到死信队列: {MessageType} {MessageId}, 重试: {RetryCount}",
+        _logger.LogWarning("Message sent to dead letter queue: {MessageType} {MessageId}, retries: {RetryCount}",
             deadLetter.MessageType, deadLetter.MessageId, retryCount);
 
         return Task.CompletedTask;
@@ -58,7 +58,7 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
         int maxCount = 100,
         CancellationToken cancellationToken = default)
     {
-        // 零分配优化：避免 LINQ，直接构建列表
+        // Zero-allocation optimization: avoid LINQ, build list directly
         var result = new List<DeadLetterMessage>(Math.Min(maxCount, _deadLetters.Count));
         var count = 0;
 

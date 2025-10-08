@@ -44,7 +44,7 @@ public class RetryBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
     }
 
     /// <summary>
-    /// 🔥 优化: 使用 ValueTask 减少堆分配
+    /// Optimized: Use ValueTask to reduce heap allocations
     /// </summary>
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
@@ -53,7 +53,7 @@ public class RetryBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
     {
         try
         {
-            // 简化重试逻辑 - 直接使用Polly管道
+            // Simplified retry logic - use Polly pipeline directly
             return await _retryPipeline.ExecuteAsync(async ct => await next(), cancellationToken);
         }
         catch (CatgaException ex)

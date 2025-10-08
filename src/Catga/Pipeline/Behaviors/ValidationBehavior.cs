@@ -27,7 +27,7 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
         PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default)
     {
-        // 简化验证 - 避免不必要的集合操作
+        // Simplified validation - avoid unnecessary collection operations
         if (!_validators.Any())
             return await next();
 

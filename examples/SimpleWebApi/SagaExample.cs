@@ -229,7 +229,7 @@ public class ProcessOrderSaga : IRequestHandler<ProcessOrderSagaCommand, Process
 
             return CatgaResult<ProcessOrderSagaResponse>.Failure(
                 "Order saga failed",
-                new Exception("Saga execution error", ex));
+                new Catga.Exceptions.CatgaException("Saga execution error", ex));
         }
     }
 

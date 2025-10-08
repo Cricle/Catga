@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Catga.DependencyInjection;
 
 /// <summary>
-/// 🚀 Catga 流式配置构建器 - 让配置更简单
+/// Catga fluent configuration builder
 /// </summary>
 public class CatgaBuilder
 {
@@ -22,11 +22,11 @@ public class CatgaBuilder
     }
 
     /// <summary>
-    /// 🔍 自动扫描并注册指定程序集中的所有 Handlers
-    /// ⚠️ 警告: 使用反射，不兼容 NativeAOT
+    /// Auto-scan and register all handlers in assembly
+    /// WARNING: Uses reflection, not compatible with NativeAOT
     /// </summary>
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("程序集扫描使用反射，不兼容 NativeAOT。生产环境请使用手动注册。")]
-    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("类型扫描可能需要动态代码生成，不兼容 NativeAOT")]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Assembly scanning uses reflection, not compatible with NativeAOT. Use manual registration in production.")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Type scanning may require dynamic code generation, not compatible with NativeAOT")]
     public CatgaBuilder ScanHandlers(Assembly assembly)
     {
         var handlerTypes = assembly.GetTypes()
@@ -57,11 +57,11 @@ public class CatgaBuilder
     }
 
     /// <summary>
-    /// 🔍 扫描调用程序集（当前执行程序集）
-    /// ⚠️ 警告: 使用反射，不兼容 NativeAOT
+    /// Scan calling assembly (current executing assembly)
+    /// WARNING: Uses reflection, not compatible with NativeAOT
     /// </summary>
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("程序集扫描使用反射，不兼容 NativeAOT。生产环境请使用手动注册。")]
-    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("类型扫描可能需要动态代码生成，不兼容 NativeAOT")]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Assembly scanning uses reflection, not compatible with NativeAOT. Use manual registration in production.")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Type scanning may require dynamic code generation, not compatible with NativeAOT")]
     public CatgaBuilder ScanCurrentAssembly()
     {
         return ScanHandlers(Assembly.GetCallingAssembly());
@@ -90,35 +90,35 @@ public class CatgaBuilder
     }
 
     /// <summary>
-    /// 🌐 启用 NATS 分布式消息
+    /// Enable NATS distributed messaging
     /// </summary>
     public CatgaBuilder WithNats(string connectionString)
     {
-        // 这里需要扩展方法支持，暂时保留接口
+        // Extension method support required
         return this;
     }
 
     /// <summary>
-    /// 🗄️ 启用 Redis 状态存储
+    /// Enable Redis state storage
     /// </summary>
     public CatgaBuilder WithRedis(string connectionString)
     {
-        // 这里需要扩展方法支持，暂时保留接口
+        // Extension method support required
         return this;
     }
 
     /// <summary>
-    /// ⚡ 启用性能优化
+    /// Enable performance optimizations
     /// </summary>
     public CatgaBuilder WithPerformanceOptimization()
     {
-        _options.EnableLogging = false; // 生产环境关闭详细日志
-        _options.IdempotencyShardCount = 32; // 增加分片数
+        _options.EnableLogging = false; // Disable verbose logging in production
+        _options.IdempotencyShardCount = 32; // Increase shard count
         return this;
     }
 
     /// <summary>
-    /// 🛡️ 启用全部可靠性特性
+    /// Enable all reliability features
     /// </summary>
     public CatgaBuilder WithReliability()
     {
@@ -130,7 +130,7 @@ public class CatgaBuilder
     }
 
     /// <summary>
-    /// 🔧 自定义配置
+    /// Custom configuration
     /// </summary>
     public CatgaBuilder Configure(Action<CatgaOptions> configure)
     {

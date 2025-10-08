@@ -70,7 +70,7 @@ public class CatgaHandlerAnalyzer : DiagnosticAnalyzer
 
         // Analyze class declarations for handler implementation
         context.RegisterSyntaxNodeAction(AnalyzeClassDeclaration, SyntaxKind.ClassDeclaration);
-        
+
         // Analyze method declarations for handler methods
         context.RegisterSyntaxNodeAction(AnalyzeMethodDeclaration, SyntaxKind.MethodDeclaration);
     }
@@ -141,7 +141,7 @@ public class CatgaHandlerAnalyzer : DiagnosticAnalyzer
         // Check 1: Return type should be Task or Task<CatgaResult<T>>
         var returnType = methodSymbol.ReturnType;
         var isTask = returnType.Name == "Task";
-        
+
         if (!isTask)
         {
             var diagnostic = Diagnostic.Create(

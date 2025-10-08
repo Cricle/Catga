@@ -18,8 +18,8 @@ If you're already using the source generator, analyzers are included:
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj" 
-                    OutputItemType="Analyzer" 
+  <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj"
+                    OutputItemType="Analyzer"
                     ReferenceOutputAssembly="false" />
 </ItemGroup>
 ```
@@ -38,7 +38,7 @@ Add the analyzer package:
 
 ### CATGA001: Handler Not Registered
 
-**Severity**: Info  
+**Severity**: Info
 **Category**: Usage
 
 **Description**: Detects handlers that implement `IRequestHandler` or `IEventHandler` but may not be registered.
@@ -63,7 +63,7 @@ builder.Services.AddGeneratedHandlers();  // ✅ Registers all handlers
 
 ### CATGA002: Invalid Handler Signature
 
-**Severity**: Warning  
+**Severity**: Warning
 **Category**: Design
 
 **Description**: Handler method doesn't follow the correct signature pattern.
@@ -86,7 +86,7 @@ public class MyHandler : IRequestHandler<MyCommand, MyResponse>
 {
     // ✅ Correct signature
     public Task<CatgaResult<MyResponse>> HandleAsync(
-        MyCommand request, 
+        MyCommand request,
         CancellationToken cancellationToken = default)
     {
         // ...
@@ -96,7 +96,7 @@ public class MyHandler : IRequestHandler<MyCommand, MyResponse>
 
 ### CATGA003: Missing Async Suffix
 
-**Severity**: Info  
+**Severity**: Info
 **Category**: Naming
 
 **Description**: Async methods should end with 'Async' for clarity.
@@ -110,7 +110,7 @@ public Task<CatgaResult<MyResponse>> Handle(MyCommand request)
 }
 ```
 
-**Code Fix Available**: 
+**Code Fix Available**:
 ```csharp
 // ✅ Fixed automatically
 public Task<CatgaResult<MyResponse>> HandleAsync(MyCommand request)
@@ -121,7 +121,7 @@ public Task<CatgaResult<MyResponse>> HandleAsync(MyCommand request)
 
 ### CATGA004: Missing CancellationToken
 
-**Severity**: Info  
+**Severity**: Info
 **Category**: Design
 
 **Description**: Handler should accept `CancellationToken` for better async control.
@@ -139,7 +139,7 @@ public Task<CatgaResult<MyResponse>> HandleAsync(MyCommand request)
 ```csharp
 // ✅ Fixed automatically
 public Task<CatgaResult<MyResponse>> HandleAsync(
-    MyCommand request, 
+    MyCommand request,
     CancellationToken cancellationToken = default)
 {
     // ...
@@ -279,10 +279,10 @@ See the `examples/SimpleWebApi` project for analyzer integration:
 <!-- SimpleWebApi.csproj -->
 <ItemGroup>
   <!-- Source Generator + Analyzers -->
-  <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj" 
-                    OutputItemType="Analyzer" 
+  <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj"
+                    OutputItemType="Analyzer"
                     ReferenceOutputAssembly="false" />
-  
+
   <!-- Optional: Standalone Analyzers -->
   <PackageReference Include="Catga.Analyzers" Version="1.0.0" />
 </ItemGroup>
@@ -307,6 +307,6 @@ Found a bug or want to add a new diagnostic? Please [open an issue](https://gith
 
 ---
 
-**Status**: ✅ Production Ready  
-**Supported IDEs**: Visual Studio, VS Code, Rider  
+**Status**: ✅ Production Ready
+**Supported IDEs**: Visual Studio, VS Code, Rider
 **CI/CD**: Fully supported

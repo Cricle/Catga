@@ -19,7 +19,7 @@ Created a new analyzer project with:
 ### 2. Diagnostic Rules
 
 #### CATGA001: Handler Not Registered
-**Severity**: Info  
+**Severity**: Info
 **Category**: Usage
 
 Informs developers when a handler implements `IRequestHandler` or `IEventHandler`, reminding them to use `AddGeneratedHandlers()`.
@@ -36,7 +36,7 @@ builder.Services.AddGeneratedHandlers();
 ```
 
 #### CATGA002: Invalid Handler Signature
-**Severity**: Warning  
+**Severity**: Warning
 **Category**: Design
 
 Detects handlers with incorrect method signatures.
@@ -47,13 +47,13 @@ public void Handle(MyCommand request) { }
 
 // ✅ Correct
 public Task<CatgaResult<MyResponse>> HandleAsync(
-    MyCommand request, 
+    MyCommand request,
     CancellationToken cancellationToken) { }
 ```
 
 #### CATGA003: Missing Async Suffix
-**Severity**: Info  
-**Category**: Naming  
+**Severity**: Info
+**Category**: Naming
 **Code Fix**: ✅ Available
 
 Ensures async methods follow naming conventions.
@@ -67,8 +67,8 @@ public Task<CatgaResult<MyResponse>> HandleAsync(...)
 ```
 
 #### CATGA004: Missing CancellationToken
-**Severity**: Info  
-**Category**: Design  
+**Severity**: Info
+**Category**: Design
 **Code Fix**: ✅ Available
 
 Encourages proper cancellation support.
@@ -268,10 +268,10 @@ Catga.Analyzers 已成功 → bin/Debug/netstandard2.0/Catga.Analyzers.dll
 ```xml
 <ItemGroup>
   <!-- Option 1: With Source Generator (Recommended) -->
-  <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj" 
-                    OutputItemType="Analyzer" 
+  <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj"
+                    OutputItemType="Analyzer"
                     ReferenceOutputAssembly="false" />
-  
+
   <!-- Option 2: Standalone -->
   <PackageReference Include="Catga.Analyzers" Version="1.0.0" />
 </ItemGroup>
@@ -348,8 +348,8 @@ The Catga Analyzers provide:
 
 ---
 
-**Status**: ✅ **Complete and Production-Ready**  
-**Date**: 2025-10-08  
-**Commit**: Analyzers implemented, documented, and verified  
+**Status**: ✅ **Complete and Production-Ready**
+**Date**: 2025-10-08
+**Commit**: Analyzers implemented, documented, and verified
 
 **Thank you for using Catga Analyzers! 💡**

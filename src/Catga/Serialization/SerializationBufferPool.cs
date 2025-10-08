@@ -78,11 +78,11 @@ public readonly struct PooledBuffer : IDisposable
     }
 }
 
-/// <summary>
-/// Array buffer writer for IBufferWriter<byte> support
-/// Wraps ArrayPool for zero-allocation serialization
-/// </summary>
-public sealed class PooledBufferWriter : IBufferWriter<byte>, IDisposable
+    /// <summary>
+    /// Array buffer writer for IBufferWriter&lt;byte&gt; support
+    /// Wraps ArrayPool for zero-allocation serialization
+    /// </summary>
+    public sealed class PooledBufferWriter : IBufferWriter<byte>, IDisposable
 {
     private byte[] _buffer;
     private int _position;

@@ -74,7 +74,7 @@ public class OrderService
     public async Task<Order> CreateOrderAsync(CreateOrderRequest request)
     {
         var orderId = _idGenerator.NextId();
-        
+
         var order = new Order
         {
             Id = orderId,
@@ -280,7 +280,7 @@ app.MapPost("/orders", async (
     IDistributedIdGenerator idGen) =>
 {
     var orderId = idGen.NextIdString();  // String 格式
-    
+
     return Results.Ok(new
     {
         orderId,  // "7234567890123456789"
@@ -306,7 +306,7 @@ catch (InvalidOperationException ex)
 {
     // 时钟回拨错误
     logger.LogError(ex, "Clock moved backwards");
-    
+
     // 重试或使用备用策略
     await Task.Delay(100);
     var id = idGen.NextId();

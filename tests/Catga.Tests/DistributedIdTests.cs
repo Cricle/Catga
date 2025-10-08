@@ -72,6 +72,70 @@ public class DistributedIdTests
     }
 
     [Fact]
+    public void ParseId_ZeroAllocation_ShouldWork()
+    {
+        // Arrange
+        var generator = new SnowflakeIdGenerator(42);
+        var id = generator.NextId();
+
+        // Act
+        generator.ParseId(id, out var metadata);
+
+        // Assert
+        metadata.WorkerId.Should().Be(42);
+        metadata.Sequence.Should().BeGreaterThanOrEqualTo(0);
+    }
+
+    [Fact]
+    public void CustomLayout_LongLifespan_ShouldWork()
+    {
+        // Arrange
+        var layout = SnowflakeBitLayout.LongLifespan;
+        var generator = new SnowflakeIdGenerator(10, layout);
+
+        // Act
+        var id = generator.NextId();
+        var metadata = generator.ParseId(id);
+
+        // Assert
+        metadata.WorkerId.Should().Be(10);
+        layout.MaxYears.Should().BeGreaterThan(200);
+    }
+
+    [Fact]
+    public void CustomLayout_HighConcurrency_ShouldWork()
+    {
+        // Arrange
+        var layout = SnowflakeBitLayout.HighConcurrency;
+        var generator = new SnowflakeIdGenerator(10, layout);
+
+        // Act
+        var ids = new HashSet<long>();
+        for (int i = 0; i < 20000; i++)
+        {
+            ids.Add(generator.NextId());
+        }
+
+        // Assert
+        ids.Count.Should().Be(20000, "all IDs should be unique in high concurrency mode");
+    }
+
+    [Fact]
+    public void TryWriteNextId_ShouldWork()
+    {
+        // Arrange
+        var generator = new SnowflakeIdGenerator(1);
+        Span<char> buffer = stackalloc char[20];
+
+        // Act
+        var success = generator.TryWriteNextId(buffer, out var charsWritten);
+
+        // Assert
+        success.Should().BeTrue();
+        charsWritten.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
     public void Constructor_WithInvalidWorkerId_ShouldThrow()
     {
         // Act & Assert
@@ -117,6 +181,29 @@ public class DistributedIdTests
         var id = generator.NextId();
         var metadata = generator.ParseId(id);
         metadata.WorkerId.Should().Be(10);
+    }
+
+    [Fact]
+    public void AddDistributedId_WithCustomLayout_ShouldWork()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act
+        services.AddDistributedId(options =>
+        {
+            options.WorkerId = 5;
+            options.AutoDetectWorkerId = false;
+            options.Layout = SnowflakeBitLayout.UltraLongLifespan;
+        });
+
+        var provider = services.BuildServiceProvider();
+        var generator = provider.GetRequiredService<IDistributedIdGenerator>() as SnowflakeIdGenerator;
+
+        // Assert
+        generator.Should().NotBeNull();
+        var layout = generator!.GetLayout();
+        layout.MaxYears.Should().BeGreaterThan(1000);
     }
 
     [Fact]

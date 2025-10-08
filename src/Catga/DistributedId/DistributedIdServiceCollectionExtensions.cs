@@ -22,7 +22,7 @@ public static class DistributedIdServiceCollectionExtensions
         var workerId = options.GetWorkerId();
 
         services.TryAddSingleton<IDistributedIdGenerator>(
-            _ => new SnowflakeIdGenerator(workerId));
+            _ => new SnowflakeIdGenerator(workerId, options.Layout));
 
         return services;
     }
@@ -32,17 +32,21 @@ public static class DistributedIdServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddDistributedId(
         this IServiceCollection services,
-        int workerId)
+        int workerId,
+        SnowflakeBitLayout? layout = null)
     {
-        if (workerId < 0 || workerId > 1023)
+        var actualLayout = layout ?? SnowflakeBitLayout.Default;
+        actualLayout.Validate();
+
+        if (workerId < 0 || workerId > actualLayout.MaxWorkerId)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(workerId),
-                "Worker ID must be between 0 and 1023");
+                $"Worker ID must be between 0 and {actualLayout.MaxWorkerId}");
         }
 
         services.TryAddSingleton<IDistributedIdGenerator>(
-            _ => new SnowflakeIdGenerator(workerId));
+            _ => new SnowflakeIdGenerator(workerId, actualLayout));
 
         return services;
     }

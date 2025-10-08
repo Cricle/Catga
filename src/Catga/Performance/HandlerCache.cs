@@ -68,7 +68,7 @@ internal sealed class HandlerCache
     private static Func<IServiceProvider, THandler> CreateHandlerFactory<THandler>()
         where THandler : class
     {
-        return provider => provider.GetRequiredService<THandler>();
+        return provider => provider.GetService<THandler>()!;
     }
 
     /// <summary>

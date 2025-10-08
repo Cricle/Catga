@@ -61,7 +61,7 @@ public record CreateUserResponse
 
 ```csharp
 // Handler自动注册 - 无需手动配置！
-public class CreateUserCommandHandler 
+public class CreateUserCommandHandler
     : IRequestHandler<CreateUserCommand, CreateUserResponse>
 {
     private readonly ILogger<CreateUserCommandHandler> _logger;
@@ -76,10 +76,10 @@ public class CreateUserCommandHandler
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Creating user: {UserName}", request.UserName);
-        
+
         // 业务逻辑
         var userId = Guid.NewGuid().ToString();
-        
+
         return CatgaResult<CreateUserResponse>.Success(new CreateUserResponse
         {
             UserId = userId,
@@ -98,8 +98,8 @@ app.MapPost("/users", async (
     ICatgaMediator mediator) =>
 {
     var result = await mediator.SendAsync(command);
-    
-    return result.IsSuccess 
+
+    return result.IsSuccess
         ? Results.Ok(result.Data)
         : Results.BadRequest(result.Error);
 });
@@ -167,10 +167,10 @@ public class UserCreatedEventHandler : IEventHandler<UserCreatedEvent>
 }
 
 // 发布事件
-await _mediator.PublishAsync(new UserCreatedEvent 
-{ 
-    UserId = userId, 
-    UserName = userName 
+await _mediator.PublishAsync(new UserCreatedEvent
+{
+    UserId = userId,
+    UserName = userName
 });
 ```
 
@@ -185,10 +185,10 @@ builder.Services
     .AddCatga()
     .WithLogging()                                  // 启用日志
     .WithCircuitBreaker(                            // 熔断器
-        failureThreshold: 5, 
+        failureThreshold: 5,
         resetTimeoutSeconds: 30)
     .WithRateLimiting(                              // 限流
-        requestsPerSecond: 1000, 
+        requestsPerSecond: 1000,
         burstCapacity: 100)
     .WithConcurrencyLimit(100)                      // 并发限制
     .ValidateConfiguration()                         // 配置验证
@@ -229,7 +229,7 @@ builder.Services.AddCatga(SmartDefaults.AutoTune())
 
 ```csharp
 // 自定义行为
-public class LoggingBehavior<TRequest, TResponse> 
+public class LoggingBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
@@ -241,12 +241,12 @@ public class LoggingBehavior<TRequest, TResponse>
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Handling {RequestType}", typeof(TRequest).Name);
-        
+
         var result = await next();
-        
-        _logger.LogInformation("Handled {RequestType}: {Success}", 
+
+        _logger.LogInformation("Handled {RequestType}: {Success}",
             typeof(TRequest).Name, result.IsSuccess);
-        
+
         return result;
     }
 }
@@ -266,13 +266,13 @@ public class CreateUserValidator : IValidator<CreateUserCommand>
         CancellationToken cancellationToken = default)
     {
         var errors = new List<string>();
-        
+
         if (string.IsNullOrWhiteSpace(request.UserName))
             errors.Add("UserName is required");
-            
+
         if (string.IsNullOrWhiteSpace(request.Email))
             errors.Add("Email is required");
-            
+
         return Task.FromResult<IEnumerable<string>>(errors);
     }
 }

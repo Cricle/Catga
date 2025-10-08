@@ -64,25 +64,25 @@ public class CreateUserCommand : IRequest<CreateUserResponse>
 **发布事件**:
 
 ```csharp
-public class CreateUserCommandHandler 
+public class CreateUserCommandHandler
     : IRequestHandler<CreateUserCommand, CreateUserResponse>
 {
     private readonly ICatgaMediator _mediator;
-    
+
     public async Task<CatgaResult<CreateUserResponse>> HandleAsync(
         CreateUserCommand request,
         CancellationToken cancellationToken)
     {
         // 1. 业务逻辑
         var userId = await _userService.CreateAsync(request.UserName);
-        
+
         // 2. 发布事件
-        await _mediator.PublishAsync(new UserCreatedEvent 
-        { 
+        await _mediator.PublishAsync(new UserCreatedEvent
+        {
             UserId = userId,
-            UserName = request.UserName 
+            UserName = request.UserName
         }, cancellationToken);
-        
+
         return CatgaResult<CreateUserResponse>.Success(...);
     }
 }
@@ -191,7 +191,7 @@ public class CreateUserCommandHandler : IRequestHandler<...>
 {
     private readonly IUserService _userService;
     private readonly ILogger<CreateUserCommandHandler> _logger;
-    
+
     public CreateUserCommandHandler(
         IUserService userService,
         ILogger<CreateUserCommandHandler> logger)
@@ -273,12 +273,12 @@ public async Task<CatgaResult<UserDto>> HandleAsync(
 ### 1. 自定义Logging
 
 ```csharp
-public class CustomLoggingBehavior<TRequest, TResponse> 
+public class CustomLoggingBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
     private readonly ILogger _logger;
-    
+
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,
@@ -286,14 +286,14 @@ public class CustomLoggingBehavior<TRequest, TResponse>
     {
         var requestName = typeof(TRequest).Name;
         _logger.LogInformation("Handling {Request}", requestName);
-        
+
         var sw = Stopwatch.StartNew();
         var result = await next();
         sw.Stop();
-        
-        _logger.LogInformation("Handled {Request} in {Elapsed}ms", 
+
+        _logger.LogInformation("Handled {Request} in {Elapsed}ms",
             requestName, sw.ElapsedMilliseconds);
-        
+
         return result;
     }
 }
@@ -302,7 +302,7 @@ public class CustomLoggingBehavior<TRequest, TResponse>
 ### 2. 性能监控
 
 ```csharp
-public class PerformanceMonitoringBehavior<TRequest, TResponse> 
+public class PerformanceMonitoringBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
@@ -314,13 +314,13 @@ public class PerformanceMonitoringBehavior<TRequest, TResponse>
         var sw = Stopwatch.StartNew();
         var result = await next();
         sw.Stop();
-        
+
         if (sw.ElapsedMilliseconds > 1000) // >1s
         {
             _logger.LogWarning("Slow request: {Request} took {Elapsed}ms",
                 typeof(TRequest).Name, sw.ElapsedMilliseconds);
         }
-        
+
         return result;
     }
 }
@@ -348,17 +348,17 @@ builder.Services
 public class CreateOrderCommandHandler : IRequestHandler<...>
 {
     private readonly IOutboxStore _outboxStore;
-    
+
     public async Task<CatgaResult<...>> HandleAsync(...)
     {
         // 1. 业务逻辑 + 保存到Outbox (同一事务)
         using var transaction = await _dbContext.BeginTransactionAsync();
-        
+
         var order = await _dbContext.Orders.AddAsync(...);
         await _outboxStore.AddAsync(new OrderCreatedEvent { ... });
-        
+
         await transaction.CommitAsync();
-        
+
         // 2. 后台服务会自动发送
         return ...;
     }
@@ -393,7 +393,7 @@ public async Task<CatgaResult<...>> HandleAsync(
     var existing = await _repository.GetByMessageIdAsync(request.MessageId);
     if (existing != null)
         return CatgaResult<...>.Success(existing); // 返回已有结果
-    
+
     // 处理新请求
     var order = await _repository.CreateAsync(...);
     return CatgaResult<...>.Success(order);
@@ -416,16 +416,16 @@ public class CreateUserCommandHandlerTests
         var mockService = new Mock<IUserService>();
         mockService.Setup(x => x.CreateAsync(It.IsAny<string>()))
             .ReturnsAsync("user123");
-        
+
         var handler = new CreateUserCommandHandler(
             mockService.Object,
             Mock.Of<ILogger<CreateUserCommandHandler>>());
-        
+
         var command = new CreateUserCommand { UserName = "test" };
-        
+
         // Act
         var result = await handler.HandleAsync(command);
-        
+
         // Assert
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Data);
@@ -440,22 +440,22 @@ public class CreateUserCommandHandlerTests
 public class UserFlowIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
-    
+
     public UserFlowIntegrationTests(WebApplicationFactory<Program> factory)
     {
         _factory = factory;
     }
-    
+
     [Fact]
     public async Task CreateUser_EndToEnd_Success()
     {
         // Arrange
         var client = _factory.CreateClient();
         var command = new CreateUserCommand { UserName = "test" };
-        
+
         // Act
         var response = await client.PostAsJsonAsync("/users", command);
-        
+
         // Assert
         response.EnsureSuccessStatusCode();
         var result = await response.Content.ReadFromJsonAsync<CreateUserResponse>();
@@ -478,19 +478,19 @@ public class CreateUserValidator : IValidator<CreateUserCommand>
         CancellationToken cancellationToken)
     {
         var errors = new List<string>();
-        
+
         // 必填校验
         if (string.IsNullOrWhiteSpace(request.UserName))
             errors.Add("UserName is required");
-        
+
         // 格式校验
         if (!IsValidEmail(request.Email))
             errors.Add("Invalid email format");
-        
+
         // 长度校验
         if (request.UserName.Length > 50)
             errors.Add("UserName too long");
-        
+
         return Task.FromResult<IEnumerable<string>>(errors);
     }
 }
@@ -499,12 +499,12 @@ public class CreateUserValidator : IValidator<CreateUserCommand>
 ### 2. 授权检查
 
 ```csharp
-public class AuthorizationBehavior<TRequest, TResponse> 
+public class AuthorizationBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
     private readonly ICurrentUserService _currentUser;
-    
+
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,
@@ -515,7 +515,7 @@ public class AuthorizationBehavior<TRequest, TResponse>
         {
             return CatgaResult<TResponse>.Failure("Unauthorized");
         }
-        
+
         return await next();
     }
 }
@@ -532,7 +532,7 @@ _logger.LogInformation(
     "User created: {UserId}, UserName: {UserName}, Email: {Email}",
     userId, userName, email);
 
-// 输出: 
+// 输出:
 // {"UserId": "123", "UserName": "john", "Email": "john@example.com"}
 ```
 
@@ -619,7 +619,7 @@ Creates a new user in the system.
 ## Usage
 
 ```csharp
-var command = new CreateUserCommand 
+var command = new CreateUserCommand
 {
     UserName = "john",
     Email = "john@example.com"

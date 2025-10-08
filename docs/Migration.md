@@ -67,11 +67,11 @@ public record CreateUserCommand : IRequest<CreateUserResponse>
 
 ```csharp
 // Before (MediatR)
-public class CreateUserCommandHandler 
+public class CreateUserCommandHandler
     : IRequestHandler<CreateUserCommand, CreateUserResponse>
 {
     public async Task<CreateUserResponse> Handle(
-        CreateUserCommand request, 
+        CreateUserCommand request,
         CancellationToken cancellationToken)
     {
         // ...
@@ -80,11 +80,11 @@ public class CreateUserCommandHandler
 }
 
 // After (Catga) - 修改返回类型和方法名
-public class CreateUserCommandHandler 
+public class CreateUserCommandHandler
     : IRequestHandler<CreateUserCommand, CreateUserResponse>
 {
     public async Task<CatgaResult<CreateUserResponse>> HandleAsync(
-        CreateUserCommand request, 
+        CreateUserCommand request,
         CancellationToken cancellationToken)
     {
         // ...
@@ -98,7 +98,7 @@ public class CreateUserCommandHandler
 
 ```csharp
 // Before (MediatR)
-builder.Services.AddMediatR(cfg => 
+builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
 // After (Catga) - 更简单！
@@ -112,13 +112,13 @@ builder.Services
 
 ```csharp
 // Before (MediatR)
-public class LoggingBehavior<TRequest, TResponse> 
+public class LoggingBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
     public async Task<TResponse> Handle(
-        TRequest request, 
-        RequestHandlerDelegate<TResponse> next, 
+        TRequest request,
+        RequestHandlerDelegate<TResponse> next,
         CancellationToken cancellationToken)
     {
         // ...
@@ -128,13 +128,13 @@ public class LoggingBehavior<TRequest, TResponse>
 }
 
 // After (Catga) - 返回ValueTask
-public class LoggingBehavior<TRequest, TResponse> 
+public class LoggingBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
-        TRequest request, 
-        PipelineDelegate<TResponse> next, 
+        TRequest request,
+        PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken)
     {
         // ...
@@ -348,18 +348,18 @@ public class CreateUserCommand : IRequest<CreateUserResponse>
 }
 
 // Handler
-public class CreateUserCommandHandler 
+public class CreateUserCommandHandler
     : IRequestHandler<CreateUserCommand, CreateUserResponse>
 {
     private readonly IUserService _userService;
-    
+
     public CreateUserCommandHandler(IUserService userService)
     {
         _userService = userService;
     }
-    
+
     public async Task<CreateUserResponse> Handle(
-        CreateUserCommand request, 
+        CreateUserCommand request,
         CancellationToken cancellationToken)
     {
         var user = await _userService.CreateAsync(request.UserName);
@@ -368,7 +368,7 @@ public class CreateUserCommandHandler
 }
 
 // DI
-builder.Services.AddMediatR(cfg => 
+builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
 // Usage
@@ -385,18 +385,18 @@ public record CreateUserCommand : IRequest<CreateUserResponse>
 }
 
 // Handler - 返回CatgaResult
-public class CreateUserCommandHandler 
+public class CreateUserCommandHandler
     : IRequestHandler<CreateUserCommand, CreateUserResponse>
 {
     private readonly IUserService _userService;
-    
+
     public CreateUserCommandHandler(IUserService userService)
     {
         _userService = userService;
     }
-    
+
     public async Task<CatgaResult<CreateUserResponse>> HandleAsync(
-        CreateUserCommand request, 
+        CreateUserCommand request,
         CancellationToken cancellationToken)
     {
         var user = await _userService.CreateAsync(request.UserName);

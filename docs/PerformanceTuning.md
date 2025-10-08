@@ -489,7 +489,7 @@ public class MyBenchmarks
 {
     private ICatgaMediator _mediator = null!;
     private CreateUserCommand _command = null!;
-    
+
     [GlobalSetup]
     public void Setup()
     {
@@ -500,7 +500,7 @@ public class MyBenchmarks
         _mediator = sp.GetRequiredService<ICatgaMediator>();
         _command = new CreateUserCommand { UserName = "test" };
     }
-    
+
     [Benchmark]
     public async Task<CatgaResult<CreateUserResponse>> SendCommand()
     {
@@ -530,7 +530,7 @@ export default function() {
   }), {
     headers: { 'Content-Type': 'application/json' },
   });
-  
+
   check(res, { 'status is 200': (r) => r.status === 200 });
 }
 ```

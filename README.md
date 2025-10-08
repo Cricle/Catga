@@ -121,7 +121,7 @@ public record CreateUserCommand : IRequest<CreateUserResponse>
 }
 
 // Handler - 自动注册，无需任何配置！
-public class CreateUserCommandHandler 
+public class CreateUserCommandHandler
     : IRequestHandler<CreateUserCommand, CreateUserResponse>
 {
     public async Task<CatgaResult<CreateUserResponse>> HandleAsync(
@@ -130,9 +130,9 @@ public class CreateUserCommandHandler
     {
         // 业务逻辑
         var userId = Guid.NewGuid().ToString();
-        return CatgaResult<CreateUserResponse>.Success(new CreateUserResponse 
-        { 
-            UserId = userId 
+        return CatgaResult<CreateUserResponse>.Success(new CreateUserResponse
+        {
+            UserId = userId
         });
     }
 }
@@ -147,7 +147,7 @@ app.MapPost("/users", async (
     ICatgaMediator mediator) =>
 {
     var result = await mediator.SendAsync(command);
-    return result.IsSuccess 
+    return result.IsSuccess
         ? Results.Ok(result.Data)
         : Results.BadRequest(result.Error);
 });
@@ -341,11 +341,31 @@ services.AddCatga()
 - 📦 [Outbox/Inbox 模式](docs/patterns/outbox-inbox.md)
 - 🔄 [Saga 分布式事务](docs/patterns/OUTBOX_INBOX_IMPLEMENTATION.md)
 
+### 📚 核心文档 (v2.0 新增!)
+
+- 🚀 **[快速入门](docs/QuickStart.md)** - 1分钟上手指南
+- 🏛️ **[架构指南](docs/Architecture.md)** - 深入理解Catga设计
+- ⚡ **[性能调优](docs/PerformanceTuning.md)** - 极致性能优化
+- 🎯 **[最佳实践](docs/BestPractices.md)** - 生产级应用指南
+- 🔄 **[迁移指南](docs/Migration.md)** - 从MediatR/MassTransit迁移
+
+### 🔧 工具链文档
+
+- 🤖 [源生成器指南](docs/guides/source-generators-enhanced.md)
+- 🔍 [分析器完整指南](docs/guides/analyzers-complete.md)
+
 ### 性能优化
 
 - ⚡ [性能优化指南](docs/performance/optimization.md)
 - 🎯 [Native AOT 指南](docs/aot/native-aot-guide.md)
 - 📊 [基准测试](benchmarks/PERFORMANCE_BENCHMARK_RESULTS.md)
+
+### 📊 优化报告
+
+- 📈 [MVP完成报告](docs/MVP_COMPLETION_REPORT.md)
+- ⚡ [最终优化总结](docs/FINAL_OPTIMIZATION_SUMMARY.md)
+- 🎯 [AOT兼容性报告](docs/AOT_COMPATIBILITY_REPORT.md)
+- 📊 [基准测试结果](docs/benchmarks/BASELINE_REPORT.md)
 
 ### 可观测性
 

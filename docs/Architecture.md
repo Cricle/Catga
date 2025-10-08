@@ -77,7 +77,7 @@
 public class CatgaMediator : ICatgaMediator
 {
     private readonly HandlerCache _handlerCache; // 缓存
-    
+
     public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(...)
     {
         // 1. 快速路径检查
@@ -85,7 +85,7 @@ public class CatgaMediator : ICatgaMediator
         {
             return await FastPath.ExecuteRequestDirectAsync(handler, request, ct);
         }
-        
+
         // 2. 标准Pipeline
         return await PipelineExecutor.ExecuteAsync(...);
     }
@@ -149,11 +149,11 @@ Response
 // 自动生成
 public static IServiceCollection AddGeneratedHandlers(this IServiceCollection services)
 {
-    services.AddScoped<IRequestHandler<CreateUserCommand, CreateUserResponse>, 
+    services.AddScoped<IRequestHandler<CreateUserCommand, CreateUserResponse>,
                        CreateUserCommandHandler>();
-    services.AddScoped<IRequestHandler<GetUserQuery, UserDto>, 
+    services.AddScoped<IRequestHandler<GetUserQuery, UserDto>,
                        GetUserQueryHandler>();
-    services.AddScoped<IEventHandler<UserCreatedEvent>, 
+    services.AddScoped<IEventHandler<UserCreatedEvent>,
                        UserCreatedEventHandler>();
     return services;
 }
@@ -205,7 +205,7 @@ public THandler? GetRequestHandler<THandler>(IServiceProvider sp)
 {
     if (_cache.TryGetValue(typeof(THandler), out var handler))
         return (THandler)handler; // 缓存命中
-        
+
     handler = sp.GetService<THandler>();
     if (handler != null)
         _cache.TryAdd(typeof(THandler), handler);
@@ -248,7 +248,7 @@ public THandler? GetRequestHandler<THandler>(IServiceProvider sp)
 public static class RequestContextPool
 {
     private static readonly ObjectPool<RequestContext> _pool = new(...);
-    
+
     public static RequestContext Get() => _pool.Get();
     public static void Return(RequestContext ctx)
     {
@@ -332,7 +332,7 @@ ICompressedMessageTransport (压缩)
 ### 1. 自定义Behavior
 
 ```csharp
-public class MyBehavior<TRequest, TResponse> 
+public class MyBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
@@ -360,7 +360,7 @@ public class MyTransport : IMessageTransport
     {
         // 发送逻辑
     }
-    
+
     public async Task<TMessage?> ReceiveAsync<TMessage>(
         CancellationToken cancellationToken)
     {
@@ -378,7 +378,7 @@ public class MySerializer : IBufferedMessageSerializer
     {
         // 序列化逻辑
     }
-    
+
     public T? Deserialize<T>(ReadOnlySpan<byte> data)
     {
         // 反序列化逻辑

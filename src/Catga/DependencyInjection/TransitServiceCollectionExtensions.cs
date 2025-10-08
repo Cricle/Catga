@@ -14,12 +14,12 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Catga.DependencyInjection;
 
 /// <summary>
-/// 精简的 Catga 服务注册扩展（100% AOT 兼容）
+/// Simplified Catga service registration extensions (100% AOT compatible)
 /// </summary>
 public static class CatgaServiceCollectionExtensions
 {
     /// <summary>
-    /// 添加 Catga 服务到 DI 容器
+    /// Add Catga services to DI container
     /// </summary>
     public static IServiceCollection AddCatga(
         this IServiceCollection services,
@@ -31,19 +31,19 @@ public static class CatgaServiceCollectionExtensions
         services.AddSingleton(options);
         services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
 
-        // 高性能分片幂等存储
+        // High-performance sharded idempotency store
         services.TryAddSingleton<IIdempotencyStore>(new ShardedIdempotencyStore(
             options.IdempotencyShardCount,
             TimeSpan.FromHours(options.IdempotencyRetentionHours)));
 
-        // 死信队列
+        // Dead letter queue
         if (options.EnableDeadLetterQueue)
             services.TryAddSingleton<IDeadLetterQueue>(sp =>
                 new InMemoryDeadLetterQueue(
                     sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InMemoryDeadLetterQueue>>(),
                     options.DeadLetterQueueMaxSize));
 
-        // 管道行为（顺序很重要！）
+        // Pipeline behaviors (order matters!)
         if (options.EnableLogging)
             services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
 
@@ -63,7 +63,7 @@ public static class CatgaServiceCollectionExtensions
     }
 
     /// <summary>
-    /// 🚀 添加 Catga（流式配置 API）
+    /// Add Catga with fluent configuration API
     /// </summary>
     public static CatgaBuilder AddCatgaBuilder(
         this IServiceCollection services,
@@ -72,7 +72,7 @@ public static class CatgaServiceCollectionExtensions
         var options = new CatgaOptions();
         var builder = new CatgaBuilder(services, options);
 
-        // 注册核心服务
+        // Register core services
         services.AddSingleton(options);
         services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
         services.TryAddSingleton<IIdempotencyStore>(new ShardedIdempotencyStore(
@@ -81,7 +81,7 @@ public static class CatgaServiceCollectionExtensions
 
         configure?.Invoke(builder);
 
-        // 应用配置后的选项
+        // Apply configured options
         if (options.EnableDeadLetterQueue)
             services.TryAddSingleton<IDeadLetterQueue>(sp =>
                 new InMemoryDeadLetterQueue(
@@ -103,11 +103,11 @@ public static class CatgaServiceCollectionExtensions
     }
 
     /// <summary>
-    /// 🎯 快速启动 - 开发模式（自动扫描 + 完整功能）
-    /// ⚠️ 警告: 使用反射扫描，不完全兼容 NativeAOT
+    /// Quick start - Development mode (Auto-scan + Full features)
+    /// WARNING: Uses reflection scanning, not fully compatible with NativeAOT
     /// </summary>
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("使用程序集扫描，不兼容 NativeAOT。生产环境请使用手动注册。")]
-    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("类型扫描可能需要动态代码生成")]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses assembly scanning, not compatible with NativeAOT. Use manual registration in production.")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Type scanning may require dynamic code generation")]
     public static IServiceCollection AddCatgaDevelopment(this IServiceCollection services)
     {
         return services.AddCatgaBuilder(builder => builder
@@ -124,11 +124,11 @@ public static class CatgaServiceCollectionExtensions
     }
 
     /// <summary>
-    /// 🚀 快速启动 - 生产模式（性能优化 + 可靠性）
-    /// ⚠️ 警告: 使用反射扫描，不完全兼容 NativeAOT
+    /// Quick start - Production mode (Performance optimization + Reliability)
+    /// WARNING: Uses reflection scanning, not fully compatible with NativeAOT
     /// </summary>
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("使用程序集扫描，不兼容 NativeAOT。生产环境请使用手动注册。")]
-    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("类型扫描可能需要动态代码生成")]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses assembly scanning, not compatible with NativeAOT. Use manual registration in production.")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Type scanning may require dynamic code generation")]
     public static IServiceCollection AddCatgaProduction(this IServiceCollection services)
     {
         return services.AddCatgaBuilder(builder => builder
@@ -139,11 +139,11 @@ public static class CatgaServiceCollectionExtensions
     }
 
     /// <summary>
-    /// 获取 IServiceCollection（用于链式调用）
+    /// Get IServiceCollection (for chaining)
     /// </summary>
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("使用反射访问私有字段")]
-    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("可能需要动态代码生成")]
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "访问 CatgaBuilder 的已知私有字段")]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses reflection to access private fields")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("May require dynamic code generation")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "Accessing known private field of CatgaBuilder")]
     private static IServiceCollection ServiceCollection(this CatgaBuilder builder)
     {
         return builder.GetType().GetField("_services",
@@ -152,7 +152,7 @@ public static class CatgaServiceCollectionExtensions
     }
 
     /// <summary>
-    /// 注册请求处理器（显式，AOT 友好）
+    /// Register request handler (Explicit, AOT-friendly)
     /// </summary>
     public static IServiceCollection AddRequestHandler<TRequest, TResponse, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>(
         this IServiceCollection services)
@@ -164,7 +164,7 @@ public static class CatgaServiceCollectionExtensions
     }
 
     /// <summary>
-    /// 注册无响应请求处理器
+    /// Register request handler without response
     /// </summary>
     public static IServiceCollection AddRequestHandler<TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>(
         this IServiceCollection services)
@@ -176,7 +176,7 @@ public static class CatgaServiceCollectionExtensions
     }
 
     /// <summary>
-    /// 注册事件处理器
+    /// Register event handler
     /// </summary>
     public static IServiceCollection AddEventHandler<TEvent, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>(
         this IServiceCollection services)
@@ -206,7 +206,7 @@ public static class CatgaServiceCollectionExtensions
         // Add Outbox Behavior
         services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(OutboxBehavior<,>));
 
-        // 添加 Outbox Publisher 后台服务
+        // Add Outbox Publisher background service
         if (options.EnablePublisher)
         {
             services.AddHostedService(sp =>
@@ -249,43 +249,43 @@ public static class CatgaServiceCollectionExtensions
 }
 
 /// <summary>
-/// Outbox 配置选项
+/// Outbox configuration options
 /// </summary>
 public class OutboxOptions
 {
     /// <summary>
-    /// 是否启用 Outbox Publisher 后台服务
+    /// Enable Outbox Publisher background service
     /// </summary>
     public bool EnablePublisher { get; set; } = true;
 
     /// <summary>
-    /// 轮询间隔（默认 5 秒）
+    /// Polling interval (default: 5 seconds)
     /// </summary>
     public TimeSpan PollingInterval { get; set; } = TimeSpan.FromSeconds(5);
 
     /// <summary>
-    /// 每批次处理的消息数量（默认 100）
+    /// Batch size for message processing (default: 100)
     /// </summary>
     public int BatchSize { get; set; } = 100;
 
     /// <summary>
-    /// 消息保留时间（默认 24 小时）
+    /// Message retention period (default: 24 hours)
     /// </summary>
     public TimeSpan RetentionPeriod { get; set; } = TimeSpan.FromHours(24);
 }
 
 /// <summary>
-/// Inbox 配置选项
+/// Inbox configuration options
 /// </summary>
 public class InboxOptions
 {
     /// <summary>
-    /// 处理锁定时长（默认 5 分钟）
+    /// Processing lock duration (default: 5 minutes)
     /// </summary>
     public TimeSpan LockDuration { get; set; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
-    /// 消息保留时间（默认 24 小时）
+    /// Message retention period (default: 24 hours)
     /// </summary>
     public TimeSpan RetentionPeriod { get; set; } = TimeSpan.FromHours(24);
 }

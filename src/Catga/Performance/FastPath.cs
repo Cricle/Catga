@@ -40,19 +40,15 @@ internal static class FastPath
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ValueTask<CatgaResult<TResponse>> ExecuteRequestSync<TResponse>(
-        CatgaResult<TResponse> result)
-    {
-        return ValueTask.FromResult(result);
-    }
+        CatgaResult<TResponse> result) =>
+        ValueTask.FromResult(result);
 
     /// <summary>
     /// Fast path for events without handlers (no-op, zero allocation)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ValueTask PublishEventNoOpAsync()
-    {
-        return ValueTask.CompletedTask;
-    }
+    public static ValueTask PublishEventNoOpAsync() =>
+        ValueTask.CompletedTask;
 
     /// <summary>
     /// Fast path for single event handler (reduced allocation)
@@ -79,10 +75,7 @@ internal static class FastPath
     /// Check if request can use fast path (no behaviors)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool CanUseFastPath(int behaviorCount)
-    {
-        return behaviorCount == 0;
-    }
+    public static bool CanUseFastPath(int behaviorCount) => behaviorCount == 0;
 }
 
 /// <summary>

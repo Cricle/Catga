@@ -152,9 +152,7 @@ public class MemoryInboxStore : IInboxStore
     /// <summary>
     /// Get message count by status (for testing/monitoring)
     /// </summary>
-    public int GetMessageCountByStatus(InboxStatus status)
-    {
-        return MessageStoreHelper.GetMessageCountByPredicate(_messages, m => m.Status == status);
-    }
+    public int GetMessageCountByStatus(InboxStatus status) =>
+        MessageStoreHelper.GetMessageCountByPredicate(_messages, m => m.Status == status);
 }
 

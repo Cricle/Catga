@@ -25,21 +25,17 @@ public static class MessageHelper
     /// Get message type name (AOT-friendly)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string GetMessageType<TRequest>()
-    {
-        return typeof(TRequest).AssemblyQualifiedName
-            ?? typeof(TRequest).FullName
-            ?? typeof(TRequest).Name;
-    }
+    public static string GetMessageType<TRequest>() =>
+        typeof(TRequest).AssemblyQualifiedName ??
+        typeof(TRequest).FullName ??
+        typeof(TRequest).Name;
 
     /// <summary>
     /// Get correlation ID from request
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string? GetCorrelationId<TRequest>(TRequest request) where TRequest : class
-    {
-        return request is IMessage message ? message.CorrelationId : null;
-    }
+    public static string? GetCorrelationId<TRequest>(TRequest request) where TRequest : class =>
+        request is IMessage message ? message.CorrelationId : null;
 
     /// <summary>
     /// Validate message ID

@@ -68,9 +68,7 @@ public sealed class DistributedIdOptions
     public int GetWorkerId()
     {
         if (!AutoDetectWorkerId)
-        {
             return WorkerId;
-        }
 
         // Try environment variable
         var envWorkerId = Environment.GetEnvironmentVariable("WORKER_ID")
@@ -79,9 +77,7 @@ public sealed class DistributedIdOptions
         if (!string.IsNullOrEmpty(envWorkerId) && int.TryParse(envWorkerId, out var parsedId))
         {
             if (parsedId >= 0 && parsedId <= 1023)
-            {
                 return parsedId;
-            }
         }
 
         // Try hostname hash (for Kubernetes pods)

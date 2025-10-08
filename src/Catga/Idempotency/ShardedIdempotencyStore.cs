@@ -43,8 +43,7 @@ public class ShardedIdempotencyStore : IIdempotencyStore
 
     private ConcurrentDictionary<string, (DateTime, Type?, string?)> GetShard(string messageId)
     {
-        var hash = messageId.GetHashCode();
-        var shardIndex = hash & (_shardCount - 1);
+        var shardIndex = messageId.GetHashCode() & (_shardCount - 1);
         return _shards[shardIndex];
     }
 

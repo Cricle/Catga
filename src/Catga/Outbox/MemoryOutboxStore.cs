@@ -115,9 +115,7 @@ public class MemoryOutboxStore : IOutboxStore
     /// <summary>
     /// Get message count by status (for testing/monitoring)
     /// </summary>
-    public int GetMessageCountByStatus(OutboxStatus status)
-    {
-        return MessageStoreHelper.GetMessageCountByPredicate(_messages, m => m.Status == status);
-    }
+    public int GetMessageCountByStatus(OutboxStatus status) =>
+        MessageStoreHelper.GetMessageCountByPredicate(_messages, m => m.Status == status);
 }
 

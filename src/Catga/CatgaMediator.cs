@@ -181,14 +181,50 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         }
 
         // Standard path: Multiple handlers, execute concurrently
-        var tasks = new Task[handlerList.Count];
-        for (int i = 0; i < handlerList.Count; i++)
+        // Optimization: Use ArrayPool for large handler lists to reduce GC pressure
+        Task[]? rentedArray = null;
+        Task[] tasks;
+        
+        if (handlerList.Count <= 16)
         {
-            var handler = handlerList[i];
-            tasks[i] = HandleEventSafelyAsync(handler, @event, cancellationToken);
+            // Small array: stack allocation would be ideal but not possible for Task[]
+            // Use regular allocation for small counts (minimal GC impact)
+            tasks = new Task[handlerList.Count];
+        }
+        else
+        {
+            // Large array: rent from pool
+            rentedArray = System.Buffers.ArrayPool<Task>.Shared.Rent(handlerList.Count);
+            tasks = rentedArray;
         }
 
-        await Task.WhenAll(tasks).ConfigureAwait(false);
+        try
+        {
+            for (int i = 0; i < handlerList.Count; i++)
+            {
+                var handler = handlerList[i];
+                tasks[i] = HandleEventSafelyAsync(handler, @event, cancellationToken);
+            }
+
+            // Wait only for the actual tasks (not the full rented array)
+            if (rentedArray != null)
+            {
+                await Task.WhenAll(tasks.AsSpan(0, handlerList.Count).ToArray()).ConfigureAwait(false);
+            }
+            else
+            {
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            if (rentedArray != null)
+            {
+                // Clear array before returning to pool
+                Array.Clear(rentedArray, 0, handlerList.Count);
+                System.Buffers.ArrayPool<Task>.Shared.Return(rentedArray);
+            }
+        }
     }
 
     /// <summary>

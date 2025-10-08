@@ -1,7 +1,7 @@
 # 🔍 Catga v2.0 全面代码审查报告
 
-**审查日期**: 2025-10-08  
-**版本**: 2.0.0  
+**审查日期**: 2025-10-08
+**版本**: 2.0.0
 **状态**: 进行中
 
 ---
@@ -38,7 +38,7 @@
 ```csharp
 // ✅ 优秀实践
 [MethodImpl(MethodImplOptions.AggressiveInlining)]
-public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(...) 
+public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(...)
 ```
 
 #### FastPath.cs
@@ -62,7 +62,7 @@ var tasks = new Task[handlerList.Count];
 ```csharp
 // ✨ 优化建议
 Task[]? pooledTasks = null;
-var tasks = handlerList.Count <= 8 
+var tasks = handlerList.Count <= 8
     ? stackalloc Task[handlerList.Count]  // 栈分配
     : (pooledTasks = ArrayPool<Task>.Shared.Rent(handlerList.Count));
 try {

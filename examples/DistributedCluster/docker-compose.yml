@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+  # NATS服务器（消息传输）
+  nats:
+    image: nats:2.10-alpine
+    container_name: catga-nats
+    command: 
+      - "-js"
+      - "-sd"
+      - "/data"
+    ports:
+      - "4222:4222"   # Client connections
+      - "8222:8222"   # HTTP management
+      - "6222:6222"   # Cluster connections
+    volumes:
+      - nats_data:/data
+    networks:
+      - catga-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Redis服务器（持久化）
+  redis:
+    image: redis:7-alpine
+    container_name: catga-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - catga-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # Catga分布式集群节点1
+  cluster-node-1:
+    build:
+      context: ../..
+      dockerfile: examples/DistributedCluster/Dockerfile
+    container_name: catga-cluster-node-1
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      - Nats__Url=nats://nats:4222
+      - Redis__Connection=redis:6379
+      - ServiceRegistration__ServiceName=catga-cluster
+      - ServiceRegistration__Host=cluster-node-1
+      - ServiceRegistration__Port=8080
+    ports:
+      - "8081:8080"
+    depends_on:
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - catga-network
+    restart: unless-stopped
+
+  # Catga分布式集群节点2
+  cluster-node-2:
+    build:
+      context: ../..
+      dockerfile: examples/DistributedCluster/Dockerfile
+    container_name: catga-cluster-node-2
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      - Nats__Url=nats://nats:4222
+      - Redis__Connection=redis:6379
+      - ServiceRegistration__ServiceName=catga-cluster
+      - ServiceRegistration__Host=cluster-node-2
+      - ServiceRegistration__Port=8080
+    ports:
+      - "8082:8080"
+    depends_on:
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - catga-network
+    restart: unless-stopped
+
+  # Catga分布式集群节点3
+  cluster-node-3:
+    build:
+      context: ../..
+      dockerfile: examples/DistributedCluster/Dockerfile
+    container_name: catga-cluster-node-3
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      - Nats__Url=nats://nats:4222
+      - Redis__Connection=redis:6379
+      - ServiceRegistration__ServiceName=catga-cluster
+      - ServiceRegistration__Host=cluster-node-3
+      - ServiceRegistration__Port=8080
+    ports:
+      - "8083:8080"
+    depends_on:
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - catga-network
+    restart: unless-stopped
+
+networks:
+  catga-network:
+    driver: bridge
+    name: catga-network
+
+volumes:
+  nats_data:
+    name: catga-nats-data
+  redis_data:
+    name: catga-redis-data
+

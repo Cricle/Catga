@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Catga.Common;
 
 namespace Catga.Outbox;
 
@@ -14,8 +15,8 @@ public class MemoryOutboxStore : IOutboxStore
     /// <inheritdoc/>
     public Task AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
     {
-        if (message == null) throw new ArgumentNullException(nameof(message));
-        if (string.IsNullOrEmpty(message.MessageId)) throw new ArgumentException("MessageId is required");
+        ArgumentNullException.ThrowIfNull(message);
+        MessageHelper.ValidateMessageId(message.MessageId, nameof(message.MessageId));
 
         _messages[message.MessageId] = message;
         return Task.CompletedTask;
@@ -91,42 +92,19 @@ public class MemoryOutboxStore : IOutboxStore
     }
 
     /// <inheritdoc/>
-    public async Task DeletePublishedMessagesAsync(
+    public Task DeletePublishedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)
     {
-        await _lock.WaitAsync(cancellationToken);
-        try
-        {
-            var cutoff = DateTime.UtcNow - retentionPeriod;
-            List<string>? keysToRemove = null;
-
-            // Zero-allocation traversal
-            foreach (var kvp in _messages)
-            {
-                var message = kvp.Value;
-                if (message.Status == OutboxStatus.Published &&
-                    message.PublishedAt.HasValue &&
-                    message.PublishedAt.Value < cutoff)
-                {
-                    keysToRemove ??= new List<string>();
-                    keysToRemove.Add(kvp.Key);
-                }
-            }
-
-            // Delete expired messages
-            if (keysToRemove != null)
-            {
-                foreach (var key in keysToRemove)
-                {
-                    _messages.TryRemove(key, out _);
-                }
-            }
-        }
-        finally
-        {
-            _lock.Release();
-        }
+        var cutoff = DateTime.UtcNow - retentionPeriod;
+        return MessageStoreHelper.DeleteExpiredMessagesAsync(
+            _messages,
+            _lock,
+            retentionPeriod,
+            message => message.Status == OutboxStatus.Published &&
+                      message.PublishedAt.HasValue &&
+                      message.PublishedAt.Value < cutoff,
+            cancellationToken);
     }
 
     /// <summary>
@@ -139,13 +117,7 @@ public class MemoryOutboxStore : IOutboxStore
     /// </summary>
     public int GetMessageCountByStatus(OutboxStatus status)
     {
-        int count = 0;
-        foreach (var kvp in _messages)
-        {
-            if (kvp.Value.Status == status)
-                count++;
-        }
-        return count;
+        return MessageStoreHelper.GetMessageCountByPredicate(_messages, m => m.Status == status);
     }
 }
 

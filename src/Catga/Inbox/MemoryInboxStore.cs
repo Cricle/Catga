@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Catga.Common;
 
 namespace Catga.Inbox;
 
@@ -17,8 +18,7 @@ public class MemoryInboxStore : IInboxStore
         TimeSpan lockDuration,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(messageId))
-            throw new ArgumentException("MessageId is required", nameof(messageId));
+        MessageHelper.ValidateMessageId(messageId, nameof(messageId));
 
         // If message already exists
         if (_messages.TryGetValue(messageId, out var existingMessage))
@@ -60,7 +60,7 @@ public class MemoryInboxStore : IInboxStore
         InboxMessage message,
         CancellationToken cancellationToken = default)
     {
-        if (message == null) throw new ArgumentNullException(nameof(message));
+        ArgumentNullException.ThrowIfNull(message);
 
         // Update or create message record
         if (_messages.TryGetValue(message.MessageId, out var existing))
@@ -129,42 +129,19 @@ public class MemoryInboxStore : IInboxStore
     }
 
     /// <inheritdoc/>
-    public async Task DeleteProcessedMessagesAsync(
+    public Task DeleteProcessedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)
     {
-        await _lock.WaitAsync(cancellationToken);
-        try
-        {
-            var cutoff = DateTime.UtcNow - retentionPeriod;
-            List<string>? keysToRemove = null;
-
-            // Zero-allocation traversal
-            foreach (var kvp in _messages)
-            {
-                var message = kvp.Value;
-                if (message.Status == InboxStatus.Processed &&
-                    message.ProcessedAt.HasValue &&
-                    message.ProcessedAt.Value < cutoff)
-                {
-                    keysToRemove ??= new List<string>();
-                    keysToRemove.Add(kvp.Key);
-                }
-            }
-
-            // Delete expired messages
-            if (keysToRemove != null)
-            {
-                foreach (var key in keysToRemove)
-                {
-                    _messages.TryRemove(key, out _);
-                }
-            }
-        }
-        finally
-        {
-            _lock.Release();
-        }
+        var cutoff = DateTime.UtcNow - retentionPeriod;
+        return MessageStoreHelper.DeleteExpiredMessagesAsync(
+            _messages,
+            _lock,
+            retentionPeriod,
+            message => message.Status == InboxStatus.Processed &&
+                      message.ProcessedAt.HasValue &&
+                      message.ProcessedAt.Value < cutoff,
+            cancellationToken);
     }
 
     /// <summary>
@@ -177,13 +154,7 @@ public class MemoryInboxStore : IInboxStore
     /// </summary>
     public int GetMessageCountByStatus(InboxStatus status)
     {
-        int count = 0;
-        foreach (var kvp in _messages)
-        {
-            if (kvp.Value.Status == status)
-                count++;
-        }
-        return count;
+        return MessageStoreHelper.GetMessageCountByPredicate(_messages, m => m.Status == status);
     }
 }
 

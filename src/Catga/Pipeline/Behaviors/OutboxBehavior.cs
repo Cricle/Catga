@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
+using Catga.Common;
 using Catga.Messages;
 using Catga.Outbox;
 using Catga.Results;
@@ -64,7 +64,7 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
         if (request is not IEvent)
             return await next();
 
-        var messageId = GenerateMessageId(request);
+        var messageId = MessageHelper.GetOrGenerateMessageId(request);
 
         try
         {
@@ -72,11 +72,11 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
             var outboxMessage = new OutboxMessage
             {
                 MessageId = messageId,
-                MessageType = GetMessageType(request),
-                Payload = SerializeRequest(request),
+                MessageType = MessageHelper.GetMessageType<TRequest>(),
+                Payload = SerializationHelper.Serialize(request, _serializer),
                 CreatedAt = DateTime.UtcNow,
                 Status = OutboxStatus.Pending,
-                CorrelationId = GetCorrelationId(request)
+                CorrelationId = MessageHelper.GetCorrelationId(request)
             };
 
             await _persistence.AddAsync(outboxMessage, cancellationToken);
@@ -131,36 +131,5 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
         }
     }
 
-    private string GenerateMessageId(TRequest request)
-    {
-        if (request is IMessage message && !string.IsNullOrEmpty(message.MessageId))
-            return message.MessageId;
-
-        return Guid.NewGuid().ToString("N");
-    }
-
-    private string GetMessageType(TRequest request)
-    {
-        return typeof(TRequest).AssemblyQualifiedName
-            ?? typeof(TRequest).FullName
-            ?? typeof(TRequest).Name;
-    }
-
-    private string? GetCorrelationId(TRequest request)
-    {
-        return request is IMessage message ? message.CorrelationId : null;
-    }
-
-    private string SerializeRequest(TRequest request)
-    {
-        if (_serializer != null)
-        {
-            var bytes = _serializer.Serialize(request);
-            return Convert.ToBase64String(bytes);
-        }
-
-        // Fallback to JsonSerializer (with warning)
-        return JsonSerializer.Serialize(request);
-    }
 }
 

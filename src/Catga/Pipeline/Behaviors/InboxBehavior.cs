@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
+using Catga.Common;
 using Catga.Inbox;
 using Catga.Messages;
 using Catga.Results;
@@ -82,16 +82,13 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
                 var cachedResult = await _persistence.GetProcessedResultAsync(messageId, cancellationToken);
                 if (!string.IsNullOrEmpty(cachedResult))
                 {
-                    try
+                    if (SerializationHelper.TryDeserialize<CatgaResult<TResponse>>(
+                        cachedResult, out var result, _serializer) && result != null)
                     {
-                        var result = DeserializeResult(cachedResult);
-                        if (result != null)
-                            return result;
+                        return result;
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to deserialize cached result for message {MessageId}", messageId);
-                    }
+                    
+                    _logger.LogWarning("Failed to deserialize cached result for message {MessageId}", messageId);
                 }
 
                 // If cached result cannot be deserialized, return success with no value
@@ -115,10 +112,10 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
                 var inboxMessage = new InboxMessage
                 {
                     MessageId = messageId,
-                    MessageType = typeof(TRequest).AssemblyQualifiedName ?? typeof(TRequest).FullName ?? typeof(TRequest).Name,
-                    Payload = SerializeRequest(request),
-                    ProcessingResult = SerializeResult(result),
-                    CorrelationId = (request as IMessage)?.CorrelationId
+                    MessageType = MessageHelper.GetMessageType<TRequest>(),
+                    Payload = SerializationHelper.Serialize(request, _serializer),
+                    ProcessingResult = SerializationHelper.Serialize(result, _serializer),
+                    CorrelationId = MessageHelper.GetCorrelationId(request)
                 };
 
                 await _persistence.MarkAsProcessedAsync(inboxMessage, cancellationToken);
@@ -141,34 +138,5 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
         }
     }
 
-    private string SerializeRequest(TRequest request)
-    {
-        if (_serializer != null)
-        {
-            var bytes = _serializer.Serialize(request);
-            return Convert.ToBase64String(bytes);
-        }
-        return JsonSerializer.Serialize(request);
-    }
-
-    private string SerializeResult(CatgaResult<TResponse> result)
-    {
-        if (_serializer != null)
-        {
-            var bytes = _serializer.Serialize(result);
-            return Convert.ToBase64String(bytes);
-        }
-        return JsonSerializer.Serialize(result);
-    }
-
-    private CatgaResult<TResponse>? DeserializeResult(string json)
-    {
-        if (_serializer != null)
-        {
-            var bytes = Convert.FromBase64String(json);
-            return _serializer.Deserialize<CatgaResult<TResponse>>(bytes);
-        }
-        return JsonSerializer.Deserialize<CatgaResult<TResponse>>(json);
-    }
 }
 

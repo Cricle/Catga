@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
@@ -6,9 +7,10 @@ using Catga.Serialization;
 namespace Catga.Serialization.Json;
 
 /// <summary>
-/// JSON 消息序列化器（System.Text.Json）- AOT 友好
+/// JSON message serializer (System.Text.Json) - AOT friendly with buffering support
+/// Optimized with ArrayPool for reduced allocations
 /// </summary>
-public class JsonMessageSerializer : IMessageSerializer
+public class JsonMessageSerializer : IBufferedMessageSerializer
 {
     private static readonly JsonSerializerOptions _options = new()
     {
@@ -18,20 +20,58 @@ public class JsonMessageSerializer : IMessageSerializer
 
     public string Name => "JSON";
 
-    [RequiresUnreferencedCode("序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("序列化可能需要运行时代码生成")]
+    #region IMessageSerializer (legacy, allocating)
+
+    [RequiresUnreferencedCode("Serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Serialization may require runtime code generation")]
     public byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(T value)
     {
-        var json = JsonSerializer.Serialize(value, _options);
-        return Encoding.UTF8.GetBytes(json);
+        // Optimized: Use Utf8JsonWriter with PooledBufferWriter
+        using var bufferWriter = new PooledBufferWriter(256);
+        Serialize(value, bufferWriter);
+        return bufferWriter.ToArray();
     }
 
-    [RequiresUnreferencedCode("反序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("反序列化可能需要运行时代码生成")]
+    [RequiresUnreferencedCode("Deserialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Deserialization may require runtime code generation")]
     public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(byte[] data)
     {
-        var json = Encoding.UTF8.GetString(data);
-        return JsonSerializer.Deserialize<T>(json, _options);
+        // Optimized: Deserialize from ReadOnlySpan (zero-copy)
+        return Deserialize<T>(data.AsSpan());
     }
+
+    #endregion
+
+    #region IBufferedMessageSerializer (optimized, pooled)
+
+    [RequiresUnreferencedCode("Serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Serialization may require runtime code generation")]
+    public void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(
+        T value,
+        IBufferWriter<byte> bufferWriter)
+    {
+        // Zero-allocation serialization using Utf8JsonWriter
+        using var writer = new Utf8JsonWriter(bufferWriter);
+        JsonSerializer.Serialize(writer, value, _options);
+    }
+
+    [RequiresUnreferencedCode("Deserialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Deserialization may require runtime code generation")]
+    public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(
+        ReadOnlySpan<byte> data)
+    {
+        // Zero-copy deserialization from ReadOnlySpan
+        var reader = new Utf8JsonReader(data);
+        return JsonSerializer.Deserialize<T>(ref reader, _options);
+    }
+
+    public int GetSizeEstimate<T>(T value)
+    {
+        // Conservative estimate: JSON is typically 1.5-2x object size
+        // For small objects, default to 256 bytes
+        return 256;
+    }
+
+    #endregion
 }
 

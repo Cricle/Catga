@@ -5,31 +5,31 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 namespace Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
-/// Catga 可观测性扩展方法
+/// Catga observability extension methods
 /// </summary>
 public static class CatgaObservabilityExtensions
 {
     /// <summary>
-    /// 添加 Catga 完整可观测性支持
+    /// Add complete Catga observability support
     /// </summary>
-    /// <param name="services">服务集合</param>
-    /// <param name="configureHealth">健康检查配置</param>
-    /// <returns>服务集合</returns>
+    /// <param name="services">Service collection</param>
+    /// <param name="configureHealth">Health check configuration</param>
+    /// <returns>Service collection</returns>
     public static IServiceCollection AddCatgaObservability(
         this IServiceCollection services,
         Action<CatgaHealthCheckOptions>? configureHealth = null)
     {
-        // 添加健康检查
+        // Add health checks
         services.AddCatgaHealthChecks(configureHealth);
 
-        // Metrics 和 Tracing 是静态的，已经自动启用
-        // 只需要确保 OpenTelemetry 配置正确
+        // Metrics and Tracing are static and automatically enabled
+        // Just need to ensure OpenTelemetry is configured correctly
 
         return services;
     }
 
     /// <summary>
-    /// 添加 Catga 健康检查
+    /// Add Catga health checks
     /// </summary>
     public static IServiceCollection AddCatgaHealthChecks(
         this IServiceCollection services,
@@ -51,10 +51,10 @@ public static class CatgaObservabilityExtensions
     }
 
     /// <summary>
-    /// 配置 OpenTelemetry 以集成 Catga
+    /// Configure OpenTelemetry to integrate with Catga
     /// </summary>
     /// <remarks>
-    /// 使用方式:
+    /// Usage:
     /// <code>
     /// builder.Services.AddOpenTelemetry()
     ///     .WithTracing(tracing => tracing.AddCatgaInstrumentation())
@@ -64,35 +64,35 @@ public static class CatgaObservabilityExtensions
     public static IServiceCollection AddCatgaOpenTelemetry(
         this IServiceCollection services)
     {
-        // 注册 OpenTelemetry 源
-        // 实际的 OpenTelemetry 配置由用户在 Program.cs 中完成
-        // 这里只是占位，说明如何集成
+        // Register OpenTelemetry sources
+        // Actual OpenTelemetry configuration is done by user in Program.cs
+        // This is just a placeholder to show how to integrate
 
         return services;
     }
 }
 
 /// <summary>
-/// OpenTelemetry 集成扩展（用于外部 OpenTelemetry 配置）
+/// OpenTelemetry integration extensions (for external OpenTelemetry configuration)
 /// </summary>
 public static class CatgaOpenTelemetryExtensions
 {
     /// <summary>
-    /// 添加 Catga 追踪仪器
+    /// Add Catga tracing instrumentation
     /// </summary>
     public static object AddCatgaInstrumentation(this object builder)
     {
-        // 假设 builder 是 TracerProviderBuilder
+        // Assuming builder is TracerProviderBuilder
         // builder.AddSource("Catga");
         return builder;
     }
 
     /// <summary>
-    /// 添加 Catga 指标仪器
+    /// Add Catga metrics instrumentation
     /// </summary>
     public static object AddCatgaMetrics(this object builder)
     {
-        // 假设 builder 是 MeterProviderBuilder
+        // Assuming builder is MeterProviderBuilder
         // builder.AddMeter("Catga");
         return builder;
     }

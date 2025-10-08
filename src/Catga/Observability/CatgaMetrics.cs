@@ -4,58 +4,58 @@ using System.Diagnostics.Metrics;
 namespace Catga.Observability;
 
 /// <summary>
-/// Catga 框架指标收集器（基于 OpenTelemetry Metrics）
+/// Catga framework metrics collector (based on OpenTelemetry Metrics)
 /// </summary>
 public sealed class CatgaMetrics : IDisposable
 {
     private static readonly Meter Meter = new("Catga", "1.0.0");
 
-    // 计数器 (Counters)
+    // Counters
     private static readonly Counter<long> RequestsTotal = Meter.CreateCounter<long>(
         "catga.requests.total",
-        description: "请求总数");
+        description: "Total number of requests");
 
     private static readonly Counter<long> RequestsSucceeded = Meter.CreateCounter<long>(
         "catga.requests.succeeded",
-        description: "成功请求数");
+        description: "Number of successful requests");
 
     private static readonly Counter<long> RequestsFailed = Meter.CreateCounter<long>(
         "catga.requests.failed",
-        description: "失败请求数");
+        description: "Number of failed requests");
 
     private static readonly Counter<long> EventsPublished = Meter.CreateCounter<long>(
         "catga.events.published",
-        description: "发布的事件数");
+        description: "Number of published events");
 
     private static readonly Counter<long> RetryAttempts = Meter.CreateCounter<long>(
         "catga.retry.attempts",
-        description: "重试尝试次数");
+        description: "Number of retry attempts");
 
     private static readonly Counter<long> CircuitBreakerOpened = Meter.CreateCounter<long>(
         "catga.circuit_breaker.opened",
-        description: "熔断器打开次数");
+        description: "Number of times circuit breaker opened");
 
     private static readonly Counter<long> IdempotentRequestsSkipped = Meter.CreateCounter<long>(
         "catga.idempotency.skipped",
-        description: "因幂等性跳过的请求数");
+        description: "Number of requests skipped due to idempotency");
 
-    // 直方图 (Histograms)
+    // Histograms
     private static readonly Histogram<double> RequestDuration = Meter.CreateHistogram<double>(
         "catga.request.duration",
         unit: "ms",
-        description: "请求处理时长");
+        description: "Request processing duration");
 
     private static readonly Histogram<double> EventHandlingDuration = Meter.CreateHistogram<double>(
         "catga.event.handling_duration",
         unit: "ms",
-        description: "事件处理时长");
+        description: "Event handling duration");
 
     private static readonly Histogram<double> SagaDuration = Meter.CreateHistogram<double>(
         "catga.saga.duration",
         unit: "ms",
-        description: "Saga 执行时长");
+        description: "Saga execution duration");
 
-    // 仪表盘 (Gauges) - 使用 ObservableGauge
+    // Gauges - using ObservableGauge
     private static long _activeRequests;
     private static long _activeSagas;
     private static long _queuedMessages;
@@ -63,20 +63,20 @@ public sealed class CatgaMetrics : IDisposable
     private static readonly ObservableGauge<long> ActiveRequests = Meter.CreateObservableGauge(
         "catga.requests.active",
         () => Interlocked.Read(ref _activeRequests),
-        description: "当前活跃请求数");
+        description: "Number of active requests");
 
     private static readonly ObservableGauge<long> ActiveSagas = Meter.CreateObservableGauge(
         "catga.sagas.active",
         () => Interlocked.Read(ref _activeSagas),
-        description: "当前活跃 Saga 数");
+        description: "Number of active sagas");
 
     private static readonly ObservableGauge<long> QueuedMessages = Meter.CreateObservableGauge(
         "catga.messages.queued",
         () => Interlocked.Read(ref _queuedMessages),
-        description: "队列中的消息数");
+        description: "Number of queued messages");
 
     /// <summary>
-    /// 记录请求开始
+    /// Record request start
     /// </summary>
     public static void RecordRequestStart(string requestType, IDictionary<string, object?>? tags = null)
     {
@@ -85,7 +85,7 @@ public sealed class CatgaMetrics : IDisposable
     }
 
     /// <summary>
-    /// 记录请求成功
+    /// Record request success
     /// </summary>
     public static void RecordRequestSuccess(string requestType, double durationMs, IDictionary<string, object?>? tags = null)
     {
@@ -95,7 +95,7 @@ public sealed class CatgaMetrics : IDisposable
     }
 
     /// <summary>
-    /// 记录请求失败
+    /// Record request failure
     /// </summary>
     public static void RecordRequestFailure(string requestType, string errorType, double durationMs, IDictionary<string, object?>? tags = null)
     {
@@ -108,7 +108,7 @@ public sealed class CatgaMetrics : IDisposable
     }
 
     /// <summary>
-    /// 记录事件发布
+    /// Record event published
     /// </summary>
     public static void RecordEventPublished(string eventType, IDictionary<string, object?>? tags = null)
     {
@@ -116,7 +116,7 @@ public sealed class CatgaMetrics : IDisposable
     }
 
     /// <summary>
-    /// 记录事件处理
+    /// Record event handling
     /// </summary>
     public static void RecordEventHandling(string eventType, double durationMs, bool success, IDictionary<string, object?>? tags = null)
     {
@@ -126,7 +126,7 @@ public sealed class CatgaMetrics : IDisposable
     }
 
     /// <summary>
-    /// 记录重试尝试
+    /// Record retry attempt
     /// </summary>
     public static void RecordRetryAttempt(string requestType, int attemptNumber, IDictionary<string, object?>? tags = null)
     {
@@ -136,7 +136,7 @@ public sealed class CatgaMetrics : IDisposable
     }
 
     /// <summary>
-    /// 记录熔断器打开
+    /// Record circuit breaker opened
     /// </summary>
     public static void RecordCircuitBreakerOpened(string circuitName, IDictionary<string, object?>? tags = null)
     {
@@ -150,7 +150,7 @@ public sealed class CatgaMetrics : IDisposable
     }
 
     /// <summary>
-    /// 记录幂等性跳过
+    /// Record idempotent request skipped
     /// </summary>
     public static void RecordIdempotentSkipped(string requestType, IDictionary<string, object?>? tags = null)
     {
@@ -158,7 +158,7 @@ public sealed class CatgaMetrics : IDisposable
     }
 
     /// <summary>
-    /// 记录 Saga 开始
+    /// Record saga start
     /// </summary>
     public static void RecordSagaStart(string sagaType)
     {
@@ -166,7 +166,7 @@ public sealed class CatgaMetrics : IDisposable
     }
 
     /// <summary>
-    /// 记录 Saga 完成
+    /// Record saga complete
     /// </summary>
     public static void RecordSagaComplete(string sagaType, double durationMs, bool success, bool compensated = false)
     {
@@ -181,7 +181,7 @@ public sealed class CatgaMetrics : IDisposable
     }
 
     /// <summary>
-    /// 更新队列消息数
+    /// Update queued messages count
     /// </summary>
     public static void UpdateQueuedMessages(long count)
     {

@@ -4,6 +4,7 @@ using Catga.Exceptions;
 using Catga.Handlers;
 using Catga.Messages;
 using Catga.Pipeline;
+using Catga.Performance;
 using Catga.RateLimiting;
 using Catga.Resilience;
 using Catga.Results;
@@ -14,6 +15,7 @@ namespace Catga;
 
 /// <summary>
 /// High-performance Catga Mediator (100% AOT, lock-free, non-blocking)
+/// Optimized with handler caching, object pooling, and fast paths
 /// </summary>
 public class CatgaMediator : ICatgaMediator, IDisposable
 {
@@ -25,6 +27,9 @@ public class CatgaMediator : ICatgaMediator, IDisposable
     private readonly CircuitBreaker? _circuitBreaker;
     private readonly TokenBucketRateLimiter? _rateLimiter;
 
+    // Performance optimizations
+    private readonly HandlerCache _handlerCache;
+
     public CatgaMediator(
         IServiceProvider serviceProvider,
         ILogger<CatgaMediator> logger,
@@ -33,6 +38,9 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         _serviceProvider = serviceProvider;
         _logger = logger;
         _options = options;
+
+        // Performance optimization: Handler cache
+        _handlerCache = new HandlerCache(serviceProvider);
 
         // Optional resilience components (only if enabled)
         if (options.MaxConcurrentRequests > 0)
@@ -109,8 +117,8 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         CancellationToken cancellationToken)
         where TRequest : IRequest<TResponse>
     {
-        // Get handler (explicit, no reflection)
-        var handler = _serviceProvider.GetService<IRequestHandler<TRequest, TResponse>>();
+        // Optimized: Use cached handler lookup
+        var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(_serviceProvider);
 
         if (handler == null)
         {
@@ -119,11 +127,17 @@ public class CatgaMediator : ICatgaMediator, IDisposable
                 new HandlerNotFoundException(typeof(TRequest).Name));
         }
 
-        // Use optimized PipelineExecutor to reduce closure and delegate allocations
+        // Get behaviors (check count for fast path optimization)
         var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
         var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToList();
 
-        // Execute with optimized pipeline executor
+        // Fast path: No behaviors, execute handler directly (zero allocation)
+        if (FastPath.CanUseFastPath(behaviorsList.Count))
+        {
+            return await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken);
+        }
+
+        // Standard path: Execute with pipeline
         return await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
     }
 
@@ -149,20 +163,28 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         CancellationToken cancellationToken = default)
         where TEvent : IEvent
     {
-        // Avoid LINQ Select, build task array directly
-        var handlers = _serviceProvider.GetServices<IEventHandler<TEvent>>();
-        var handlerList = handlers as IList<IEventHandler<TEvent>> ?? handlers.ToArray();
+        // Optimized: Use cached handler lookup
+        var handlerList = _handlerCache.GetEventHandlers<IEventHandler<TEvent>>(_serviceProvider);
 
+        // Fast path: No handlers (zero allocation)
         if (handlerList.Count == 0)
+        {
+            await FastPath.PublishEventNoOpAsync();
             return;
+        }
 
-        // Execute handlers concurrently without Task.Run
-        // HandleAsync is already async, no need to queue to thread pool
+        // Fast path: Single handler (reduced allocation)
+        if (handlerList.Count == 1)
+        {
+            await HandleEventSafelyAsync(handlerList[0], @event, cancellationToken);
+            return;
+        }
+
+        // Standard path: Multiple handlers, execute concurrently
         var tasks = new Task[handlerList.Count];
         for (int i = 0; i < handlerList.Count; i++)
         {
             var handler = handlerList[i];
-            // Wrap in helper method to isolate exception handling per handler
             tasks[i] = HandleEventSafelyAsync(handler, @event, cancellationToken);
         }
 

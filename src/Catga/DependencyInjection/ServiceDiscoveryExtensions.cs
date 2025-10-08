@@ -7,12 +7,12 @@ using Microsoft.Extensions.Logging;
 namespace Catga.DependencyInjection;
 
 /// <summary>
-/// 服务发现扩展方法
+/// Service discovery extension methods
 /// </summary>
 public static class ServiceDiscoveryExtensions
 {
     /// <summary>
-    /// 添加内存服务发现（开发/测试）
+    /// Add in-memory service discovery (for development/testing)
     /// </summary>
     public static IServiceCollection AddMemoryServiceDiscovery(this IServiceCollection services)
     {
@@ -22,7 +22,7 @@ public static class ServiceDiscoveryExtensions
     }
 
     /// <summary>
-    /// 添加服务注册（自动注册当前服务）
+    /// Add service registration (automatically register current service)
     /// </summary>
     public static IServiceCollection AddServiceRegistration(
         this IServiceCollection services,
@@ -35,7 +35,7 @@ public static class ServiceDiscoveryExtensions
 }
 
 /// <summary>
-/// 服务注册后台服务（自动注册和心跳）
+/// Service registration background service (automatic registration and heartbeat)
 /// </summary>
 internal class ServiceRegistrationHostedService : IHostedService
 {
@@ -59,14 +59,14 @@ internal class ServiceRegistrationHostedService : IHostedService
     {
         try
         {
-            // 注册服务
+            // Register service
             await _serviceDiscovery.RegisterAsync(_options, cancellationToken);
             _serviceId = $"{_options.ServiceName}-{Guid.NewGuid():N}";
 
             _logger.LogInformation("Service registered: {ServiceName} at {Host}:{Port}",
                 _options.ServiceName, _options.Host, _options.Port);
 
-            // 启动心跳定时器
+            // Start heartbeat timer
             _heartbeatTimer = new Timer(
                 SendHeartbeat,
                 null,

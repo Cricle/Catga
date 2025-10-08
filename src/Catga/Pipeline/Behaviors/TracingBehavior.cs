@@ -6,7 +6,7 @@ using Catga.Results;
 namespace Catga.Pipeline.Behaviors;
 
 /// <summary>
-/// 分布式追踪和指标收集行为（OpenTelemetry 完全兼容）
+/// Distributed tracing and metrics collection behavior (fully OpenTelemetry compatible)
 /// </summary>
 public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
@@ -21,24 +21,24 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         var requestType = typeof(TRequest).Name;
         var startTime = Diagnostics.GetTimestamp();
 
-        // 创建分布式追踪 Span
+        // Create distributed tracing span
         using var activity = ActivitySource.StartActivity(
             $"Catga.Request.{requestType}",
             ActivityKind.Internal);
 
-        // 设置标准 OpenTelemetry 标签
+        // Set standard OpenTelemetry tags
         activity?.SetTag("messaging.system", "catga");
         activity?.SetTag("messaging.operation", "process");
         activity?.SetTag("messaging.message_id", request.MessageId);
         activity?.SetTag("messaging.correlation_id", request.CorrelationId);
 
-        // 设置 Catga 特定标签
+        // Set Catga-specific tags
         activity?.SetTag("catga.message_type", requestType);
         activity?.SetTag("catga.request_type", typeof(TRequest).FullName);
         activity?.SetTag("catga.response_type", typeof(TResponse).FullName);
         activity?.SetTag("catga.timestamp", request.CreatedAt);
 
-        // 记录指标：请求开始
+        // Record metric: request start
         var metricTags = new Dictionary<string, object?>
         {
             ["message.type"] = requestType
@@ -50,7 +50,7 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
             var result = await next();
             var duration = Diagnostics.GetElapsedTime(startTime).TotalMilliseconds;
 
-            // 更新追踪状态
+            // Update tracing status
             activity?.SetTag("catga.success", result.IsSuccess);
             activity?.SetTag("catga.duration_ms", duration);
 
@@ -58,7 +58,7 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
             {
                 activity?.SetStatus(ActivityStatusCode.Ok);
 
-                // 记录指标：成功
+                // Record metric: success
                 CatgaMetrics.RecordRequestSuccess(requestType, duration, metricTags);
             }
             else
@@ -72,7 +72,7 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                     activity?.SetTag("exception.message", result.Exception.Message);
                     activity?.SetTag("exception.stacktrace", result.Exception.StackTrace);
 
-                    // 记录异常事件
+                    // Record exception event
                     activity?.AddEvent(new ActivityEvent("exception",
                         tags: new ActivityTagsCollection
                         {
@@ -81,7 +81,7 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                         }));
                 }
 
-                // 记录指标：失败
+                // Record metric: failure
                 var errorType = result.Exception?.GetType().Name ?? "UnknownError";
                 CatgaMetrics.RecordRequestFailure(requestType, errorType, duration, metricTags);
             }
@@ -92,14 +92,14 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         {
             var duration = Diagnostics.GetElapsedTime(startTime).TotalMilliseconds;
 
-            // 更新追踪状态
+            // Update tracing status
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.SetTag("exception.type", ex.GetType().FullName);
             activity?.SetTag("exception.message", ex.Message);
             activity?.SetTag("exception.stacktrace", ex.StackTrace);
             activity?.SetTag("catga.duration_ms", duration);
 
-            // 记录异常事件
+            // Record exception event
             activity?.AddEvent(new ActivityEvent("exception",
                 tags: new ActivityTagsCollection
                 {
@@ -108,7 +108,7 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                     ["exception.escaped"] = true
                 }));
 
-            // 记录指标：失败
+            // Record metric: failure
             CatgaMetrics.RecordRequestFailure(requestType, ex.GetType().Name, duration, metricTags);
 
             throw;
@@ -117,7 +117,7 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
 }
 
 /// <summary>
-/// 高性能时间戳工具（避免 DateTime.UtcNow 的分配）
+/// High-performance timestamp utilities (avoid DateTime.UtcNow allocations)
 /// </summary>
 internal static class Diagnostics
 {

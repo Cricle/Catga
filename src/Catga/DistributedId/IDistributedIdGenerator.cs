@@ -6,7 +6,7 @@ namespace Catga.DistributedId;
 public interface IDistributedIdGenerator
 {
     /// <summary>
-    /// Generate next ID as long
+    /// Generate next ID as long (0 allocation)
     /// </summary>
     long NextId();
 
@@ -16,9 +16,38 @@ public interface IDistributedIdGenerator
     string NextIdString();
 
     /// <summary>
-    /// Parse ID to get metadata
+    /// Try to write next ID to a span (0 allocation)
+    /// </summary>
+    bool TryWriteNextId(Span<char> destination, out int charsWritten);
+
+    /// <summary>
+    /// Batch generate IDs into a span (0 allocation, lock-free)
+    /// </summary>
+    /// <param name="destination">Span to fill with generated IDs</param>
+    /// <returns>Number of IDs successfully generated</returns>
+    int NextIds(Span<long> destination);
+
+    /// <summary>
+    /// Batch generate IDs into an array (allocates array)
+    /// </summary>
+    /// <param name="count">Number of IDs to generate</param>
+    /// <returns>Array of generated IDs</returns>
+    long[] NextIds(int count);
+
+    /// <summary>
+    /// Parse ID to get metadata (allocates struct)
     /// </summary>
     IdMetadata ParseId(long id);
+
+    /// <summary>
+    /// Parse ID to get metadata (0 allocation version)
+    /// </summary>
+    void ParseId(long id, out IdMetadata metadata);
+
+    /// <summary>
+    /// Get current bit layout configuration
+    /// </summary>
+    SnowflakeBitLayout GetLayout();
 }
 
 /// <summary>

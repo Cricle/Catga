@@ -25,6 +25,23 @@ public readonly struct SnowflakeBitLayout
     public int SequenceBits { get; init; }
 
     /// <summary>
+    /// Custom epoch (start time) in milliseconds
+    /// Default: 2024-01-01 00:00:00 UTC
+    /// </summary>
+    public long EpochMilliseconds { get; init; }
+
+    /// <summary>
+    /// Default constructor (required for struct with init properties)
+    /// </summary>
+    public SnowflakeBitLayout()
+    {
+        TimestampBits = 0;
+        WorkerIdBits = 0;
+        SequenceBits = 0;
+        EpochMilliseconds = 1704067200000L;
+    }
+
+    /// <summary>
     /// Maximum timestamp value
     /// </summary>
     public long MaxTimestamp => (1L << TimestampBits) - 1;
@@ -56,13 +73,47 @@ public readonly struct SnowflakeBitLayout
     /// 41 bits timestamp (~69 years)
     /// 10 bits worker ID (1024 workers)
     /// 12 bits sequence (4096 IDs/ms)
+    /// Epoch: 2024-01-01 00:00:00 UTC
     /// </summary>
     public static SnowflakeBitLayout Default => new()
     {
         TimestampBits = 41,
         WorkerIdBits = 10,
-        SequenceBits = 12
+        SequenceBits = 12,
+        EpochMilliseconds = 1704067200000L
     };
+
+    /// <summary>
+    /// Create layout with custom epoch
+    /// </summary>
+    public static SnowflakeBitLayout WithEpoch(DateTime epoch)
+    {
+        return new SnowflakeBitLayout
+        {
+            TimestampBits = 41,
+            WorkerIdBits = 10,
+            SequenceBits = 12,
+            EpochMilliseconds = new DateTimeOffset(epoch.ToUniversalTime()).ToUnixTimeMilliseconds()
+        };
+    }
+
+    /// <summary>
+    /// Create layout with custom epoch and bit allocation
+    /// </summary>
+    public static SnowflakeBitLayout Create(
+        DateTime epoch,
+        int timestampBits = 41,
+        int workerIdBits = 10,
+        int sequenceBits = 12)
+    {
+        return new SnowflakeBitLayout
+        {
+            TimestampBits = timestampBits,
+            WorkerIdBits = workerIdBits,
+            SequenceBits = sequenceBits,
+            EpochMilliseconds = new DateTimeOffset(epoch.ToUniversalTime()).ToUnixTimeMilliseconds()
+        };
+    }
 
     /// <summary>
     /// Long lifespan layout (43-8-12)
@@ -148,10 +199,17 @@ public readonly struct SnowflakeBitLayout
     }
 
     /// <summary>
+    /// Get epoch as DateTime
+    /// </summary>
+    public DateTime GetEpoch() =>
+        DateTimeOffset.FromUnixTimeMilliseconds(EpochMilliseconds).UtcDateTime;
+
+    /// <summary>
     /// Get layout description
     /// </summary>
     public override string ToString() =>
         $"Snowflake Layout: {TimestampBits}-{WorkerIdBits}-{SequenceBits} " +
-        $"(~{MaxYears}y, {MaxWorkerId + 1} workers, {MaxSequence + 1} IDs/ms)";
+        $"(~{MaxYears}y, {MaxWorkerId + 1} workers, {MaxSequence + 1} IDs/ms, " +
+        $"Epoch: {GetEpoch():yyyy-MM-dd})";
 }
 

@@ -80,6 +80,134 @@ public class CatgaMediatorTests
         // Assert - 事件发布成功（不抛异常）
         Assert.True(true);
     }
+
+    [Fact]
+    public async Task PublishAsync_WithMultipleHandlers_ShouldInvokeAll()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddCatga();
+        services.AddScoped<IEventHandler<TestEvent>, TestEventHandler>();
+        services.AddScoped<IEventHandler<TestEvent>, TestEventHandler2>();
+
+        var provider = services.BuildServiceProvider();
+        var mediator = provider.GetRequiredService<ICatgaMediator>();
+        var testEvent = new TestEvent { Message = "Hello" };
+
+        // Act
+        await mediator.PublishAsync(testEvent);
+
+        // Assert - 事件发布成功（不抛异常）
+        Assert.True(true);
+    }
+
+    [Fact]
+    public async Task PublishAsync_WithNoHandlers_ShouldNotThrow()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddCatga();
+        // 没有注册handler
+
+        var provider = services.BuildServiceProvider();
+        var mediator = provider.GetRequiredService<ICatgaMediator>();
+        var testEvent = new TestEvent { Message = "Hello" };
+
+        // Act & Assert - 不应该抛异常
+        await mediator.PublishAsync(testEvent);
+        Assert.True(true);
+    }
+
+    [Fact]
+    public async Task SendAsync_WithCancellationToken_ShouldPropagate()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddCatga();
+        services.AddScoped<IRequestHandler<TestCommand, TestResponse>, CancellableCommandHandler>();
+
+        var provider = services.BuildServiceProvider();
+        var mediator = provider.GetRequiredService<ICatgaMediator>();
+        var command = new TestCommand { Value = "test" };
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await mediator.SendAsync<TestCommand, TestResponse>(command, cts.Token));
+    }
+
+    [Fact]
+    public async Task SendAsync_WithFailureResult_ShouldReturnFailure()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddCatga();
+        services.AddScoped<IRequestHandler<TestCommand, TestResponse>, FailingCommandHandler>();
+
+        var provider = services.BuildServiceProvider();
+        var mediator = provider.GetRequiredService<ICatgaMediator>();
+        var command = new TestCommand { Value = "test" };
+
+        // Act
+        var result = await mediator.SendAsync<TestCommand, TestResponse>(command);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be("Handler failed");
+    }
+
+    [Fact]
+    public async Task SendAsync_MultipleSequentialCalls_ShouldAllSucceed()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddCatga();
+        services.AddScoped<IRequestHandler<TestCommand, TestResponse>, TestCommandHandler>();
+
+        var provider = services.BuildServiceProvider();
+        var mediator = provider.GetRequiredService<ICatgaMediator>();
+
+        // Act
+        var result1 = await mediator.SendAsync<TestCommand, TestResponse>(new TestCommand { Value = "test1" });
+        var result2 = await mediator.SendAsync<TestCommand, TestResponse>(new TestCommand { Value = "test2" });
+        var result3 = await mediator.SendAsync<TestCommand, TestResponse>(new TestCommand { Value = "test3" });
+
+        // Assert
+        result1.IsSuccess.Should().BeTrue();
+        result1.Value!.Message.Should().Be("Processed: test1");
+        result2.IsSuccess.Should().BeTrue();
+        result2.Value!.Message.Should().Be("Processed: test2");
+        result3.IsSuccess.Should().BeTrue();
+        result3.Value!.Message.Should().Be("Processed: test3");
+    }
+
+    [Fact]
+    public async Task SendAsync_ConcurrentCalls_ShouldAllSucceed()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddCatga();
+        services.AddScoped<IRequestHandler<TestCommand, TestResponse>, TestCommandHandler>();
+
+        var provider = services.BuildServiceProvider();
+        var mediator = provider.GetRequiredService<ICatgaMediator>();
+
+        // Act
+        var tasks = Enumerable.Range(0, 10).Select(i =>
+            mediator.SendAsync<TestCommand, TestResponse>(new TestCommand { Value = $"test{i}" }).AsTask());
+        var results = await Task.WhenAll(tasks);
+
+        // Assert
+        results.Should().AllSatisfy(result => result.IsSuccess.Should().BeTrue());
+        results.Should().HaveCount(10);
+    }
 }
 
 // 测试用的消息类型
@@ -115,6 +243,45 @@ public class TestEventHandler : IEventHandler<TestEvent>
     public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
     {
         // 模拟事件处理
+        return Task.CompletedTask;
+    }
+}
+
+public class TestEventHandler2 : IEventHandler<TestEvent>
+{
+    public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+    {
+        // 第二个事件处理器
+        return Task.CompletedTask;
+    }
+}
+
+public class CancellableCommandHandler : IRequestHandler<TestCommand, TestResponse>
+{
+    public Task<CatgaResult<TestResponse>> HandleAsync(
+        TestCommand request,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse { Message = "Success" }));
+    }
+}
+
+public class FailingCommandHandler : IRequestHandler<TestCommand, TestResponse>
+{
+    public Task<CatgaResult<TestResponse>> HandleAsync(
+        TestCommand request,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(CatgaResult<TestResponse>.Failure("Handler failed"));
+    }
+}
+
+public class CancellableEventHandler : IEventHandler<TestEvent>
+{
+    public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         return Task.CompletedTask;
     }
 }

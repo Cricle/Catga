@@ -23,8 +23,20 @@ builder.Services.AddCatga(options =>
 // Add JSON serializer
 builder.Services.AddSingleton<Catga.Serialization.IMessageSerializer, JsonMessageSerializer>();
 
-// 🆔 Add distributed ID generator (auto-detects worker ID)
-builder.Services.AddDistributedId();
+// 🆔 Add distributed ID generator with custom epoch and auto-detected worker ID
+builder.Services.AddDistributedId(options =>
+{
+    // Set custom epoch to project start date (optional, extends usable lifespan)
+    options.CustomEpoch = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    
+    // Auto-detect worker ID from environment (WORKER_ID, POD_INDEX, or HOSTNAME)
+    options.AutoDetectWorkerId = true;
+    
+    // Or use a specific layout for different scenarios:
+    // options.Layout = SnowflakeBitLayout.LongLifespan;      // 278 years
+    // options.Layout = SnowflakeBitLayout.HighConcurrency;   // 16384 IDs/ms
+    // options.Layout = SnowflakeBitLayout.LargeCluster;      // 4096 workers
+});
 
 // ✨ Auto-register all handlers using source generator (No manual registration needed!)
 builder.Services.AddGeneratedHandlers();

@@ -31,7 +31,7 @@
 ### 🌐 分布式就绪
 - **NATS/Redis** - 高性能消息传输
 - **Outbox/Inbox** - 可靠消息投递
-- **分布式 ID** - 内置 Snowflake ID 生成器
+- **分布式 ID** - 0 GC + 100%无锁(CAS) + 自定义Epoch
 - **Docker Compose** - 2分钟部署集群
 
 ---

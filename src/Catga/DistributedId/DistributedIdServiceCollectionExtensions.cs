@@ -20,9 +20,10 @@ public static class DistributedIdServiceCollectionExtensions
         options.Validate();
 
         var workerId = options.GetWorkerId();
+        var effectiveLayout = options.GetEffectiveLayout();
 
         services.TryAddSingleton<IDistributedIdGenerator>(
-            _ => new SnowflakeIdGenerator(workerId, options.Layout));
+            _ => new SnowflakeIdGenerator(workerId, effectiveLayout));
 
         return services;
     }

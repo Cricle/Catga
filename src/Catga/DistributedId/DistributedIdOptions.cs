@@ -24,6 +24,30 @@ public sealed class DistributedIdOptions
     public SnowflakeBitLayout Layout { get; set; } = SnowflakeBitLayout.Default;
 
     /// <summary>
+    /// Custom epoch (start time)
+    /// If set, overrides the epoch in Layout
+    /// </summary>
+    public DateTime? CustomEpoch { get; set; }
+
+    /// <summary>
+    /// Get effective layout with custom epoch applied
+    /// </summary>
+    internal SnowflakeBitLayout GetEffectiveLayout()
+    {
+        if (CustomEpoch.HasValue)
+        {
+            return new SnowflakeBitLayout
+            {
+                TimestampBits = Layout.TimestampBits,
+                WorkerIdBits = Layout.WorkerIdBits,
+                SequenceBits = Layout.SequenceBits,
+                EpochMilliseconds = new DateTimeOffset(CustomEpoch.Value.ToUniversalTime()).ToUnixTimeMilliseconds()
+            };
+        }
+        return Layout;
+    }
+
+    /// <summary>
     /// Validate options
     /// </summary>
     public void Validate()

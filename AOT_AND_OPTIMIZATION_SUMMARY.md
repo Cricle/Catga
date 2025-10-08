@@ -73,7 +73,7 @@ await Task.WhenAll(tasks);
 #### ✅ Thread Pool Optimization
 **KubernetesServiceDiscovery - Before**:
 ```csharp
-Task.Factory.StartNew(async () => { ... }, 
+Task.Factory.StartNew(async () => { ... },
     TaskCreationOptions.LongRunning)
 // ❌ Returns Task<Task>, blocks thread pool
 ```

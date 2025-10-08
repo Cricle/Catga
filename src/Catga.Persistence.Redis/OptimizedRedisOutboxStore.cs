@@ -100,7 +100,6 @@ public class OptimizedRedisOutboxStore : IOutboxStore
             if (message != null)
             {
                 message.Status = OutboxStatus.Published;
-                message.ProcessedAt = DateTime.UtcNow;
 
                 await _db.StringSetAsync(key, JsonSerializer.Serialize(message));
 
@@ -159,8 +158,8 @@ public class OptimizedRedisOutboxStore : IOutboxStore
                 var message = JsonSerializer.Deserialize<OutboxMessage>(json.ToString());
                 if (message != null &&
                     message.Status == OutboxStatus.Published &&
-                    message.ProcessedAt.HasValue &&
-                    message.ProcessedAt.Value < cutoff)
+                    message.PublishedAt.HasValue &&
+                    message.PublishedAt.Value < cutoff)
                 {
                     keysToDelete.Add(key.ToString());
                 }

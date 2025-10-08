@@ -165,10 +165,15 @@ public class CatgaPipelineGenerator : IIncrementalGenerator
         sb.AppendLine();
         sb.AppendLine("            return result;");
         sb.AppendLine("        }");
-        sb.AppendLine("        catch (Exception ex)");
+        sb.AppendLine("        catch (Catga.Exceptions.CatgaException ex)");
         sb.AppendLine("        {");
         sb.AppendLine($"            // Error handling for {request.RequestTypeName}");
         sb.AppendLine($"            return CatgaResult<{request.ResponseType}>.Failure(ex.Message, ex);");
+        sb.AppendLine("        }");
+        sb.AppendLine("        catch (Exception ex)");
+        sb.AppendLine("        {");
+        sb.AppendLine($"            // Wrap non-Catga exceptions");
+        sb.AppendLine($"            return CatgaResult<{request.ResponseType}>.Failure(ex.Message, new Catga.Exceptions.CatgaException(ex.Message, ex));");
         sb.AppendLine("        }");
         sb.AppendLine("    }");
         sb.AppendLine();

@@ -1,7 +1,7 @@
 # 🚀 Catga v2.0 快速参考指南
 
-**版本**: 2.0.0  
-**状态**: ✅ 生产就绪  
+**版本**: 2.0.0
+**状态**: ✅ 生产就绪
 **完成度**: 100%
 
 ---
@@ -36,7 +36,7 @@ public record CreateUserCommand : IRequest<CreateUserResponse>
 }
 
 // Handler - 自动注册！
-public class CreateUserCommandHandler 
+public class CreateUserCommandHandler
     : IRequestHandler<CreateUserCommand, CreateUserResponse>
 {
     public async Task<CatgaResult<CreateUserResponse>> HandleAsync(
@@ -245,9 +245,9 @@ public class MyHandler : IRequestHandler<...>, IDisposable
 
 ## 🎊 成就
 
-✅ 全球最快的CQRS框架（2.6x vs MediatR）  
-✅ 唯一100% AOT的CQRS框架  
-✅ 唯一完整工具链的CQRS框架  
+✅ 全球最快的CQRS框架（2.6x vs MediatR）
+✅ 唯一100% AOT的CQRS框架
+✅ 唯一完整工具链的CQRS框架
 ✅ 最易用的CQRS框架（1行配置）
 
 ---

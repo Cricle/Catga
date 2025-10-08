@@ -1,8 +1,8 @@
 # 📊 Catga v2.0 项目概览
 
-**版本**: 2.0.0  
-**状态**: ✅ 生产就绪  
-**最后更新**: 2025-10-08  
+**版本**: 2.0.0
+**状态**: ✅ 生产就绪
+**最后更新**: 2025-10-08
 **完成度**: 100% (15/15 Phase)
 
 ---
@@ -306,7 +306,7 @@ public record CreateUserCommand : IRequest<CreateUserResponse>
     public string UserName { get; init; } = string.Empty;
 }
 
-public class CreateUserCommandHandler 
+public class CreateUserCommandHandler
     : IRequestHandler<CreateUserCommand, CreateUserResponse>
 {
     public async Task<CatgaResult<CreateUserResponse>> HandleAsync(

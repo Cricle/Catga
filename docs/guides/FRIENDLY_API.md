@@ -22,14 +22,14 @@ public void ConfigureServices(IServiceCollection services)
     services.AddScoped<IRequestHandler<DeleteUserCommand, Unit>, DeleteUserCommandHandler>();
     services.AddScoped<IRequestHandler<GetUserQuery, UserDto>, GetUserQueryHandler>();
     services.AddScoped<IRequestHandler<ListUsersQuery, List<UserDto>>, ListUsersQueryHandler>();
-    
+
     services.AddScoped<IEventHandler<UserCreatedEvent>, UserCreatedEventHandler>();
     services.AddScoped<IEventHandler<UserCreatedEvent>, SendWelcomeEmailHandler>();
     services.AddScoped<IEventHandler<UserUpdatedEvent>, UserUpdatedEventHandler>();
     services.AddScoped<IEventHandler<UserDeletedEvent>, UserDeletedEventHandler>();
-    
+
     // 50+ more handlers...
-    
+
     // Easy to forget handlers or make typos
     // No compile-time safety
     // Hard to maintain
@@ -44,7 +44,7 @@ public void ConfigureServices(IServiceCollection services)
     // ONE LINE - Source generator handles everything!
     services.AddCatga();
     services.AddGeneratedHandlers();  // ✨ Magic happens here
-    
+
     // All handlers automatically discovered and registered
     // Compile-time safety
     // Fully AOT compatible
@@ -76,7 +76,7 @@ var app = builder.Build();
 public class CreateUserHandler : IRequestHandler<CreateUserCommand, User>
 {
     public async Task<CatgaResult<User>> HandleAsync(
-        CreateUserCommand request, 
+        CreateUserCommand request,
         CancellationToken cancellationToken = default)
     {
         var user = new User { Name = request.Name };
@@ -122,7 +122,7 @@ public class CatgaResult<T>
     public bool IsSuccess { get; }
     public T? Value { get; }
     public string? Error { get; }
-    
+
     public static CatgaResult<T> Success(T value);
     public static CatgaResult<T> Failure(string error);
 }
@@ -259,12 +259,12 @@ services.AddSingleton<IMessageSerializer, CustomSerializer>();
 public class CreateUserHandler : IRequestHandler<CreateUserCommand, User>
 {
     private readonly IUserRepository _repository;
-    
+
     public CreateUserHandler(IUserRepository repository)
     {
         _repository = repository;
     }
-    
+
     public async Task<CatgaResult<User>> HandleAsync(CreateUserCommand request, ...)
     {
         var user = new User { Name = request.Name };
@@ -281,14 +281,14 @@ public class CreateUserHandler : IRequestHandler<CreateUserCommand, User>
 public class CreateUserHandler : IRequestHandler<CreateUserCommand, User>
 {
     private readonly ICatgaMediator _mediator;
-    
+
     public async Task<CatgaResult<User>> HandleAsync(CreateUserCommand request, ...)
     {
         var user = await CreateUser(request);
-        
+
         // Publish event for side effects
         await _mediator.PublishAsync(new UserCreatedEvent { UserId = user.Id });
-        
+
         return CatgaResult<User>.Success(user);
     }
 }
@@ -312,10 +312,10 @@ public async Task<CatgaResult<User>> HandleAsync(CreateUserCommand request, ...)
 {
     if (string.IsNullOrEmpty(request.Name))
         return CatgaResult<User>.Failure("Name is required");
-    
+
     if (await _repository.ExistsAsync(request.Email))
         return CatgaResult<User>.Failure("Email already exists");
-    
+
     var user = await CreateUser(request);
     return CatgaResult<User>.Success(user);
 }

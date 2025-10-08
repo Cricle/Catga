@@ -19,10 +19,10 @@ The Catga Source Generator:
 ```xml
 <ItemGroup>
   <PackageReference Include="Catga" />
-  
+
   <!-- Add the source generator as an analyzer -->
-  <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj" 
-                    OutputItemType="Analyzer" 
+  <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj"
+                    OutputItemType="Analyzer"
                     ReferenceOutputAssembly="false" />
 </ItemGroup>
 ```
@@ -36,7 +36,7 @@ Just implement the handler interfaces - no attributes needed!
 public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, CreateUserResponse>
 {
     public async Task<CatgaResult<CreateUserResponse>> HandleAsync(
-        CreateUserCommand request, 
+        CreateUserCommand request,
         CancellationToken cancellationToken = default)
     {
         // Your logic here

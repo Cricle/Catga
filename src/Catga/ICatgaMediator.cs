@@ -32,7 +32,7 @@ public interface ICatgaMediator
         CancellationToken cancellationToken = default) where TEvent : IEvent;
 
     /// <summary>
-    /// 🔥 批量发送请求 - 高性能批处理
+    /// Batch send requests - High performance batch processing
     /// </summary>
     ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<TRequest, TResponse>(
         IReadOnlyList<TRequest> requests,
@@ -40,7 +40,7 @@ public interface ICatgaMediator
         where TRequest : IRequest<TResponse>;
 
     /// <summary>
-    /// 🔥 流式发送请求 - 实时处理大量数据
+    /// Stream send requests - Real-time processing of large data
     /// </summary>
     IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<TRequest, TResponse>(
         IAsyncEnumerable<TRequest> requests,
@@ -48,7 +48,7 @@ public interface ICatgaMediator
         where TRequest : IRequest<TResponse>;
 
     /// <summary>
-    /// 🔥 批量发布事件 - 高性能批处理
+    /// Batch publish events - High performance batch processing
     /// </summary>
     Task PublishBatchAsync<TEvent>(
         IReadOnlyList<TEvent> events,

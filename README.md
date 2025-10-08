@@ -31,6 +31,7 @@
 ### 🌐 分布式就绪
 - **NATS/Redis** - 高性能消息传输
 - **Outbox/Inbox** - 可靠消息投递
+- **分布式 ID** - 内置 Snowflake ID 生成器
 - **Docker Compose** - 2分钟部署集群
 
 ---
@@ -52,6 +53,7 @@ dotnet add package Catga.Serialization.Json
 builder.Services
     .AddCatga()
     .UseProductionDefaults()    // 熔断 + 限流 + 并发控制
+    .AddDistributedId()         // 分布式 ID 生成器
     .AddGeneratedHandlers();    // 自动注册所有 Handler
 ```
 
@@ -182,6 +184,7 @@ docker-compose up -d
 ### 工具链
 - 🤖 [源生成器指南](docs/guides/source-generator.md) - 自动化魔法
 - 🔍 [分析器规则](docs/guides/analyzers.md) - 15个规则 + 9个修复
+- 🆔 [分布式 ID](docs/guides/distributed-id.md) - Snowflake ID 生成器
 
 ### 分布式 & 集群
 - 🌐 [分布式架构](docs/distributed/) - NATS + Redis

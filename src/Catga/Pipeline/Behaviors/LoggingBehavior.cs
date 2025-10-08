@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Pipeline.Behaviors;
 
 /// <summary>
-/// 结构化日志记录行为（高性能、完整上下文）
+/// Structured logging behavior (High performance, Full context)
 /// </summary>
 public partial class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
@@ -19,7 +19,7 @@ public partial class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TR
     }
 
     /// <summary>
-    /// 🔥 优化: 使用 ValueTask 减少堆分配
+    /// Optimized: Use ValueTask to reduce heap allocations
     /// </summary>
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
@@ -29,7 +29,7 @@ public partial class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TR
         var requestName = typeof(TRequest).Name;
         var sw = Stopwatch.StartNew();
 
-        // 使用源生成的日志方法（AOT 兼容 + 高性能）
+        // Use source-generated logging methods (AOT compatible + High performance)
         LogRequestStarted(requestName, request.MessageId, request.CorrelationId ?? string.Empty);
 
         try
@@ -71,17 +71,17 @@ public partial class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TR
         }
     }
 
-    // 源生成日志方法（AOT 兼容 + 零分配）
+    // Source-generated logging methods (AOT compatible + Zero allocations)
     [LoggerMessage(
         EventId = 1001,
         Level = LogLevel.Information,
-        Message = "处理请求开始 {RequestType} [MessageId={MessageId}, CorrelationId={CorrelationId}]")]
+        Message = "Request started {RequestType} [MessageId={MessageId}, CorrelationId={CorrelationId}]")]
     partial void LogRequestStarted(string requestType, string messageId, string correlationId);
 
     [LoggerMessage(
         EventId = 1002,
         Level = LogLevel.Information,
-        Message = "请求成功 {RequestType} [MessageId={MessageId}, Duration={DurationMs}ms, CorrelationId={CorrelationId}]")]
+        Message = "Request succeeded {RequestType} [MessageId={MessageId}, Duration={DurationMs}ms, CorrelationId={CorrelationId}]")]
     partial void LogRequestSucceeded(
         string requestType,
         string messageId,
@@ -91,7 +91,7 @@ public partial class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TR
     [LoggerMessage(
         EventId = 1003,
         Level = LogLevel.Warning,
-        Message = "请求失败 {RequestType} [MessageId={MessageId}, Duration={DurationMs}ms, Error={Error}, CorrelationId={CorrelationId}, ErrorType={ErrorType}]")]
+        Message = "Request failed {RequestType} [MessageId={MessageId}, Duration={DurationMs}ms, Error={Error}, CorrelationId={CorrelationId}, ErrorType={ErrorType}]")]
     partial void LogRequestFailed(
         string requestType,
         string messageId,
@@ -103,7 +103,7 @@ public partial class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TR
     [LoggerMessage(
         EventId = 1004,
         Level = LogLevel.Error,
-        Message = "请求异常 {RequestType} [MessageId={MessageId}, Duration={DurationMs}ms, CorrelationId={CorrelationId}]")]
+        Message = "Request exception {RequestType} [MessageId={MessageId}, Duration={DurationMs}ms, CorrelationId={CorrelationId}]")]
     partial void LogRequestException(
         Exception exception,
         string requestType,

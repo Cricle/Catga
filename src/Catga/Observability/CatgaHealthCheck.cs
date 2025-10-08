@@ -3,7 +3,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 namespace Catga.Observability;
 
 /// <summary>
-/// Catga 框架健康检查
+/// Catga framework health check
 /// </summary>
 public class CatgaHealthCheck : IHealthCheck
 {
@@ -24,13 +24,13 @@ public class CatgaHealthCheck : IHealthCheck
 
         try
         {
-            // 检查 Mediator 是否响应
+            // Check if Mediator is responsive
             if (_options.CheckMediator)
             {
                 data["mediator"] = "healthy";
             }
 
-            // 收集运行时指标
+            // Collect runtime metrics
             if (_options.IncludeMetrics)
             {
                 data["active_requests"] = GetActiveRequests();
@@ -38,7 +38,7 @@ public class CatgaHealthCheck : IHealthCheck
                 data["queued_messages"] = GetQueuedMessages();
             }
 
-            // 检查内存压力
+            // Check memory pressure
             if (_options.CheckMemoryPressure)
             {
                 var memoryInfo = GC.GetGCMemoryInfo();
@@ -48,12 +48,12 @@ public class CatgaHealthCheck : IHealthCheck
                 if (memoryPressure > 0.9)
                 {
                     return Task.FromResult(HealthCheckResult.Degraded(
-                        "高内存压力",
+                        "High memory pressure",
                         data: data));
                 }
             }
 
-            // 检查 GC 压力
+            // Check GC pressure
             if (_options.CheckGCPressure)
             {
                 var gen0 = GC.CollectionCount(0);
@@ -65,13 +65,13 @@ public class CatgaHealthCheck : IHealthCheck
                 data["gc_gen2"] = gen2;
             }
 
-            return Task.FromResult(HealthCheckResult.Healthy("Catga 框架运行正常", data));
+            return Task.FromResult(HealthCheckResult.Healthy("Catga framework running normally", data));
         }
         catch (Exception ex)
         {
             data["error"] = ex.Message;
             return Task.FromResult(HealthCheckResult.Unhealthy(
-                "Catga 框架健康检查失败",
+                "Catga framework health check failed",
                 ex,
                 data));
         }
@@ -98,32 +98,32 @@ public class CatgaHealthCheck : IHealthCheck
 }
 
 /// <summary>
-/// Catga 健康检查配置选项
+/// Catga health check configuration options
 /// </summary>
 public class CatgaHealthCheckOptions
 {
     /// <summary>
-    /// 是否检查 Mediator 响应性
+    /// Whether to check Mediator responsiveness
     /// </summary>
     public bool CheckMediator { get; set; } = true;
 
     /// <summary>
-    /// 是否包含运行时指标
+    /// Whether to include runtime metrics
     /// </summary>
     public bool IncludeMetrics { get; set; } = true;
 
     /// <summary>
-    /// 是否检查内存压力
+    /// Whether to check memory pressure
     /// </summary>
     public bool CheckMemoryPressure { get; set; } = true;
 
     /// <summary>
-    /// 是否检查 GC 压力
+    /// Whether to check GC pressure
     /// </summary>
     public bool CheckGCPressure { get; set; } = true;
 
     /// <summary>
-    /// 健康检查超时时间（秒）
+    /// Health check timeout in seconds
     /// </summary>
     public int TimeoutSeconds { get; set; } = 5;
 }

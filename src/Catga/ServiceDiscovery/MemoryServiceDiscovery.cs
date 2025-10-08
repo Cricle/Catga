@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.ServiceDiscovery;
 
 /// <summary>
-/// 内存服务发现实现（用于测试和单机部署）
+/// In-memory service discovery implementation (for testing and standalone deployments)
 /// </summary>
 public class MemoryServiceDiscovery : IServiceDiscovery
 {
@@ -41,7 +41,7 @@ public class MemoryServiceDiscovery : IServiceDiscovery
         _logger.LogInformation("Service registered: {ServiceId} ({ServiceName}) at {Address}",
             serviceId, options.ServiceName, instance.Address);
 
-        // 通知监听者
+        // Notify watchers
         NotifyWatchers(options.ServiceName, new ServiceChangeEvent(ServiceChangeType.Registered, instance));
 
         return Task.CompletedTask;
@@ -54,7 +54,7 @@ public class MemoryServiceDiscovery : IServiceDiscovery
             _logger.LogInformation("Service deregistered: {ServiceId} ({ServiceName})",
                 serviceId, instance.ServiceName);
 
-            // 通知监听者
+            // Notify watchers
             NotifyWatchers(instance.ServiceName, new ServiceChangeEvent(ServiceChangeType.Deregistered, instance));
         }
 
@@ -119,7 +119,7 @@ public class MemoryServiceDiscovery : IServiceDiscovery
     }
 
     /// <summary>
-    /// 获取所有服务（用于监控）
+    /// Get all services (for monitoring)
     /// </summary>
     public IReadOnlyDictionary<string, ServiceInstance> GetAllServices()
     {

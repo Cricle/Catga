@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Catga\Catga.csproj" />
+    <ProjectReference Include="..\..\src\Catga.InMemory\Catga.InMemory.csproj" />
   </ItemGroup>
 
 </Project>

@@ -32,7 +32,7 @@ public sealed class DistributedIdOptions
     /// <summary>
     /// Get effective layout with custom epoch applied
     /// </summary>
-    internal SnowflakeBitLayout GetEffectiveLayout()
+    public SnowflakeBitLayout GetEffectiveLayout()
     {
         if (CustomEpoch.HasValue)
         {

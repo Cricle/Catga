@@ -9,7 +9,7 @@ namespace Catga.Performance;
 /// Zero-allocation fast paths for common scenarios
 /// Used when no pipeline behaviors are needed
 /// </summary>
-internal static class FastPath
+public static class FastPath
 {
     /// <summary>
     /// Fast path for request without pipeline (zero allocation)

@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Catga\Catga.csproj" />
+    <ProjectReference Include="..\..\src\Catga.InMemory\Catga.InMemory.csproj" />
     <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />

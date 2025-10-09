@@ -132,7 +132,7 @@ public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent>
 public class MyHandler : IRequestHandler<MyCommand, MyResponse>
 {
     private readonly ICircuitBreaker _circuitBreaker;
-    
+
     public async ValueTask<MyResponse> Handle(MyCommand cmd, CancellationToken ct)
     {
         return await _circuitBreaker.ExecuteAsync(async () =>

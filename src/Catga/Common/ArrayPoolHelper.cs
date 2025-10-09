@@ -7,7 +7,7 @@ namespace Catga.Common;
 /// ArrayPool helper for managing array rentals with automatic cleanup
 /// Reduces code duplication and provides safe resource management
 /// </summary>
-internal static class ArrayPoolHelper
+public static class ArrayPoolHelper
 {
     private const int DefaultThreshold = 16;
 
@@ -39,7 +39,7 @@ internal static class ArrayPoolHelper
 /// Ensures arrays are properly returned to pool when done
 /// </summary>
 /// <typeparam name="T">Array element type</typeparam>
-internal readonly struct RentedArray<T> : IDisposable
+public readonly struct RentedArray<T> : IDisposable
 {
     private readonly T[] _array;
     private readonly int _count;

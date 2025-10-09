@@ -5,6 +5,17 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 namespace Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
+/// Catga health check configuration options
+/// </summary>
+public class CatgaHealthCheckOptions
+{
+    /// <summary>
+    /// Timeout in seconds for health checks
+    /// </summary>
+    public int TimeoutSeconds { get; set; } = 5;
+}
+
+/// <summary>
 /// Catga observability extension methods
 /// </summary>
 public static class CatgaObservabilityExtensions

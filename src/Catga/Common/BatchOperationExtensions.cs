@@ -6,7 +6,7 @@ namespace Catga.Common;
 /// Extensions for batch operations with common patterns
 /// Reduces code duplication for batch processing scenarios
 /// </summary>
-internal static class BatchOperationExtensions
+public static class BatchOperationExtensions
 {
     private const int DefaultArrayPoolThreshold = 16;
 

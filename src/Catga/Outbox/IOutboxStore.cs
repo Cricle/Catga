@@ -1,19 +1,25 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Catga.Outbox;
 
 /// <summary>
-/// Outbox store for reliable message publishing (100% AOT compatible)
-/// Ensures atomicity between business transaction and message publishing
+/// Outbox store for reliable message publishing
+/// Note: Some implementations may require dynamic code/reflection for serialization
 /// </summary>
 public interface IOutboxStore
 {
     /// <summary>
     /// Add a message to the outbox (within the same transaction)
     /// </summary>
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
+    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public Task AddAsync(OutboxMessage message, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get pending messages ready to be published
     /// </summary>
+    [RequiresDynamicCode("JSON deserialization may require dynamic code generation")]
+    [RequiresUnreferencedCode("JSON deserialization may require unreferenced code")]
     public Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
         int maxCount = 100,
         CancellationToken cancellationToken = default);
@@ -21,11 +27,15 @@ public interface IOutboxStore
     /// <summary>
     /// Mark message as published successfully
     /// </summary>
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
+    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public Task MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Mark message as failed and increment retry count
     /// </summary>
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
+    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public Task MarkAsFailedAsync(
         string messageId,
         string errorMessage,
@@ -34,6 +44,8 @@ public interface IOutboxStore
     /// <summary>
     /// Delete old published messages (cleanup)
     /// </summary>
+    [RequiresDynamicCode("JSON deserialization may require dynamic code generation")]
+    [RequiresUnreferencedCode("JSON deserialization may require unreferenced code")]
     public Task DeletePublishedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default);

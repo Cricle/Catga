@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Composition;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,8 +14,11 @@ namespace Catga.Analyzers;
 
 /// <summary>
 /// Code fix provider for Catga analyzer diagnostics
+/// CodeFixProvider requires Workspaces dependency which is expected
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(CatgaCodeFixProvider)), Shared]
+[SuppressMessage("MicrosoftCodeAnalysisCorrectness", "RS1038:Compiler extensions should be implemented in assemblies with compiler-provided references", 
+    Justification = "CodeFixProvider requires Workspaces which is a valid dependency for code fix providers")]
 public class CatgaCodeFixProvider : CodeFixProvider
 {
     public sealed override ImmutableArray<string> FixableDiagnosticIds =>

@@ -92,6 +92,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         return messages;
     }
 
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
     [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public async Task MarkAsPublishedAsync(
         string messageId,
@@ -115,6 +116,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         }
     }
 
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
     [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public async Task MarkAsFailedAsync(
         string messageId,
@@ -145,6 +147,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         }
     }
 
+    [RequiresDynamicCode("JSON deserialization may require dynamic code generation")]
     [RequiresUnreferencedCode("JSON deserialization may require unreferenced code")]
     public async Task DeletePublishedMessagesAsync(
         TimeSpan retentionPeriod,

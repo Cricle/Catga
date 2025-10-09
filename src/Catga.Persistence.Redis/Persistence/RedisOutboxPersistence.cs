@@ -44,6 +44,8 @@ public class RedisOutboxPersistence : IOutboxStore
         _pendingSetKey = $"{_keyPrefix}:pending";
     }
 
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
+    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public async Task AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
@@ -79,6 +81,8 @@ public class RedisOutboxPersistence : IOutboxStore
         }
     }
 
+    [RequiresDynamicCode("JSON deserialization may require dynamic code generation")]
+    [RequiresUnreferencedCode("JSON deserialization may require unreferenced code")]
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public async Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
@@ -126,6 +130,8 @@ public class RedisOutboxPersistence : IOutboxStore
         return messages;
     }
 
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
+    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public async Task MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)
@@ -163,6 +169,8 @@ public class RedisOutboxPersistence : IOutboxStore
         _logger.LogDebug("Marked message {MessageId} as published", messageId);
     }
 
+    [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
+    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public async Task MarkAsFailedAsync(
@@ -210,6 +218,8 @@ public class RedisOutboxPersistence : IOutboxStore
         }
     }
 
+    [RequiresDynamicCode("JSON deserialization may require dynamic code generation")]
+    [RequiresUnreferencedCode("JSON deserialization may require unreferenced code")]
     public async Task DeletePublishedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)

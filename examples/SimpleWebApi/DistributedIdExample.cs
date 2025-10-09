@@ -1,5 +1,6 @@
 using Catga.DistributedId;
 using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SimpleWebApi;
 
@@ -8,6 +9,10 @@ namespace SimpleWebApi;
 /// </summary>
 public static class DistributedIdExample
 {
+    [UnconditionalSuppressMessage("Trimming", "IL2026:RequiresUnreferencedCode",
+        Justification = "OpenAPI generation is optional and not required for production AOT scenarios")]
+    [UnconditionalSuppressMessage("AOT", "IL3050:RequiresDynamicCode",
+        Justification = "OpenAPI generation is optional and not required for production AOT scenarios")]
     public static void MapDistributedIdEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/distributed-id")

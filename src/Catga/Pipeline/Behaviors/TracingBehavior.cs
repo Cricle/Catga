@@ -12,6 +12,12 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
     where TRequest : IRequest<TResponse>
 {
     private static readonly ActivitySource ActivitySource = new("Catga", "1.0.0");
+    private readonly CatgaMetrics? _metrics;
+
+    public TracingBehavior(CatgaMetrics? metrics = null)
+    {
+        _metrics = metrics;
+    }
 
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
@@ -38,30 +44,21 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         activity?.SetTag("catga.response_type", typeof(TResponse).FullName);
         activity?.SetTag("catga.timestamp", request.CreatedAt);
 
-        // Record metric: request start
-        var metricTags = new Dictionary<string, object?>
-        {
-            ["message.type"] = requestType
-        };
-        // TODO: Integrate with CatgaMetrics instance
-        // CatgaMetrics.RecordRequestStart(requestType, metricTags);
-
         try
         {
             var result = await next();
-            var duration = Diagnostics.GetElapsedTime(startTime).TotalMilliseconds;
+            var duration = Diagnostics.GetElapsedTime(startTime);
 
             // Update tracing status
             activity?.SetTag("catga.success", result.IsSuccess);
-            activity?.SetTag("catga.duration_ms", duration);
+            activity?.SetTag("catga.duration_ms", duration.TotalMilliseconds);
+
+            // Record metrics
+            _metrics?.RecordRequest(result.IsSuccess, duration);
 
             if (result.IsSuccess)
             {
                 activity?.SetStatus(ActivityStatusCode.Ok);
-
-                // Record metric: success
-                // TODO: Integrate with CatgaMetrics instance
-                // CatgaMetrics.RecordRequestSuccess(requestType, duration, metricTags);
             }
             else
             {
@@ -82,25 +79,20 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                             ["exception.message"] = result.Exception.Message
                         }));
                 }
-
-                // Record metric: failure
-                // TODO: Integrate with CatgaMetrics instance
-                // var errorType = result.Exception?.GetType().Name ?? "UnknownError";
-                // CatgaMetrics.RecordRequestFailure(requestType, errorType, duration, metricTags);
             }
 
             return result;
         }
         catch (Exception ex)
         {
-            var duration = Diagnostics.GetElapsedTime(startTime).TotalMilliseconds;
+            var duration = Diagnostics.GetElapsedTime(startTime);
 
             // Update tracing status
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.SetTag("exception.type", ex.GetType().FullName);
             activity?.SetTag("exception.message", ex.Message);
             activity?.SetTag("exception.stacktrace", ex.StackTrace);
-            activity?.SetTag("catga.duration_ms", duration);
+            activity?.SetTag("catga.duration_ms", duration.TotalMilliseconds);
 
             // Record exception event
             activity?.AddEvent(new ActivityEvent("exception",
@@ -112,8 +104,7 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                 }));
 
             // Record metric: failure
-            // TODO: Integrate with CatgaMetrics instance
-            // CatgaMetrics.RecordRequestFailure(requestType, ex.GetType().Name, duration, metricTags);
+            _metrics?.RecordRequest(false, duration);
 
             throw;
         }

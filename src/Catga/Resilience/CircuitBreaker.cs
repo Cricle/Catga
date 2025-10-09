@@ -13,6 +13,12 @@ public sealed class CircuitBreaker
     private long _lastFailureTimeTicks;
     private long _openedAtTicks;
 
+    // Observability: Track metrics
+    private long _totalCalls;
+    private long _successfulCalls;
+    private long _failedCalls;
+    private long _rejectedCalls;
+
     public CircuitBreaker(int failureThreshold = 5, TimeSpan? resetTimeout = null)
     {
         _failureThreshold = failureThreshold;
@@ -44,11 +50,63 @@ public sealed class CircuitBreaker
 
     public long FailureCount => Interlocked.Read(ref _failureCount);
 
+    // Observability: Monitoring properties
+    /// <summary>
+    /// Total number of calls attempted
+    /// </summary>
+    public long TotalCalls => Interlocked.Read(ref _totalCalls);
+
+    /// <summary>
+    /// Number of successful calls
+    /// </summary>
+    public long SuccessfulCalls => Interlocked.Read(ref _successfulCalls);
+
+    /// <summary>
+    /// Number of failed calls
+    /// </summary>
+    public long FailedCalls => Interlocked.Read(ref _failedCalls);
+
+    /// <summary>
+    /// Number of rejected calls (circuit open)
+    /// </summary>
+    public long RejectedCalls => Interlocked.Read(ref _rejectedCalls);
+
+    /// <summary>
+    /// Success rate (0.0 to 1.0)
+    /// </summary>
+    public double SuccessRate
+    {
+        get
+        {
+            var total = TotalCalls - RejectedCalls; // Exclude rejected
+            return total > 0 ? SuccessfulCalls / (double)total : 0.0;
+        }
+    }
+
+    /// <summary>
+    /// Rejection rate (0.0 to 1.0)
+    /// </summary>
+    public double RejectionRate
+    {
+        get
+        {
+            var total = TotalCalls;
+            return total > 0 ? RejectedCalls / (double)total : 0.0;
+        }
+    }
+
     public async Task<T> ExecuteAsync<T>(Func<Task<T>> action)
     {
+        // Observability: Track total calls
+        Interlocked.Increment(ref _totalCalls);
+
         // Fast path - avoid complex state checks
         if (State == CircuitState.Open)
+        {
+            // Observability: Track rejections
+            Interlocked.Increment(ref _rejectedCalls);
             throw new CircuitBreakerOpenException("Circuit breaker is open");
+        }
 
         try
         {
@@ -65,6 +123,9 @@ public sealed class CircuitBreaker
 
     private void OnSuccess()
     {
+        // Observability: Track success
+        Interlocked.Increment(ref _successfulCalls);
+
         // P1 Optimization: Use Volatile.Read instead of CAS for read-only operation
         var currentState = (CircuitState)Volatile.Read(ref _state);
 
@@ -79,6 +140,9 @@ public sealed class CircuitBreaker
 
     private void OnFailure()
     {
+        // Observability: Track failure
+        Interlocked.Increment(ref _failedCalls);
+
         var newCount = Interlocked.Increment(ref _failureCount);
         Interlocked.Exchange(ref _lastFailureTimeTicks, DateTime.UtcNow.Ticks);
 

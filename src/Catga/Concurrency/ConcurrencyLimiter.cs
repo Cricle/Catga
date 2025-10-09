@@ -10,6 +10,11 @@ public sealed class ConcurrencyLimiter : IDisposable
     private long _currentCount;
     private long _rejectedCount;
 
+    // Observability: Track metrics
+    private long _totalExecutions;
+    private long _successfulExecutions;
+    private long _failedExecutions;
+
     public ConcurrencyLimiter(int maxConcurrency)
     {
         if (maxConcurrency <= 0)
@@ -24,6 +29,39 @@ public sealed class ConcurrencyLimiter : IDisposable
     public int MaxConcurrency => _maxConcurrency;
     public int AvailableSlots => _semaphore.CurrentCount;
 
+    // Observability: Monitoring properties
+    /// <summary>
+    /// Total number of executions attempted
+    /// </summary>
+    public long TotalExecutions => Interlocked.Read(ref _totalExecutions);
+
+    /// <summary>
+    /// Number of successful executions
+    /// </summary>
+    public long SuccessfulExecutions => Interlocked.Read(ref _successfulExecutions);
+
+    /// <summary>
+    /// Number of failed executions
+    /// </summary>
+    public long FailedExecutions => Interlocked.Read(ref _failedExecutions);
+
+    /// <summary>
+    /// Success rate (0.0 to 1.0)
+    /// </summary>
+    public double SuccessRate
+    {
+        get
+        {
+            var total = TotalExecutions - RejectedCount; // Exclude rejected
+            return total > 0 ? SuccessfulExecutions / (double)total : 0.0;
+        }
+    }
+
+    /// <summary>
+    /// Utilization rate (0.0 to 1.0)
+    /// </summary>
+    public double UtilizationRate => 1.0 - (AvailableSlots / (double)_maxConcurrency);
+
     /// <summary>
     /// Execute action with concurrency limit (non-blocking async)
     /// P1 Optimization: Ensure counter is incremented atomically with semaphore acquisition
@@ -33,6 +71,9 @@ public sealed class ConcurrencyLimiter : IDisposable
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
+        // Observability: Track total executions
+        Interlocked.Increment(ref _totalExecutions);
+
         // P1: Track active count accurately using semaphore state
         // CurrentCount = MaxConcurrency - AvailableSlots
         var activeBefore = _maxConcurrency - _semaphore.CurrentCount;
@@ -52,7 +93,16 @@ public sealed class ConcurrencyLimiter : IDisposable
 
         try
         {
-            return await action();
+            var result = await action();
+            // Observability: Track success
+            Interlocked.Increment(ref _successfulExecutions);
+            return result;
+        }
+        catch
+        {
+            // Observability: Track failure
+            Interlocked.Increment(ref _failedExecutions);
+            throw;
         }
         finally
         {

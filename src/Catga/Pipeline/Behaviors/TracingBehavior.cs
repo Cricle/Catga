@@ -43,7 +43,8 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         {
             ["message.type"] = requestType
         };
-        CatgaMetrics.RecordRequestStart(requestType, metricTags);
+        // TODO: Integrate with CatgaMetrics instance
+        // CatgaMetrics.RecordRequestStart(requestType, metricTags);
 
         try
         {
@@ -59,7 +60,8 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                 activity?.SetStatus(ActivityStatusCode.Ok);
 
                 // Record metric: success
-                CatgaMetrics.RecordRequestSuccess(requestType, duration, metricTags);
+                // TODO: Integrate with CatgaMetrics instance
+                // CatgaMetrics.RecordRequestSuccess(requestType, duration, metricTags);
             }
             else
             {
@@ -82,8 +84,9 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                 }
 
                 // Record metric: failure
-                var errorType = result.Exception?.GetType().Name ?? "UnknownError";
-                CatgaMetrics.RecordRequestFailure(requestType, errorType, duration, metricTags);
+                // TODO: Integrate with CatgaMetrics instance
+                // var errorType = result.Exception?.GetType().Name ?? "UnknownError";
+                // CatgaMetrics.RecordRequestFailure(requestType, errorType, duration, metricTags);
             }
 
             return result;
@@ -109,7 +112,8 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                 }));
 
             // Record metric: failure
-            CatgaMetrics.RecordRequestFailure(requestType, ex.GetType().Name, duration, metricTags);
+            // TODO: Integrate with CatgaMetrics instance
+            // CatgaMetrics.RecordRequestFailure(requestType, ex.GetType().Name, duration, metricTags);
 
             throw;
         }

@@ -1,209 +1,245 @@
 using System.Diagnostics;
-using System.Diagnostics.Metrics;
 
 namespace Catga.Observability;
 
 /// <summary>
-/// Catga framework metrics collector (based on OpenTelemetry Metrics)
+/// Catga performance metrics for monitoring and diagnostics
+/// Thread-safe, lock-free implementation using Interlocked operations
 /// </summary>
-public sealed class CatgaMetrics : IDisposable
+public sealed class CatgaMetrics
 {
-    private static readonly Meter Meter = new("Catga", "1.0.0");
+    // Request metrics
+    private long _totalRequests;
+    private long _successfulRequests;
+    private long _failedRequests;
+    private long _totalRequestDurationTicks;
 
-    // Counters
-    private static readonly Counter<long> RequestsTotal = Meter.CreateCounter<long>(
-        "catga.requests.total",
-        description: "Total number of requests");
+    // Event metrics
+    private long _totalEvents;
+    private long _totalEventHandlers;
 
-    private static readonly Counter<long> RequestsSucceeded = Meter.CreateCounter<long>(
-        "catga.requests.succeeded",
-        description: "Number of successful requests");
+    // Batch metrics
+    private long _totalBatchRequests;
+    private long _totalBatchEvents;
 
-    private static readonly Counter<long> RequestsFailed = Meter.CreateCounter<long>(
-        "catga.requests.failed",
-        description: "Number of failed requests");
-
-    private static readonly Counter<long> EventsPublished = Meter.CreateCounter<long>(
-        "catga.events.published",
-        description: "Number of published events");
-
-    private static readonly Counter<long> RetryAttempts = Meter.CreateCounter<long>(
-        "catga.retry.attempts",
-        description: "Number of retry attempts");
-
-    private static readonly Counter<long> CircuitBreakerOpened = Meter.CreateCounter<long>(
-        "catga.circuit_breaker.opened",
-        description: "Number of times circuit breaker opened");
-
-    private static readonly Counter<long> IdempotentRequestsSkipped = Meter.CreateCounter<long>(
-        "catga.idempotency.skipped",
-        description: "Number of requests skipped due to idempotency");
-
-    // Histograms
-    private static readonly Histogram<double> RequestDuration = Meter.CreateHistogram<double>(
-        "catga.request.duration",
-        unit: "ms",
-        description: "Request processing duration");
-
-    private static readonly Histogram<double> EventHandlingDuration = Meter.CreateHistogram<double>(
-        "catga.event.handling_duration",
-        unit: "ms",
-        description: "Event handling duration");
-
-    private static readonly Histogram<double> SagaDuration = Meter.CreateHistogram<double>(
-        "catga.saga.duration",
-        unit: "ms",
-        description: "Saga execution duration");
-
-    // Gauges - using ObservableGauge
-    private static long _activeRequests;
-    private static long _activeSagas;
-    private static long _queuedMessages;
-
-    private static readonly ObservableGauge<long> ActiveRequests = Meter.CreateObservableGauge(
-        "catga.requests.active",
-        () => Interlocked.Read(ref _activeRequests),
-        description: "Number of active requests");
-
-    private static readonly ObservableGauge<long> ActiveSagas = Meter.CreateObservableGauge(
-        "catga.sagas.active",
-        () => Interlocked.Read(ref _activeSagas),
-        description: "Number of active sagas");
-
-    private static readonly ObservableGauge<long> QueuedMessages = Meter.CreateObservableGauge(
-        "catga.messages.queued",
-        () => Interlocked.Read(ref _queuedMessages),
-        description: "Number of queued messages");
+    // Resilience metrics
+    private long _rateLimitedRequests;
+    private long _concurrencyLimitedRequests;
+    private long _circuitBreakerOpenRequests;
 
     /// <summary>
-    /// Record request start
+    /// Total number of requests processed
     /// </summary>
-    public static void RecordRequestStart(string requestType, IDictionary<string, object?>? tags = null)
-    {
-        Interlocked.Increment(ref _activeRequests);
-        RequestsTotal.Add(1, CreateTagList(requestType, tags));
-    }
+    public long TotalRequests => Interlocked.Read(ref _totalRequests);
 
     /// <summary>
-    /// Record request success
+    /// Number of successful requests
     /// </summary>
-    public static void RecordRequestSuccess(string requestType, double durationMs, IDictionary<string, object?>? tags = null)
-    {
-        Interlocked.Decrement(ref _activeRequests);
-        RequestsSucceeded.Add(1, CreateTagList(requestType, tags));
-        RequestDuration.Record(durationMs, CreateTagList(requestType, tags));
-    }
+    public long SuccessfulRequests => Interlocked.Read(ref _successfulRequests);
 
     /// <summary>
-    /// Record request failure
+    /// Number of failed requests
     /// </summary>
-    public static void RecordRequestFailure(string requestType, string errorType, double durationMs, IDictionary<string, object?>? tags = null)
-    {
-        Interlocked.Decrement(ref _activeRequests);
-        var tagList = CreateTagList(requestType, tags);
-        tagList.Add("error.type", errorType);
-
-        RequestsFailed.Add(1, tagList);
-        RequestDuration.Record(durationMs, tagList);
-    }
+    public long FailedRequests => Interlocked.Read(ref _failedRequests);
 
     /// <summary>
-    /// Record event published
+    /// Success rate (0.0 to 1.0)
     /// </summary>
-    public static void RecordEventPublished(string eventType, IDictionary<string, object?>? tags = null)
+    public double SuccessRate
     {
-        EventsPublished.Add(1, CreateTagList(eventType, tags));
-    }
-
-    /// <summary>
-    /// Record event handling
-    /// </summary>
-    public static void RecordEventHandling(string eventType, double durationMs, bool success, IDictionary<string, object?>? tags = null)
-    {
-        var tagList = CreateTagList(eventType, tags);
-        tagList.Add("success", success);
-        EventHandlingDuration.Record(durationMs, tagList);
-    }
-
-    /// <summary>
-    /// Record retry attempt
-    /// </summary>
-    public static void RecordRetryAttempt(string requestType, int attemptNumber, IDictionary<string, object?>? tags = null)
-    {
-        var tagList = CreateTagList(requestType, tags);
-        tagList.Add("attempt", attemptNumber);
-        RetryAttempts.Add(1, tagList);
-    }
-
-    /// <summary>
-    /// Record circuit breaker opened
-    /// </summary>
-    public static void RecordCircuitBreakerOpened(string circuitName, IDictionary<string, object?>? tags = null)
-    {
-        var tagList = new TagList { { "circuit.name", circuitName } };
-        if (tags != null)
+        get
         {
-            foreach (var tag in tags)
-                tagList.Add(tag.Key, tag.Value);
+            var total = TotalRequests;
+            return total > 0 ? SuccessfulRequests / (double)total : 0.0;
         }
-        CircuitBreakerOpened.Add(1, tagList);
     }
 
     /// <summary>
-    /// Record idempotent request skipped
+    /// Average request duration in milliseconds
     /// </summary>
-    public static void RecordIdempotentSkipped(string requestType, IDictionary<string, object?>? tags = null)
+    public double AverageRequestDurationMs
     {
-        IdempotentRequestsSkipped.Add(1, CreateTagList(requestType, tags));
-    }
-
-    /// <summary>
-    /// Record saga start
-    /// </summary>
-    public static void RecordSagaStart(string sagaType)
-    {
-        Interlocked.Increment(ref _activeSagas);
-    }
-
-    /// <summary>
-    /// Record saga complete
-    /// </summary>
-    public static void RecordSagaComplete(string sagaType, double durationMs, bool success, bool compensated = false)
-    {
-        Interlocked.Decrement(ref _activeSagas);
-        var tags = new TagList
+        get
         {
-            { "saga.type", sagaType },
-            { "success", success },
-            { "compensated", compensated }
+            var total = TotalRequests;
+            if (total == 0) return 0.0;
+            var totalTicks = Interlocked.Read(ref _totalRequestDurationTicks);
+            return TimeSpan.FromTicks(totalTicks / total).TotalMilliseconds;
+        }
+    }
+
+    /// <summary>
+    /// Total number of events published
+    /// </summary>
+    public long TotalEvents => Interlocked.Read(ref _totalEvents);
+
+    /// <summary>
+    /// Total number of event handlers executed
+    /// </summary>
+    public long TotalEventHandlers => Interlocked.Read(ref _totalEventHandlers);
+
+    /// <summary>
+    /// Average event handlers per event
+    /// </summary>
+    public double AverageHandlersPerEvent
+    {
+        get
+        {
+            var events = TotalEvents;
+            return events > 0 ? TotalEventHandlers / (double)events : 0.0;
+        }
+    }
+
+    /// <summary>
+    /// Total batch requests processed
+    /// </summary>
+    public long TotalBatchRequests => Interlocked.Read(ref _totalBatchRequests);
+
+    /// <summary>
+    /// Total batch events published
+    /// </summary>
+    public long TotalBatchEvents => Interlocked.Read(ref _totalBatchEvents);
+
+    /// <summary>
+    /// Requests rejected by rate limiter
+    /// </summary>
+    public long RateLimitedRequests => Interlocked.Read(ref _rateLimitedRequests);
+
+    /// <summary>
+    /// Requests rejected by concurrency limiter
+    /// </summary>
+    public long ConcurrencyLimitedRequests => Interlocked.Read(ref _concurrencyLimitedRequests);
+
+    /// <summary>
+    /// Requests rejected by circuit breaker
+    /// </summary>
+    public long CircuitBreakerOpenRequests => Interlocked.Read(ref _circuitBreakerOpenRequests);
+
+    /// <summary>
+    /// Total resilience rejections
+    /// </summary>
+    public long TotalResilienceRejections =>
+        RateLimitedRequests + ConcurrencyLimitedRequests + CircuitBreakerOpenRequests;
+
+    /// <summary>
+    /// Resilience rejection rate (0.0 to 1.0)
+    /// </summary>
+    public double ResilienceRejectionRate
+    {
+        get
+        {
+            var total = TotalRequests;
+            return total > 0 ? TotalResilienceRejections / (double)total : 0.0;
+        }
+    }
+
+    // Internal tracking methods
+    internal void RecordRequest(bool success, TimeSpan duration)
+    {
+        Interlocked.Increment(ref _totalRequests);
+        if (success)
+            Interlocked.Increment(ref _successfulRequests);
+        else
+            Interlocked.Increment(ref _failedRequests);
+
+        Interlocked.Add(ref _totalRequestDurationTicks, duration.Ticks);
+    }
+
+    internal void RecordEvent(int handlerCount)
+    {
+        Interlocked.Increment(ref _totalEvents);
+        Interlocked.Add(ref _totalEventHandlers, handlerCount);
+    }
+
+    internal void RecordBatchRequest(int count)
+    {
+        Interlocked.Add(ref _totalBatchRequests, count);
+    }
+
+    internal void RecordBatchEvent(int count)
+    {
+        Interlocked.Add(ref _totalBatchEvents, count);
+    }
+
+    internal void RecordRateLimited()
+    {
+        Interlocked.Increment(ref _rateLimitedRequests);
+    }
+
+    internal void RecordConcurrencyLimited()
+    {
+        Interlocked.Increment(ref _concurrencyLimitedRequests);
+    }
+
+    internal void RecordCircuitBreakerOpen()
+    {
+        Interlocked.Increment(ref _circuitBreakerOpenRequests);
+    }
+
+    /// <summary>
+    /// Reset all metrics (for testing or periodic reset)
+    /// </summary>
+    public void Reset()
+    {
+        Interlocked.Exchange(ref _totalRequests, 0);
+        Interlocked.Exchange(ref _successfulRequests, 0);
+        Interlocked.Exchange(ref _failedRequests, 0);
+        Interlocked.Exchange(ref _totalRequestDurationTicks, 0);
+        Interlocked.Exchange(ref _totalEvents, 0);
+        Interlocked.Exchange(ref _totalEventHandlers, 0);
+        Interlocked.Exchange(ref _totalBatchRequests, 0);
+        Interlocked.Exchange(ref _totalBatchEvents, 0);
+        Interlocked.Exchange(ref _rateLimitedRequests, 0);
+        Interlocked.Exchange(ref _concurrencyLimitedRequests, 0);
+        Interlocked.Exchange(ref _circuitBreakerOpenRequests, 0);
+    }
+
+    /// <summary>
+    /// Get a snapshot of current metrics
+    /// </summary>
+    public CatgaMetricsSnapshot GetSnapshot()
+    {
+        return new CatgaMetricsSnapshot
+        {
+            TotalRequests = TotalRequests,
+            SuccessfulRequests = SuccessfulRequests,
+            FailedRequests = FailedRequests,
+            SuccessRate = SuccessRate,
+            AverageRequestDurationMs = AverageRequestDurationMs,
+            TotalEvents = TotalEvents,
+            TotalEventHandlers = TotalEventHandlers,
+            AverageHandlersPerEvent = AverageHandlersPerEvent,
+            TotalBatchRequests = TotalBatchRequests,
+            TotalBatchEvents = TotalBatchEvents,
+            RateLimitedRequests = RateLimitedRequests,
+            ConcurrencyLimitedRequests = ConcurrencyLimitedRequests,
+            CircuitBreakerOpenRequests = CircuitBreakerOpenRequests,
+            TotalResilienceRejections = TotalResilienceRejections,
+            ResilienceRejectionRate = ResilienceRejectionRate,
+            Timestamp = DateTime.UtcNow
         };
-        SagaDuration.Record(durationMs, tags);
-    }
-
-    /// <summary>
-    /// Update queued messages count
-    /// </summary>
-    public static void UpdateQueuedMessages(long count)
-    {
-        Interlocked.Exchange(ref _queuedMessages, count);
-    }
-
-    private static TagList CreateTagList(string operationType, IDictionary<string, object?>? additionalTags = null)
-    {
-        var tags = new TagList { { "operation.type", operationType } };
-
-        if (additionalTags != null)
-        {
-            foreach (var tag in additionalTags)
-                tags.Add(tag.Key, tag.Value);
-        }
-
-        return tags;
-    }
-
-    public void Dispose()
-    {
-        Meter.Dispose();
     }
 }
 
+/// <summary>
+/// Immutable snapshot of Catga metrics at a point in time
+/// </summary>
+public sealed class CatgaMetricsSnapshot
+{
+    public long TotalRequests { get; init; }
+    public long SuccessfulRequests { get; init; }
+    public long FailedRequests { get; init; }
+    public double SuccessRate { get; init; }
+    public double AverageRequestDurationMs { get; init; }
+    public long TotalEvents { get; init; }
+    public long TotalEventHandlers { get; init; }
+    public double AverageHandlersPerEvent { get; init; }
+    public long TotalBatchRequests { get; init; }
+    public long TotalBatchEvents { get; init; }
+    public long RateLimitedRequests { get; init; }
+    public long ConcurrencyLimitedRequests { get; init; }
+    public long CircuitBreakerOpenRequests { get; init; }
+    public long TotalResilienceRejections { get; init; }
+    public double ResilienceRejectionRate { get; init; }
+    public DateTime Timestamp { get; init; }
+}

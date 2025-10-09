@@ -11,7 +11,7 @@ namespace Catga.Performance;
 /// - L2 (Shared): ConcurrentDictionary for cross-thread sharing
 /// - L3 (Global): IServiceProvider for first-time resolution
 /// </summary>
-internal sealed class HandlerCache
+public sealed class HandlerCache
 {
     private readonly IServiceProvider _serviceProvider;
 

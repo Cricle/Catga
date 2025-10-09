@@ -29,8 +29,9 @@ public sealed class CatgaHealthCheck : IHealthCheck
         {
             var stats = _handlerCache.GetStatistics();
             data["handler_cache_total_requests"] = stats.TotalRequests;
-            data["handler_cache_hits"] = stats.CacheHits;
-            data["handler_cache_misses"] = stats.CacheMisses;
+            data["handler_cache_thread_local_hits"] = stats.ThreadLocalHits;
+            data["handler_cache_shared_hits"] = stats.SharedCacheHits;
+            data["handler_cache_service_provider_calls"] = stats.ServiceProviderCalls;
             data["handler_cache_hit_rate"] = stats.HitRate;
         }
 
@@ -38,10 +39,10 @@ public sealed class CatgaHealthCheck : IHealthCheck
         if (_metrics != null)
         {
             var snapshot = _metrics.GetSnapshot();
-            data["requests_total"] = snapshot.RequestsTotal;
-            data["requests_success"] = snapshot.RequestsSuccess;
-            data["requests_failed"] = snapshot.RequestsFailed;
-            data["events_published"] = snapshot.EventsPublished;
+            data["requests_total"] = snapshot.TotalRequests;
+            data["requests_success"] = snapshot.SuccessfulRequests;
+            data["requests_failed"] = snapshot.FailedRequests;
+            data["events_published"] = snapshot.TotalEvents;
         }
 
         data["status"] = "running";

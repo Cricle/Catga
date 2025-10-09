@@ -35,6 +35,9 @@ public class CatgaOptions
     public bool EnableDeadLetterQueue { get; set; } = true;
     public int DeadLetterQueueMaxSize { get; set; } = 1000;
 
+    // === Thread Pool ===
+    public ThreadPoolOptions ThreadPool { get; set; } = new();
+
     // === Quick Presets ===
 
     /// <summary>

@@ -28,6 +28,9 @@ public static class CatgaServiceCollectionExtensions
         var options = new CatgaOptions();
         configureOptions?.Invoke(options);
 
+        // Apply thread pool settings
+        ThreadPoolHelper.ApplyThreadPoolSettings(options.ThreadPool);
+
         services.AddSingleton(options);
         services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
 
@@ -283,4 +286,28 @@ public class InboxOptions
     /// Message retention period (default: 24 hours)
     /// </summary>
     public TimeSpan RetentionPeriod { get; set; } = TimeSpan.FromHours(24);
+}
+
+/// <summary>
+/// Internal helper to apply thread pool settings
+/// </summary>
+internal static class ThreadPoolHelper
+{
+    public static void ApplyThreadPoolSettings(ThreadPoolOptions options)
+    {
+        if (options.MinWorkerThreads > 0 || options.MinIOThreads > 0)
+        {
+            ThreadPool.GetMinThreads(out var currentWorker, out var currentIO);
+            
+            var newWorker = options.MinWorkerThreads > 0 
+                ? Math.Max(currentWorker, options.MinWorkerThreads)
+                : currentWorker;
+                
+            var newIO = options.MinIOThreads > 0
+                ? Math.Max(currentIO, options.MinIOThreads)
+                : currentIO;
+
+            ThreadPool.SetMinThreads(newWorker, newIO);
+        }
+    }
 }

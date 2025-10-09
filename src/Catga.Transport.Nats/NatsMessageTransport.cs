@@ -17,6 +17,10 @@ public class NatsMessageTransport : IMessageTransport
     private readonly string _subjectPrefix;
 
     public string Name => "NATS";
+    
+    public BatchTransportOptions? BatchOptions => null;  // NATS handles batching internally
+    
+    public CompressionTransportOptions? CompressionOptions => null;  // Compression handled at NATS level
 
     public NatsMessageTransport(
         INatsConnection connection,
@@ -133,6 +137,34 @@ public class NatsMessageTransport : IMessageTransport
                 _logger.LogError(ex, "Error processing message from subject {Subject}", subject);
             }
         }
+    }
+
+    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
+    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
+    public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
+        IEnumerable<TMessage> messages,
+        TransportContext? context = null,
+        CancellationToken cancellationToken = default)
+        where TMessage : class
+    {
+        // NATS doesn't have native batch support, publish each message individually
+        foreach (var message in messages)
+        {
+            await PublishAsync(message, context, cancellationToken);
+        }
+    }
+
+    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
+    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
+    public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
+        IEnumerable<TMessage> messages,
+        string destination,
+        TransportContext? context = null,
+        CancellationToken cancellationToken = default)
+        where TMessage : class
+    {
+        // For NATS, Send and Publish are the same (pub/sub model)
+        return PublishBatchAsync(messages, context, cancellationToken);
     }
 
     private string GetSubject(Type messageType)

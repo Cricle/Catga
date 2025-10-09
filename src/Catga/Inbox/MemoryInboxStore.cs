@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Catga.Common;
 
 namespace Catga.Inbox;
@@ -7,10 +6,8 @@ namespace Catga.Inbox;
 /// In-memory inbox store implementation (100% AOT compatible)
 /// Suitable for development and testing
 /// </summary>
-public class MemoryInboxStore : IInboxStore
+public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
 {
-    private readonly ConcurrentDictionary<string, InboxMessage> _messages = new();
-    private readonly SemaphoreSlim _lock = new(1, 1);
 
     /// <inheritdoc/>
     public Task<bool> TryLockMessageAsync(
@@ -21,7 +18,7 @@ public class MemoryInboxStore : IInboxStore
         MessageHelper.ValidateMessageId(messageId, nameof(messageId));
 
         // If message already exists
-        if (_messages.TryGetValue(messageId, out var existingMessage))
+        if (TryGetMessage(messageId, out var existingMessage))
         {
             // Already processed, cannot lock again
             if (existingMessage.Status == InboxStatus.Processed)
@@ -51,7 +48,7 @@ public class MemoryInboxStore : IInboxStore
             LockExpiresAt = DateTime.UtcNow.Add(lockDuration)
         };
 
-        _messages[messageId] = newMessage;
+        AddOrUpdateMessage(messageId, newMessage);
         return Task.FromResult(true);
     }
 
@@ -63,7 +60,7 @@ public class MemoryInboxStore : IInboxStore
         ArgumentNullException.ThrowIfNull(message);
 
         // Update or create message record
-        if (_messages.TryGetValue(message.MessageId, out var existing))
+        if (TryGetMessage(message.MessageId, out var existing))
         {
             // Update existing record
             existing.MessageType = message.MessageType;
@@ -81,7 +78,7 @@ public class MemoryInboxStore : IInboxStore
             message.ProcessedAt = DateTime.UtcNow;
             message.Status = InboxStatus.Processed;
             message.LockExpiresAt = null;
-            _messages[message.MessageId] = message;
+            AddOrUpdateMessage(message.MessageId, message);
         }
 
         return Task.CompletedTask;
@@ -92,7 +89,7 @@ public class MemoryInboxStore : IInboxStore
         string messageId,
         CancellationToken cancellationToken = default)
     {
-        if (_messages.TryGetValue(messageId, out var message))
+        if (TryGetMessage(messageId, out var message))
         {
             return Task.FromResult(message.Status == InboxStatus.Processed);
         }
@@ -105,7 +102,7 @@ public class MemoryInboxStore : IInboxStore
         string messageId,
         CancellationToken cancellationToken = default)
     {
-        if (_messages.TryGetValue(messageId, out var message) &&
+        if (TryGetMessage(messageId, out var message) &&
             message.Status == InboxStatus.Processed)
         {
             return Task.FromResult(message.ProcessingResult);
@@ -119,7 +116,7 @@ public class MemoryInboxStore : IInboxStore
         string messageId,
         CancellationToken cancellationToken = default)
     {
-        if (_messages.TryGetValue(messageId, out var message))
+        if (TryGetMessage(messageId, out var message))
         {
             message.Status = InboxStatus.Pending;
             message.LockExpiresAt = null;
@@ -134,9 +131,7 @@ public class MemoryInboxStore : IInboxStore
         CancellationToken cancellationToken = default)
     {
         var cutoff = DateTime.UtcNow - retentionPeriod;
-        return MessageStoreHelper.DeleteExpiredMessagesAsync(
-            _messages,
-            _lock,
+        return DeleteExpiredMessagesAsync(
             retentionPeriod,
             message => message.Status == InboxStatus.Processed &&
                       message.ProcessedAt.HasValue &&
@@ -145,14 +140,9 @@ public class MemoryInboxStore : IInboxStore
     }
 
     /// <summary>
-    /// Get total message count (for testing/monitoring)
-    /// </summary>
-    public int GetMessageCount() => _messages.Count;
-
-    /// <summary>
     /// Get message count by status (for testing/monitoring)
     /// </summary>
     public int GetMessageCountByStatus(InboxStatus status) =>
-        MessageStoreHelper.GetMessageCountByPredicate(_messages, m => m.Status == status);
+        GetCountByPredicate(m => m.Status == status);
 }
 

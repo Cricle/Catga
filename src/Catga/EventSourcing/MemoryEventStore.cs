@@ -1,10 +1,12 @@
 using System.Collections.Concurrent;
+using Catga.Common;
 using Catga.Messages;
 
 namespace Catga.EventSourcing;
 
 /// <summary>
 /// In-memory event store implementation (for testing/single-instance scenarios)
+/// Note: Uses separate dictionary for streams (not inheriting BaseMemoryStore due to different data model)
 /// </summary>
 public sealed class MemoryEventStore : IEventStore
 {

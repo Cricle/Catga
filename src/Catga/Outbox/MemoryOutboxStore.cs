@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using Catga.Common;
 
@@ -8,10 +7,8 @@ namespace Catga.Outbox;
 /// In-memory outbox store implementation (100% AOT compatible)
 /// Suitable for development and testing
 /// </summary>
-public class MemoryOutboxStore : IOutboxStore
+public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
 {
-    private readonly ConcurrentDictionary<string, OutboxMessage> _messages = new();
-    private readonly SemaphoreSlim _lock = new(1, 1);
 
     /// <inheritdoc/>
     [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
@@ -21,7 +18,7 @@ public class MemoryOutboxStore : IOutboxStore
         ArgumentNullException.ThrowIfNull(message);
         MessageHelper.ValidateMessageId(message.MessageId, nameof(message.MessageId));
 
-        _messages[message.MessageId] = message;
+        AddOrUpdateMessage(message.MessageId, message);
         return Task.CompletedTask;
     }
 
@@ -32,29 +29,11 @@ public class MemoryOutboxStore : IOutboxStore
         int maxCount = 100,
         CancellationToken cancellationToken = default)
     {
-        var pending = new List<OutboxMessage>(maxCount);
-
-        // Zero-allocation iteration: direct iteration, avoid LINQ
-        foreach (var kvp in _messages)
-        {
-            var message = kvp.Value;
-
-            // Only get Pending messages that haven't exceeded retry count
-            if (message.Status == OutboxStatus.Pending &&
-                message.RetryCount < message.MaxRetries)
-            {
-                pending.Add(message);
-
-                if (pending.Count >= maxCount)
-                    break;
-            }
-        }
-
-        // Sort by creation time (FIFO)
-        if (pending.Count > 1)
-        {
-            pending.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
-        }
+        var comparer = Comparer<OutboxMessage>.Create((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
+        var pending = GetMessagesByPredicate(
+            message => message.Status == OutboxStatus.Pending && message.RetryCount < message.MaxRetries,
+            maxCount,
+            comparer);
 
         return Task.FromResult<IReadOnlyList<OutboxMessage>>(pending);
     }
@@ -64,7 +43,7 @@ public class MemoryOutboxStore : IOutboxStore
     [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public Task MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)
     {
-        if (_messages.TryGetValue(messageId, out var message))
+        if (TryGetMessage(messageId, out var message))
         {
             message.Status = OutboxStatus.Published;
             message.PublishedAt = DateTime.UtcNow;
@@ -81,7 +60,7 @@ public class MemoryOutboxStore : IOutboxStore
         string errorMessage,
         CancellationToken cancellationToken = default)
     {
-        if (_messages.TryGetValue(messageId, out var message))
+        if (TryGetMessage(messageId, out var message))
         {
             message.RetryCount++;
             message.LastError = errorMessage;
@@ -108,9 +87,7 @@ public class MemoryOutboxStore : IOutboxStore
         CancellationToken cancellationToken = default)
     {
         var cutoff = DateTime.UtcNow - retentionPeriod;
-        return MessageStoreHelper.DeleteExpiredMessagesAsync(
-            _messages,
-            _lock,
+        return DeleteExpiredMessagesAsync(
             retentionPeriod,
             message => message.Status == OutboxStatus.Published &&
                       message.PublishedAt.HasValue &&
@@ -119,14 +96,9 @@ public class MemoryOutboxStore : IOutboxStore
     }
 
     /// <summary>
-    /// Get total message count (for testing/monitoring)
-    /// </summary>
-    public int GetMessageCount() => _messages.Count;
-
-    /// <summary>
     /// Get message count by status (for testing/monitoring)
     /// </summary>
     public int GetMessageCountByStatus(OutboxStatus status) =>
-        MessageStoreHelper.GetMessageCountByPredicate(_messages, m => m.Status == status);
+        GetCountByPredicate(m => m.Status == status);
 }
 

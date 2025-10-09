@@ -46,10 +46,24 @@
 ### 安装
 
 ```bash
+# 核心抽象（纯接口）
 dotnet add package Catga
+
+# 内存实现（开发/测试）
+dotnet add package Catga.InMemory
+
+# 源生成器（自动注册 Handler）
 dotnet add package Catga.SourceGenerator
+
+# 序列化（可选）
 dotnet add package Catga.Serialization.Json
 ```
+
+> 💡 **新架构**: Catga v2.0 采用分层设计  
+> - `Catga` - 纯接口和抽象（2个依赖包）  
+> - `Catga.InMemory` - 内存实现  
+> - `Catga.Transport.Nats` / `Catga.Persistence.Redis` - 生产实现  
+> 按需选择，灵活组合！
 
 ### 配置 (1行代码)
 

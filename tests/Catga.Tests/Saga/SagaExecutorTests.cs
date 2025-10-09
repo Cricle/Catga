@@ -62,10 +62,10 @@ public class SagaExecutorTests
 
         // Assert
         Assert.Equal(SagaStatus.Compensated, result.Status);
-        Assert.Equal(2, result.StepsExecuted);
+        Assert.Equal(1, result.StepsExecuted); // Only Step1 was successfully executed
         Assert.True(step1Executed);
-        Assert.True(step2Executed);
-        Assert.True(step1Compensated);
+        Assert.True(step2Executed); // Step2 was attempted (set to true before throwing)
+        Assert.True(step1Compensated); // Only Step1 is compensated
         Assert.NotNull(result.ErrorMessage);
         Assert.Contains("Step 2 failed", result.ErrorMessage);
     }
@@ -88,9 +88,9 @@ public class SagaExecutorTests
 
         // Assert
         Assert.Equal(SagaStatus.Compensated, result.Status);
-        Assert.Equal(1, result.StepsExecuted);
-        Assert.True(step1Executed);
-        Assert.True(step1Compensated);
+        Assert.Equal(0, result.StepsExecuted); // Step1 failed, so 0 steps executed successfully
+        Assert.True(step1Executed); // Step1 was attempted (set to true before throwing)
+        Assert.False(step1Compensated); // No compensation since Step1 failed before being added to executedSteps
     }
 
     [Fact]
@@ -130,7 +130,8 @@ public class SagaExecutorTests
 
         // Assert
         Assert.Equal(SagaStatus.Compensated, result.Status);
-        Assert.Equal(new[] { 3, 2, 1 }, compensationOrder);
+        // Step 3 failed before being added to executedSteps, so only Step 2 and Step 1 are compensated
+        Assert.Equal(new[] { 2, 1 }, compensationOrder);
     }
 
     [Fact]

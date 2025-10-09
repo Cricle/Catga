@@ -123,7 +123,7 @@ public class DistributedIdCustomEpochTests
 
         // Assert
         description.Should().Contain("2020-01-01");
-        description.Should().Contain("41-10-12");
+        description.Should().Contain("44-8-11"); // Updated to match new default layout (500+ years)
     }
 
     [Fact]

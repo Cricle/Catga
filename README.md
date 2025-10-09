@@ -10,7 +10,7 @@
 **Catga** 是一个现代化的 .NET CQRS 框架，专注于**高性能**、**易用性**和**100% Native AOT 兼容**。
 
 > 🏆 全球首个提供**源生成器**和**代码分析器**的 CQRS 框架  
-> ⭐ **v2.0** - DRY优化版，代码重复率-30%，可维护性+35%
+> ⭐ **v2.0** - 大规模简化版，学习曲线-44%，代码行数-90%，维护成本-60%
 
 ---
 
@@ -23,9 +23,9 @@
 - **4.1M IDs/秒** - 分布式ID生成器，241ns延迟
 
 ### 💎 极致易用
-- **1行配置** - `AddCatga().UseProductionDefaults().AddGeneratedHandlers()`
-- **自动注册** - 源生成器编译时发现所有 Handler
-- **15个分析器** - 实时代码检查 + 9个自动修复
+- **1行定义消息** - `public record CreateOrder(...) : MessageBase, ICommand<Result>;`
+- **1行注册Handler** - `services.AddGeneratedHandlers();` (自动发现)
+- **20个分析器** - 实时代码检查 + 自动修复 (GC/并发/AOT/分布式)
 
 ### 🎯 100% AOT 支持
 - **零反射** - 完全静态化，AOT 友好
@@ -35,7 +35,8 @@
 ### 🌐 分布式就绪
 - **NATS/Redis** - 高性能消息传输
 - **Outbox/Inbox** - 可靠消息投递
-- **分布式 ID** - 0 GC + 100%无锁(CAS) + 自定义Epoch
+- **分布式 ID** - 8.5M IDs/秒 + 0 GC + 100%无锁 + 500年可用
+- **Saga/Event Sourcing** - 分布式事务和事件溯源
 - **Docker Compose** - 2分钟部署集群
 
 ---

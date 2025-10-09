@@ -1,3 +1,4 @@
+using Catga.Common;
 using Catga.Concurrency;
 using Catga.Configuration;
 using Catga.Exceptions;
@@ -23,12 +24,9 @@ public class CatgaMediator : ICatgaMediator, IDisposable
     private readonly ILogger<CatgaMediator> _logger;
     private readonly CatgaOptions _options;
 
-    private readonly ConcurrencyLimiter? _concurrencyLimiter;
-    private readonly CircuitBreaker? _circuitBreaker;
-    private readonly TokenBucketRateLimiter? _rateLimiter;
-
     // Performance optimizations
     private readonly HandlerCache _handlerCache;
+    private readonly ResiliencePipeline _resiliencePipeline;
 
     public CatgaMediator(
         IServiceProvider serviceProvider,
@@ -42,19 +40,22 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         // Performance optimization: Handler cache
         _handlerCache = new HandlerCache(serviceProvider);
 
-        // Optional resilience components (only if enabled)
-        if (options.MaxConcurrentRequests > 0)
-            _concurrencyLimiter = new ConcurrencyLimiter(options.MaxConcurrentRequests);
+        // Resilience pipeline (consolidates rate limiting, concurrency control, circuit breaking)
+        var rateLimiter = options.EnableRateLimiting
+            ? new TokenBucketRateLimiter(options.RateLimitBurstCapacity, options.RateLimitRequestsPerSecond)
+            : null;
 
-        if (options.EnableCircuitBreaker)
-            _circuitBreaker = new CircuitBreaker(
+        var concurrencyLimiter = options.MaxConcurrentRequests > 0
+            ? new ConcurrencyLimiter(options.MaxConcurrentRequests)
+            : null;
+
+        var circuitBreaker = options.EnableCircuitBreaker
+            ? new CircuitBreaker(
                 options.CircuitBreakerFailureThreshold,
-                TimeSpan.FromSeconds(options.CircuitBreakerResetTimeoutSeconds));
+                TimeSpan.FromSeconds(options.CircuitBreakerResetTimeoutSeconds))
+            : null;
 
-        if (options.EnableRateLimiting)
-            _rateLimiter = new TokenBucketRateLimiter(
-                options.RateLimitBurstCapacity,
-                options.RateLimitRequestsPerSecond);
+        _resiliencePipeline = new ResiliencePipeline(rateLimiter, concurrencyLimiter, circuitBreaker);
     }
 
     /// <summary>
@@ -66,49 +67,10 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>
     {
-        // Fast path: Check rate limit first (fail fast)
-        if (_rateLimiter != null && !_rateLimiter.TryAcquire())
-            return CatgaResult<TResponse>.Failure("Rate limit exceeded");
-
-        // Avoid unnecessary nesting, return directly
-        if (_concurrencyLimiter != null)
-        {
-            try
-            {
-                return await _concurrencyLimiter.ExecuteAsync(
-                    () => ProcessRequestWithCircuitBreaker<TRequest, TResponse>(request, cancellationToken).AsTask(),
-                    TimeSpan.FromSeconds(5), cancellationToken);
-            }
-            catch (ConcurrencyLimitException ex)
-            {
-                return CatgaResult<TResponse>.Failure(ex.Message);
-            }
-        }
-
-        return await ProcessRequestWithCircuitBreaker<TRequest, TResponse>(request, cancellationToken);
-    }
-
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    private async ValueTask<CatgaResult<TResponse>> ProcessRequestWithCircuitBreaker<TRequest, TResponse>(
-        TRequest request,
-        CancellationToken cancellationToken)
-        where TRequest : IRequest<TResponse>
-    {
-        // Merge circuit breaker and request processing to reduce method call overhead
-        if (_circuitBreaker != null)
-        {
-            try
-            {
-                return await _circuitBreaker.ExecuteAsync(() =>
-                    ProcessRequestAsync<TRequest, TResponse>(request, cancellationToken).AsTask());
-            }
-            catch (CircuitBreakerOpenException)
-            {
-                return CatgaResult<TResponse>.Failure("Service temporarily unavailable");
-            }
-        }
-
-        return await ProcessRequestAsync<TRequest, TResponse>(request, cancellationToken);
+        // Use resilience pipeline for consolidated rate limiting, concurrency control, and circuit breaking
+        return await _resiliencePipeline.ExecuteAsync(
+            () => ProcessRequestAsync<TRequest, TResponse>(request, cancellationToken),
+            cancellationToken);
     }
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -181,59 +143,19 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         }
 
         // Standard path: Multiple handlers, execute concurrently
-        // Optimization: Use ArrayPool for large handler lists to reduce GC pressure
-        Task[]? rentedArray = null;
-        Task[] tasks;
+        // Use ArrayPoolHelper for automatic resource management
+        using var rentedTasks = Common.ArrayPoolHelper.RentOrAllocate<Task>(handlerList.Count);
+        var tasks = rentedTasks.Array;
 
-        if (handlerList.Count <= 16)
+        // Start all event handlers
+        for (int i = 0; i < handlerList.Count; i++)
         {
-            // Small array: stack allocation would be ideal but not possible for Task[]
-            // Use regular allocation for small counts (minimal GC impact)
-            tasks = new Task[handlerList.Count];
-        }
-        else
-        {
-            // Large array: rent from pool
-            rentedArray = System.Buffers.ArrayPool<Task>.Shared.Rent(handlerList.Count);
-            tasks = rentedArray;
+            var handler = handlerList[i];
+            tasks[i] = HandleEventSafelyAsync(handler, @event, cancellationToken);
         }
 
-        try
-        {
-            for (int i = 0; i < handlerList.Count; i++)
-            {
-                var handler = handlerList[i];
-                tasks[i] = HandleEventSafelyAsync(handler, @event, cancellationToken);
-            }
-
-            // Wait only for the actual tasks (not the full rented array)
-            // P0 Optimization: Create a temporary view for WhenAll without extra allocations
-            if (rentedArray != null)
-            {
-                // Use a local variable to create exact-size view
-                var tempTasks = tasks;
-                if (handlerList.Count < rentedArray.Length)
-                {
-                    // Create exact-sized array for WhenAll (minimal allocation)
-                    tempTasks = new Task[handlerList.Count];
-                    Array.Copy(rentedArray, tempTasks, handlerList.Count);
-                }
-                await Task.WhenAll(tempTasks).ConfigureAwait(false);
-            }
-            else
-            {
-                await Task.WhenAll(tasks).ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            if (rentedArray != null)
-            {
-                // Clear array before returning to pool
-                Array.Clear(rentedArray, 0, handlerList.Count);
-                System.Buffers.ArrayPool<Task>.Shared.Return(rentedArray);
-            }
-        }
+        // Wait for all handlers (use exact count from rentedTasks)
+        await Task.WhenAll(rentedTasks.AsSpan().ToArray()).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -264,33 +186,9 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>
     {
-        if (requests == null || requests.Count == 0)
-            return Array.Empty<CatgaResult<TResponse>>();
-
-        // Fast path: Single request directly calls SendAsync
-        if (requests.Count == 1)
-        {
-            var result = await SendAsync<TRequest, TResponse>(requests[0], cancellationToken).ConfigureAwait(false);
-            return new[] { result };
-        }
-
-        // Batch processing: Use array to avoid List allocation overhead
-        var results = new CatgaResult<TResponse>[requests.Count];
-        var tasks = new ValueTask<CatgaResult<TResponse>>[requests.Count];
-
-        // Start all requests in parallel
-        for (int i = 0; i < requests.Count; i++)
-        {
-            tasks[i] = SendAsync<TRequest, TResponse>(requests[i], cancellationToken);
-        }
-
-        // Wait for all requests to complete
-        for (int i = 0; i < tasks.Length; i++)
-        {
-            results[i] = await tasks[i].ConfigureAwait(false);
-        }
-
-        return results;
+        // Use BatchOperationExtensions for standardized batch processing
+        return await requests.ExecuteBatchWithResultsAsync(
+            request => SendAsync<TRequest, TResponse>(request, cancellationToken));
     }
 
     /// <summary>
@@ -319,28 +217,12 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         CancellationToken cancellationToken = default)
         where TEvent : IEvent
     {
-        if (events == null || events.Count == 0)
-            return;
-
-        // Fast path: Single event directly calls PublishAsync
-        if (events.Count == 1)
-        {
-            await PublishAsync(events[0], cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        // Batch processing: Publish in parallel
-        var tasks = new Task[events.Count];
-        for (int i = 0; i < events.Count; i++)
-        {
-            tasks[i] = PublishAsync(events[i], cancellationToken);
-        }
-
-        await Task.WhenAll(tasks).ConfigureAwait(false);
+        // Use BatchOperationExtensions for standardized batch processing
+        await events.ExecuteBatchAsync(@event => PublishAsync(@event, cancellationToken));
     }
 
     public void Dispose()
     {
-        _concurrencyLimiter?.Dispose();
+        _resiliencePipeline?.Dispose();
     }
 }

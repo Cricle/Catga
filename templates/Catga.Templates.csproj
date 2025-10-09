@@ -19,6 +19,9 @@
 
   <ItemGroup>
     <Content Include="catga-api\**\*" Exclude="catga-api\**\bin\**;catga-api\**\obj\**" />
+    <Content Include="catga-distributed\**\*" Exclude="catga-distributed\**\bin\**;catga-distributed\**\obj\**" />
+    <Content Include="catga-microservice\**\*" Exclude="catga-microservice\**\bin\**;catga-microservice\**\obj\**" />
+    <Content Include="catga-handler\**\*" Exclude="catga-handler\**\bin\**;catga-handler\**\obj\**" />
     <Compile Remove="**\*" />
   </ItemGroup>
 

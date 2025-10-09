@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Catga Contributors",
+  "classifications": [ "CQRS", "Handler", "Command", "Query" ],
+  "identity": "Catga.Templates.Handler",
+  "name": "Catga Handler",
+  "shortName": "catga-handler",
+  "tags": {
+    "language": "C#",
+    "type": "item"
+  },
+  "sourceName": "SampleHandler",
+  "preferNameDirectory": false,
+  "symbols": {
+    "HandlerType": {
+      "type": "parameter",
+      "datatype": "choice",
+      "choices": [
+        {
+          "choice": "command",
+          "description": "Create a command handler"
+        },
+        {
+          "choice": "query",
+          "description": "Create a query handler"
+        }
+      ],
+      "defaultValue": "command",
+      "description": "The type of handler to create"
+    },
+    "IncludeValidator": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "true",
+      "description": "Include a validator class"
+    },
+    "IncludeTests": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "true",
+      "description": "Include unit test file"
+    }
+  }
+}
+

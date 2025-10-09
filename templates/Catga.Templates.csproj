@@ -6,8 +6,8 @@
     <PackageId>Catga.Templates</PackageId>
     <Title>Catga Project Templates</Title>
     <Authors>Catga Team</Authors>
-    <Description>Templates for Catga CQRS framework projects</Description>
-    <PackageTags>dotnet-new;templates;catga;cqrs;web;api</PackageTags>
+    <Description>Templates for Catga CQRS framework - Distributed and Microservice (Cluster) templates</Description>
+    <PackageTags>dotnet-new;templates;catga;cqrs;distributed;microservice;cluster</PackageTags>
     <TargetFramework>net9.0</TargetFramework>
 
     <IncludeContentInPack>true</IncludeContentInPack>
@@ -18,10 +18,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="catga-api\**\*" Exclude="catga-api\**\bin\**;catga-api\**\obj\**" />
     <Content Include="catga-distributed\**\*" Exclude="catga-distributed\**\bin\**;catga-distributed\**\obj\**" />
     <Content Include="catga-microservice\**\*" Exclude="catga-microservice\**\bin\**;catga-microservice\**\obj\**" />
-    <Content Include="catga-handler\**\*" Exclude="catga-handler\**\bin\**;catga-handler\**\obj\**" />
     <Compile Remove="**\*" />
   </ItemGroup>
 

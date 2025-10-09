@@ -261,22 +261,64 @@ Intel Core i9, 1 CPU, 16 logical cores
 
 ## 🎓 项目模板
 
+Catga 提供两个生产级项目模板：
+
+### 1️⃣ 分布式应用模板 (catga-distributed)
+
+适用于：分布式系统、微服务架构、事件驱动应用
+
 ```bash
 # 安装模板
 dotnet new install Catga.Templates
 
-# 创建 Web API 项目
-dotnet new catga-api -n MyApi
-
-# 创建分布式系统项目
+# 创建分布式应用项目
 dotnet new catga-distributed -n MyDistributedApp
+cd MyDistributedApp
 
-# 创建微服务项目
-dotnet new catga-microservice -n MyMicroservice
+# 启动所有服务（NATS + Redis + 应用）
+docker-compose up -d
 
-# 创建 Handler 库
-dotnet new catga-handler -n MyHandlers
+# 访问 API
+curl http://localhost:5000/health
 ```
+
+**包含功能**：
+- ✅ 分布式 ID (Snowflake)
+- ✅ NATS 消息队列
+- ✅ Redis 分布式缓存和锁
+- ✅ Outbox/Inbox 模式
+- ✅ Saga 分布式事务
+- ✅ 事件溯源
+- ✅ 熔断器和限流器
+- ✅ Docker Compose 配置
+
+### 2️⃣ 集群微服务模板 (catga-microservice)
+
+适用于：Kubernetes 集群、容器化部署、自动扩缩容
+
+```bash
+# 创建集群微服务项目
+dotnet new catga-microservice -n MyMicroservice
+cd MyMicroservice
+
+# 本地运行
+dotnet run
+
+# 部署到 Kubernetes
+kubectl apply -f k8s/deployment.yaml
+
+# 查看 Pod 状态
+kubectl get pods -l app=my-microservice
+```
+
+**包含功能**：
+- ✅ Kubernetes 部署清单（Deployment + Service + HPA）
+- ✅ 自动扩缩容（3-10 个副本）
+- ✅ 服务发现和负载均衡
+- ✅ 健康检查（Liveness + Readiness）
+- ✅ Prometheus 指标
+- ✅ AOT 编译支持
+- ✅ CI/CD 流水线
 
 ---
 
@@ -396,18 +438,34 @@ A: Catga v2.0 需要 .NET 9+，充分利用最新性能优化。
 
 ## 🎉 开始使用
 
-```bash
-# 1. 创建新项目
-dotnet new catga-api -n MyAwesomeApi
+### 选择合适的模板：
 
-# 2. 运行项目
-cd MyAwesomeApi
-dotnet run
+**分布式应用**（推荐用于微服务架构）：
+```bash
+# 1. 创建分布式项目
+dotnet new catga-distributed -n MyDistributedApp
+
+# 2. 启动所有服务
+cd MyDistributedApp
+docker-compose up -d
 
 # 3. 测试 API
-curl -X POST http://localhost:5000/users \
+curl -X POST http://localhost:5000/api/orders \
   -H "Content-Type: application/json" \
-  -d '{"username":"alice","email":"alice@example.com"}'
+  -d '{"customerId":123,"items":[{"productId":1,"quantity":2}]}'
+```
+
+**集群微服务**（推荐用于 Kubernetes 部署）：
+```bash
+# 1. 创建微服务项目
+dotnet new catga-microservice -n MyMicroservice
+
+# 2. 部署到 K8s
+cd MyMicroservice
+kubectl apply -f k8s/
+
+# 3. 查看状态
+kubectl get pods -l app=my-microservice
 ```
 
 **就是这么简单！** 🚀

@@ -1,17 +1,21 @@
-# CatgaDistributed
+# Catga 分布式应用模板
 
-A distributed application built with the Catga CQRS framework.
+基于 Catga CQRS 框架的完整分布式应用模板。提供开箱即用的分布式 ID、消息队列、缓存、分布式锁、Saga 事务等完整分布式能力。
 
-## Features
+## 核心特性
 
-- ✅ **CQRS Pattern** - Command Query Responsibility Segregation
-- ✅ **Distributed ID** - Snowflake ID generation
-- ✅ **NATS Messaging** - Event-driven communication
-- ✅ **Redis Cache** - Distributed caching and locking
-- ✅ **Outbox Pattern** - Reliable message delivery
-- ✅ **Circuit Breaker** - Resilience and fault tolerance
-- ✅ **Health Checks** - Monitoring and diagnostics
-- ✅ **OpenAPI/Swagger** - API documentation
+- ✅ **CQRS 架构** - 命令查询职责分离
+- ✅ **分布式 ID** - Snowflake 算法，8.5M IDs/秒，500+ 年使用寿命
+- ✅ **NATS 消息队列** - 高性能事件驱动通信
+- ✅ **Redis 分布式缓存** - 分布式缓存和分布式锁
+- ✅ **Outbox/Inbox 模式** - 可靠消息投递，最终一致性
+- ✅ **Saga 编排** - 分布式事务协调
+- ✅ **事件溯源** - 完整的事件历史和状态重建
+- ✅ **熔断器** - 弹性设计和故障隔离
+- ✅ **健康检查** - 完整的监控和诊断
+- ✅ **零 GC** - 关键路径零内存分配
+- ✅ **AOT 编译** - 快速启动，低内存占用
+- ✅ **OpenAPI/Swagger** - 完整的 API 文档
 
 ## Quick Start
 

@@ -1,17 +1,19 @@
-# CatgaMicroservice
+# Catga 集群微服务模板
 
-A production-ready microservice built with Catga CQRS framework.
+基于 Catga CQRS 框架的生产级集群微服务模板。支持 Kubernetes 集群部署、自动扩缩容、服务发现和负载均衡。
 
-## Features
+## 核心特性
 
-- ✅ **CQRS Pattern** - Clean separation of commands and queries
-- ✅ **Distributed ID** - Globally unique IDs
-- ✅ **Resilience** - Circuit breaker and concurrency limiting
-- ✅ **Health Checks** - Liveness and readiness probes
-- ✅ **Prometheus Metrics** - Observable and monitorable
-- ✅ **Kubernetes Ready** - Production-grade deployment manifests
-- ✅ **CI/CD** - Automated build and deployment pipeline
-- ✅ **AOT Compatible** - Fast startup, low memory footprint
+- ✅ **CQRS 架构** - 命令查询职责分离
+- ✅ **分布式 ID** - 全局唯一 ID 生成（Snowflake）
+- ✅ **集群部署** - Kubernetes 原生支持，3-10 个副本自动扩缩容
+- ✅ **服务发现** - Kubernetes Service 自动服务发现
+- ✅ **负载均衡** - Kubernetes Service 自动负载均衡
+- ✅ **弹性设计** - 熔断器、限流器、重试策略
+- ✅ **健康检查** - Liveness 和 Readiness 探针
+- ✅ **可观测性** - Prometheus 指标、分布式追踪
+- ✅ **零 GC** - 关键路径零内存分配
+- ✅ **AOT 编译** - 快速启动，低内存占用
 
 ## Quick Start
 

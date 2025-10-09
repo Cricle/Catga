@@ -74,7 +74,7 @@ public readonly struct SnowflakeBitLayout
     /// 8 bits worker ID (256 workers)
     /// 11 bits sequence (2048 IDs/ms)
     /// Epoch: 2024-01-01 00:00:00 UTC
-    /// 
+    ///
     /// This layout ensures the framework can be used for 500+ years
     /// while supporting 256 workers and 2048 IDs per millisecond (2M IDs/sec per worker)
     /// </summary>
@@ -156,7 +156,7 @@ public readonly struct SnowflakeBitLayout
     /// 46 bits timestamp (~2,234 years from epoch)
     /// 6 bits worker ID (64 workers)
     /// 11 bits sequence (2048 IDs/ms)
-    /// 
+    ///
     /// For applications that need to last millennia
     /// </summary>
     public static SnowflakeBitLayout UltraLongLifespan => new()

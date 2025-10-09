@@ -17,6 +17,10 @@ public sealed class TokenBucketRateLimiter
     // Scale factor for sub-token precision (allows fractional tokens as integers)
     private const int SCALE = 1000;
 
+    // P2-4: Monitoring metrics
+    private long _totalAcquired;
+    private long _totalRejected;
+
     public TokenBucketRateLimiter(int capacity, int refillRatePerSecond)
     {
         if (capacity <= 0)
@@ -32,12 +36,48 @@ public sealed class TokenBucketRateLimiter
         _lastRefillTicks = Stopwatch.GetTimestamp();
     }
 
+    /// <summary>
+    /// Get available tokens (triggers refill)
+    /// </summary>
     public long AvailableTokens
     {
         get
         {
             RefillTokens();
             return Interlocked.Read(ref _tokens) / SCALE;
+        }
+    }
+
+    // P2-4: Monitoring properties
+    /// <summary>
+    /// Maximum capacity of the bucket
+    /// </summary>
+    public int MaxCapacity => _capacity;
+
+    /// <summary>
+    /// Current utilization rate (0.0 to 1.0)
+    /// </summary>
+    public double UtilizationRate => 1.0 - (AvailableTokens / (double)_capacity);
+
+    /// <summary>
+    /// Total tokens acquired since creation
+    /// </summary>
+    public long TotalAcquired => Interlocked.Read(ref _totalAcquired);
+
+    /// <summary>
+    /// Total requests rejected since creation
+    /// </summary>
+    public long TotalRejected => Interlocked.Read(ref _totalRejected);
+
+    /// <summary>
+    /// Rejection rate (0.0 to 1.0)
+    /// </summary>
+    public double RejectionRate
+    {
+        get
+        {
+            var total = TotalAcquired + TotalRejected;
+            return total > 0 ? TotalRejected / (double)total : 0.0;
         }
     }
 
@@ -53,13 +93,25 @@ public sealed class TokenBucketRateLimiter
             var current = Interlocked.Read(ref _tokens);
 
             if (current < scaledTokens)
+            {
+                // P2-4: Track rejections
+                Interlocked.Increment(ref _totalRejected);
                 return false;
+            }
 
             if (Interlocked.CompareExchange(ref _tokens, current - scaledTokens, current) == current)
+            {
+                // P2-4: Track acquisitions
+                Interlocked.Increment(ref _totalAcquired);
                 return true;
+            }
         }
     }
 
+    /// <summary>
+    /// Wait for token with adaptive strategy (P1-4 Optimization)
+    /// Uses SpinWait for better precision and lower latency
+    /// </summary>
     public async Task<bool> WaitForTokenAsync(
         int tokens = 1,
         TimeSpan? timeout = null,
@@ -67,14 +119,30 @@ public sealed class TokenBucketRateLimiter
     {
         var maxWait = timeout ?? TimeSpan.FromSeconds(10);
         var stopwatch = Stopwatch.StartNew();
+        var spinWait = new SpinWait();
 
         while (stopwatch.Elapsed < maxWait)
         {
             if (TryAcquire(tokens))
                 return true;
 
-            // Non-blocking async delay
-            await Task.Delay(10, cancellationToken);
+            // P1-4: Adaptive waiting strategy for better precision
+            if (spinWait.Count < 10)
+            {
+                // Spin for first few iterations (microsecond precision)
+                spinWait.SpinOnce();
+            }
+            else if (spinWait.Count < 20)
+            {
+                // Yield thread (sub-millisecond precision)
+                await Task.Yield();
+            }
+            else
+            {
+                // Fall back to Task.Delay for longer waits
+                await Task.Delay(1, cancellationToken);
+                spinWait.Reset();
+            }
         }
 
         return false;

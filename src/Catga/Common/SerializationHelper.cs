@@ -1,15 +1,27 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Catga.Serialization;
 
 namespace Catga.Common;
 
 /// <summary>
 /// Common serialization helper methods
-/// Reduces code duplication across behaviors
+/// Reduces code duplication across behaviors and stores
+/// Provides consistent JSON options and zero-allocation serialization
 /// </summary>
 public static class SerializationHelper
 {
+    /// <summary>
+    /// Default JSON serializer options (AOT-friendly)
+    /// </summary>
+    private static readonly JsonSerializerOptions DefaultJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = false
+    };
+
     /// <summary>
     /// Serialize object using provided serializer or fallback to JSON
     /// </summary>
@@ -22,8 +34,17 @@ public static class SerializationHelper
             return Convert.ToBase64String(bytes);
         }
 
-        // Fallback to JsonSerializer
-        return JsonSerializer.Serialize(obj);
+        // Fallback to JsonSerializer with default options
+        return JsonSerializer.Serialize(obj, DefaultJsonOptions);
+    }
+
+    /// <summary>
+    /// Serialize object with custom JSON options
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string SerializeJson<T>(T obj, JsonSerializerOptions? options = null)
+    {
+        return JsonSerializer.Serialize(obj, options ?? DefaultJsonOptions);
     }
 
     /// <summary>
@@ -38,8 +59,17 @@ public static class SerializationHelper
             return serializer.Deserialize<T>(bytes);
         }
 
-        // Fallback to JsonSerializer
-        return JsonSerializer.Deserialize<T>(data);
+        // Fallback to JsonSerializer with default options
+        return JsonSerializer.Deserialize<T>(data, DefaultJsonOptions);
+    }
+
+    /// <summary>
+    /// Deserialize object with custom JSON options
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static T? DeserializeJson<T>(string data, JsonSerializerOptions? options = null)
+    {
+        return JsonSerializer.Deserialize<T>(data, options ?? DefaultJsonOptions);
     }
 
     /// <summary>
@@ -61,4 +91,29 @@ public static class SerializationHelper
             return false;
         }
     }
+
+    /// <summary>
+    /// Try deserialize JSON with exception handling
+    /// </summary>
+    public static bool TryDeserializeJson<T>(
+        string data,
+        out T? result,
+        JsonSerializerOptions? options = null)
+    {
+        try
+        {
+            result = DeserializeJson<T>(data, options);
+            return result != null;
+        }
+        catch
+        {
+            result = default;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Get default JSON serializer options (for custom usage)
+    /// </summary>
+    public static JsonSerializerOptions GetDefaultJsonOptions() => DefaultJsonOptions;
 }

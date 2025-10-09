@@ -34,7 +34,7 @@ public class IdempotencyBehavior<TRequest, TResponse> : BaseBehavior<TRequest, T
         CancellationToken cancellationToken = default)
     {
         var messageId = TryGetMessageId(request) ?? string.Empty;
-        
+
         // Check cache (non-blocking)
         if (await _store.HasBeenProcessedAsync(messageId, cancellationToken))
         {

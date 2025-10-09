@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
+using Catga.Common;
 using Catga.Messages;
 using Microsoft.Extensions.Logging;
 
@@ -34,7 +34,7 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
         {
             MessageId = message.MessageId,
             MessageType = typeof(TMessage).Name,
-            MessageJson = JsonSerializer.Serialize(message),
+            MessageJson = SerializationHelper.SerializeJson(message),
             ExceptionType = exception.GetType().Name,
             ExceptionMessage = exception.Message,
             StackTrace = exception.StackTrace ?? string.Empty,

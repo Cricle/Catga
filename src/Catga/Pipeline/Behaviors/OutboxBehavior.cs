@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Common;
+using Catga.DistributedId;
 using Catga.Messages;
 using Catga.Outbox;
 using Catga.Results;
@@ -37,15 +38,18 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
     private readonly IOutboxStore? _persistence;           // Storage layer
     private readonly IMessageTransport? _transport;       // Transport layer
     private readonly IMessageSerializer? _serializer;
+    private readonly IDistributedIdGenerator _idGenerator;
     private readonly ILogger<OutboxBehavior<TRequest, TResponse>> _logger;
 
     public OutboxBehavior(
         ILogger<OutboxBehavior<TRequest, TResponse>> logger,
+        IDistributedIdGenerator idGenerator,
         IOutboxStore? persistence = null,
         IMessageTransport? transport = null,
         IMessageSerializer? serializer = null)
     {
         _logger = logger;
+        _idGenerator = idGenerator;
         _persistence = persistence;
         _transport = transport;
         _serializer = serializer;
@@ -64,7 +68,7 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
         if (request is not IEvent)
             return await next();
 
-        var messageId = MessageHelper.GetOrGenerateMessageId(request);
+        var messageId = MessageHelper.GetOrGenerateMessageId(request, _idGenerator);
 
         try
         {

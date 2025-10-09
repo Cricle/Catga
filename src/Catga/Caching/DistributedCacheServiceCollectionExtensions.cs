@@ -1,3 +1,5 @@
+using Catga.Messages;
+using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
 using Microsoft.Extensions.DependencyInjection;
 

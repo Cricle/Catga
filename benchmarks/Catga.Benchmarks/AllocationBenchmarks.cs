@@ -1,6 +1,6 @@
 using System.Buffers;
 using BenchmarkDotNet.Attributes;
-using Catga.Messages;
+using Catga.DistributedId;
 using Catga.Results;
 
 namespace Catga.Benchmarks;
@@ -13,6 +13,7 @@ namespace Catga.Benchmarks;
 public class AllocationBenchmarks
 {
     private const int Iterations = 1000;
+    private readonly IDistributedIdGenerator _idGenerator = new SnowflakeIdGenerator(1);
 
     [Benchmark(Baseline = true)]
     public void StringMessageId_Allocation()
@@ -25,11 +26,11 @@ public class AllocationBenchmarks
     }
 
     [Benchmark]
-    public void StructMessageId_Allocation()
+    public void DistributedId_Allocation()
     {
         for (int i = 0; i < Iterations; i++)
         {
-            var id = MessageId.NewId();
+            var id = _idGenerator.NextId();
             _ = id.GetHashCode();
         }
     }

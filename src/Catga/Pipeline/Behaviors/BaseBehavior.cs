@@ -51,19 +51,11 @@ public abstract class BaseBehavior<TRequest, TResponse> : IPipelineBehavior<TReq
     }
 
     /// <summary>
-    /// Get or generate MessageId
-    /// </summary>
-    protected static string GetMessageId(TRequest request, IDistributedIdGenerator idGenerator)
-    {
-        return MessageHelper.GetOrGenerateMessageId(request, idGenerator);
-    }
-
-    /// <summary>
     /// Get CorrelationId from request (safe extraction)
     /// </summary>
     protected static string? TryGetCorrelationId(TRequest request)
     {
-        return MessageHelper.GetCorrelationId(request);
+        return request is IMessage message ? message.CorrelationId : null;
     }
 
     /// <summary>

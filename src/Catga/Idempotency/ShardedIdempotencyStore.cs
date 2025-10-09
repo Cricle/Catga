@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using Catga.Common;
 
 namespace Catga.Idempotency;
 
@@ -15,7 +14,6 @@ public class ShardedIdempotencyStore : IIdempotencyStore
     private readonly ConcurrentDictionary<string, (DateTime ProcessedAt, Type? ResultType, string? ResultJson)>[] _shards;
     private readonly TimeSpan _retentionPeriod;
     private readonly int _shardCount;
-    private readonly JsonSerializerOptions _jsonOptions;
     private long _lastCleanupTicks;
 
     public ShardedIdempotencyStore(int shardCount = 32, TimeSpan? retentionPeriod = null)
@@ -25,12 +23,6 @@ public class ShardedIdempotencyStore : IIdempotencyStore
 
         _shardCount = shardCount;
         _retentionPeriod = retentionPeriod ?? TimeSpan.FromHours(24);
-
-        _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
 
         _shards = new ConcurrentDictionary<string, (DateTime, Type?, string?)>[_shardCount];
         for (int i = 0; i < _shardCount; i++)
@@ -77,7 +69,7 @@ public class ShardedIdempotencyStore : IIdempotencyStore
         if (result != null)
         {
             resultType = typeof(TResult);
-            resultJson = JsonSerializer.Serialize(result, _jsonOptions);
+            resultJson = SerializationHelper.SerializeJson(result);
         }
 
         shard[messageId] = (DateTime.UtcNow, resultType, resultJson);
@@ -101,7 +93,7 @@ public class ShardedIdempotencyStore : IIdempotencyStore
 
             if (entry.Item3 != null && entry.Item2 == typeof(TResult))
             {
-                return Task.FromResult(JsonSerializer.Deserialize<TResult>(entry.Item3, _jsonOptions));
+                return Task.FromResult(SerializationHelper.DeserializeJson<TResult>(entry.Item3));
             }
         }
 

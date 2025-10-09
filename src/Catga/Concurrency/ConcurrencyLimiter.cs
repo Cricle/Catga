@@ -77,7 +77,7 @@ public sealed class ConcurrencyLimiter : IDisposable
         // P1: Track active count accurately using semaphore state
         // CurrentCount = MaxConcurrency - AvailableSlots
         var activeBefore = _maxConcurrency - _semaphore.CurrentCount;
-        
+
         // Non-blocking async wait
         var acquired = await _semaphore.WaitAsync(timeout, cancellationToken);
 

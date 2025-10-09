@@ -1,3 +1,5 @@
+using Catga.Messages;
+
 namespace Catga.EventSourcing;
 
 /// <summary>

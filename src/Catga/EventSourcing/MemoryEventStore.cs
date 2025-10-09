@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Catga.Messages;
 
 namespace Catga.EventSourcing;
 

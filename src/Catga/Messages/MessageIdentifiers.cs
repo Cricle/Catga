@@ -1,29 +1,41 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Catga.DistributedId;
 
 namespace Catga.Messages;
 
 /// <summary>
-/// High-performance message identifier (Value type, Zero allocation)
+/// High-performance message identifier based on Snowflake distributed ID
+/// Replaces Guid-based MessageId with distributed ID for better performance and sortability
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public readonly struct MessageId : IEquatable<MessageId>
 {
-    private readonly Guid _value;
+    private readonly long _value;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public MessageId(Guid value) => _value = value;
+    public MessageId(long value) => _value = value;
+
+    /// <summary>
+    /// Generate new message ID using distributed ID generator
+    /// Requires IDistributedIdGenerator to be registered in DI
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static MessageId NewId(IDistributedIdGenerator generator) => new(generator.NextId());
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static MessageId NewId() => new(Guid.NewGuid());
+    public static MessageId Parse(string value) => new(long.Parse(value));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static MessageId Parse(string value) => new(Guid.Parse(value));
+    public override string ToString() => _value.ToString();
 
-    public override string ToString() => _value.ToString("N"); // No hyphens, faster
+    /// <summary>
+    /// Get the underlying distributed ID value
+    /// </summary>
+    public long Value => _value;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Equals(MessageId other) => _value.Equals(other._value);
+    public bool Equals(MessageId other) => _value == other._value;
 
     public override bool Equals(object? obj) => obj is MessageId other && Equals(other);
 
@@ -37,29 +49,41 @@ public readonly struct MessageId : IEquatable<MessageId>
     public static bool operator !=(MessageId left, MessageId right) => !left.Equals(right);
 
     public static implicit operator string(MessageId id) => id.ToString();
+    public static implicit operator long(MessageId id) => id._value;
+    public static explicit operator MessageId(long value) => new(value);
 }
 
 /// <summary>
-/// High-performance correlation identifier (Value type, Zero allocation)
+/// High-performance correlation identifier based on Snowflake distributed ID
+/// Used to correlate related messages across distributed systems
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public readonly struct CorrelationId : IEquatable<CorrelationId>
 {
-    private readonly Guid _value;
+    private readonly long _value;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public CorrelationId(Guid value) => _value = value;
+    public CorrelationId(long value) => _value = value;
+
+    /// <summary>
+    /// Generate new correlation ID using distributed ID generator
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static CorrelationId NewId(IDistributedIdGenerator generator) => new(generator.NextId());
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static CorrelationId NewId() => new(Guid.NewGuid());
+    public static CorrelationId Parse(string value) => new(long.Parse(value));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static CorrelationId Parse(string value) => new(Guid.Parse(value));
+    public override string ToString() => _value.ToString();
 
-    public override string ToString() => _value.ToString("N");
+    /// <summary>
+    /// Get the underlying distributed ID value
+    /// </summary>
+    public long Value => _value;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Equals(CorrelationId other) => _value.Equals(other._value);
+    public bool Equals(CorrelationId other) => _value == other._value;
 
     public override bool Equals(object? obj) => obj is CorrelationId other && Equals(other);
 
@@ -73,5 +97,6 @@ public readonly struct CorrelationId : IEquatable<CorrelationId>
     public static bool operator !=(CorrelationId left, CorrelationId right) => !left.Equals(right);
 
     public static implicit operator string(CorrelationId id) => id.ToString();
+    public static implicit operator long(CorrelationId id) => id._value;
+    public static explicit operator CorrelationId(long value) => new(value);
 }
-

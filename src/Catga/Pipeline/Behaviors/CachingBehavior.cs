@@ -1,4 +1,5 @@
 using Catga.Caching;
+using Catga.Messages;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.Pipeline.Behaviors;
@@ -20,9 +21,9 @@ public sealed class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRe
         _logger = logger;
     }
 
-    public async ValueTask<TResponse> Handle(
+    public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
-        RequestHandlerDelegate<TResponse> next,
+        PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken)
     {
         var cacheKey = request.GetCacheKey();
@@ -34,7 +35,7 @@ public sealed class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRe
             _logger.LogDebug(
                 "Cache hit for key: {CacheKey}",
                 cacheKey);
-            return cached;
+            return CatgaResult<TResponse>.Success(cached);
         }
 
         _logger.LogDebug(
@@ -42,14 +43,14 @@ public sealed class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRe
             cacheKey);
 
         // Execute handler
-        var response = await next();
+        var result = await next();
 
-        // Cache the response
-        if (response != null)
+        // Cache the response if successful
+        if (result.IsSuccess && result.Value != null)
         {
             await _cache.SetAsync(
                 cacheKey,
-                response,
+                result.Value,
                 request.CacheExpiration,
                 cancellationToken);
 
@@ -59,7 +60,7 @@ public sealed class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRe
                 request.CacheExpiration);
         }
 
-        return response;
+        return result;
     }
 }
 

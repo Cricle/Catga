@@ -69,30 +69,33 @@ public readonly struct SnowflakeBitLayout
     public int MaxYears => (int)(MaxTimestamp / (365.25 * 24 * 60 * 60 * 1000));
 
     /// <summary>
-    /// Default layout (41-10-12)
-    /// 41 bits timestamp (~69 years)
-    /// 10 bits worker ID (1024 workers)
-    /// 12 bits sequence (4096 IDs/ms)
+    /// Default layout (44-8-11)
+    /// 44 bits timestamp (~557 years from epoch)
+    /// 8 bits worker ID (256 workers)
+    /// 11 bits sequence (2048 IDs/ms)
     /// Epoch: 2024-01-01 00:00:00 UTC
+    /// 
+    /// This layout ensures the framework can be used for 500+ years
+    /// while supporting 256 workers and 2048 IDs per millisecond (2M IDs/sec per worker)
     /// </summary>
     public static SnowflakeBitLayout Default => new()
     {
-        TimestampBits = 41,
-        WorkerIdBits = 10,
-        SequenceBits = 12,
-        EpochMilliseconds = 1704067200000L
+        TimestampBits = 44,
+        WorkerIdBits = 8,
+        SequenceBits = 11,
+        EpochMilliseconds = 1704067200000L  // 2024-01-01 00:00:00 UTC
     };
 
     /// <summary>
-    /// Create layout with custom epoch
+    /// Create layout with custom epoch (uses default 500+ year layout)
     /// </summary>
     public static SnowflakeBitLayout WithEpoch(DateTime epoch)
     {
         return new SnowflakeBitLayout
         {
-            TimestampBits = 41,
-            WorkerIdBits = 10,
-            SequenceBits = 12,
+            TimestampBits = 44,
+            WorkerIdBits = 8,
+            SequenceBits = 11,
             EpochMilliseconds = new DateTimeOffset(epoch.ToUniversalTime()).ToUnixTimeMilliseconds()
         };
     }
@@ -102,9 +105,9 @@ public readonly struct SnowflakeBitLayout
     /// </summary>
     public static SnowflakeBitLayout Create(
         DateTime epoch,
-        int timestampBits = 41,
-        int workerIdBits = 10,
-        int sequenceBits = 12)
+        int timestampBits = 44,
+        int workerIdBits = 8,
+        int sequenceBits = 11)
     {
         return new SnowflakeBitLayout
         {
@@ -116,17 +119,11 @@ public readonly struct SnowflakeBitLayout
     }
 
     /// <summary>
-    /// Long lifespan layout (43-8-12)
-    /// 43 bits timestamp (~278 years)
-    /// 8 bits worker ID (256 workers)
-    /// 12 bits sequence (4096 IDs/ms)
+    /// Long lifespan layout (44-8-11)
+    /// Same as Default - 557+ years
     /// </summary>
-    public static SnowflakeBitLayout LongLifespan => new()
-    {
-        TimestampBits = 43,
-        WorkerIdBits = 8,
-        SequenceBits = 12
-    };
+    [Obsolete("Use Default instead - it now provides 500+ years by default")]
+    public static SnowflakeBitLayout LongLifespan => Default;
 
     /// <summary>
     /// High concurrency layout (39-10-14)
@@ -155,16 +152,19 @@ public readonly struct SnowflakeBitLayout
     };
 
     /// <summary>
-    /// Ultra long lifespan layout (45-6-12)
-    /// 45 bits timestamp (~1112 years)
+    /// Ultra long lifespan layout (46-6-11)
+    /// 46 bits timestamp (~2,234 years from epoch)
     /// 6 bits worker ID (64 workers)
-    /// 12 bits sequence (4096 IDs/ms)
+    /// 11 bits sequence (2048 IDs/ms)
+    /// 
+    /// For applications that need to last millennia
     /// </summary>
     public static SnowflakeBitLayout UltraLongLifespan => new()
     {
-        TimestampBits = 45,
+        TimestampBits = 46,
         WorkerIdBits = 6,
-        SequenceBits = 12
+        SequenceBits = 11,
+        EpochMilliseconds = 1704067200000L
     };
 
     /// <summary>

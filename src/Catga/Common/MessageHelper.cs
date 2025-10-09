@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Catga.DistributedId;
 using Catga.Messages;
 
 namespace Catga.Common;
@@ -6,19 +7,20 @@ namespace Catga.Common;
 /// <summary>
 /// Common helper methods for message operations
 /// Reduces code duplication across behaviors and stores
+/// Uses distributed ID for message identification (replaces Guid)
 /// </summary>
 public static class MessageHelper
 {
     /// <summary>
-    /// Generate message ID from request or create new one
+    /// Generate message ID from request or create new one using distributed ID
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string GetOrGenerateMessageId<TRequest>(TRequest request) where TRequest : class
+    public static string GetOrGenerateMessageId<TRequest>(TRequest request, IDistributedIdGenerator idGenerator) where TRequest : class
     {
         if (request is IMessage message && !string.IsNullOrEmpty(message.MessageId))
             return message.MessageId;
 
-        return Guid.NewGuid().ToString("N");
+        return idGenerator.NextId().ToString();
     }
 
     /// <summary>

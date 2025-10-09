@@ -62,7 +62,7 @@ app.MapPost("/users", async (ICatgaMediator mediator, CreateUserCommand command)
 
 app.MapGet("/users/{id}", async (ICatgaMediator mediator, string id) =>
 {
-    var query = new GetUserQuery { UserId = id };
+    var query = new GetUserQuery(id);  // ✨ Simplified record creation
     var result = await mediator.SendAsync<GetUserQuery, UserDto>(query);
     return result.IsSuccess ? Results.Ok(result.Value) : Results.NotFound();
 })
@@ -78,17 +78,10 @@ app.Run();
 // ========================
 
 /// <summary>
-/// Create user command
+/// Create user command - simplified with record
+/// IMessage properties (MessageId, CreatedAt, CorrelationId) are inherited
 /// </summary>
-public record CreateUserCommand : IRequest<CreateUserResponse>
-{
-    public string MessageId { get; init; } = Guid.NewGuid().ToString();
-    public string? CorrelationId { get; init; }
-    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-
-    public required string Username { get; init; }
-    public required string Email { get; init; }
-}
+public record CreateUserCommand(string Username, string Email) : MessageBase, IRequest<CreateUserResponse>;
 
 public record CreateUserResponse
 {
@@ -97,14 +90,10 @@ public record CreateUserResponse
     public required string Email { get; init; }
 }
 
-public record GetUserQuery : IRequest<UserDto>
-{
-    public string MessageId { get; init; } = Guid.NewGuid().ToString();
-    public string? CorrelationId { get; init; }
-    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-
-    public required string UserId { get; init; }
-}
+/// <summary>
+/// Get user query - even simpler!
+/// </summary>
+public record GetUserQuery(string UserId) : MessageBase, IRequest<UserDto>;
 
 public record UserDto
 {
@@ -113,16 +102,10 @@ public record UserDto
     public required string Email { get; init; }
 }
 
-public record UserCreatedEvent : IEvent
-{
-    public string MessageId { get; init; } = Guid.NewGuid().ToString();
-    public string? CorrelationId { get; init; }
-    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-    public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-
-    public required string UserId { get; init; }
-    public required string Username { get; init; }
-}
+/// <summary>
+/// User created event - inherits from EventBase
+/// </summary>
+public record UserCreatedEvent(string UserId, string Username) : EventBase;
 
 // ========================
 // Handlers (Auto-discovered by Source Generator!)
@@ -154,12 +137,10 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
         // Simulate database save
         var userId = Guid.NewGuid().ToString();
 
-        // Publish domain event
-        var @event = new UserCreatedEvent
+        // Publish domain event - simplified!
+        var @event = new UserCreatedEvent(userId, request.Username)
         {
-            UserId = userId,
-            Username = request.Username,
-            CorrelationId = request.CorrelationId
+            CorrelationId = request.CorrelationId  // Optionally set correlation ID
         };
 
         await _mediator.PublishAsync(@event, cancellationToken);

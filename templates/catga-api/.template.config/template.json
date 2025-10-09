@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Catga Team",
+  "classifications": ["Web", "API", "CQRS"],
+  "identity": "Catga.Templates.Api",
+  "name": "Catga Web API",
+  "shortName": "catga-api",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "sourceName": "CatgaApi",
+  "preferNameDirectory": true,
+  "symbols": {
+    "Framework": {
+      "type": "parameter",
+      "description": "The target framework for the project.",
+      "datatype": "choice",
+      "choices": [
+        {
+          "choice": "net9.0",
+          "description": ".NET 9.0"
+        }
+      ],
+      "replaces": "net9.0",
+      "defaultValue": "net9.0"
+    },
+    "EnableOpenAPI": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "true",
+      "description": "Enable OpenAPI (Swagger) support"
+    },
+    "EnableRateLimiting": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "true",
+      "description": "Enable rate limiting"
+    },
+    "EnableDistributedId": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "true",
+      "description": "Enable distributed ID generation"
+    }
+  },
+  "sources": [
+    {
+      "modifiers": [
+        {
+          "condition": "(!EnableOpenAPI)",
+          "exclude": ["**/Swagger/**"]
+        }
+      ]
+    }
+  ]
+}
+

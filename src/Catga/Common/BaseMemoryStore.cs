@@ -26,7 +26,13 @@ public abstract class BaseMemoryStore<TMessage> where TMessage : class
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected int GetCountByPredicate(Func<TMessage, bool> predicate)
     {
-        return MessageStoreHelper.GetMessageCountByPredicate(Messages, predicate);
+        int count = 0;
+        foreach (var kvp in Messages)
+        {
+            if (predicate(kvp.Value))
+                count++;
+        }
+        return count;
     }
 
     /// <summary>
@@ -37,23 +43,66 @@ public abstract class BaseMemoryStore<TMessage> where TMessage : class
         int maxCount,
         IComparer<TMessage>? comparer = null)
     {
-        return MessageStoreHelper.GetMessagesByPredicate(Messages, predicate, maxCount, comparer);
+        var result = new List<TMessage>(maxCount);
+
+        // Zero-allocation iteration
+        foreach (var kvp in Messages)
+        {
+            if (predicate(kvp.Value))
+            {
+                result.Add(kvp.Value);
+
+                if (result.Count >= maxCount)
+                    break;
+            }
+        }
+
+        // Sort if comparer provided
+        if (comparer != null && result.Count > 1)
+        {
+            result.Sort(comparer);
+        }
+
+        return result;
     }
 
     /// <summary>
     /// Delete expired messages from store
     /// </summary>
-    protected Task DeleteExpiredMessagesAsync(
+    protected async Task DeleteExpiredMessagesAsync(
         TimeSpan retentionPeriod,
         Func<TMessage, bool> shouldDelete,
         CancellationToken cancellationToken = default)
     {
-        return MessageStoreHelper.DeleteExpiredMessagesAsync(
-            Messages,
-            Lock,
-            retentionPeriod,
-            shouldDelete,
-            cancellationToken);
+        await Lock.WaitAsync(cancellationToken);
+        try
+        {
+            var cutoff = DateTime.UtcNow - retentionPeriod;
+            List<string>? keysToRemove = null;
+
+            // Zero-allocation traversal
+            foreach (var kvp in Messages)
+            {
+                if (shouldDelete(kvp.Value))
+                {
+                    keysToRemove ??= new List<string>();
+                    keysToRemove.Add(kvp.Key);
+                }
+            }
+
+            // Delete expired messages
+            if (keysToRemove != null)
+            {
+                foreach (var key in keysToRemove)
+                {
+                    Messages.TryRemove(key, out _);
+                }
+            }
+        }
+        finally
+        {
+            Lock.Release();
+        }
     }
 
     /// <summary>

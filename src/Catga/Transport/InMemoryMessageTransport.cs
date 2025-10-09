@@ -5,12 +5,17 @@ namespace Catga.Transport;
 
 /// <summary>
 /// In-memory message transport - for testing and local development
+/// Supports batching and compression options (but no-op in memory)
 /// </summary>
 public class InMemoryMessageTransport : IMessageTransport
 {
     private readonly ConcurrentDictionary<Type, List<Delegate>> _subscribers = new();
 
     public string Name => "InMemory";
+
+    public BatchTransportOptions? BatchOptions => null; // Not applicable for in-memory
+
+    public CompressionTransportOptions? CompressionOptions => null; // Not applicable for in-memory
 
     [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
     [RequiresDynamicCode("Message serialization may require runtime code generation")]
@@ -73,6 +78,34 @@ public class InMemoryMessageTransport : IMessageTransport
             });
 
         return Task.CompletedTask;
+    }
+
+    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Message serialization may require runtime code generation")]
+    public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
+        IEnumerable<TMessage> messages,
+        TransportContext? context = null,
+        CancellationToken cancellationToken = default)
+        where TMessage : class
+    {
+        // For in-memory, just publish each message
+        foreach (var message in messages)
+        {
+            await PublishAsync(message, context, cancellationToken);
+        }
+    }
+
+    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Message serialization may require runtime code generation")]
+    public async Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
+        IEnumerable<TMessage> messages,
+        string destination,
+        TransportContext? context = null,
+        CancellationToken cancellationToken = default)
+        where TMessage : class
+    {
+        // For in-memory, Send and Publish behave the same
+        await PublishBatchAsync(messages, context, cancellationToken);
     }
 }
 

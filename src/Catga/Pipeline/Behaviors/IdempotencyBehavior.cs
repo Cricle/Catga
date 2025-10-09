@@ -9,16 +9,17 @@ namespace Catga.Pipeline.Behaviors;
 /// <summary>
 /// Simplified idempotency behavior (100% AOT compatible, lock-free)
 /// </summary>
-public class IdempotencyBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+public class IdempotencyBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
     private readonly IIdempotencyStore _store;
-    private readonly ILogger<IdempotencyBehavior<TRequest, TResponse>> _logger;
 
-    public IdempotencyBehavior(IIdempotencyStore store, ILogger<IdempotencyBehavior<TRequest, TResponse>> logger)
+    public IdempotencyBehavior(
+        IIdempotencyStore store,
+        ILogger<IdempotencyBehavior<TRequest, TResponse>> logger)
+        : base(logger)
     {
         _store = store;
-        _logger = logger;
     }
 
     /// <summary>
@@ -27,17 +28,19 @@ public class IdempotencyBehavior<TRequest, TResponse> : IPipelineBehavior<TReque
     /// </summary>
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IIdempotencyStore interface")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IIdempotencyStore interface")]
-    public async ValueTask<CatgaResult<TResponse>> HandleAsync(
+    public override async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default)
     {
+        var messageId = TryGetMessageId(request) ?? string.Empty;
+        
         // Check cache (non-blocking)
-        if (await _store.HasBeenProcessedAsync(request.MessageId, cancellationToken))
+        if (await _store.HasBeenProcessedAsync(messageId, cancellationToken))
         {
-            _logger.LogInformation("Message {MessageId} already processed - returning cached result", request.MessageId);
+            LogInformation("Message {MessageId} already processed - returning cached result", messageId);
 
-            var cachedResult = await _store.GetCachedResultAsync<TResponse>(request.MessageId, cancellationToken);
+            var cachedResult = await _store.GetCachedResultAsync<TResponse>(messageId, cancellationToken);
             return CatgaResult<TResponse>.Success(cachedResult ?? default!, CreateCacheMetadata());
         }
 
@@ -47,8 +50,8 @@ public class IdempotencyBehavior<TRequest, TResponse> : IPipelineBehavior<TReque
         // Cache successful results (non-blocking)
         if (result.IsSuccess && result.Value != null)
         {
-            await _store.MarkAsProcessedAsync(request.MessageId, result.Value, cancellationToken);
-            _logger.LogDebug("Marked message {MessageId} as processed", request.MessageId);
+            await _store.MarkAsProcessedAsync(messageId, result.Value, cancellationToken);
+            Logger.LogDebug("Marked message {MessageId} as processed", messageId);
         }
 
         return result;

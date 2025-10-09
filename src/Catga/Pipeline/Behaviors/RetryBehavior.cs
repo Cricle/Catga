@@ -11,18 +11,16 @@ namespace Catga.Pipeline.Behaviors;
 /// <summary>
 /// Simplified retry behavior with exponential backoff and jitter (AOT-compatible)
 /// </summary>
-public class RetryBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+public class RetryBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
-    private readonly ILogger<RetryBehavior<TRequest, TResponse>> _logger;
     private readonly ResiliencePipeline _retryPipeline;
 
     public RetryBehavior(
         ILogger<RetryBehavior<TRequest, TResponse>> logger,
         CatgaOptions options)
+        : base(logger)
     {
-        _logger = logger;
-
         // Build retry pipeline from options
         _retryPipeline = new ResiliencePipelineBuilder()
             .AddRetry(new RetryStrategyOptions
@@ -34,9 +32,9 @@ public class RetryBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
                 ShouldHandle = new PredicateBuilder().Handle<CatgaException>(ex => ex.IsRetryable),
                 OnRetry = args =>
                 {
-                    _logger.LogWarning(
+                    LogWarning(
                         "Retry {AttemptNumber}/{MaxAttempts} for {RequestType}",
-                        args.AttemptNumber, options.MaxRetryAttempts, typeof(TRequest).Name);
+                        args.AttemptNumber, options.MaxRetryAttempts, GetRequestName());
                     return ValueTask.CompletedTask;
                 }
             })
@@ -46,7 +44,7 @@ public class RetryBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
     /// <summary>
     /// Optimized: Use ValueTask to reduce heap allocations
     /// </summary>
-    public async ValueTask<CatgaResult<TResponse>> HandleAsync(
+    public override async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default)
@@ -58,7 +56,7 @@ public class RetryBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
         }
         catch (CatgaException ex)
         {
-            _logger.LogError(ex, "Request failed after retries: {RequestType}", typeof(TRequest).Name);
+            Logger.LogError(ex, "Request failed after retries: {RequestType}", GetRequestName());
             return CatgaResult<TResponse>.Failure(ex.Message, ex);
         }
         catch (Exception ex)

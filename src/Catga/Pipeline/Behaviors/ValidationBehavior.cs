@@ -8,21 +8,20 @@ namespace Catga.Pipeline.Behaviors;
 /// <summary>
 /// Validation behavior for requests
 /// </summary>
-public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+public class ValidationBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
     private readonly IEnumerable<IValidator<TRequest>> _validators;
-    private readonly ILogger<ValidationBehavior<TRequest, TResponse>> _logger;
 
     public ValidationBehavior(
         IEnumerable<IValidator<TRequest>> validators,
         ILogger<ValidationBehavior<TRequest, TResponse>> logger)
+        : base(logger)
     {
         _validators = validators;
-        _logger = logger;
     }
 
-    public async ValueTask<CatgaResult<TResponse>> HandleAsync(
+    public override async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default)
@@ -37,8 +36,9 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
 
         if (errors.Count > 0)
         {
-            _logger.LogWarning("Validation failed for {RequestType}, MessageId: {MessageId}, Errors: {Errors}",
-                typeof(TRequest).Name, request.MessageId, string.Join("; ", errors));
+            var messageId = TryGetMessageId(request) ?? "N/A";
+            LogWarning("Validation failed for {RequestType}, MessageId: {MessageId}, Errors: {Errors}",
+                GetRequestName(), messageId, string.Join("; ", errors));
 
             return CatgaResult<TResponse>.Failure("Validation failed",
                 new CatgaValidationException("Validation failed", errors));

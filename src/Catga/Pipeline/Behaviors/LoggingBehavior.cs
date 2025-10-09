@@ -8,29 +8,29 @@ namespace Catga.Pipeline.Behaviors;
 /// <summary>
 /// Structured logging behavior (High performance, Full context)
 /// </summary>
-public partial class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+public partial class LoggingBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
-    private readonly ILogger _logger;
-
     public LoggingBehavior(ILogger<LoggingBehavior<TRequest, TResponse>> logger)
+        : base(logger)
     {
-        _logger = logger;
     }
 
     /// <summary>
     /// Optimized: Use ValueTask to reduce heap allocations
     /// </summary>
-    public async ValueTask<CatgaResult<TResponse>> HandleAsync(
+    public override async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default)
     {
-        var requestName = typeof(TRequest).Name;
+        var requestName = GetRequestName();
+        var messageId = TryGetMessageId(request) ?? "N/A";
+        var correlationId = TryGetCorrelationId(request) ?? string.Empty;
         var sw = Stopwatch.StartNew();
 
         // Use source-generated logging methods (AOT compatible + High performance)
-        LogRequestStarted(requestName, request.MessageId, request.CorrelationId ?? string.Empty);
+        LogRequestStarted(requestName, messageId, correlationId);
 
         try
         {
@@ -41,18 +41,18 @@ public partial class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TR
             {
                 LogRequestSucceeded(
                     requestName,
-                    request.MessageId,
+                    messageId,
                     sw.ElapsedMilliseconds,
-                    request.CorrelationId ?? string.Empty);
+                    correlationId);
             }
             else
             {
                 LogRequestFailed(
                     requestName,
-                    request.MessageId,
+                    messageId,
                     sw.ElapsedMilliseconds,
                     result.Error ?? "Unknown error",
-                    request.CorrelationId ?? string.Empty,
+                    correlationId,
                     result.Exception?.GetType().Name);
             }
 
@@ -64,9 +64,9 @@ public partial class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TR
             LogRequestException(
                 ex,
                 requestName,
-                request.MessageId,
+                messageId,
                 sw.ElapsedMilliseconds,
-                request.CorrelationId ?? string.Empty);
+                correlationId);
             throw;
         }
     }

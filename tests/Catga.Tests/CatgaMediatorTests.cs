@@ -254,7 +254,7 @@ public class CancellableCommandHandler : IRequestHandler<TestCommand, TestRespon
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse { Message = "Success" }));
+        return Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse("Success")));
     }
 }
 

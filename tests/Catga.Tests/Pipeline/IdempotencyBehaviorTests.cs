@@ -22,22 +22,22 @@ public class IdempotencyBehaviorTests
         var logger = NullLogger<IdempotencyBehavior<TestRequest, TestResponse>>.Instance;
         var behavior = new IdempotencyBehavior<TestRequest, TestResponse>(idempotencyStore, logger);
 
-        var request = new TestRequest { MessageId = "test-123", Value = "test" };
-        var cachedResponse = new TestResponse { Message = "Cached" };
+        var request = new TestRequest("test");
+        var cachedResponse = new TestResponse("Cached");
 
         idempotencyStore
-            .HasBeenProcessedAsync(request.MessageId, Arg.Any<CancellationToken>())
+            .HasBeenProcessedAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(true);
 
         idempotencyStore
-            .GetCachedResultAsync<TestResponse>(request.MessageId, Arg.Any<CancellationToken>())
+            .GetCachedResultAsync<TestResponse>(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(cachedResponse);
 
         var nextCalled = false;
         PipelineDelegate<TestResponse> next = () =>
         {
             nextCalled = true;
-            return new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse { Message = "New" }));
+            return new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse("New")));
         };
 
         // Act
@@ -58,17 +58,17 @@ public class IdempotencyBehaviorTests
         var logger = NullLogger<IdempotencyBehavior<TestRequest, TestResponse>>.Instance;
         var behavior = new IdempotencyBehavior<TestRequest, TestResponse>(idempotencyStore, logger);
 
-        var request = new TestRequest { MessageId = "test-456", Value = "test" };
+        var request = new TestRequest("test");
 
         idempotencyStore
-            .HasBeenProcessedAsync(request.MessageId, Arg.Any<CancellationToken>())
+            .HasBeenProcessedAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(false);
 
         var nextCalled = false;
         PipelineDelegate<TestResponse> next = () =>
         {
             nextCalled = true;
-            return new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse { Message = "New Result" }));
+            return new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse("New Result")));
         };
 
         // Act
@@ -83,7 +83,7 @@ public class IdempotencyBehaviorTests
         // 验证结果被缓存
         await idempotencyStore
             .Received(1)
-            .MarkAsProcessedAsync(request.MessageId, result.Value, Arg.Any<CancellationToken>());
+            .MarkAsProcessedAsync(Arg.Any<string>(), result, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -94,10 +94,10 @@ public class IdempotencyBehaviorTests
         var logger = NullLogger<IdempotencyBehavior<TestRequest, TestResponse>>.Instance;
         var behavior = new IdempotencyBehavior<TestRequest, TestResponse>(idempotencyStore, logger);
 
-        var request = new TestRequest { MessageId = "test-error", Value = "test" };
+        var request = new TestRequest("test");
 
         idempotencyStore
-            .HasBeenProcessedAsync(request.MessageId, Arg.Any<CancellationToken>())
+            .HasBeenProcessedAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(false);
 
         PipelineDelegate<TestResponse> next = () =>

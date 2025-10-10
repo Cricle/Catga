@@ -1,4 +1,5 @@
 using Catga.Observability;
+using Catga.InMemory.Observability;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 

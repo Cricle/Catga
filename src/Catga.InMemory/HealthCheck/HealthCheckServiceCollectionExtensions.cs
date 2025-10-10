@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
+using Catga.InMemory.Observability;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Catga.HealthCheck;
 
@@ -34,7 +36,12 @@ public static class HealthCheckServiceCollectionExtensions
     public static IServiceCollection AddCatgaFrameworkHealthCheck(
         this IServiceCollection services)
     {
-        services.AddSingleton<IHealthCheck, CatgaHealthCheck>();
+        // Use Microsoft's standard health check API
+        services.AddHealthChecks()
+            .AddCheck<CatgaHealthCheck>(
+                "catga",
+                failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy,
+                tags: new[] { "catga", "framework" });
         return services;
     }
 }

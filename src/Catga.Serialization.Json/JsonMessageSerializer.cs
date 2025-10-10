@@ -26,10 +26,10 @@ public class JsonMessageSerializer : IBufferedMessageSerializer
     [RequiresDynamicCode("Serialization may require runtime code generation")]
     public byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(T value)
     {
-        // Optimized: Use Utf8JsonWriter with PooledBufferWriter
-        using var bufferWriter = new PooledBufferWriter(256);
+        // Use ArrayBufferWriter for simplicity
+        var bufferWriter = new ArrayBufferWriter<byte>(256);
         Serialize(value, bufferWriter);
-        return bufferWriter.ToArray();
+        return bufferWriter.WrittenSpan.ToArray();
     }
 
     [RequiresUnreferencedCode("Deserialization may require types that cannot be statically analyzed")]

@@ -1,212 +1,90 @@
 using Catga;
-using Catga.Configuration;
 using Catga.DependencyInjection;
-using Catga.DistributedId;
 using Catga.Handlers;
 using Catga.Messages;
 using Catga.Results;
-using Catga.Serialization.Json;
-using SimpleWebApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// 🎯 Simplified Catga registration with Source Generator
-builder.Services.AddCatga(options =>
-{
-    options.EnableLogging = true;
-});
+// ✨ Catga - 极简配置（2行）
+builder.Services.AddCatga();  // 注册 Catga 核心服务
 
-// Add JSON serializer
-builder.Services.AddSingleton<Catga.Serialization.IMessageSerializer, JsonMessageSerializer>();
-
-// 🆔 Add distributed ID generator with custom epoch and auto-detected worker ID
-builder.Services.AddDistributedId(options =>
-{
-    // Set custom epoch to project start date (optional, extends usable lifespan)
-    options.CustomEpoch = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-    
-    // Auto-detect worker ID from environment (WORKER_ID, POD_INDEX, or HOSTNAME)
-    options.AutoDetectWorkerId = true;
-    
-    // Or use a specific layout for different scenarios:
-    // options.Layout = SnowflakeBitLayout.LongLifespan;      // 278 years
-    // options.Layout = SnowflakeBitLayout.HighConcurrency;   // 16384 IDs/ms
-    // options.Layout = SnowflakeBitLayout.LargeCluster;      // 4096 workers
-});
-
-// ✨ Auto-register all handlers using source generator (No manual registration needed!)
-builder.Services.AddGeneratedHandlers();
+// 手动注册 Handler（最简单方式）
+builder.Services.AddScoped<IRequestHandler<CreateUserCommand, UserResponse>, CreateUserHandler>();
+builder.Services.AddScoped<IRequestHandler<GetUserQuery, UserResponse>, GetUserHandler>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-
-// 📝 Simple API endpoints using Catga mediator
-app.MapPost("/users", async (ICatgaMediator mediator, CreateUserCommand command) =>
+// API 端点
+app.MapPost("/users", async (ICatgaMediator mediator, CreateUserCommand cmd) =>
 {
-    var result = await mediator.SendAsync<CreateUserCommand, CreateUserResponse>(command);
+    var result = await mediator.SendAsync<CreateUserCommand, UserResponse>(cmd);
     return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
-})
-.WithName("CreateUser");
+});
 
 app.MapGet("/users/{id}", async (ICatgaMediator mediator, string id) =>
 {
-    var query = new GetUserQuery(id);  // ✨ Simplified record creation
-    var result = await mediator.SendAsync<GetUserQuery, UserDto>(query);
+    var result = await mediator.SendAsync<GetUserQuery, UserResponse>(new(id));
     return result.IsSuccess ? Results.Ok(result.Value) : Results.NotFound();
-})
-.WithName("GetUser");
-
-// 🆔 Map distributed ID endpoints
-app.MapDistributedIdEndpoints();
+});
 
 app.Run();
 
-// ========================
-// Domain Messages
-// ========================
+// ==================== 消息定义 ====================
 
-/// <summary>
-/// Create user command - simplified with record
-/// IMessage properties (MessageId, CreatedAt, CorrelationId) are inherited
-/// </summary>
-public record CreateUserCommand(string Username, string Email) : MessageBase, IRequest<CreateUserResponse>;
+// 命令（1行）
+public record CreateUserCommand(string Username, string Email) : MessageBase, IRequest<UserResponse>;
 
-public record CreateUserResponse
+// 查询（1行）
+public record GetUserQuery(string UserId) : MessageBase, IRequest<UserResponse>;
+
+// 响应
+public record UserResponse(string UserId, string Username, string Email);
+
+// ==================== Handler ====================
+
+// 创建用户 Handler
+public class CreateUserHandler : IRequestHandler<CreateUserCommand, UserResponse>
 {
-    public required string UserId { get; init; }
-    public required string Username { get; init; }
-    public required string Email { get; init; }
-}
+    private readonly ILogger<CreateUserHandler> _logger;
 
-/// <summary>
-/// Get user query - even simpler!
-/// </summary>
-public record GetUserQuery(string UserId) : MessageBase, IRequest<UserDto>;
+    public CreateUserHandler(ILogger<CreateUserHandler> logger) => _logger = logger;
 
-public record UserDto
-{
-    public required string UserId { get; init; }
-    public required string Username { get; init; }
-    public required string Email { get; init; }
-}
-
-/// <summary>
-/// User created event - inherits from EventBase
-/// </summary>
-public record UserCreatedEvent(string UserId, string Username) : EventBase;
-
-// ========================
-// Handlers (Auto-discovered by Source Generator!)
-// ========================
-
-/// <summary>
-/// Create user command handler
-/// No [CatgaHandler] attribute needed - automatically discovered!
-/// </summary>
-public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, CreateUserResponse>
-{
-    private readonly ILogger<CreateUserCommandHandler> _logger;
-    private readonly ICatgaMediator _mediator;
-
-    public CreateUserCommandHandler(
-        ILogger<CreateUserCommandHandler> logger,
-        ICatgaMediator mediator)
+    public Task<CatgaResult<UserResponse>> HandleAsync(CreateUserCommand cmd, CancellationToken ct = default)
     {
-        _logger = logger;
-        _mediator = mediator;
-    }
+        _logger.LogInformation("Creating user: {Username}", cmd.Username);
 
-    public async Task<CatgaResult<CreateUserResponse>> HandleAsync(
-        CreateUserCommand request,
-        CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("Creating user: {Username}", request.Username);
-
-        // Simulate database save
+        // TODO: 保存到数据库
         var userId = Guid.NewGuid().ToString();
+        var response = new UserResponse(userId, cmd.Username, cmd.Email);
 
-        // Publish domain event - simplified!
-        var @event = new UserCreatedEvent(userId, request.Username)
-        {
-            CorrelationId = request.CorrelationId  // Optionally set correlation ID
-        };
-
-        await _mediator.PublishAsync(@event, cancellationToken);
-
-        var response = new CreateUserResponse
-        {
-            UserId = userId,
-            Username = request.Username,
-            Email = request.Email
-        };
-
-        return CatgaResult<CreateUserResponse>.Success(response);
+        return Task.FromResult(CatgaResult<UserResponse>.Success(response));
     }
 }
 
-/// <summary>
-/// Get user query handler
-/// Also automatically discovered!
-/// </summary>
-public class GetUserQueryHandler : IRequestHandler<GetUserQuery, UserDto>
+// 查询用户 Handler
+public class GetUserHandler : IRequestHandler<GetUserQuery, UserResponse>
 {
-    private readonly ILogger<GetUserQueryHandler> _logger;
+    private readonly ILogger<GetUserHandler> _logger;
 
-    public GetUserQueryHandler(ILogger<GetUserQueryHandler> logger)
+    public GetUserHandler(ILogger<GetUserHandler> logger) => _logger = logger;
+
+    public Task<CatgaResult<UserResponse>> HandleAsync(GetUserQuery query, CancellationToken ct = default)
     {
-        _logger = logger;
-    }
+        _logger.LogInformation("Getting user: {UserId}", query.UserId);
 
-    public Task<CatgaResult<UserDto>> HandleAsync(
-        GetUserQuery request,
-        CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("Getting user: {UserId}", request.UserId);
+        // TODO: 从数据库查询
+        var response = new UserResponse(query.UserId, "John Doe", "john@example.com");
 
-        // Simulate database query
-        var user = new UserDto
-        {
-            UserId = request.UserId,
-            Username = "john_doe",
-            Email = "john@example.com"
-        };
-
-        return Task.FromResult(CatgaResult<UserDto>.Success(user));
-    }
-}
-
-/// <summary>
-/// User created event handler
-/// Handle side effects when user is created
-/// </summary>
-public class UserCreatedEventHandler : IEventHandler<UserCreatedEvent>
-{
-    private readonly ILogger<UserCreatedEventHandler> _logger;
-
-    public UserCreatedEventHandler(ILogger<UserCreatedEventHandler> logger)
-    {
-        _logger = logger;
-    }
-
-    public Task HandleAsync(UserCreatedEvent @event, CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("User created event received: {UserId} - {Username}",
-            @event.UserId, @event.Username);
-
-        // Send welcome email, update analytics, etc.
-
-        return Task.CompletedTask;
+        return Task.FromResult(CatgaResult<UserResponse>.Success(response));
     }
 }

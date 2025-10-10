@@ -1,7 +1,8 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Catga.Performance;
+using Catga.Observability;
 
-namespace Catga.Observability;
+namespace Catga.InMemory.Observability;
 
 /// <summary>
 /// Catga framework health check
@@ -25,10 +26,11 @@ public class CatgaHealthCheck : IHealthCheck
         {
             // Check handler cache statistics
             var stats = _handlerCache.GetStatistics();
+            var missRate = 1.0 - stats.HitRate;
             var data = new Dictionary<string, object>
             {
                 ["cache_hit_rate"] = stats.HitRate,
-                ["cache_miss_rate"] = stats.MissRate,
+                ["cache_miss_rate"] = missRate,
                 ["total_requests"] = _metrics.TotalRequests,
                 ["failed_requests"] = _metrics.FailedRequests,
                 ["framework_status"] = "healthy"

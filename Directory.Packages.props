@@ -63,8 +63,8 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
 
     <!-- DotNext Raft Cluster -->
-    <PackageVersion Include="DotNext.Net.Cluster" Version="5.14.1" />
-    <PackageVersion Include="DotNext.AspNetCore.Cluster" Version="5.14.1" />
+    <PackageVersion Include="DotNext.Net.Cluster" Version="5.16.0" />
+    <PackageVersion Include="DotNext.AspNetCore.Cluster" Version="5.16.0" />
   </ItemGroup>
 
 </Project>

@@ -62,12 +62,12 @@ src/
 builder.Services
     .AddCatga()
     .UseGeneratedHandlers()
-    .UseRedis(redis => 
+    .UseRedis(redis =>
     {
         redis.UseDistributedLock();
         redis.UseDistributedCache();
     })
-    .UseNats(nats => 
+    .UseNats(nats =>
     {
         nats.Url = "nats://localhost:4222";
     })
@@ -75,7 +75,7 @@ builder.Services
 ```
 
 #### 3. 示例不够完整
-- **问题**: 
+- **问题**:
   - SimpleWebApi: 缺少错误处理示例
   - RedisExample: 未演示缓存失效策略
   - DistributedCluster: 未演示故障恢复
@@ -84,21 +84,21 @@ builder.Services
 ### P1 - 重要问题
 
 #### 4. 性能优化点未充分利用
-- **问题**: 
+- **问题**:
   - FastPath 未在所有场景使用
   - ArrayPool 使用不一致
   - 某些热路径仍有分配
-- **建议**: 
+- **建议**:
   - 全面审查热路径，确保零分配
   - 统一 ArrayPool 使用策略
   - 添加性能基准测试验证
 
 #### 5. 错误处理不够友好
-- **问题**: 
+- **问题**:
   - CatgaResult 缺少详细的错误码
   - 异常信息不够清晰
   - 缺少错误分类（业务错误 vs 系统错误）
-- **建议**: 
+- **建议**:
 ```csharp
 public class CatgaResult<T>
 {
@@ -117,7 +117,7 @@ public record CatgaError(
 
 #### 6. 缺少重试策略配置
 - **问题**: RetryBehavior 硬编码重试次数
-- **建议**: 
+- **建议**:
 ```csharp
 services.AddCatga(options =>
 {
@@ -132,7 +132,7 @@ services.AddCatga(options =>
 
 #### 7. 缺少请求超时控制
 - **问题**: 长时间运行的请求可能阻塞系统
-- **建议**: 
+- **建议**:
 ```csharp
 [Timeout(Seconds = 30)]
 public class SlowQueryHandler : IRequestHandler<SlowQuery, Result>
@@ -143,7 +143,7 @@ public class SlowQueryHandler : IRequestHandler<SlowQuery, Result>
 
 #### 8. 缺少批量操作优化
 - **问题**: 批量操作未充分优化
-- **建议**: 
+- **建议**:
   - 提供 `SendBatchAsync<T>()` 优化版本
   - 支持批量缓存 GetMany/SetMany
   - 支持批量数据库操作
@@ -271,11 +271,11 @@ public static class CatgaErrorCodes
     // 业务错误 (1xxx)
     public const string OrderNotFound = "ORD_1001";
     public const string InsufficientStock = "ORD_1002";
-    
+
     // 系统错误 (2xxx)
     public const string DatabaseTimeout = "SYS_2001";
     public const string NetworkError = "SYS_2002";
-    
+
     // 验证错误 (3xxx)
     public const string InvalidInput = "VAL_3001";
 }
@@ -284,7 +284,7 @@ public static class CatgaErrorCodes
 ### 2. 分层配置
 ```csharp
 // 核心层（必须）
-services.AddCatga()  
+services.AddCatga()
     .UseGeneratedHandlers();
 
 // 增强层（常用）

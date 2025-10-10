@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
@@ -165,6 +166,56 @@ public sealed class RedisSortedSetNodeDiscovery : INodeDiscovery, IAsyncDisposab
         }
 
         return nodes;
+    }
+
+    public async IAsyncEnumerable<NodeChangeEvent> WatchAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        // Redis Sorted Set 不支持原生 Watch，使用轮询模式
+        var lastNodes = new Dictionary<string, NodeInfo>();
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var currentNodes = await GetNodesAsync(cancellationToken);
+
+            // 检测新加入的节点
+            foreach (var node in currentNodes)
+            {
+                if (!lastNodes.ContainsKey(node.NodeId))
+                {
+                    yield return new NodeChangeEvent
+                    {
+                        Type = NodeChangeType.Joined,
+                        Node = node
+                    };
+                }
+                else if (lastNodes[node.NodeId].LastSeen != node.LastSeen)
+                {
+                    yield return new NodeChangeEvent
+                    {
+                        Type = NodeChangeType.Updated,
+                        Node = node
+                    };
+                }
+            }
+
+            // 检测离开的节点
+            foreach (var oldNode in lastNodes.Values)
+            {
+                if (!currentNodes.Any(n => n.NodeId == oldNode.NodeId))
+                {
+                    yield return new NodeChangeEvent
+                    {
+                        Type = NodeChangeType.Left,
+                        Node = oldNode
+                    };
+                }
+            }
+
+            lastNodes = currentNodes.ToDictionary(n => n.NodeId);
+
+            // 等待一段时间再检查
+            await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+        }
     }
 
     public async ValueTask DisposeAsync()

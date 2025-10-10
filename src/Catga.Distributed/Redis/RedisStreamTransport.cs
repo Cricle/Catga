@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Catga.Transport;
 using Microsoft.Extensions.Logging;
@@ -33,7 +34,20 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
         _disposeCts = new CancellationTokenSource();
     }
 
-    public async Task PublishAsync<TMessage>(
+    public string Name => "Redis Streams";
+
+    public BatchTransportOptions? BatchOptions => new()
+    {
+        MaxBatchSize = 100,
+        BatchTimeout = TimeSpan.FromMilliseconds(100),
+        EnableAutoBatching = true
+    };
+
+    public CompressionTransportOptions? CompressionOptions => null; // 不支持压缩
+
+    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Message serialization may require runtime code generation")]
+    public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         TMessage message,
         TransportContext? context = null,
         CancellationToken cancellationToken = default)
@@ -60,7 +74,9 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
             context?.MessageId ?? "unknown", _streamKey);
     }
 
-    public async Task SendAsync<TMessage>(
+    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Message serialization may require runtime code generation")]
+    public async Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         TMessage message,
         string destination,
         TransportContext? context = null,
@@ -71,7 +87,40 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
         await PublishAsync(message, context, cancellationToken);
     }
 
-    public async Task SubscribeAsync<TMessage>(
+    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Message serialization may require runtime code generation")]
+    public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
+        IEnumerable<TMessage> messages,
+        TransportContext? context = null,
+        CancellationToken cancellationToken = default)
+        where TMessage : class
+    {
+        // 批量发布（逐个发送到 Stream）
+        foreach (var message in messages)
+        {
+            await PublishAsync(message, context, cancellationToken);
+        }
+    }
+
+    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Message serialization may require runtime code generation")]
+    public async Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
+        IEnumerable<TMessage> messages,
+        string destination,
+        TransportContext? context = null,
+        CancellationToken cancellationToken = default)
+        where TMessage : class
+    {
+        // 批量发送（逐个发送到 Stream）
+        foreach (var message in messages)
+        {
+            await SendAsync(message, destination, context, cancellationToken);
+        }
+    }
+
+    [RequiresUnreferencedCode("Message deserialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Message deserialization may require runtime code generation")]
+    public async Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] TMessage>(
         Func<TMessage, TransportContext, Task> handler,
         CancellationToken cancellationToken = default)
         where TMessage : class

@@ -49,6 +49,9 @@ public interface IRequest : IMessage
 /// <summary>
 /// Event message - something that has happened
 /// Simple usage: public record MyEvent(...) : IEvent;
+/// 
+/// Note: Events 默认使用 QoS 0 (Fire-and-Forget)，不保证送达
+/// 如需保证送达，使用 IReliableEvent
 /// </summary>
 public interface IEvent : IMessage
 {
@@ -56,5 +59,24 @@ public interface IEvent : IMessage
     /// Event occurred timestamp (auto-generated)
     /// </summary>
     DateTime OccurredAt => DateTime.UtcNow;
+
+    /// <summary>
+    /// Events 默认 QoS 0 (Fire-and-Forget)
+    /// </summary>
+    QualityOfService QoS => QualityOfService.AtMostOnce;
+}
+
+/// <summary>
+/// Reliable event - guarantees at-least-once delivery
+/// Simple usage: public record MyEvent(...) : IReliableEvent;
+/// 
+/// 可靠事件保证至少一次送达，但可能重复，需要幂等性处理
+/// </summary>
+public interface IReliableEvent : IEvent
+{
+    /// <summary>
+    /// 可靠事件使用 QoS 1 (At-Least-Once)
+    /// </summary>
+    new QualityOfService QoS => QualityOfService.AtLeastOnce;
 }
 

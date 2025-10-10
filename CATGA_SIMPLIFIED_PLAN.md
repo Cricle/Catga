@@ -1,6 +1,6 @@
 # Catga - 简化计划
 
-**日期**: 2025-10-10  
+**日期**: 2025-10-10
 **核心目标**: 简单、AOT、高性能、集群、分布式、安全、稳定、节点互通、自动
 
 ---
@@ -82,15 +82,15 @@ builder.Services.AddNatsTransport("nats://localhost:4222");
 
 ```csharp
 // ✅ 定义消息
-public record CreateOrderCommand(string ProductId, int Quantity) 
+public record CreateOrderCommand(string ProductId, int Quantity)
     : IRequest<Order>;
 
 // ✅ 定义 Handler
-public class CreateOrderHandler 
+public class CreateOrderHandler
     : IRequestHandler<CreateOrderCommand, Order>
 {
     public async Task<CatgaResult<Order>> HandleAsync(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken ct)
     {
         var order = new Order(...);
@@ -157,14 +157,14 @@ var result = await _mediator.SendAsync<CreateOrderCommand, Order>(command);
 public class NatsTransport : IMessageTransport
 {
     private readonly INatsConnection _nats;
-    
+
     // ✅ 发布消息（自动路由）
     public async Task PublishAsync<T>(T message, ...)
     {
         var subject = $"catga.{typeof(T).Name}";
         await _nats.PublishAsync(subject, message);
     }
-    
+
     // ✅ 订阅消息（自动接收）
     public async Task SubscribeAsync<T>(...)
     {
@@ -183,14 +183,14 @@ public class NatsNodeDiscovery
         var node = new { NodeId, IP, Load };
         await _nats.PublishAsync("catga.nodes.join", node);
     }
-    
+
     // ✅ 心跳（每30秒）
     public async Task HeartbeatAsync()
     {
         var heartbeat = new { NodeId, Load };
         await _nats.PublishAsync("catga.nodes.heartbeat", heartbeat);
     }
-    
+
     // ✅ 获取所有节点
     public async Task<List<Node>> GetNodesAsync()
     {

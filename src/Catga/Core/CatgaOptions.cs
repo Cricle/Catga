@@ -35,6 +35,15 @@ public class CatgaOptions
     public bool EnableDeadLetterQueue { get; set; } = true;
     public int DeadLetterQueueMaxSize { get; set; } = 1000;
 
+    // === Quality of Service ===
+    /// <summary>
+    /// 默认消息服务质量等级（QoS）
+    /// - AtMostOnce (0): 最快，不保证送达
+    /// - AtLeastOnce (1): 默认，保证送达但可能重复
+    /// - ExactlyOnce (2): 最慢，保证送达且不重复
+    /// </summary>
+    public QualityOfService DefaultQoS { get; set; } = QualityOfService.AtLeastOnce;
+
     // === Thread Pool ===
     public ThreadPoolOptions ThreadPool { get; set; } = new();
 

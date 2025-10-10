@@ -20,6 +20,14 @@ public interface IMessage
     /// Correlation ID for tracking related messages
     /// </summary>
     string? CorrelationId => null;
+
+    /// <summary>
+    /// 消息服务质量等级（QoS）
+    /// - QoS 0 (AtMostOnce): 最快，不保证送达
+    /// - QoS 1 (AtLeastOnce): 默认，保证送达但可能重复
+    /// - QoS 2 (ExactlyOnce): 最慢，保证送达且不重复
+    /// </summary>
+    QualityOfService QoS => QualityOfService.AtLeastOnce;
 }
 
 /// <summary>

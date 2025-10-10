@@ -1,6 +1,6 @@
 # Catga - 回归核心，专注简单
 
-**决定时间**: 2025年10月10日  
+**决定时间**: 2025年10月10日
 **核心理念**: 超简单、高性能、专注 CQRS
 
 ---
@@ -111,7 +111,7 @@ Catga/
 
 ```csharp
 // ✅ 简单
-public record CreateOrderCommand(string ProductId, int Quantity) 
+public record CreateOrderCommand(string ProductId, int Quantity)
     : IRequest<OrderResponse>;
 ```
 
@@ -192,10 +192,10 @@ if (lock != null)
 
 ### 核心决定
 
-✅ **回归简单** - 只做 CQRS，不做复杂分布式  
-✅ **专注性能** - 100万+ QPS，0 GC  
-✅ **成熟方案** - 分布式用 NATS/Redis  
-✅ **国内可用** - 无网络问题  
+✅ **回归简单** - 只做 CQRS，不做复杂分布式
+✅ **专注性能** - 100万+ QPS，0 GC
+✅ **成熟方案** - 分布式用 NATS/Redis
+✅ **国内可用** - 无网络问题
 
 ### 用户价值
 

@@ -1,6 +1,6 @@
 # Catga vs MassTransit - 深度对比分析
 
-**日期**: 2025-10-10  
+**日期**: 2025-10-10
 **版本**: Catga v2.0 vs MassTransit v8.x
 
 ---
@@ -67,17 +67,17 @@ builder.Services
     .AddGeneratedHandlers();
 
 // 消息
-public record CreateOrderRequest(string ProductId, int Quantity) 
+public record CreateOrderRequest(string ProductId, int Quantity)
     : IRequest<OrderResponse>;
 
 public record OrderResponse(string OrderId, string Status);
 
 // 处理器
-public class CreateOrderHandler 
+public class CreateOrderHandler
     : IRequestHandler<CreateOrderRequest, OrderResponse>
 {
     public async Task<CatgaResult<OrderResponse>> HandleAsync(
-        CreateOrderRequest request, 
+        CreateOrderRequest request,
         CancellationToken ct)
     {
         return CatgaResult<OrderResponse>.Success(
@@ -103,7 +103,7 @@ builder.Services.AddMassTransit(x =>
 {
     // 配置消费者
     x.AddConsumer<CreateOrderConsumer>();
-    
+
     // 配置传输
     x.UsingRabbitMq((context, cfg) =>
     {
@@ -112,20 +112,20 @@ builder.Services.AddMassTransit(x =>
             h.Username("guest");
             h.Password("guest");
         });
-        
+
         // 配置端点
         cfg.ReceiveEndpoint("order-queue", e =>
         {
             e.ConfigureConsumer<CreateOrderConsumer>(context);
-            
+
             // 重试策略
             e.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(5)));
-            
+
             // 并发限制
             e.PrefetchCount = 16;
             e.UseConcurrentMessageLimit(10);
         });
-        
+
         // 配置请求客户端
         cfg.AddRequestClient<CreateOrderRequest>();
     });
@@ -219,11 +219,11 @@ var result = await _mediator.SendAsync<CreateOrderRequest, OrderResponse>(reques
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<CreateOrderConsumer>();
-    
+
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host("rabbitmq1", "/", h => { /* 配置 */ });
-        
+
         // 集群配置（需要 RabbitMQ 集群）
         cfg.UseCluster(c =>
         {
@@ -231,19 +231,19 @@ builder.Services.AddMassTransit(x =>
             c.Node("rabbitmq2");
             c.Node("rabbitmq3");
         });
-        
+
         // 负载均衡（RabbitMQ 处理）
         cfg.ReceiveEndpoint("order-queue", e =>
         {
             e.ConfigureConsumer<CreateOrderConsumer>(context);
-            
+
             // 并发控制（有锁）
             e.PrefetchCount = 16;
             e.UseConcurrentMessageLimit(10);
-            
+
             // 重试策略
             e.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(5)));
-            
+
             // 断路器（有锁）
             e.UseCircuitBreaker(cb =>
             {
@@ -252,17 +252,17 @@ builder.Services.AddMassTransit(x =>
                 cb.ActiveThreshold = 10;
                 cb.ResetInterval = TimeSpan.FromMinutes(5);
             });
-            
+
             // 限流（有锁）
             e.UseRateLimit(1000, TimeSpan.FromSeconds(1));
         });
-        
+
         // 请求客户端配置
         cfg.AddRequestClient<CreateOrderRequest>(
             new Uri("queue:order-queue"),
             RequestTimeout.Default);
     });
-    
+
     // Saga 配置（如需状态机）
     x.AddSagaStateMachine<OrderStateMachine, OrderState>()
         .InMemoryRepository();
@@ -342,10 +342,10 @@ cfg.ReceiveEndpoint("order-queue", e =>
 {
     // 需要手动配置重试
     e.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(5)));
-    
+
     // 需要手动配置幂等性（通过 InMemoryOutbox）
     e.UseInMemoryOutbox();
-    
+
     // 或使用数据库 Outbox（更可靠）
     e.UseEntityFrameworkOutbox<OrderDbContext>(o =>
     {
@@ -359,7 +359,7 @@ cfg.ReceiveEndpoint("order-queue", e =>
 {
     // Session 可以保证顺序和去重
     e.RequiresSession = true;
-    
+
     // 需要手动配置重复检测
     e.DuplicateDetectionHistoryTimeWindow = TimeSpan.FromMinutes(10);
 });
@@ -369,7 +369,7 @@ cfg.TopicEndpoint<CreateOrderRequest>("order-topic", "order-group", e =>
 {
     // 需要手动管理 Offset
     e.AutoOffsetReset = AutoOffsetReset.Earliest;
-    
+
     // 需要手动配置 Exactly-Once（复杂）
     // 需要使用 Kafka Transactions
 });
@@ -378,24 +378,24 @@ cfg.TopicEndpoint<CreateOrderRequest>("order-topic", "order-group", e =>
 public class CreateOrderConsumer : IConsumer<CreateOrderRequest>
 {
     private readonly IIdempotencyService _idempotency;
-    
+
     public async Task Consume(ConsumeContext<CreateOrderRequest> context)
     {
-        var messageId = context.MessageId?.ToString() ?? 
+        var messageId = context.MessageId?.ToString() ??
                        context.Headers.Get<string>("MessageId");
-        
+
         // 手动检查幂等性
         if (await _idempotency.HasProcessed(messageId))
         {
             return; // 已处理，跳过
         }
-        
+
         // 处理消息
         var response = await ProcessOrder(context.Message);
-        
+
         // 标记已处理
         await _idempotency.MarkProcessed(messageId);
-        
+
         await context.RespondAsync(response);
     }
 }
@@ -555,13 +555,13 @@ Day 1: 基础概念                         - 4小时
   - 消费者（Consumer）
   - 端点（Endpoint）
   - 请求客户端（RequestClient）
-  
+
 Day 2: 高级特性                         - 4小时
   - Saga 状态机
   - 重试策略
   - 断路器
   - Outbox 模式
-  
+
 Day 3: 生产配置                         - 4小时
   - 集群配置
   - 监控和追踪
@@ -674,33 +674,33 @@ Day 3: 生产配置                         - 4小时
 
 ```csharp
 // 1. 定义消息
-public record CreateOrderRequest(string ProductId, int Quantity) 
+public record CreateOrderRequest(string ProductId, int Quantity)
     : IRequest<OrderResponse>;
 public record OrderResponse(string OrderId, string Status);
 public record OrderCreatedEvent(string OrderId) : IEvent;
 
 // 2. 处理器
-public class CreateOrderHandler 
+public class CreateOrderHandler
     : IRequestHandler<CreateOrderRequest, OrderResponse>
 {
     private readonly ICatgaMediator _mediator;
-    
+
     public async Task<CatgaResult<OrderResponse>> HandleAsync(
-        CreateOrderRequest request, 
+        CreateOrderRequest request,
         CancellationToken ct)
     {
         var orderId = Guid.NewGuid().ToString();
-        
+
         // 发布事件
         await _mediator.PublishAsync(
             new OrderCreatedEvent(orderId), ct);
-        
+
         return CatgaResult<OrderResponse>.Success(
             new OrderResponse(orderId, "Created"));
     }
 }
 
-public class OrderCreatedEventHandler 
+public class OrderCreatedEventHandler
     : IEventHandler<OrderCreatedEvent>
 {
     public Task HandleAsync(OrderCreatedEvent @event, CancellationToken ct)
@@ -747,17 +747,17 @@ public class OrderCreatedEvent
 public class CreateOrderConsumer : IConsumer<CreateOrderRequest>
 {
     private readonly IPublishEndpoint _publishEndpoint;
-    
+
     public async Task Consume(ConsumeContext<CreateOrderRequest> context)
     {
         var orderId = Guid.NewGuid().ToString();
-        
+
         // 发布事件
         await _publishEndpoint.Publish(new OrderCreatedEvent
         {
             OrderId = orderId
         });
-        
+
         // 响应
         await context.RespondAsync(new OrderResponse
         {
@@ -781,7 +781,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<CreateOrderConsumer>();
     x.AddConsumer<OrderCreatedEventConsumer>();
-    
+
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host("localhost", "/", h =>
@@ -789,18 +789,18 @@ builder.Services.AddMassTransit(x =>
             h.Username("guest");
             h.Password("guest");
         });
-        
+
         cfg.ReceiveEndpoint("order-queue", e =>
         {
             e.ConfigureConsumer<CreateOrderConsumer>(context);
             e.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(5)));
         });
-        
+
         cfg.ReceiveEndpoint("order-created-queue", e =>
         {
             e.ConfigureConsumer<OrderCreatedEventConsumer>(context);
         });
-        
+
         cfg.AddRequestClient<CreateOrderRequest>(
             new Uri("queue:order-queue"));
     });
@@ -809,10 +809,10 @@ builder.Services.AddMassTransit(x =>
 // 4. 使用（需要注入 RequestClient）
 var client = _serviceProvider.GetRequiredService<IRequestClient<CreateOrderRequest>>();
 var response = await client.GetResponse<OrderResponse>(
-    new CreateOrderRequest 
-    { 
-        ProductId = "product-123", 
-        Quantity = 2 
+    new CreateOrderRequest
+    {
+        ProductId = "product-123",
+        Quantity = 2
     });
 
 // 总计: ~80 行代码
@@ -878,6 +878,6 @@ var response = await client.GetResponse<OrderResponse>(
 
 ---
 
-*对比完成时间: 2025-10-10*  
+*对比完成时间: 2025-10-10*
 *Catga v2.0 vs MassTransit v8.x* 🚀
 

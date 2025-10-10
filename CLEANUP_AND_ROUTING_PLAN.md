@@ -1,6 +1,6 @@
 # Catga 清理和路由优化计划
 
-**日期**: 2025-10-10  
+**日期**: 2025-10-10
 **目标**: 清理无用代码/文档 + 实现完整路由 + 充分利用 NATS/Redis 原生功能
 
 ---
@@ -133,7 +133,7 @@ public class ConsistentHashRoutingStrategy : IRoutingStrategy
 {
     private readonly int _virtualNodes = 150; // 虚拟节点数
     private readonly Func<object, string> _keyExtractor;
-    
+
     public Task<NodeInfo?> SelectNodeAsync(
         IReadOnlyList<NodeInfo> nodes,
         object message,
@@ -141,16 +141,16 @@ public class ConsistentHashRoutingStrategy : IRoutingStrategy
     {
         // 1. 提取消息的路由键
         var key = _keyExtractor(message);
-        
+
         // 2. 计算哈希值
         var hash = GetHash(key);
-        
+
         // 3. 在哈希环上查找节点（二分查找，无锁）
         var node = FindNode(hash, nodes);
-        
+
         return Task.FromResult(node);
     }
-    
+
     private static int GetHash(string key)
     {
         // 使用 xxHash 或 MurmurHash（快速、均匀）
@@ -177,10 +177,10 @@ public class TopicRoutingStrategy : IRoutingStrategy
     {
         // 1. 提取消息的主题
         var topic = GetTopic(message);
-        
+
         // 2. 广播到所有订阅该主题的节点
         // （由 NATS/Redis 自动处理）
-        
+
         return Task.FromResult<NodeInfo?>(null); // 广播，不需要选择节点
     }
 }
@@ -194,7 +194,7 @@ public class TopicRoutingStrategy : IRoutingStrategy
 public sealed class DistributedMediator : IDistributedMediator
 {
     private readonly IRoutingStrategy _routingStrategy; // 可配置路由策略
-    
+
     public DistributedMediator(
         ICatgaMediator localMediator,
         IMessageTransport transport,
@@ -205,7 +205,7 @@ public sealed class DistributedMediator : IDistributedMediator
     {
         _routingStrategy = routingStrategy ?? new RoundRobinRoutingStrategy(); // 默认 Round-Robin
     }
-    
+
     public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
         TRequest request,
         CancellationToken ct = default)
@@ -221,16 +221,16 @@ public sealed class DistributedMediator : IDistributedMediator
             // 2. 本地失败，使用路由策略选择节点
             var nodes = await _discovery.GetNodesAsync(ct);
             var remoteNodes = nodes.Where(n => n.NodeId != _currentNode.NodeId).ToList();
-            
+
             if (remoteNodes.Count == 0)
                 return CatgaResult<TResponse>.Failure("No available nodes");
-            
+
             // 3. 使用可配置的路由策略（无锁）
             var targetNode = await _routingStrategy.SelectNodeAsync(remoteNodes, request, ct);
-            
+
             if (targetNode == null)
                 return CatgaResult<TResponse>.Failure("No suitable node found");
-            
+
             return await SendToNodeAsync<TRequest, TResponse>(request, targetNode.NodeId, ct);
         }
     }
@@ -256,28 +256,28 @@ public sealed class NatsNodeDiscovery : INodeDiscovery
     private readonly ILogger _logger;
     private INatsJSContext? _jetStream;  // JetStream 上下文
     private INatsKVStore? _kvStore;      // KV Store（原生功能）
-    
+
     public async Task RegisterAsync(NodeInfo node, CancellationToken ct = default)
     {
         var js = await GetJetStreamAsync(ct);
         var kv = await GetKVStoreAsync(ct);
-        
+
         // 使用 NATS KV Store（原生，持久化）
         var json = JsonSerializer.Serialize(node);
         await kv.PutAsync(node.NodeId, json, cancellationToken: ct);
-        
+
         // 设置 TTL（30秒自动过期）
         await kv.PutAsync(node.NodeId, json, new NatsKVPutOpts
         {
             TTL = TimeSpan.FromSeconds(30)
         }, cancellationToken: ct);
     }
-    
+
     public async Task<IReadOnlyList<NodeInfo>> GetNodesAsync(CancellationToken ct = default)
     {
         var kv = await GetKVStoreAsync(ct);
         var nodes = new List<NodeInfo>();
-        
+
         // 从 NATS KV Store 读取所有节点（原生）
         await foreach (var key in kv.GetKeysAsync(cancellationToken: ct))
         {
@@ -289,25 +289,25 @@ public sealed class NatsNodeDiscovery : INodeDiscovery
                     nodes.Add(node);
             }
         }
-        
+
         return nodes;
     }
-    
+
     private async Task<INatsJSContext> GetJetStreamAsync(CancellationToken ct)
     {
         if (_jetStream != null) return _jetStream;
-        
+
         // 创建 JetStream 上下文（原生）
         _jetStream = new NatsJSContext(_connection);
         return _jetStream;
     }
-    
+
     private async Task<INatsKVStore> GetKVStoreAsync(CancellationToken ct)
     {
         if (_kvStore != null) return _kvStore;
-        
+
         var js = await GetJetStreamAsync(ct);
-        
+
         // 创建或获取 KV Store（原生，持久化）
         var config = new NatsKVConfig("catga-nodes")
         {
@@ -315,7 +315,7 @@ public sealed class NatsNodeDiscovery : INodeDiscovery
             MaxAge = TimeSpan.FromMinutes(2),     // 2 分钟后过期
             Storage = StreamConfigStorage.File    // 持久化到文件
         };
-        
+
         try
         {
             _kvStore = await js.GetKeyValueAsync("catga-nodes", cancellationToken: ct);
@@ -324,7 +324,7 @@ public sealed class NatsNodeDiscovery : INodeDiscovery
         {
             _kvStore = await js.CreateKeyValueAsync(config, cancellationToken: ct);
         }
-        
+
         return _kvStore;
     }
 }
@@ -355,7 +355,7 @@ public class RedisStreamTransport : IMessageTransport
     private readonly IConnectionMultiplexer _redis;
     private readonly string _streamKey = "catga:messages";
     private readonly string _consumerGroup = "catga-group";
-    
+
     public async Task PublishAsync<TMessage>(
         TMessage message,
         TransportContext? context = null,
@@ -363,7 +363,7 @@ public class RedisStreamTransport : IMessageTransport
         where TMessage : class
     {
         var db = _redis.GetDatabase();
-        
+
         // 使用 Redis Streams（原生，持久化）
         var fields = new NameValueEntry[]
         {
@@ -372,34 +372,34 @@ public class RedisStreamTransport : IMessageTransport
             new("messageId", context?.MessageId ?? Guid.NewGuid().ToString()),
             new("timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
         };
-        
+
         // 添加到 Stream（自动持久化，无需手动配置）
         await db.StreamAddAsync(_streamKey, fields);
     }
-    
+
     public async Task SubscribeAsync<TMessage>(
         Func<TMessage, TransportContext, Task> handler,
         CancellationToken ct = default)
         where TMessage : class
     {
         var db = _redis.GetDatabase();
-        
+
         // 创建消费组（如果不存在）
         try
         {
             await db.StreamCreateConsumerGroupAsync(
-                _streamKey, 
-                _consumerGroup, 
+                _streamKey,
+                _consumerGroup,
                 StreamPosition.NewMessages);
         }
         catch (RedisServerException ex) when (ex.Message.Contains("BUSYGROUP"))
         {
             // 消费组已存在，忽略
         }
-        
+
         // 消费消息（Consumer Groups，自动负载均衡）
         var consumerId = Guid.NewGuid().ToString();
-        
+
         while (!ct.IsCancellationRequested)
         {
             // 从 Stream 读取消息（使用 Consumer Group）
@@ -409,7 +409,7 @@ public class RedisStreamTransport : IMessageTransport
                 consumerId,
                 ">",              // 只读取新消息
                 count: 10);       // 批量读取
-            
+
             foreach (var streamEntry in messages)
             {
                 try
@@ -417,10 +417,10 @@ public class RedisStreamTransport : IMessageTransport
                     // 解析消息
                     var payload = streamEntry.Values.FirstOrDefault(v => v.Name == "payload").Value;
                     var message = JsonSerializer.Deserialize<TMessage>(payload!);
-                    
+
                     // 调用处理器
                     await handler(message!, new TransportContext());
-                    
+
                     // ACK 消息（标记已处理，原生功能）
                     await db.StreamAcknowledgeAsync(_streamKey, _consumerGroup, streamEntry.Id);
                 }
@@ -430,7 +430,7 @@ public class RedisStreamTransport : IMessageTransport
                     // 不 ACK，消息会自动进入待处理列表（Pending List）
                 }
             }
-            
+
             // 无消息时等待
             if (messages.Length == 0)
                 await Task.Delay(100, ct);
@@ -460,49 +460,49 @@ public sealed class RedisNodeDiscovery : INodeDiscovery
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly string _nodesKey = "catga:nodes";
-    
+
     public async Task RegisterAsync(NodeInfo node, CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
-        
+
         // 使用 Redis Sorted Set（原生，按时间戳排序）
         var score = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var json = JsonSerializer.Serialize(node);
-        
+
         // 添加到 Sorted Set（自动去重）
         await db.SortedSetAddAsync(_nodesKey, json, score);
-        
+
         // 设置 TTL（2 分钟）
         await db.KeyExpireAsync(_nodesKey, TimeSpan.FromMinutes(2));
     }
-    
+
     public async Task<IReadOnlyList<NodeInfo>> GetNodesAsync(CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
-        
+
         // 从 Sorted Set 读取所有节点（原生，已排序）
         var entries = await db.SortedSetRangeByScoreAsync(_nodesKey);
-        
+
         var nodes = new List<NodeInfo>();
         var now = DateTimeOffset.UtcNow;
-        
+
         foreach (var entry in entries)
         {
             var node = JsonSerializer.Deserialize<NodeInfo>(entry!);
             if (node != null && (now - node.LastSeen).TotalSeconds < 30)
                 nodes.Add(node);
         }
-        
+
         return nodes;
     }
-    
+
     public async Task HeartbeatAsync(string nodeId, double load, CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
-        
+
         // 更新节点的 score（时间戳）
         var score = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        
+
         // 查找并更新节点
         var entries = await db.SortedSetRangeByScoreAsync(_nodesKey);
         foreach (var entry in entries)
@@ -513,13 +513,13 @@ public sealed class RedisNodeDiscovery : INodeDiscovery
                 // 更新节点信息
                 var updated = node with { LastSeen = DateTime.UtcNow, Load = load };
                 var json = JsonSerializer.Serialize(updated);
-                
+
                 // 删除旧条目，添加新条目（原子操作）
                 var batch = db.CreateBatch();
                 batch.SortedSetRemoveAsync(_nodesKey, entry);
                 batch.SortedSetAddAsync(_nodesKey, json, score);
                 batch.Execute();
-                
+
                 break;
             }
         }
@@ -557,9 +557,9 @@ public static IServiceCollection AddNatsCluster(
         HeartbeatInterval = TimeSpan.FromSeconds(10),
         NodeTimeout = TimeSpan.FromSeconds(30)
     };
-    
+
     configure?.Invoke(options);
-    
+
     // 注册路由策略
     services.AddSingleton<IRoutingStrategy>(sp =>
     {
@@ -572,13 +572,13 @@ public static IServiceCollection AddNatsCluster(
             _ => new RoundRobinRoutingStrategy()
         };
     });
-    
+
     // 注册节点发现（使用 JetStream KV Store）
     services.AddSingleton<INodeDiscovery, NatsNodeDiscovery>();
-    
+
     // 注册分布式 Mediator
     services.AddSingleton<IDistributedMediator, DistributedMediator>();
-    
+
     return services;
 }
 
@@ -595,18 +595,18 @@ public static IServiceCollection AddRedisCluster(
         RoutingStrategy = RoutingStrategyType.ConsistentHash,  // 默认一致性哈希
         HeartbeatInterval = TimeSpan.FromSeconds(10)
     };
-    
+
     configure?.Invoke(options);
-    
+
     // 注册路由策略
     services.AddSingleton<IRoutingStrategy>(/* ... */);
-    
+
     // 注册节点发现（使用 Sorted Set）
     services.AddSingleton<INodeDiscovery, RedisNodeDiscovery>();
-    
+
     // 注册分布式 Mediator
     services.AddSingleton<IDistributedMediator, DistributedMediator>();
-    
+
     return services;
 }
 ```
@@ -748,7 +748,7 @@ dotnet test
 
 ---
 
-*计划创建时间: 2025-10-10*  
-*预计完成时间: 6-8 小时*  
+*计划创建时间: 2025-10-10*
+*预计完成时间: 6-8 小时*
 *Catga v2.1 - 清理优化版* 🚀
 

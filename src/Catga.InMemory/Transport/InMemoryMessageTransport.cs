@@ -1,15 +1,18 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using Catga.Idempotency;
+using Catga.Messages;
 
 namespace Catga.Transport;
 
 /// <summary>
 /// In-memory message transport - for testing and local development
-/// Supports batching and compression options (but no-op in memory)
+/// Supports QoS (Quality of Service) levels
 /// </summary>
 public class InMemoryMessageTransport : IMessageTransport
 {
     private readonly ConcurrentDictionary<Type, List<Delegate>> _subscribers = new();
+    private readonly InMemoryIdempotencyStore _idempotencyStore = new();
 
     public string Name => "InMemory";
 
@@ -36,15 +39,56 @@ public class InMemoryMessageTransport : IMessageTransport
             SentAt = DateTime.UtcNow
         };
 
-        // Avoid LINQ allocations - use direct array
-        var tasks = new Task[handlers.Count];
-        for (int i = 0; i < handlers.Count; i++)
-        {
-            var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
-            tasks[i] = handler(message, context);
-        }
+        // Get QoS level from message
+        var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
 
-        await Task.WhenAll(tasks);
+        switch (qos)
+        {
+            case QualityOfService.AtMostOnce:
+                // QoS 0: Fire-and-forget (不等待完成)
+                _ = Task.Run(async () =>
+                {
+                    var tasks = new Task[handlers.Count];
+                    for (int i = 0; i < handlers.Count; i++)
+                    {
+                        var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
+                        tasks[i] = handler(message, context);
+                    }
+                    await Task.WhenAll(tasks);
+                }, cancellationToken);
+                break;
+
+            case QualityOfService.AtLeastOnce:
+                // QoS 1: Wait for completion (等待完成)
+                var tasks = new Task[handlers.Count];
+                for (int i = 0; i < handlers.Count; i++)
+                {
+                    var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
+                    tasks[i] = handler(message, context);
+                }
+                await Task.WhenAll(tasks);
+                break;
+
+            case QualityOfService.ExactlyOnce:
+                // QoS 2: Idempotency check + wait for completion (幂等性检查 + 等待完成)
+                if (_idempotencyStore.IsProcessed(context.MessageId))
+                {
+                    // 已处理过，跳过
+                    return;
+                }
+
+                var tasks2 = new Task[handlers.Count];
+                for (int i = 0; i < handlers.Count; i++)
+                {
+                    var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
+                    tasks2[i] = handler(message, context);
+                }
+                await Task.WhenAll(tasks2);
+
+                // 标记为已处理
+                _idempotencyStore.MarkAsProcessed(context.MessageId);
+                break;
+        }
     }
 
     [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]

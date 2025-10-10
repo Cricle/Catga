@@ -26,18 +26,18 @@ public static class DotNextClusterExtensions
 {
     /// <summary>
     /// 添加 Raft 集群支持 - 3 行配置，获得分布式能力
-    /// 
+    ///
     /// 特性：
     /// ✅ 高并发：零锁设计，线程安全
     /// ✅ 高性能：本地查询，低延迟
     /// ✅ 高可用：3 节点容错 1 个
     /// ✅ 零概念：用户代码完全不变
     /// ✅ 自动容错：故障自动转移
-    /// 
+    ///
     /// 使用：
     /// <code>
     /// builder.Services.AddCatga();
-    /// builder.Services.AddRaftCluster(options => 
+    /// builder.Services.AddRaftCluster(options =>
     /// {
     ///     options.Members = ["http://node1:5001", "http://node2:5002", "http://node3:5003"];
     /// });
@@ -58,7 +58,7 @@ public static class DotNextClusterExtensions
         if (descriptor != null)
         {
             services.Remove(descriptor);
-            
+
             // 注册原始 Mediator
             services.Add(new ServiceDescriptor(
                 typeof(ICatgaMediator),
@@ -77,7 +77,7 @@ public static class DotNextClusterExtensions
                 {
                     var innerMediator = sp.GetServices<ICatgaMediator>()
                         .FirstOrDefault(m => m.GetType().Name != nameof(RaftAwareMediator));
-                    
+
                     if (innerMediator == null)
                     {
                         throw new InvalidOperationException(
@@ -87,7 +87,7 @@ public static class DotNextClusterExtensions
 
                     var cluster = sp.GetRequiredService<ICatgaRaftCluster>();
                     var logger = sp.GetRequiredService<ILogger<RaftAwareMediator>>();
-                    
+
                     return new RaftAwareMediator(cluster, innerMediator, logger);
                 },
                 ServiceLifetime.Singleton));

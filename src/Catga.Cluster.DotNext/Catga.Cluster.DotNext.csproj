@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    
+    <!-- Package Info -->
+    <PackageId>Catga.Cluster.DotNext</PackageId>
+    <Version>3.0.0</Version>
+    <Authors>Catga Contributors</Authors>
+    <Description>DotNext Raft cluster integration for Catga CQRS framework. Provides automatic leader election, log replication, and fault tolerance.</Description>
+    <PackageTags>catga;cqrs;dotnext;raft;cluster;distributed;consensus</PackageTags>
+    <RepositoryUrl>https://github.com/Cricle/Catga</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Catga\Catga.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DotNext.Net.Cluster" />
+    <PackageReference Include="DotNext.AspNetCore.Cluster" />
+  </ItemGroup>
+
+</Project>

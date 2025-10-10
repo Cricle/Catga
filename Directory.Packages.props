@@ -61,6 +61,10 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
+
+    <!-- DotNext Raft Cluster -->
+    <PackageVersion Include="DotNext.Net.Cluster" Version="5.14.1" />
+    <PackageVersion Include="DotNext.AspNetCore.Cluster" Version="5.14.1" />
   </ItemGroup>
 
 </Project>

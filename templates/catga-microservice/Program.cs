@@ -4,11 +4,18 @@ using CatgaMicroservice;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Catga
+// Add Catga with Cluster support
 builder.Services.AddCatgaMediator(options =>
 {
     options.ScanHandlers = true;
     options.EnableSourceGenerator = true;
+});
+
+builder.Services.AddCluster(options =>
+{
+    options.NodeId = builder.Configuration.GetValue<string>("Cluster:NodeId") ?? Environment.MachineName;
+    options.Endpoint = builder.Configuration.GetValue<string>("Cluster:Endpoint") ?? "http://localhost:5000";
+    options.HeartbeatInterval = TimeSpan.FromSeconds(5);
 });
 
 // Add distributed ID
@@ -18,7 +25,7 @@ builder.Services.AddSnowflakeId(options =>
     options.DataCenterId = builder.Configuration.GetValue<int>("DistributedId:DataCenterId");
 });
 
-// Add resilience
+// Add resilience (from Catga.InMemory)
 builder.Services.AddCircuitBreaker(options =>
 {
     options.FailureThreshold = 5;

@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <PackageReference Include="Catga" Version="*" />
+    <PackageReference Include="Catga.InMemory" Version="*" />
+    <PackageReference Include="Catga.Cluster" Version="*" />
     <PackageReference Include="Catga.SourceGenerator" Version="*" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <PackageReference Include="Catga.Analyzers" Version="*" PrivateAssets="all" />
     <PackageReference Include="Catga.DistributedId" Version="*" />

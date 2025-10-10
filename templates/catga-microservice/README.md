@@ -5,10 +5,8 @@
 ## 核心特性
 
 - ✅ **CQRS 架构** - 命令查询职责分离
+- ✅ **集群支持** - 内置节点发现、心跳检测、自动路由
 - ✅ **分布式 ID** - 全局唯一 ID 生成（Snowflake）
-- ✅ **集群部署** - Kubernetes 原生支持，3-10 个副本自动扩缩容
-- ✅ **服务发现** - Kubernetes Service 自动服务发现
-- ✅ **负载均衡** - Kubernetes Service 自动负载均衡
 - ✅ **弹性设计** - 熔断器、限流器、重试策略
 - ✅ **健康检查** - Liveness 和 Readiness 探针
 - ✅ **可观测性** - Prometheus 指标、分布式追踪
@@ -44,6 +42,11 @@ Configure via `appsettings.json` or environment variables:
 
 ```json
 {
+  "Cluster": {
+    "NodeId": "node-1",
+    "Endpoint": "http://localhost:5000",
+    "HeartbeatInterval": "00:00:05"
+  },
   "DistributedId": {
     "WorkerId": 1,
     "DataCenterId": 1

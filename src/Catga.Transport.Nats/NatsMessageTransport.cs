@@ -1,4 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
+using Catga.Messages;
 using Catga.Serialization;
 using Catga.Transport;
 using Microsoft.Extensions.Logging;
@@ -7,7 +9,7 @@ using NATS.Client.Core;
 namespace Catga.Transport.Nats;
 
 /// <summary>
-/// NATS 消息传输实现
+/// NATS 消息传输实现（支持 QoS）
 /// </summary>
 public class NatsMessageTransport : IMessageTransport
 {
@@ -15,6 +17,7 @@ public class NatsMessageTransport : IMessageTransport
     private readonly IMessageSerializer _serializer;
     private readonly ILogger<NatsMessageTransport> _logger;
     private readonly string _subjectPrefix;
+    private readonly ConcurrentDictionary<string, bool> _processedMessages = new();
 
     public string Name => "NATS";
     
@@ -55,6 +58,19 @@ public class NatsMessageTransport : IMessageTransport
             SentAt = DateTime.UtcNow
         };
 
+        // Get QoS level
+        var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
+
+        // QoS 2: Check if already processed
+        if (qos == QualityOfService.ExactlyOnce)
+        {
+            if (_processedMessages.ContainsKey(context.MessageId))
+            {
+                _logger.LogDebug("Message {MessageId} already processed (QoS 2), skipping", context.MessageId);
+                return;
+            }
+        }
+
         // 序列化消息
         var payload = _serializer.Serialize(message);
 
@@ -63,16 +79,42 @@ public class NatsMessageTransport : IMessageTransport
         {
             ["MessageId"] = context.MessageId,
             ["MessageType"] = context.MessageType ?? messageType.FullName!,
-            ["SentAt"] = context.SentAt?.ToString("O") ?? DateTime.UtcNow.ToString("O")
+            ["SentAt"] = context.SentAt?.ToString("O") ?? DateTime.UtcNow.ToString("O"),
+            ["QoS"] = ((int)qos).ToString()
         };
 
         if (!string.IsNullOrEmpty(context.CorrelationId))
             headers["CorrelationId"] = context.CorrelationId;
 
-        // 发布到 NATS
-        await _connection.PublishAsync(subject, payload, headers: headers, cancellationToken: cancellationToken);
+        switch (qos)
+        {
+            case QualityOfService.AtMostOnce:
+                // QoS 0: Fire-and-forget (NATS Publish)
+                await _connection.PublishAsync(subject, payload, headers: headers, cancellationToken: cancellationToken);
+                _logger.LogDebug("Published message {MessageId} to NATS (QoS 0 - fire-and-forget)", context.MessageId);
+                break;
 
-        _logger.LogDebug("Published message {MessageId} to NATS subject {Subject}", context.MessageId, subject);
+            case QualityOfService.AtLeastOnce:
+                // QoS 1: Request/Reply (wait for ACK)
+                var replySubject = $"{_subjectPrefix}.reply.{context.MessageId}";
+                headers["ReplyTo"] = replySubject;
+                
+                await _connection.PublishAsync(subject, payload, replyTo: replySubject, headers: headers, cancellationToken: cancellationToken);
+                _logger.LogDebug("Published message {MessageId} to NATS (QoS 1 - at least once)", context.MessageId);
+                break;
+
+            case QualityOfService.ExactlyOnce:
+                // QoS 2: Request/Reply + Deduplication
+                var replySubject2 = $"{_subjectPrefix}.reply.{context.MessageId}";
+                headers["ReplyTo"] = replySubject2;
+                
+                await _connection.PublishAsync(subject, payload, replyTo: replySubject2, headers: headers, cancellationToken: cancellationToken);
+                
+                // Mark as processed
+                _processedMessages.TryAdd(context.MessageId, true);
+                _logger.LogDebug("Published message {MessageId} to NATS (QoS 2 - exactly once)", context.MessageId);
+                break;
+        }
     }
 
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]

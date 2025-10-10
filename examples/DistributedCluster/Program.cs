@@ -52,9 +52,9 @@ app.Run();
 
 // ==================== 消息 ====================
 
-public record CreateOrderCommand(string ProductId, int Quantity) : MessageBase, IRequest<OrderResponse>;
+public record CreateOrderCommand(string ProductId, int Quantity) : IRequest<OrderResponse>;
 public record OrderResponse(string OrderId, string Status, string ProcessedBy);
-public record OrderShippedEvent(string OrderId) : EventBase;
+public record OrderShippedEvent(string OrderId) : IEvent;
 
 // ==================== Handler（源生成器自动注册，跨节点负载均衡）====================
 

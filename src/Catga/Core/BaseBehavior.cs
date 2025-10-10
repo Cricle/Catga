@@ -137,13 +137,17 @@ public abstract class BaseBehavior<TRequest, TResponse> : IPipelineBehavior<TReq
     protected static bool IsEvent(TRequest request) => request is IEvent;
 
     /// <summary>
-    /// Check if request is a command
+    /// Check if request is a command (writes data)
+    /// Note: In simplified Catga, all requests are treated equally
     /// </summary>
-    protected static bool IsCommand(TRequest request) => request is ICommand;
+    [Obsolete("Command/Query distinction removed. Use IRequest<T> for all requests.")]
+    protected static bool IsCommand(TRequest request) => false;
 
     /// <summary>
-    /// Check if request is a query
+    /// Check if request is a query (reads data)
+    /// Note: In simplified Catga, all requests are treated equally
     /// </summary>
-    protected static bool IsQuery(TRequest request) => request is IQuery<TResponse>;
+    [Obsolete("Command/Query distinction removed. Use IRequest<T> for all requests.")]
+    protected static bool IsQuery(TRequest request) => false;
 }
 

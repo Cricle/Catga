@@ -1,44 +1,30 @@
 namespace Catga.Messages;
 
-#region Base Message
-
 /// <summary>
-/// Base marker interface for all messages
+/// Marker interface for all messages (framework use only - users don't need to implement this directly)
 /// </summary>
+[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 public interface IMessage
 {
     /// <summary>
-    /// Unique message identifier
+    /// Unique message identifier (auto-generated)
     /// </summary>
-    public string MessageId { get; }
+    string MessageId => Guid.NewGuid().ToString();
 
     /// <summary>
-    /// Message creation timestamp
+    /// Message creation timestamp (auto-generated)
     /// </summary>
-    public DateTime CreatedAt { get; }
+    DateTime CreatedAt => DateTime.UtcNow;
 
     /// <summary>
     /// Correlation ID for tracking related messages
     /// </summary>
-    public string? CorrelationId { get; }
+    string? CorrelationId => null;
 }
-
-/// <summary>
-/// Base message implementation
-/// </summary>
-public abstract record MessageBase : IMessage
-{
-    public string MessageId { get; init; } = Guid.NewGuid().ToString();
-    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-    public string? CorrelationId { get; init; }
-}
-
-#endregion
-
-#region Request
 
 /// <summary>
 /// Request message that expects a response
+/// Simple usage: public record MyRequest(...) : IRequest&lt;MyResponse&gt;;
 /// </summary>
 public interface IRequest<TResponse> : IMessage
 {
@@ -46,62 +32,21 @@ public interface IRequest<TResponse> : IMessage
 
 /// <summary>
 /// Request message without response
+/// Simple usage: public record MyCommand(...) : IRequest;
 /// </summary>
 public interface IRequest : IMessage
 {
 }
 
-#endregion
-
-#region Command
-
-/// <summary>
-/// Command message - intent to change state
-/// </summary>
-public interface ICommand<TResult> : IRequest<TResult>
-{
-}
-
-/// <summary>
-/// Command message without result
-/// </summary>
-public interface ICommand : IRequest
-{
-}
-
-#endregion
-
-#region Query
-
-/// <summary>
-/// Query message - request for data without side effects
-/// </summary>
-public interface IQuery<TResult> : IRequest<TResult>
-{
-}
-
-#endregion
-
-#region Event
-
 /// <summary>
 /// Event message - something that has happened
+/// Simple usage: public record MyEvent(...) : IEvent;
 /// </summary>
 public interface IEvent : IMessage
 {
     /// <summary>
-    /// Event occurred timestamp
+    /// Event occurred timestamp (auto-generated)
     /// </summary>
-    public DateTime OccurredAt { get; }
+    DateTime OccurredAt => DateTime.UtcNow;
 }
-
-/// <summary>
-/// Base event implementation
-/// </summary>
-public abstract record EventBase : MessageBase, IEvent
-{
-    public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-}
-
-#endregion
 

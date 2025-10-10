@@ -35,8 +35,8 @@ app.Run();
 
 // ==================== 消息 ====================
 
-public record CreateUserCommand(string Username, string Email) : MessageBase, IRequest<UserResponse>;
-public record GetUserQuery(string UserId) : MessageBase, IRequest<UserResponse>;
+public record CreateUserCommand(string Username, string Email) : IRequest<UserResponse>;
+public record GetUserQuery(string UserId) : IRequest<UserResponse>;
 public record UserResponse(string UserId, string Username, string Email);
 
 // ==================== Handler（源生成器自动注册）====================

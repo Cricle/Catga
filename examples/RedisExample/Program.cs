@@ -53,8 +53,8 @@ app.Run();
 
 // ==================== 消息 ====================
 
-public record CreateOrderCommand(string ProductId, int Quantity) : MessageBase, IRequest<OrderResponse>;
-public record GetOrderQuery(string OrderId) : MessageBase, IRequest<OrderResponse>;
+public record CreateOrderCommand(string ProductId, int Quantity) : IRequest<OrderResponse>;
+public record GetOrderQuery(string OrderId) : IRequest<OrderResponse>;
 public record OrderResponse(string OrderId, string ProductId, int Quantity, decimal TotalPrice, bool FromCache = false);
 
 // ==================== Handler（源生成器自动注册）====================

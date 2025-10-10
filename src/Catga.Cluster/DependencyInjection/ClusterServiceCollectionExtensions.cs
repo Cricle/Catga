@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Catga;
 using Catga.Cluster;
 using Catga.Cluster.Discovery;
+using Catga.Cluster.Metrics;
 using Catga.Cluster.Routing;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -26,6 +27,7 @@ public static class ClusterServiceCollectionExtensions
         services.AddSingleton(options);
         services.TryAddSingleton<INodeDiscovery, InMemoryNodeDiscovery>();
         services.TryAddSingleton<IMessageRouter, RoundRobinRouter>();
+        services.TryAddSingleton<ILoadReporter, SystemLoadReporter>();
         
         // 替换 ICatgaMediator 为 ClusterMediator
         services.Replace(ServiceDescriptor.Singleton<ICatgaMediator, ClusterMediator>());
@@ -63,11 +65,16 @@ public static class ClusterServiceCollectionExtensions
 internal sealed class HeartbeatBackgroundService : BackgroundService
 {
     private readonly INodeDiscovery _discovery;
+    private readonly ILoadReporter _loadReporter;
     private readonly ClusterOptions _options;
 
-    public HeartbeatBackgroundService(INodeDiscovery discovery, ClusterOptions options)
+    public HeartbeatBackgroundService(
+        INodeDiscovery discovery, 
+        ILoadReporter loadReporter,
+        ClusterOptions options)
     {
         _discovery = discovery;
+        _loadReporter = loadReporter;
         _options = options;
     }
 
@@ -88,8 +95,9 @@ internal sealed class HeartbeatBackgroundService : BackgroundService
         using var timer = new PeriodicTimer(_options.HeartbeatInterval);
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
-            // TODO: 获取实际负载
-            await _discovery.HeartbeatAsync(_options.NodeId, load: 0, stoppingToken);
+            // 获取实际负载
+            var load = await _loadReporter.GetCurrentLoadAsync(stoppingToken);
+            await _discovery.HeartbeatAsync(_options.NodeId, load, stoppingToken);
         }
 
         // 注销节点

@@ -1,11 +1,9 @@
 <Project>
-
   <PropertyGroup>
     <!-- 启用中央包版本管理 -->
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
-
   <ItemGroup>
     <!-- Microsoft 核心包 -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
@@ -13,27 +11,21 @@
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
-
     <!-- Polly 弹性库 -->
     <PackageVersion Include="Polly" Version="8.5.0" />
-
     <!-- NATS 客户端 -->
     <PackageVersion Include="NATS.Client.Core" Version="2.5.2" />
     <PackageVersion Include="NATS.Client.JetStream" Version="2.5.2" />
-
+    <PackageVersion Include="Scrutor" Version="6.1.0" />
     <!-- Redis 客户端 -->
     <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />
-
     <!-- 序列化 -->
     <PackageVersion Include="MemoryPack" Version="1.21.3" />
-
     <!-- 服务发现客户端 -->
     <PackageVersion Include="KubernetesClient" Version="15.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="9.0.0" />
-
     <!-- Benchmark -->
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
-
     <!-- Testing -->
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
@@ -41,31 +33,23 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
     <PackageVersion Include="FluentAssertions" Version="7.0.0" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
-
     <!-- Web API -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.8" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="7.2.0" />
-
     <!-- Hosting -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.0" />
-
     <!-- Health Checks -->
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="9.0.0" />
-
     <!-- SourceLink -->
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
-
     <!-- Roslyn (Source Generators & Analyzers) -->
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
-
     <!-- DotNext Raft Cluster -->
     <PackageVersion Include="DotNext.Net.Cluster" Version="5.16.0" />
     <PackageVersion Include="DotNext.AspNetCore.Cluster" Version="5.16.0" />
   </ItemGroup>
-
 </Project>
-

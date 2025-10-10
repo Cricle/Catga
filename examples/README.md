@@ -1,18 +1,123 @@
-# 🎯 Catga 示例
+# Catga 示例项目
 
-Catga 是一个简洁、高性能的 CQRS 框架，专注于核心功能。
+## 📚 示例列表
+
+### 1. SimpleWebApi - 基础 CQRS 示例
+
+**位置**: `examples/SimpleWebApi/`
+
+**特点**:
+- ✨ 最简单的 Catga 使用示例
+- 📝 Command/Query 分离
+- 🎯 源生成器自动注册
+- 💡 适合快速入门
+
+**代码行数**: ~60 行
+
+**运行**:
+```bash
+cd examples/SimpleWebApi
+dotnet run
+```
+
+[查看详细文档](SimpleWebApi/README.md)
 
 ---
 
-## 📚 快速开始
+### 2. RedisExample - Redis 分布式锁和缓存
 
-查看项目根目录的 [QUICK_START.md](../QUICK_START.md) 快速上手。
+**位置**: `examples/RedisExample/`
+
+**特点**:
+- 🔐 Redis 分布式锁 - 防止并发问题
+- 📦 Redis 分布式缓存 - 提升查询性能
+- ✨ 源生成器自动注册
+- 🚀 生产级示例
+
+**代码行数**: ~120 行
+
+**前置条件**:
+```bash
+docker run -d -p 6379:6379 redis:latest
+```
+
+**运行**:
+```bash
+cd examples/RedisExample
+dotnet run
+```
+
+[查看详细文档](RedisExample/README.md)
 
 ---
 
-## 💡 简单示例
+### 3. DistributedCluster - NATS 分布式集群
 
-### 1. 基础 CQRS
+**位置**: `examples/DistributedCluster/`
+
+**特点**:
+- 🚀 NATS 高性能消息传输
+- 📡 跨节点负载均衡
+- 📢 事件广播（所有节点接收）
+- ✨ 源生成器自动注册
+
+**代码行数**: ~80 行
+
+**前置条件**:
+```bash
+docker run -d -p 4222:4222 nats:latest
+```
+
+**运行多个节点**:
+```bash
+# 节点 1
+cd examples/DistributedCluster
+dotnet run --urls "https://localhost:5001"
+
+# 节点 2（新终端）
+dotnet run --urls "https://localhost:5002"
+
+# 节点 3（新终端）
+dotnet run --urls "https://localhost:5003"
+```
+
+[查看详细文档](DistributedCluster/README.md)
+
+---
+
+## 🎯 选择指南
+
+| 场景 | 推荐示例 | 说明 |
+|------|---------|------|
+| **快速入门** | SimpleWebApi | 最简单，理解核心概念 |
+| **单体应用** | SimpleWebApi | 无需外部依赖 |
+| **需要分布式锁** | RedisExample | 防止并发问题 |
+| **需要缓存** | RedisExample | 提升查询性能 |
+| **微服务集群** | DistributedCluster | 跨节点通信 |
+| **高可用部署** | DistributedCluster | 负载均衡 + 事件广播 |
+
+---
+
+## 🚀 快速开始
+
+### 1. 安装依赖
+
+```bash
+# 核心库
+dotnet add package Catga
+dotnet add package Catga.InMemory
+
+# 源生成器
+dotnet add package Catga.SourceGenerator
+
+# Redis（可选）
+dotnet add package Catga.Persistence.Redis
+
+# NATS（可选）
+dotnet add package Catga.Transport.Nats
+```
+
+### 2. 最小代码示例
 
 ```csharp
 using Catga;
@@ -20,77 +125,70 @@ using Catga.DependencyInjection;
 using Catga.Handlers;
 using Catga.Messages;
 using Catga.Results;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 
-// 配置服务
-var builder = Host.CreateDefaultBuilder(args);
-builder.ConfigureServices(services =>
-{
-    services.AddCatga();
-});
+var builder = WebApplication.CreateBuilder(args);
+
+// ✨ Catga - 只需 2 行
+builder.Services.AddCatga();
+builder.Services.AddGeneratedHandlers();
 
 var app = builder.Build();
-var mediator = app.Services.GetRequiredService<ICatgaMediator>();
 
-// Command
-var command = new CreateOrderCommand
+// API
+app.MapPost("/hello", async (ICatgaMediator mediator, HelloCommand cmd) =>
+    await mediator.SendAsync<HelloCommand, string>(cmd) is var result && result.IsSuccess
+        ? Results.Ok(result.Value)
+        : Results.BadRequest(result.Error));
+
+app.Run();
+
+// 消息
+public record HelloCommand(string Name) : MessageBase, IRequest<string>;
+
+// Handler（自动注册）
+public class HelloHandler : IRequestHandler<HelloCommand, string>
 {
-    OrderId = Guid.NewGuid().ToString(),
-    CustomerId = "CUST-001",
-    Amount = 199.99m
-};
-
-var result = await mediator.SendAsync(command);
-if (result.IsSuccess)
-{
-    Console.WriteLine($"订单创建成功: {result.Value!.OrderId}");
-}
-
-// 消息定义
-public class CreateOrderCommand : IRequest<OrderDto>
-{
-    public required string OrderId { get; init; }
-    public required string CustomerId { get; init; }
-    public required decimal Amount { get; init; }
-    public string MessageId { get; init; } = Guid.NewGuid().ToString();
-    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-    public string? CorrelationId { get; init; }
-}
-
-public record OrderDto(string OrderId, string CustomerId, decimal Amount);
-
-// 处理器
-public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderDto>
-{
-    public Task<CatgaResult<OrderDto>> HandleAsync(
-        CreateOrderCommand request,
-        CancellationToken cancellationToken = default)
+    public Task<CatgaResult<string>> HandleAsync(HelloCommand cmd, CancellationToken ct = default)
     {
-        var order = new OrderDto(
-            request.OrderId,
-            request.CustomerId,
-            request.Amount
-        );
-
-        return Task.FromResult(CatgaResult<OrderDto>.Success(order));
+        return Task.FromResult(CatgaResult<string>.Success($"Hello, {cmd.Name}!"));
     }
 }
 ```
 
----
-
-## 📖 更多示例
-
-查看文档和测试代码获取更多示例：
-
-| 资源 | 说明 |
-|-----|------|
-| [QUICK_START.md](../QUICK_START.md) | 快速开始指南 |
-| [ARCHITECTURE.md](../ARCHITECTURE.md) | 完整架构说明 |
-| [README.md](../README.md) | 项目主页 |
-| [tests/](../tests/) | 单元测试（最佳示例） |
+**就这么简单！** 🎉
 
 ---
 
-**保持简洁，专注核心！** ✨
+## 📊 示例对比
+
+| 特性 | SimpleWebApi | RedisExample | DistributedCluster |
+|------|-------------|--------------|-------------------|
+| 代码行数 | ~60 | ~120 | ~80 |
+| 外部依赖 | 无 | Redis | NATS |
+| 分布式锁 | ❌ | ✅ | ❌ |
+| 分布式缓存 | ❌ | ✅ | ❌ |
+| 跨节点通信 | ❌ | ❌ | ✅ |
+| 负载均衡 | ❌ | ❌ | ✅ |
+| 事件广播 | ❌ | ❌ | ✅ |
+| 适合场景 | 入门学习 | 单体应用 | 微服务集群 |
+
+---
+
+## 🎓 学习路径
+
+1. **第一步**: 运行 `SimpleWebApi`，理解 CQRS 基础概念
+2. **第二步**: 运行 `RedisExample`，学习分布式锁和缓存
+3. **第三步**: 运行 `DistributedCluster`，体验微服务集群
+
+---
+
+## 📚 相关文档
+
+- [Catga 快速开始](../QUICK_START.md)
+- [架构说明](../ARCHITECTURE.md)
+- [源生成器文档](../src/Catga.SourceGenerator/README.md)
+- [性能基准测试](../benchmarks/README.md)
+
+---
+
+**Catga - 让 CQRS 变得简单！** ✨

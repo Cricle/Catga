@@ -10,9 +10,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ✨ Catga + NATS 分布式集群（源生成器自动注册）
+// ✨ Catga + NATS 分布式集群
 builder.Services.AddCatga();
-builder.Services.AddGeneratedHandlers();  // 自动发现并注册所有 Handler ✨
+builder.Services.AddGeneratedHandlers();
 
 // 🚀 NATS 传输（跨节点通信）
 builder.Services.AddNatsTransport(options =>
@@ -22,35 +22,22 @@ builder.Services.AddNatsTransport(options =>
 });
 
 var app = builder.Build();
+app.UseSwagger();
+app.UseSwaggerUI();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-// ==================== API 端点 ====================
-
-// 创建订单（跨节点分发）
+// API
 app.MapPost("/orders", async (ICatgaMediator mediator, CreateOrderCommand cmd) =>
-{
-    var result = await mediator.SendAsync<CreateOrderCommand, OrderResponse>(cmd);
-    return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
-});
+    await mediator.SendAsync<CreateOrderCommand, OrderResponse>(cmd) is var result && result.IsSuccess
+        ? Results.Ok(result.Value)
+        : Results.BadRequest(result.Error));
 
-// 发布事件（所有节点接收）
 app.MapPost("/orders/{id}/ship", async (ICatgaMediator mediator, string id) =>
 {
     await mediator.PublishAsync(new OrderShippedEvent(id));
-    return Results.Ok(new { Message = "事件已发布到所有节点" });
+    return Results.Ok(new { Message = $"事件已发布到所有节点" });
 });
 
-// 健康检查
-app.MapGet("/health", () => Results.Ok(new
-{
-    Status = "Healthy",
-    Node = Environment.MachineName
-}));
+app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Node = Environment.MachineName }));
 
 app.Run();
 
@@ -60,39 +47,29 @@ public record CreateOrderCommand(string ProductId, int Quantity) : MessageBase, 
 public record OrderResponse(string OrderId, string Status);
 public record OrderShippedEvent(string OrderId) : EventBase;
 
-// ==================== Handler ====================
-// 🎯 所有 Handler 自动发现并注册 - 跨节点负载均衡！
+// ==================== Handler（自动注册，跨节点负载均衡）====================
 
-// 订单创建 Handler（任意节点处理，自动注册）
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResponse>
 {
     private readonly ILogger<CreateOrderHandler> _logger;
-
     public CreateOrderHandler(ILogger<CreateOrderHandler> logger) => _logger = logger;
 
     public Task<CatgaResult<OrderResponse>> HandleAsync(CreateOrderCommand cmd, CancellationToken ct = default)
     {
-        _logger.LogInformation("[{Node}] Processing order: {ProductId} x {Quantity}",
-            Environment.MachineName, cmd.ProductId, cmd.Quantity);
-
+        _logger.LogInformation("[{Node}] Processing order: {ProductId}", Environment.MachineName, cmd.ProductId);
         var orderId = Guid.NewGuid().ToString();
         return Task.FromResult(CatgaResult<OrderResponse>.Success(new(orderId, "Created")));
     }
 }
 
-// 订单发货事件 Handler（所有节点接收，自动注册）
 public class OrderShippedEventHandler : IEventHandler<OrderShippedEvent>
 {
     private readonly ILogger<OrderShippedEventHandler> _logger;
-
     public OrderShippedEventHandler(ILogger<OrderShippedEventHandler> logger) => _logger = logger;
 
     public Task HandleAsync(OrderShippedEvent evt, CancellationToken ct = default)
     {
-        _logger.LogInformation("[{Node}] Order shipped: {OrderId}",
-            Environment.MachineName, evt.OrderId);
-
-        // TODO: 更新本地缓存、发送通知等
+        _logger.LogInformation("[{Node}] Order shipped: {OrderId}", Environment.MachineName, evt.OrderId);
         return Task.CompletedTask;
     }
 }

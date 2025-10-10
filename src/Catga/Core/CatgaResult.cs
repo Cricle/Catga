@@ -26,17 +26,7 @@ public class CatgaResult<T>
 {
     public bool IsSuccess { get; init; }
     public T? Value { get; init; }
-    
-    /// <summary>
-    /// Simple error message (legacy, for backward compatibility)
-    /// </summary>
     public string? Error { get; init; }
-    
-    /// <summary>
-    /// Detailed error information (recommended)
-    /// </summary>
-    public CatgaError? DetailedError { get; init; }
-    
     public CatgaException? Exception { get; init; }
     public ResultMetadata? Metadata { get; init; }
 
@@ -45,12 +35,6 @@ public class CatgaResult<T>
 
     public static CatgaResult<T> Failure(string error, CatgaException? exception = null) =>
         new() { IsSuccess = false, Error = error, Exception = exception };
-
-    /// <summary>
-    /// Create failure result with detailed error
-    /// </summary>
-    public static CatgaResult<T> Failure(CatgaError error, CatgaException? exception = null) =>
-        new() { IsSuccess = false, DetailedError = error, Error = error.Message, Exception = exception };
 }
 
 /// <summary>
@@ -59,17 +43,7 @@ public class CatgaResult<T>
 public class CatgaResult
 {
     public bool IsSuccess { get; init; }
-    
-    /// <summary>
-    /// Simple error message (legacy, for backward compatibility)
-    /// </summary>
     public string? Error { get; init; }
-    
-    /// <summary>
-    /// Detailed error information (recommended)
-    /// </summary>
-    public CatgaError? DetailedError { get; init; }
-    
     public CatgaException? Exception { get; init; }
     public ResultMetadata? Metadata { get; init; }
 
@@ -78,10 +52,4 @@ public class CatgaResult
 
     public static CatgaResult Failure(string error, CatgaException? exception = null) =>
         new() { IsSuccess = false, Error = error, Exception = exception };
-
-    /// <summary>
-    /// Create failure result with detailed error
-    /// </summary>
-    public static CatgaResult Failure(CatgaError error, CatgaException? exception = null) =>
-        new() { IsSuccess = false, DetailedError = error, Error = error.Message, Exception = exception };
 }

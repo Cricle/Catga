@@ -93,35 +93,4 @@ public class CatgaOptions
         return this;
     }
 
-    // === Advanced Performance Options ===
-
-    /// <summary>
-    /// Advanced retry configuration
-    /// </summary>
-    public RetryOptions? Retry { get; set; }
-
-    /// <summary>
-    /// Advanced timeout configuration
-    /// </summary>
-    public TimeoutOptions? Timeout { get; set; }
-
-    /// <summary>
-    /// Advanced caching configuration
-    /// </summary>
-    public CachingOptions? Caching { get; set; }
-
-    /// <summary>
-    /// Advanced circuit breaker configuration
-    /// </summary>
-    public CircuitBreakerOptions? CircuitBreaker { get; set; }
-
-    /// <summary>
-    /// Advanced rate limiting configuration
-    /// </summary>
-    public RateLimitingOptions? RateLimiting { get; set; }
-
-    /// <summary>
-    /// Batch operation configuration
-    /// </summary>
-    public BatchOptions? Batch { get; set; }
 }

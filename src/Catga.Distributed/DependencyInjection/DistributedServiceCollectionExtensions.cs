@@ -86,13 +86,17 @@ public static class DistributedServiceCollectionExtensions
     /// 添加基于 Redis 的分布式集群（无锁）
     /// </summary>
     /// <param name="routingStrategy">路由策略（默认 Consistent Hash）</param>
+    /// <param name="useSortedSet">是否使用 Sorted Set（默认 true，推荐）</param>
+    /// <param name="useStreams">是否使用 Redis Streams（默认 true，推荐）</param>
     public static IServiceCollection AddRedisCluster(
         this IServiceCollection services,
         string redisConnectionString,
         string nodeId,
         string endpoint,
         string keyPrefix = "catga:nodes:",
-        RoutingStrategyType routingStrategy = RoutingStrategyType.ConsistentHash)
+        RoutingStrategyType routingStrategy = RoutingStrategyType.ConsistentHash,
+        bool useSortedSet = true,
+        bool useStreams = true)
     {
         // 注册 Redis 连接
         services.AddSingleton<IConnectionMultiplexer>(sp =>
@@ -109,13 +113,27 @@ public static class DistributedServiceCollectionExtensions
             Load = 0
         });
 
-        // 注册节点发现（无锁）
-        services.AddSingleton<INodeDiscovery>(sp =>
+        // 注册节点发现（支持 Sorted Set 或传统模式）
+        if (useSortedSet)
         {
-            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
-            var logger = sp.GetRequiredService<ILogger<RedisNodeDiscovery>>();
-            return new RedisNodeDiscovery(redis, logger, keyPrefix);
-        });
+            // 使用 Sorted Set（原生持久化，推荐）
+            services.AddSingleton<INodeDiscovery>(sp =>
+            {
+                var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+                var logger = sp.GetRequiredService<ILogger<RedisSortedSetNodeDiscovery>>();
+                return new RedisSortedSetNodeDiscovery(redis, logger, keyPrefix.TrimEnd(':'));
+            });
+        }
+        else
+        {
+            // 使用传统模式（不推荐）
+            services.AddSingleton<INodeDiscovery>(sp =>
+            {
+                var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+                var logger = sp.GetRequiredService<ILogger<RedisNodeDiscovery>>();
+                return new RedisNodeDiscovery(redis, logger, keyPrefix);
+            });
+        }
 
         // 注册路由策略
         services.AddSingleton<IRoutingStrategy>(sp =>

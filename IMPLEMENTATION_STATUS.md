@@ -1,6 +1,6 @@
 # Catga 简化实现进度
 
-**日期**: 2025-10-10  
+**日期**: 2025-10-10
 **目标**: 简单、AOT、高性能、分布式、**完全无锁**
 
 ---
@@ -171,5 +171,5 @@ await _mediator.BroadcastAsync(new OrderCreatedEvent { OrderId = 123 }, ct);
 
 ---
 
-*最后更新: 2025-10-10*  
+*最后更新: 2025-10-10*
 *Catga v2.0 - Lock-Free Distributed CQRS Framework* 🚀

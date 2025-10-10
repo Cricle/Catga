@@ -27,7 +27,7 @@ public class CatgaMediatorTests
 
         var provider = services.BuildServiceProvider();
         var mediator = provider.GetRequiredService<ICatgaMediator>();
-        var command = new TestCommand { Value = "test" };
+        var command = new TestCommand("test");
 
         // Act
         var result = await mediator.SendAsync<TestCommand, TestResponse>(command);
@@ -50,7 +50,7 @@ public class CatgaMediatorTests
 
         var provider = services.BuildServiceProvider();
         var mediator = provider.GetRequiredService<ICatgaMediator>();
-        var command = new TestCommand { Value = "test" };
+        var command = new TestCommand("test");
 
         // Act
         var result = await mediator.SendAsync<TestCommand, TestResponse>(command);
@@ -72,7 +72,7 @@ public class CatgaMediatorTests
 
         var provider = services.BuildServiceProvider();
         var mediator = provider.GetRequiredService<ICatgaMediator>();
-        var testEvent = new TestEvent { Message = "Hello" };
+        var testEvent = new TestEvent("Hello");
 
         // Act
         await mediator.PublishAsync(testEvent);
@@ -93,7 +93,7 @@ public class CatgaMediatorTests
 
         var provider = services.BuildServiceProvider();
         var mediator = provider.GetRequiredService<ICatgaMediator>();
-        var testEvent = new TestEvent { Message = "Hello" };
+        var testEvent = new TestEvent("Hello");
 
         // Act
         await mediator.PublishAsync(testEvent);
@@ -113,7 +113,7 @@ public class CatgaMediatorTests
 
         var provider = services.BuildServiceProvider();
         var mediator = provider.GetRequiredService<ICatgaMediator>();
-        var testEvent = new TestEvent { Message = "Hello" };
+        var testEvent = new TestEvent("Hello");
 
         // Act & Assert - 不应该抛异常
         await mediator.PublishAsync(testEvent);
@@ -131,7 +131,7 @@ public class CatgaMediatorTests
 
         var provider = services.BuildServiceProvider();
         var mediator = provider.GetRequiredService<ICatgaMediator>();
-        var command = new TestCommand { Value = "test" };
+        var command = new TestCommand("test");
         var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -151,7 +151,7 @@ public class CatgaMediatorTests
 
         var provider = services.BuildServiceProvider();
         var mediator = provider.GetRequiredService<ICatgaMediator>();
-        var command = new TestCommand { Value = "test" };
+        var command = new TestCommand("test");
 
         // Act
         var result = await mediator.SendAsync<TestCommand, TestResponse>(command);
@@ -174,9 +174,9 @@ public class CatgaMediatorTests
         var mediator = provider.GetRequiredService<ICatgaMediator>();
 
         // Act
-        var result1 = await mediator.SendAsync<TestCommand, TestResponse>(new TestCommand { Value = "test1" });
-        var result2 = await mediator.SendAsync<TestCommand, TestResponse>(new TestCommand { Value = "test2" });
-        var result3 = await mediator.SendAsync<TestCommand, TestResponse>(new TestCommand { Value = "test3" });
+        var result1 = await mediator.SendAsync<TestCommand, TestResponse>(new TestCommand("test1"));
+        var result2 = await mediator.SendAsync<TestCommand, TestResponse>(new TestCommand("test2"));
+        var result3 = await mediator.SendAsync<TestCommand, TestResponse>(new TestCommand("test3"));
 
         // Assert
         result1.IsSuccess.Should().BeTrue();
@@ -201,7 +201,7 @@ public class CatgaMediatorTests
 
         // Act
         var tasks = Enumerable.Range(0, 10).Select(i =>
-            mediator.SendAsync<TestCommand, TestResponse>(new TestCommand { Value = $"test{i}" }).AsTask());
+            mediator.SendAsync<TestCommand, TestResponse>(new TestCommand($"test{i}")).AsTask());
         var results = await Task.WhenAll(tasks);
 
         // Assert
@@ -211,20 +211,11 @@ public class CatgaMediatorTests
 }
 
 // 测试用的消息类型
-public record TestCommand : MessageBase, ICommand<TestResponse>
-{
-    public string Value { get; init; } = string.Empty;
-}
+public record TestCommand(string Value) : IRequest<TestResponse>;
 
-public record TestResponse
-{
-    public string Message { get; init; } = string.Empty;
-}
+public record TestResponse(string Message);
 
-public record TestEvent : EventBase
-{
-    public string Message { get; init; } = string.Empty;
-}
+public record TestEvent(string Message) : IEvent;
 
 // 测试用的处理器
 public class TestCommandHandler : IRequestHandler<TestCommand, TestResponse>
@@ -233,7 +224,7 @@ public class TestCommandHandler : IRequestHandler<TestCommand, TestResponse>
         TestCommand request,
         CancellationToken cancellationToken = default)
     {
-        var response = new TestResponse { Message = $"Processed: {request.Value}" };
+        var response = new TestResponse($"Processed: {request.Value}");
         return Task.FromResult(CatgaResult<TestResponse>.Success(response));
     }
 }

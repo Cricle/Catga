@@ -116,13 +116,7 @@ public class IdempotencyBehaviorTests
 }
 
 // 测试用的请求和响应类型
-public record TestRequest : MessageBase, IRequest<TestResponse>
-{
-    public string Value { get; init; } = string.Empty;
-}
+public record TestRequest(string Value) : IRequest<TestResponse>;
 
-public record TestResponse
-{
-    public string Message { get; init; } = string.Empty;
-}
+public record TestResponse(string Message);
 

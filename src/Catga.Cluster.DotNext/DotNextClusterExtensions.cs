@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Catga.Cluster.DotNext;
 
@@ -56,34 +57,65 @@ public static class DotNextClusterExtensions
         var options = new DotNextClusterOptions();
         configure?.Invoke(options);
 
-        // 1. Register core Raft components
-        // TODO: Configure actual DotNext Raft cluster
-        // services.AddSingleton<IRaftCluster>(sp => ...);
-        // services.AddSingleton<IPersistentState, RaftStateMachine>();
+        // Validate options
+        if (string.IsNullOrWhiteSpace(options.ClusterMemberId))
+        {
+            throw new ArgumentException("ClusterMemberId must be specified", nameof(options));
+        }
 
-        // 2. Register Raft-aware message transport
+        if (options.Members == null || options.Members.Length == 0)
+        {
+            throw new ArgumentException("At least one cluster member must be specified", nameof(options));
+        }
+
+        // 1. Configure DotNext Raft cluster
+        // Note: Actual DotNext Raft HTTP cluster setup requires more complex configuration
+        // This is a placeholder for the configuration structure
+        // TODO: Complete DotNext Raft HTTP cluster configuration
+
+        // 2. Register Catga wrapper for IRaftCluster
+        services.AddSingleton<ICatgaRaftCluster, CatgaRaftCluster>();
+
+        // 3. Register Raft-aware message transport
         services.AddSingleton<RaftMessageTransport>();
         
-        // 3. Register RaftAwareMediator
-        // TODO: Use decorator pattern once DotNext Raft is fully configured
-        // For now, RaftAwareMediator needs manual registration
-        // services.Decorate<ICatgaMediator, RaftAwareMediator>();
+        // 4. Decorate ICatgaMediator with RaftAwareMediator
+        // This wraps the existing mediator with Raft awareness
+        services.AddSingleton<ICatgaMediator>(sp =>
+        {
+            // Get the original mediator
+            var innerMediator = sp.GetServices<ICatgaMediator>()
+                .FirstOrDefault(m => m.GetType().Name != nameof(RaftAwareMediator));
+            
+            if (innerMediator == null)
+            {
+                throw new InvalidOperationException(
+                    "ICatgaMediator must be registered before calling AddRaftCluster. " +
+                    "Make sure to call services.AddCatga() first.");
+            }
+
+            // Wrap with RaftAwareMediator
+            var cluster = sp.GetRequiredService<ICatgaRaftCluster>();
+            var logger = sp.GetRequiredService<ILogger<RaftAwareMediator>>();
+            
+            return new RaftAwareMediator(cluster, innerMediator, logger);
+        });
         
-        // 4. Register health checks
+        // 5. Register health checks
         // TODO: Add Raft health check
         // services.AddHealthChecks().AddCheck<RaftHealthCheck>("raft");
 
-        // 5. Log configuration
-        Console.WriteLine($"🚀 DotNext Raft Cluster configured:");
+        // 6. Log configuration (using console for now, as logger isn't available yet)
+        Console.WriteLine("🚀 DotNext Raft Cluster configured:");
         Console.WriteLine($"   Member ID: {options.ClusterMemberId}");
-        Console.WriteLine($"   Members: {string.Join(", ", options.Members)}");
+        Console.WriteLine($"   Members: {string.Join(", ", options.Members.Select(u => u.ToString()))}");
         Console.WriteLine($"   Election Timeout: {options.ElectionTimeout.TotalMilliseconds}ms");
         Console.WriteLine($"   Heartbeat Interval: {options.HeartbeatInterval.TotalMilliseconds}ms");
         Console.WriteLine();
-        Console.WriteLine($"🎯 Automatic routing:");
-        Console.WriteLine($"   • Command → Leader");
-        Console.WriteLine($"   • Query → Local");
-        Console.WriteLine($"   • Event → Broadcast");
+        Console.WriteLine("🎯 Automatic routing:");
+        Console.WriteLine("   • Command → Leader");
+        Console.WriteLine("   • Query → Local");
+        Console.WriteLine("   • Event → Broadcast");
 
         return services;
     }

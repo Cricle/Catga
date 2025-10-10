@@ -10,9 +10,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ✨ Catga + NATS 分布式集群
+// ✨ Catga + NATS 分布式集群（源生成器自动注册）
 builder.Services.AddCatga();
-builder.Services.AddGeneratedHandlers();
+builder.Services.AddGeneratedHandlers();  // 自动发现并注册所有 Handler ✨
 
 // 🚀 NATS 传输（跨节点通信）
 builder.Services.AddNatsTransport(options =>
@@ -61,8 +61,9 @@ public record OrderResponse(string OrderId, string Status);
 public record OrderShippedEvent(string OrderId) : EventBase;
 
 // ==================== Handler ====================
+// 🎯 所有 Handler 自动发现并注册 - 跨节点负载均衡！
 
-// 订单创建 Handler（任意节点处理）
+// 订单创建 Handler（任意节点处理，自动注册）
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResponse>
 {
     private readonly ILogger<CreateOrderHandler> _logger;
@@ -79,7 +80,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderRespo
     }
 }
 
-// 订单发货事件 Handler（所有节点接收）
+// 订单发货事件 Handler（所有节点接收，自动注册）
 public class OrderShippedEventHandler : IEventHandler<OrderShippedEvent>
 {
     private readonly ILogger<OrderShippedEventHandler> _logger;

@@ -3,6 +3,7 @@
 ## 📖 简介
 
 极简的分布式集群示例，演示：
+- ✨ **源生成器自动注册** - 零手动配置
 - 🚀 **跨节点通信** - NATS 高性能消息传输
 - 📡 **负载均衡** - 请求自动分发到可用节点
 - 📢 **事件广播** - 事件发送到所有节点
@@ -60,14 +61,26 @@ curl -X POST https://localhost:5001/orders/123/ship
 
 ## 🎯 核心特性
 
-### 1. 请求/响应（负载均衡）
+### 1. 源生成器自动注册
+
+```csharp
+// ✨ 所有节点自动发现 Handler
+builder.Services.AddGeneratedHandlers();
+```
+
+**特点**:
+- ✅ 跨节点自动负载均衡
+- ✅ 零配置，自动发现
+- ✅ 编译时生成，零开销
+
+### 2. 请求/响应（负载均衡）
 
 ```csharp
 // 自动路由到任意可用节点
 var result = await mediator.SendAsync<CreateOrderCommand, OrderResponse>(cmd);
 ```
 
-### 2. 事件广播（所有节点）
+### 3. 事件广播（所有节点）
 
 ```csharp
 // 所有节点的 Handler 都会执行

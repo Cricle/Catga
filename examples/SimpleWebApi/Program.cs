@@ -9,12 +9,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ✨ Catga - 极简配置（2行）
-builder.Services.AddCatga();  // 注册 Catga 核心服务
-
-// 手动注册 Handler（最简单方式）
-builder.Services.AddScoped<IRequestHandler<CreateUserCommand, UserResponse>, CreateUserHandler>();
-builder.Services.AddScoped<IRequestHandler<GetUserQuery, UserResponse>, GetUserHandler>();
+// ✨ Catga - 只需 2 行！
+builder.Services.AddCatga();              // 注册 Catga 核心服务
+builder.Services.AddGeneratedHandlers();  // 源生成器自动注册所有 Handler ✨
 
 var app = builder.Build();
 
@@ -51,8 +48,9 @@ public record GetUserQuery(string UserId) : MessageBase, IRequest<UserResponse>;
 public record UserResponse(string UserId, string Username, string Email);
 
 // ==================== Handler ====================
+// 🎯 所有 Handler 自动发现并注册 - 无需手动配置！
 
-// 创建用户 Handler
+// 创建用户 Handler（自动注册为 Scoped）
 public class CreateUserHandler : IRequestHandler<CreateUserCommand, UserResponse>
 {
     private readonly ILogger<CreateUserHandler> _logger;
@@ -71,7 +69,7 @@ public class CreateUserHandler : IRequestHandler<CreateUserCommand, UserResponse
     }
 }
 
-// 查询用户 Handler
+// 查询用户 Handler（自动注册为 Scoped）
 public class GetUserHandler : IRequestHandler<GetUserQuery, UserResponse>
 {
     private readonly ILogger<GetUserHandler> _logger;

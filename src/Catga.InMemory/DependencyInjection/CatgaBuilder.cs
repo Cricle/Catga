@@ -127,7 +127,6 @@ public class CatgaBuilder
     /// </summary>
     public CatgaBuilder WithReliability()
     {
-        _options.EnableCircuitBreaker = true;
         _options.EnableRetry = true;
         _options.EnableDeadLetterQueue = true;
         _options.EnableIdempotency = true;

@@ -18,18 +18,8 @@ public class CatgaOptions
     public int TimeoutSeconds { get; set; } = 30;
 
     // === Performance ===
-    public int MaxConcurrentRequests { get; set; } = 1000;
     public int IdempotencyRetentionHours { get; set; } = 24;
     public int IdempotencyShardCount { get; set; } = 32;
-
-    // === Resilience (Optional) ===
-    public bool EnableCircuitBreaker { get; set; } = false;
-    public int CircuitBreakerFailureThreshold { get; set; } = 10;
-    public int CircuitBreakerResetTimeoutSeconds { get; set; } = 60;
-
-    public bool EnableRateLimiting { get; set; } = false;
-    public int RateLimitRequestsPerSecond { get; set; } = 1000;
-    public int RateLimitBurstCapacity { get; set; } = 2000;
 
     // === Dead Letter Queue ===
     public bool EnableDeadLetterQueue { get; set; } = true;
@@ -44,30 +34,16 @@ public class CatgaOptions
     /// </summary>
     public QualityOfService DefaultQoS { get; set; } = QualityOfService.AtLeastOnce;
 
-    // === Thread Pool ===
-    public ThreadPoolOptions ThreadPool { get; set; } = new();
-
     // === Quick Presets ===
 
     /// <summary>
-    /// High performance: 5000 concurrent, 64 shards, no retry/validation
+    /// High performance: 64 shards, no retry/validation
     /// </summary>
     public CatgaOptions WithHighPerformance()
     {
-        MaxConcurrentRequests = 5000;
         IdempotencyShardCount = 64;
         EnableRetry = false;
         EnableValidation = false;
-        return this;
-    }
-
-    /// <summary>
-    /// Full resilience: circuit breaker + rate limiting
-    /// </summary>
-    public CatgaOptions WithResilience()
-    {
-        EnableCircuitBreaker = true;
-        EnableRateLimiting = true;
         return this;
     }
 
@@ -81,24 +57,18 @@ public class CatgaOptions
         EnableIdempotency = false;
         EnableRetry = false;
         EnableValidation = false;
-        EnableCircuitBreaker = false;
-        EnableRateLimiting = false;
         EnableDeadLetterQueue = false;
-        MaxConcurrentRequests = 0; // Unlimited
         return this;
     }
 
     /// <summary>
-    /// Development: all logging, no rate limiting, no idempotency
+    /// Development: all logging, no idempotency
     /// </summary>
     public CatgaOptions ForDevelopment()
     {
         EnableLogging = true;
         EnableTracing = true;
         EnableIdempotency = false;
-        EnableCircuitBreaker = false;
-        EnableRateLimiting = false;
-        MaxConcurrentRequests = 0; // Unlimited
         return this;
     }
 

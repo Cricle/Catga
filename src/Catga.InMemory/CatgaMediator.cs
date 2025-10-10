@@ -1,13 +1,10 @@
 using Catga.Common;
-using Catga.Concurrency;
 using Catga.Configuration;
 using Catga.Exceptions;
 using Catga.Handlers;
 using Catga.Messages;
 using Catga.Performance;
 using Catga.Pipeline;
-using Catga.RateLimiting;
-using Catga.Resilience;
 using Catga.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -18,7 +15,7 @@ namespace Catga;
 /// High-performance Catga Mediator (100% AOT, lock-free, non-blocking)
 /// Optimized with handler caching, object pooling, and fast paths
 /// </summary>
-public class CatgaMediator : ICatgaMediator, IDisposable
+public class CatgaMediator : ICatgaMediator
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CatgaMediator> _logger;
@@ -26,7 +23,6 @@ public class CatgaMediator : ICatgaMediator, IDisposable
 
     // Performance optimizations
     private readonly HandlerCache _handlerCache;
-    private readonly ResiliencePipeline _resiliencePipeline;
 
     public CatgaMediator(
         IServiceProvider serviceProvider,
@@ -39,23 +35,6 @@ public class CatgaMediator : ICatgaMediator, IDisposable
 
         // Performance optimization: Handler cache
         _handlerCache = new HandlerCache(serviceProvider);
-
-        // Resilience pipeline (consolidates rate limiting, concurrency control, circuit breaking)
-        var rateLimiter = options.EnableRateLimiting
-            ? new TokenBucketRateLimiter(options.RateLimitBurstCapacity, options.RateLimitRequestsPerSecond)
-            : null;
-
-        var concurrencyLimiter = options.MaxConcurrentRequests > 0
-            ? new ConcurrencyLimiter(options.MaxConcurrentRequests)
-            : null;
-
-        var circuitBreaker = options.EnableCircuitBreaker
-            ? new CircuitBreaker(
-                options.CircuitBreakerFailureThreshold,
-                TimeSpan.FromSeconds(options.CircuitBreakerResetTimeoutSeconds))
-            : null;
-
-        _resiliencePipeline = new ResiliencePipeline(rateLimiter, concurrencyLimiter, circuitBreaker);
     }
 
     /// <summary>
@@ -65,18 +44,6 @@ public class CatgaMediator : ICatgaMediator, IDisposable
     public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken = default)
-        where TRequest : IRequest<TResponse>
-    {
-        // Use resilience pipeline for consolidated rate limiting, concurrency control, and circuit breaking
-        return await _resiliencePipeline.ExecuteAsync(
-            () => ProcessRequestAsync<TRequest, TResponse>(request, cancellationToken),
-            cancellationToken);
-    }
-
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    private async ValueTask<CatgaResult<TResponse>> ProcessRequestAsync<TRequest, TResponse>(
-        TRequest request,
-        CancellationToken cancellationToken)
         where TRequest : IRequest<TResponse>
     {
         // Optimized: Use cached handler lookup
@@ -91,7 +58,7 @@ public class CatgaMediator : ICatgaMediator, IDisposable
 
         // Get behaviors (check count for fast path optimization)
         var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-        
+
         // Optimized: Try to avoid ToList() allocation
         if (behaviors is IList<IPipelineBehavior<TRequest, TResponse>> behaviorsList)
         {
@@ -104,14 +71,14 @@ public class CatgaMediator : ICatgaMediator, IDisposable
             // Standard path: Execute with pipeline
             return await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
         }
-        
+
         // Fallback: Materialize to list only if needed
         var materializedBehaviors = behaviors.ToList();
         if (FastPath.CanUseFastPath(materializedBehaviors.Count))
         {
             return await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken);
         }
-        
+
         return await PipelineExecutor.ExecuteAsync(request, handler, materializedBehaviors, cancellationToken);
     }
 
@@ -233,8 +200,4 @@ public class CatgaMediator : ICatgaMediator, IDisposable
         await events.ExecuteBatchAsync(@event => PublishAsync(@event, cancellationToken));
     }
 
-    public void Dispose()
-    {
-        _resiliencePipeline?.Dispose();
-    }
 }

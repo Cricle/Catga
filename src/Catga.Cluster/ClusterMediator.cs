@@ -1,5 +1,6 @@
 using Catga;
 using Catga.Cluster.Discovery;
+using Catga.Cluster.Remote;
 using Catga.Cluster.Routing;
 using Catga.Messages;
 using Catga.Results;
@@ -14,6 +15,7 @@ public sealed class ClusterMediator : ICatgaMediator
 {
     private readonly INodeDiscovery _discovery;
     private readonly IMessageRouter _router;
+    private readonly IRemoteInvoker _remoteInvoker;
     private readonly ICatgaMediator _localMediator;
     private readonly ILogger<ClusterMediator> _logger;
     private readonly string _localNodeId;
@@ -21,12 +23,14 @@ public sealed class ClusterMediator : ICatgaMediator
     public ClusterMediator(
         INodeDiscovery discovery,
         IMessageRouter router,
+        IRemoteInvoker remoteInvoker,
         ICatgaMediator localMediator,
         ILogger<ClusterMediator> logger,
         ClusterOptions options)
     {
         _discovery = discovery;
         _router = router;
+        _remoteInvoker = remoteInvoker;
         _localMediator = localMediator;
         _logger = logger;
         _localNodeId = options.NodeId;
@@ -102,16 +106,14 @@ public sealed class ClusterMediator : ICatgaMediator
         return _localMediator.PublishBatchAsync(events, cancellationToken);
     }
 
-    // TODO: 实现远程转发
-    private Task<CatgaResult<TResponse>> ForwardToNodeAsync<TRequest, TResponse>(
+    // 远程转发
+    private async Task<CatgaResult<TResponse>> ForwardToNodeAsync<TRequest, TResponse>(
         ClusterNode targetNode,
         TRequest request,
         CancellationToken cancellationToken)
         where TRequest : IRequest<TResponse>
     {
-        // 暂时返回错误，后续实现 HTTP/gRPC 转发
-        _logger.LogWarning("Remote forwarding not yet implemented");
-        return Task.FromResult(CatgaResult<TResponse>.Failure("Remote forwarding not yet implemented"));
+        return await _remoteInvoker.InvokeAsync<TRequest, TResponse>(targetNode, request, cancellationToken);
     }
 }
 

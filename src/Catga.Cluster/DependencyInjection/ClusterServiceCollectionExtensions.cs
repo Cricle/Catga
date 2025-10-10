@@ -3,7 +3,9 @@ using Catga;
 using Catga.Cluster;
 using Catga.Cluster.Discovery;
 using Catga.Cluster.Metrics;
+using Catga.Cluster.Remote;
 using Catga.Cluster.Routing;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
@@ -28,6 +30,13 @@ public static class ClusterServiceCollectionExtensions
         services.TryAddSingleton<INodeDiscovery, InMemoryNodeDiscovery>();
         services.TryAddSingleton<IMessageRouter, RoundRobinRouter>();
         services.TryAddSingleton<ILoadReporter, SystemLoadReporter>();
+        services.TryAddSingleton<IRemoteInvoker, HttpRemoteInvoker>();
+        
+        // 添加 HTTP 客户端（用于远程调用）
+        services.AddHttpClient("CatgaCluster", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
         
         // 替换 ICatgaMediator 为 ClusterMediator
         services.Replace(ServiceDescriptor.Singleton<ICatgaMediator, ClusterMediator>());
@@ -56,6 +65,15 @@ public static class ClusterServiceCollectionExtensions
     {
         services.Replace(ServiceDescriptor.Singleton<IMessageRouter, T>());
         return services;
+    }
+
+    /// <summary>
+    /// 使用集群中间件（处理远程调用）
+    /// </summary>
+    public static IApplicationBuilder UseCluster(this IApplicationBuilder app)
+    {
+        app.UseMiddleware<ClusterInvokeMiddleware>();
+        return app;
     }
 }
 

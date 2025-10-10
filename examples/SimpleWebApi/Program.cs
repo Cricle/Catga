@@ -22,7 +22,7 @@ app.UseSwaggerUI();
 app.MapPost("/users", async (ICatgaMediator mediator, CreateUserCommand cmd) =>
 {
     var result = await mediator.SendAsync<CreateUserCommand, UserResponse>(cmd);
-    
+
     if (!result.IsSuccess)
     {
         // 使用详细错误信息
@@ -30,7 +30,7 @@ app.MapPost("/users", async (ICatgaMediator mediator, CreateUserCommand cmd) =>
         {
             return result.DetailedError.Category switch
             {
-                ErrorCategory.Validation => Results.BadRequest(new { 
+                ErrorCategory.Validation => Results.BadRequest(new {
                     error = result.DetailedError.Code,
                     message = result.DetailedError.Message,
                     details = result.DetailedError.Details
@@ -42,30 +42,30 @@ app.MapPost("/users", async (ICatgaMediator mediator, CreateUserCommand cmd) =>
                 _ => Results.Problem(result.DetailedError.Message)
             };
         }
-        
+
         return Results.BadRequest(result.Error);
     }
-    
+
     return Results.Ok(result.Value);
 });
 
 app.MapGet("/users/{id}", async (ICatgaMediator mediator, string id) =>
 {
     var result = await mediator.SendAsync<GetUserQuery, UserResponse>(new(id));
-    
+
     if (!result.IsSuccess)
     {
         if (result.DetailedError?.Category == ErrorCategory.NotFound)
         {
-            return Results.NotFound(new { 
+            return Results.NotFound(new {
                 error = result.DetailedError.Code,
                 message = result.DetailedError.Message
             });
         }
-        
+
         return Results.Problem(result.Error);
     }
-    
+
     return Results.Ok(result.Value);
 });
 
@@ -74,7 +74,7 @@ app.Run();
 // ==================== 消息 ====================
 
 public record CreateUserCommand(
-    [Required][StringLength(50)] string Username, 
+    [Required][StringLength(50)] string Username,
     [Required][EmailAddress] string Email
 ) : MessageBase, IRequest<UserResponse>;
 
@@ -86,7 +86,7 @@ public record UserResponse(string UserId, string Username, string Email);
 public class CreateUserHandler : IRequestHandler<CreateUserCommand, UserResponse>
 {
     private readonly ILogger<CreateUserHandler> _logger;
-    
+
     // 模拟数据库
     private static readonly HashSet<string> _usernames = new();
 

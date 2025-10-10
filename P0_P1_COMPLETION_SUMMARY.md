@@ -5,7 +5,7 @@
 ### P0-1: Fluent API 统一配置 ✅
 **已完成** - CatgaBuilder 已增强
 - ✅ UseProductionDefaults() - 生产环境默认配置
-- ✅ UseDevelopmentDefaults() - 开发环境默认配置  
+- ✅ UseDevelopmentDefaults() - 开发环境默认配置
 - ✅ ValidateConfiguration() - 配置验证
 - ✅ WithCircuitBreaker/WithRateLimiting/WithConcurrencyLimit
 
@@ -153,13 +153,13 @@ public interface ICatgaMediator
     // 优化的批量发送（并行+ArrayPool）
     Task<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<TRequest, TResponse>(
         IEnumerable<TRequest> requests,
-        CancellationToken cancellationToken = default) 
+        CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>;
 
     // 批量发布（并行+批量传输）
     Task PublishBatchAsync<TEvent>(
         IEnumerable<TEvent> events,
-        CancellationToken cancellationToken = default) 
+        CancellationToken cancellationToken = default)
         where TEvent : IEvent;
 }
 
@@ -225,7 +225,7 @@ public interface IDistributedCache
 
 ---
 
-**日期**: 2025-10-10  
-**版本**: Catga v2.0  
+**日期**: 2025-10-10
+**版本**: Catga v2.0
 **状态**: P0 ✅ 已完成，P1 ⏳ 进行中
 

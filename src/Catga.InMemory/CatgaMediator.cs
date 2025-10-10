@@ -91,16 +91,28 @@ public class CatgaMediator : ICatgaMediator, IDisposable
 
         // Get behaviors (check count for fast path optimization)
         var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-        var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToList();
+        
+        // Optimized: Try to avoid ToList() allocation
+        if (behaviors is IList<IPipelineBehavior<TRequest, TResponse>> behaviorsList)
+        {
+            // Fast path: No behaviors, execute handler directly (zero allocation)
+            if (FastPath.CanUseFastPath(behaviorsList.Count))
+            {
+                return await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken);
+            }
 
-        // Fast path: No behaviors, execute handler directly (zero allocation)
-        if (FastPath.CanUseFastPath(behaviorsList.Count))
+            // Standard path: Execute with pipeline
+            return await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
+        }
+        
+        // Fallback: Materialize to list only if needed
+        var materializedBehaviors = behaviors.ToList();
+        if (FastPath.CanUseFastPath(materializedBehaviors.Count))
         {
             return await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken);
         }
-
-        // Standard path: Execute with pipeline
-        return await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
+        
+        return await PipelineExecutor.ExecuteAsync(request, handler, materializedBehaviors, cancellationToken);
     }
 
     public async Task<CatgaResult> SendAsync<TRequest>(

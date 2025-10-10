@@ -1,5 +1,6 @@
 using Catga.Distributed.Nats;
 using Catga.Distributed.Redis;
+using Catga.Distributed.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -16,12 +17,14 @@ public static class DistributedServiceCollectionExtensions
     /// <summary>
     /// 添加基于 NATS 的分布式集群（无锁）
     /// </summary>
+    /// <param name="routingStrategy">路由策略（默认 Round-Robin）</param>
     public static IServiceCollection AddNatsCluster(
         this IServiceCollection services,
         string natsUrl,
         string nodeId,
         string endpoint,
-        string subjectPrefix = "catga.nodes")
+        string subjectPrefix = "catga.nodes",
+        RoutingStrategyType routingStrategy = RoutingStrategyType.RoundRobin)
     {
         // 注册 NATS 连接
         services.AddSingleton<INatsConnection>(sp =>
@@ -47,6 +50,13 @@ public static class DistributedServiceCollectionExtensions
             return new NatsNodeDiscovery(connection, logger, subjectPrefix);
         });
 
+        // 注册路由策略
+        services.AddSingleton<IRoutingStrategy>(sp =>
+        {
+            var currentNode = sp.GetRequiredService<NodeInfo>();
+            return CreateRoutingStrategy(routingStrategy, currentNode.NodeId);
+        });
+
         // 注册分布式 Mediator（无锁）
         services.AddSingleton<IDistributedMediator, DistributedMediator>();
 
@@ -59,12 +69,14 @@ public static class DistributedServiceCollectionExtensions
     /// <summary>
     /// 添加基于 Redis 的分布式集群（无锁）
     /// </summary>
+    /// <param name="routingStrategy">路由策略（默认 Consistent Hash）</param>
     public static IServiceCollection AddRedisCluster(
         this IServiceCollection services,
         string redisConnectionString,
         string nodeId,
         string endpoint,
-        string keyPrefix = "catga:nodes:")
+        string keyPrefix = "catga:nodes:",
+        RoutingStrategyType routingStrategy = RoutingStrategyType.ConsistentHash)
     {
         // 注册 Redis 连接
         services.AddSingleton<IConnectionMultiplexer>(sp =>
@@ -89,6 +101,13 @@ public static class DistributedServiceCollectionExtensions
             return new RedisNodeDiscovery(redis, logger, keyPrefix);
         });
 
+        // 注册路由策略
+        services.AddSingleton<IRoutingStrategy>(sp =>
+        {
+            var currentNode = sp.GetRequiredService<NodeInfo>();
+            return CreateRoutingStrategy(routingStrategy, currentNode.NodeId);
+        });
+
         // 注册分布式 Mediator（无锁）
         services.AddSingleton<IDistributedMediator, DistributedMediator>();
 
@@ -96,6 +115,22 @@ public static class DistributedServiceCollectionExtensions
         services.AddHostedService<HeartbeatBackgroundService>();
 
         return services;
+    }
+
+    /// <summary>
+    /// 创建路由策略实例
+    /// </summary>
+    private static IRoutingStrategy CreateRoutingStrategy(RoutingStrategyType type, string currentNodeId)
+    {
+        return type switch
+        {
+            RoutingStrategyType.RoundRobin => new RoundRobinRoutingStrategy(),
+            RoutingStrategyType.ConsistentHash => new ConsistentHashRoutingStrategy(),
+            RoutingStrategyType.LoadBased => new LoadBasedRoutingStrategy(),
+            RoutingStrategyType.Random => new RandomRoutingStrategy(),
+            RoutingStrategyType.LocalFirst => new LocalFirstRoutingStrategy(currentNodeId),
+            _ => new RoundRobinRoutingStrategy()
+        };
     }
 }
 

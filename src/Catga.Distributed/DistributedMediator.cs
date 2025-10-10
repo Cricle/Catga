@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Catga.Distributed.Routing;
 using Catga.Messages;
 using Catga.Results;
 using Catga.Serialization;
@@ -9,7 +10,7 @@ namespace Catga.Distributed;
 
 /// <summary>
 /// 分布式 Mediator 实现（完全无锁设计）
-/// 使用 Round-Robin 负载均衡，无需任何锁
+/// 支持可配置的路由策略（Round-Robin, Consistent Hash, Load-Based 等）
 /// </summary>
 public sealed class DistributedMediator : IDistributedMediator
 {
@@ -18,22 +19,22 @@ public sealed class DistributedMediator : IDistributedMediator
     private readonly INodeDiscovery _discovery;
     private readonly ILogger<DistributedMediator> _logger;
     private readonly NodeInfo _currentNode;
-    
-    // 无锁计数器：用于 Round-Robin
-    private int _roundRobinCounter = 0;
+    private readonly IRoutingStrategy _routingStrategy;
 
     public DistributedMediator(
         ICatgaMediator localMediator,
         IMessageTransport transport,
         INodeDiscovery discovery,
         ILogger<DistributedMediator> logger,
-        NodeInfo currentNode)
+        NodeInfo currentNode,
+        IRoutingStrategy? routingStrategy = null)
     {
         _localMediator = localMediator;
         _transport = transport;
         _discovery = discovery;
         _logger = logger;
         _currentNode = currentNode;
+        _routingStrategy = routingStrategy ?? new RoundRobinRoutingStrategy(); // 默认 Round-Robin
     }
 
     public Task<NodeInfo> GetCurrentNodeAsync(CancellationToken cancellationToken = default)
@@ -53,7 +54,7 @@ public sealed class DistributedMediator : IDistributedMediator
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>
     {
-        // 策略：优先本地处理，失败则路由到其他节点
+        // 策略：优先本地处理，失败则使用路由策略路由到其他节点
         try
         {
             // 先尝试本地处理
@@ -61,7 +62,7 @@ public sealed class DistributedMediator : IDistributedMediator
         }
         catch
         {
-            // 本地失败，路由到其他节点（Round-Robin，无锁）
+            // 本地失败，使用路由策略选择目标节点（无锁）
             var nodes = await GetNodesAsync(cancellationToken);
             var remoteNodes = nodes.Where(n => n.NodeId != _currentNode.NodeId).ToList();
 
@@ -71,9 +72,13 @@ public sealed class DistributedMediator : IDistributedMediator
                 return CatgaResult<TResponse>.Failure("No available nodes for routing");
             }
 
-            // 无锁 Round-Robin：使用 Interlocked.Increment
-            var index = Interlocked.Increment(ref _roundRobinCounter) % remoteNodes.Count;
-            var targetNode = remoteNodes[index];
+            // 使用可配置的路由策略（无锁）
+            var targetNode = await _routingStrategy.SelectNodeAsync(remoteNodes, request, cancellationToken);
+
+            if (targetNode == null)
+            {
+                return CatgaResult<TResponse>.Failure("No suitable node found by routing strategy");
+            }
 
             return await SendToNodeAsync<TRequest, TResponse>(request, targetNode.NodeId, cancellationToken);
         }

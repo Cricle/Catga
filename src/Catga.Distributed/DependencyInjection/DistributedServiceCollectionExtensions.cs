@@ -18,13 +18,15 @@ public static class DistributedServiceCollectionExtensions
     /// 添加基于 NATS 的分布式集群（无锁）
     /// </summary>
     /// <param name="routingStrategy">路由策略（默认 Round-Robin）</param>
+    /// <param name="useJetStream">是否使用 JetStream KV Store（默认 true，推荐）</param>
     public static IServiceCollection AddNatsCluster(
         this IServiceCollection services,
         string natsUrl,
         string nodeId,
         string endpoint,
         string subjectPrefix = "catga.nodes",
-        RoutingStrategyType routingStrategy = RoutingStrategyType.RoundRobin)
+        RoutingStrategyType routingStrategy = RoutingStrategyType.RoundRobin,
+        bool useJetStream = true)
     {
         // 注册 NATS 连接
         services.AddSingleton<INatsConnection>(sp =>
@@ -42,13 +44,27 @@ public static class DistributedServiceCollectionExtensions
             Load = 0
         });
 
-        // 注册节点发现（无锁）
-        services.AddSingleton<INodeDiscovery>(sp =>
+        // 注册节点发现（支持 JetStream KV Store 或 Pub/Sub）
+        if (useJetStream)
         {
-            var connection = sp.GetRequiredService<INatsConnection>();
-            var logger = sp.GetRequiredService<ILogger<NatsNodeDiscovery>>();
-            return new NatsNodeDiscovery(connection, logger, subjectPrefix);
-        });
+            // 使用 JetStream KV Store（原生持久化，推荐）
+            services.AddSingleton<INodeDiscovery>(sp =>
+            {
+                var connection = sp.GetRequiredService<INatsConnection>();
+                var logger = sp.GetRequiredService<ILogger<NatsJetStreamNodeDiscovery>>();
+                return new NatsJetStreamNodeDiscovery(connection, logger);
+            });
+        }
+        else
+        {
+            // 使用 Pub/Sub（内存，不推荐）
+            services.AddSingleton<INodeDiscovery>(sp =>
+            {
+                var connection = sp.GetRequiredService<INatsConnection>();
+                var logger = sp.GetRequiredService<ILogger<NatsNodeDiscovery>>();
+                return new NatsNodeDiscovery(connection, logger, subjectPrefix);
+            });
+        }
 
         // 注册路由策略
         services.AddSingleton<IRoutingStrategy>(sp =>

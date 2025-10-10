@@ -29,5 +29,20 @@ public sealed class ClusterOptions
     /// 节点元数据
     /// </summary>
     public Dictionary<string, string>? Metadata { get; set; }
+
+    /// <summary>
+    /// 启用自动故障转移和重试（默认：true）
+    /// </summary>
+    public bool EnableFailover { get; set; } = true;
+
+    /// <summary>
+    /// 最大重试次数（默认：2）
+    /// </summary>
+    public int MaxRetries { get; set; } = 2;
+
+    /// <summary>
+    /// 重试延迟（默认：100ms）
+    /// </summary>
+    public TimeSpan RetryDelay { get; set; } = TimeSpan.FromMilliseconds(100);
 }
 

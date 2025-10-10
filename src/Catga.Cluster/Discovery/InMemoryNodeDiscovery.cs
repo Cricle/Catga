@@ -53,11 +53,43 @@ public sealed class InMemoryNodeDiscovery : INodeDiscovery
 
     public Task<IReadOnlyList<ClusterNode>> GetNodesAsync(CancellationToken cancellationToken = default)
     {
-        // 过滤掉超时的节点
+        // 过滤掉超时的节点，并自动标记为 Faulted
         var now = DateTime.UtcNow;
-        var onlineNodes = _nodes.Values
-            .Where(n => now - n.LastHeartbeat < _heartbeatTimeout)
-            .ToList();
+        var onlineNodes = new List<ClusterNode>();
+
+        foreach (var (nodeId, node) in _nodes)
+        {
+            var elapsed = now - node.LastHeartbeat;
+            
+            if (elapsed < _heartbeatTimeout)
+            {
+                // 节点在线
+                if (node.Status != NodeStatus.Online)
+                {
+                    // 节点恢复，更新状态
+                    var recovered = node with { Status = NodeStatus.Online };
+                    _nodes.TryUpdate(nodeId, recovered, node);
+                    onlineNodes.Add(recovered);
+                }
+                else
+                {
+                    onlineNodes.Add(node);
+                }
+            }
+            else if (node.Status != NodeStatus.Faulted)
+            {
+                // 节点超时，标记为故障
+                var faulted = node with { Status = NodeStatus.Faulted };
+                _nodes.TryUpdate(nodeId, faulted, node);
+                
+                // 发送故障事件
+                _ = _events.Writer.WriteAsync(new ClusterEvent
+                {
+                    Type = ClusterEventType.NodeFaulted,
+                    Node = faulted
+                }, cancellationToken);
+            }
+        }
 
         return Task.FromResult<IReadOnlyList<ClusterNode>>(onlineNodes);
     }

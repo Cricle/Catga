@@ -44,14 +44,31 @@ public static class DistributedServiceCollectionExtensions
             Load = 0
         });
 
-        // 注册节点发现（使用 NATS Pub/Sub）
-        // 注意：JetStream KV Store 暂时未实现（待 API 验证）
-        services.AddSingleton<INodeDiscovery>(sp =>
+        // 注册节点发现
+        if (useJetStream)
         {
-            var connection = sp.GetRequiredService<INatsConnection>();
-            var logger = sp.GetRequiredService<ILogger<NatsNodeDiscovery>>();
-            return new NatsNodeDiscovery(connection, logger, subjectPrefix);
-        });
+            // 使用 JetStream KV Store（推荐）- 持久化、历史记录、自动过期
+            services.AddSingleton<INodeDiscovery>(sp =>
+            {
+                var connection = sp.GetRequiredService<INatsConnection>();
+                var logger = sp.GetRequiredService<ILogger<NatsJetStreamKVNodeDiscovery>>();
+                return new NatsJetStreamKVNodeDiscovery(
+                    connection, 
+                    logger,
+                    bucketName: $"{subjectPrefix}_kv",
+                    nodeTtl: TimeSpan.FromMinutes(5));
+            });
+        }
+        else
+        {
+            // 使用 NATS Pub/Sub（轻量级）- 内存存储、无持久化
+            services.AddSingleton<INodeDiscovery>(sp =>
+            {
+                var connection = sp.GetRequiredService<INatsConnection>();
+                var logger = sp.GetRequiredService<ILogger<NatsNodeDiscovery>>();
+                return new NatsNodeDiscovery(connection, logger, subjectPrefix);
+            });
+        }
 
         // 注册路由策略
         services.AddSingleton<IRoutingStrategy>(sp =>

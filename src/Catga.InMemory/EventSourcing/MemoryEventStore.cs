@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using Catga.Common;
 using Catga.Messages;
 
@@ -6,14 +7,13 @@ namespace Catga.EventSourcing;
 
 /// <summary>
 /// In-memory event store implementation (for testing/single-instance scenarios)
-/// Note: Uses separate dictionary for streams (not inheriting BaseMemoryStore due to different data model)
+/// 完全无锁实现，使用 ImmutableList 保证线程安全
 /// </summary>
-public sealed class MemoryEventStore : IEventStore, IDisposable
+public sealed class MemoryEventStore : IEventStore
 {
-    private readonly ConcurrentDictionary<string, List<StoredEvent>> _streams = new();
-    private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
+    private readonly ConcurrentDictionary<string, ImmutableList<StoredEvent>> _streams = new();
 
-    public async ValueTask AppendAsync(
+    public ValueTask AppendAsync(
         string streamId,
         IEvent[] events,
         long expectedVersion = -1,
@@ -24,43 +24,50 @@ public sealed class MemoryEventStore : IEventStore, IDisposable
 
         if (events.Length == 0)
         {
-            return;
+            return ValueTask.CompletedTask;
         }
 
-        var streamLock = _locks.GetOrAdd(streamId, _ => new SemaphoreSlim(1, 1));
+        var timestamp = DateTime.UtcNow;
 
-        await streamLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var stream = _streams.GetOrAdd(streamId, _ => new List<StoredEvent>());
-
-            // Check expected version
-            if (expectedVersion >= 0 && stream.Count != expectedVersion)
+        _streams.AddOrUpdate(
+            streamId,
+            _ =>
             {
-                throw new ConcurrencyException(streamId, expectedVersion, stream.Count);
-            }
-
-            var currentVersion = stream.Count;
-            var timestamp = DateTime.UtcNow;
-
-            foreach (var @event in events)
-            {
-                stream.Add(new StoredEvent
+                // 新流：创建初始事件列表
+                var newEvents = events.Select((e, i) => new StoredEvent
                 {
-                    Version = currentVersion++,
-                    Event = @event,
+                    Version = i,
+                    Event = e,
                     Timestamp = timestamp,
-                    EventType = @event.GetType().Name
+                    EventType = e.GetType().Name
+                }).ToImmutableList();
+                return newEvents;
+            },
+            (_, existing) =>
+            {
+                // 乐观并发检查
+                if (expectedVersion >= 0 && existing.Count != expectedVersion)
+                {
+                    throw new ConcurrencyException(streamId, expectedVersion, existing.Count);
+                }
+
+                // 追加事件（不可变操作）
+                var baseVersion = existing.Count;
+                var newEvents = events.Select((e, i) => new StoredEvent
+                {
+                    Version = baseVersion + i,
+                    Event = e,
+                    Timestamp = timestamp,
+                    EventType = e.GetType().Name
                 });
-            }
-        }
-        finally
-        {
-            streamLock.Release();
-        }
+
+                return existing.AddRange(newEvents);
+            });
+
+        return ValueTask.CompletedTask;
     }
 
-    public async ValueTask<EventStream> ReadAsync(
+    public ValueTask<EventStream> ReadAsync(
         string streamId,
         long fromVersion = 0,
         int maxCount = int.MaxValue,
@@ -70,38 +77,29 @@ public sealed class MemoryEventStore : IEventStore, IDisposable
 
         if (!_streams.TryGetValue(streamId, out var stream))
         {
-            return new EventStream
+            return ValueTask.FromResult(new EventStream
             {
                 StreamId = streamId,
                 Version = -1,
                 Events = Array.Empty<StoredEvent>()
-            };
+            });
         }
 
-        var streamLock = _locks.GetOrAdd(streamId, _ => new SemaphoreSlim(1, 1));
+        // ImmutableList 读取是线程安全的，无需锁
+        var events = stream
+            .Where(e => e.Version >= fromVersion)
+            .Take(maxCount)
+            .ToArray();
 
-        await streamLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        return ValueTask.FromResult(new EventStream
         {
-            var events = stream
-                .Where(e => e.Version >= fromVersion)
-                .Take(maxCount)
-                .ToArray();
-
-            return new EventStream
-            {
-                StreamId = streamId,
-                Version = stream.Count - 1,
-                Events = events
-            };
-        }
-        finally
-        {
-            streamLock.Release();
-        }
+            StreamId = streamId,
+            Version = stream.Count - 1,
+            Events = events
+        });
     }
 
-    public async ValueTask<long> GetVersionAsync(
+    public ValueTask<long> GetVersionAsync(
         string streamId,
         CancellationToken cancellationToken = default)
     {
@@ -109,28 +107,9 @@ public sealed class MemoryEventStore : IEventStore, IDisposable
 
         if (!_streams.TryGetValue(streamId, out var stream))
         {
-            return -1L;
+            return ValueTask.FromResult(-1L);
         }
 
-        var streamLock = _locks.GetOrAdd(streamId, _ => new SemaphoreSlim(1, 1));
-
-        await streamLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            return stream.Count - 1;
-        }
-        finally
-        {
-            streamLock.Release();
-        }
-    }
-
-    public void Dispose()
-    {
-        foreach (var semaphore in _locks.Values)
-        {
-            semaphore?.Dispose();
-        }
-        _locks.Clear();
+        return ValueTask.FromResult((long)(stream.Count - 1));
     }
 }

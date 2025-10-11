@@ -6,22 +6,21 @@ namespace Catga.Common;
 /// <summary>
 /// Base class for all in-memory stores (Inbox, Outbox, Event, Idempotency)
 /// Provides common operations and reduces code duplication (DRY principle)
-/// Thread-safe, zero-allocation design
+/// 完全无锁实现，依赖 ConcurrentDictionary 的原子操作
 /// </summary>
 /// <typeparam name="TMessage">The message type stored</typeparam>
 public abstract class BaseMemoryStore<TMessage> where TMessage : class
 {
     protected readonly ConcurrentDictionary<string, TMessage> Messages = new();
-    protected readonly SemaphoreSlim Lock = new(1, 1);
 
     /// <summary>
-    /// Get total message count
+    /// Get total message count (无锁，原子读取)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int GetMessageCount() => Messages.Count;
 
     /// <summary>
-    /// Get message count by predicate (zero-allocation)
+    /// Get message count by predicate (无锁遍历)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected int GetCountByPredicate(Func<TMessage, bool> predicate)
@@ -36,7 +35,7 @@ public abstract class BaseMemoryStore<TMessage> where TMessage : class
     }
 
     /// <summary>
-    /// Get messages by predicate with limit (zero-allocation iteration)
+    /// Get messages by predicate with limit (无锁遍历)
     /// </summary>
     protected List<TMessage> GetMessagesByPredicate(
         Func<TMessage, bool> predicate,
@@ -45,7 +44,7 @@ public abstract class BaseMemoryStore<TMessage> where TMessage : class
     {
         var result = new List<TMessage>(maxCount);
 
-        // Zero-allocation iteration
+        // 无锁遍历
         foreach (var kvp in Messages)
         {
             if (predicate(kvp.Value))
@@ -67,46 +66,30 @@ public abstract class BaseMemoryStore<TMessage> where TMessage : class
     }
 
     /// <summary>
-    /// Delete expired messages from store
+    /// Delete expired messages from store (无锁删除)
     /// </summary>
-    protected async Task DeleteExpiredMessagesAsync(
+    protected Task DeleteExpiredMessagesAsync(
         TimeSpan retentionPeriod,
         Func<TMessage, bool> shouldDelete,
         CancellationToken cancellationToken = default)
     {
-        await Lock.WaitAsync(cancellationToken);
-        try
-        {
-            var cutoff = DateTime.UtcNow - retentionPeriod;
-            List<string>? keysToRemove = null;
+        // 无锁实现：LINQ 查询 + TryRemove
+        var keysToRemove = Messages
+            .Where(kvp => shouldDelete(kvp.Value))
+            .Select(kvp => kvp.Key)
+            .ToList();
 
-            // Zero-allocation traversal
-            foreach (var kvp in Messages)
-            {
-                if (shouldDelete(kvp.Value))
-                {
-                    keysToRemove ??= new List<string>();
-                    keysToRemove.Add(kvp.Key);
-                }
-            }
-
-            // Delete expired messages
-            if (keysToRemove != null)
-            {
-                foreach (var key in keysToRemove)
-                {
-                    Messages.TryRemove(key, out _);
-                }
-            }
-        }
-        finally
+        // ConcurrentDictionary.TryRemove 是原子操作，无需锁
+        foreach (var key in keysToRemove)
         {
-            Lock.Release();
+            Messages.TryRemove(key, out _);
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
-    /// Try get message by ID (thread-safe)
+    /// Try get message by ID (无锁，原子读取)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected bool TryGetMessage(string messageId, out TMessage? message)
@@ -115,7 +98,7 @@ public abstract class BaseMemoryStore<TMessage> where TMessage : class
     }
 
     /// <summary>
-    /// Add or update message (thread-safe)
+    /// Add or update message (无锁，原子操作)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected void AddOrUpdateMessage(string messageId, TMessage message)
@@ -124,7 +107,7 @@ public abstract class BaseMemoryStore<TMessage> where TMessage : class
     }
 
     /// <summary>
-    /// Remove message by ID (thread-safe)
+    /// Remove message by ID (无锁，原子操作)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected bool TryRemoveMessage(string messageId, out TMessage? message)
@@ -139,41 +122,4 @@ public abstract class BaseMemoryStore<TMessage> where TMessage : class
     {
         Messages.Clear();
     }
-
-    /// <summary>
-    /// Execute operation with lock (for complex operations)
-    /// </summary>
-    protected async Task<TResult> ExecuteWithLockAsync<TResult>(
-        Func<Task<TResult>> operation,
-        CancellationToken cancellationToken = default)
-    {
-        await Lock.WaitAsync(cancellationToken);
-        try
-        {
-            return await operation();
-        }
-        finally
-        {
-            Lock.Release();
-        }
-    }
-
-    /// <summary>
-    /// Execute operation with lock (for simple operations)
-    /// </summary>
-    protected async Task ExecuteWithLockAsync(
-        Func<Task> operation,
-        CancellationToken cancellationToken = default)
-    {
-        await Lock.WaitAsync(cancellationToken);
-        try
-        {
-            await operation();
-        }
-        finally
-        {
-            Lock.Release();
-        }
-    }
 }
-

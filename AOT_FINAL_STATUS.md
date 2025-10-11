@@ -1,7 +1,7 @@
 # Catga AOT 支持 - 最终状态
 
-**更新日期**: 2025-10-11  
-**版本**: Catga v1.0 (AOT Ready)  
+**更新日期**: 2025-10-11
+**版本**: Catga v1.0 (AOT Ready)
 **状态**: ✅ **Production Ready**
 
 ---
@@ -276,7 +276,7 @@ var json = JsonHelper.SerializeNode(node);
 [RequiresDynamicCode("...")]
 [RequiresUnreferencedCode("...")]
 public ValueTask<CatgaResult<TResponse>> SendAsync<
-    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] 
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     TRequest, TResponse>(...);
 ```
 
@@ -325,9 +325,9 @@ Catga 是 .NET 9 Native AOT 生态中优秀的 CQRS 框架选择！
 
 ---
 
-**版本**: v1.0 (AOT Ready)  
-**更新**: 2025-10-11  
-**状态**: ✅ Production Ready  
+**版本**: v1.0 (AOT Ready)
+**更新**: 2025-10-11
+**状态**: ✅ Production Ready
 **评级**: ⭐⭐⭐⭐⭐ Excellent
 
 ---

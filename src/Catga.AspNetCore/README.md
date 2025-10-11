@@ -58,13 +58,29 @@ app.MapPost("/api/orders", async (
     CancellationToken ct) =>
 {
     var result = await mediator.SendAsync<CreateOrderCommand, CreateOrderResult>(command, ct);
-    return result.IsSuccess 
-        ? Results.Ok(result.Value) 
-        : Results.BadRequest(new { error = result.Error });
+    return result.ToHttpResult(); // Smart HTTP status code mapping
 });
 ```
 
-### 4. Built-in Diagnostics
+### 4. Smart Result Mapping
+
+`ToHttpResult()` extension automatically maps `CatgaResult` errors to appropriate HTTP status codes:
+
+```csharp
+// Handler returns: CatgaResult.Failure("Order not found")
+// ToHttpResult() returns: 404 Not Found
+
+// Handler returns: CatgaResult.Failure("Order is already completed")
+// ToHttpResult() returns: 409 Conflict
+
+// Handler returns: CatgaResult.Failure("Order must be in Processing status")
+// ToHttpResult() returns: 422 Unprocessable Entity
+
+// Handler returns: CatgaResult.Success(order)
+// ToHttpResult() returns: 200 OK with order data
+```
+
+### 5. Built-in Diagnostics
 
 Catga automatically adds these endpoints:
 

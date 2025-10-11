@@ -30,12 +30,9 @@ public static class CatgaEndpointExtensions
             CancellationToken cancellationToken) =>
         {
             var result = await mediator.SendAsync<TRequest, TResponse>(request, cancellationToken);
-            return result.IsSuccess
-                ? Results.Ok(result.Value)
-                : Results.BadRequest(new { error = result.Error, metadata = result.Metadata });
+            return result.ToHttpResult(); // Use extension method for smart status code mapping
         })
-        .WithName(typeof(TRequest).Name.Replace("Command", "").Replace("Query", ""))
-        .WithTags("Catga");
+        .WithCatgaCommandMetadata<TRequest, TResponse>();
     }
 
     /// <summary>
@@ -55,12 +52,9 @@ public static class CatgaEndpointExtensions
             CancellationToken cancellationToken) =>
         {
             var result = await mediator.SendAsync<TQuery, TResponse>(query, cancellationToken);
-            return result.IsSuccess && result.Value != null
-                ? Results.Ok(result.Value)
-                : Results.NotFound();
+            return result.ToHttpResult(); // Use extension method for smart status code mapping
         })
-        .WithName(typeof(TQuery).Name.Replace("Query", ""))
-        .WithTags("Catga");
+        .WithCatgaQueryMetadata<TQuery, TResponse>();
     }
 
     /// <summary>
@@ -82,8 +76,7 @@ public static class CatgaEndpointExtensions
             await mediator.PublishAsync(@event, cancellationToken: cancellationToken);
             return Results.Accepted();
         })
-        .WithName(typeof(TEvent).Name.Replace("Event", ""))
-        .WithTags("Catga", "Events");
+        .WithCatgaEventMetadata<TEvent>();
     }
 
     /// <summary>

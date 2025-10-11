@@ -18,17 +18,17 @@ namespace Catga.Distributed.Nats;
 /// - https://docs.nats.io/using-nats/developer/develop_jetstream/kv#tab-c-12
 /// - https://www.nuget.org/packages/NATS.Client.KeyValueStore
 ///
-/// 原生 API 用法（使用 NATS.Client.KeyValueStore 包）：
-/// 1. 引用包：dotnet add package NATS.Client.KeyValueStore
-/// 2. 创建 KV Store：await natsKVContext.CreateStoreAsync(kvConfig)
-/// 3. 存储键值：await kvStore.PutAsync(key, value)
-/// 4. 获取键值：await kvStore.GetEntryAsync<T>(key)
-/// 5. 删除键：await kvStore.DeleteAsync(key)
-/// 6. 获取所有键：await kvStore.GetKeysAsync()
-/// 7. 监听变更：await kvStore.WatchAsync<T>()
+/// Original API usage (using NATS.Client.KeyValueStore package):
+/// 1. Add package: dotnet add package NATS.Client.KeyValueStore
+/// 2. Create KV Store: await natsKVContext.CreateStoreAsync(kvConfig)
+/// 3. Store key-value: await kvStore.PutAsync(key, value)
+/// 4. Get key-value: await kvStore.GetEntryAsync&lt;T&gt;(key)
+/// 5. Delete key: await kvStore.DeleteAsync(key)
+/// 6. Get all keys: await kvStore.GetKeysAsync()
+/// 7. Watch changes: await kvStore.WatchAsync&lt;T&gt;()
 ///
-/// 注意：需要使用独立的 NATS.Client.KeyValueStore 包，而不是 NATS.Client.JetStream
-/// 当前项目已引用此包，待实现原生功能
+/// Note: Use standalone NATS.Client.KeyValueStore package, not NATS.Client.JetStream
+/// Current project has referenced this package, native features pending implementation
 /// </summary>
 public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposable
 {

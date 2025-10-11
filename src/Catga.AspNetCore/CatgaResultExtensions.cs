@@ -65,6 +65,7 @@ public static class CatgaResultExtensions
     /// <summary>
     /// Convert CatgaResult to CreatedAtRoute result
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This API may perform reflection on supplied parameters which may be trimmed if not referenced directly.")]
     public static IResult ToCreatedResult<T>(
         this CatgaResult<T> result,
         string routeName,

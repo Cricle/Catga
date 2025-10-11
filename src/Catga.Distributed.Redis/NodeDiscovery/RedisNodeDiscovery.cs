@@ -147,7 +147,7 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
             var subscriber = _redis.GetSubscriber();
 
             // 订阅键空间通知
-            var channel = $"__keyspace@0__:{_keyPrefix}*";
+            var channel = RedisChannel.Pattern($"__keyspace@0__:{_keyPrefix}*");
             await subscriber.SubscribeAsync(channel, async (ch, message) =>
             {
                 try

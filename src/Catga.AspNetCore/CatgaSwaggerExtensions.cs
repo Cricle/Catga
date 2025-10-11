@@ -20,7 +20,7 @@ public static class CatgaSwaggerExtensions
         where TCommand : IRequest<TResponse>
     {
         var commandName = typeof(TCommand).Name.Replace("Command", "");
-        
+
         return builder
             .WithName(commandName)
             .WithSummary($"Execute {commandName} command")
@@ -43,7 +43,7 @@ public static class CatgaSwaggerExtensions
         where TQuery : IRequest<TResponse>
     {
         var queryName = typeof(TQuery).Name.Replace("Query", "");
-        
+
         return builder
             .WithName(queryName)
             .WithSummary($"Query {queryName}")
@@ -63,7 +63,7 @@ public static class CatgaSwaggerExtensions
         where TEvent : IEvent
     {
         var eventName = typeof(TEvent).Name.Replace("Event", "");
-        
+
         return builder
             .WithName($"Publish{eventName}")
             .WithSummary($"Publish {eventName} event")

@@ -36,7 +36,7 @@ public class RedisIdempotencyStore : IIdempotencyStore
     }
 
     /// <inheritdoc/>
-    public async Task MarkAsProcessedAsync<TResult>(
+    public async Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]TResult>(
         string messageId,
         TResult? result = default,
         CancellationToken cancellationToken = default)

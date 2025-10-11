@@ -27,26 +27,9 @@ public sealed class RedisDistributedLock : IDistributedLock
         var lockKey = $"lock:{key}";
 
         // Try to acquire lock using SET NX PX
-        var acquired = await db.StringSetAsync(
-            lockKey,
-            lockId,
-            timeout,
-            When.NotExists,
-            CommandFlags.None);
+        var acquired = await db.StringSetAsync(lockKey, lockId, timeout, When.NotExists, CommandFlags.None);
 
-        if (!acquired)
-        {
-            return null;
-        }
-
-        var handle = new RedisLockHandle(
-            key,
-            lockId,
-            DateTime.UtcNow,
-            db,
-            lockKey);
-
-        return handle;
+        return !acquired ? null : (ILockHandle)new RedisLockHandle(key, lockId, DateTime.UtcNow, db, lockKey);
     }
 }
 
@@ -94,8 +77,8 @@ internal sealed class RedisLockHandle : ILockHandle
             {
                 _database.ScriptEvaluate(
                     script,
-                    new RedisKey[] { _lockKey },
-                    new RedisValue[] { LockId });
+                    [_lockKey],
+                    [LockId]);
             }
             catch
             {
@@ -104,30 +87,10 @@ internal sealed class RedisLockHandle : ILockHandle
         }
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0)
-        {
-            // Release lock using Lua script to ensure atomicity
-            var script = @"
-                if redis.call('get', KEYS[1]) == ARGV[1] then
-                    return redis.call('del', KEYS[1])
-                else
-                    return 0
-                end";
-
-            try
-            {
-                await _database.ScriptEvaluateAsync(
-                    script,
-                    new RedisKey[] { _lockKey },
-                    new RedisValue[] { LockId });
-            }
-            catch
-            {
-                // Ignore errors during disposal
-            }
-        }
+        Dispose();
+        return ValueTask.CompletedTask;
     }
 }
 

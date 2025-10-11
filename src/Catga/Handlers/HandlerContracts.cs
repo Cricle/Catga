@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Messages;
 using Catga.Results;
 
@@ -8,7 +9,7 @@ namespace Catga.Handlers;
 /// <summary>
 /// Handler for requests with response
 /// </summary>
-public interface IRequestHandler<in TRequest, TResponse> where TRequest : IRequest<TResponse>
+public interface IRequestHandler<in TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]TResponse> where TRequest : IRequest<TResponse>
 {
     public Task<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
 }

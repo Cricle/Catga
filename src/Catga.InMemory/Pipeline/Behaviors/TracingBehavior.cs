@@ -1,22 +1,20 @@
 using System.Diagnostics;
 using Catga.Messages;
-using Catga.Observability;
 using Catga.Results;
 
 namespace Catga.Pipeline.Behaviors;
 
 /// <summary>
-/// Distributed tracing and metrics collection behavior (fully OpenTelemetry compatible)
+/// Distributed tracing behavior (fully OpenTelemetry compatible)
+/// Simplified: removed metrics dependency (use OpenTelemetry metrics instead)
 /// </summary>
 public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
     private static readonly ActivitySource ActivitySource = new("Catga", "1.0.0");
-    private readonly CatgaMetrics? _metrics;
 
-    public TracingBehavior(CatgaMetrics? metrics = null)
+    public TracingBehavior()
     {
-        _metrics = metrics;
     }
 
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
@@ -52,9 +50,6 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
             // Update tracing status
             activity?.SetTag("catga.success", result.IsSuccess);
             activity?.SetTag("catga.duration_ms", duration.TotalMilliseconds);
-
-            // Record metrics
-            _metrics?.RecordRequest(result.IsSuccess, duration);
 
             if (result.IsSuccess)
             {
@@ -102,9 +97,6 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                     ["exception.message"] = ex.Message,
                     ["exception.escaped"] = true
                 }));
-
-            // Record metric: failure
-            _metrics?.RecordRequest(false, duration);
 
             throw;
         }

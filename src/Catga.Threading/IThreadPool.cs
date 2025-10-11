@@ -78,25 +78,51 @@ public sealed class ThreadPoolOptions
     public bool EnableDynamicScaling { get; set; } = true;
 
     /// <summary>
-    /// Interval for checking and adjusting thread count (default: 5 seconds)
+    /// Interval for checking and adjusting thread count (default: 1 second)
+    /// Faster checks for better responsiveness to load spikes
     /// </summary>
-    public TimeSpan ScalingCheckInterval { get; set; } = TimeSpan.FromSeconds(5);
+    public TimeSpan ScalingCheckInterval { get; set; } = TimeSpan.FromSeconds(1);
 
     /// <summary>
-    /// Threshold for scaling up: pending tasks per thread (default: 10)
-    /// If pending tasks / active threads > this value, add more threads
+    /// Threshold for aggressive scale-up: pending tasks per thread (default: 20)
+    /// Triggers immediate multi-thread addition for sudden spikes
     /// </summary>
-    public int ScaleUpThreshold { get; set; } = 10;
+    public int AggressiveScaleUpThreshold { get; set; } = 20;
 
     /// <summary>
-    /// Threshold for scaling down: idle time percentage (default: 0.8)
-    /// If idle threads / total threads > this value, remove idle threads
+    /// Threshold for normal scale-up: pending tasks per thread (default: 10)
+    /// Triggers gradual single-thread addition
     /// </summary>
-    public double ScaleDownThreshold { get; set; } = 0.8;
+    public int NormalScaleUpThreshold { get; set; } = 10;
 
     /// <summary>
-    /// Minimum time a thread must be idle before removal (default: 30 seconds)
+    /// Threshold for scale-down: idle ratio (default: 0.7)
+    /// If idle threads / total threads > this value, consider removing threads
     /// </summary>
-    public TimeSpan MinIdleTimeBeforeRemoval { get; set; } = TimeSpan.FromSeconds(30);
+    public double ScaleDownThreshold { get; set; } = 0.7;
+
+    /// <summary>
+    /// Minimum time a thread must be idle before removal (default: 60 seconds)
+    /// Longer wait prevents premature removal during periodic spikes
+    /// </summary>
+    public TimeSpan MinIdleTimeBeforeRemoval { get; set; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// Cooldown period after scale-up before allowing scale-down (default: 30 seconds)
+    /// Prevents thrashing during oscillating workloads
+    /// </summary>
+    public TimeSpan ScaleDownCooldown { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Maximum threads to add per scale-up operation (default: 4)
+    /// Limits aggressive scaling to prevent over-allocation
+    /// </summary>
+    public int MaxThreadsPerScaleUp { get; set; } = 4;
+
+    /// <summary>
+    /// History window for load pattern detection (default: 60 seconds)
+    /// Used to detect periodic spikes and adjust strategy
+    /// </summary>
+    public TimeSpan LoadHistoryWindow { get; set; } = TimeSpan.FromSeconds(60);
 }
 

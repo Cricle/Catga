@@ -30,6 +30,13 @@ public sealed class WorkStealingThreadPool : IThreadPool
     private int _peakPendingCount;
     private int _currentWorkerCount;
     private int _isDisposed;
+    
+    // Scaling state tracking
+    private DateTime _lastScaleUpTime = DateTime.MinValue;
+    private DateTime _lastScaleDownTime = DateTime.MinValue;
+    private readonly ConcurrentQueue<LoadSnapshot> _loadHistory = new();
+    private int _consecutiveHighLoadChecks = 0;
+    private int _consecutiveLowLoadChecks = 0;
 
     public int WorkerCount => _currentWorkerCount;
 
@@ -348,61 +355,265 @@ public sealed class WorkStealingThreadPool : IThreadPool
     }
 
     /// <summary>
-    /// Dynamically adjust thread count based on workload
+    /// Dynamically adjust thread count based on workload with intelligent pattern detection
     /// </summary>
     private void AdjustThreadCount()
     {
         if (!_options.EnableDynamicScaling || _isDisposed != 0)
             return;
 
+        var now = DateTime.UtcNow;
         var pending = PendingWorkCount;
         var currentCount = _currentWorkerCount;
         var workersList = _workers.ToArray();
 
-        // Scale up: Add threads if workload is high
+        // Record load snapshot for pattern detection
+        RecordLoadSnapshot(pending, currentCount, now);
+
+        // Calculate load metrics
+        double tasksPerThread = currentCount > 0 ? (double)pending / currentCount : pending;
+        var activeWorkers = workersList.Count(w => !w.IsIdle(TimeSpan.FromSeconds(5)));
+        double utilization = currentCount > 0 ? (double)activeWorkers / currentCount : 0;
+
+        // Detect load pattern
+        var loadPattern = DetectLoadPattern();
+
+        // === SCALE UP LOGIC ===
         if (currentCount < _options.MaxThreads)
         {
-            // Calculate pending tasks per thread
-            double tasksPerThread = currentCount > 0 ? (double)pending / currentCount : pending;
+            int threadsToAdd = 0;
 
-            if (tasksPerThread > _options.ScaleUpThreshold)
+            // Aggressive scale-up for sudden spikes
+            if (tasksPerThread > _options.AggressiveScaleUpThreshold)
             {
-                // Add one thread at a time for gradual scaling
-                int newWorkerId = Interlocked.Increment(ref _currentWorkerCount) - 1;
-                var newWorker = new WorkerThread(
-                    id: newWorkerId,
-                    globalQueue: _globalQueue,
-                    workers: _workers,
-                    parent: this,
-                    shutdownToken: _shutdownCts.Token,
-                    options: _options);
+                // Add multiple threads for sudden load spike
+                threadsToAdd = Math.Min(
+                    _options.MaxThreadsPerScaleUp,
+                    _options.MaxThreads - currentCount
+                );
+                _consecutiveHighLoadChecks++;
+            }
+            // Normal scale-up for sustained high load
+            else if (tasksPerThread > _options.NormalScaleUpThreshold)
+            {
+                _consecutiveHighLoadChecks++;
                 
-                _workers.Add(newWorker);
-                newWorker.Start();
+                // Add threads gradually, more if load is sustained
+                if (_consecutiveHighLoadChecks >= 3)
+                {
+                    threadsToAdd = Math.Min(2, _options.MaxThreads - currentCount);
+                }
+                else
+                {
+                    threadsToAdd = 1;
+                }
+            }
+            else
+            {
+                _consecutiveHighLoadChecks = 0;
+            }
 
+            // Execute scale-up
+            if (threadsToAdd > 0)
+            {
+                for (int i = 0; i < threadsToAdd; i++)
+                {
+                    int newWorkerId = Interlocked.Increment(ref _currentWorkerCount) - 1;
+                    var newWorker = new WorkerThread(
+                        id: newWorkerId,
+                        globalQueue: _globalQueue,
+                        workers: _workers,
+                        parent: this,
+                        shutdownToken: _shutdownCts.Token,
+                        options: _options);
+                    
+                    _workers.Add(newWorker);
+                    newWorker.Start();
+                }
+
+                _lastScaleUpTime = now;
+                _consecutiveLowLoadChecks = 0;
                 ThreadPoolEventSource.Log.TaskQueued(0); // Log scaling event
                 return;
             }
         }
 
-        // Scale down: Remove idle threads if utilization is low
+        // === SCALE DOWN LOGIC ===
         if (currentCount > _options.MinThreads)
         {
-            double idleRatio = workersList.Length > 0 
-                ? workersList.Count(w => w.IsIdle(_options.MinIdleTimeBeforeRemoval)) / (double)workersList.Length 
-                : 0;
-
-            if (idleRatio > _options.ScaleDownThreshold)
+            // Check cooldown period to prevent thrashing
+            var timeSinceLastScaleUp = now - _lastScaleUpTime;
+            if (timeSinceLastScaleUp < _options.ScaleDownCooldown)
             {
-                // Find and remove one idle thread
-                var idleWorker = workersList.FirstOrDefault(w => w.IsIdle(_options.MinIdleTimeBeforeRemoval));
-                if (idleWorker != null)
+                return; // Too soon after scale-up
+            }
+
+            // For periodic spike pattern, be more conservative
+            if (loadPattern == LoadPattern.PeriodicSpikes)
+            {
+                // Only scale down if idle for much longer
+                var extendedIdleTime = _options.MinIdleTimeBeforeRemoval.Add(TimeSpan.FromSeconds(30));
+                var idleWorkers = workersList.Where(w => w.IsIdle(extendedIdleTime)).ToList();
+                double idleRatio = workersList.Length > 0 ? (double)idleWorkers.Count / workersList.Length : 0;
+
+                if (idleRatio > _options.ScaleDownThreshold)
                 {
-                    idleWorker.RequestShutdown();
-                    Interlocked.Decrement(ref _currentWorkerCount);
+                    _consecutiveLowLoadChecks++;
+                    
+                    // Require sustained low load before scaling down
+                    if (_consecutiveLowLoadChecks >= 5)
+                    {
+                        var workerToRemove = idleWorkers.FirstOrDefault();
+                        if (workerToRemove != null)
+                        {
+                            workerToRemove.RequestShutdown();
+                            Interlocked.Decrement(ref _currentWorkerCount);
+                            _lastScaleDownTime = now;
+                            _consecutiveLowLoadChecks = 0;
+                        }
+                    }
+                }
+                else
+                {
+                    _consecutiveLowLoadChecks = 0;
+                }
+            }
+            else
+            {
+                // Normal scale-down for stable/declining load
+                var idleWorkers = workersList.Where(w => w.IsIdle(_options.MinIdleTimeBeforeRemoval)).ToList();
+                double idleRatio = workersList.Length > 0 ? (double)idleWorkers.Count / workersList.Length : 0;
+
+                if (idleRatio > _options.ScaleDownThreshold)
+                {
+                    _consecutiveLowLoadChecks++;
+                    
+                    // Require at least 3 consecutive checks for stable load
+                    if (_consecutiveLowLoadChecks >= 3)
+                    {
+                        var workerToRemove = idleWorkers.FirstOrDefault();
+                        if (workerToRemove != null)
+                        {
+                            workerToRemove.RequestShutdown();
+                            Interlocked.Decrement(ref _currentWorkerCount);
+                            _lastScaleDownTime = now;
+                            _consecutiveLowLoadChecks = 0;
+                        }
+                    }
+                }
+                else
+                {
+                    _consecutiveLowLoadChecks = 0;
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Record load snapshot for pattern detection
+    /// </summary>
+    private void RecordLoadSnapshot(int pendingTasks, int threadCount, DateTime timestamp)
+    {
+        _loadHistory.Enqueue(new LoadSnapshot
+        {
+            Timestamp = timestamp,
+            PendingTasks = pendingTasks,
+            ThreadCount = threadCount
+        });
+
+        // Keep only recent history
+        var cutoff = timestamp - _options.LoadHistoryWindow;
+        while (_loadHistory.TryPeek(out var oldest) && oldest.Timestamp < cutoff)
+        {
+            _loadHistory.TryDequeue(out _);
+        }
+    }
+
+    /// <summary>
+    /// Detect load pattern from history
+    /// </summary>
+    private LoadPattern DetectLoadPattern()
+    {
+        var history = _loadHistory.ToArray();
+        if (history.Length < 10)
+        {
+            return LoadPattern.Stable;
+        }
+
+        // Calculate load variance
+        var avgLoad = history.Average(s => s.PendingTasks);
+        var variance = history.Average(s => Math.Pow(s.PendingTasks - avgLoad, 2));
+        var stdDev = Math.Sqrt(variance);
+
+        // Detect sudden spike (current load >> average)
+        var currentLoad = history.Length > 0 ? history[history.Length - 1].PendingTasks : 0;
+        if (currentLoad > avgLoad + 2 * stdDev && avgLoad > 0)
+        {
+            return LoadPattern.SuddenSpike;
+        }
+
+        // Detect periodic pattern (high variance with regular intervals)
+        if (stdDev > avgLoad * 0.5 && avgLoad > 5)
+        {
+            // Check for periodic peaks
+            var peaks = history.Where(s => s.PendingTasks > avgLoad + stdDev).ToList();
+            if (peaks.Count >= 3)
+            {
+                // Check if peaks are roughly evenly spaced
+                var intervals = new List<double>();
+                for (int i = 1; i < peaks.Count; i++)
+                {
+                    intervals.Add((peaks[i].Timestamp - peaks[i - 1].Timestamp).TotalSeconds);
+                }
+                
+                if (intervals.Count > 0)
+                {
+                    var avgInterval = intervals.Average();
+                    var intervalVariance = intervals.Average(iv => Math.Pow(iv - avgInterval, 2));
+                    
+                    // If intervals are consistent, it's periodic
+                    if (Math.Sqrt(intervalVariance) < avgInterval * 0.3)
+                    {
+                        return LoadPattern.PeriodicSpikes;
+                    }
+                }
+            }
+        }
+
+        // Detect declining load
+        if (history.Length >= 10)
+        {
+            var firstHalf = history.Take(history.Length / 2).Average(s => s.PendingTasks);
+            var secondHalf = history.Skip(history.Length / 2).Average(s => s.PendingTasks);
+            
+            if (firstHalf > secondHalf * 1.5 && firstHalf > 10)
+            {
+                return LoadPattern.Declining;
+            }
+        }
+
+        return LoadPattern.Stable;
+    }
+
+    /// <summary>
+    /// Load snapshot for pattern detection
+    /// </summary>
+    private struct LoadSnapshot
+    {
+        public DateTime Timestamp { get; init; }
+        public int PendingTasks { get; init; }
+        public int ThreadCount { get; init; }
+    }
+
+    /// <summary>
+    /// Detected load patterns
+    /// </summary>
+    private enum LoadPattern
+    {
+        Stable,          // Steady workload
+        SuddenSpike,     // Sudden increase in load
+        PeriodicSpikes,  // Regular peaks and valleys
+        Declining        // Load decreasing over time
     }
 
     public void Dispose()
@@ -481,7 +692,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
         /// </summary>
         public bool IsIdle(TimeSpan idleThreshold)
         {
-            return _localQueue.IsEmpty && 
+            return _localQueue.IsEmpty &&
                    (DateTime.UtcNow - _lastActivityTime) > idleThreshold;
         }
 
@@ -559,14 +770,14 @@ public sealed class WorkStealingThreadPool : IThreadPool
                     // Emit work-stealing telemetry
                     _parent._metrics.TotalWorkStealCount++;
                     ThreadPoolEventSource.Log.WorkStolen(_id, 1, targetWorker._id);
-                    
+
                     using var activity = ThreadPoolActivitySource.Source.StartActivity(
                         ThreadPoolActivitySource.WorkStealActivity,
                         ActivityKind.Internal);
                     activity?.SetTag(ThreadPoolActivitySource.SourceWorkerTag, targetWorker._id);
                     activity?.SetTag(ThreadPoolActivitySource.TargetWorkerTag, _id);
                     activity?.SetTag(ThreadPoolActivitySource.StolenCountTag, 1);
-                    
+
                     return true;
                 }
             }

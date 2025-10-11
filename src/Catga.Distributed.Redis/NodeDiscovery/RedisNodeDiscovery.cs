@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Channels;
+using Catga.Distributed.Serialization;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
@@ -39,7 +40,7 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
     {
         var db = _redis.GetDatabase();
         var key = $"{_keyPrefix}{node.NodeId}";
-        var json = JsonSerializer.Serialize(node);
+        var json = JsonHelper.SerializeNode(node);
 
         await db.StringSetAsync(key, json, _nodeExpiry);
 
@@ -75,7 +76,7 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
             return;
         }
 
-        var node = JsonSerializer.Deserialize<NodeInfo>(json.ToString());
+        var node = JsonHelper.DeserializeNode(json.ToString()!);
         if (node == null) return;
 
         // 更新节点信息
@@ -85,7 +86,7 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
             Load = load
         };
 
-        var updatedJson = JsonSerializer.Serialize(updatedNode);
+        var updatedJson = JsonHelper.SerializeNode(updatedNode);
         await db.StringSetAsync(key, updatedJson, _nodeExpiry);
 
         await _events.Writer.WriteAsync(new NodeChangeEvent
@@ -110,7 +111,7 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
                 var json = await db.StringGetAsync(key);
                 if (json.HasValue)
                 {
-                    var node = JsonSerializer.Deserialize<NodeInfo>(json.ToString());
+                    var node = JsonHelper.DeserializeNode(json.ToString()!);
                     if (node != null && node.IsOnline)
                     {
                         nodes.Add(node);
@@ -161,7 +162,7 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
                         var json = await db.StringGetAsync(key);
                         if (json.HasValue)
                         {
-                            var node = JsonSerializer.Deserialize<NodeInfo>(json.ToString());
+                            var node = JsonHelper.DeserializeNode(json.ToString()!);
                             if (node != null)
                             {
                                 await _events.Writer.WriteAsync(new NodeChangeEvent

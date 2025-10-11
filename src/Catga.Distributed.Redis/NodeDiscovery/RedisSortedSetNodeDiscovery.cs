@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using Catga.Distributed.Serialization;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
@@ -34,7 +35,7 @@ public sealed class RedisSortedSetNodeDiscovery : INodeDiscovery, IAsyncDisposab
         var db = _redis.GetDatabase();
 
         // 序列化节点信息
-        var json = JsonSerializer.Serialize(node);
+        var json = JsonHelper.SerializeNode(node);
 
         // 使用当前时间戳作为 score（Sorted Set 原生功能）
         var score = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -58,7 +59,7 @@ public sealed class RedisSortedSetNodeDiscovery : INodeDiscovery, IAsyncDisposab
 
         foreach (var entry in allEntries)
         {
-            var node = JsonSerializer.Deserialize<NodeInfo>(entry.ToString());
+            var node = JsonHelper.DeserializeNode(entry.ToString()!);
             if (node?.NodeId == nodeId)
             {
                 // 从 Sorted Set 删除（原生操作）
@@ -80,7 +81,7 @@ public sealed class RedisSortedSetNodeDiscovery : INodeDiscovery, IAsyncDisposab
 
             foreach (var entry in allEntries)
             {
-                var existingNode = JsonSerializer.Deserialize<NodeInfo>(entry.ToString());
+                var existingNode = JsonHelper.DeserializeNode(entry.ToString()!);
                 if (existingNode?.NodeId == nodeId)
                 {
                     // 2. 更新节点信息
@@ -90,7 +91,7 @@ public sealed class RedisSortedSetNodeDiscovery : INodeDiscovery, IAsyncDisposab
                         Load = load
                     };
 
-                    var updatedJson = JsonSerializer.Serialize(updatedNode);
+                    var updatedJson = JsonHelper.SerializeNode(updatedNode);
                     var newScore = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                     // 3. 删除旧条目，添加新条目（原子操作）
@@ -129,7 +130,7 @@ public sealed class RedisSortedSetNodeDiscovery : INodeDiscovery, IAsyncDisposab
             {
                 try
                 {
-                    var node = JsonSerializer.Deserialize<NodeInfo>(entry.ToString());
+                    var node = JsonHelper.DeserializeNode(entry.ToString()!);
 
                     if (node != null)
                     {

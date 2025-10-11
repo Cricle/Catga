@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Catga.Caching;
 
 /// <summary>
@@ -8,11 +10,15 @@ public interface IDistributedCache
     /// <summary>
     /// Get value from cache
     /// </summary>
+    [RequiresUnreferencedCode("Cache serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Cache serialization may require runtime code generation")]
     ValueTask<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Set value in cache
     /// </summary>
+    [RequiresUnreferencedCode("Cache serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Cache serialization may require runtime code generation")]
     ValueTask SetAsync<T>(string key, T value, TimeSpan expiration, CancellationToken cancellationToken = default);
 
     /// <summary>

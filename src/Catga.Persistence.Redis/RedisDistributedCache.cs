@@ -1,5 +1,6 @@
 using Catga.Caching;
 using StackExchange.Redis;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 
 namespace Catga.Persistence.Redis;
@@ -21,6 +22,8 @@ public sealed class RedisDistributedCache : IDistributedCache
         };
     }
 
+    [RequiresUnreferencedCode("Cache serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Cache serialization may require runtime code generation")]
     public async ValueTask<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
@@ -43,6 +46,8 @@ public sealed class RedisDistributedCache : IDistributedCache
         }
     }
 
+    [RequiresUnreferencedCode("Cache serialization may require types that cannot be statically analyzed")]
+    [RequiresDynamicCode("Cache serialization may require runtime code generation")]
     public async ValueTask SetAsync<T>(
         string key,
         T value,

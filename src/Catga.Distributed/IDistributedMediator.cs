@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Messages;
 using Catga.Results;
 
@@ -21,7 +22,11 @@ public interface IDistributedMediator : ICatgaMediator
     /// <summary>
     /// 发送消息到指定节点
     /// </summary>
-    Task<CatgaResult<TResponse>> SendToNodeAsync<TRequest, TResponse>(
+    [RequiresDynamicCode("Distributed mediator uses reflection for message routing and serialization")]
+    [RequiresUnreferencedCode("Distributed mediator may require types that cannot be statically analyzed")]
+    Task<CatgaResult<TResponse>> SendToNodeAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        TResponse>(
         TRequest request,
         string nodeId,
         CancellationToken cancellationToken = default)
@@ -30,7 +35,10 @@ public interface IDistributedMediator : ICatgaMediator
     /// <summary>
     /// 广播消息到所有节点
     /// </summary>
-    Task BroadcastAsync<TEvent>(
+    [RequiresDynamicCode("Distributed mediator uses reflection for message routing and serialization")]
+    [RequiresUnreferencedCode("Distributed mediator may require types that cannot be statically analyzed")]
+    Task BroadcastAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
         TEvent @event,
         CancellationToken cancellationToken = default)
         where TEvent : IEvent;

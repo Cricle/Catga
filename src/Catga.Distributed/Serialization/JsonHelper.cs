@@ -5,7 +5,7 @@ namespace Catga.Distributed.Serialization;
 /// <summary>
 /// JSON 序列化辅助类（AOT 兼容）
 /// </summary>
-internal static class JsonHelper
+public static class JsonHelper
 {
     /// <summary>
     /// 序列化节点信息
@@ -54,5 +54,17 @@ internal static class JsonHelper
     /// </summary>
     public static Dictionary<string, object>? DeserializeDictionaryObject(string json)
         => JsonSerializer.Deserialize(json, DistributedJsonContext.Default.DictionaryStringObject);
+
+    /// <summary>
+    /// 序列化心跳信息
+    /// </summary>
+    public static string SerializeHeartbeat(string nodeId, double load, DateTime timestamp)
+        => JsonSerializer.Serialize(new HeartbeatInfo(nodeId, load, timestamp), DistributedJsonContext.Default.HeartbeatInfo);
+
+    /// <summary>
+    /// 反序列化心跳信息
+    /// </summary>
+    public static HeartbeatInfo? DeserializeHeartbeat(string json)
+        => JsonSerializer.Deserialize(json, DistributedJsonContext.Default.HeartbeatInfo);
 }
 

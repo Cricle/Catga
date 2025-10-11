@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Channels;
 using Catga.Distributed;
+using Catga.Distributed.Serialization;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 
@@ -48,7 +49,7 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
 
         // 发布节点加入事件（NATS 自动广播，无需锁）
         var subject = $"{_subjectPrefix}.join";
-        var json = JsonSerializer.Serialize(node);
+        var json = JsonHelper.SerializeNode(node);
         
         await _connection.PublishAsync(subject, json, cancellationToken: cancellationToken);
         
@@ -69,7 +70,7 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
 
         // 发布节点离开事件
         var subject = $"{_subjectPrefix}.leave";
-        var json = JsonSerializer.Serialize(new { NodeId = nodeId });
+        var json = JsonHelper.SerializeDictionary(new Dictionary<string, string> { ["NodeId"] = nodeId });
         
         await _connection.PublishAsync(subject, json, cancellationToken: cancellationToken);
         
@@ -109,7 +110,7 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
 
         // 发布心跳事件
         var subject = $"{_subjectPrefix}.heartbeat";
-        var json = JsonSerializer.Serialize(new { NodeId = nodeId, Load = load, Timestamp = DateTime.UtcNow });
+        var json = JsonHelper.SerializeHeartbeat(nodeId, load, DateTime.UtcNow);
         
         await _connection.PublishAsync(subject, json, cancellationToken: cancellationToken);
 
@@ -188,7 +189,7 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
             {
                 if (string.IsNullOrEmpty(msg.Data)) continue;
 
-                var node = JsonSerializer.Deserialize<NodeInfo>(msg.Data);
+                var node = JsonHelper.DeserializeNode(msg.Data);
                 if (node == null) continue;
 
                 // 无锁更新节点
@@ -218,7 +219,7 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
             {
                 if (string.IsNullOrEmpty(msg.Data)) continue;
 
-                var data = JsonSerializer.Deserialize<Dictionary<string, string>>(msg.Data);
+                var data = JsonHelper.DeserializeDictionary(msg.Data);
                 if (data == null || !data.TryGetValue("NodeId", out var nodeId)) continue;
 
                 // 无锁移除节点
@@ -249,24 +250,19 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
             {
                 if (string.IsNullOrEmpty(msg.Data)) continue;
 
-                var data = JsonSerializer.Deserialize<Dictionary<string, object>>(msg.Data);
-                if (data == null || !data.TryGetValue("NodeId", out var nodeIdObj)) continue;
-
-                var nodeId = nodeIdObj.ToString();
-                if (string.IsNullOrEmpty(nodeId)) continue;
-
-                var load = data.TryGetValue("Load", out var loadObj) && double.TryParse(loadObj.ToString(), out var l) ? l : 0;
+                var heartbeat = JsonHelper.DeserializeHeartbeat(msg.Data);
+                if (heartbeat == null) continue;
 
                 // 无锁更新节点
-                if (_nodes.TryGetValue(nodeId, out var existing))
+                if (_nodes.TryGetValue(heartbeat.NodeId, out var existing))
                 {
                     var updated = existing with
                     {
                         LastSeen = DateTime.UtcNow,
-                        Load = load
+                        Load = heartbeat.Load
                     };
 
-                    _nodes.TryUpdate(nodeId, updated, existing);
+                    _nodes.TryUpdate(heartbeat.NodeId, updated, existing);
 
                     // 无锁发送事件
                     await _events.Writer.WriteAsync(new NodeChangeEvent

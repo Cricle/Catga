@@ -15,6 +15,8 @@ public static class PipelineExecutor
     /// Execute Pipeline (Optimized version - Reduce closure and delegate allocations)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Pipeline execution may require types that cannot be statically analyzed.")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Pipeline execution uses reflection for handler resolution.")]
     public static async ValueTask<CatgaResult<TResponse>> ExecuteAsync<TRequest, TResponse>(
         TRequest request,
         IRequestHandler<TRequest, TResponse> handler,
@@ -45,6 +47,8 @@ public static class PipelineExecutor
     /// Recursively execute behavior (Tail recursion optimization)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Pipeline execution may require types that cannot be statically analyzed.")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Pipeline execution uses reflection for handler resolution.")]
     private static async ValueTask<CatgaResult<TResponse>> ExecuteBehaviorAsync<TRequest, TResponse>(
         PipelineContext<TRequest, TResponse> context,
         int index)

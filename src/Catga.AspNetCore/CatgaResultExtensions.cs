@@ -26,7 +26,7 @@ public static class CatgaResultExtensions
         }
 
         var error = result.Error ?? "An error occurred";
-        
+
         // Check for explicit HTTP status code in metadata
         if (result.Metadata?.TryGetValue(HttpStatusCodeKey, out var statusCodeStr) == true)
         {
@@ -180,7 +180,7 @@ public static class CatgaResultHttpExtensions
     {
         var metadata = result.Metadata ?? new ResultMetadata();
         metadata.Add("HttpStatusCode", statusCode.ToString());
-        
+
         return new CatgaResult<T>
         {
             IsSuccess = result.IsSuccess,

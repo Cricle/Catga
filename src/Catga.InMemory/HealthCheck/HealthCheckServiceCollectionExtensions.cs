@@ -22,7 +22,7 @@ public static class HealthCheckServiceCollectionExtensions
     /// <summary>
     /// Add a health check
     /// </summary>
-    public static IServiceCollection AddHealthCheck<THealthCheck>(
+    public static IServiceCollection AddHealthCheck<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)] THealthCheck>(
         this IServiceCollection services)
         where THealthCheck : class, IHealthCheck
     {

@@ -208,6 +208,64 @@ public sealed class WorkStealingThreadPool : IThreadPool
         return tcs.Task;
     }
 
+    // ===== CatgaTask API (Zero-Allocation) =====
+
+    /// <summary>
+    /// Run work on thread pool and return zero-allocation CatgaTask
+    /// </summary>
+    public CatgaTask RunCatgaAsync(Action action, int priority = 0)
+    {
+        if (_isDisposed != 0)
+        {
+            return CatgaTask.CompletedTask;
+        }
+
+        var source = CatgaTaskCompletionSource.Create();
+
+        QueueWorkItem(() =>
+        {
+            try
+            {
+                action();
+                source.SetResult();
+            }
+            catch (Exception ex)
+            {
+                source.SetException(ex);
+            }
+        }, priority);
+
+        return source.Task;
+    }
+
+    /// <summary>
+    /// Run work with result on thread pool and return zero-allocation CatgaTask{T}
+    /// </summary>
+    public CatgaTask<T> RunCatgaAsync<T>(Func<T> func, int priority = 0)
+    {
+        if (_isDisposed != 0)
+        {
+            return new CatgaTask<T>(default(T)!);
+        }
+
+        var source = CatgaTaskCompletionSource<T>.Create();
+
+        QueueWorkItem(() =>
+        {
+            try
+            {
+                var result = func();
+                source.SetResult(result);
+            }
+            catch (Exception ex)
+            {
+                source.SetException(ex);
+            }
+        }, priority);
+
+        return source.Task;
+    }
+
     public void Dispose()
     {
         if (Interlocked.CompareExchange(ref _isDisposed, 1, 0) != 0)

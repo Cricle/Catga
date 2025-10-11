@@ -29,50 +29,72 @@ services.AddWorkStealingThreadPool(options =>
 ```csharp
 public class MyService
 {
-    private readonly IThreadPool _threadPool;
+    private readonly WorkStealingThreadPool _threadPool;
 
-    public MyService(IThreadPool threadPool)
+    public MyService(WorkStealingThreadPool threadPool)
     {
         _threadPool = threadPool;
     }
 
-    // Sync work with Task result
+    // Standard Task API - Works with existing code
     public async Task ProcessDataAsync()
     {
         await _threadPool.RunAsync(() => 
         {
             // CPU-intensive work
-            var result = HeavyComputation();
+            HeavyComputation();
         });
     }
 
-    // Async work with result
-    public async Task<int> CalculateAsync()
+    // CatgaTask API - Zero allocation, high performance
+    public async CatgaTask ProcessDataZeroAllocAsync()
     {
-        return await _threadPool.RunAsync(async () =>
+        await _threadPool.RunCatgaAsync(() => 
         {
-            // Some async operation
-            await Task.Delay(100);
-            return 42;
+            // CPU-intensive work - zero GC allocation!
+            HeavyComputation();
         });
     }
 
-    // Work with result
-    public async Task<string> GetResultAsync()
+    // Work with result (Standard Task)
+    public async Task<int> CalculateAsync()
     {
         return await _threadPool.RunAsync(() => 
         {
-            return "Hello from thread pool!";
+            return ComputeValue();
+        });
+    }
+
+    // Work with result (CatgaTask - Zero Allocation)
+    public async CatgaTask<int> CalculateZeroAllocAsync()
+    {
+        return await _threadPool.RunCatgaAsync(() => 
+        {
+            return ComputeValue();
         });
     }
 
     // High priority work
-    public async Task UrgentWorkAsync()
+    public async CatgaTask UrgentWorkAsync()
     {
-        await _threadPool.RunAsync(() => 
+        await _threadPool.RunCatgaAsync(() => 
         {
             // Critical task
         }, priority: 10);
+    }
+
+    // Parallel processing with zero allocation
+    public async Task ProcessBatchZeroAllocAsync(List<Item> items)
+    {
+        var tasks = items.Select(item => 
+            _threadPool.RunCatgaAsync(() => ProcessItem(item))
+        ).ToArray();
+        
+        // WhenAll for CatgaTask (future enhancement)
+        foreach (var task in tasks)
+        {
+            await task;
+        }
     }
 }
 ```
@@ -80,6 +102,8 @@ public class MyService
 ## API Reference
 
 ### WorkStealingThreadPool
+
+#### Standard Task API (Compatible with async/await)
 
 ```csharp
 // Queue work and return Task
@@ -94,6 +118,22 @@ Task RunAsync(Func<Task> asyncFunc, int priority = 0, CancellationToken cancella
 // Queue async work with result and return Task<T>
 Task<T> RunAsync<T>(Func<Task<T>> asyncFunc, int priority = 0, CancellationToken cancellationToken = default)
 ```
+
+#### CatgaTask API (Zero-Allocation, inspired by UniTask)
+
+```csharp
+// Zero-allocation awaitable task (no GC allocation)
+CatgaTask RunCatgaAsync(Action action, int priority = 0)
+
+// Zero-allocation awaitable task with result
+CatgaTask<T> RunCatgaAsync<T>(Func<T> func, int priority = 0)
+```
+
+**Benefits of CatgaTask**:
+- ✅ **Zero GC Allocation**: Struct-based design like [UniTask](https://github.com/Cysharp/UniTask)
+- ✅ **Full async/await Support**: Can be awaited like Task
+- ✅ **Object Pooling**: Automatic pooling of completion sources
+- ✅ **High Performance**: Perfect for hot paths in high-throughput scenarios
 
 ### Configuration
 

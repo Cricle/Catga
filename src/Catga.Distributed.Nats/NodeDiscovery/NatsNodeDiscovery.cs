@@ -26,6 +26,7 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
     private readonly Channel<NodeChangeEvent> _events;
     
     private readonly CancellationTokenSource _disposeCts;
+    private readonly Task _backgroundTask; // 追踪后台任务防止泄漏
 
     public NatsNodeDiscovery(
         INatsConnection connection,
@@ -38,8 +39,8 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
         _events = Channel.CreateUnbounded<NodeChangeEvent>();
         _disposeCts = new CancellationTokenSource();
 
-        // 启动后台订阅（无锁）
-        _ = SubscribeToNodesAsync(_disposeCts.Token);
+        // 启动后台订阅（无锁）- 追踪任务
+        _backgroundTask = SubscribeToNodesAsync(_disposeCts.Token);
     }
 
     public async Task RegisterAsync(NodeInfo node, CancellationToken cancellationToken = default)
@@ -286,11 +287,19 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
         
         try
         {
-            await _events.Reader.Completion;
+            // 等待后台任务完成，防止泄漏
+            await _backgroundTask.ConfigureAwait(false);
+            
+            // 等待事件通道完成
+            await _events.Reader.Completion.ConfigureAwait(false);
         }
-        catch
+        catch (OperationCanceledException)
         {
-            // Ignore
+            // 预期的取消异常
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error during NatsNodeDiscovery disposal");
         }
 
         _disposeCts.Dispose();

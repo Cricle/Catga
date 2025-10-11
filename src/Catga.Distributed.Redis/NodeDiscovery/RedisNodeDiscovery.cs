@@ -18,6 +18,7 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
     private readonly TimeSpan _nodeExpiry;
     private readonly Channel<NodeChangeEvent> _events;
     private readonly CancellationTokenSource _watchCts;
+    private readonly Task _backgroundTask; // 追踪后台任务防止泄漏
 
     public RedisNodeDiscovery(
         IConnectionMultiplexer redis,
@@ -32,8 +33,8 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
         _events = Channel.CreateUnbounded<NodeChangeEvent>();
         _watchCts = new CancellationTokenSource();
 
-        // 启动后台监听
-        _ = WatchRedisKeysAsync(_watchCts.Token);
+        // 启动后台监听 - 追踪任务
+        _backgroundTask = WatchRedisKeysAsync(_watchCts.Token);
     }
 
     public async Task RegisterAsync(NodeInfo node, CancellationToken cancellationToken = default)
@@ -211,11 +212,19 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
         
         try
         {
-            await _events.Reader.Completion;
+            // 等待后台任务完成，防止泄漏
+            await _backgroundTask.ConfigureAwait(false);
+            
+            // 等待事件通道完成
+            await _events.Reader.Completion.ConfigureAwait(false);
         }
-        catch
+        catch (OperationCanceledException)
         {
-            // Ignore
+            // 预期的取消异常
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error during RedisNodeDiscovery disposal");
         }
 
         _watchCts.Dispose();

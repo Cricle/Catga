@@ -44,6 +44,7 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
     private readonly Channel<NodeChangeEvent> _events;
 
     private readonly CancellationTokenSource _disposeCts;
+    private readonly Task _initializationTask; // 追踪初始化任务防止泄漏
     private INatsJSContext? _jsContext;
     private Task? _watchTask;
 
@@ -60,8 +61,8 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
         _events = Channel.CreateUnbounded<NodeChangeEvent>();
         _disposeCts = new CancellationTokenSource();
 
-        // 初始化 JetStream 和 KV Store
-        _ = InitializeAsync(_disposeCts.Token);
+        // 初始化 JetStream 和 KV Store - 追踪任务
+        _initializationTask = InitializeAsync(_disposeCts.Token);
     }
 
     private async Task InitializeAsync(CancellationToken cancellationToken)
@@ -242,8 +243,28 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
         _disposeCts.Cancel();
         _events.Writer.Complete();
 
-        // 等待所有异步操作完成
-        await Task.Delay(100);
+        try
+        {
+            // 等待初始化任务完成
+            await _initializationTask.ConfigureAwait(false);
+            
+            // 等待监视任务完成
+            if (_watchTask != null)
+            {
+                await _watchTask.ConfigureAwait(false);
+            }
+            
+            // 等待事件通道完成
+            await _events.Reader.Completion.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // 预期的取消异常
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error during NatsJetStreamKVNodeDiscovery disposal");
+        }
 
         _disposeCts.Dispose();
     }

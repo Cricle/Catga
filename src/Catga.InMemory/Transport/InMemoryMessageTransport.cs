@@ -46,16 +46,8 @@ public class InMemoryMessageTransport : IMessageTransport
         {
             case QualityOfService.AtMostOnce:
                 // QoS 0: Fire-and-forget (不等待完成)
-                _ = Task.Run(async () =>
-                {
-                    var tasks = new Task[handlers.Count];
-                    for (int i = 0; i < handlers.Count; i++)
-                    {
-                        var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
-                        tasks[i] = handler(message, context);
-                    }
-                    await Task.WhenAll(tasks);
-                }, cancellationToken);
+                // 使用 ValueTask 避免 Task.Run 滥用线程池
+                _ = FireAndForgetAsync(handlers, message, context, cancellationToken);
                 break;
 
             case QualityOfService.AtLeastOnce:
@@ -91,6 +83,31 @@ public class InMemoryMessageTransport : IMessageTransport
                     _idempotencyStore.MarkAsProcessed(context.MessageId);
                 }
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Fire-and-forget 异步执行，避免 Task.Run 滥用线程池
+    /// </summary>
+    private static async ValueTask FireAndForgetAsync<TMessage>(
+        List<Delegate> handlers,
+        TMessage message,
+        TransportContext context,
+        CancellationToken cancellationToken) where TMessage : class
+    {
+        try
+        {
+            var tasks = new Task[handlers.Count];
+            for (int i = 0; i < handlers.Count; i++)
+            {
+                var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
+                tasks[i] = handler(message, context);
+            }
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Fire-and-forget: 忽略异常
         }
     }
 

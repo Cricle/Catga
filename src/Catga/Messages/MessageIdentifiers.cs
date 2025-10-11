@@ -9,7 +9,7 @@ namespace Catga.Messages;
 /// Replaces Guid-based MessageId with distributed ID for better performance and sortability
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
-public readonly struct MessageId : IEquatable<MessageId>
+public sealed record MessageId : IEquatable<MessageId>
 {
     private readonly long _value;
 
@@ -26,28 +26,10 @@ public readonly struct MessageId : IEquatable<MessageId>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MessageId Parse(string value) => new(long.Parse(value));
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override string ToString() => _value.ToString();
-
     /// <summary>
     /// Get the underlying distributed ID value
     /// </summary>
     public long Value => _value;
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Equals(MessageId other) => _value == other._value;
-
-    public override bool Equals(object? obj) => obj is MessageId other && Equals(other);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override int GetHashCode() => _value.GetHashCode();
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool operator ==(MessageId left, MessageId right) => left.Equals(right);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool operator !=(MessageId left, MessageId right) => !left.Equals(right);
-
     public static implicit operator string(MessageId id) => id.ToString();
     public static implicit operator long(MessageId id) => id._value;
     public static explicit operator MessageId(long value) => new(value);
@@ -58,7 +40,7 @@ public readonly struct MessageId : IEquatable<MessageId>
 /// Used to correlate related messages across distributed systems
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
-public readonly struct CorrelationId : IEquatable<CorrelationId>
+public sealed record CorrelationId : IEquatable<CorrelationId>
 {
     private readonly long _value;
 
@@ -81,20 +63,6 @@ public readonly struct CorrelationId : IEquatable<CorrelationId>
     /// Get the underlying distributed ID value
     /// </summary>
     public long Value => _value;
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Equals(CorrelationId other) => _value == other._value;
-
-    public override bool Equals(object? obj) => obj is CorrelationId other && Equals(other);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public override int GetHashCode() => _value.GetHashCode();
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool operator ==(CorrelationId left, CorrelationId right) => left.Equals(right);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool operator !=(CorrelationId left, CorrelationId right) => !left.Equals(right);
 
     public static implicit operator string(CorrelationId id) => id.ToString();
     public static implicit operator long(CorrelationId id) => id._value;

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga;
 using Catga.Messages;
 using Microsoft.AspNetCore.Builder;
@@ -11,13 +12,15 @@ namespace Microsoft.Extensions.DependencyInjection;
 /// Similar to CAP's ICapPublisher pattern
 /// Note: Uses ASP.NET Core's built-in parameter binding (reflection-based)
 /// </summary>
+[UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
+[UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
 public static class CatgaEndpointExtensions
 {
     /// <summary>
     /// Map Catga command/query to HTTP endpoint
     /// Usage: app.MapCatgaRequest&lt;CreateOrderCommand, CreateOrderResult&gt;("/api/orders")
     /// </summary>
-    public static RouteHandlerBuilder MapCatgaRequest<TRequest, TResponse>(
+    public static RouteHandlerBuilder MapCatgaRequest<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]TResponse>(
         this IEndpointRouteBuilder endpoints,
         string pattern)
         where TRequest : IRequest<TResponse>
@@ -37,7 +40,7 @@ public static class CatgaEndpointExtensions
     /// Map Catga query to HTTP GET endpoint
     /// Usage: app.MapCatgaQuery&lt;GetOrderQuery, OrderDto&gt;("/api/orders/{orderId}")
     /// </summary>
-    public static RouteHandlerBuilder MapCatgaQuery<TQuery, TResponse>(
+    public static RouteHandlerBuilder MapCatgaQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TQuery, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(
         this IEndpointRouteBuilder endpoints,
         string pattern)
         where TQuery : IRequest<TResponse>
@@ -57,7 +60,7 @@ public static class CatgaEndpointExtensions
     /// Map Catga event publish to HTTP endpoint
     /// Usage: app.MapCatgaEvent&lt;OrderCreatedEvent&gt;("/api/events/order-created")
     /// </summary>
-    public static RouteHandlerBuilder MapCatgaEvent<TEvent>(
+    public static RouteHandlerBuilder MapCatgaEvent<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(
         this IEndpointRouteBuilder endpoints,
         string pattern)
         where TEvent : IEvent
@@ -71,42 +74,6 @@ public static class CatgaEndpointExtensions
             return Results.Accepted();
         })
         .WithCatgaEventMetadata<TEvent>();
-    }
-
-    /// <summary>
-    /// Map Catga health and diagnostics endpoints
-    /// Similar to CAP Dashboard
-    /// </summary>
-    public static IEndpointRouteBuilder MapCatgaDiagnostics(
-        this IEndpointRouteBuilder endpoints,
-        string prefix = "/catga")
-    {
-        // Health endpoint
-        endpoints.MapGet($"{prefix}/health", () => Results.Ok(new
-        {
-            status = "healthy",
-            framework = "Catga",
-            timestamp = DateTime.UtcNow
-        }))
-        .WithName("CatgaHealth")
-        .WithTags("Catga", "Diagnostics")
-        .ExcludeFromDescription();
-
-        // Node info endpoint
-        endpoints.MapGet($"{prefix}/node", () => Results.Ok(new
-        {
-            nodeId = Environment.GetEnvironmentVariable("NodeId") ?? Environment.MachineName,
-            machineName = Environment.MachineName,
-            processId = Environment.ProcessId,
-            uptime = DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime(),
-            runtime = Environment.Version.ToString(),
-            isAot = !System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported
-        }))
-        .WithName("CatgaNodeInfo")
-        .WithTags("Catga", "Diagnostics")
-        .ExcludeFromDescription();
-
-        return endpoints;
     }
 }
 

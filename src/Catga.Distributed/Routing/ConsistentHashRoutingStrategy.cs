@@ -1,10 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Catga.Distributed.Routing;
 
@@ -15,6 +10,8 @@ namespace Catga.Distributed.Routing;
 /// </summary>
 public sealed class ConsistentHashRoutingStrategy : IRoutingStrategy
 {
+    private static readonly MD5 md5 = MD5.Create();
+
     private readonly int _virtualNodes;
     private readonly Func<string> _keyExtractor;
 
@@ -52,9 +49,7 @@ public sealed class ConsistentHashRoutingStrategy : IRoutingStrategy
         var ring = BuildHashRing(nodes);
 
         // 4. 在哈希环上查找节点（顺时针查找第一个节点）
-        var selectedNode = FindNodeOnRing(ring, messageHash);
-
-        return Task.FromResult<NodeInfo?>(selectedNode);
+        return Task.FromResult(FindNodeOnRing(ring, messageHash));
     }
 
     /// <summary>
@@ -67,10 +62,9 @@ public sealed class ConsistentHashRoutingStrategy : IRoutingStrategy
         foreach (var node in nodes)
         {
             // 为每个节点创建虚拟节点
-            for (int i = 0; i < _virtualNodes; i++)
+            for (var i = 0; i < _virtualNodes; i++)
             {
-                var virtualKey = $"{node.NodeId}:{i}";
-                var hash = ComputeHash(virtualKey);
+                var hash = ComputeHash($"{node.NodeId}:{i}");
                 ring.Add((hash, node));
             }
         }
@@ -113,16 +107,10 @@ public sealed class ConsistentHashRoutingStrategy : IRoutingStrategy
         return ring.Count > 0 ? ring[0].Node : null;
     }
 
+
     /// <summary>
     /// 计算字符串的哈希值（使用 MD5，快速且均匀）
     /// </summary>
-    private static uint ComputeHash(string key)
-    {
-        using var md5 = MD5.Create();
-        var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(key));
-
-        // 取前 4 个字节作为 uint
-        return BitConverter.ToUInt32(hash, 0);
-    }
+    private static uint ComputeHash(string key) => BitConverter.ToUInt32(md5.ComputeHash(Encoding.UTF8.GetBytes(key)), 0);
 }
 

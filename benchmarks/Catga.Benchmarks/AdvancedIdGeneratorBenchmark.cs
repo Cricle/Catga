@@ -29,7 +29,6 @@ public class AdvancedIdGeneratorBenchmark
 
         // Create a warmed-up generator
         _warmedUpGenerator = new SnowflakeIdGenerator(workerId: 2);
-        _warmedUpGenerator.Warmup();
 
         // Pre-allocate buffers (one-time allocation)
         _buffer10K = new long[10_000];
@@ -98,36 +97,5 @@ public class AdvancedIdGeneratorBenchmark
         // Use pre-allocated buffer to avoid GC
         return _generator.NextIds(_buffer10K.AsSpan());
     }
-
-    /// <summary>
-    /// Warmup: Pre-warm L1/L2 cache at application startup
-    /// Generates dummy IDs to load code paths into CPU cache
-    /// Call this once during application initialization for optimal performance
-    /// </summary>
-    private void Warmup(SnowflakeIdGenerator generator)
-    {
-        // Pre-allocate small buffer to warm up memory allocator
-        Span<long> warmupBuffer = stackalloc long[128];
-
-        // Warm up single ID generation (most common path)
-        for (int i = 0; i < 100; i++)
-        {
-            _ = generator.TryNextId(out _);
-        }
-
-        // Warm up batch generation with various sizes
-        generator.NextIds(warmupBuffer.Slice(0, 10));  // Small batch
-        generator.NextIds(warmupBuffer.Slice(0, 50));  // Medium batch
-        generator.NextIds(warmupBuffer);                // Large batch (128)
-
-        // Warm up SIMD path if supported
-        if (Avx2.IsSupported)
-        {
-            var testBase = 1L << 22;
-            generator.GenerateIdsWithSIMD(warmupBuffer, testBase, 0);
-        }
-    }
-
-
 }
 

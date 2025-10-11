@@ -130,10 +130,8 @@ public sealed class DistributedMediator : IDistributedMediator
         await _localMediator.PublishBatchAsync(events, cancellationToken);
     }
 
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public async Task<CatgaResult<TResponse>> SendToNodeAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest,
         TResponse>(
         TRequest request,
         string nodeId,

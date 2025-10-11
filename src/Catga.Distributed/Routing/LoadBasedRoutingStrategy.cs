@@ -1,8 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace Catga.Distributed.Routing;
 
 /// <summary>
@@ -29,7 +24,7 @@ public sealed class LoadBasedRoutingStrategy : IRoutingStrategy
             .ThenBy(n => n.NodeId) // 负载相同时，按 NodeId 排序（保证确定性）
             .FirstOrDefault();
 
-        return Task.FromResult<NodeInfo?>(selectedNode);
+        return Task.FromResult(selectedNode);
     }
 }
 

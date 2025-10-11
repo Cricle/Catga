@@ -12,10 +12,10 @@ namespace Catga.Distributed.Nats;
 /// <summary>
 /// 基于 NATS JetStream KV Store 的持久化节点发现
 /// 当前实现：内存 + TTL 清理（占位符）
-/// 
+///
 /// TODO: 适配 NATS.Client.JetStream 的原生 KV Store API
 /// 参考：https://docs.nats.io/using-nats/developer/develop_jetstream/kv#tab-c-12
-/// 
+///
 /// 原生 API 用法（待适配）：
 /// - await jsContext.CreateKeyValueAsync(kvConfig)  // 创建 KV Store
 /// - await kvStore.PutAsync(key, value)             // 存储键值
@@ -23,7 +23,7 @@ namespace Catga.Distributed.Nats;
 /// - await kvStore.DeleteAsync(key)                 // 删除键
 /// - await kvStore.GetKeysAsync()                   // 获取所有键
 /// - await kvStore.WatchAsync()                     // 监听变更
-/// 
+///
 /// 注意：NATS.Client.JetStream 2.5.2 的类型定义可能与文档不完全匹配
 /// 需要根据实际包版本调整 API 调用
 /// </summary>
@@ -71,7 +71,7 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
             // TODO: 实现 JetStream KV Store 原生持久化
             // 当前 NATS.Client.JetStream 2.5.2 的 API 与文档不匹配
             // 暂时使用内存 + TTL 过期清理机制
-            
+
             _logger.LogWarning(
                 "JetStream KV Store '{Bucket}' using in-memory mode with TTL {Ttl}. " +
                 "Native KV Store persistence is planned but requires API version alignment. " +
@@ -80,7 +80,7 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
 
             // 启动 TTL 清理任务
             _watchTask = StartTtlCleanupAsync(cancellationToken);
-            
+
             await Task.CompletedTask;
         }
         catch (Exception ex)
@@ -142,7 +142,7 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
         // TODO: 持久化到 KV Store
         // await _kvStore.PutAsync(GetNodeKey(node.NodeId), JsonSerializer.Serialize(node));
 
-        _logger.LogInformation("Node {NodeId} registered (in-memory, TTL: {Ttl}) at {Endpoint}", 
+        _logger.LogInformation("Node {NodeId} registered (in-memory, TTL: {Ttl}) at {Endpoint}",
             node.NodeId, _nodeTtl, node.Endpoint);
 
         // 发布节点变更事件

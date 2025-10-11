@@ -5,6 +5,7 @@ using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
+using NATS.Client.JetStream.Models;
 
 namespace Catga.Distributed.Nats;
 
@@ -19,16 +20,18 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
     private readonly ILogger<NatsJetStreamKVNodeDiscovery> _logger;
     private readonly string _bucketName;
     private readonly TimeSpan _nodeTtl;
-    
+
     // 无锁数据结构：ConcurrentDictionary 保证线程安全
     private readonly ConcurrentDictionary<string, NodeInfo> _nodes = new();
-    
+
     // 无锁事件流：Channel 保证无锁通信
     private readonly Channel<NodeChangeEvent> _events;
-    
+
     private readonly CancellationTokenSource _disposeCts;
     private INatsJSContext? _jsContext;
-    private object? _kvStore; // 使用 object 因为具体类型需要进一步验证
+    // 注意：NATS KV Store API 在不同版本有差异
+    // 当前暂时使用内存 + TTL 过期清理，生产环境建议使用 JetStream KV Store
+    // TODO: 根据实际 NATS.Client.JetStream 版本适配 API
 
     public NatsJetStreamKVNodeDiscovery(
         INatsConnection connection,
@@ -54,43 +57,76 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
             // 创建 JetStream Context
             _jsContext = new NatsJSContext(_connection);
 
-            // TODO: KV Store API 需要进一步验证
-            // 暂时使用占位符，避免编译错误
-            _kvStore = new object(); // Placeholder
+            // TODO: 实现 JetStream KV Store 持久化
+            // 当前 NATS.Client.JetStream API 需要根据实际版本适配
+            // 暂时使用内存 + Pub/Sub + TTL 过期清理机制
             
-            _logger.LogInformation("JetStream KV Store '{Bucket}' placeholder initialized (API pending verification)", _bucketName);
+            _logger.LogWarning("JetStream KV Store '{Bucket}' using in-memory mode with TTL {Ttl}. " +
+                             "For production, please implement native KV Store persistence based on your NATS.Client version", 
+                _bucketName, _nodeTtl);
 
-            // 启动监听器（Watch）
-            // _ = WatchNodesAsync(cancellationToken);
-
-            // 加载现有节点
-            // await LoadExistingNodesAsync(cancellationToken);
+            // 启动 TTL 清理任务
+            _ = StartTtlCleanupAsync(cancellationToken);
             
             await Task.CompletedTask;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to initialize JetStream KV Store '{Bucket}'", _bucketName);
+            _logger.LogError(ex, "Failed to initialize JetStream context '{Bucket}'", _bucketName);
             throw;
+        }
+    }
+    
+    /// <summary>
+    /// TTL 清理任务（当前内存模式下使用）
+    /// </summary>
+    private async Task StartTtlCleanupAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);
+
+                var now = DateTime.UtcNow;
+                var expiredNodes = _nodes.Where(kvp => now - kvp.Value.LastSeen > _nodeTtl)
+                                        .Select(kvp => kvp.Key)
+                                        .ToList();
+
+                foreach (var nodeId in expiredNodes)
+                {
+                    if (_nodes.TryRemove(nodeId, out var node))
+                    {
+                        await _events.Writer.WriteAsync(new NodeChangeEvent
+                        {
+                            Type = NodeChangeType.Left,
+                            Node = node
+                        }, cancellationToken);
+
+                        _logger.LogDebug("Node {NodeId} expired (TTL cleanup)", nodeId);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in TTL cleanup");
+            }
         }
     }
 
     public async Task RegisterAsync(NodeInfo node, CancellationToken cancellationToken = default)
     {
-        if (_kvStore == null)
-        {
-            throw new InvalidOperationException("KV Store not initialized");
-        }
-
         // 无锁更新本地缓存
         _nodes.AddOrUpdate(node.NodeId, node, (_, _) => node);
 
-        // TODO: 持久化到 KV Store (API pending)
-        // var key = GetNodeKey(node.NodeId);
-        // var json = JsonSerializer.Serialize(node);
-        // await _kvStore.PutAsync(key, json, cancellationToken: cancellationToken);
+        // TODO: 持久化到 KV Store (需要适配 NATS API)
+        // 当前使用内存模式，节点重启后需要重新注册
         
-        _logger.LogDebug("Node {NodeId} registered (KV Store API pending)", node.NodeId);
+        _logger.LogDebug("Node {NodeId} registered (in-memory mode, TTL: {Ttl})", node.NodeId, _nodeTtl);
 
         // 发布节点变更事件
         await _events.Writer.WriteAsync(new NodeChangeEvent
@@ -100,51 +136,35 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
         }, cancellationToken);
     }
 
-    public async Task HeartbeatAsync(string nodeId, double load = 0, CancellationToken cancellationToken = default)
+    public Task HeartbeatAsync(string nodeId, double load = 0, CancellationToken cancellationToken = default)
     {
-        if (_kvStore == null)
-        {
-            throw new InvalidOperationException("KV Store not initialized");
-        }
-
         // 查找或创建节点信息
         if (!_nodes.TryGetValue(nodeId, out var node))
         {
             _logger.LogWarning("Node {NodeId} not found for heartbeat", nodeId);
-            return;
+            return Task.CompletedTask;
         }
 
         // 更新时间戳和负载
         node = node with { LastSeen = DateTime.UtcNow, Load = load };
 
-        // 无锁更新本地缓存
+        // 无锁更新本地缓存（自动刷新 TTL）
         _nodes.AddOrUpdate(nodeId, node, (_, _) => node);
 
-        // 更新 KV Store（自动刷新 TTL）
-        var key = GetNodeKey(nodeId);
-        var json = JsonSerializer.Serialize(node);
+        // TODO: 更新 KV Store（需要适配 NATS API）
         
-        // 暂时注释，待 API 验证
-        // await _kvStore.PutAsync(key, json, cancellationToken: cancellationToken);
-        
-        _logger.LogTrace("Node {NodeId} heartbeat sent with load {Load}", nodeId, load);
+        _logger.LogTrace("Node {NodeId} heartbeat sent with load {Load}, TTL refreshed in memory", nodeId, load);
+        return Task.CompletedTask;
     }
 
     public async Task UnregisterAsync(string nodeId, CancellationToken cancellationToken = default)
     {
-        if (_kvStore == null)
-        {
-            throw new InvalidOperationException("KV Store not initialized");
-        }
-
         // 无锁删除本地缓存
         if (_nodes.TryRemove(nodeId, out var node))
         {
-            // TODO: 删除 KV Store 中的节点 (API pending)
-            // var key = GetNodeKey(nodeId);
-            // await _kvStore.DeleteAsync(key, cancellationToken: cancellationToken);
+            // TODO: 删除 KV Store 中的节点 (需要适配 NATS API)
             
-            _logger.LogDebug("Node {NodeId} unregistered (KV Store API pending)", nodeId);
+            _logger.LogDebug("Node {NodeId} unregistered from memory", nodeId);
 
             // 发布节点离开事件
             await _events.Writer.WriteAsync(new NodeChangeEvent
@@ -166,7 +186,7 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
     {
         // 无锁读取所有节点（ConcurrentDictionary.Values 是线程安全的）
         var nodes = _nodes.Values.ToList();
-        
+
         // 过滤过期节点（基于 LastSeen）
         var activeNodes = nodes
             .Where(n => DateTime.UtcNow - n.LastSeen < _nodeTtl)
@@ -186,22 +206,22 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
     }
 
     /// <summary>
-    /// 从 KV Store 加载现有节点 (API pending)
+    /// 从 KV Store 加载现有节点（TODO: 需要适配 NATS API）
     /// </summary>
     private Task LoadExistingNodesAsync(CancellationToken cancellationToken)
     {
-        // TODO: Implement when KV Store API is verified
-        _logger.LogDebug("LoadExistingNodesAsync - API pending verification");
+        // TODO: 实现 KV Store 加载逻辑
+        _logger.LogDebug("LoadExistingNodesAsync - using in-memory mode, no persistence to load");
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// 监听 KV Store 变更（无锁）(API pending)
+    /// 监听 KV Store 变更（TODO: 需要适配 NATS API）
     /// </summary>
     private Task WatchNodesAsync(CancellationToken cancellationToken)
     {
-        // TODO: Implement when KV Store API is verified
-        _logger.LogDebug("WatchNodesAsync - API pending verification");
+        // TODO: 实现 KV Store Watch 逻辑
+        _logger.LogDebug("WatchNodesAsync - using in-memory mode, no KV Watch available");
         return Task.CompletedTask;
     }
 

@@ -5,11 +5,14 @@ using Catga.Serialization;
 using Catga.Transport;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
+using NATS.Client.JetStream;
 
 namespace Catga.Transport.Nats;
 
 /// <summary>
 /// NATS 消息传输实现（支持 QoS）
+/// QoS 0: NATS Core Pub/Sub (fire-and-forget)
+/// QoS 1/2: NATS JetStream (原生 ACK + 持久化)
 /// </summary>
 public class NatsMessageTransport : IMessageTransport
 {
@@ -18,6 +21,7 @@ public class NatsMessageTransport : IMessageTransport
     private readonly ILogger<NatsMessageTransport> _logger;
     private readonly string _subjectPrefix;
     private readonly ConcurrentDictionary<string, bool> _processedMessages = new();
+    private INatsJSContext? _jsContext;
 
     public string Name => "NATS";
     
@@ -35,6 +39,9 @@ public class NatsMessageTransport : IMessageTransport
         _serializer = serializer;
         _logger = logger;
         _subjectPrefix = options?.SubjectPrefix ?? "catga";
+        
+        // 初始化 JetStream Context（用于 QoS 1/2）
+        _jsContext = new NatsJSContext(_connection);
     }
 
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
@@ -89,30 +96,57 @@ public class NatsMessageTransport : IMessageTransport
         switch (qos)
         {
             case QualityOfService.AtMostOnce:
-                // QoS 0: Fire-and-forget (NATS Publish)
+                // QoS 0: Fire-and-forget (NATS Core Pub/Sub - 最快)
                 await _connection.PublishAsync(subject, payload, headers: headers, cancellationToken: cancellationToken);
-                _logger.LogDebug("Published message {MessageId} to NATS (QoS 0 - fire-and-forget)", context.MessageId);
+                _logger.LogDebug("Published message {MessageId} to NATS Core (QoS 0 - fire-and-forget)", context.MessageId);
                 break;
 
             case QualityOfService.AtLeastOnce:
-                // QoS 1: Request/Reply (wait for ACK)
-                var replySubject = $"{_subjectPrefix}.reply.{context.MessageId}";
-                headers["ReplyTo"] = replySubject;
+                // QoS 1: JetStream Publish（原生 ACK + 持久化）
+                var ack = await _jsContext!.PublishAsync(
+                    subject: subject,
+                    data: payload,
+                    opts: new NatsJSPubOpts
+                    {
+                        MsgId = context.MessageId // 用于去重
+                    },
+                    headers: headers,
+                    cancellationToken: cancellationToken);
                 
-                await _connection.PublishAsync(subject, payload, replyTo: replySubject, headers: headers, cancellationToken: cancellationToken);
-                _logger.LogDebug("Published message {MessageId} to NATS (QoS 1 - at least once)", context.MessageId);
+                if (ack.Duplicate)
+                {
+                    _logger.LogDebug("Message {MessageId} is duplicate, JetStream auto-deduplicated", context.MessageId);
+                }
+                else
+                {
+                    _logger.LogDebug("Message {MessageId} published to JetStream (QoS 1 - at-least-once with native ACK), Seq: {Seq}", 
+                        context.MessageId, ack.Seq);
+                }
                 break;
 
             case QualityOfService.ExactlyOnce:
-                // QoS 2: Request/Reply + Deduplication
-                var replySubject2 = $"{_subjectPrefix}.reply.{context.MessageId}";
-                headers["ReplyTo"] = replySubject2;
+                // QoS 2: JetStream + 应用层去重
+                if (_processedMessages.ContainsKey(context.MessageId))
+                {
+                    _logger.LogDebug("Message {MessageId} already processed locally (QoS 2), skipping", context.MessageId);
+                    return;
+                }
                 
-                await _connection.PublishAsync(subject, payload, replyTo: replySubject2, headers: headers, cancellationToken: cancellationToken);
+                var ack2 = await _jsContext!.PublishAsync(
+                    subject: subject,
+                    data: payload,
+                    opts: new NatsJSPubOpts
+                    {
+                        MsgId = context.MessageId // JetStream 原生去重
+                    },
+                    headers: headers,
+                    cancellationToken: cancellationToken);
                 
-                // Mark as processed
+                // 应用层去重（双重保障）
                 _processedMessages.TryAdd(context.MessageId, true);
-                _logger.LogDebug("Published message {MessageId} to NATS (QoS 2 - exactly once)", context.MessageId);
+                
+                _logger.LogDebug("Message {MessageId} published to JetStream (QoS 2 - exactly-once), Duplicate: {Dup}, Seq: {Seq}", 
+                    context.MessageId, ack2.Duplicate, ack2.Seq);
                 break;
         }
     }
@@ -173,6 +207,9 @@ public class NatsMessageTransport : IMessageTransport
 
                 // 调用处理器
                 await handler(message, context);
+                
+                // 注意：JetStream 消息的 ACK 由 Consumer 自动处理
+                // NATS Core 消息不需要 ACK
             }
             catch (Exception ex)
             {

@@ -155,7 +155,7 @@ public sealed class NatsMessageScheduler : IMessageScheduler
 
         // Use NATS JetStream message with delivery delay
         var subject = $"schedule.{typeof(TMessage).Name}";
-        
+
         var headers = new NatsHeaders
         {
             ["X-Schedule-Token"] = token.Value,
@@ -199,7 +199,7 @@ public sealed class RedisMessageScheduler : IMessageScheduler
     private readonly IConnectionMultiplexer _redis;
     private readonly IMessageSerializer _serializer;
     private readonly Timer _pollingTimer;
-    
+
     private const string ScheduleSetKey = "catga:schedule:pending";
     private const string ScheduleDataKey = "catga:schedule:data:";
 
@@ -682,7 +682,7 @@ public record OrderCancelledEvent(string OrderId, string Reason);
 var stateMachine = new CatgaStateMachine<OrderState, OrderStatus>()
     .InitialState(OrderStatus.Created)
     .UseStatusSelector(state => Enum.Parse<OrderStatus>(state.Status))
-    
+
     // Created → PaymentPending
     .When(OrderStatus.Created)
         .On<OrderCreatedEvent>()
@@ -693,7 +693,7 @@ var stateMachine = new CatgaStateMachine<OrderState, OrderStatus>()
             return state with { Status = OrderStatus.PaymentPending.ToString() };
         })
         .And()
-    
+
     // PaymentPending → PaymentCompleted
     .When(OrderStatus.PaymentPending)
         .On<PaymentCompletedEvent>()
@@ -714,7 +714,7 @@ var stateMachine = new CatgaStateMachine<OrderState, OrderStatus>()
             await _paymentService.RefundAsync(state.OrderId);
         })
         .And()
-    
+
     // PaymentCompleted → Shipping
     .When(OrderStatus.PaymentCompleted)
         .On<ShippingStartedEvent>()
@@ -724,7 +724,7 @@ var stateMachine = new CatgaStateMachine<OrderState, OrderStatus>()
             return state with { Status = OrderStatus.Shipping.ToString() };
         })
         .And()
-    
+
     // Shipping → Completed
     .When(OrderStatus.Shipping)
         .On<OrderCompletedEvent>()
@@ -738,7 +738,7 @@ var stateMachine = new CatgaStateMachine<OrderState, OrderStatus>()
             };
         })
         .And()
-    
+
     // Any state → Cancelled (global transition)
     .When(OrderStatus.PaymentPending)
         .On<OrderCancelledEvent>()
@@ -749,7 +749,7 @@ var stateMachine = new CatgaStateMachine<OrderState, OrderStatus>()
             return state with { Status = OrderStatus.Cancelled.ToString() };
         })
         .And()
-    
+
     .Build();
 
 // 4. Use with persistence

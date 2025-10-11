@@ -12,9 +12,9 @@ public sealed class RoundRobinRoutingStrategy : IRoutingStrategy
 {
     private int _counter;
 
-    public Task<NodeInfo?> SelectNodeAsync(
+    public Task<NodeInfo?> SelectNodeAsync<TMessage>(
         IReadOnlyList<NodeInfo> nodes,
-        object message,
+        TMessage message,
         CancellationToken cancellationToken = default)
     {
         if (nodes.Count == 0)

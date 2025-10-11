@@ -151,15 +151,15 @@ public static partial class CatgaAutoDiscoveryExtensions
             typeof(IRequestHandler<GetUserQuery, User>),
             typeof(GetUserHandler),
             lifetime));
-        
+
         // Event Handlers
         services.Add(new ServiceDescriptor(
             typeof(IEventHandler<UserCreated>),
             typeof(UserCreatedHandler),
             lifetime));
-        
+
         // Pipeline Behaviors (如果有)
-        
+
         return services;
     }
 }

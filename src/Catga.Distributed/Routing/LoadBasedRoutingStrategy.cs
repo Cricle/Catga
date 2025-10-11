@@ -12,9 +12,9 @@ namespace Catga.Distributed.Routing;
 /// </summary>
 public sealed class LoadBasedRoutingStrategy : IRoutingStrategy
 {
-    public Task<NodeInfo?> SelectNodeAsync(
+    public Task<NodeInfo?> SelectNodeAsync<TMessage>(
         IReadOnlyList<NodeInfo> nodes,
-        object message,
+        TMessage message,
         CancellationToken cancellationToken = default)
     {
         if (nodes.Count == 0)

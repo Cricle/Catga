@@ -247,13 +247,13 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
         {
             // 等待初始化任务完成
             await _initializationTask.ConfigureAwait(false);
-            
+
             // 等待监视任务完成
             if (_watchTask != null)
             {
                 await _watchTask.ConfigureAwait(false);
             }
-            
+
             // 等待事件通道完成
             await _events.Reader.Completion.ConfigureAwait(false);
         }

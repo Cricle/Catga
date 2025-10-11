@@ -16,24 +16,24 @@ namespace Catga.Distributed.Routing;
 public sealed class ConsistentHashRoutingStrategy : IRoutingStrategy
 {
     private readonly int _virtualNodes;
-    private readonly Func<object, string> _keyExtractor;
+    private readonly Func<string> _keyExtractor;
 
     /// <summary>
     /// 创建一致性哈希路由策略
     /// </summary>
     /// <param name="virtualNodes">每个节点的虚拟节点数（默认150，提高均匀性）</param>
-    /// <param name="keyExtractor">从消息中提取路由键的函数（默认使用 GetHashCode）</param>
+    /// <param name="keyExtractor">提取路由键的函数（例如从消息上下文中）</param>
     public ConsistentHashRoutingStrategy(
         int virtualNodes = 150,
-        Func<object, string>? keyExtractor = null)
+        Func<string>? keyExtractor = null)
     {
         _virtualNodes = virtualNodes;
-        _keyExtractor = keyExtractor ?? (msg => msg.GetHashCode().ToString());
+        _keyExtractor = keyExtractor ?? (() => Guid.NewGuid().ToString());
     }
 
-    public Task<NodeInfo?> SelectNodeAsync(
+    public Task<NodeInfo?> SelectNodeAsync<TMessage>(
         IReadOnlyList<NodeInfo> nodes,
-        object message,
+        TMessage message,
         CancellationToken cancellationToken = default)
     {
         if (nodes.Count == 0)
@@ -43,7 +43,7 @@ public sealed class ConsistentHashRoutingStrategy : IRoutingStrategy
             return Task.FromResult<NodeInfo?>(nodes[0]);
 
         // 1. 提取消息的路由键
-        var key = _keyExtractor(message);
+        var key = _keyExtractor();
 
         // 2. 计算消息的哈希值
         var messageHash = ComputeHash(key);

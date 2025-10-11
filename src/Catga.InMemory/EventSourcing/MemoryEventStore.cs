@@ -8,12 +8,12 @@ namespace Catga.EventSourcing;
 /// In-memory event store implementation (for testing/single-instance scenarios)
 /// Note: Uses separate dictionary for streams (not inheriting BaseMemoryStore due to different data model)
 /// </summary>
-public sealed class MemoryEventStore : IEventStore
+public sealed class MemoryEventStore : IEventStore, IDisposable
 {
     private readonly ConcurrentDictionary<string, List<StoredEvent>> _streams = new();
-    private readonly ConcurrentDictionary<string, object> _locks = new();
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
 
-    public ValueTask AppendAsync(
+    public async ValueTask AppendAsync(
         string streamId,
         IEvent[] events,
         long expectedVersion = -1,
@@ -24,12 +24,13 @@ public sealed class MemoryEventStore : IEventStore
 
         if (events.Length == 0)
         {
-            return ValueTask.CompletedTask;
+            return;
         }
 
-        var streamLock = _locks.GetOrAdd(streamId, _ => new object());
+        var streamLock = _locks.GetOrAdd(streamId, _ => new SemaphoreSlim(1, 1));
 
-        lock (streamLock)
+        await streamLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
             var stream = _streams.GetOrAdd(streamId, _ => new List<StoredEvent>());
 
@@ -53,11 +54,13 @@ public sealed class MemoryEventStore : IEventStore
                 });
             }
         }
-
-        return ValueTask.CompletedTask;
+        finally
+        {
+            streamLock.Release();
+        }
     }
 
-    public ValueTask<EventStream> ReadAsync(
+    public async ValueTask<EventStream> ReadAsync(
         string streamId,
         long fromVersion = 0,
         int maxCount = int.MaxValue,
@@ -67,33 +70,38 @@ public sealed class MemoryEventStore : IEventStore
 
         if (!_streams.TryGetValue(streamId, out var stream))
         {
-            return ValueTask.FromResult(new EventStream
+            return new EventStream
             {
                 StreamId = streamId,
                 Version = -1,
                 Events = Array.Empty<StoredEvent>()
-            });
+            };
         }
 
-        var streamLock = _locks.GetOrAdd(streamId, _ => new object());
+        var streamLock = _locks.GetOrAdd(streamId, _ => new SemaphoreSlim(1, 1));
 
-        lock (streamLock)
+        await streamLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
             var events = stream
                 .Where(e => e.Version >= fromVersion)
                 .Take(maxCount)
                 .ToArray();
 
-            return ValueTask.FromResult(new EventStream
+            return new EventStream
             {
                 StreamId = streamId,
                 Version = stream.Count - 1,
                 Events = events
-            });
+            };
+        }
+        finally
+        {
+            streamLock.Release();
         }
     }
 
-    public ValueTask<long> GetVersionAsync(
+    public async ValueTask<long> GetVersionAsync(
         string streamId,
         CancellationToken cancellationToken = default)
     {
@@ -101,15 +109,28 @@ public sealed class MemoryEventStore : IEventStore
 
         if (!_streams.TryGetValue(streamId, out var stream))
         {
-            return ValueTask.FromResult(-1L);
+            return -1L;
         }
 
-        var streamLock = _locks.GetOrAdd(streamId, _ => new object());
+        var streamLock = _locks.GetOrAdd(streamId, _ => new SemaphoreSlim(1, 1));
 
-        lock (streamLock)
+        await streamLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            return ValueTask.FromResult((long)(stream.Count - 1));
+            return stream.Count - 1;
+        }
+        finally
+        {
+            streamLock.Release();
         }
     }
-}
 
+    public void Dispose()
+    {
+        foreach (var semaphore in _locks.Values)
+        {
+            semaphore?.Dispose();
+        }
+        _locks.Clear();
+    }
+}

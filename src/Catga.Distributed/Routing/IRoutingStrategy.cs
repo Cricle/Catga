@@ -16,9 +16,9 @@ public interface IRoutingStrategy
     /// <param name="message">待路由的消息</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>选中的节点，如果没有合适的节点则返回 null</returns>
-    Task<NodeInfo?> SelectNodeAsync(
+    Task<NodeInfo?> SelectNodeAsync<TMessage>(
         IReadOnlyList<NodeInfo> nodes,
-        object message,
+        TMessage message,
         CancellationToken cancellationToken = default);
 }
 

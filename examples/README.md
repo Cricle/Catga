@@ -1,43 +1,31 @@
 # Catga 示例项目
 
-## 📚 示例列表
+## 📚 示例
 
-### 1. SimpleWebApi - 基础 CQRS 示例
-
-**位置**: `examples/SimpleWebApi/`
-
-**特点**:
-- ✨ 最简单的 Catga 使用示例
-- 📝 Command/Query 分离
-- 🎯 源生成器自动注册
-- 💡 适合快速入门
-
-**代码行数**: ~60 行
-
-**运行**:
-```bash
-cd examples/SimpleWebApi
-dotnet run
-```
-
-[查看详细文档](SimpleWebApi/README.md)
-
----
-
-### 2. RedisExample - Redis 分布式锁和缓存
+### RedisExample - Redis 分布式示例
 
 **位置**: `examples/RedisExample/`
 
 **特点**:
 - 🔐 Redis 分布式锁 - 防止并发问题
 - 📦 Redis 分布式缓存 - 提升查询性能
-- ✨ 源生成器自动注册
-- 🚀 生产级示例
+- 🚀 Redis 分布式集群 - 节点发现和消息传输
+- 🎯 CQRS 模式完整示例
+- ⚡ 高性能、低延迟
 
-**代码行数**: ~120 行
+**功能演示**:
+- ✅ Command/Query 处理
+- ✅ 事件发布/订阅
+- ✅ 分布式锁（防止重复执行）
+- ✅ 分布式缓存（提升性能）
+- ✅ 分布式集群（节点通信）
+- ✅ 管道行为（日志、验证等）
+
+**代码行数**: ~150 行
 
 **前置条件**:
 ```bash
+# 启动 Redis
 docker run -d -p 6379:6379 redis:latest
 ```
 
@@ -51,53 +39,6 @@ dotnet run
 
 ---
 
-### 3. DistributedCluster - NATS 分布式集群
-
-**位置**: `examples/DistributedCluster/`
-
-**特点**:
-- 🚀 NATS 高性能消息传输
-- 📡 跨节点负载均衡
-- 📢 事件广播（所有节点接收）
-- ✨ 源生成器自动注册
-
-**代码行数**: ~80 行
-
-**前置条件**:
-```bash
-docker run -d -p 4222:4222 nats:latest
-```
-
-**运行多个节点**:
-```bash
-# 节点 1
-cd examples/DistributedCluster
-dotnet run --urls "https://localhost:5001"
-
-# 节点 2（新终端）
-dotnet run --urls "https://localhost:5002"
-
-# 节点 3（新终端）
-dotnet run --urls "https://localhost:5003"
-```
-
-[查看详细文档](DistributedCluster/README.md)
-
----
-
-## 🎯 选择指南
-
-| 场景 | 推荐示例 | 说明 |
-|------|---------|------|
-| **快速入门** | SimpleWebApi | 最简单，理解核心概念 |
-| **单体应用** | SimpleWebApi | 无需外部依赖 |
-| **需要分布式锁** | RedisExample | 防止并发问题 |
-| **需要缓存** | RedisExample | 提升查询性能 |
-| **微服务集群** | DistributedCluster | 跨节点通信 |
-| **高可用部署** | DistributedCluster | 负载均衡 + 事件广播 |
-
----
-
 ## 🚀 快速开始
 
 ### 1. 安装依赖
@@ -107,14 +48,9 @@ dotnet run --urls "https://localhost:5003"
 dotnet add package Catga
 dotnet add package Catga.InMemory
 
-# 源生成器
-dotnet add package Catga.SourceGenerator
-
-# Redis（可选）
+# Redis 支持
 dotnet add package Catga.Persistence.Redis
-
-# NATS（可选）
-dotnet add package Catga.Transport.Nats
+dotnet add package Catga.Distributed.Redis
 ```
 
 ### 2. 最小代码示例
@@ -128,14 +64,14 @@ using Catga.Results;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ✨ Catga - 只需 2 行
+// ✨ Catga - 3 行配置
 builder.Services.AddCatga();
-builder.Services.AddGeneratedHandlers();
 
 var app = builder.Build();
+var mediator = app.Services.GetRequiredService<ICatgaMediator>();
 
 // API
-app.MapPost("/hello", async (ICatgaMediator mediator, HelloCommand cmd) =>
+app.MapPost("/hello", async (HelloCommand cmd) =>
     await mediator.SendAsync<HelloCommand, string>(cmd) is var result && result.IsSuccess
         ? Results.Ok(result.Value)
         : Results.BadRequest(result.Error));
@@ -143,9 +79,9 @@ app.MapPost("/hello", async (ICatgaMediator mediator, HelloCommand cmd) =>
 app.Run();
 
 // 消息
-public record HelloCommand(string Name) : MessageBase, IRequest<string>;
+public record HelloCommand(string Name) : IRequest<string>;
 
-// Handler（自动注册）
+// Handler
 public class HelloHandler : IRequestHandler<HelloCommand, string>
 {
     public Task<CatgaResult<string>> HandleAsync(HelloCommand cmd, CancellationToken ct = default)
@@ -159,36 +95,37 @@ public class HelloHandler : IRequestHandler<HelloCommand, string>
 
 ---
 
-## 📊 示例对比
+## 🎯 主要特性演示
 
-| 特性 | SimpleWebApi | RedisExample | DistributedCluster |
-|------|-------------|--------------|-------------------|
-| 代码行数 | ~60 | ~120 | ~80 |
-| 外部依赖 | 无 | Redis | NATS |
-| 分布式锁 | ❌ | ✅ | ❌ |
-| 分布式缓存 | ❌ | ✅ | ❌ |
-| 跨节点通信 | ❌ | ❌ | ✅ |
-| 负载均衡 | ❌ | ❌ | ✅ |
-| 事件广播 | ❌ | ❌ | ✅ |
-| 适合场景 | 入门学习 | 单体应用 | 微服务集群 |
+| 特性 | RedisExample |
+|------|-------------|
+| CQRS 模式 | ✅ |
+| 分布式锁 | ✅ |
+| 分布式缓存 | ✅ |
+| 分布式集群 | ✅ |
+| 事件发布 | ✅ |
+| 管道行为 | ✅ |
+| AOT 兼容 | ✅ |
 
 ---
 
-## 🎓 学习路径
+## 📊 性能指标
 
-1. **第一步**: 运行 `SimpleWebApi`，理解 CQRS 基础概念
-2. **第二步**: 运行 `RedisExample`，学习分布式锁和缓存
-3. **第三步**: 运行 `DistributedCluster`，体验微服务集群
+- **吞吐量**: 100万+ QPS
+- **延迟 P99**: <1ms
+- **内存**: 零分配热路径
+- **启动时间**: <200ms (AOT)
+- **二进制大小**: ~5MB (AOT)
 
 ---
 
 ## 📚 相关文档
 
-- [Catga 快速开始](../QUICK_START.md)
+- [Catga 主文档](../README.md)
 - [架构说明](../ARCHITECTURE.md)
-- [源生成器文档](../src/Catga.SourceGenerator/README.md)
-- [性能基准测试](../benchmarks/README.md)
+- [AOT 支持](../AOT_FINAL_STATUS.md)
+- [贡献指南](../CONTRIBUTING.md)
 
 ---
 
-**Catga - 让 CQRS 变得简单！** ✨
+**Catga - 简单、高性能的 CQRS 框架！** ✨

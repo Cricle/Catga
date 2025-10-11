@@ -59,5 +59,12 @@
     <!-- DotNext Raft Cluster -->
     <PackageVersion Include="DotNext.Net.Cluster" Version="5.16.0" />
     <PackageVersion Include="DotNext.AspNetCore.Cluster" Version="5.16.0" />
+    <!-- .NET Aspire -->
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="9.0.0" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="9.0.0" />
+    <PackageVersion Include="Aspire.Hosting.Nats" Version="9.0.0" />
+    <PackageVersion Include="Aspire.StackExchange.Redis" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.0.0" />
   </ItemGroup>
 </Project>

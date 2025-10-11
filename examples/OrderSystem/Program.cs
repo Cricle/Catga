@@ -15,6 +15,12 @@ var nodeId = builder.Configuration.GetValue<string>("NodeId") ?? $"node-{Environ
 
 Console.WriteLine($"🚀 Starting OrderSystem in {deploymentMode} mode, NodeId: {nodeId}");
 
+// Add Aspire service defaults if in Aspire mode
+if (deploymentMode.Equals("Aspire", StringComparison.OrdinalIgnoreCase))
+{
+    builder.AddServiceDefaults();
+}
+
 // Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -64,6 +70,26 @@ switch (deploymentMode.ToLower())
             natsUrl: natsUrl,
             nodeId: nodeId,
             endpoint: natsEndpoint);
+        break;
+
+    case "aspire":
+        // Aspire mode with service discovery and orchestration
+        Console.WriteLine("⭐ Configuring Aspire mode (Service Discovery + Redis + NATS)");
+        builder.Services.AddCatga();
+        builder.Services.AddGeneratedHandlers();
+        
+        // Redis connection from Aspire service discovery
+        var aspireRedisConnection = builder.Configuration.GetConnectionString("redis") ?? "localhost:6379";
+        builder.Services.AddRedisDistributedLock(aspireRedisConnection);
+        builder.Services.AddRedisDistributedCache();
+        
+        // NATS connection from Aspire service discovery
+        var aspireNatsUrl = builder.Configuration.GetConnectionString("nats") ?? "nats://localhost:4222";
+        var aspireEndpoint = builder.Configuration.GetValue<string>("ASPNETCORE_URLS")?.Split(';')[0] ?? "http://localhost:5000";
+        builder.Services.AddNatsCluster(
+            natsUrl: aspireNatsUrl,
+            nodeId: nodeId,
+            endpoint: aspireEndpoint);
         break;
 
     default:
@@ -148,15 +174,24 @@ app.MapGet("/api/orders/pending", async (ICatgaMediator mediator) =>
 .WithOpenApi();
 
 // Health check endpoint
-app.MapGet("/health", () => new
+if (deploymentMode.Equals("Aspire", StringComparison.OrdinalIgnoreCase))
 {
-    Status = "Healthy",
-    DeploymentMode = deploymentMode,
-    NodeId = nodeId,
-    Timestamp = DateTime.UtcNow
-})
-.WithName("HealthCheck")
-.WithOpenApi();
+    // Use Aspire default endpoints
+    app.MapDefaultEndpoints();
+}
+else
+{
+    // Custom health check for non-Aspire modes
+    app.MapGet("/health", () => new
+    {
+        Status = "Healthy",
+        DeploymentMode = deploymentMode,
+        NodeId = nodeId,
+        Timestamp = DateTime.UtcNow
+    })
+    .WithName("HealthCheck")
+    .WithOpenApi();
+}
 
 Console.WriteLine($"✅ OrderSystem started in {deploymentMode} mode");
 Console.WriteLine($"📍 NodeId: {nodeId}");

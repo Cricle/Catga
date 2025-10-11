@@ -82,6 +82,25 @@ $env:ASPNETCORE_URLS="http://localhost:5003"
 dotnet run
 ```
 
+### **4. Aspire Mode** (.NET Aspire) ⭐ **Recommended for Development**
+
+With .NET Aspire for automatic orchestration:
+
+```bash
+cd ../OrderSystem.AppHost
+dotnet run
+```
+
+**What you get:**
+- ✅ Redis & NATS containers **automatically started**
+- ✅ 3 OrderSystem instances running
+- ✅ Service discovery configured
+- ✅ Aspire Dashboard at http://localhost:15000
+- ✅ Full observability (logs, metrics, traces)
+- ✅ Built-in resilience (retry, circuit breaker)
+
+📖 **[Full Aspire Documentation](../OrderSystem.AppHost/README.md)**
+
 ---
 
 ## 📖 API Documentation

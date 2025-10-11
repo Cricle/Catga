@@ -26,6 +26,12 @@
     <ProjectReference Include="..\..\src\Catga.Distributed.Nats\Catga.Distributed.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.Distributed.Redis\Catga.Distributed.Redis.csproj" />
     <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\OrderSystem.ServiceDefaults\OrderSystem.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.StackExchange.Redis" Condition="'$(DeploymentMode)' == 'Aspire'" />
+    <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Condition="'$(DeploymentMode)' == 'Aspire'" />
   </ItemGroup>
 
 </Project>

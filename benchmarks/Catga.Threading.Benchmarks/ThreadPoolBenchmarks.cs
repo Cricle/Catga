@@ -67,7 +67,7 @@ public class ThreadPoolBenchmarks
         {
             tasks[i] = _catgaPool!.RunCatgaAsync(() => CpuBoundWork());
         }
-        
+
         // Await all CatgaTasks
         foreach (var task in tasks)
         {
@@ -113,7 +113,7 @@ public class ThreadPoolBenchmarks
             int value = i;
             tasks[i] = _catgaPool!.RunCatgaAsync(() => ComputeValue(value));
         }
-        
+
         // Await all CatgaTasks
         long sum = 0;
         foreach (var task in tasks)

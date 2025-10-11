@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <PublishAot>true</PublishAot>
+
+    <!-- Package Info -->
+    <PackageId>Catga.Serialization.Json</PackageId>
+    <Title>Catga System.Text.Json Serialization</Title>
+    <Description>System.Text.Json based serialization with source generator support for AOT compatibility</Description>
+    <PackageTags>catga;cqrs;serialization;json;system-text-json;aot;source-generator</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Catga\Catga.csproj" />
+  </ItemGroup>
+
+</Project>
+

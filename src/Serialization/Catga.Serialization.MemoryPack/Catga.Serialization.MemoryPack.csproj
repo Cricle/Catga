@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <PublishAot>true</PublishAot>
+
+    <!-- Package Info -->
+    <PackageId>Catga.Serialization.MemoryPack</PackageId>
+    <Title>Catga MemoryPack Serialization</Title>
+    <Description>MemoryPack based binary serialization for high-performance scenarios with AOT support</Description>
+    <PackageTags>catga;cqrs;serialization;memorypack;binary;high-performance;aot;zero-allocation</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Catga\Catga.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MemoryPack" />
+  </ItemGroup>
+
+</Project>
+

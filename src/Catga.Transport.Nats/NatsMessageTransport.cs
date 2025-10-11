@@ -69,7 +69,7 @@ public class NatsMessageTransport : IMessageTransport
         var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
 
         // QoS 2: Check if already processed
-        if (qos == QualityOfService.ExactlyOnce)
+        if (qos == QualityOfService.ExactlyOnce && context.MessageId != null)
         {
             if (_processedMessages.ContainsKey(context.MessageId))
             {
@@ -126,7 +126,7 @@ public class NatsMessageTransport : IMessageTransport
 
             case QualityOfService.ExactlyOnce:
                 // QoS 2: JetStream + 应用层去重
-                if (_processedMessages.ContainsKey(context.MessageId))
+                if (context.MessageId != null && _processedMessages.ContainsKey(context.MessageId))
                 {
                     _logger.LogDebug("Message {MessageId} already processed locally (QoS 2), skipping", context.MessageId);
                     return;

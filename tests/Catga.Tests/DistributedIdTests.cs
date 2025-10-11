@@ -87,10 +87,10 @@ public class DistributedIdTests
     }
 
     [Fact]
-    public void CustomLayout_LongLifespan_ShouldWork()
+    public void CustomLayout_Default_ShouldWork()
     {
         // Arrange
-        var layout = SnowflakeBitLayout.LongLifespan;
+        var layout = SnowflakeBitLayout.Default;
         var generator = new SnowflakeIdGenerator(10, layout);
 
         // Act

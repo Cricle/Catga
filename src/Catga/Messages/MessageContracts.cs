@@ -63,7 +63,7 @@ public interface IEvent : IMessage
     /// <summary>
     /// Events 默认 QoS 0 (Fire-and-Forget)
     /// </summary>
-    QualityOfService QoS => QualityOfService.AtMostOnce;
+    new QualityOfService QoS => QualityOfService.AtMostOnce;
 }
 
 /// <summary>

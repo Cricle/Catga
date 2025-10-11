@@ -71,7 +71,7 @@ public class InMemoryMessageTransport : IMessageTransport
 
             case QualityOfService.ExactlyOnce:
                 // QoS 2: Idempotency check + wait for completion (幂等性检查 + 等待完成)
-                if (_idempotencyStore.IsProcessed(context.MessageId))
+                if (context.MessageId != null && _idempotencyStore.IsProcessed(context.MessageId))
                 {
                     // 已处理过，跳过
                     return;
@@ -86,7 +86,10 @@ public class InMemoryMessageTransport : IMessageTransport
                 await Task.WhenAll(tasks2);
 
                 // 标记为已处理
-                _idempotencyStore.MarkAsProcessed(context.MessageId);
+                if (context.MessageId != null)
+                {
+                    _idempotencyStore.MarkAsProcessed(context.MessageId);
+                }
                 break;
         }
     }

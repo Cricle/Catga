@@ -80,10 +80,10 @@ public class IdempotencyBehaviorTests
         result.Value!.Message.Should().Be("New Result");
         nextCalled.Should().BeTrue(); // next 应该被调用
 
-        // 验证结果被缓存
+        // 验证结果被缓存 (缓存的是 TestResponse 而不是 CatgaResult<TestResponse>)
         await idempotencyStore
             .Received(1)
-            .MarkAsProcessedAsync(Arg.Any<string>(), result, Arg.Any<CancellationToken>());
+            .MarkAsProcessedAsync(Arg.Any<string>(), Arg.Any<TestResponse>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

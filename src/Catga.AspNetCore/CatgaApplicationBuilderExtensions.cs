@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Catga.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,8 +14,6 @@ public static class CatgaApplicationBuilderExtensions
     /// Use Catga ASP.NET Core features
     /// Usage: app.UseCatga()
     /// </summary>
-    [RequiresUnreferencedCode("Catga ASP.NET Core integration may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("Catga ASP.NET Core integration uses reflection for request binding.")]
     public static IApplicationBuilder UseCatga(
         this IApplicationBuilder app,
         Action<CatgaAspNetCoreOptions>? configure = null)

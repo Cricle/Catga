@@ -119,13 +119,6 @@ public readonly struct SnowflakeBitLayout
     }
 
     /// <summary>
-    /// Long lifespan layout (44-8-11)
-    /// Same as Default - 557+ years
-    /// </summary>
-    [Obsolete("Use Default instead - it now provides 500+ years by default")]
-    public static SnowflakeBitLayout LongLifespan => Default;
-
-    /// <summary>
     /// High concurrency layout (39-10-14)
     /// 39 bits timestamp (~17 years)
     /// 10 bits worker ID (1024 workers)

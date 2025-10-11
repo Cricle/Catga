@@ -3,138 +3,26 @@ using Catga.Messages;
 namespace OrderSystem;
 
 // ==================== Commands ====================
+public record CreateOrderCommand(string CustomerName,List<OrderItemDto> Items) : IRequest<CreateOrderResult>;
 
-/// <summary>
-/// Create new order command
-/// </summary>
-public record CreateOrderCommand : IRequest<CreateOrderResult>
-{
-    public string CustomerName { get; init; } = string.Empty;
-    public List<OrderItemDto> Items { get; init; } = new();
-}
-
-/// <summary>
-/// Process order command
-/// </summary>
-public record ProcessOrderCommand : IRequest<bool>
-{
-    public long OrderId { get; init; }
-}
-
-/// <summary>
-/// Complete order command
-/// </summary>
-public record CompleteOrderCommand : IRequest<bool>
-{
-    public long OrderId { get; init; }
-}
-
-/// <summary>
-/// Cancel order command
-/// </summary>
-public record CancelOrderCommand : IRequest<bool>
-{
-    public long OrderId { get; init; }
-    public string Reason { get; init; } = string.Empty;
-}
+public record ProcessOrderCommand(long OrderId) : IRequest<bool>;
+public record CompleteOrderCommand(long OrderId) : IRequest<bool>;
+public record CancelOrderCommand(long OrderId,string Reason) : IRequest<bool>;
 
 // ==================== Queries ====================
-
-/// <summary>
-/// Get order by ID query
-/// </summary>
-public record GetOrderQuery : IRequest<OrderDto?>
-{
-    public long OrderId { get; init; }
-}
-
-/// <summary>
-/// Get orders by customer query
-/// </summary>
-public record GetOrdersByCustomerQuery : IRequest<List<OrderDto>>
-{
-    public string CustomerName { get; init; } = string.Empty;
-}
-
-/// <summary>
-/// Get pending orders query
-/// </summary>
+public record GetOrderQuery(long OrderId) : IRequest<OrderDto?>;
+public record GetOrdersByCustomerQuery(string CustomerName) : IRequest<List<OrderDto>>;
 public record GetPendingOrdersQuery : IRequest<List<OrderDto>>;
 
+
 // ==================== Events ====================
+public record OrderCreatedEvent(long OrderId, string OrderNumber, string CustomerName, decimal TotalAmount) : IEvent;
+public record OrderProcessingEvent(long OrderId, string OrderNumber) : IEvent;
+public record OrderCompletedEvent(long OrderId, string OrderNumber, DateTime CompletedAt) : IEvent;
+public record OrderCancelledEvent(long OrderId, string OrderNumber, string Reason) : IEvent;
 
-/// <summary>
-/// Order created event
-/// </summary>
-public record OrderCreatedEvent : IEvent
-{
-    public long OrderId { get; init; }
-    public string OrderNumber { get; init; } = string.Empty;
-    public string CustomerName { get; init; } = string.Empty;
-    public decimal TotalAmount { get; init; }
-}
-
-/// <summary>
-/// Order processing event
-/// </summary>
-public record OrderProcessingEvent : IEvent
-{
-    public long OrderId { get; init; }
-    public string OrderNumber { get; init; } = string.Empty;
-}
-
-/// <summary>
-/// Order completed event
-/// </summary>
-public record OrderCompletedEvent : IEvent
-{
-    public long OrderId { get; init; }
-    public string OrderNumber { get; init; } = string.Empty;
-    public DateTime CompletedAt { get; init; }
-}
-
-/// <summary>
-/// Order cancelled event
-/// </summary>
-public record OrderCancelledEvent : IEvent
-{
-    public long OrderId { get; init; }
-    public string OrderNumber { get; init; } = string.Empty;
-    public string Reason { get; init; } = string.Empty;
-}
 
 // ==================== DTOs ====================
-
-/// <summary>
-/// Order DTO
-/// </summary>
-public record OrderDto
-{
-    public long Id { get; init; }
-    public string OrderNumber { get; init; } = string.Empty;
-    public string CustomerName { get; init; } = string.Empty;
-    public decimal TotalAmount { get; init; }
-    public string Status { get; init; } = string.Empty;
-    public DateTime CreatedAt { get; init; }
-    public DateTime? CompletedAt { get; init; }
-}
-
-/// <summary>
-/// Order item DTO
-/// </summary>
-public record OrderItemDto
-{
-    public string ProductName { get; init; } = string.Empty;
-    public int Quantity { get; init; }
-    public decimal Price { get; init; }
-}
-
-/// <summary>
-/// Create order result
-/// </summary>
-public record CreateOrderResult
-{
-    public long OrderId { get; init; }
-    public string OrderNumber { get; init; } = string.Empty;
-}
-
+public record OrderDto(long Id, string OrderNumber, string CustomerName, decimal TotalAmount, string Status, DateTime CreatedAt, DateTime? CompletedAt);
+public record OrderItemDto(string ProductName, int Quantity, decimal Price);
+public record CreateOrderResult(long OrderId, string OrderNumber);

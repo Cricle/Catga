@@ -1,24 +1,28 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
 
-    <!-- AOT Compatibility -->
-    <IsAotCompatible>true</IsAotCompatible>
-    <IsTrimmable>true</IsTrimmable>
-    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+		<!-- AOT Compatibility -->
+		<IsAotCompatible>true</IsAotCompatible>
+		<IsTrimmable>true</IsTrimmable>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
 
-    <EnableSourceLink>false</EnableSourceLink>
-    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
-  </PropertyGroup>
+		<EnableSourceLink>false</EnableSourceLink>
+		<EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <!-- Minimal dependencies - only abstractions -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-  </ItemGroup>
+	<ItemGroup>
+		<!-- Minimal dependencies - only abstractions -->
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="Catga.Benchmarks"/>
+	</ItemGroup>
 
 </Project>

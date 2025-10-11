@@ -30,8 +30,6 @@ namespace Catga.Pipeline.Behaviors;
 /// - Storage layer is swappable (SQL/Redis/MongoDB)
 /// - Independent evolution
 /// </remarks>
-[RequiresUnreferencedCode("Outbox behavior requires serialization and transport support. Use AOT-friendly serializer (e.g., MemoryPack) in production")]
-[RequiresDynamicCode("Outbox behavior requires serialization and transport support. Use AOT-friendly serializer (e.g., MemoryPack) in production")]
 public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : class, IRequest<TResponse>
 {
@@ -55,8 +53,6 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
         _serializer = serializer;
     }
 
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Pipeline behaviors may require types that cannot be statically analyzed.")]
-    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Pipeline behaviors use reflection for handler resolution.")]
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,

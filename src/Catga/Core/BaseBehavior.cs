@@ -1,5 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-using Catga.Common;
 using Catga.DistributedId;
 using Catga.Messages;
 using Catga.Results;
@@ -10,6 +8,7 @@ namespace Catga.Pipeline.Behaviors;
 /// <summary>
 /// Base class for all pipeline behaviors
 /// Provides common utilities and reduces code duplication (DRY principle)
+/// AOT-compatible: Uses interface-based dispatch, no reflection
 /// </summary>
 public abstract class BaseBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
@@ -21,8 +20,6 @@ public abstract class BaseBehavior<TRequest, TResponse> : IPipelineBehavior<TReq
         Logger = logger;
     }
 
-    [RequiresDynamicCode("Pipeline behaviors may require dynamic code generation")]
-    [RequiresUnreferencedCode("Pipeline behaviors may require types that cannot be statically analyzed")]
     public abstract ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,
@@ -138,19 +135,5 @@ public abstract class BaseBehavior<TRequest, TResponse> : IPipelineBehavior<TReq
     /// Check if request is an event
     /// </summary>
     protected static bool IsEvent(TRequest request) => request is IEvent;
-
-    /// <summary>
-    /// Check if request is a command (writes data)
-    /// Note: In simplified Catga, all requests are treated equally
-    /// </summary>
-    [Obsolete("Command/Query distinction removed. Use IRequest<T> for all requests.")]
-    protected static bool IsCommand(TRequest request) => false;
-
-    /// <summary>
-    /// Check if request is a query (reads data)
-    /// Note: In simplified Catga, all requests are treated equally
-    /// </summary>
-    [Obsolete("Command/Query distinction removed. Use IRequest<T> for all requests.")]
-    protected static bool IsQuery(TRequest request) => false;
 }
 

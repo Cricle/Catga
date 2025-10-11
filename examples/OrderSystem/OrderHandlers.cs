@@ -67,19 +67,9 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, CreateOrde
         _logger.LogInformation("Order created: {OrderNumber} for {CustomerName}", orderNumber, request.CustomerName);
 
         // Publish event
-        await _mediator.PublishAsync(new OrderCreatedEvent
-        {
-            OrderId = order.Id,
-            OrderNumber = order.OrderNumber,
-            CustomerName = order.CustomerName,
-            TotalAmount = order.TotalAmount
-        }, cancellationToken: cancellationToken);
+        await _mediator.PublishAsync(new OrderCreatedEvent(order.Id, order.OrderNumber, order.CustomerName, order.TotalAmount), cancellationToken: cancellationToken);
 
-        return CatgaResult<CreateOrderResult>.Success(new CreateOrderResult
-        {
-            OrderId = order.Id,
-            OrderNumber = order.OrderNumber
-        });
+        return CatgaResult<CreateOrderResult>.Success(new CreateOrderResult(order.Id, order.OrderNumber));
     }
 }
 
@@ -119,11 +109,7 @@ public class ProcessOrderHandler : IRequestHandler<ProcessOrderCommand, bool>
         _logger.LogInformation("Order processing: {OrderNumber}", order.OrderNumber);
 
         // Publish event
-        await _mediator.PublishAsync(new OrderProcessingEvent
-        {
-            OrderId = order.Id,
-            OrderNumber = order.OrderNumber
-        }, cancellationToken: cancellationToken);
+        await _mediator.PublishAsync(new OrderProcessingEvent(order.Id, order.OrderNumber), cancellationToken: cancellationToken);
 
         return CatgaResult<bool>.Success(true);
     }
@@ -166,12 +152,7 @@ public class CompleteOrderHandler : IRequestHandler<CompleteOrderCommand, bool>
         _logger.LogInformation("Order completed: {OrderNumber}", order.OrderNumber);
 
         // Publish event
-        await _mediator.PublishAsync(new OrderCompletedEvent
-        {
-            OrderId = order.Id,
-            OrderNumber = order.OrderNumber,
-            CompletedAt = order.CompletedAt.Value
-        }, cancellationToken: cancellationToken);
+        await _mediator.PublishAsync(new OrderCompletedEvent(order.Id, order.OrderNumber, order.CompletedAt.Value), cancellationToken: cancellationToken);
 
         return CatgaResult<bool>.Success(true);
     }
@@ -216,12 +197,7 @@ public class CancelOrderHandler : IRequestHandler<CancelOrderCommand, bool>
         _logger.LogInformation("Order cancelled: {OrderNumber}, Reason: {Reason}", order.OrderNumber, request.Reason);
 
         // Publish event
-        await _mediator.PublishAsync(new OrderCancelledEvent
-        {
-            OrderId = order.Id,
-            OrderNumber = order.OrderNumber,
-            Reason = request.Reason
-        }, cancellationToken: cancellationToken);
+        await _mediator.PublishAsync(new OrderCancelledEvent(order.Id, order.OrderNumber, request.Reason), cancellationToken: cancellationToken);
 
         return CatgaResult<bool>.Success(true);
     }
@@ -252,16 +228,7 @@ public class GetOrderHandler : IRequestHandler<GetOrderQuery, OrderDto?>
         if (order == null)
             return CatgaResult<OrderDto?>.Success(null);
 
-        var orderDto = new OrderDto
-        {
-            Id = order.Id,
-            OrderNumber = order.OrderNumber,
-            CustomerName = order.CustomerName,
-            TotalAmount = order.TotalAmount,
-            Status = order.Status.ToString(),
-            CreatedAt = order.CreatedAt,
-            CompletedAt = order.CompletedAt
-        };
+        var orderDto = new OrderDto(order.Id, order.OrderNumber, order.CustomerName, order.TotalAmount, order.Status.ToString(), order.CreatedAt, order.CompletedAt);
 
         return CatgaResult<OrderDto?>.Success(orderDto);
     }
@@ -287,16 +254,7 @@ public class GetOrdersByCustomerHandler : IRequestHandler<GetOrdersByCustomerQue
             .AsNoTracking()
             .Where(o => o.CustomerName == request.CustomerName)
             .OrderByDescending(o => o.CreatedAt)
-            .Select(o => new OrderDto
-            {
-                Id = o.Id,
-                OrderNumber = o.OrderNumber,
-                CustomerName = o.CustomerName,
-                TotalAmount = o.TotalAmount,
-                Status = o.Status.ToString(),
-                CreatedAt = o.CreatedAt,
-                CompletedAt = o.CompletedAt
-            })
+            .Select(o => new OrderDto(o.Id, o.OrderNumber, o.CustomerName, o.TotalAmount, o.Status.ToString(), o.CreatedAt, o.CompletedAt))
             .ToListAsync(cancellationToken);
 
         return CatgaResult<List<OrderDto>>.Success(orders);
@@ -323,16 +281,7 @@ public class GetPendingOrdersHandler : IRequestHandler<GetPendingOrdersQuery, Li
             .AsNoTracking()
             .Where(o => o.Status == OrderStatus.Pending)
             .OrderBy(o => o.CreatedAt)
-            .Select(o => new OrderDto
-            {
-                Id = o.Id,
-                OrderNumber = o.OrderNumber,
-                CustomerName = o.CustomerName,
-                TotalAmount = o.TotalAmount,
-                Status = o.Status.ToString(),
-                CreatedAt = o.CreatedAt,
-                CompletedAt = o.CompletedAt
-            })
+            .Select(o => new OrderDto(o.Id, o.OrderNumber, o.CustomerName, o.TotalAmount, o.Status.ToString(), o.CreatedAt, o.CompletedAt))
             .ToListAsync(cancellationToken);
 
         return CatgaResult<List<OrderDto>>.Success(orders);

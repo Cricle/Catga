@@ -214,10 +214,10 @@ public class GetOrderHandler : IRequestHandler<GetOrderQuery, OrderDto>
         CancellationToken ct)
     {
         var order = await _db.Orders.FindAsync(request.OrderId);
-        
+
         if (order == null)
             return CatgaResultHttpExtensions.NotFound<OrderDto>("Order not found");
-        
+
         return CatgaResult<OrderDto>.Success(orderDto);
     }
 }
@@ -276,11 +276,11 @@ public class GetOrderHandler : IRequestHandler<GetOrderQuery, OrderDto>
 
 成功为 Catga 框架添加了完整的 ASP.NET Core 集成，提供了：
 
-✅ **简洁的 API** - 一行代码映射 CQRS 端点  
-✅ **智能结果映射** - 自动 HTTP 状态码  
-✅ **完整文档** - 详细的使用说明  
-✅ **AOT 兼容** - 适当的属性标记  
-✅ **CAP 风格** - 简洁优雅的设计  
+✅ **简洁的 API** - 一行代码映射 CQRS 端点
+✅ **智能结果映射** - 自动 HTTP 状态码
+✅ **完整文档** - 详细的使用说明
+✅ **AOT 兼容** - 适当的属性标记
+✅ **CAP 风格** - 简洁优雅的设计
 
 Catga 现在不仅是一个高性能的 CQRS 框架，还是一个对 ASP.NET Core 开发者友好的框架！
 

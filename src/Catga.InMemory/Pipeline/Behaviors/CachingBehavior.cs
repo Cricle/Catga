@@ -22,8 +22,6 @@ public sealed class CachingBehavior<TRequest, TResponse> : BaseBehavior<TRequest
         _cache = cache;
     }
 
-    [RequiresDynamicCode("Cache serialization may require runtime code generation")]
-    [RequiresUnreferencedCode("Cache serialization may require types that cannot be statically analyzed")]
     public override async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,

@@ -21,16 +21,9 @@ public static class ArrayPoolHelper
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static RentedArray<T> RentOrAllocate<T>(int count, int threshold = DefaultThreshold)
     {
-        if (count > threshold)
-        {
-            var rentedArray = ArrayPool<T>.Shared.Rent(count);
-            return new RentedArray<T>(rentedArray, count, isRented: true);
-        }
-        else
-        {
-            var array = new T[count];
-            return new RentedArray<T>(array, count, isRented: false);
-        }
+        var canPool = count > threshold;
+        var buffer = canPool ? ArrayPool<T>.Shared.Rent(count) : new T[count];
+        return new RentedArray<T>(buffer, count, isRented: canPool);
     }
 }
 

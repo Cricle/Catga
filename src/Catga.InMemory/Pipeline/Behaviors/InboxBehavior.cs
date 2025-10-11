@@ -25,8 +25,6 @@ namespace Catga.Pipeline.Behaviors;
 /// <remarks>
 /// Inspired by MassTransit design: Inbox focuses on idempotency, not transport
 /// </remarks>
-[RequiresUnreferencedCode("Inbox behavior requires serialization support. Use AOT-friendly serializer (e.g., MemoryPack) in production")]
-[RequiresDynamicCode("Inbox behavior requires serialization support. Use AOT-friendly serializer (e.g., MemoryPack) in production")]
 public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : class, IRequest<TResponse>
 {
@@ -47,8 +45,6 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
         _lockDuration = lockDuration ?? TimeSpan.FromMinutes(5);
     }
 
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Pipeline behaviors may require types that cannot be statically analyzed.")]
-    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Pipeline behaviors use reflection for handler resolution.")]
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,

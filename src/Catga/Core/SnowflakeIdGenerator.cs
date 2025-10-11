@@ -17,33 +17,12 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     private readonly long _workerId;
     private readonly SnowflakeBitLayout _layout;
 
-    // P3: Cache line padding (64 bytes before hot field)
-#pragma warning disable CS0169 // Field is never used (padding for false sharing prevention)
-    private long _padding1;
-    private long _padding2;
-    private long _padding3;
-    private long _padding4;
-    private long _padding5;
-    private long _padding6;
-    private long _padding7;
-#pragma warning restore CS0169
 
     // Packed state: timestamp (high 52 bits) | sequence (low 12 bits)
     // This allows atomic updates using a single Interlocked.CompareExchange
     // Initialize to 0 (timestamp=0, sequence=0)
     // P3: Aligned on its own cache line to prevent false sharing
     private long _packedState = 0L;
-
-    // P3: Cache line padding (64 bytes after hot field)
-#pragma warning disable CS0169 // Field is never used (padding for false sharing prevention)
-    private long _padding8;
-    private long _padding9;
-    private long _padding10;
-    private long _padding11;
-    private long _padding12;
-    private long _padding13;
-    private long _padding14;
-#pragma warning restore CS0169
 
     // Adaptive Strategy: Track recent batch request sizes
     private long _recentBatchSize = 4096; // Default adaptive batch size
@@ -465,35 +444,6 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     /// </summary>
     public SnowflakeBitLayout GetLayout() => _layout;
 
-    /// <summary>
-    /// Warmup: Pre-warm L1/L2 cache at application startup
-    /// Generates dummy IDs to load code paths into CPU cache
-    /// Call this once during application initialization for optimal performance
-    /// </summary>
-    public void Warmup()
-    {
-        // Pre-allocate small buffer to warm up memory allocator
-        Span<long> warmupBuffer = stackalloc long[128];
-
-        // Warm up single ID generation (most common path)
-        for (int i = 0; i < 100; i++)
-        {
-            _ = TryNextId(out _);
-        }
-
-        // Warm up batch generation with various sizes
-        NextIds(warmupBuffer.Slice(0, 10));  // Small batch
-        NextIds(warmupBuffer.Slice(0, 50));  // Medium batch
-        NextIds(warmupBuffer);                // Large batch (128)
-
-        // Warm up SIMD path if supported
-        if (Avx2.IsSupported)
-        {
-            var testBase = 1L << 22;
-            GenerateIdsWithSIMD(warmupBuffer, testBase, 0);
-        }
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static long GetCurrentTimestamp()
     {
@@ -516,7 +466,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     /// Processes 4 IDs at once for ~2-3x performance boost
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void GenerateIdsWithSIMD(Span<long> destination, long baseId, long startSequence)
+    internal static void GenerateIdsWithSIMD(Span<long> destination, long baseId, long startSequence)
     {
         var remaining = destination.Length;
         var offset = 0;

@@ -47,8 +47,6 @@ public sealed class DistributedMediator : IDistributedMediator
         return _discovery.GetNodesAsync(cancellationToken);
     }
 
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public async ValueTask<CatgaResult<TResponse>> SendAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(

@@ -127,7 +127,7 @@ app.MapCatgaRequest<CreateOrderCommand, CreateOrderResult>("/api/orders")
 // Manual endpoints with ToHttpResult() extension
 app.MapPost("/api/orders/{orderId:long}/process", async (long orderId, ICatgaMediator mediator) =>
 {
-    var result = await mediator.SendAsync<ProcessOrderCommand, bool>(new ProcessOrderCommand { OrderId = orderId });
+    var result = await mediator.SendAsync<ProcessOrderCommand, bool>(new ProcessOrderCommand(orderId));
     return result.ToHttpResult(); // Smart status code mapping
 })
 .WithName("ProcessOrder")
@@ -135,7 +135,7 @@ app.MapPost("/api/orders/{orderId:long}/process", async (long orderId, ICatgaMed
 
 app.MapPost("/api/orders/{orderId:long}/complete", async (long orderId, ICatgaMediator mediator) =>
 {
-    var result = await mediator.SendAsync<CompleteOrderCommand, bool>(new CompleteOrderCommand { OrderId = orderId });
+    var result = await mediator.SendAsync<CompleteOrderCommand, bool>(new CompleteOrderCommand (orderId));
     return result.ToHttpResult(); // Smart status code mapping
 })
 .WithName("CompleteOrder")
@@ -143,7 +143,7 @@ app.MapPost("/api/orders/{orderId:long}/complete", async (long orderId, ICatgaMe
 
 app.MapPost("/api/orders/{orderId:long}/cancel", async (long orderId, string reason, ICatgaMediator mediator) =>
 {
-    var result = await mediator.SendAsync<CancelOrderCommand, bool>(new CancelOrderCommand { OrderId = orderId, Reason = reason });
+    var result = await mediator.SendAsync<CancelOrderCommand, bool>(new CancelOrderCommand(orderId,reason));
     return result.ToHttpResult(); // Smart status code mapping
 })
 .WithName("CancelOrder")
@@ -152,7 +152,7 @@ app.MapPost("/api/orders/{orderId:long}/cancel", async (long orderId, string rea
 // Query endpoints - using Catga extensions
 app.MapGet("/api/orders/{orderId:long}", async (long orderId, ICatgaMediator mediator) =>
 {
-    var result = await mediator.SendAsync<GetOrderQuery, OrderDto?>(new GetOrderQuery { OrderId = orderId });
+    var result = await mediator.SendAsync<GetOrderQuery, OrderDto?>(new GetOrderQuery(orderId));
     return result.ToHttpResult(); // Smart status code mapping
 })
 .WithName("GetOrder")
@@ -160,7 +160,7 @@ app.MapGet("/api/orders/{orderId:long}", async (long orderId, ICatgaMediator med
 
 app.MapGet("/api/orders/customer/{customerName}", async (string customerName, ICatgaMediator mediator) =>
 {
-    var result = await mediator.SendAsync<GetOrdersByCustomerQuery, List<OrderDto>>(new GetOrdersByCustomerQuery { CustomerName = customerName });
+    var result = await mediator.SendAsync<GetOrdersByCustomerQuery, List<OrderDto>>(new GetOrdersByCustomerQuery(customerName));
     return result.ToHttpResult(); // Smart status code mapping
 })
 .WithName("GetOrdersByCustomer")

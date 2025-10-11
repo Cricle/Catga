@@ -19,8 +19,6 @@ public partial class LoggingBehavior<TRequest, TResponse> : BaseBehavior<TReques
     /// <summary>
     /// Optimized: Use ValueTask to reduce heap allocations
     /// </summary>
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Pipeline behaviors may require types that cannot be statically analyzed.")]
-    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Pipeline behaviors use reflection for handler resolution.")]
     public override async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,

@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Catga;
 using Catga.Messages;
 using Microsoft.AspNetCore.Builder;
@@ -10,6 +9,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 /// <summary>
 /// Catga endpoint extensions for ASP.NET Core Minimal APIs
 /// Similar to CAP's ICapPublisher pattern
+/// Note: Uses ASP.NET Core's built-in parameter binding (reflection-based)
 /// </summary>
 public static class CatgaEndpointExtensions
 {
@@ -17,8 +17,6 @@ public static class CatgaEndpointExtensions
     /// Map Catga command/query to HTTP endpoint
     /// Usage: app.MapCatgaRequest&lt;CreateOrderCommand, CreateOrderResult&gt;("/api/orders")
     /// </summary>
-    [RequiresUnreferencedCode("Catga ASP.NET Core integration may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("Catga ASP.NET Core integration uses reflection for request binding.")]
     public static RouteHandlerBuilder MapCatgaRequest<TRequest, TResponse>(
         this IEndpointRouteBuilder endpoints,
         string pattern)
@@ -39,8 +37,6 @@ public static class CatgaEndpointExtensions
     /// Map Catga query to HTTP GET endpoint
     /// Usage: app.MapCatgaQuery&lt;GetOrderQuery, OrderDto&gt;("/api/orders/{orderId}")
     /// </summary>
-    [RequiresUnreferencedCode("Catga ASP.NET Core integration may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("Catga ASP.NET Core integration uses reflection for request binding.")]
     public static RouteHandlerBuilder MapCatgaQuery<TQuery, TResponse>(
         this IEndpointRouteBuilder endpoints,
         string pattern)
@@ -61,8 +57,6 @@ public static class CatgaEndpointExtensions
     /// Map Catga event publish to HTTP endpoint
     /// Usage: app.MapCatgaEvent&lt;OrderCreatedEvent&gt;("/api/events/order-created")
     /// </summary>
-    [RequiresUnreferencedCode("Catga ASP.NET Core integration may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("Catga ASP.NET Core integration uses reflection for request binding.")]
     public static RouteHandlerBuilder MapCatgaEvent<TEvent>(
         this IEndpointRouteBuilder endpoints,
         string pattern)
@@ -83,8 +77,6 @@ public static class CatgaEndpointExtensions
     /// Map Catga health and diagnostics endpoints
     /// Similar to CAP Dashboard
     /// </summary>
-    [RequiresUnreferencedCode("Catga ASP.NET Core integration may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("Catga ASP.NET Core integration uses reflection for request binding.")]
     public static IEndpointRouteBuilder MapCatgaDiagnostics(
         this IEndpointRouteBuilder endpoints,
         string prefix = "/catga")

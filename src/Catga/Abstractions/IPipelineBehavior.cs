@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Catga.Messages;
 using Catga.Results;
 
@@ -7,11 +6,10 @@ namespace Catga.Pipeline;
 /// <summary>
 /// Pipeline behavior for requests with response
 /// Optimized: Use ValueTask to reduce heap allocations
+/// AOT-compatible: Uses interface-based dispatch, no reflection
 /// </summary>
 public interface IPipelineBehavior<in TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
-    [RequiresUnreferencedCode("Pipeline behaviors may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("Pipeline behaviors use reflection for handler resolution.")]
     public ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,
@@ -21,11 +19,10 @@ public interface IPipelineBehavior<in TRequest, TResponse> where TRequest : IReq
 /// <summary>
 /// Pipeline behavior for requests without response
 /// Optimized: Use ValueTask to reduce heap allocations
+/// AOT-compatible: Uses interface-based dispatch, no reflection
 /// </summary>
 public interface IPipelineBehavior<in TRequest> where TRequest : IRequest
 {
-    [RequiresUnreferencedCode("Pipeline behaviors may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("Pipeline behaviors use reflection for handler resolution.")]
     public ValueTask<CatgaResult> HandleAsync(
         TRequest request,
         PipelineDelegate next,

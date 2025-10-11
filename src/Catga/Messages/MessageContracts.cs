@@ -1,9 +1,11 @@
+using System.ComponentModel;
+
 namespace Catga.Messages;
 
 /// <summary>
 /// Marker interface for all messages (framework use only - users don't need to implement this directly)
 /// </summary>
-[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+[EditorBrowsable(EditorBrowsableState.Never)]
 public interface IMessage
 {
     /// <summary>

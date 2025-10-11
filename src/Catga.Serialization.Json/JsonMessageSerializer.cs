@@ -22,8 +22,6 @@ public class JsonMessageSerializer : IBufferedMessageSerializer
 
     #region IMessageSerializer (legacy, allocating)
 
-    [RequiresUnreferencedCode("Serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Serialization may require runtime code generation")]
     public byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(T value)
     {
         // Use ArrayBufferWriter for simplicity
@@ -32,8 +30,6 @@ public class JsonMessageSerializer : IBufferedMessageSerializer
         return bufferWriter.WrittenSpan.ToArray();
     }
 
-    [RequiresUnreferencedCode("Deserialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Deserialization may require runtime code generation")]
     public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(byte[] data)
     {
         // Optimized: Deserialize from ReadOnlySpan (zero-copy)
@@ -44,8 +40,6 @@ public class JsonMessageSerializer : IBufferedMessageSerializer
 
     #region IBufferedMessageSerializer (optimized, pooled)
 
-    [RequiresUnreferencedCode("Serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Serialization may require runtime code generation")]
     public void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(
         T value,
         IBufferWriter<byte> bufferWriter)
@@ -55,8 +49,6 @@ public class JsonMessageSerializer : IBufferedMessageSerializer
         JsonSerializer.Serialize(writer, value, _options);
     }
 
-    [RequiresUnreferencedCode("Deserialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Deserialization may require runtime code generation")]
     public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(
         ReadOnlySpan<byte> data)
     {

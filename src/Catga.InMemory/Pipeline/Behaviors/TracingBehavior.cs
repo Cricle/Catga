@@ -19,8 +19,6 @@ public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         _metrics = metrics;
     }
 
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Pipeline behaviors may require types that cannot be statically analyzed.")]
-    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Pipeline behaviors use reflection for handler resolution.")]
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,

@@ -13,19 +13,22 @@ namespace Catga.Distributed.Nats;
 /// 基于 NATS JetStream KV Store 的持久化节点发现
 /// 当前实现：内存 + TTL 清理（占位符）
 ///
-/// TODO: 适配 NATS.Client.JetStream 的原生 KV Store API
-/// 参考：https://docs.nats.io/using-nats/developer/develop_jetstream/kv#tab-c-12
+/// TODO: 使用 NATS.Client.KeyValueStore 包实现原生 KV Store
+/// 参考：
+/// - https://docs.nats.io/using-nats/developer/develop_jetstream/kv#tab-c-12
+/// - https://www.nuget.org/packages/NATS.Client.KeyValueStore
 ///
-/// 原生 API 用法（待适配）：
-/// - await jsContext.CreateKeyValueAsync(kvConfig)  // 创建 KV Store
-/// - await kvStore.PutAsync(key, value)             // 存储键值
-/// - await kvStore.GetEntryAsync(key)               // 获取键值
-/// - await kvStore.DeleteAsync(key)                 // 删除键
-/// - await kvStore.GetKeysAsync()                   // 获取所有键
-/// - await kvStore.WatchAsync()                     // 监听变更
+/// 原生 API 用法（使用 NATS.Client.KeyValueStore 包）：
+/// 1. 引用包：dotnet add package NATS.Client.KeyValueStore
+/// 2. 创建 KV Store：await natsKVContext.CreateStoreAsync(kvConfig)
+/// 3. 存储键值：await kvStore.PutAsync(key, value)
+/// 4. 获取键值：await kvStore.GetEntryAsync<T>(key)
+/// 5. 删除键：await kvStore.DeleteAsync(key)
+/// 6. 获取所有键：await kvStore.GetKeysAsync()
+/// 7. 监听变更：await kvStore.WatchAsync<T>()
 ///
-/// 注意：NATS.Client.JetStream 2.5.2 的类型定义可能与文档不完全匹配
-/// 需要根据实际包版本调整 API 调用
+/// 注意：需要使用独立的 NATS.Client.KeyValueStore 包，而不是 NATS.Client.JetStream
+/// 当前项目已引用此包，待实现原生功能
 /// </summary>
 public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposable
 {

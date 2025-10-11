@@ -16,6 +16,7 @@
     <!-- NATS 客户端 -->
     <PackageVersion Include="NATS.Client.Core" Version="2.5.2" />
     <PackageVersion Include="NATS.Client.JetStream" Version="2.5.2" />
+    <PackageVersion Include="NATS.Client.KeyValueStore" Version="2.5.2" />
     <PackageVersion Include="Scrutor" Version="6.1.0" />
     <!-- Redis 客户端 -->
     <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />

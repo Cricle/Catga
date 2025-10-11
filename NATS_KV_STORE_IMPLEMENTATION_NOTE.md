@@ -25,7 +25,19 @@
 
 ---
 
-## 📖 官方文档参考
+## 📖 官方文档和 NuGet 包
+
+根据 [NATS 官方文档](https://docs.nats.io/using-nats/developer/develop_jetstream/kv#tab-c-12) 和 [NuGet 包页面](https://www.nuget.org/packages/NATS.Client.KeyValueStore)，C# 客户端需要使用独立的 **NATS.Client.KeyValueStore** 包。
+
+### 正确的 NuGet 包
+
+```bash
+dotnet add package NATS.Client.KeyValueStore
+```
+
+**重要发现**：NATS Key/Value Store 功能在一个独立的包中，而不是包含在 `NATS.Client.JetStream` 中！
+
+### API 使用示例
 
 根据 [NATS 官方文档](https://docs.nats.io/using-nats/developer/develop_jetstream/kv#tab-c-12)，C# 客户端应该使用以下 API：
 
@@ -223,15 +235,14 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery
 
 ### 高优先级
 
-1. **API 版本对齐**: 确认 NATS.Client.JetStream 包的正确 API
-   - 测试不同版本的包
-   - 查看官方 GitHub 示例代码
-   - 联系 NATS 社区获取帮助
+1. ✅ **找到正确的包**: 已确认使用 `NATS.Client.KeyValueStore` 包
+   - 已添加到项目引用
+   - 参考：https://www.nuget.org/packages/NATS.Client.KeyValueStore
 
-2. **类型适配**: 找到正确的 KV Store 类型
-   - 可能是 `INatsKVStore`
-   - 可能是 `NatsKVStore<T>`
-   - 需要查看包的实际类型定义
+2. **实现原生 KV Store**: 使用 NATS.Client.KeyValueStore API
+   - 替换当前的内存实现
+   - 使用 `NatsKVContext` 创建 KV Store
+   - 实现所有 CRUD 操作
 
 3. **完整实现**: 基于正确的 API 实现所有方法
    - `RegisterAsync` -> `PutAsync`

@@ -13,6 +13,7 @@
     <ProjectReference Include="..\..\src\Catga.InMemory\Catga.InMemory.csproj" />
     <ProjectReference Include="..\..\src\Catga.Transport.Nats\Catga.Transport.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.Distributed\Catga.Distributed.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Distributed.Nats\Catga.Distributed.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
@@ -22,4 +23,3 @@
   </ItemGroup>
 
 </Project>
-

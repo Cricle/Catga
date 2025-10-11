@@ -1,6 +1,6 @@
 using Catga;
 using Catga.Distributed;
-using Catga.Distributed.DependencyInjection;
+using Catga.Distributed.Nats.DependencyInjection;
 using Catga.Messages;
 using Catga.Handlers;
 using Catga.Results;

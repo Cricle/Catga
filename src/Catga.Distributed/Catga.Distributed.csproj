@@ -6,6 +6,11 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <IsAotCompatible>true</IsAotCompatible>
+
+    <!-- Package Info -->
+    <PackageId>Catga.Distributed</PackageId>
+    <Description>Core abstractions for distributed cluster support in Catga CQRS framework</Description>
+    <PackageTags>catga;cqrs;distributed;cluster;abstractions</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,11 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NATS.Client.Core" />
-    <PackageReference Include="NATS.Client.JetStream" />
-    <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
 </Project>

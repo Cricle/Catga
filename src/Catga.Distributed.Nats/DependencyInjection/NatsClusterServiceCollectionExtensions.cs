@@ -1,24 +1,27 @@
-using Catga.Distributed.Nats;
-using Catga.Distributed.Redis;
+using Catga.Distributed;
 using Catga.Distributed.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
-using StackExchange.Redis;
 
-namespace Catga.Distributed.DependencyInjection;
+namespace Catga.Distributed.Nats.DependencyInjection;
 
 /// <summary>
-/// 分布式服务扩展（完全无锁设计）
+/// NATS 分布式集群服务扩展
 /// </summary>
-public static class DistributedServiceCollectionExtensions
+public static class NatsClusterServiceCollectionExtensions
 {
     /// <summary>
     /// 添加基于 NATS 的分布式集群（无锁）
     /// </summary>
-    /// <param name="routingStrategy">路由策略（默认 Round-Robin）</param>
-    /// <param name="useJetStream">是否使用 JetStream KV Store（默认 true，推荐）</param>
+    /// <param name="services">服务集合</param>
+    /// <param name="natsUrl">NATS 服务器地址</param>
+    /// <param name="nodeId">当前节点 ID</param>
+    /// <param name="endpoint">当前节点终结点</param>
+    /// <param name="subjectPrefix">Subject 前缀（默认：catga.nodes）</param>
+    /// <param name="routingStrategy">路由策略（默认：RoundRobin）</param>
+    /// <param name="useJetStream">是否使用 JetStream KV Store（默认：true，推荐持久化）</param>
     public static IServiceCollection AddNatsCluster(
         this IServiceCollection services,
         string natsUrl,
@@ -86,78 +89,6 @@ public static class DistributedServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>
-    /// 添加基于 Redis 的分布式集群（无锁）
-    /// </summary>
-    /// <param name="routingStrategy">路由策略（默认 Consistent Hash）</param>
-    /// <param name="useSortedSet">是否使用 Sorted Set（默认 true，推荐）</param>
-    /// <param name="useStreams">是否使用 Redis Streams（默认 true，推荐）</param>
-    public static IServiceCollection AddRedisCluster(
-        this IServiceCollection services,
-        string redisConnectionString,
-        string nodeId,
-        string endpoint,
-        string keyPrefix = "catga:nodes:",
-        RoutingStrategyType routingStrategy = RoutingStrategyType.ConsistentHash,
-        bool useSortedSet = true,
-        bool useStreams = true)
-    {
-        // 注册 Redis 连接
-        services.AddSingleton<IConnectionMultiplexer>(sp =>
-        {
-            return ConnectionMultiplexer.Connect(redisConnectionString);
-        });
-
-        // 注册节点信息
-        services.AddSingleton(new NodeInfo
-        {
-            NodeId = nodeId,
-            Endpoint = endpoint,
-            LastSeen = DateTime.UtcNow,
-            Load = 0
-        });
-
-        // 注册节点发现（支持 Sorted Set 或传统模式）
-        if (useSortedSet)
-        {
-            // 使用 Sorted Set（原生持久化，推荐）
-            services.AddSingleton<INodeDiscovery>(sp =>
-            {
-                var redis = sp.GetRequiredService<IConnectionMultiplexer>();
-                var logger = sp.GetRequiredService<ILogger<RedisSortedSetNodeDiscovery>>();
-                return new RedisSortedSetNodeDiscovery(redis, logger, keyPrefix.TrimEnd(':'));
-            });
-        }
-        else
-        {
-            // 使用传统模式（不推荐）
-            services.AddSingleton<INodeDiscovery>(sp =>
-            {
-                var redis = sp.GetRequiredService<IConnectionMultiplexer>();
-                var logger = sp.GetRequiredService<ILogger<RedisNodeDiscovery>>();
-                return new RedisNodeDiscovery(redis, logger, keyPrefix);
-            });
-        }
-
-        // 注册路由策略
-        services.AddSingleton<IRoutingStrategy>(sp =>
-        {
-            var currentNode = sp.GetRequiredService<NodeInfo>();
-            return CreateRoutingStrategy(routingStrategy, currentNode.NodeId);
-        });
-
-        // 注册分布式 Mediator（无锁）
-        services.AddSingleton<IDistributedMediator, DistributedMediator>();
-
-        // 注册心跳后台服务（无锁）
-        services.AddHostedService<HeartbeatBackgroundService>();
-
-        return services;
-    }
-
-    /// <summary>
-    /// 创建路由策略实例
-    /// </summary>
     private static IRoutingStrategy CreateRoutingStrategy(RoutingStrategyType type, string currentNodeId)
     {
         return type switch

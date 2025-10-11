@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Channels;
+using Catga.Distributed;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 
@@ -121,6 +122,12 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
                 Node = node
             }, cancellationToken);
         }
+    }
+
+    public Task<NodeInfo?> GetNodeAsync(string nodeId, CancellationToken cancellationToken = default)
+    {
+        _nodes.TryGetValue(nodeId, out var node);
+        return Task.FromResult(node);
     }
 
     public Task<IReadOnlyList<NodeInfo>> GetNodesAsync(CancellationToken cancellationToken = default)
@@ -291,6 +298,12 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
         }
 
         _disposeCts.Dispose();
+    }
+
+    public Task<NodeInfo?> GetNode(string nodeId, CancellationToken cancellationToken = default)
+    {
+        _nodes.TryGetValue(nodeId, out var node);
+        return Task.FromResult(node);
     }
 }
 

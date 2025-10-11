@@ -10,7 +10,7 @@ public interface IEventStore
     /// <summary>
     /// Append events to a stream
     /// </summary>
-    ValueTask AppendAsync(
+    public ValueTask AppendAsync(
         string streamId,
         IEvent[] events,
         long expectedVersion = -1,
@@ -19,7 +19,7 @@ public interface IEventStore
     /// <summary>
     /// Read events from a stream
     /// </summary>
-    ValueTask<EventStream> ReadAsync(
+    public ValueTask<EventStream> ReadAsync(
         string streamId,
         long fromVersion = 0,
         int maxCount = int.MaxValue,
@@ -28,7 +28,7 @@ public interface IEventStore
     /// <summary>
     /// Get current version of a stream
     /// </summary>
-    ValueTask<long> GetVersionAsync(
+    public ValueTask<long> GetVersionAsync(
         string streamId,
         CancellationToken cancellationToken = default);
 }

@@ -1,7 +1,7 @@
-using Catga.Caching;
-using StackExchange.Redis;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using Catga.Caching;
+using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis;
 

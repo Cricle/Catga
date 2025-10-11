@@ -32,7 +32,7 @@ public sealed class HeartbeatBackgroundService : BackgroundService
         {
             // 启动时注册节点
             await _discovery.RegisterAsync(_currentNode, stoppingToken);
-            _logger.LogInformation("Node {NodeId} registered, starting heartbeat every {Interval}s", 
+            _logger.LogInformation("Node {NodeId} registered, starting heartbeat every {Interval}s",
                 _currentNode.NodeId, _heartbeatInterval.TotalSeconds);
 
             // 无锁心跳循环
@@ -44,7 +44,7 @@ public sealed class HeartbeatBackgroundService : BackgroundService
 
                     // 发送心跳（无锁）
                     await _discovery.HeartbeatAsync(_currentNode.NodeId, _currentNode.Load, stoppingToken);
-                    
+
                     _logger.LogTrace("Heartbeat sent for node {NodeId}", _currentNode.NodeId);
                 }
                 catch (OperationCanceledException)

@@ -45,7 +45,7 @@ public class CatgaMediator : ICatgaMediator
     [RequiresDynamicCode("Mediator uses reflection for handler resolution and message routing")]
     [RequiresUnreferencedCode("Mediator may require types that cannot be statically analyzed")]
     public async ValueTask<CatgaResult<TResponse>> SendAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(
         TRequest request,
         CancellationToken cancellationToken = default)
@@ -174,7 +174,7 @@ public class CatgaMediator : ICatgaMediator
     [RequiresDynamicCode("Mediator uses reflection for handler resolution and message routing")]
     [RequiresUnreferencedCode("Mediator may require types that cannot be statically analyzed")]
     public async ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(
         IReadOnlyList<TRequest> requests,
         CancellationToken cancellationToken = default)
@@ -191,7 +191,7 @@ public class CatgaMediator : ICatgaMediator
     [RequiresDynamicCode("Mediator uses reflection for handler resolution and message routing")]
     [RequiresUnreferencedCode("Mediator may require types that cannot be statically analyzed")]
     public async IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(
         IAsyncEnumerable<TRequest> requests,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)

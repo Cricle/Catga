@@ -12,7 +12,7 @@ public interface IDistributedLock
     /// <param name="timeout">How long to wait before lock expires</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Lock handle if acquired, null if failed to acquire</returns>
-    ValueTask<ILockHandle?> TryAcquireAsync(
+    public ValueTask<ILockHandle?> TryAcquireAsync(
         string key,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
@@ -26,21 +26,21 @@ public interface ILockHandle : IDisposable, IAsyncDisposable
     /// <summary>
     /// The key of the lock
     /// </summary>
-    string Key { get; }
+    public string Key { get; }
 
     /// <summary>
     /// When the lock was acquired
     /// </summary>
-    DateTime AcquiredAt { get; }
+    public DateTime AcquiredAt { get; }
 
     /// <summary>
     /// Whether the lock is still held
     /// </summary>
-    bool IsHeld { get; }
+    public bool IsHeld { get; }
 
     /// <summary>
     /// Unique identifier for this lock instance
     /// </summary>
-    string LockId { get; }
+    public string LockId { get; }
 }
 

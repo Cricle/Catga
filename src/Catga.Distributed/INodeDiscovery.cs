@@ -8,27 +8,27 @@ public interface INodeDiscovery
     /// <summary>
     /// 注册当前节点
     /// </summary>
-    Task RegisterAsync(NodeInfo node, CancellationToken cancellationToken = default);
+    public Task RegisterAsync(NodeInfo node, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 注销当前节点
     /// </summary>
-    Task UnregisterAsync(string nodeId, CancellationToken cancellationToken = default);
+    public Task UnregisterAsync(string nodeId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 发送心跳
     /// </summary>
-    Task HeartbeatAsync(string nodeId, double load = 0, CancellationToken cancellationToken = default);
+    public Task HeartbeatAsync(string nodeId, double load = 0, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 获取所有在线节点
     /// </summary>
-    Task<IReadOnlyList<NodeInfo>> GetNodesAsync(CancellationToken cancellationToken = default);
+    public Task<IReadOnlyList<NodeInfo>> GetNodesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 监听节点变化
     /// </summary>
-    IAsyncEnumerable<NodeChangeEvent> WatchAsync(CancellationToken cancellationToken = default);
+    public IAsyncEnumerable<NodeChangeEvent> WatchAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>

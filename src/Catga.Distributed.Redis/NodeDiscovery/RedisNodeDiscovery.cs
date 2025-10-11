@@ -101,7 +101,7 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
     {
         var db = _redis.GetDatabase();
         var server = _redis.GetServer(_redis.GetEndPoints().First());
-        
+
         var nodes = new List<NodeInfo>();
 
         try
@@ -145,7 +145,7 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
         try
         {
             var subscriber = _redis.GetSubscriber();
-            
+
             // 订阅键空间通知
             var channel = $"__keyspace@0__:{_keyPrefix}*";
             await subscriber.SubscribeAsync(channel, async (ch, message) =>
@@ -209,12 +209,12 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
     {
         _watchCts.Cancel();
         _events.Writer.Complete();
-        
+
         try
         {
             // 等待后台任务完成，防止泄漏
             await _backgroundTask.ConfigureAwait(false);
-            
+
             // 等待事件通道完成
             await _events.Reader.Completion.ConfigureAwait(false);
         }

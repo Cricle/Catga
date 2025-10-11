@@ -76,7 +76,7 @@ public class ConcurrencySafetyAnalyzer : DiagnosticAnalyzer
         var fieldDeclaration = (FieldDeclarationSyntax)context.Node;
 
         // Skip if already volatile or const
-        if (fieldDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.VolatileKeyword) || 
+        if (fieldDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.VolatileKeyword) ||
                                                 m.IsKind(SyntaxKind.ConstKeyword) ||
                                                 m.IsKind(SyntaxKind.ReadOnlyKeyword)))
             return;
@@ -144,7 +144,7 @@ public class ConcurrencySafetyAnalyzer : DiagnosticAnalyzer
 
         // Detect double-checked locking pattern
         // Pattern: if (field == null) { lock(obj) { if (field == null) { field = ...; } } }
-        
+
         if (ifStatement.Statement is not BlockSyntax outerBlock)
             return;
 
@@ -163,7 +163,7 @@ public class ConcurrencySafetyAnalyzer : DiagnosticAnalyzer
         var outerCondition = GetNullCheckField(context, ifStatement.Condition);
         var innerCondition = GetNullCheckField(context, innerIf.Condition);
 
-        if (outerCondition != null && innerCondition != null && 
+        if (outerCondition != null && innerCondition != null &&
             outerCondition.Equals(innerCondition, SymbolEqualityComparer.Default))
         {
             // Check if field is volatile
@@ -181,7 +181,7 @@ public class ConcurrencySafetyAnalyzer : DiagnosticAnalyzer
     private static bool IsNonThreadSafeCollection(ITypeSymbol type)
     {
         var typeName = type.ToDisplayString();
-        
+
         return typeName.StartsWith("System.Collections.Generic.Dictionary<") ||
                typeName.StartsWith("System.Collections.Generic.List<") ||
                typeName.StartsWith("System.Collections.Generic.HashSet<") ||
@@ -192,7 +192,7 @@ public class ConcurrencySafetyAnalyzer : DiagnosticAnalyzer
     private static bool IsPotentiallyConcurrentType(INamedTypeSymbol type)
     {
         // Check if type is used in concurrent scenarios (handlers, services, etc.)
-        if (type.Name.EndsWith("Handler") || 
+        if (type.Name.EndsWith("Handler") ||
             type.Name.EndsWith("Service") ||
             type.Name.EndsWith("Repository") ||
             type.Name.EndsWith("Store"))
@@ -202,7 +202,7 @@ public class ConcurrencySafetyAnalyzer : DiagnosticAnalyzer
         foreach (var @interface in type.AllInterfaces)
         {
             var interfaceName = @interface.ToDisplayString();
-            if (interfaceName.Contains("IRequestHandler") || 
+            if (interfaceName.Contains("IRequestHandler") ||
                 interfaceName.Contains("IEventHandler") ||
                 interfaceName.Contains("IService"))
                 return true;

@@ -18,13 +18,13 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
     private readonly INatsConnection _connection;
     private readonly ILogger<NatsNodeDiscovery> _logger;
     private readonly string _subjectPrefix;
-    
+
     // 无锁数据结构：ConcurrentDictionary 保证线程安全
     private readonly ConcurrentDictionary<string, NodeInfo> _nodes = new();
-    
+
     // 无锁事件流：Channel 保证无锁通信
     private readonly Channel<NodeChangeEvent> _events;
-    
+
     private readonly CancellationTokenSource _disposeCts;
     private readonly Task _backgroundTask; // 追踪后台任务防止泄漏
 
@@ -51,9 +51,9 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
         // 发布节点加入事件（NATS 自动广播，无需锁）
         var subject = $"{_subjectPrefix}.join";
         var json = JsonHelper.SerializeNode(node);
-        
+
         await _connection.PublishAsync(subject, json, cancellationToken: cancellationToken);
-        
+
         _logger.LogInformation("Registered node {NodeId} at {Endpoint}", node.NodeId, node.Endpoint);
 
         // 无锁发送事件
@@ -72,9 +72,9 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
         // 发布节点离开事件
         var subject = $"{_subjectPrefix}.leave";
         var json = JsonHelper.SerializeDictionary(new Dictionary<string, string> { ["NodeId"] = nodeId });
-        
+
         await _connection.PublishAsync(subject, json, cancellationToken: cancellationToken);
-        
+
         _logger.LogInformation("Unregistered node {NodeId}", nodeId);
     }
 
@@ -112,7 +112,7 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
         // 发布心跳事件
         var subject = $"{_subjectPrefix}.heartbeat";
         var json = JsonHelper.SerializeHeartbeat(nodeId, load, DateTime.UtcNow);
-        
+
         await _connection.PublishAsync(subject, json, cancellationToken: cancellationToken);
 
         // 无锁发送更新事件
@@ -284,12 +284,12 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
     {
         _disposeCts.Cancel();
         _events.Writer.Complete();
-        
+
         try
         {
             // 等待后台任务完成，防止泄漏
             await _backgroundTask.ConfigureAwait(false);
-            
+
             // 等待事件通道完成
             await _events.Reader.Completion.ConfigureAwait(false);
         }

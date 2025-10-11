@@ -50,7 +50,7 @@ public sealed class DistributedMediator : IDistributedMediator
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public async ValueTask<CatgaResult<TResponse>> SendAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(
         TRequest request,
         CancellationToken cancellationToken = default)
@@ -100,7 +100,7 @@ public sealed class DistributedMediator : IDistributedMediator
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public async ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(
         IReadOnlyList<TRequest> requests,
         CancellationToken cancellationToken = default)
@@ -112,7 +112,7 @@ public sealed class DistributedMediator : IDistributedMediator
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(
         IAsyncEnumerable<TRequest> requests,
         CancellationToken cancellationToken = default)
@@ -135,7 +135,7 @@ public sealed class DistributedMediator : IDistributedMediator
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public async Task<CatgaResult<TResponse>> SendToNodeAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(
         TRequest request,
         string nodeId,

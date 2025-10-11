@@ -195,6 +195,8 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
     /// <summary>
     /// 处理单个消息
     /// </summary>
+    [RequiresDynamicCode("Calls System.Text.Json.JsonSerializer.Deserialize<TValue>(String, JsonSerializerOptions)")]
+    [RequiresUnreferencedCode("Calls System.Text.Json.JsonSerializer.Deserialize<TValue>(String, JsonSerializerOptions)")]
     private async Task ProcessMessageAsync<TMessage>(
         IDatabase db,
         StreamEntry streamEntry,

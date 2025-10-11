@@ -56,7 +56,7 @@ public static class NatsClusterServiceCollectionExtensions
                 var connection = sp.GetRequiredService<INatsConnection>();
                 var logger = sp.GetRequiredService<ILogger<NatsJetStreamKVNodeDiscovery>>();
                 return new NatsJetStreamKVNodeDiscovery(
-                    connection, 
+                    connection,
                     logger,
                     bucketName: $"{subjectPrefix}_kv",
                     nodeTtl: TimeSpan.FromMinutes(5));

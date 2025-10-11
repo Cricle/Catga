@@ -86,7 +86,7 @@ public class GCPressureAnalyzer : DiagnosticAnalyzer
     private void AnalyzeToArrayCall(SyntaxNodeAnalysisContext context)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        
+
         // Check if it's a ToArray() call
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
             return;
@@ -126,7 +126,7 @@ public class GCPressureAnalyzer : DiagnosticAnalyzer
         // Try to get constant size
         var firstSize = sizes[0];
         var constantValue = context.SemanticModel.GetConstantValue(firstSize);
-        
+
         if (!constantValue.HasValue || constantValue.Value is not int size)
             return;
 
@@ -154,7 +154,7 @@ public class GCPressureAnalyzer : DiagnosticAnalyzer
         var leftType = context.SemanticModel.GetTypeInfo(binaryExpression.Left).Type;
         var rightType = context.SemanticModel.GetTypeInfo(binaryExpression.Right).Type;
 
-        if (leftType?.SpecialType != SpecialType.System_String || 
+        if (leftType?.SpecialType != SpecialType.System_String ||
             rightType?.SpecialType != SpecialType.System_String)
             return;
 
@@ -218,7 +218,7 @@ public class GCPressureAnalyzer : DiagnosticAnalyzer
     {
         // Check if array is assigned to a local variable
         var parent = arrayCreation.Parent;
-        
+
         // Variable declaration: var array = new int[100];
         if (parent is EqualsValueClauseSyntax equalsValue)
         {
@@ -238,9 +238,9 @@ public class GCPressureAnalyzer : DiagnosticAnalyzer
         var current = node.Parent;
         while (current != null)
         {
-            if (current is ForStatementSyntax or 
-                ForEachStatementSyntax or 
-                WhileStatementSyntax or 
+            if (current is ForStatementSyntax or
+                ForEachStatementSyntax or
+                WhileStatementSyntax or
                 DoStatementSyntax)
             {
                 return true;

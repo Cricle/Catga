@@ -1,6 +1,6 @@
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Catga.Performance;
 using Catga.Observability;
+using Catga.Performance;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Catga.InMemory.Observability;
 

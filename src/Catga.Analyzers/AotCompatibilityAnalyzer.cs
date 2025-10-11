@@ -28,7 +28,7 @@ public class AotCompatibilityAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor DynamicCodeRule = new(
         id: "CATGA302",
         title: "Dynamic code generation not supported in AOT",
-        messageFormat: "Dynamic code generation using '{0}' is not supported in Native AOT.",
+        messageFormat: "Dynamic code generation using '{0}' is not supported in Native AOT",
         category: "AOT",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
@@ -38,7 +38,7 @@ public class AotCompatibilityAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor JsonWithoutContextRule = new(
         id: "CATGA303",
         title: "JSON serialization should use JsonSerializerContext for AOT",
-        messageFormat: "JsonSerializer.{0} should use source-generated JsonSerializerContext for AOT compatibility.",
+        messageFormat: "JsonSerializer.{0} should use source-generated JsonSerializerContext for AOT compatibility",
         category: "AOT",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -58,7 +58,7 @@ public class AotCompatibilityAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor UnsupportedApiRule = new(
         id: "CATGA305",
         title: "API not supported in Native AOT",
-        messageFormat: "API '{0}' is not supported or unreliable in Native AOT environments.",
+        messageFormat: "API '{0}' is not supported or unreliable in Native AOT environments",
         category: "AOT",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -68,7 +68,7 @@ public class AotCompatibilityAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor MissingAotAttributesRule = new(
         id: "CATGA306",
         title: "Method should have AOT compatibility attributes",
-        messageFormat: "Method '{0}' uses {1} and should be marked with [RequiresUnreferencedCode] or [RequiresDynamicCode].",
+        messageFormat: "Method '{0}' uses {1} and should be marked with [RequiresUnreferencedCode] or [RequiresDynamicCode]",
         category: "AOT",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
@@ -96,7 +96,7 @@ public class AotCompatibilityAnalyzer : DiagnosticAnalyzer
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         var symbolInfo = context.SemanticModel.GetSymbolInfo(invocation);
-        
+
         if (symbolInfo.Symbol is not IMethodSymbol methodSymbol)
             return;
 
@@ -111,7 +111,7 @@ public class AotCompatibilityAnalyzer : DiagnosticAnalyzer
                 invocation.GetLocation(),
                 $"{containingType}.{methodName}");
             context.ReportDiagnostic(diagnostic);
-            
+
             CheckForMissingAotAttributes(context, invocation, "reflection");
         }
 
@@ -152,10 +152,10 @@ public class AotCompatibilityAnalyzer : DiagnosticAnalyzer
     private void AnalyzeTypeOf(SyntaxNodeAnalysisContext context)
     {
         var typeOfExpr = (TypeOfExpressionSyntax)context.Node;
-        
+
         // typeof() itself is OK, but check how it's used
         var parent = typeOfExpr.Parent;
-        
+
         // Check if typeof is used with GetMethod, GetProperty, etc.
         if (parent is MemberAccessExpressionSyntax memberAccess)
         {
@@ -177,8 +177,8 @@ public class AotCompatibilityAnalyzer : DiagnosticAnalyzer
         // System.Type reflection methods
         if (containingType == "System.Type")
         {
-            return methodName is "GetMethod" or "GetProperty" or "GetField" or 
-                   "GetConstructor" or "GetMethods" or "GetProperties" or 
+            return methodName is "GetMethod" or "GetProperty" or "GetField" or
+                   "GetConstructor" or "GetMethods" or "GetProperties" or
                    "GetFields" or "GetConstructors" or "InvokeMember";
         }
 
@@ -259,7 +259,7 @@ public class AotCompatibilityAnalyzer : DiagnosticAnalyzer
         // Check if method has appropriate AOT attributes
         var hasRequiresUnreferencedCode = containingMethod.GetAttributes()
             .Any(a => a.AttributeClass?.Name == "RequiresUnreferencedCodeAttribute");
-        
+
         var hasRequiresDynamicCode = containingMethod.GetAttributes()
             .Any(a => a.AttributeClass?.Name == "RequiresDynamicCodeAttribute");
 

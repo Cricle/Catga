@@ -57,7 +57,7 @@ public static class RedisClusterServiceCollectionExtensions
                 var connection = sp.GetRequiredService<IConnectionMultiplexer>();
                 var logger = sp.GetRequiredService<ILogger<RedisSortedSetNodeDiscovery>>();
                 return new RedisSortedSetNodeDiscovery(
-                    connection, 
+                    connection,
                     logger,
                     sortedSetKey: keyPrefix,
                     nodeTtl: TimeSpan.FromMinutes(5));

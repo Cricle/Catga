@@ -18,7 +18,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     private readonly SnowflakeBitLayout _layout;
 
     // P3: Cache line padding (64 bytes before hot field)
-    #pragma warning disable CS0169 // Field is never used (padding for false sharing prevention)
+#pragma warning disable CS0169 // Field is never used (padding for false sharing prevention)
     private long _padding1;
     private long _padding2;
     private long _padding3;
@@ -26,7 +26,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     private long _padding5;
     private long _padding6;
     private long _padding7;
-    #pragma warning restore CS0169
+#pragma warning restore CS0169
 
     // Packed state: timestamp (high 52 bits) | sequence (low 12 bits)
     // This allows atomic updates using a single Interlocked.CompareExchange
@@ -35,7 +35,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     private long _packedState = 0L;
 
     // P3: Cache line padding (64 bytes after hot field)
-    #pragma warning disable CS0169 // Field is never used (padding for false sharing prevention)
+#pragma warning disable CS0169 // Field is never used (padding for false sharing prevention)
     private long _padding8;
     private long _padding9;
     private long _padding10;
@@ -43,7 +43,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     private long _padding12;
     private long _padding13;
     private long _padding14;
-    #pragma warning restore CS0169
+#pragma warning restore CS0169
 
     // Adaptive Strategy: Track recent batch request sizes
     private long _recentBatchSize = 4096; // Default adaptive batch size

@@ -8,12 +8,12 @@ public interface IHealthCheck
     /// <summary>
     /// Name of this health check
     /// </summary>
-    string Name { get; }
+    public string Name { get; }
 
     /// <summary>
     /// Perform the health check
     /// </summary>
-    ValueTask<HealthCheckResult> CheckAsync(CancellationToken cancellationToken = default);
+    public ValueTask<HealthCheckResult> CheckAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>

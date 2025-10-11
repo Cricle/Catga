@@ -87,7 +87,7 @@ public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TR
                     {
                         return result;
                     }
-                    
+
                     _logger.LogWarning("Failed to deserialize cached result for message {MessageId}", messageId);
                 }
 

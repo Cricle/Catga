@@ -37,7 +37,8 @@ public sealed class HealthCheckService
                 result = HealthCheckResult.Unhealthy(
                     $"Health check threw an exception: {ex.Message}",
                     ex)
-                    with { Duration = sw.Elapsed };
+                    with
+                { Duration = sw.Elapsed };
             }
 
             results[healthCheck.Name] = result;
@@ -76,7 +77,8 @@ public sealed class HealthCheckService
             return HealthCheckResult.Unhealthy(
                 $"Health check threw an exception: {ex.Message}",
                 ex)
-                with { Duration = sw.Elapsed };
+                with
+            { Duration = sw.Elapsed };
         }
     }
 }

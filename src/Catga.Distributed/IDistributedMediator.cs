@@ -12,20 +12,20 @@ public interface IDistributedMediator : ICatgaMediator
     /// <summary>
     /// 获取所有在线节点
     /// </summary>
-    Task<IReadOnlyList<NodeInfo>> GetNodesAsync(CancellationToken cancellationToken = default);
+    public Task<IReadOnlyList<NodeInfo>> GetNodesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 获取当前节点信息
     /// </summary>
-    Task<NodeInfo> GetCurrentNodeAsync(CancellationToken cancellationToken = default);
+    public Task<NodeInfo> GetCurrentNodeAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 发送消息到指定节点
     /// </summary>
     [RequiresDynamicCode("Distributed mediator uses reflection for message routing and serialization")]
     [RequiresUnreferencedCode("Distributed mediator may require types that cannot be statically analyzed")]
-    Task<CatgaResult<TResponse>> SendToNodeAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+    public Task<CatgaResult<TResponse>> SendToNodeAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(
         TRequest request,
         string nodeId,
@@ -37,7 +37,7 @@ public interface IDistributedMediator : ICatgaMediator
     /// </summary>
     [RequiresDynamicCode("Distributed mediator uses reflection for message routing and serialization")]
     [RequiresUnreferencedCode("Distributed mediator may require types that cannot be statically analyzed")]
-    Task BroadcastAsync<
+    public Task BroadcastAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
         TEvent @event,
         CancellationToken cancellationToken = default)

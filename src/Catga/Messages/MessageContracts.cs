@@ -9,17 +9,17 @@ public interface IMessage
     /// <summary>
     /// Unique message identifier (auto-generated)
     /// </summary>
-    string MessageId => Guid.NewGuid().ToString();
+    public string MessageId => Guid.NewGuid().ToString();
 
     /// <summary>
     /// Message creation timestamp (auto-generated)
     /// </summary>
-    DateTime CreatedAt => DateTime.UtcNow;
+    public DateTime CreatedAt => DateTime.UtcNow;
 
     /// <summary>
     /// Correlation ID for tracking related messages
     /// </summary>
-    string? CorrelationId => null;
+    public string? CorrelationId => null;
 
     /// <summary>
     /// 消息服务质量等级（QoS）
@@ -27,14 +27,14 @@ public interface IMessage
     /// - QoS 1 (AtLeastOnce): 默认，保证送达但可能重复
     /// - QoS 2 (ExactlyOnce): 最慢，保证送达且不重复
     /// </summary>
-    QualityOfService QoS => QualityOfService.AtLeastOnce;
+    public QualityOfService QoS => QualityOfService.AtLeastOnce;
 
     /// <summary>
     /// 投递模式（仅对 QoS 1/2 有效）
     /// - WaitForResult (默认): 等待结果，同步确认
     /// - AsyncRetry: 不等结果，异步重试保证送达
     /// </summary>
-    DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
+    public DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
 }
 
 /// <summary>
@@ -65,12 +65,12 @@ public interface IEvent : IMessage
     /// <summary>
     /// Event occurred timestamp (auto-generated)
     /// </summary>
-    DateTime OccurredAt => DateTime.UtcNow;
+    public DateTime OccurredAt => DateTime.UtcNow;
 
     /// <summary>
     /// Events 默认 QoS 0 (Fire-and-Forget)
     /// </summary>
-    new QualityOfService QoS => QualityOfService.AtMostOnce;
+    public new QualityOfService QoS => QualityOfService.AtMostOnce;
 }
 
 /// <summary>
@@ -84,6 +84,6 @@ public interface IReliableEvent : IEvent
     /// <summary>
     /// 可靠事件使用 QoS 1 (At-Least-Once)
     /// </summary>
-    new QualityOfService QoS => QualityOfService.AtLeastOnce;
+    public new QualityOfService QoS => QualityOfService.AtLeastOnce;
 }
 

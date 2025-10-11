@@ -38,7 +38,7 @@ public class DistributedPatternAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor MessageLossRiskRule = new(
         id: "CATGA403",
         title: "Message publishing without persistence may lose messages",
-        messageFormat: "Publishing events without Outbox pattern may lose messages if the process crashes.",
+        messageFormat: "Publishing events without Outbox pattern may lose messages if the process crashes",
         category: "Distributed",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -48,7 +48,7 @@ public class DistributedPatternAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor ConsiderDistributedLockRule = new(
         id: "CATGA404",
         title: "Consider using distributed lock for critical section",
-        messageFormat: "Critical section in handler '{0}' may need distributed lock in multi-instance deployment.",
+        messageFormat: "Critical section in handler '{0}' may need distributed lock in multi-instance deployment",
         category: "Distributed",
         defaultSeverity: DiagnosticSeverity.Info,
         isEnabledByDefault: true,
@@ -58,7 +58,7 @@ public class DistributedPatternAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor MissingRetryRule = new(
         id: "CATGA405",
         title: "External call should have retry policy",
-        messageFormat: "External call to '{0}' should use RetryBehavior or have explicit retry logic.",
+        messageFormat: "External call to '{0}' should use RetryBehavior or have explicit retry logic",
         category: "Distributed",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,

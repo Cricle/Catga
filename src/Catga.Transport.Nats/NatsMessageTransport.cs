@@ -1,5 +1,5 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using Catga.Messages;
 using Catga.Serialization;
 using Catga.Transport;

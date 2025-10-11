@@ -60,15 +60,15 @@ public sealed class WorkStealingThreadPool : IThreadPool
 {
     // Per-worker local queue (better cache locality)
     private readonly WorkerThread[] _workers;
-    
+
     // Global queue for overflow
     private readonly ConcurrentQueue<IWorkItem> _globalQueue;
-    
+
     // Work-stealing algorithm
     private sealed class WorkerThread
     {
         private readonly ConcurrentQueue<IWorkItem> _localQueue;
-        
+
         private void WorkLoop()
         {
             while (!_shutdown)
@@ -79,21 +79,21 @@ public sealed class WorkStealingThreadPool : IThreadPool
                     ExecuteWorkItem(item);
                     continue;
                 }
-                
+
                 // 2. Try global queue
                 if (_globalQueue.TryDequeue(out item))
                 {
                     ExecuteWorkItem(item);
                     continue;
                 }
-                
+
                 // 3. Try stealing from other workers
                 if (TryStealWork(out item))
                 {
                     ExecuteWorkItem(item);
                     continue;
                 }
-                
+
                 Thread.Yield();  // No work, yield CPU
             }
         }

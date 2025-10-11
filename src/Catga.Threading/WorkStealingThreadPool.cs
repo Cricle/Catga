@@ -7,13 +7,14 @@ namespace Catga.Threading;
 /// <summary>
 /// High-performance work-stealing thread pool
 /// Better than System.Threading.ThreadPool for CPU-bound parallel tasks
-/// 
+///
 /// Key improvements over ThreadPool:
 /// 1. Work-Stealing: Each thread has its own queue, can steal from others when idle
 /// 2. Priority Support: Higher priority tasks executed first
 /// 3. Per-Core Queues: Better cache locality
 /// 4. Lock-Free: Minimal contention using ConcurrentQueue
 /// 5. Dedicated Threads: No interference with other ThreadPool users
+/// 6. Metrics & Events: Real-time monitoring and observability
 /// </summary>
 public sealed class WorkStealingThreadPool : IThreadPool
 {
@@ -21,7 +22,11 @@ public sealed class WorkStealingThreadPool : IThreadPool
     private readonly WorkerThread[] _workers;
     private readonly ConcurrentQueue<IWorkItem> _globalQueue = new();
     private readonly CancellationTokenSource _shutdownCts = new();
+    private readonly ThreadPoolMetrics _metrics = new();
+    private readonly Timer? _metricsTimer;
     private long _completedWorkCount;
+    private long _totalExecutionTimeMs;
+    private int _peakPendingCount;
     private int _isDisposed;
 
     public int WorkerCount => _workers.Length;
@@ -40,6 +45,11 @@ public sealed class WorkStealingThreadPool : IThreadPool
     }
 
     public long CompletedWorkCount => Interlocked.Read(ref _completedWorkCount);
+
+    /// <summary>
+    /// Get current thread pool metrics snapshot
+    /// </summary>
+    public ThreadPoolMetrics GetMetrics() => _metrics.Clone();
 
     public WorkStealingThreadPool(ThreadPoolOptions? options = null)
     {
@@ -60,12 +70,23 @@ public sealed class WorkStealingThreadPool : IThreadPool
                 options: _options);
             _workers[i].Start();
         }
+
+        // Start metrics update timer (every 5 seconds)
+        _metricsTimer = new Timer(
+            callback: _ => UpdateMetricsSnapshot(),
+            state: null,
+            dueTime: TimeSpan.FromSeconds(5),
+            period: TimeSpan.FromSeconds(5));
     }
 
     public bool QueueWorkItem(IWorkItem workItem)
     {
         if (_isDisposed != 0)
             return false;
+
+        // Emit telemetry
+        ThreadPoolEventSource.Log.TaskQueued(workItem.Priority);
+        _metrics.TotalTasksQueued++;
 
         // Try to push to local queue first (better cache locality)
         int currentThreadId = Environment.CurrentManagedThreadId;
@@ -99,7 +120,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
     public Task RunAsync(Action action, int priority = 0, CancellationToken cancellationToken = default)
     {
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        
+
         if (_isDisposed != 0 || cancellationToken.IsCancellationRequested)
         {
             tcs.SetCanceled(cancellationToken);
@@ -128,7 +149,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
     public Task<T> RunAsync<T>(Func<T> func, int priority = 0, CancellationToken cancellationToken = default)
     {
         var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-        
+
         if (_isDisposed != 0 || cancellationToken.IsCancellationRequested)
         {
             tcs.SetCanceled(cancellationToken);
@@ -157,7 +178,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
     public Task RunAsync(Func<Task> asyncFunc, int priority = 0, CancellationToken cancellationToken = default)
     {
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        
+
         if (_isDisposed != 0 || cancellationToken.IsCancellationRequested)
         {
             tcs.SetCanceled(cancellationToken);
@@ -186,7 +207,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
     public Task<T> RunAsync<T>(Func<Task<T>> asyncFunc, int priority = 0, CancellationToken cancellationToken = default)
     {
         var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-        
+
         if (_isDisposed != 0 || cancellationToken.IsCancellationRequested)
         {
             tcs.SetCanceled(cancellationToken);
@@ -267,6 +288,51 @@ public sealed class WorkStealingThreadPool : IThreadPool
         return source.Task;
     }
 
+    /// <summary>
+    /// Update metrics snapshot
+    /// </summary>
+    private void UpdateMetricsSnapshot()
+    {
+        var pending = PendingWorkCount;
+        var activeWorkers = _workers.Count(w => w.LocalQueueCount > 0 || _globalQueue.Count > 0);
+        var idleWorkers = _workers.Length - activeWorkers;
+
+        _metrics.PendingTaskCount = pending;
+        _metrics.ActiveWorkerCount = activeWorkers;
+        _metrics.IdleWorkerCount = idleWorkers;
+        _metrics.LastUpdated = DateTimeOffset.UtcNow;
+
+        // Calculate average execution time
+        var completed = _metrics.TotalTasksCompleted;
+        if (completed > 0)
+        {
+            _metrics.AverageExecutionTimeMs = Interlocked.Read(ref _totalExecutionTimeMs) / (double)completed;
+        }
+
+        // Update peak pending count
+        var currentPeak = _peakPendingCount;
+        if (pending > currentPeak)
+        {
+            Interlocked.CompareExchange(ref _peakPendingCount, pending, currentPeak);
+            _metrics.PeakPendingTaskCount = pending;
+        }
+
+        // Emit metrics event
+        ThreadPoolEventSource.Log.MetricsUpdated(
+            _metrics.TotalTasksQueued,
+            _metrics.TotalTasksCompleted,
+            _metrics.TotalTasksFailed,
+            _metrics.PendingTaskCount,
+            _metrics.ActiveWorkerCount,
+            _metrics.Utilization);
+
+        // Check for saturation (>80% utilization)
+        if (_metrics.Utilization > 0.8)
+        {
+            ThreadPoolEventSource.Log.ThreadPoolSaturated(pending, _metrics.Utilization);
+        }
+    }
+
     public void Dispose()
     {
         if (Interlocked.CompareExchange(ref _isDisposed, 1, 0) != 0)
@@ -281,6 +347,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
             worker.Join();
         }
 
+        _metricsTimer?.Dispose();
         _shutdownCts.Dispose();
     }
 
@@ -386,6 +453,17 @@ public sealed class WorkStealingThreadPool : IThreadPool
 
                 if (targetWorker._localQueue.TryDequeue(out workItem))
                 {
+                    // Emit work-stealing telemetry
+                    _parent._metrics.TotalWorkStealCount++;
+                    ThreadPoolEventSource.Log.WorkStolen(_id, 1, targetIndex);
+                    
+                    using var activity = ThreadPoolActivitySource.Source.StartActivity(
+                        ThreadPoolActivitySource.WorkStealActivity,
+                        ActivityKind.Internal);
+                    activity?.SetTag(ThreadPoolActivitySource.SourceWorkerTag, targetIndex);
+                    activity?.SetTag(ThreadPoolActivitySource.TargetWorkerTag, _id);
+                    activity?.SetTag(ThreadPoolActivitySource.StolenCountTag, 1);
+                    
                     return true;
                 }
             }
@@ -395,15 +473,46 @@ public sealed class WorkStealingThreadPool : IThreadPool
 
         private void ExecuteWorkItem(IWorkItem workItem)
         {
+            var sw = Stopwatch.StartNew();
+            
+            // Start activity for distributed tracing
+            using var activity = ThreadPoolActivitySource.Source.StartActivity(
+                ThreadPoolActivitySource.TaskExecutionActivity,
+                ActivityKind.Internal);
+            
+            activity?.SetTag(ThreadPoolActivitySource.WorkerIdTag, _id);
+            activity?.SetTag(ThreadPoolActivitySource.TaskPriorityTag, workItem.Priority);
+
+            // Emit event
+            ThreadPoolEventSource.Log.TaskStarted(_id, workItem.Priority);
+
             try
             {
                 workItem.Execute();
+                sw.Stop();
+
+                // Update metrics
                 Interlocked.Increment(ref _parent._completedWorkCount);
+                _parent._metrics.TotalTasksCompleted++;
+                Interlocked.Add(ref _parent._totalExecutionTimeMs, sw.ElapsedMilliseconds);
+
+                // Emit telemetry
+                activity?.SetTag(ThreadPoolActivitySource.TaskStatusTag, "completed");
+                activity?.SetTag(ThreadPoolActivitySource.ExecutionTimeTag, sw.Elapsed.TotalMilliseconds);
+                ThreadPoolEventSource.Log.TaskCompleted(sw.Elapsed.TotalMilliseconds);
             }
             catch (Exception ex)
             {
-                // Log error (in production, use proper logging)
-                Debug.WriteLine($"WorkItem execution failed: {ex.Message}");
+                sw.Stop();
+
+                // Update failure metrics
+                _parent._metrics.TotalTasksFailed++;
+
+                // Emit telemetry
+                activity?.SetTag(ThreadPoolActivitySource.TaskStatusTag, "failed");
+                activity?.SetTag(ThreadPoolActivitySource.ExceptionTypeTag, ex.GetType().Name);
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                ThreadPoolEventSource.Log.TaskFailed(ex.GetType().Name, ex.Message, sw.Elapsed.TotalMilliseconds);
             }
         }
     }

@@ -1,6 +1,9 @@
 using Catga;
 using Catga.DependencyInjection;
 using Catga.Distributed;
+using Catga.Distributed.Nats.DependencyInjection;
+using Catga.Distributed.Redis.DependencyInjection;
+using Catga.Persistence.Redis.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using OrderSystem;
 
@@ -30,27 +33,23 @@ switch (deploymentMode.ToLower())
     case "standalone":
         // Standalone mode: In-memory mediator only
         Console.WriteLine("📦 Configuring Standalone mode (In-Memory)");
-        builder.Services.AddCatga()
-            .AddInMemoryMediator()
-            .AddHandlers(typeof(Program).Assembly);
+        builder.Services.AddCatga();
+        builder.Services.AddGeneratedHandlers();
         break;
 
     case "distributed-redis":
         // Distributed mode with Redis transport
         Console.WriteLine("🔴 Configuring Distributed mode (Redis)");
         var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
-        builder.Services.AddCatga()
-            .AddInMemoryMediator()
-            .AddHandlers(typeof(Program).Assembly)
-            .AddRedisDistributedLock(redisConnection)
-            .AddRedisDistributedCache(redisConnection)
-            .AddRedisCluster(options =>
-            {
-                options.NodeId = nodeId;
-                options.ConnectionString = redisConnection;
-                options.HeartbeatInterval = TimeSpan.FromSeconds(5);
-                options.NodeTimeout = TimeSpan.FromSeconds(15);
-            });
+        var redisEndpoint = builder.Configuration.GetValue<string>("Redis:Endpoint") ?? "http://localhost:5000";
+        builder.Services.AddCatga();
+        builder.Services.AddGeneratedHandlers();
+        builder.Services.AddRedisDistributedLock(redisConnection);
+        builder.Services.AddRedisDistributedCache();
+        builder.Services.AddRedisCluster(
+            redisConnectionString: redisConnection,
+            nodeId: nodeId,
+            endpoint: redisEndpoint);
         break;
 
     case "distributed-nats":
@@ -58,18 +57,13 @@ switch (deploymentMode.ToLower())
         // Distributed mode with NATS transport and cluster
         Console.WriteLine("🟢 Configuring Distributed/Cluster mode (NATS)");
         var natsUrl = builder.Configuration.GetValue<string>("Nats:Url") ?? "nats://localhost:4222";
-        builder.Services.AddCatga()
-            .AddInMemoryMediator()
-            .AddHandlers(typeof(Program).Assembly)
-            .AddNatsCluster(options =>
-            {
-                options.NodeId = nodeId;
-                options.NatsUrl = natsUrl;
-                options.StreamName = "catga-orders";
-                options.BucketName = "catga-orders-kv";
-                options.HeartbeatInterval = TimeSpan.FromSeconds(5);
-                options.NodeTimeout = TimeSpan.FromSeconds(15);
-            });
+        var natsEndpoint = builder.Configuration.GetValue<string>("Nats:Endpoint") ?? "http://localhost:5000";
+        builder.Services.AddCatga();
+        builder.Services.AddGeneratedHandlers();
+        builder.Services.AddNatsCluster(
+            natsUrl: natsUrl,
+            nodeId: nodeId,
+            endpoint: natsEndpoint);
         break;
 
     default:
@@ -99,7 +93,7 @@ app.MapControllers();
 
 app.MapPost("/api/orders", async (CreateOrderCommand command, ICatgaMediator mediator) =>
 {
-    var result = await mediator.SendAsync(command);
+    var result = await mediator.SendAsync<CreateOrderCommand, CreateOrderResult>(command);
     return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
 })
 .WithName("CreateOrder")
@@ -107,7 +101,7 @@ app.MapPost("/api/orders", async (CreateOrderCommand command, ICatgaMediator med
 
 app.MapPost("/api/orders/{orderId:long}/process", async (long orderId, ICatgaMediator mediator) =>
 {
-    var result = await mediator.SendAsync(new ProcessOrderCommand { OrderId = orderId });
+    var result = await mediator.SendAsync<ProcessOrderCommand, bool>(new ProcessOrderCommand { OrderId = orderId });
     return result.IsSuccess ? Results.Ok() : Results.BadRequest(result.Error);
 })
 .WithName("ProcessOrder")
@@ -115,7 +109,7 @@ app.MapPost("/api/orders/{orderId:long}/process", async (long orderId, ICatgaMed
 
 app.MapPost("/api/orders/{orderId:long}/complete", async (long orderId, ICatgaMediator mediator) =>
 {
-    var result = await mediator.SendAsync(new CompleteOrderCommand { OrderId = orderId });
+    var result = await mediator.SendAsync<CompleteOrderCommand, bool>(new CompleteOrderCommand { OrderId = orderId });
     return result.IsSuccess ? Results.Ok() : Results.BadRequest(result.Error);
 })
 .WithName("CompleteOrder")
@@ -123,7 +117,7 @@ app.MapPost("/api/orders/{orderId:long}/complete", async (long orderId, ICatgaMe
 
 app.MapPost("/api/orders/{orderId:long}/cancel", async (long orderId, string reason, ICatgaMediator mediator) =>
 {
-    var result = await mediator.SendAsync(new CancelOrderCommand { OrderId = orderId, Reason = reason });
+    var result = await mediator.SendAsync<CancelOrderCommand, bool>(new CancelOrderCommand { OrderId = orderId, Reason = reason });
     return result.IsSuccess ? Results.Ok() : Results.BadRequest(result.Error);
 })
 .WithName("CancelOrder")
@@ -131,7 +125,7 @@ app.MapPost("/api/orders/{orderId:long}/cancel", async (long orderId, string rea
 
 app.MapGet("/api/orders/{orderId:long}", async (long orderId, ICatgaMediator mediator) =>
 {
-    var result = await mediator.SendAsync(new GetOrderQuery { OrderId = orderId });
+    var result = await mediator.SendAsync<GetOrderQuery, OrderDto?>(new GetOrderQuery { OrderId = orderId });
     return result.IsSuccess && result.Value != null ? Results.Ok(result.Value) : Results.NotFound();
 })
 .WithName("GetOrder")
@@ -139,7 +133,7 @@ app.MapGet("/api/orders/{orderId:long}", async (long orderId, ICatgaMediator med
 
 app.MapGet("/api/orders/customer/{customerName}", async (string customerName, ICatgaMediator mediator) =>
 {
-    var result = await mediator.SendAsync(new GetOrdersByCustomerQuery { CustomerName = customerName });
+    var result = await mediator.SendAsync<GetOrdersByCustomerQuery, List<OrderDto>>(new GetOrdersByCustomerQuery { CustomerName = customerName });
     return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
 })
 .WithName("GetOrdersByCustomer")
@@ -147,7 +141,7 @@ app.MapGet("/api/orders/customer/{customerName}", async (string customerName, IC
 
 app.MapGet("/api/orders/pending", async (ICatgaMediator mediator) =>
 {
-    var result = await mediator.SendAsync(new GetPendingOrdersQuery());
+    var result = await mediator.SendAsync<GetPendingOrdersQuery, List<OrderDto>>(new GetPendingOrdersQuery());
     return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
 })
 .WithName("GetPendingOrders")

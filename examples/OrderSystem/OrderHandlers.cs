@@ -75,7 +75,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, CreateOrde
             TotalAmount = order.TotalAmount
         }, cancellationToken: cancellationToken);
 
-        return CatgaResult.Success(new CreateOrderResult
+        return CatgaResult<CreateOrderResult>.Success(new CreateOrderResult
         {
             OrderId = order.Id,
             OrderNumber = order.OrderNumber
@@ -125,7 +125,7 @@ public class ProcessOrderHandler : IRequestHandler<ProcessOrderCommand, bool>
             OrderNumber = order.OrderNumber
         }, cancellationToken: cancellationToken);
 
-        return CatgaResult.Success(true);
+        return CatgaResult<bool>.Success(true);
     }
 }
 
@@ -173,7 +173,7 @@ public class CompleteOrderHandler : IRequestHandler<CompleteOrderCommand, bool>
             CompletedAt = order.CompletedAt.Value
         }, cancellationToken: cancellationToken);
 
-        return CatgaResult.Success(true);
+        return CatgaResult<bool>.Success(true);
     }
 }
 
@@ -223,7 +223,7 @@ public class CancelOrderHandler : IRequestHandler<CancelOrderCommand, bool>
             Reason = request.Reason
         }, cancellationToken: cancellationToken);
 
-        return CatgaResult.Success(true);
+        return CatgaResult<bool>.Success(true);
     }
 }
 
@@ -299,7 +299,7 @@ public class GetOrdersByCustomerHandler : IRequestHandler<GetOrdersByCustomerQue
             })
             .ToListAsync(cancellationToken);
 
-        return CatgaResult.Success(orders);
+        return CatgaResult<List<OrderDto>>.Success(orders);
     }
 }
 
@@ -335,7 +335,7 @@ public class GetPendingOrdersHandler : IRequestHandler<GetPendingOrdersQuery, Li
             })
             .ToListAsync(cancellationToken);
 
-        return CatgaResult.Success(orders);
+        return CatgaResult<List<OrderDto>>.Success(orders);
     }
 }
 

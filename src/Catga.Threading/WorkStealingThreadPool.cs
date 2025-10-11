@@ -19,17 +19,19 @@ namespace Catga.Threading;
 public sealed class WorkStealingThreadPool : IThreadPool
 {
     private readonly ThreadPoolOptions _options;
-    private readonly WorkerThread[] _workers;
+    private readonly ConcurrentBag<WorkerThread> _workers = new();
     private readonly ConcurrentQueue<IWorkItem> _globalQueue = new();
     private readonly CancellationTokenSource _shutdownCts = new();
     private readonly ThreadPoolMetrics _metrics = new();
     private readonly Timer? _metricsTimer;
+    private readonly Timer? _scalingTimer;
     private long _completedWorkCount;
     private long _totalExecutionTimeMs;
     private int _peakPendingCount;
+    private int _currentWorkerCount;
     private int _isDisposed;
 
-    public int WorkerCount => _workers.Length;
+    public int WorkerCount => _currentWorkerCount;
 
     public int PendingWorkCount
     {
@@ -55,20 +57,21 @@ public sealed class WorkStealingThreadPool : IThreadPool
     {
         _options = options ?? new ThreadPoolOptions();
 
-        // Create worker threads (one per core for optimal performance)
-        int workerCount = _options.MinThreads;
-        _workers = new WorkerThread[workerCount];
+        // Create initial worker threads
+        int initialWorkerCount = _options.MinThreads;
+        _currentWorkerCount = initialWorkerCount;
 
-        for (int i = 0; i < workerCount; i++)
+        for (int i = 0; i < initialWorkerCount; i++)
         {
-            _workers[i] = new WorkerThread(
+            var worker = new WorkerThread(
                 id: i,
                 globalQueue: _globalQueue,
                 workers: _workers,
                 parent: this,
                 shutdownToken: _shutdownCts.Token,
                 options: _options);
-            _workers[i].Start();
+            _workers.Add(worker);
+            worker.Start();
         }
 
         // Start metrics update timer (every 5 seconds)
@@ -77,6 +80,16 @@ public sealed class WorkStealingThreadPool : IThreadPool
             state: null,
             dueTime: TimeSpan.FromSeconds(5),
             period: TimeSpan.FromSeconds(5));
+
+        // Start dynamic scaling timer if enabled
+        if (_options.EnableDynamicScaling)
+        {
+            _scalingTimer = new Timer(
+                callback: _ => AdjustThreadCount(),
+                state: null,
+                dueTime: _options.ScalingCheckInterval,
+                period: _options.ScalingCheckInterval);
+        }
     }
 
     public bool QueueWorkItem(IWorkItem workItem)
@@ -294,8 +307,9 @@ public sealed class WorkStealingThreadPool : IThreadPool
     private void UpdateMetricsSnapshot()
     {
         var pending = PendingWorkCount;
-        var activeWorkers = _workers.Count(w => w.LocalQueueCount > 0 || _globalQueue.Count > 0);
-        var idleWorkers = _workers.Length - activeWorkers;
+        var workersList = _workers.ToArray();
+        var activeWorkers = workersList.Count(w => w.LocalQueueCount > 0 || _globalQueue.Count > 0);
+        var idleWorkers = workersList.Length - activeWorkers;
 
         _metrics.PendingTaskCount = pending;
         _metrics.ActiveWorkerCount = activeWorkers;
@@ -333,6 +347,64 @@ public sealed class WorkStealingThreadPool : IThreadPool
         }
     }
 
+    /// <summary>
+    /// Dynamically adjust thread count based on workload
+    /// </summary>
+    private void AdjustThreadCount()
+    {
+        if (!_options.EnableDynamicScaling || _isDisposed != 0)
+            return;
+
+        var pending = PendingWorkCount;
+        var currentCount = _currentWorkerCount;
+        var workersList = _workers.ToArray();
+
+        // Scale up: Add threads if workload is high
+        if (currentCount < _options.MaxThreads)
+        {
+            // Calculate pending tasks per thread
+            double tasksPerThread = currentCount > 0 ? (double)pending / currentCount : pending;
+
+            if (tasksPerThread > _options.ScaleUpThreshold)
+            {
+                // Add one thread at a time for gradual scaling
+                int newWorkerId = Interlocked.Increment(ref _currentWorkerCount) - 1;
+                var newWorker = new WorkerThread(
+                    id: newWorkerId,
+                    globalQueue: _globalQueue,
+                    workers: _workers,
+                    parent: this,
+                    shutdownToken: _shutdownCts.Token,
+                    options: _options);
+                
+                _workers.Add(newWorker);
+                newWorker.Start();
+
+                ThreadPoolEventSource.Log.TaskQueued(0); // Log scaling event
+                return;
+            }
+        }
+
+        // Scale down: Remove idle threads if utilization is low
+        if (currentCount > _options.MinThreads)
+        {
+            double idleRatio = workersList.Length > 0 
+                ? workersList.Count(w => w.IsIdle(_options.MinIdleTimeBeforeRemoval)) / (double)workersList.Length 
+                : 0;
+
+            if (idleRatio > _options.ScaleDownThreshold)
+            {
+                // Find and remove one idle thread
+                var idleWorker = workersList.FirstOrDefault(w => w.IsIdle(_options.MinIdleTimeBeforeRemoval));
+                if (idleWorker != null)
+                {
+                    idleWorker.RequestShutdown();
+                    Interlocked.Decrement(ref _currentWorkerCount);
+                }
+            }
+        }
+    }
+
     public void Dispose()
     {
         if (Interlocked.CompareExchange(ref _isDisposed, 1, 0) != 0)
@@ -342,12 +414,13 @@ public sealed class WorkStealingThreadPool : IThreadPool
         _shutdownCts.Cancel();
 
         // Wait for all workers to complete
-        foreach (var worker in _workers)
+        foreach (var worker in _workers.ToArray())
         {
             worker.Join();
         }
 
         _metricsTimer?.Dispose();
+        _scalingTimer?.Dispose();
         _shutdownCts.Dispose();
     }
 
@@ -358,12 +431,14 @@ public sealed class WorkStealingThreadPool : IThreadPool
     {
         private readonly int _id;
         private readonly ConcurrentQueue<IWorkItem> _globalQueue;
-        private readonly WorkerThread[] _workers;
+        private readonly ConcurrentBag<WorkerThread> _workers;
         private readonly ConcurrentQueue<IWorkItem> _localQueue = new();
         private readonly CancellationToken _shutdownToken;
         private readonly ThreadPoolOptions _options;
         private readonly Thread _thread;
         private readonly WorkStealingThreadPool _parent;
+        private readonly CancellationTokenSource _workerShutdownCts = new();
+        private DateTime _lastActivityTime = DateTime.UtcNow;
 
         public int ManagedThreadId => _thread.ManagedThreadId;
         public int LocalQueueCount => _localQueue.Count;
@@ -371,7 +446,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
         public WorkerThread(
             int id,
             ConcurrentQueue<IWorkItem> globalQueue,
-            WorkerThread[] workers,
+            ConcurrentBag<WorkerThread> workers,
             WorkStealingThreadPool parent,
             CancellationToken shutdownToken,
             ThreadPoolOptions options)
@@ -398,19 +473,41 @@ public sealed class WorkStealingThreadPool : IThreadPool
         public void EnqueueLocal(IWorkItem workItem)
         {
             _localQueue.Enqueue(workItem);
+            _lastActivityTime = DateTime.UtcNow;
+        }
+
+        /// <summary>
+        /// Check if worker has been idle for specified duration
+        /// </summary>
+        public bool IsIdle(TimeSpan idleThreshold)
+        {
+            return _localQueue.IsEmpty && 
+                   (DateTime.UtcNow - _lastActivityTime) > idleThreshold;
+        }
+
+        /// <summary>
+        /// Request graceful shutdown of this worker
+        /// </summary>
+        public void RequestShutdown()
+        {
+            _workerShutdownCts.Cancel();
         }
 
         private void WorkLoop()
         {
             try
             {
-                while (!_shutdownToken.IsCancellationRequested)
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                    _shutdownToken, _workerShutdownCts.Token);
+
+                while (!linkedCts.Token.IsCancellationRequested)
                 {
                     IWorkItem? workItem = null;
 
                     // 1. Try local queue first (best for cache locality)
                     if (_localQueue.TryDequeue(out workItem))
                     {
+                        _lastActivityTime = DateTime.UtcNow;
                         ExecuteWorkItem(workItem);
                         continue;
                     }
@@ -418,6 +515,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
                     // 2. Try global queue
                     if (_globalQueue.TryDequeue(out workItem))
                     {
+                        _lastActivityTime = DateTime.UtcNow;
                         ExecuteWorkItem(workItem);
                         continue;
                     }
@@ -425,6 +523,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
                     // 3. Work-stealing: try to steal from other workers
                     if (_options.EnableWorkStealing && TryStealWork(out workItem))
                     {
+                        _lastActivityTime = DateTime.UtcNow;
                         ExecuteWorkItem(workItem);
                         continue;
                     }
@@ -438,29 +537,33 @@ public sealed class WorkStealingThreadPool : IThreadPool
             {
                 // Expected on shutdown
             }
+            finally
+            {
+                _workerShutdownCts.Dispose();
+            }
         }
 
         private bool TryStealWork(out IWorkItem? workItem)
         {
             workItem = null;
 
-            // Try to steal from other workers (round-robin)
-            int startIndex = (_id + 1) % _workers.Length;
-            for (int i = 0; i < _workers.Length - 1; i++)
+            // Try to steal from other workers
+            var workersList = _workers.ToArray();
+            foreach (var targetWorker in workersList)
             {
-                int targetIndex = (startIndex + i) % _workers.Length;
-                var targetWorker = _workers[targetIndex];
+                if (targetWorker == this)
+                    continue;
 
                 if (targetWorker._localQueue.TryDequeue(out workItem))
                 {
                     // Emit work-stealing telemetry
                     _parent._metrics.TotalWorkStealCount++;
-                    ThreadPoolEventSource.Log.WorkStolen(_id, 1, targetIndex);
+                    ThreadPoolEventSource.Log.WorkStolen(_id, 1, targetWorker._id);
                     
                     using var activity = ThreadPoolActivitySource.Source.StartActivity(
                         ThreadPoolActivitySource.WorkStealActivity,
                         ActivityKind.Internal);
-                    activity?.SetTag(ThreadPoolActivitySource.SourceWorkerTag, targetIndex);
+                    activity?.SetTag(ThreadPoolActivitySource.SourceWorkerTag, targetWorker._id);
                     activity?.SetTag(ThreadPoolActivitySource.TargetWorkerTag, _id);
                     activity?.SetTag(ThreadPoolActivitySource.StolenCountTag, 1);
                     
@@ -474,12 +577,12 @@ public sealed class WorkStealingThreadPool : IThreadPool
         private void ExecuteWorkItem(IWorkItem workItem)
         {
             var sw = Stopwatch.StartNew();
-            
+
             // Start activity for distributed tracing
             using var activity = ThreadPoolActivitySource.Source.StartActivity(
                 ThreadPoolActivitySource.TaskExecutionActivity,
                 ActivityKind.Internal);
-            
+
             activity?.SetTag(ThreadPoolActivitySource.WorkerIdTag, _id);
             activity?.SetTag(ThreadPoolActivitySource.TaskPriorityTag, workItem.Priority);
 

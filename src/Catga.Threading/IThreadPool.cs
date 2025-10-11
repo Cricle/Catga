@@ -70,5 +70,33 @@ public sealed class ThreadPoolOptions
     /// Use dedicated threads (no ThreadPool) (default: true)
     /// </summary>
     public bool UseDedicatedThreads { get; set; } = true;
+
+    /// <summary>
+    /// Enable dynamic thread scaling (default: true)
+    /// Automatically adjusts thread count based on workload
+    /// </summary>
+    public bool EnableDynamicScaling { get; set; } = true;
+
+    /// <summary>
+    /// Interval for checking and adjusting thread count (default: 5 seconds)
+    /// </summary>
+    public TimeSpan ScalingCheckInterval { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// Threshold for scaling up: pending tasks per thread (default: 10)
+    /// If pending tasks / active threads > this value, add more threads
+    /// </summary>
+    public int ScaleUpThreshold { get; set; } = 10;
+
+    /// <summary>
+    /// Threshold for scaling down: idle time percentage (default: 0.8)
+    /// If idle threads / total threads > this value, remove idle threads
+    /// </summary>
+    public double ScaleDownThreshold { get; set; } = 0.8;
+
+    /// <summary>
+    /// Minimum time a thread must be idle before removal (default: 30 seconds)
+    /// </summary>
+    public TimeSpan MinIdleTimeBeforeRemoval { get; set; } = TimeSpan.FromSeconds(30);
 }
 

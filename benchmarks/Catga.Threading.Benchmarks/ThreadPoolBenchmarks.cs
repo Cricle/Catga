@@ -22,9 +22,10 @@ public class ThreadPoolBenchmarks
     {
         _catgaPool = new WorkStealingThreadPool(new ThreadPoolOptions
         {
-            MinThreads = Environment.ProcessorCount,
-            MaxThreads = Environment.ProcessorCount * 2,
-            EnableWorkStealing = true
+            MinThreads = Environment.ProcessorCount * 2,  // 增加初始线程数
+            MaxThreads = Environment.ProcessorCount * 4,
+            EnableWorkStealing = true,
+            EnableDynamicScaling = false  // 禁用动态扩缩容以获得稳定性能
         });
     }
 
@@ -45,7 +46,12 @@ public class ThreadPoolBenchmarks
         {
             tasks[i] = Task.Run(() => {
                 // Simulate CPU-bound work
-                Thread.SpinWait(100);
+                int sum = 0;
+                for (int j = 0; j < 1000; j++)
+                {
+                    sum += j * j;
+                }
+                return sum;
             });
         }
         await Task.WhenAll(tasks);
@@ -60,7 +66,12 @@ public class ThreadPoolBenchmarks
         {
             tasks[i] = _catgaPool!.RunAsync(() => {
                 // Simulate CPU-bound work
-                Thread.SpinWait(100);
+                int sum = 0;
+                for (int j = 0; j < 1000; j++)
+                {
+                    sum += j * j;
+                }
+                return sum;
             });
         }
         await Task.WhenAll(tasks);
@@ -75,7 +86,11 @@ public class ThreadPoolBenchmarks
         {
             tasks[i] = _catgaPool!.RunUniTaskAsync(() => {
                 // Simulate CPU-bound work
-                Thread.SpinWait(100);
+                int sum = 0;
+                for (int j = 0; j < 1000; j++)
+                {
+                    sum += j * j;
+                }
             });
         }
         // Use UniTask.WhenAll for zero-allocation parallel execution
@@ -84,7 +99,7 @@ public class ThreadPoolBenchmarks
 
     // ===== Work with result =====
 
-    [Benchmark(Baseline = true)]
+    [Benchmark]
     [Arguments(IterationCount)]
     public async Task<int> DotNetThreadPool_TaskRun_WithResult(int count)
     {
@@ -92,8 +107,12 @@ public class ThreadPoolBenchmarks
         for (int i = 0; i < count; i++)
         {
             tasks[i] = Task.Run(() => {
-                Thread.SpinWait(10);
-                return 1;
+                int sum = 0;
+                for (int j = 0; j < 100; j++)
+                {
+                    sum += j;
+                }
+                return sum;
             });
         }
         var results = await Task.WhenAll(tasks);
@@ -108,8 +127,12 @@ public class ThreadPoolBenchmarks
         for (int i = 0; i < count; i++)
         {
             tasks[i] = _catgaPool!.RunAsync(() => {
-                Thread.SpinWait(10);
-                return 1;
+                int sum = 0;
+                for (int j = 0; j < 100; j++)
+                {
+                    sum += j;
+                }
+                return sum;
             });
         }
         var results = await Task.WhenAll(tasks);
@@ -124,8 +147,12 @@ public class ThreadPoolBenchmarks
         for (int i = 0; i < count; i++)
         {
             tasks[i] = _catgaPool!.RunUniTaskAsync(() => {
-                Thread.SpinWait(10);
-                return 1;
+                int sum = 0;
+                for (int j = 0; j < 100; j++)
+                {
+                    sum += j;
+                }
+                return sum;
             });
         }
         // Use UniTask.WhenAll for zero-allocation parallel execution
@@ -135,7 +162,7 @@ public class ThreadPoolBenchmarks
 
     // ===== Priority work (simple comparison) =====
 
-    [Benchmark(Baseline = true)]
+    [Benchmark]
     [Arguments(100)]
     public async Task DotNetThreadPool_PriorityWork(int count)
     {
@@ -144,8 +171,14 @@ public class ThreadPoolBenchmarks
 
         for (int i = 0; i < count; i++)
         {
-            lowPriorityTasks.Add(Task.Run(() => Thread.SpinWait(100)));
-            highPriorityTasks.Add(Task.Run(() => Thread.SpinWait(10)));
+            lowPriorityTasks.Add(Task.Run(() => {
+                int sum = 0;
+                for (int j = 0; j < 1000; j++) sum += j;
+            }));
+            highPriorityTasks.Add(Task.Run(() => {
+                int sum = 0;
+                for (int j = 0; j < 100; j++) sum += j;
+            }));
         }
         await Task.WhenAll(highPriorityTasks.Concat(lowPriorityTasks));
     }
@@ -159,8 +192,14 @@ public class ThreadPoolBenchmarks
 
         for (int i = 0; i < count; i++)
         {
-            lowPriorityTasks.Add(_catgaPool!.RunAsync(() => Thread.SpinWait(100), priority: 0));
-            highPriorityTasks.Add(_catgaPool!.RunAsync(() => Thread.SpinWait(10), priority: 10));
+            lowPriorityTasks.Add(_catgaPool!.RunAsync(() => {
+                int sum = 0;
+                for (int j = 0; j < 1000; j++) sum += j;
+            }, priority: 0));
+            highPriorityTasks.Add(_catgaPool!.RunAsync(() => {
+                int sum = 0;
+                for (int j = 0; j < 100; j++) sum += j;
+            }, priority: 10));
         }
         await Task.WhenAll(highPriorityTasks.Concat(lowPriorityTasks));
     }

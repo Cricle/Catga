@@ -30,7 +30,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
     private int _peakPendingCount;
     private int _currentWorkerCount;
     private int _isDisposed;
-    
+
     // Scaling state tracking
     private DateTime _lastScaleUpTime = DateTime.MinValue;
     private DateTime _lastScaleDownTime = DateTime.MinValue;
@@ -397,7 +397,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
             else if (tasksPerThread > _options.NormalScaleUpThreshold)
             {
                 _consecutiveHighLoadChecks++;
-                
+
                 // Add threads gradually, more if load is sustained
                 if (_consecutiveHighLoadChecks >= 3)
                 {
@@ -426,7 +426,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
                         parent: this,
                         shutdownToken: _shutdownCts.Token,
                         options: _options);
-                    
+
                     _workers.Add(newWorker);
                     newWorker.Start();
                 }
@@ -459,7 +459,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
                 if (idleRatio > _options.ScaleDownThreshold)
                 {
                     _consecutiveLowLoadChecks++;
-                    
+
                     // Require sustained low load before scaling down
                     if (_consecutiveLowLoadChecks >= 5)
                     {
@@ -487,7 +487,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
                 if (idleRatio > _options.ScaleDownThreshold)
                 {
                     _consecutiveLowLoadChecks++;
-                    
+
                     // Require at least 3 consecutive checks for stable load
                     if (_consecutiveLowLoadChecks >= 3)
                     {
@@ -565,12 +565,12 @@ public sealed class WorkStealingThreadPool : IThreadPool
                 {
                     intervals.Add((peaks[i].Timestamp - peaks[i - 1].Timestamp).TotalSeconds);
                 }
-                
+
                 if (intervals.Count > 0)
                 {
                     var avgInterval = intervals.Average();
                     var intervalVariance = intervals.Average(iv => Math.Pow(iv - avgInterval, 2));
-                    
+
                     // If intervals are consistent, it's periodic
                     if (Math.Sqrt(intervalVariance) < avgInterval * 0.3)
                     {
@@ -585,7 +585,7 @@ public sealed class WorkStealingThreadPool : IThreadPool
         {
             var firstHalf = history.Take(history.Length / 2).Average(s => s.PendingTasks);
             var secondHalf = history.Skip(history.Length / 2).Average(s => s.PendingTasks);
-            
+
             if (firstHalf > secondHalf * 1.5 && firstHalf > 10)
             {
                 return LoadPattern.Declining;

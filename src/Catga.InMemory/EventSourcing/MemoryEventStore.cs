@@ -7,7 +7,7 @@ namespace Catga.EventSourcing;
 
 /// <summary>
 /// In-memory event store implementation (for testing/single-instance scenarios)
-/// 完全无锁实现，使用 ImmutableList 保证线程安全
+/// Lock-free using ImmutableList for thread-safe append operations
 /// </summary>
 public sealed class MemoryEventStore : IEventStore
 {
@@ -33,7 +33,7 @@ public sealed class MemoryEventStore : IEventStore
             streamId,
             _ =>
             {
-                // 新流：创建初始事件列表
+                // New stream: create initial event list
                 var newEvents = events.Select((e, i) => new StoredEvent
                 {
                     Version = i,
@@ -45,13 +45,13 @@ public sealed class MemoryEventStore : IEventStore
             },
             (_, existing) =>
             {
-                // 乐观并发检查
+                // Optimistic concurrency check
                 if (expectedVersion >= 0 && existing.Count != expectedVersion)
                 {
                     throw new ConcurrencyException(streamId, expectedVersion, existing.Count);
                 }
 
-                // 追加事件（不可变操作）
+                // Append events (immutable operation)
                 var baseVersion = existing.Count;
                 var newEvents = events.Select((e, i) => new StoredEvent
                 {
@@ -85,7 +85,6 @@ public sealed class MemoryEventStore : IEventStore
             });
         }
 
-        // ImmutableList 读取是线程安全的，无需锁
         var events = stream
             .Where(e => e.Version >= fromVersion)
             .Take(maxCount)

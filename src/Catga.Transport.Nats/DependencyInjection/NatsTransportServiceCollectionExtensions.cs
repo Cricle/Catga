@@ -6,13 +6,10 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Catga.DependencyInjection;
 
 /// <summary>
-/// NATS 传输层服务注册扩展
+/// NATS transport service registration extensions
 /// </summary>
 public static class NatsTransportServiceCollectionExtensions
 {
-    /// <summary>
-    /// 添加 NATS 消息传输
-    /// </summary>
     public static IServiceCollection AddNatsTransport(
         this IServiceCollection services,
         Action<NatsTransportOptions>? configure = null)

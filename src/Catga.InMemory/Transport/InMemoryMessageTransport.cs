@@ -39,23 +39,21 @@ public class InMemoryMessageTransport : IMessageTransport
             SentAt = DateTime.UtcNow
         };
 
-        // Get QoS level and delivery mode from message
         var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
         var deliveryMode = (message as IMessage)?.DeliveryMode ?? DeliveryMode.WaitForResult;
 
         switch (qos)
         {
             case QualityOfService.AtMostOnce:
-                // QoS 0: Fire-and-forget (不等待完成)
-                // 使用 ValueTask 避免 Task.Run 滥用线程池
+                // QoS 0: Fire-and-forget, no wait
                 _ = FireAndForgetAsync(handlers, message, context, cancellationToken);
                 break;
 
             case QualityOfService.AtLeastOnce:
-                // QoS 1: 至少一次，根据 DeliveryMode 决定是否等待
+                // QoS 1: At-least-once delivery
                 if (deliveryMode == DeliveryMode.WaitForResult)
                 {
-                    // 模式 1: 等待结果（同步确认）
+                    // Wait for result (synchronous)
                     var tasks = new Task[handlers.Count];
                     for (int i = 0; i < handlers.Count; i++)
                     {
@@ -66,17 +64,15 @@ public class InMemoryMessageTransport : IMessageTransport
                 }
                 else
                 {
-                    // 模式 2: 异步重试（不等结果但确保至少一次）
-                    // 使用后台任务 + 重试机制
+                    // Async retry (background delivery)
                     _ = DeliverWithRetryAsync(handlers, message, context, cancellationToken);
                 }
                 break;
 
             case QualityOfService.ExactlyOnce:
-                // QoS 2: Idempotency check + wait for completion (幂等性检查 + 等待完成)
+                // QoS 2: Exactly-once with idempotency check
                 if (context.MessageId != null && _idempotencyStore.IsProcessed(context.MessageId))
                 {
-                    // 已处理过，跳过
                     return;
                 }
 
@@ -88,7 +84,6 @@ public class InMemoryMessageTransport : IMessageTransport
                 }
                 await Task.WhenAll(tasks2);
 
-                // 标记为已处理
                 if (context.MessageId != null)
                 {
                     _idempotencyStore.MarkAsProcessed(context.MessageId);
@@ -98,7 +93,7 @@ public class InMemoryMessageTransport : IMessageTransport
     }
 
     /// <summary>
-    /// Fire-and-forget 异步执行，避免 Task.Run 滥用线程池
+    /// Fire-and-forget async execution (QoS 0)
     /// </summary>
     private static async ValueTask FireAndForgetAsync<TMessage>(
         List<Delegate> handlers,
@@ -118,13 +113,12 @@ public class InMemoryMessageTransport : IMessageTransport
         }
         catch
         {
-            // Fire-and-forget: 忽略异常
+            // Ignore exceptions for fire-and-forget
         }
     }
 
     /// <summary>
-    /// 异步投递并重试，确保至少一次送达（不等结果）
-    /// 使用指数退避重试策略
+    /// Async delivery with retry (QoS 1 with exponential backoff)
     /// </summary>
     private static async ValueTask DeliverWithRetryAsync<TMessage>(
         List<Delegate> handlers,
@@ -146,20 +140,17 @@ public class InMemoryMessageTransport : IMessageTransport
                     tasks[i] = handler(message, context);
                 }
                 await Task.WhenAll(tasks).ConfigureAwait(false);
-
-                // 成功，退出
                 return;
             }
             catch when (attempt < maxRetries)
             {
-                // 失败但还有重试次数，等待后重试
+                // Retry with exponential backoff
                 var delay = TimeSpan.FromMilliseconds(baseDelay.TotalMilliseconds * Math.Pow(2, attempt));
                 await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
             }
             catch
             {
-                // 最后一次重试失败，忽略异常（已尽力保证至少一次）
-                // 生产环境应该记录到死信队列或告警
+                // Final retry failed, should log to dead-letter queue in production
             }
         }
     }

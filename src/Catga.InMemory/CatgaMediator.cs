@@ -12,200 +12,91 @@ using Microsoft.Extensions.Logging;
 
 namespace Catga;
 
-/// <summary>
-/// High-performance Catga Mediator (100% AOT, lock-free, non-blocking)
-/// Optimized with handler caching, object pooling, and fast paths
-/// </summary>
-public class CatgaMediator : ICatgaMediator
-{
+/// <summary>High-performance Catga Mediator (AOT-compatible, lock-free)</summary>
+public class CatgaMediator : ICatgaMediator {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CatgaMediator> _logger;
     private readonly CatgaOptions _options;
-
-    // Performance optimizations
     private readonly HandlerCache _handlerCache;
 
-    public CatgaMediator(
-        IServiceProvider serviceProvider,
-        ILogger<CatgaMediator> logger,
-        CatgaOptions options)
-    {
+    public CatgaMediator(IServiceProvider serviceProvider, ILogger<CatgaMediator> logger, CatgaOptions options) {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _options = options;
-
-        // Performance optimization: Handler cache
         _handlerCache = new HandlerCache(serviceProvider);
     }
 
-    /// <summary>
-    /// Optimized: Use ValueTask to reduce heap allocations
-    /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    public async ValueTask<CatgaResult<TResponse>> SendAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
-        TResponse>(
-        TRequest request,
-        CancellationToken cancellationToken = default)
-        where TRequest : IRequest<TResponse>
-    {
-        // Optimized: Use cached handler lookup
+    public async ValueTask<CatgaResult<TResponse>> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, TResponse>(
+        TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> {
         var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(_serviceProvider);
-
         if (handler == null)
-        {
-            return CatgaResult<TResponse>.Failure(
-                $"No handler for {typeof(TRequest).Name}",
-                new HandlerNotFoundException(typeof(TRequest).Name));
-        }
+            return CatgaResult<TResponse>.Failure($"No handler for {typeof(TRequest).Name}", new HandlerNotFoundException(typeof(TRequest).Name));
 
-        // Get behaviors (check count for fast path optimization)
         var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-
-        // Optimized: Try to avoid ToList() allocation
-        if (behaviors is IList<IPipelineBehavior<TRequest, TResponse>> behaviorsList)
-        {
-            // Fast path: No behaviors, execute handler directly (zero allocation)
+        if (behaviors is IList<IPipelineBehavior<TRequest, TResponse>> behaviorsList) {
             if (FastPath.CanUseFastPath(behaviorsList.Count))
-            {
                 return await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken);
-            }
-
-            // Standard path: Execute with pipeline
             return await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
         }
 
-        // Fallback: Materialize to list only if needed
         var materializedBehaviors = behaviors.ToList();
         if (FastPath.CanUseFastPath(materializedBehaviors.Count))
-        {
             return await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken);
-        }
-
         return await PipelineExecutor.ExecuteAsync(request, handler, materializedBehaviors, cancellationToken);
     }
-    public async Task<CatgaResult> SendAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest>(
-        TRequest request,
-        CancellationToken cancellationToken = default)
-        where TRequest : IRequest
-    {
+
+    public async Task<CatgaResult> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest>(
+        TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest {
         var handler = _serviceProvider.GetService<IRequestHandler<TRequest>>();
-
         if (handler == null)
-        {
-            return CatgaResult.Failure(
-                $"No handler for {typeof(TRequest).Name}",
-                new HandlerNotFoundException(typeof(TRequest).Name));
-        }
-
+            return CatgaResult.Failure($"No handler for {typeof(TRequest).Name}", new HandlerNotFoundException(typeof(TRequest).Name));
         return await handler.HandleAsync(request, cancellationToken);
     }
-    public async Task PublishAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
-        TEvent @event,
-        CancellationToken cancellationToken = default)
-        where TEvent : IEvent
-    {
-        // Optimized: Use cached handler lookup
-        var handlerList = _handlerCache.GetEventHandlers<IEventHandler<TEvent>>(_serviceProvider);
 
-        // Fast path: No handlers (zero allocation)
-        if (handlerList.Count == 0)
-        {
+    public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
+        TEvent @event, CancellationToken cancellationToken = default) where TEvent : IEvent {
+        var handlerList = _handlerCache.GetEventHandlers<IEventHandler<TEvent>>(_serviceProvider);
+        if (handlerList.Count == 0) {
             await FastPath.PublishEventNoOpAsync();
             return;
         }
-
-        // Fast path: Single handler (reduced allocation)
-        if (handlerList.Count == 1)
-        {
+        if (handlerList.Count == 1) {
             await HandleEventSafelyAsync(handlerList[0], @event, cancellationToken);
             return;
         }
-
-        // Standard path: Multiple handlers, execute concurrently
-        // Use ArrayPoolHelper for automatic resource management
         using var rentedTasks = Common.ArrayPoolHelper.RentOrAllocate<Task>(handlerList.Count);
         var tasks = rentedTasks.Array;
-
-        // Start all event handlers
         for (int i = 0; i < handlerList.Count; i++)
-        {
-            var handler = handlerList[i];
-            tasks[i] = HandleEventSafelyAsync(handler, @event, cancellationToken);
-        }
-
-        // Wait for all handlers (use exact count from rentedTasks)
+            tasks[i] = HandleEventSafelyAsync(handlerList[i], @event, cancellationToken);
         await Task.WhenAll(rentedTasks.AsSpan().ToArray()).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Execute event handler with exception isolation
-    /// </summary>
-    private async Task HandleEventSafelyAsync<TEvent>(
-        IEventHandler<TEvent> handler,
-        TEvent @event,
-        CancellationToken cancellationToken)
-        where TEvent : IEvent
-    {
-        try
-        {
+    private async Task HandleEventSafelyAsync<TEvent>(IEventHandler<TEvent> handler, TEvent @event, CancellationToken cancellationToken) where TEvent : IEvent {
+        try {
             await handler.HandleAsync(@event, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
+        } catch (Exception ex) {
             _logger.LogError(ex, "Event handler failed: {HandlerType}", handler.GetType().Name);
         }
     }
 
-    /// <summary>
-    /// Batch send requests - High performance batch processing (zero extra allocations)
-    /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    public async ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
-        TResponse>(
-        IReadOnlyList<TRequest> requests,
-        CancellationToken cancellationToken = default)
-        where TRequest : IRequest<TResponse>
-    {
-        // Use BatchOperationExtensions for standardized batch processing
-        return await requests.ExecuteBatchWithResultsAsync(
-            request => SendAsync<TRequest, TResponse>(request, cancellationToken));
+    public async ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, TResponse>(
+        IReadOnlyList<TRequest> requests, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> {
+        return await requests.ExecuteBatchWithResultsAsync(request => SendAsync<TRequest, TResponse>(request, cancellationToken));
     }
 
-    /// <summary>
-    /// Stream send requests - Real-time processing of large data (backpressure support)
-    /// </summary>
-    public async IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
-        TResponse>(
-        IAsyncEnumerable<TRequest> requests,
-        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
-        where TRequest : IRequest<TResponse>
-    {
-        if (requests == null)
-            yield break;
-
-        await foreach (var request in requests.WithCancellation(cancellationToken).ConfigureAwait(false))
-        {
+    public async IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, TResponse>(
+        IAsyncEnumerable<TRequest> requests, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> {
+        if (requests == null) yield break;
+        await foreach (var request in requests.WithCancellation(cancellationToken).ConfigureAwait(false)) {
             var result = await SendAsync<TRequest, TResponse>(request, cancellationToken).ConfigureAwait(false);
             yield return result;
         }
     }
 
-    /// <summary>
-    /// Batch publish events - High performance batch processing
-    /// </summary>
-    public async Task PublishBatchAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
-        IReadOnlyList<TEvent> events,
-        CancellationToken cancellationToken = default)
-        where TEvent : IEvent
-    {
-        // Use BatchOperationExtensions for standardized batch processing
+    public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
+        IReadOnlyList<TEvent> events, CancellationToken cancellationToken = default) where TEvent : IEvent {
         await events.ExecuteBatchAsync(@event => PublishAsync(@event, cancellationToken));
     }
-
 }

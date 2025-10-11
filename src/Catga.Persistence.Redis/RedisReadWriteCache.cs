@@ -1,7 +1,4 @@
-using System;
 using System.Collections.Concurrent;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
@@ -14,7 +11,6 @@ namespace Catga.Persistence.Redis;
 /// </summary>
 public class RedisReadWriteCache
 {
-    private readonly IConnectionMultiplexer _redis;
     private readonly ILogger<RedisReadWriteCache> _logger;
 
     // Local L1 cache (memory)
@@ -30,7 +26,6 @@ public class RedisReadWriteCache
         ILogger<RedisReadWriteCache> logger,
         TimeSpan? localCacheTtl = null)
     {
-        _redis = redis;
         _logger = logger;
         _localCacheTtl = localCacheTtl ?? TimeSpan.FromMinutes(5);
 

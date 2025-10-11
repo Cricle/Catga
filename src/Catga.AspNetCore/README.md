@@ -64,20 +64,42 @@ app.MapPost("/api/orders", async (
 
 ### 4. Smart Result Mapping
 
-`ToHttpResult()` extension automatically maps `CatgaResult` errors to appropriate HTTP status codes:
+`ToHttpResult()` extension uses metadata to map `CatgaResult` to appropriate HTTP status codes:
 
 ```csharp
-// Handler returns: CatgaResult.Failure("Order not found")
-// ToHttpResult() returns: 404 Not Found
+// In your handler, use factory methods to specify HTTP status:
+public async Task<CatgaResult<OrderDto>> HandleAsync(GetOrderQuery request)
+{
+    var order = await _db.Orders.FindAsync(request.OrderId);
+    
+    if (order == null)
+        return CatgaResultHttpExtensions.NotFound<OrderDto>("Order not found");
+    
+    if (order.Status == OrderStatus.Cancelled)
+        return CatgaResultHttpExtensions.Conflict<OrderDto>("Order is already cancelled");
+    
+    return CatgaResult<OrderDto>.Success(orderDto);
+}
 
-// Handler returns: CatgaResult.Failure("Order is already completed")
-// ToHttpResult() returns: 409 Conflict
+// Or use Metadata directly (requires using Catga.Results):
+var metadata = new ResultMetadata();
+metadata.Add("ErrorType", "Validation");  // Maps to 422 Unprocessable Entity
+return new CatgaResult<bool>
+{
+    IsSuccess = false,
+    Error = "Invalid operation",
+    Metadata = metadata
+};
 
-// Handler returns: CatgaResult.Failure("Order must be in Processing status")
-// ToHttpResult() returns: 422 Unprocessable Entity
+// Supported ErrorType values:
+// - "NotFound" → 404 Not Found
+// - "Conflict" → 409 Conflict  
+// - "Validation" → 422 Unprocessable Entity
+// - "Unauthorized" → 401 Unauthorized
+// - "Forbidden" → 403 Forbidden
 
-// Handler returns: CatgaResult.Success(order)
-// ToHttpResult() returns: 200 OK with order data
+// Or specify HTTP status code directly:
+return CatgaResult<T>.Failure("Error").WithStatusCode(503);
 ```
 
 ### 5. Built-in Diagnostics

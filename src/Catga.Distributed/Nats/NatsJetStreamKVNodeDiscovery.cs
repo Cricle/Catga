@@ -60,14 +60,14 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
             // TODO: 实现 JetStream KV Store 持久化
             // 当前 NATS.Client.JetStream API 需要根据实际版本适配
             // 暂时使用内存 + Pub/Sub + TTL 过期清理机制
-            
+
             _logger.LogWarning("JetStream KV Store '{Bucket}' using in-memory mode with TTL {Ttl}. " +
-                             "For production, please implement native KV Store persistence based on your NATS.Client version", 
+                             "For production, please implement native KV Store persistence based on your NATS.Client version",
                 _bucketName, _nodeTtl);
 
             // 启动 TTL 清理任务
             _ = StartTtlCleanupAsync(cancellationToken);
-            
+
             await Task.CompletedTask;
         }
         catch (Exception ex)
@@ -76,7 +76,7 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
             throw;
         }
     }
-    
+
     /// <summary>
     /// TTL 清理任务（当前内存模式下使用）
     /// </summary>
@@ -125,7 +125,7 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
 
         // TODO: 持久化到 KV Store (需要适配 NATS API)
         // 当前使用内存模式，节点重启后需要重新注册
-        
+
         _logger.LogDebug("Node {NodeId} registered (in-memory mode, TTL: {Ttl})", node.NodeId, _nodeTtl);
 
         // 发布节点变更事件
@@ -152,7 +152,7 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
         _nodes.AddOrUpdate(nodeId, node, (_, _) => node);
 
         // TODO: 更新 KV Store（需要适配 NATS API）
-        
+
         _logger.LogTrace("Node {NodeId} heartbeat sent with load {Load}, TTL refreshed in memory", nodeId, load);
         return Task.CompletedTask;
     }
@@ -163,7 +163,7 @@ public sealed class NatsJetStreamKVNodeDiscovery : INodeDiscovery, IAsyncDisposa
         if (_nodes.TryRemove(nodeId, out var node))
         {
             // TODO: 删除 KV Store 中的节点 (需要适配 NATS API)
-            
+
             _logger.LogDebug("Node {NodeId} unregistered from memory", nodeId);
 
             // 发布节点离开事件

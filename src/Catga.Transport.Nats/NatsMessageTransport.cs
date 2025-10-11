@@ -24,9 +24,9 @@ public class NatsMessageTransport : IMessageTransport
     private INatsJSContext? _jsContext;
 
     public string Name => "NATS";
-    
+
     public BatchTransportOptions? BatchOptions => null;  // NATS handles batching internally
-    
+
     public CompressionTransportOptions? CompressionOptions => null;  // Compression handled at NATS level
 
     public NatsMessageTransport(
@@ -39,7 +39,7 @@ public class NatsMessageTransport : IMessageTransport
         _serializer = serializer;
         _logger = logger;
         _subjectPrefix = options?.SubjectPrefix ?? "catga";
-        
+
         // 初始化 JetStream Context（用于 QoS 1/2）
         _jsContext = new NatsJSContext(_connection);
     }
@@ -112,14 +112,14 @@ public class NatsMessageTransport : IMessageTransport
                     },
                     headers: headers,
                     cancellationToken: cancellationToken);
-                
+
                 if (ack.Duplicate)
                 {
                     _logger.LogDebug("Message {MessageId} is duplicate, JetStream auto-deduplicated", context.MessageId);
                 }
                 else
                 {
-                    _logger.LogDebug("Message {MessageId} published to JetStream (QoS 1 - at-least-once with native ACK), Seq: {Seq}", 
+                    _logger.LogDebug("Message {MessageId} published to JetStream (QoS 1 - at-least-once with native ACK), Seq: {Seq}",
                         context.MessageId, ack.Seq);
                 }
                 break;
@@ -131,7 +131,7 @@ public class NatsMessageTransport : IMessageTransport
                     _logger.LogDebug("Message {MessageId} already processed locally (QoS 2), skipping", context.MessageId);
                     return;
                 }
-                
+
                 var ack2 = await _jsContext!.PublishAsync(
                     subject: subject,
                     data: payload,
@@ -141,11 +141,11 @@ public class NatsMessageTransport : IMessageTransport
                     },
                     headers: headers,
                     cancellationToken: cancellationToken);
-                
+
                 // 应用层去重（双重保障）
                 _processedMessages.TryAdd(context.MessageId, true);
-                
-                _logger.LogDebug("Message {MessageId} published to JetStream (QoS 2 - exactly-once), Duplicate: {Dup}, Seq: {Seq}", 
+
+                _logger.LogDebug("Message {MessageId} published to JetStream (QoS 2 - exactly-once), Duplicate: {Dup}, Seq: {Seq}",
                     context.MessageId, ack2.Duplicate, ack2.Seq);
                 break;
         }
@@ -207,7 +207,7 @@ public class NatsMessageTransport : IMessageTransport
 
                 // 调用处理器
                 await handler(message, context);
-                
+
                 // 注意：JetStream 消息的 ACK 由 Consumer 自动处理
                 // NATS Core 消息不需要 ACK
             }

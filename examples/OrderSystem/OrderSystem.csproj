@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="NATS.Client.Core" />
+    <PackageReference Include="NATS.Client.JetStream" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Catga\Catga.csproj" />
+    <ProjectReference Include="..\..\src\Catga.InMemory\Catga.InMemory.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Persistence.Redis\Catga.Persistence.Redis.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Transport.Nats\Catga.Transport.Nats.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Distributed\Catga.Distributed.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Distributed.Nats\Catga.Distributed.Nats.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Distributed.Redis\Catga.Distributed.Redis.csproj" />
+    <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>
+

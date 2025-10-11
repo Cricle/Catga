@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Common;
 using Catga.Configuration;
 using Catga.Exceptions;
@@ -41,7 +42,11 @@ public class CatgaMediator : ICatgaMediator
     /// Optimized: Use ValueTask to reduce heap allocations
     /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
+    [RequiresDynamicCode("Mediator uses reflection for handler resolution and message routing")]
+    [RequiresUnreferencedCode("Mediator may require types that cannot be statically analyzed")]
+    public async ValueTask<CatgaResult<TResponse>> SendAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        TResponse>(
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>
@@ -82,7 +87,10 @@ public class CatgaMediator : ICatgaMediator
         return await PipelineExecutor.ExecuteAsync(request, handler, materializedBehaviors, cancellationToken);
     }
 
-    public async Task<CatgaResult> SendAsync<TRequest>(
+    [RequiresDynamicCode("Mediator uses reflection for handler resolution and message routing")]
+    [RequiresUnreferencedCode("Mediator may require types that cannot be statically analyzed")]
+    public async Task<CatgaResult> SendAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest>(
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest
@@ -99,7 +107,10 @@ public class CatgaMediator : ICatgaMediator
         return await handler.HandleAsync(request, cancellationToken);
     }
 
-    public async Task PublishAsync<TEvent>(
+    [RequiresDynamicCode("Mediator uses reflection for handler resolution and message routing")]
+    [RequiresUnreferencedCode("Mediator may require types that cannot be statically analyzed")]
+    public async Task PublishAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
         TEvent @event,
         CancellationToken cancellationToken = default)
         where TEvent : IEvent
@@ -160,7 +171,11 @@ public class CatgaMediator : ICatgaMediator
     /// Batch send requests - High performance batch processing (zero extra allocations)
     /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    public async ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<TRequest, TResponse>(
+    [RequiresDynamicCode("Mediator uses reflection for handler resolution and message routing")]
+    [RequiresUnreferencedCode("Mediator may require types that cannot be statically analyzed")]
+    public async ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        TResponse>(
         IReadOnlyList<TRequest> requests,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>
@@ -173,7 +188,11 @@ public class CatgaMediator : ICatgaMediator
     /// <summary>
     /// Stream send requests - Real-time processing of large data (backpressure support)
     /// </summary>
-    public async IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<TRequest, TResponse>(
+    [RequiresDynamicCode("Mediator uses reflection for handler resolution and message routing")]
+    [RequiresUnreferencedCode("Mediator may require types that cannot be statically analyzed")]
+    public async IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        TResponse>(
         IAsyncEnumerable<TRequest> requests,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>
@@ -191,7 +210,10 @@ public class CatgaMediator : ICatgaMediator
     /// <summary>
     /// Batch publish events - High performance batch processing
     /// </summary>
-    public async Task PublishBatchAsync<TEvent>(
+    [RequiresDynamicCode("Mediator uses reflection for handler resolution and message routing")]
+    [RequiresUnreferencedCode("Mediator may require types that cannot be statically analyzed")]
+    public async Task PublishBatchAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
         IReadOnlyList<TEvent> events,
         CancellationToken cancellationToken = default)
         where TEvent : IEvent

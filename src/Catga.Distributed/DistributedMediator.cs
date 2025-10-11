@@ -49,7 +49,9 @@ public sealed class DistributedMediator : IDistributedMediator
 
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
-    public async ValueTask<CatgaResult<TResponse>> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TRequest, TResponse>(
+    public async ValueTask<CatgaResult<TResponse>> SendAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        TResponse>(
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>
@@ -86,7 +88,8 @@ public sealed class DistributedMediator : IDistributedMediator
 
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
-    public async Task<CatgaResult> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TRequest>(
+    public async Task<CatgaResult> SendAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest>(
         TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest
@@ -96,7 +99,9 @@ public sealed class DistributedMediator : IDistributedMediator
 
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
-    public async ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TRequest, TResponse>(
+    public async ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        TResponse>(
         IReadOnlyList<TRequest> requests,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>
@@ -106,7 +111,9 @@ public sealed class DistributedMediator : IDistributedMediator
 
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
-    public IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TRequest, TResponse>(
+    public IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        TResponse>(
         IAsyncEnumerable<TRequest> requests,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>
@@ -116,7 +123,8 @@ public sealed class DistributedMediator : IDistributedMediator
 
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
-    public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TEvent>(
+    public async Task PublishBatchAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
         IReadOnlyList<TEvent> events,
         CancellationToken cancellationToken = default)
         where TEvent : IEvent
@@ -126,7 +134,9 @@ public sealed class DistributedMediator : IDistributedMediator
 
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
-    public async Task<CatgaResult<TResponse>> SendToNodeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TRequest, TResponse>(
+    public async Task<CatgaResult<TResponse>> SendToNodeAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, 
+        TResponse>(
         TRequest request,
         string nodeId,
         CancellationToken cancellationToken = default)
@@ -162,7 +172,8 @@ public sealed class DistributedMediator : IDistributedMediator
 
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
-    public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TEvent>(
+    public async Task PublishAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
         TEvent @event,
         CancellationToken cancellationToken = default)
         where TEvent : IEvent
@@ -176,7 +187,8 @@ public sealed class DistributedMediator : IDistributedMediator
 
     [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
     [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
-    public async Task BroadcastAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TEvent>(
+    public async Task BroadcastAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
         TEvent @event,
         CancellationToken cancellationToken = default)
         where TEvent : IEvent

@@ -1,8 +1,8 @@
 # Catga AOT 修复执行报告
 
-**执行日期**: 2025-10-11  
-**执行人**: Cursor AI Assistant  
-**任务**: 修复 Catga 框架 Native AOT 兼容性  
+**执行日期**: 2025-10-11
+**执行人**: Cursor AI Assistant
+**任务**: 修复 Catga 框架 Native AOT 兼容性
 **状态**: ✅ **完成**
 
 ---
@@ -229,8 +229,8 @@ public interface ICatgaMediator
     [RequiresDynamicCode("...")]
     [RequiresUnreferencedCode("...")]
     ValueTask<CatgaResult<TResponse>> SendAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] 
-        TRequest, 
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+        TRequest,
         TResponse>(...);
 }
 
@@ -240,8 +240,8 @@ public class CatgaMediator : ICatgaMediator
     [RequiresDynamicCode("...")]
     [RequiresUnreferencedCode("...")]
     public async ValueTask<CatgaResult<TResponse>> SendAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] 
-        TRequest, 
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+        TRequest,
         TResponse>(...) { }
 }
 ```
@@ -327,13 +327,13 @@ Catga 现在是 **.NET 9 Native AOT** 生态中的优秀 CQRS 框架选择！
 
 ---
 
-**执行完成时间**: 2025-10-11  
-**任务状态**: ✅ **100% 完成**  
+**执行完成时间**: 2025-10-11
+**任务状态**: ✅ **100% 完成**
 **下一步**: 可选的性能基准测试
 
 ---
 
-**Created by**: Cursor AI Assistant  
-**Verified by**: Automated Tests + Manual AOT Execution  
+**Created by**: Cursor AI Assistant
+**Verified by**: Automated Tests + Manual AOT Execution
 **Status**: ✅ **COMPLETE & PRODUCTION READY**
 

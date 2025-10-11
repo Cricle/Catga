@@ -146,7 +146,7 @@ public class InMemoryMessageTransport : IMessageTransport
                     tasks[i] = handler(message, context);
                 }
                 await Task.WhenAll(tasks).ConfigureAwait(false);
-                
+
                 // 成功，退出
                 return;
             }

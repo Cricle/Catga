@@ -24,77 +24,36 @@
 
 ## 📦 Architecture
 
-### 1. CatgaTask - Zero-Allocation Task (like UniTask)
+### 1. UniTask Integration - Zero-Allocation Task (from Cysharp.Threading.Tasks)
+
+**Direct use of UniTask NuGet package** - No need to reimplement!
 
 ```csharp
+// UniTask from NuGet: https://www.nuget.org/packages/UniTask/
+using Cysharp.Threading.Tasks;
+
 // Struct-based, no heap allocation
-public readonly struct CatgaTask
-{
-    private readonly ICatgaTaskSource? _source;
-    private readonly short _token;  // Version for pooling safety
-    
-    public CatgaTaskAwaiter GetAwaiter() => new(this);
-}
+public readonly struct UniTask { }
+public readonly struct UniTask<T> { }
 
-public readonly struct CatgaTask<T>
-{
-    private readonly ICatgaTaskSource<T>? _source;
-    private readonly short _token;
-    private readonly T? _result;  // Inline result for hot path
-    
-    public CatgaTaskAwaiter<T> GetAwaiter() => new(this);
-}
+// AutoResetUniTaskCompletionSource - Pooled by default
+var source = AutoResetUniTaskCompletionSource.Create();
+source.TrySetResult();
+await source.Task; // Zero allocation!
 ```
 
-**Key Features:**
-- Struct-based (no GC allocation)
-- Token versioning for safe pooling
-- Inline result for completed tasks
-- Custom awaiter pattern
+**Why UniTask?**
+- ✅ Struct-based (no GC allocation)
+- ✅ Object pooling built-in
+- ✅ Token versioning for safe pooling
+- ✅ Custom awaiter pattern
+- ✅ Battle-tested in Unity (10k+ stars)
+- ✅ Full async/await support
+- ✅ `UniTask.WhenAll`, `WhenAny`, etc.
 
 ---
 
-### 2. CatgaTaskCompletionSource - Pooled Promise
-
-```csharp
-public sealed class CatgaTaskCompletionSource : ICatgaTaskSource
-{
-    private static readonly TaskPool<CatgaTaskCompletionSource> Pool = new();
-    
-    private Action? _continuation;
-    private CatgaTaskStatus _status;
-    private Exception? _exception;
-    private short _version;  // Incremented on return to pool
-    
-    public static CatgaTaskCompletionSource Create()
-    {
-        return Pool.TryPop(out var source) 
-            ? source 
-            : new CatgaTaskCompletionSource();
-    }
-    
-    public CatgaTask Task => new(this, _version);
-    
-    public void SetResult() { /* ... */ }
-    public void SetException(Exception ex) { /* ... */ }
-    public void SetCanceled() { /* ... */ }
-    
-    private void TryReturn()
-    {
-        unchecked { _version++; }  // Invalidate old tasks
-        Pool.TryPush(this);
-    }
-}
-```
-
-**Key Features:**
-- Object pooling (like UniTask)
-- Token versioning to prevent use-after-return
-- Aggressive caching (configurable max size)
-
----
-
-### 3. WorkStealingThreadPool - High-Performance Execution
+### 2. WorkStealingThreadPool - High-Performance Execution
 
 ```csharp
 public sealed class WorkStealingThreadPool : IThreadPool
@@ -160,12 +119,12 @@ Task RunAsync(Action action, int priority = 0, CancellationToken ct = default)
 Task<T> RunAsync<T>(Func<T> func, int priority = 0, CancellationToken ct = default)
 ```
 
-### CatgaTask API (Zero-Allocation)
+### UniTask API (Zero-Allocation, from Cysharp.Threading.Tasks)
 
 ```csharp
-// For high-performance hot paths, return CatgaTask
-CatgaTask RunCatgaAsync(Action action, int priority = 0)
-CatgaTask<T> RunCatgaAsync<T>(Func<T> func, int priority = 0)
+// For high-performance hot paths, return UniTask
+UniTask RunUniTaskAsync(Action action, int priority = 0)
+UniTask<T> RunUniTaskAsync<T>(Func<T> func, int priority = 0)
 ```
 
 ### Comparison
@@ -177,10 +136,10 @@ for (int i = 0; i < 1000000; i++)
     await pool.RunAsync(() => Work());  // GC pressure!
 }
 
-// ✅ CatgaTask - zero allocation
+// ✅ UniTask - zero allocation (from UniTask NuGet)
 for (int i = 0; i < 1000000; i++)
 {
-    await pool.RunCatgaAsync(() => Work());  // No GC!
+    await pool.RunUniTaskAsync(() => Work());  // No GC!
 }
 ```
 
@@ -257,17 +216,17 @@ var pool = new WorkStealingThreadPool(new ThreadPoolOptions
 ### 1. Zero-Allocation Pattern
 
 ```csharp
-// UniTask pattern
+// UniTask pattern (directly from NuGet)
 public async UniTask<int> DoAsync()
 {
-    await UniTask.Yield();
+    await pool.RunUniTaskAsync(() => Work());
     return 42;
 }
 
-// CatgaTask pattern (same zero-allocation)
-public async CatgaTask<int> DoAsync()
+// Standard Task (for comparison)
+public async Task<int> DoAsync()
 {
-    await pool.RunCatgaAsync(() => Work());
+    await pool.RunAsync(() => Work());  // Allocates Task object
     return 42;
 }
 ```
@@ -275,44 +234,46 @@ public async CatgaTask<int> DoAsync()
 ### 2. Struct-Based Design
 
 ```csharp
-// UniTask: struct UniTask<T>
-// CatgaTask: struct CatgaTask<T>
-
-// Both are stack-allocated, no GC pressure
+// UniTask: struct UniTask<T> (from Cysharp.Threading.Tasks)
+// - Stack-allocated, no GC pressure
+// - Built-in object pooling
+// - Token versioning for safety
 ```
 
 ### 3. Object Pooling
 
 ```csharp
-// UniTask: TaskPool.SetMaxPoolSize
-// CatgaTask: Same pooling mechanism
-
-TaskPool.SetMaxPoolSize(1000);  // Max cached objects per type
+// UniTask has built-in pooling
+// AutoResetUniTaskCompletionSource.Create() - automatically pooled
+var source = AutoResetUniTaskCompletionSource.Create();
+source.TrySetResult();
+await source.Task;  // Zero allocation, auto-returned to pool
 ```
 
 ### 4. Custom Awaiter
 
 ```csharp
 // UniTask: UniTaskAwaiter<T>
-// CatgaTask: CatgaTaskAwaiter<T>
-
-// Both implement ICriticalNotifyCompletion for full async/await
+// - Implements ICriticalNotifyCompletion
+// - Full async/await support
+// - Zero-allocation continuation
 ```
 
 ---
 
 ## 📝 Implementation Checklist
 
-- [x] CatgaTask struct (zero-allocation)
-- [x] CatgaTaskCompletionSource (pooled)
-- [x] WorkStealingThreadPool (per-core)
-- [x] IOThreadPool (async operations)
-- [x] Priority queue support
-- [x] DI integration (singleton)
-- [x] Task API compatibility
-- [ ] **Performance benchmarks** (vs .NET ThreadPool)
-- [ ] **Metrics & Monitoring**
-- [ ] **Documentation**
+- [x] ✅ **UniTask NuGet integration** (directly use UniTask, no reimplementation)
+- [x] ✅ WorkStealingThreadPool (per-core)
+- [x] ✅ IOThreadPool (async operations)
+- [x] ✅ Priority queue support
+- [x] ✅ DI integration (singleton)
+- [x] ✅ Task API compatibility
+- [x] ✅ UniTask API (`RunUniTaskAsync`)
+- [x] ✅ Benchmark project setup
+- [ ] ⏳ **Performance benchmarks** (run and analyze)
+- [ ] ⏳ **Metrics & Monitoring**
+- [ ] ⏳ **Documentation finalization**
 
 ---
 

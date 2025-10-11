@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Cysharp.Threading.Tasks;
 
 namespace Catga.Threading;
 
@@ -208,30 +209,30 @@ public sealed class WorkStealingThreadPool : IThreadPool
         return tcs.Task;
     }
 
-    // ===== CatgaTask API (Zero-Allocation) =====
+    // ===== UniTask API (Zero-Allocation) =====
 
     /// <summary>
-    /// Run work on thread pool and return zero-allocation CatgaTask
+    /// Run work on thread pool and return zero-allocation UniTask (from Cysharp.Threading.Tasks)
     /// </summary>
-    public CatgaTask RunCatgaAsync(Action action, int priority = 0)
+    public UniTask RunUniTaskAsync(Action action, int priority = 0)
     {
         if (_isDisposed != 0)
         {
-            return CatgaTask.CompletedTask;
+            return UniTask.CompletedTask;
         }
 
-        var source = CatgaTaskCompletionSource.Create();
+        var source = AutoResetUniTaskCompletionSource.Create();
 
         QueueWorkItem(() =>
         {
             try
             {
                 action();
-                source.SetResult();
+                source.TrySetResult();
             }
             catch (Exception ex)
             {
-                source.SetException(ex);
+                source.TrySetException(ex);
             }
         }, priority);
 
@@ -239,27 +240,27 @@ public sealed class WorkStealingThreadPool : IThreadPool
     }
 
     /// <summary>
-    /// Run work with result on thread pool and return zero-allocation CatgaTask{T}
+    /// Run work with result on thread pool and return zero-allocation UniTask{T}
     /// </summary>
-    public CatgaTask<T> RunCatgaAsync<T>(Func<T> func, int priority = 0)
+    public UniTask<T> RunUniTaskAsync<T>(Func<T> func, int priority = 0)
     {
         if (_isDisposed != 0)
         {
-            return new CatgaTask<T>(default(T)!);
+            return UniTask.FromResult(default(T)!);
         }
 
-        var source = CatgaTaskCompletionSource<T>.Create();
+        var source = AutoResetUniTaskCompletionSource<T>.Create();
 
         QueueWorkItem(() =>
         {
             try
             {
                 var result = func();
-                source.SetResult(result);
+                source.TrySetResult(result);
             }
             catch (Exception ex)
             {
-                source.SetException(ex);
+                source.TrySetException(ex);
             }
         }, priority);
 

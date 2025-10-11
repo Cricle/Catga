@@ -1,11 +1,13 @@
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
 using Catga.Threading;
+using Cysharp.Threading.Tasks;
 
 namespace Catga.Benchmarks;
 
 /// <summary>
 /// Benchmark comparing .NET ThreadPool vs Catga WorkStealingThreadPool
+/// Tests both standard Task API and zero-allocation UniTask API
 /// </summary>
 [SimpleJob(RuntimeMoniker.Net90)]
 [MemoryDiagnoser]
@@ -36,128 +38,130 @@ public class ThreadPoolBenchmarks
 
     [Benchmark(Baseline = true)]
     [Arguments(IterationCount)]
-    public async Task DotNetThreadPool_CpuBound(int iterations)
+    public async Task DotNetThreadPool_TaskRun_CpuBound(int count)
     {
-        var tasks = new Task[iterations];
-        for (int i = 0; i < iterations; i++)
+        var tasks = new Task[count];
+        for (int i = 0; i < count; i++)
         {
-            tasks[i] = Task.Run(() => CpuBoundWork());
+            tasks[i] = Task.Run(() => {
+                // Simulate CPU-bound work
+                Thread.SpinWait(100);
+            });
         }
         await Task.WhenAll(tasks);
     }
 
     [Benchmark]
     [Arguments(IterationCount)]
-    public async Task CatgaThreadPool_CpuBound(int iterations)
+    public async Task CatgaThreadPool_RunAsync_CpuBound(int count)
     {
-        var tasks = new Task[iterations];
-        for (int i = 0; i < iterations; i++)
+        var tasks = new Task[count];
+        for (int i = 0; i < count; i++)
         {
-            tasks[i] = _catgaPool!.RunAsync(() => CpuBoundWork());
+            tasks[i] = _catgaPool!.RunAsync(() => {
+                // Simulate CPU-bound work
+                Thread.SpinWait(100);
+            });
         }
         await Task.WhenAll(tasks);
     }
 
     [Benchmark]
     [Arguments(IterationCount)]
-    public async Task CatgaThreadPool_CpuBound_ZeroAlloc(int iterations)
+    public async UniTask CatgaThreadPool_RunUniTaskAsync_CpuBound(int count)
     {
-        var tasks = new CatgaTask[iterations];
-        for (int i = 0; i < iterations; i++)
+        var tasks = new UniTask[count];
+        for (int i = 0; i < count; i++)
         {
-            tasks[i] = _catgaPool!.RunCatgaAsync(() => CpuBoundWork());
+            tasks[i] = _catgaPool!.RunUniTaskAsync(() => {
+                // Simulate CPU-bound work
+                Thread.SpinWait(100);
+            });
         }
-
-        // Await all CatgaTasks
-        foreach (var task in tasks)
-        {
-            await task;
-        }
+        // Use UniTask.WhenAll for zero-allocation parallel execution
+        await UniTask.WhenAll(tasks);
     }
 
     // ===== Work with result =====
 
-    [Benchmark]
+    [Benchmark(Baseline = true)]
     [Arguments(IterationCount)]
-    public async Task DotNetThreadPool_WithResult(int iterations)
+    public async Task<int> DotNetThreadPool_TaskRun_WithResult(int count)
     {
-        var tasks = new Task<int>[iterations];
-        for (int i = 0; i < iterations; i++)
+        var tasks = new Task<int>[count];
+        for (int i = 0; i < count; i++)
         {
-            int value = i;
-            tasks[i] = Task.Run(() => ComputeValue(value));
+            tasks[i] = Task.Run(() => {
+                Thread.SpinWait(10);
+                return 1;
+            });
         }
-        await Task.WhenAll(tasks);
+        var results = await Task.WhenAll(tasks);
+        return results.Sum();
     }
 
     [Benchmark]
     [Arguments(IterationCount)]
-    public async Task CatgaThreadPool_WithResult(int iterations)
+    public async Task<int> CatgaThreadPool_RunAsync_WithResult(int count)
     {
-        var tasks = new Task<int>[iterations];
-        for (int i = 0; i < iterations; i++)
+        var tasks = new Task<int>[count];
+        for (int i = 0; i < count; i++)
         {
-            int value = i;
-            tasks[i] = _catgaPool!.RunAsync(() => ComputeValue(value));
+            tasks[i] = _catgaPool!.RunAsync(() => {
+                Thread.SpinWait(10);
+                return 1;
+            });
         }
-        await Task.WhenAll(tasks);
+        var results = await Task.WhenAll(tasks);
+        return results.Sum();
     }
 
     [Benchmark]
     [Arguments(IterationCount)]
-    public async Task CatgaThreadPool_WithResult_ZeroAlloc(int iterations)
+    public async UniTask<int> CatgaThreadPool_RunUniTaskAsync_WithResult(int count)
     {
-        var tasks = new CatgaTask<int>[iterations];
-        for (int i = 0; i < iterations; i++)
+        var tasks = new UniTask<int>[count];
+        for (int i = 0; i < count; i++)
         {
-            int value = i;
-            tasks[i] = _catgaPool!.RunCatgaAsync(() => ComputeValue(value));
+            tasks[i] = _catgaPool!.RunUniTaskAsync(() => {
+                Thread.SpinWait(10);
+                return 1;
+            });
         }
-
-        // Await all CatgaTasks
-        long sum = 0;
-        foreach (var task in tasks)
-        {
-            sum += await task;
-        }
+        // Use UniTask.WhenAll for zero-allocation parallel execution
+        var results = await UniTask.WhenAll(tasks);
+        return results.Sum();
     }
 
-    // ===== Priority work =====
+    // ===== Priority work (simple comparison) =====
+
+    [Benchmark(Baseline = true)]
+    [Arguments(100)]
+    public async Task DotNetThreadPool_PriorityWork(int count)
+    {
+        var highPriorityTasks = new List<Task>();
+        var lowPriorityTasks = new List<Task>();
+
+        for (int i = 0; i < count; i++)
+        {
+            lowPriorityTasks.Add(Task.Run(() => Thread.SpinWait(100)));
+            highPriorityTasks.Add(Task.Run(() => Thread.SpinWait(10)));
+        }
+        await Task.WhenAll(highPriorityTasks.Concat(lowPriorityTasks));
+    }
 
     [Benchmark]
     [Arguments(100)]
-    public async Task CatgaThreadPool_PriorityWork(int iterations)
+    public async Task CatgaThreadPool_PriorityWork(int count)
     {
-        var tasks = new Task[iterations];
-        for (int i = 0; i < iterations; i++)
-        {
-            int priority = i % 10;
-            tasks[i] = _catgaPool!.RunAsync(() => CpuBoundWork(), priority);
-        }
-        await Task.WhenAll(tasks);
-    }
+        var highPriorityTasks = new List<Task>();
+        var lowPriorityTasks = new List<Task>();
 
-    // ===== Helper methods =====
-
-    private static void CpuBoundWork()
-    {
-        // Simulate some CPU work
-        double result = 0;
-        for (int i = 0; i < 100; i++)
+        for (int i = 0; i < count; i++)
         {
-            result += Math.Sqrt(i);
+            lowPriorityTasks.Add(_catgaPool!.RunAsync(() => Thread.SpinWait(100), priority: 0));
+            highPriorityTasks.Add(_catgaPool!.RunAsync(() => Thread.SpinWait(10), priority: 10));
         }
-    }
-
-    private static int ComputeValue(int input)
-    {
-        // Simulate computation
-        int result = input;
-        for (int i = 0; i < 100; i++)
-        {
-            result += (int)Math.Sqrt(i);
-        }
-        return result;
+        await Task.WhenAll(highPriorityTasks.Concat(lowPriorityTasks));
     }
 }
-

@@ -1,32 +1,55 @@
 # Catga.Threading
 
-High-performance thread pool library with better performance than .NET ThreadPool.
+A high-performance, work-stealing thread pool library for .NET, with direct **UniTask** integration for zero-allocation asynchronous operations.
 
 ## Features
 
-- ✅ **Work-Stealing Algorithm**: Automatic load balancing
-- ✅ **Per-Core Queues**: Better cache locality
-- ✅ **Instance-Based**: Inject via DI, fully testable
-- ✅ **Task Integration**: Full async/await support
-- ✅ **Lock-Free**: Zero lock contention
-- ✅ **Priority Support**: Critical tasks first
+- **Work-Stealing Thread Pool**: Optimized for CPU-bound tasks, featuring per-core local queues and a global queue for efficient load balancing.
+- **IO Thread Pool**: Designed for IO-bound asynchronous operations using `System.Threading.Channels`.
+- **Zero-Allocation Async/Await (UniTask)**: Direct integration with [Cysharp/UniTask](https://github.com/Cysharp/UniTask) for high-performance, GC-free asynchronous programming.
+- **Task Integration**: Seamlessly integrates with .NET's `Task` and `Task<T>` for standard async/await patterns.
+- **Dependency Injection**: Easy setup and management of thread pool instances via `Microsoft.Extensions.DependencyInjection`.
+- **Priority Scheduling**: Support for prioritizing work items.
+- **Cancellation Support**: Integrated `CancellationToken` for managing task lifecycle.
+- **Exception Propagation**: Proper handling and propagation of exceptions.
 
-## Quick Start
+## Getting Started
 
-### 1. Register in DI
+### 1. Installation
 
-```csharp
-// Startup.cs or Program.cs
-services.AddWorkStealingThreadPool(options =>
-{
-    options.MinThreads = Environment.ProcessorCount;
-    options.EnableWorkStealing = true;
-});
+```bash
+dotnet add package Catga.Threading
 ```
 
-### 2. Inject and Use
+### 2. Configuration (Program.cs or Startup.cs)
+
+Register the thread pools with your DI container:
 
 ```csharp
+using Catga.Threading.DependencyInjection;
+using Catga.Threading;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
+var builder = Host.CreateApplicationBuilder(args);
+
+builder.Services.AddCatgaThreading(options =>
+{
+    options.MinThreads = Environment.ProcessorCount;
+    options.MaxThreads = Environment.ProcessorCount * 2;
+    options.EnableWorkStealing = true;
+});
+
+var app = builder.Build();
+app.Run();
+```
+
+### 3. Inject and Use
+
+```csharp
+using Catga.Threading;
+using Cysharp.Threading.Tasks; // UniTask
+
 public class MyService
 {
     private readonly WorkStealingThreadPool _threadPool;
@@ -46,10 +69,10 @@ public class MyService
         });
     }
 
-    // CatgaTask API - Zero allocation, high performance
-    public async CatgaTask ProcessDataZeroAllocAsync()
+    // UniTask API - Zero allocation, high performance
+    public async UniTask ProcessDataZeroAllocAsync()
     {
-        await _threadPool.RunCatgaAsync(() => 
+        await _threadPool.RunUniTaskAsync(() => 
         {
             // CPU-intensive work - zero GC allocation!
             HeavyComputation();
@@ -65,19 +88,19 @@ public class MyService
         });
     }
 
-    // Work with result (CatgaTask - Zero Allocation)
-    public async CatgaTask<int> CalculateZeroAllocAsync()
+    // Work with result (UniTask - Zero Allocation)
+    public async UniTask<int> CalculateZeroAllocAsync()
     {
-        return await _threadPool.RunCatgaAsync(() => 
+        return await _threadPool.RunUniTaskAsync(() => 
         {
             return ComputeValue();
         });
     }
 
     // High priority work
-    public async CatgaTask UrgentWorkAsync()
+    public async UniTask UrgentWorkAsync()
     {
-        await _threadPool.RunCatgaAsync(() => 
+        await _threadPool.RunUniTaskAsync(() => 
         {
             // Critical task
         }, priority: 10);
@@ -87,158 +110,115 @@ public class MyService
     public async Task ProcessBatchZeroAllocAsync(List<Item> items)
     {
         var tasks = items.Select(item => 
-            _threadPool.RunCatgaAsync(() => ProcessItem(item))
+            _threadPool.RunUniTaskAsync(() => ProcessItem(item))
         ).ToArray();
         
-        // WhenAll for CatgaTask (future enhancement)
-        foreach (var task in tasks)
-        {
-            await task;
-        }
+        // Use UniTask.WhenAll for zero-allocation parallel execution
+        await UniTask.WhenAll(tasks);
     }
+
+    private void HeavyComputation() { /* ... */ }
+    private int ComputeValue() { return 42; }
+    private void ProcessItem(Item item) { /* ... */ }
+    public class Item { }
 }
 ```
 
-## API Reference
+## API Comparison
 
-### WorkStealingThreadPool
-
-#### Standard Task API (Compatible with async/await)
+### Standard Task API (Compatible with existing code)
 
 ```csharp
-// Queue work and return Task
-Task RunAsync(Action action, int priority = 0, CancellationToken cancellationToken = default)
-
-// Queue work with result and return Task<T>
-Task<T> RunAsync<T>(Func<T> func, int priority = 0, CancellationToken cancellationToken = default)
-
-// Queue async work and return Task
-Task RunAsync(Func<Task> asyncFunc, int priority = 0, CancellationToken cancellationToken = default)
-
-// Queue async work with result and return Task<T>
-Task<T> RunAsync<T>(Func<Task<T>> asyncFunc, int priority = 0, CancellationToken cancellationToken = default)
+// For existing code, return Task
+Task RunAsync(Action action, int priority = 0, CancellationToken ct = default)
+Task<T> RunAsync<T>(Func<T> func, int priority = 0, CancellationToken ct = default)
 ```
 
-#### CatgaTask API (Zero-Allocation, inspired by UniTask)
+### UniTask API (Zero-Allocation, from Cysharp.Threading.Tasks)
 
 ```csharp
-// Zero-allocation awaitable task (no GC allocation)
-CatgaTask RunCatgaAsync(Action action, int priority = 0)
-
-// Zero-allocation awaitable task with result
-CatgaTask<T> RunCatgaAsync<T>(Func<T> func, int priority = 0)
+// For high-performance hot paths, return UniTask
+UniTask RunUniTaskAsync(Action action, int priority = 0)
+UniTask<T> RunUniTaskAsync<T>(Func<T> func, int priority = 0)
 ```
 
-**Benefits of CatgaTask**:
-- ✅ **Zero GC Allocation**: Struct-based design like [UniTask](https://github.com/Cysharp/UniTask)
-- ✅ **Full async/await Support**: Can be awaited like Task
-- ✅ **Object Pooling**: Automatic pooling of completion sources
-- ✅ **High Performance**: Perfect for hot paths in high-throughput scenarios
-
-### Configuration
+### Performance Comparison
 
 ```csharp
-services.AddWorkStealingThreadPool(options =>
+// ❌ Standard Task - allocates Task object
+for (int i = 0; i < 1000000; i++)
 {
-    options.MinThreads = 8;                           // Minimum worker threads
-    options.MaxThreads = 32;                          // Maximum worker threads
-    options.ThreadIdleTimeout = TimeSpan.FromSeconds(60);
-    options.EnableWorkStealing = true;                // Enable work-stealing
-    options.ThreadPriority = ThreadPriority.Normal;   // Thread priority
+    await pool.RunAsync(() => Work());  // GC pressure!
+}
+
+// ✅ UniTask - zero allocation (from UniTask library)
+for (int i = 0; i < 1000000; i++)
+{
+    await pool.RunUniTaskAsync(() => Work());  // No GC!
+}
+```
+
+## Why Use Catga.Threading over System.Threading.ThreadPool?
+
+| Feature | System.Threading.ThreadPool | Catga.Threading |
+|---------|----------------------------|-----------------|
+| **Work-Stealing** | ❌ No | ✅ Yes - better load balancing |
+| **Priority Support** | ❌ No | ✅ Yes - high priority tasks first |
+| **Isolation** | ❌ Global shared pool | ✅ Dedicated isolated pools |
+| **Zero-Allocation** | ❌ Task allocation | ✅ UniTask integration |
+| **Thread Injection** | ⚠️ 500ms delay | ✅ Immediate scaling |
+| **Per-Core Optimization** | ❌ No | ✅ Yes - better cache locality |
+
+## Performance Benchmarks
+
+See `benchmarks/Catga.Threading.Benchmarks` for detailed performance comparisons:
+
+```bash
+cd benchmarks/Catga.Threading.Benchmarks
+dotnet run -c Release
+```
+
+**Expected Results:**
+- **Zero GC allocation** with UniTask API
+- **Faster task creation** (~50ns vs ~100ns)
+- **Better throughput** for CPU-bound parallel tasks
+- **Immediate thread scaling** (no 500ms injection delay)
+
+## Advanced Usage
+
+### Dedicated Pools for Different Workloads
+
+```csharp
+// CPU-intensive pool
+var cpuPool = new WorkStealingThreadPool(new ThreadPoolOptions
+{
+    MinThreads = Environment.ProcessorCount,
+    MaxThreads = Environment.ProcessorCount * 2,
+    EnableWorkStealing = true
 });
+
+// IO-bound pool
+var ioPool = new IOThreadPool(maxConcurrency: 100);
+
+// No interference between pools!
+await cpuPool.RunUniTaskAsync(() => CpuHeavyWork());
+await ioPool.RunAsync(() => IoWork());
 ```
 
-## Performance Comparison
-
-| Feature | .NET ThreadPool | Catga WorkStealingThreadPool |
-|---------|----------------|------------------------------|
-| Queue Type | Single global queue | Per-core local queues |
-| Load Balancing | Manual | Automatic work-stealing |
-| Cache Locality | Poor | Excellent |
-| Priority | ❌ | ✅ |
-| Instance-Based | ❌ | ✅ |
-| Task Integration | Basic | Full async/await |
-
-## When to Use
-
-### ✅ Use WorkStealingThreadPool for:
-- CPU-intensive parallel tasks
-- Batch processing with many small tasks
-- High-throughput scenarios (1M+ ops/sec)
-- When you need priority scheduling
-
-### ❌ Don't Use for:
-- Single tasks (just use `Task.Run`)
-- Long-running background services (use `BackgroundService`)
-- Tasks with blocking I/O
-
-## Examples
-
-### Parallel Data Processing
+### Priority Scheduling
 
 ```csharp
-public async Task ProcessBatchAsync(List<DataItem> items)
-{
-    var tasks = items.Select(item => 
-        _threadPool.RunAsync(() => ProcessItem(item))
-    );
-    
-    await Task.WhenAll(tasks);
-}
+// High priority tasks execute first
+await pool.RunUniTaskAsync(() => CriticalTask(), priority: 10);
+await pool.RunUniTaskAsync(() => NormalTask(), priority: 5);
+await pool.RunUniTaskAsync(() => BackgroundTask(), priority: 1);
 ```
 
-### Priority Queue
+## References
 
-```csharp
-// High priority
-await _threadPool.RunAsync(() => CriticalWork(), priority: 10);
-
-// Normal priority
-await _threadPool.RunAsync(() => NormalWork(), priority: 0);
-
-// Low priority
-await _threadPool.RunAsync(() => BackgroundWork(), priority: -10);
-```
-
-### Cancellation Support
-
-```csharp
-public async Task ProcessWithCancellationAsync(CancellationToken cancellationToken)
-{
-    await _threadPool.RunAsync(() => 
-    {
-        // Work here
-    }, cancellationToken: cancellationToken);
-}
-```
-
-## Architecture
-
-```
-┌─────────────────────────────────────────┐
-│      WorkStealingThreadPool             │
-│  ┌───────────────────────────────────┐  │
-│  │   Global Queue (Fallback)         │  │
-│  └───────────────────────────────────┘  │
-│                                          │
-│  ┌──────────┐  ┌──────────┐  ┌────────┐│
-│  │ Worker 0 │  │ Worker 1 │  │Worker N││
-│  │ ┌──────┐ │  │ ┌──────┐ │  │┌──────┐││
-│  │ │Local │ │  │ │Local │ │  ││Local │││
-│  │ │Queue │ │  │ │Queue │ │  ││Queue │││
-│  │ └──────┘ │  │ └──────┘ │  │└──────┘││
-│  │    ↓     │  │    ↓     │  │   ↓    ││
-│  │ Execute  │  │ Execute  │  │Execute ││
-│  │  Work    │  │  Work    │  │ Work   ││
-│  │    ↓     │  │    ↓     │  │   ↓    ││
-│  │  Steal ──┼──┼→ Work ←──┼──┼─ Steal ││
-│  └──────────┘  └──────────┘  └────────┘│
-└─────────────────────────────────────────┘
-```
-
-**Work-Stealing**: When a worker's local queue is empty, it steals tasks from other busy workers.
+- [Cysharp/UniTask](https://github.com/Cysharp/UniTask) - Zero allocation async/await for Unity and .NET
+- [Work-Stealing Algorithm](https://en.wikipedia.org/wiki/Work_stealing) - Efficient task scheduling
 
 ## License
 
-MIT
-
+MIT License - See LICENSE file for details

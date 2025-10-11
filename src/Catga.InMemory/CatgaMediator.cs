@@ -82,21 +82,17 @@ public class CatgaMediator : ICatgaMediator {
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public async ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, TResponse>(
-        IReadOnlyList<TRequest> requests, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> {
-        return await requests.ExecuteBatchWithResultsAsync(request => SendAsync<TRequest, TResponse>(request, cancellationToken));
-    }
+        IReadOnlyList<TRequest> requests, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
+        => await requests.ExecuteBatchWithResultsAsync(request => SendAsync<TRequest, TResponse>(request, cancellationToken));
 
     public async IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest, TResponse>(
         IAsyncEnumerable<TRequest> requests, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> {
         if (requests == null) yield break;
-        await foreach (var request in requests.WithCancellation(cancellationToken).ConfigureAwait(false)) {
-            var result = await SendAsync<TRequest, TResponse>(request, cancellationToken).ConfigureAwait(false);
-            yield return result;
-        }
+        await foreach (var request in requests.WithCancellation(cancellationToken).ConfigureAwait(false))
+            yield return await SendAsync<TRequest, TResponse>(request, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
-        IReadOnlyList<TEvent> events, CancellationToken cancellationToken = default) where TEvent : IEvent {
-        await events.ExecuteBatchAsync(@event => PublishAsync(@event, cancellationToken));
-    }
+        IReadOnlyList<TEvent> events, CancellationToken cancellationToken = default) where TEvent : IEvent
+        => await events.ExecuteBatchAsync(@event => PublishAsync(@event, cancellationToken));
 }

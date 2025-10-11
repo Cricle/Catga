@@ -49,9 +49,6 @@ public class OutboxPublisher : BackgroundService
 
         _logger.LogInformation("Outbox Publisher stopped");
     }
-
-    [RequiresDynamicCode("Calls Catga.Outbox.IOutboxStore.GetPendingMessagesAsync(Int32, CancellationToken)")]
-    [RequiresUnreferencedCode("Calls Catga.Outbox.IOutboxStore.GetPendingMessagesAsync(Int32, CancellationToken)")]
     private async Task ProcessPendingMessagesAsync(CancellationToken cancellationToken)
     {
         // Get pending messages
@@ -66,9 +63,6 @@ public class OutboxPublisher : BackgroundService
         var tasks = messages.Select(message => ProcessMessageAsync(message, cancellationToken));
         await Task.WhenAll(tasks);
     }
-
-    [RequiresDynamicCode("Calls Catga.Outbox.IOutboxStore.MarkAsPublishedAsync(String, CancellationToken)")]
-    [RequiresUnreferencedCode("Calls Catga.Outbox.IOutboxStore.MarkAsPublishedAsync(String, CancellationToken)")]
     private async Task ProcessMessageAsync(OutboxMessage message, CancellationToken cancellationToken)
     {
         try

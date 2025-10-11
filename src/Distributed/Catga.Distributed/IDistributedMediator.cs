@@ -22,8 +22,6 @@ public interface IDistributedMediator : ICatgaMediator
     /// <summary>
     /// 发送消息到指定节点
     /// </summary>
-    [RequiresDynamicCode("Distributed mediator uses reflection for message routing and serialization")]
-    [RequiresUnreferencedCode("Distributed mediator may require types that cannot be statically analyzed")]
     public Task<CatgaResult<TResponse>> SendToNodeAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(
@@ -35,8 +33,6 @@ public interface IDistributedMediator : ICatgaMediator
     /// <summary>
     /// 广播消息到所有节点
     /// </summary>
-    [RequiresDynamicCode("Distributed mediator uses reflection for message routing and serialization")]
-    [RequiresUnreferencedCode("Distributed mediator may require types that cannot be statically analyzed")]
     public Task BroadcastAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
         TEvent @event,

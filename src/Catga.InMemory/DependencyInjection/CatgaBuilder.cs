@@ -75,8 +75,6 @@ public class CatgaBuilder
     /// <summary>
     /// Enable Outbox pattern (reliable message delivery)
     /// </summary>
-    [RequiresUnreferencedCode("Outbox requires serialization. Use AOT-friendly serializer in production")]
-    [RequiresDynamicCode("Outbox requires serialization. Use AOT-friendly serializer in production")]
     public CatgaBuilder WithOutbox(Action<OutboxOptions>? configure = null)
     {
         _services.AddOutbox(configure);
@@ -86,8 +84,6 @@ public class CatgaBuilder
     /// <summary>
     /// Enable Inbox pattern (idempotent processing)
     /// </summary>
-    [RequiresUnreferencedCode("Inbox requires serialization. Use AOT-friendly serializer in production")]
-    [RequiresDynamicCode("Inbox requires serialization. Use AOT-friendly serializer in production")]
     public CatgaBuilder WithInbox(Action<InboxOptions>? configure = null)
     {
         _services.AddInbox(configure);

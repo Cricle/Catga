@@ -56,9 +56,6 @@ public class ShardedIdempotencyStore : IIdempotencyStore
         }
         return Task.FromResult(false);
     }
-
-    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     public Task MarkAsProcessedAsync<TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default)
     {
         var shard = GetShard(messageId);
@@ -75,9 +72,6 @@ public class ShardedIdempotencyStore : IIdempotencyStore
         shard[messageId] = (DateTime.UtcNow, resultType, resultJson);
         return Task.CompletedTask;
     }
-
-    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     public Task<TResult?> GetCachedResultAsync<TResult>(string messageId, CancellationToken cancellationToken = default)
     {
         var shard = GetShard(messageId);

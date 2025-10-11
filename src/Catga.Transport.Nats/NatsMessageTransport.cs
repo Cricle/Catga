@@ -43,9 +43,6 @@ public class NatsMessageTransport : IMessageTransport
         // 初始化 JetStream Context（用于 QoS 1/2）
         _jsContext = new NatsJSContext(_connection);
     }
-
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在接口层标记")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在接口层标记")]
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
@@ -153,9 +150,6 @@ public class NatsMessageTransport : IMessageTransport
                 break;
         }
     }
-
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         TMessage message,
         string destination,
@@ -166,9 +160,6 @@ public class NatsMessageTransport : IMessageTransport
         // NATS 是 pub/sub 模型，Send 直接使用指定的 subject
         return PublishAsync(message, context, cancellationToken);
     }
-
-    [RequiresUnreferencedCode("Message deserialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message deserialization may require runtime code generation")]
     public async Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] TMessage>(
         Func<TMessage, TransportContext, Task> handler,
         CancellationToken cancellationToken = default)
@@ -220,9 +211,6 @@ public class NatsMessageTransport : IMessageTransport
             }
         }
     }
-
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         IEnumerable<TMessage> messages,
         TransportContext? context = null,
@@ -235,9 +223,6 @@ public class NatsMessageTransport : IMessageTransport
             await PublishAsync(message, context, cancellationToken);
         }
     }
-
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         IEnumerable<TMessage> messages,
         string destination,

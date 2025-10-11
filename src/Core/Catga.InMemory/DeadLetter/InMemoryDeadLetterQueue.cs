@@ -20,9 +20,6 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
         _logger = logger;
         _maxSize = maxSize;
     }
-
-    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     public Task SendAsync<TMessage>(
         TMessage message,
         Exception exception,

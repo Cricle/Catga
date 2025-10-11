@@ -25,8 +25,6 @@ namespace Catga.Pipeline.Behaviors;
 /// <remarks>
 /// Inspired by MassTransit design: Inbox focuses on idempotency, not transport
 /// </remarks>
-[RequiresUnreferencedCode("Inbox behavior requires serialization support. Use AOT-friendly serializer (e.g., MemoryPack) in production")]
-[RequiresDynamicCode("Inbox behavior requires serialization support. Use AOT-friendly serializer (e.g., MemoryPack) in production")]
 public class InboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : class, IRequest<TResponse>
 {

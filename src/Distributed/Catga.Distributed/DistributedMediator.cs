@@ -46,9 +46,6 @@ public sealed class DistributedMediator : IDistributedMediator
     {
         return _discovery.GetNodesAsync(cancellationToken);
     }
-
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public async ValueTask<CatgaResult<TResponse>> SendAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(
@@ -85,9 +82,6 @@ public sealed class DistributedMediator : IDistributedMediator
             return await SendToNodeAsync<TRequest, TResponse>(request, targetNode.NodeId, cancellationToken);
         }
     }
-
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public async Task<CatgaResult> SendAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest>(
         TRequest request,
@@ -96,9 +90,6 @@ public sealed class DistributedMediator : IDistributedMediator
     {
         return await _localMediator.SendAsync(request, cancellationToken);
     }
-
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public async ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(
@@ -108,9 +99,6 @@ public sealed class DistributedMediator : IDistributedMediator
     {
         return await _localMediator.SendBatchAsync<TRequest, TResponse>(requests, cancellationToken);
     }
-
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(
@@ -120,9 +108,6 @@ public sealed class DistributedMediator : IDistributedMediator
     {
         return _localMediator.SendStreamAsync<TRequest, TResponse>(requests, cancellationToken);
     }
-
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public async Task PublishBatchAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
         IReadOnlyList<TEvent> events,
@@ -131,9 +116,6 @@ public sealed class DistributedMediator : IDistributedMediator
     {
         await _localMediator.PublishBatchAsync(events, cancellationToken);
     }
-
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public async Task<CatgaResult<TResponse>> SendToNodeAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
         TResponse>(
@@ -169,9 +151,6 @@ public sealed class DistributedMediator : IDistributedMediator
             return CatgaResult<TResponse>.Failure($"Failed to send to node {nodeId}: {ex.Message}");
         }
     }
-
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public async Task PublishAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
         TEvent @event,
@@ -184,9 +163,6 @@ public sealed class DistributedMediator : IDistributedMediator
         // 广播到所有远程节点（无锁）
         await BroadcastAsync(@event, cancellationToken);
     }
-
-    [RequiresUnreferencedCode("消息序列化可能需要无法静态分析的类型")]
-    [RequiresDynamicCode("消息序列化可能需要运行时代码生成")]
     public async Task BroadcastAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
         TEvent @event,

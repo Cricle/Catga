@@ -19,9 +19,6 @@ public class InMemoryMessageTransport : IMessageTransport
     public BatchTransportOptions? BatchOptions => null; // Not applicable for in-memory
 
     public CompressionTransportOptions? CompressionOptions => null; // Not applicable for in-memory
-
-    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         TMessage message,
         TransportContext? context = null,
@@ -154,9 +151,6 @@ public class InMemoryMessageTransport : IMessageTransport
             }
         }
     }
-
-    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         TMessage message,
         string destination,
@@ -167,9 +161,6 @@ public class InMemoryMessageTransport : IMessageTransport
         // For in-memory transport, Send and Publish behave the same
         return PublishAsync(message, context, cancellationToken);
     }
-
-    [RequiresUnreferencedCode("Message deserialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message deserialization may require runtime code generation")]
     public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] TMessage>(
         Func<TMessage, TransportContext, Task> handler,
         CancellationToken cancellationToken = default)
@@ -187,9 +178,6 @@ public class InMemoryMessageTransport : IMessageTransport
 
         return Task.CompletedTask;
     }
-
-    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         IEnumerable<TMessage> messages,
         TransportContext? context = null,
@@ -202,9 +190,6 @@ public class InMemoryMessageTransport : IMessageTransport
             await PublishAsync(message, context, cancellationToken);
         }
     }
-
-    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public async Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         IEnumerable<TMessage> messages,
         string destination,

@@ -37,9 +37,6 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         _logger = logger;
         _keyPrefix = keyPrefix;
     }
-
-    [RequiresDynamicCode("JSON serialization may require dynamic code")]
-    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public async Task AddAsync(
         OutboxMessage message,
         CancellationToken cancellationToken = default)
@@ -55,9 +52,6 @@ public class OptimizedRedisOutboxStore : IOutboxStore
             message.MessageId,
             message.CreatedAt.Ticks);
     }
-
-    [RequiresDynamicCode("JSON deserialization may require dynamic code")]
-    [RequiresUnreferencedCode("JSON deserialization may require unreferenced code")]
     public async Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
         int maxCount = 100,
         CancellationToken cancellationToken = default)
@@ -91,9 +85,6 @@ public class OptimizedRedisOutboxStore : IOutboxStore
 
         return messages;
     }
-
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
-    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public async Task MarkAsPublishedAsync(
         string messageId,
         CancellationToken cancellationToken = default)
@@ -115,9 +106,6 @@ public class OptimizedRedisOutboxStore : IOutboxStore
             }
         }
     }
-
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
-    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public async Task MarkAsFailedAsync(
         string messageId,
         string errorMessage,
@@ -146,9 +134,6 @@ public class OptimizedRedisOutboxStore : IOutboxStore
             }
         }
     }
-
-    [RequiresDynamicCode("JSON deserialization may require dynamic code generation")]
-    [RequiresUnreferencedCode("JSON deserialization may require unreferenced code")]
     public async Task DeletePublishedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)

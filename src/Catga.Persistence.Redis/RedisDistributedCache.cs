@@ -21,9 +21,6 @@ public sealed class RedisDistributedCache : IDistributedCache
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
     }
-
-    [RequiresUnreferencedCode("Cache serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Cache serialization may require runtime code generation")]
     public async ValueTask<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
@@ -45,9 +42,6 @@ public sealed class RedisDistributedCache : IDistributedCache
             return default;
         }
     }
-
-    [RequiresUnreferencedCode("Cache serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Cache serialization may require runtime code generation")]
     public async ValueTask SetAsync<T>(
         string key,
         T value,

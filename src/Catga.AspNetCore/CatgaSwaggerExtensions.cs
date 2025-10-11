@@ -13,8 +13,6 @@ public static class CatgaSwaggerExtensions
     /// <summary>
     /// Configure Catga-specific OpenAPI metadata for a command endpoint
     /// </summary>
-    [RequiresUnreferencedCode("OpenAPI metadata generation may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("OpenAPI metadata generation uses reflection.")]
     public static RouteHandlerBuilder WithCatgaCommandMetadata<TCommand, TResponse>(
         this RouteHandlerBuilder builder)
         where TCommand : IRequest<TResponse>
@@ -36,8 +34,6 @@ public static class CatgaSwaggerExtensions
     /// <summary>
     /// Configure Catga-specific OpenAPI metadata for a query endpoint
     /// </summary>
-    [RequiresUnreferencedCode("OpenAPI metadata generation may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("OpenAPI metadata generation uses reflection.")]
     public static RouteHandlerBuilder WithCatgaQueryMetadata<TQuery, TResponse>(
         this RouteHandlerBuilder builder)
         where TQuery : IRequest<TResponse>
@@ -56,8 +52,6 @@ public static class CatgaSwaggerExtensions
     /// <summary>
     /// Configure Catga-specific OpenAPI metadata for an event endpoint
     /// </summary>
-    [RequiresUnreferencedCode("OpenAPI metadata generation may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("OpenAPI metadata generation uses reflection.")]
     public static RouteHandlerBuilder WithCatgaEventMetadata<TEvent>(
         this RouteHandlerBuilder builder)
         where TEvent : IEvent

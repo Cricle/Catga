@@ -27,8 +27,6 @@ public static class SerializationHelper
     /// Serialize object using provided serializer or fallback to JSON
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [RequiresDynamicCode("Serialization may require runtime code generation")]
-    [RequiresUnreferencedCode("Serialization may require types that cannot be statically analyzed")]
     public static string Serialize<T>(T obj, IMessageSerializer? serializer = null)
     {
         if (serializer != null)
@@ -45,7 +43,6 @@ public static class SerializationHelper
     /// Serialize object with custom JSON options
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed")]
     public static string SerializeJson<T>(T obj, JsonSerializerOptions? options = null)
     {
         return JsonSerializer.Serialize(obj, options ?? DefaultJsonOptions);
@@ -55,7 +52,6 @@ public static class SerializationHelper
     /// Deserialize object using provided serializer or fallback to JSON
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [RequiresUnreferencedCode("Deserialization may require types that cannot be statically analyzed")]
     public static T? Deserialize<T>(string data, IMessageSerializer? serializer = null)
     {
         if (serializer != null)
@@ -72,7 +68,6 @@ public static class SerializationHelper
     /// Deserialize object with custom JSON options
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [RequiresUnreferencedCode("JSON deserialization may require types that cannot be statically analyzed")]
     public static T? DeserializeJson<T>(string data, JsonSerializerOptions? options = null)
     {
         return JsonSerializer.Deserialize<T>(data, options ?? DefaultJsonOptions);

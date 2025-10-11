@@ -11,8 +11,6 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
 {
 
     /// <inheritdoc/>
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
-    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public Task AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
@@ -23,8 +21,6 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
     }
 
     /// <inheritdoc/>
-    [RequiresDynamicCode("JSON deserialization may require dynamic code generation")]
-    [RequiresUnreferencedCode("JSON deserialization may require unreferenced code")]
     public Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
         int maxCount = 100,
         CancellationToken cancellationToken = default)
@@ -39,8 +35,6 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
     }
 
     /// <inheritdoc/>
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
-    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public Task MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)
     {
         if (TryGetMessage(messageId, out var message) && message != null)
@@ -53,8 +47,6 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
     }
 
     /// <inheritdoc/>
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation")]
-    [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public Task MarkAsFailedAsync(
         string messageId,
         string errorMessage,
@@ -80,8 +72,6 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
     }
 
     /// <inheritdoc/>
-    [RequiresDynamicCode("JSON deserialization may require dynamic code generation")]
-    [RequiresUnreferencedCode("JSON deserialization may require unreferenced code")]
     public Task DeletePublishedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)

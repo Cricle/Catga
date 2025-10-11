@@ -186,8 +186,6 @@ public static class CatgaServiceCollectionExtensions
     /// Add Outbox pattern support (in-memory version)
     /// Ensures reliable message delivery
     /// </summary>
-    [RequiresUnreferencedCode("Outbox behavior requires serialization support. Use AOT-friendly serializer like MemoryPack in production")]
-    [RequiresDynamicCode("Outbox behavior requires serialization support. Use AOT-friendly serializer like MemoryPack in production")]
     public static IServiceCollection AddOutbox(
         this IServiceCollection services,
         Action<OutboxOptions>? configureOptions = null)
@@ -224,8 +222,6 @@ public static class CatgaServiceCollectionExtensions
     /// Add Inbox pattern support (in-memory version)
     /// Ensures message processing idempotency
     /// </summary>
-    [RequiresUnreferencedCode("Inbox behavior requires serialization support. Use AOT-friendly serializer like MemoryPack in production")]
-    [RequiresDynamicCode("Inbox behavior requires serialization support. Use AOT-friendly serializer like MemoryPack in production")]
     public static IServiceCollection AddInbox(
         this IServiceCollection services,
         Action<InboxOptions>? configureOptions = null)

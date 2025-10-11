@@ -30,8 +30,6 @@ namespace Catga.Pipeline.Behaviors;
 /// - Storage layer is swappable (SQL/Redis/MongoDB)
 /// - Independent evolution
 /// </remarks>
-[RequiresUnreferencedCode("Outbox behavior requires serialization and transport support. Use AOT-friendly serializer (e.g., MemoryPack) in production")]
-[RequiresDynamicCode("Outbox behavior requires serialization and transport support. Use AOT-friendly serializer (e.g., MemoryPack) in production")]
 public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : class, IRequest<TResponse>
 {

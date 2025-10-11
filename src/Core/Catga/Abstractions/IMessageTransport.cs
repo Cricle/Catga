@@ -12,8 +12,6 @@ public interface IMessageTransport
     /// <summary>
     /// Publish message to transport layer
     /// </summary>
-    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         TMessage message,
         TransportContext? context = null,
@@ -23,8 +21,6 @@ public interface IMessageTransport
     /// <summary>
     /// Send message to specific destination
     /// </summary>
-    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         TMessage message,
         string destination,
@@ -35,8 +31,6 @@ public interface IMessageTransport
     /// <summary>
     /// Subscribe to messages
     /// </summary>
-    [RequiresUnreferencedCode("Message deserialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message deserialization may require runtime code generation")]
     public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] TMessage>(
         Func<TMessage, TransportContext, Task> handler,
         CancellationToken cancellationToken = default)
@@ -46,8 +40,6 @@ public interface IMessageTransport
     /// Publish multiple messages in a single batch (optimized for bulk operations)
     /// Reduces network round-trips by batching multiple messages
     /// </summary>
-    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         IEnumerable<TMessage> messages,
         TransportContext? context = null,
@@ -57,8 +49,6 @@ public interface IMessageTransport
     /// <summary>
     /// Send multiple messages to specific destination in a batch
     /// </summary>
-    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         IEnumerable<TMessage> messages,
         string destination,

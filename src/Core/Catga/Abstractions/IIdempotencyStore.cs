@@ -15,15 +15,11 @@ public interface IIdempotencyStore
     /// <summary>
     /// Mark message as processed with result (generic)
     /// </summary>
-    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     public Task MarkAsProcessedAsync<TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get cached result for previously processed message (generic)
     /// </summary>
-    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     public Task<TResult?> GetCachedResultAsync<TResult>(string messageId, CancellationToken cancellationToken = default);
 }
 
@@ -49,9 +45,6 @@ public class MemoryIdempotencyStore : IIdempotencyStore
             _lock.Release();
         }
     }
-
-    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     public async Task MarkAsProcessedAsync<TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);
@@ -75,9 +68,6 @@ public class MemoryIdempotencyStore : IIdempotencyStore
             _lock.Release();
         }
     }
-
-    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     public async Task<TResult?> GetCachedResultAsync<TResult>(string messageId, CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);

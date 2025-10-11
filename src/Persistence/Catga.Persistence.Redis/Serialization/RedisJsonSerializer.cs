@@ -25,8 +25,6 @@ public static class RedisJsonSerializer
     /// <summary>
     /// 获取 JSON 选项（优先使用自定义选项）
     /// </summary>
-    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed. Use SetCustomOptions with a JsonSerializerContext for AOT compatibility.")]
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation. Use SetCustomOptions with a JsonSerializerContext for AOT compatibility.")]
     public static JsonSerializerOptions GetOptions()
     {
         if (_customOptions != null)
@@ -52,8 +50,6 @@ public static class RedisJsonSerializer
     /// 序列化为字符串
     /// 对于 NativeAOT，请使用 SetCustomOptions 提供包含所有消息类型的 JsonSerializerContext
     /// </summary>
-    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed. Use SetCustomOptions with a JsonSerializerContext for AOT compatibility.")]
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation. Use SetCustomOptions with a JsonSerializerContext for AOT compatibility.")]
     public static string Serialize<T>(T value)
     {
         return JsonSerializer.Serialize(value, GetOptions());
@@ -63,8 +59,6 @@ public static class RedisJsonSerializer
     /// 从字符串反序列化
     /// 对于 NativeAOT，请使用 SetCustomOptions 提供包含所有消息类型的 JsonSerializerContext
     /// </summary>
-    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed. Use SetCustomOptions with a JsonSerializerContext for AOT compatibility.")]
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation. Use SetCustomOptions with a JsonSerializerContext for AOT compatibility.")]
     public static T? Deserialize<T>(string json)
     {
         return JsonSerializer.Deserialize<T>(json, GetOptions());

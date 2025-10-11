@@ -44,9 +44,6 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
     };
 
     public CompressionTransportOptions? CompressionOptions => null; // 不支持压缩
-
-    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         TMessage message,
         TransportContext? context = null,
@@ -73,9 +70,6 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
         _logger.LogDebug("Published message {MessageId} to Redis Stream {Stream}",
             context?.MessageId ?? "unknown", _streamKey);
     }
-
-    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public async Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         TMessage message,
         string destination,
@@ -86,9 +80,6 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
         // 对于点对点消息，使用相同的 Stream 机制
         await PublishAsync(message, context, cancellationToken);
     }
-
-    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         IEnumerable<TMessage> messages,
         TransportContext? context = null,
@@ -101,9 +92,6 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
             await PublishAsync(message, context, cancellationToken);
         }
     }
-
-    [RequiresUnreferencedCode("Message serialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message serialization may require runtime code generation")]
     public async Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] TMessage>(
         IEnumerable<TMessage> messages,
         string destination,
@@ -117,9 +105,6 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
             await SendAsync(message, destination, context, cancellationToken);
         }
     }
-
-    [RequiresUnreferencedCode("Message deserialization may require types that cannot be statically analyzed")]
-    [RequiresDynamicCode("Message deserialization may require runtime code generation")]
     public async Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] TMessage>(
         Func<TMessage, TransportContext, Task> handler,
         CancellationToken cancellationToken = default)
@@ -195,8 +180,6 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
     /// <summary>
     /// 处理单个消息
     /// </summary>
-    [RequiresDynamicCode("Calls System.Text.Json.JsonSerializer.Deserialize<TValue>(String, JsonSerializerOptions)")]
-    [RequiresUnreferencedCode("Calls System.Text.Json.JsonSerializer.Deserialize<TValue>(String, JsonSerializerOptions)")]
     private async Task ProcessMessageAsync<TMessage>(
         IDatabase db,
         StreamEntry streamEntry,

@@ -36,8 +36,6 @@ public class RedisIdempotencyStore : IIdempotencyStore
     }
 
     /// <inheritdoc/>
-    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     public async Task MarkAsProcessedAsync<TResult>(
         string messageId,
         TResult? result = default,
@@ -61,8 +59,6 @@ public class RedisIdempotencyStore : IIdempotencyStore
     }
 
     /// <inheritdoc/>
-    [RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed.")]
-    [RequiresDynamicCode("JSON serialization may require dynamic code generation.")]
     public async Task<TResult?> GetCachedResultAsync<TResult>(
         string messageId,
         CancellationToken cancellationToken = default)

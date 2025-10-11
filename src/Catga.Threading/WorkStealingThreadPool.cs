@@ -92,6 +92,122 @@ public sealed class WorkStealingThreadPool : IThreadPool
         return QueueWorkItem(new AsyncWorkItem(asyncAction, priority));
     }
 
+    /// <summary>
+    /// Queue work and return a Task for completion tracking
+    /// </summary>
+    public Task RunAsync(Action action, int priority = 0, CancellationToken cancellationToken = default)
+    {
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        
+        if (_isDisposed != 0 || cancellationToken.IsCancellationRequested)
+        {
+            tcs.SetCanceled(cancellationToken);
+            return tcs.Task;
+        }
+
+        QueueWorkItem(() =>
+        {
+            try
+            {
+                action();
+                tcs.SetResult(true);
+            }
+            catch (Exception ex)
+            {
+                tcs.SetException(ex);
+            }
+        }, priority);
+
+        return tcs.Task;
+    }
+
+    /// <summary>
+    /// Queue work with result and return a Task{T}
+    /// </summary>
+    public Task<T> RunAsync<T>(Func<T> func, int priority = 0, CancellationToken cancellationToken = default)
+    {
+        var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        
+        if (_isDisposed != 0 || cancellationToken.IsCancellationRequested)
+        {
+            tcs.SetCanceled(cancellationToken);
+            return tcs.Task;
+        }
+
+        QueueWorkItem(() =>
+        {
+            try
+            {
+                var result = func();
+                tcs.SetResult(result);
+            }
+            catch (Exception ex)
+            {
+                tcs.SetException(ex);
+            }
+        }, priority);
+
+        return tcs.Task;
+    }
+
+    /// <summary>
+    /// Queue async work and return the original Task
+    /// </summary>
+    public Task RunAsync(Func<Task> asyncFunc, int priority = 0, CancellationToken cancellationToken = default)
+    {
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        
+        if (_isDisposed != 0 || cancellationToken.IsCancellationRequested)
+        {
+            tcs.SetCanceled(cancellationToken);
+            return tcs.Task;
+        }
+
+        QueueWorkItem(async () =>
+        {
+            try
+            {
+                await asyncFunc().ConfigureAwait(false);
+                tcs.SetResult(true);
+            }
+            catch (Exception ex)
+            {
+                tcs.SetException(ex);
+            }
+        }, priority);
+
+        return tcs.Task;
+    }
+
+    /// <summary>
+    /// Queue async work with result and return Task{T}
+    /// </summary>
+    public Task<T> RunAsync<T>(Func<Task<T>> asyncFunc, int priority = 0, CancellationToken cancellationToken = default)
+    {
+        var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        
+        if (_isDisposed != 0 || cancellationToken.IsCancellationRequested)
+        {
+            tcs.SetCanceled(cancellationToken);
+            return tcs.Task;
+        }
+
+        QueueWorkItem(async () =>
+        {
+            try
+            {
+                var result = await asyncFunc().ConfigureAwait(false);
+                tcs.SetResult(result);
+            }
+            catch (Exception ex)
+            {
+                tcs.SetException(ex);
+            }
+        }, priority);
+
+        return tcs.Task;
+    }
+
     public void Dispose()
     {
         if (Interlocked.CompareExchange(ref _isDisposed, 1, 0) != 0)

@@ -28,6 +28,13 @@ public interface IMessage
     /// - QoS 2 (ExactlyOnce): 最慢，保证送达且不重复
     /// </summary>
     QualityOfService QoS => QualityOfService.AtLeastOnce;
+
+    /// <summary>
+    /// 投递模式（仅对 QoS 1/2 有效）
+    /// - WaitForResult (默认): 等待结果，同步确认
+    /// - AsyncRetry: 不等结果，异步重试保证送达
+    /// </summary>
+    DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
 }
 
 /// <summary>

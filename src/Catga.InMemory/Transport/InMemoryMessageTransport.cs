@@ -39,8 +39,9 @@ public class InMemoryMessageTransport : IMessageTransport
             SentAt = DateTime.UtcNow
         };
 
-        // Get QoS level from message
+        // Get QoS level and delivery mode from message
         var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
+        var deliveryMode = (message as IMessage)?.DeliveryMode ?? DeliveryMode.WaitForResult;
 
         switch (qos)
         {
@@ -51,14 +52,24 @@ public class InMemoryMessageTransport : IMessageTransport
                 break;
 
             case QualityOfService.AtLeastOnce:
-                // QoS 1: Wait for completion (等待完成)
-                var tasks = new Task[handlers.Count];
-                for (int i = 0; i < handlers.Count; i++)
+                // QoS 1: 至少一次，根据 DeliveryMode 决定是否等待
+                if (deliveryMode == DeliveryMode.WaitForResult)
                 {
-                    var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
-                    tasks[i] = handler(message, context);
+                    // 模式 1: 等待结果（同步确认）
+                    var tasks = new Task[handlers.Count];
+                    for (int i = 0; i < handlers.Count; i++)
+                    {
+                        var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
+                        tasks[i] = handler(message, context);
+                    }
+                    await Task.WhenAll(tasks);
                 }
-                await Task.WhenAll(tasks);
+                else
+                {
+                    // 模式 2: 异步重试（不等结果但确保至少一次）
+                    // 使用后台任务 + 重试机制
+                    _ = DeliverWithRetryAsync(handlers, message, context, cancellationToken);
+                }
                 break;
 
             case QualityOfService.ExactlyOnce:
@@ -108,6 +119,48 @@ public class InMemoryMessageTransport : IMessageTransport
         catch
         {
             // Fire-and-forget: 忽略异常
+        }
+    }
+
+    /// <summary>
+    /// 异步投递并重试，确保至少一次送达（不等结果）
+    /// 使用指数退避重试策略
+    /// </summary>
+    private static async ValueTask DeliverWithRetryAsync<TMessage>(
+        List<Delegate> handlers,
+        TMessage message,
+        TransportContext context,
+        CancellationToken cancellationToken) where TMessage : class
+    {
+        const int maxRetries = 3;
+        var baseDelay = TimeSpan.FromMilliseconds(100);
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                var tasks = new Task[handlers.Count];
+                for (int i = 0; i < handlers.Count; i++)
+                {
+                    var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
+                    tasks[i] = handler(message, context);
+                }
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+                
+                // 成功，退出
+                return;
+            }
+            catch when (attempt < maxRetries)
+            {
+                // 失败但还有重试次数，等待后重试
+                var delay = TimeSpan.FromMilliseconds(baseDelay.TotalMilliseconds * Math.Pow(2, attempt));
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                // 最后一次重试失败，忽略异常（已尽力保证至少一次）
+                // 生产环境应该记录到死信队列或告警
+            }
         }
     }
 

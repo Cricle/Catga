@@ -58,6 +58,13 @@ Catga 是一个**简单、高性能**的 .NET CQRS（Command Query Responsibilit
 - 🛡️ **错误处理** - 统一错误模型
 - ✅ **强类型** - 编译时安全
 
+### ASP.NET Core 集成
+- 🌐 **Minimal API** - 一行映射 CQRS 端点
+- 🎯 **智能结果映射** - 自动 HTTP 状态码
+- 📖 **OpenAPI/Swagger** - 自动 API 文档
+- 🔍 **诊断端点** - 健康检查和节点信息
+- 🎨 **CAP 风格 API** - 简洁优雅的设计
+
 ---
 
 ## 🚀 快速开始
@@ -65,8 +72,16 @@ Catga 是一个**简单、高性能**的 .NET CQRS（Command Query Responsibilit
 ### 安装
 
 ```bash
+# 核心包
 dotnet add package Catga
 dotnet add package Catga.InMemory
+
+# ASP.NET Core 集成（可选）
+dotnet add package Catga.AspNetCore
+
+# 分布式支持（可选）
+dotnet add package Catga.Distributed.Nats
+dotnet add package Catga.Distributed.Redis
 ```
 
 ### 最小示例
@@ -110,6 +125,62 @@ public class HelloHandler : IRequestHandler<HelloRequest, string>
 ```
 
 **就这么简单！** 🎉
+
+---
+
+## 🌐 ASP.NET Core 集成
+
+### 快速开始
+
+```bash
+dotnet add package Catga.AspNetCore
+```
+
+### 一行映射 CQRS 端点
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+// 添加 Catga
+builder.Services.AddCatga();
+builder.Services.AddGeneratedHandlers();
+
+var app = builder.Build();
+
+// 启用 Catga 诊断
+app.UseCatga();
+
+// ✨ 一行映射 Command
+app.MapCatgaRequest<CreateOrderCommand, CreateOrderResult>("/api/orders");
+
+// ✨ 一行映射 Query  
+app.MapCatgaQuery<GetOrderQuery, OrderDto>("/api/orders/{orderId}");
+
+// ✨ 一行映射 Event
+app.MapCatgaEvent<OrderCreatedEvent>("/api/events/order-created");
+
+app.Run();
+```
+
+### 智能结果映射
+
+```csharp
+// 在 Handler 中使用 Metadata 指定 HTTP 状态码
+public async Task<CatgaResult<OrderDto>> HandleAsync(GetOrderQuery request)
+{
+    var order = await _db.Orders.FindAsync(request.OrderId);
+    
+    if (order == null)
+        return CatgaResultHttpExtensions.NotFound<OrderDto>("Order not found");
+    
+    return CatgaResult<OrderDto>.Success(orderDto);
+}
+
+// ToHttpResult() 自动映射：
+// NotFound → 404, Conflict → 409, Validation → 422
+```
+
+查看完整文档：[Catga.AspNetCore README](src/Catga.AspNetCore/README.md)
 
 ---
 

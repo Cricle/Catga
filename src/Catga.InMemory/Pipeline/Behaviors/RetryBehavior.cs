@@ -8,20 +8,13 @@ using Polly.Retry;
 
 namespace Catga.Pipeline.Behaviors;
 
-/// <summary>
-/// Simplified retry behavior with exponential backoff and jitter (AOT-compatible)
-/// </summary>
-public class RetryBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+/// <summary>Retry behavior with exponential backoff</summary>
+public class RetryBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
     private readonly ResiliencePipeline _retryPipeline;
 
-    public RetryBehavior(
-        ILogger<RetryBehavior<TRequest, TResponse>> logger,
-        CatgaOptions options)
-        : base(logger)
+    public RetryBehavior(ILogger<RetryBehavior<TRequest, TResponse>> logger, CatgaOptions options) : base(logger)
     {
-        // Build retry pipeline from options
         _retryPipeline = new ResiliencePipelineBuilder()
             .AddRetry(new RetryStrategyOptions
             {
@@ -32,26 +25,17 @@ public class RetryBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TRespon
                 ShouldHandle = new PredicateBuilder().Handle<CatgaException>(ex => ex.IsRetryable),
                 OnRetry = args =>
                 {
-                    LogWarning(
-                        "Retry {AttemptNumber}/{MaxAttempts} for {RequestType}",
-                        args.AttemptNumber, options.MaxRetryAttempts, GetRequestName());
+                    LogWarning("Retry {AttemptNumber}/{MaxAttempts} for {RequestType}", args.AttemptNumber, options.MaxRetryAttempts, GetRequestName());
                     return ValueTask.CompletedTask;
                 }
             })
             .Build();
     }
 
-    /// <summary>
-    /// Optimized: Use ValueTask to reduce heap allocations
-    /// </summary>
-    public override async ValueTask<CatgaResult<TResponse>> HandleAsync(
-        TRequest request,
-        PipelineDelegate<TResponse> next,
-        CancellationToken cancellationToken = default)
+    public override async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
         try
         {
-            // Simplified retry logic - use Polly pipeline directly
             return await _retryPipeline.ExecuteAsync(async ct => await next(), cancellationToken);
         }
         catch (CatgaException ex)

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Common;
 using Catga.DistributedId;
 using Catga.Messages;
@@ -20,6 +21,8 @@ public abstract class BaseBehavior<TRequest, TResponse> : IPipelineBehavior<TReq
         Logger = logger;
     }
 
+    [RequiresDynamicCode("Pipeline behaviors may require dynamic code generation")]
+    [RequiresUnreferencedCode("Pipeline behaviors may require types that cannot be statically analyzed")]
     public abstract ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,

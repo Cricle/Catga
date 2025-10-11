@@ -143,7 +143,10 @@ public class NatsMessageTransport : IMessageTransport
                     cancellationToken: cancellationToken);
 
                 // 应用层去重（双重保障）
-                _processedMessages.TryAdd(context.MessageId, true);
+                if (!string.IsNullOrEmpty(context.MessageId))
+                {
+                    _processedMessages.TryAdd(context.MessageId, true);
+                }
 
                 _logger.LogDebug("Message {MessageId} published to JetStream (QoS 2 - exactly-once), Duplicate: {Dup}, Seq: {Seq}",
                     context.MessageId, ack2.Duplicate, ack2.Seq);

@@ -43,7 +43,7 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
     [RequiresUnreferencedCode("JSON serialization may require unreferenced code")]
     public Task MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)
     {
-        if (TryGetMessage(messageId, out var message))
+        if (TryGetMessage(messageId, out var message) && message != null)
         {
             message.Status = OutboxStatus.Published;
             message.PublishedAt = DateTime.UtcNow;
@@ -60,7 +60,7 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
         string errorMessage,
         CancellationToken cancellationToken = default)
     {
-        if (TryGetMessage(messageId, out var message))
+        if (TryGetMessage(messageId, out var message) && message != null)
         {
             message.RetryCount++;
             message.LastError = errorMessage;

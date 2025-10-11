@@ -281,7 +281,7 @@ public class DistributedPatternAnalyzer : DiagnosticAnalyzer
     {
         // Check if we're within a using statement with OutboxScope or similar
         var usingStatement = invocation.Ancestors().OfType<UsingStatementSyntax>().FirstOrDefault();
-        if (usingStatement != null)
+        if (usingStatement?.Expression != null)
         {
             var symbolInfo = context.SemanticModel.GetSymbolInfo(usingStatement.Expression);
             if (symbolInfo.Symbol?.ContainingType?.Name.Contains("Outbox") == true)

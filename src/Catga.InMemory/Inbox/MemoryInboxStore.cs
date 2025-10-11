@@ -18,7 +18,7 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
         MessageHelper.ValidateMessageId(messageId, nameof(messageId));
 
         // If message already exists
-        if (TryGetMessage(messageId, out var existingMessage))
+        if (TryGetMessage(messageId, out var existingMessage) && existingMessage != null)
         {
             // Already processed, cannot lock again
             if (existingMessage.Status == InboxStatus.Processed)
@@ -60,7 +60,7 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
         ArgumentNullException.ThrowIfNull(message);
 
         // Update or create message record
-        if (TryGetMessage(message.MessageId, out var existing))
+        if (TryGetMessage(message.MessageId, out var existing) && existing != null)
         {
             // Update existing record
             existing.MessageType = message.MessageType;
@@ -89,7 +89,7 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
         string messageId,
         CancellationToken cancellationToken = default)
     {
-        if (TryGetMessage(messageId, out var message))
+        if (TryGetMessage(messageId, out var message) && message != null)
         {
             return Task.FromResult(message.Status == InboxStatus.Processed);
         }
@@ -102,7 +102,7 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
         string messageId,
         CancellationToken cancellationToken = default)
     {
-        if (TryGetMessage(messageId, out var message) &&
+        if (TryGetMessage(messageId, out var message) && message != null &&
             message.Status == InboxStatus.Processed)
         {
             return Task.FromResult(message.ProcessingResult);
@@ -116,7 +116,7 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
         string messageId,
         CancellationToken cancellationToken = default)
     {
-        if (TryGetMessage(messageId, out var message))
+        if (TryGetMessage(messageId, out var message) && message != null)
         {
             message.Status = InboxStatus.Pending;
             message.LockExpiresAt = null;

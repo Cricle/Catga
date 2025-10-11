@@ -115,15 +115,14 @@ if (app.Environment.IsDevelopment())
 
 app.MapControllers();
 
-// ==================== Order API Endpoints ====================
+// ✨ Use Catga ASP.NET Core integration (similar to CAP pattern)
+app.UseCatga();
 
-app.MapPost("/api/orders", async (CreateOrderCommand command, ICatgaMediator mediator) =>
-{
-    var result = await mediator.SendAsync<CreateOrderCommand, CreateOrderResult>(command);
-    return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
-})
-.WithName("CreateOrder")
-.WithOpenApi();
+// ==================== Order API Endpoints (Catga Style) ====================
+
+// Command endpoints - direct CQRS mapping
+app.MapCatgaRequest<CreateOrderCommand, CreateOrderResult>("/api/orders")
+   .WithOpenApi();
 
 app.MapPost("/api/orders/{orderId:long}/process", async (long orderId, ICatgaMediator mediator) =>
 {
@@ -149,6 +148,7 @@ app.MapPost("/api/orders/{orderId:long}/cancel", async (long orderId, string rea
 .WithName("CancelOrder")
 .WithOpenApi();
 
+// Query endpoints - using Catga extensions
 app.MapGet("/api/orders/{orderId:long}", async (long orderId, ICatgaMediator mediator) =>
 {
     var result = await mediator.SendAsync<GetOrderQuery, OrderDto?>(new GetOrderQuery { OrderId = orderId });

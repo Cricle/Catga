@@ -46,19 +46,19 @@ clang --version
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    
+
     <!-- Enable Native AOT -->
     <PublishAot>true</PublishAot>
-    
+
     <!-- Optional: Trim unused code -->
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>full</TrimMode>
-    
+
     <!-- Optional: Optimize for size -->
     <IlcOptimizationPreference>Size</IlcOptimizationPreference>
     <!-- Or optimize for speed -->
     <!-- <IlcOptimizationPreference>Speed</IlcOptimizationPreference> -->
-    
+
     <!-- Optional: Include symbols for debugging -->
     <DebugType>embedded</DebugType>
     <DebugSymbols>true</DebugSymbols>
@@ -68,7 +68,7 @@ clang --version
     <!-- Catga packages (AOT-compatible) -->
     <PackageReference Include="Catga.InMemory" Version="1.0.0" />
     <PackageReference Include="Catga.SourceGenerator" Version="1.0.0" />
-    
+
     <!-- Optional: MemoryPack for serialization (recommended for AOT) -->
     <PackageReference Include="Catga.Serialization.MemoryPack" Version="1.0.0" />
     <PackageReference Include="MemoryPack" Version="1.21.1" />
@@ -165,14 +165,14 @@ ls -lh bin/Release/net9.0/*/publish/
   <PublishAot>true</PublishAot>
   <PublishTrimmed>true</PublishTrimmed>
   <TrimMode>full</TrimMode>
-  
+
   <!-- 优化设置 -->
   <IlcOptimizationPreference>Size</IlcOptimizationPreference>
   <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
-  
+
   <!-- 不变globalization (减小10-20MB) -->
   <InvariantGlobalization>true</InvariantGlobalization>
-  
+
   <!-- 移除不需要的功能 -->
   <EventSourceSupport>false</EventSourceSupport>
   <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
@@ -186,13 +186,13 @@ ls -lh bin/Release/net9.0/*/publish/
 <PropertyGroup>
   <PublishAot>true</PublishAot>
   <PublishTrimmed>true</PublishTrimmed>
-  
+
   <!-- 优化速度 -->
   <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
-  
+
   <!-- 启用 PGO (Profile-Guided Optimization) -->
   <IlcPgoOptimize>true</IlcPgoOptimize>
-  
+
   <!-- 保留堆栈跟踪 -->
   <IlcGenerateStackTraceData>true</IlcGenerateStackTraceData>
 </PropertyGroup>
@@ -319,7 +319,7 @@ public static class ServiceCollectionExtensions
       /p:PublishAot=true \
       /p:PublishTrimmed=true \
       /p:IlcOptimizationPreference=Speed
-    
+
 - name: Upload artifact
   uses: actions/upload-artifact@v3
   with:
@@ -389,11 +389,11 @@ ls -lh YourApp
 
 Catga 为 Native AOT 提供了完整的支持：
 
-✅ **核心库 100% AOT 兼容**  
-✅ **生产实现完全优化**  
-✅ **源生成器自动化**  
-✅ **多种序列化选项**  
-✅ **详细的文档和示例**  
+✅ **核心库 100% AOT 兼容**
+✅ **生产实现完全优化**
+✅ **源生成器自动化**
+✅ **多种序列化选项**
+✅ **详细的文档和示例**
 
 从传统 .NET 迁移到 Native AOT 通常只需 **5-10 分钟**，即可获得 **10-40x 的性能提升**！
 

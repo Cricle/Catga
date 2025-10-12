@@ -46,30 +46,26 @@ public class ShardedIdempotencyStore : IIdempotencyStore
     public Task MarkAsProcessedAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default)
     {
         var shard = GetShard(messageId);
-
-        string? resultJson = null;
-        Type? resultType = null;
+        shard[messageId] = (DateTime.UtcNow, null, null);
+        
         if (result != null)
         {
-            resultType = typeof(TResult);
-            resultJson = SerializationHelper.SerializeJson(result);
+            var resultJson = SerializationHelper.SerializeJson(result);
+            TypedIdempotencyCache<TResult>.Cache[messageId] = (DateTime.UtcNow, resultJson);
         }
-        shard[messageId] = (DateTime.UtcNow, resultType, resultJson);
         return Task.CompletedTask;
     }
 
     public Task<TResult?> GetCachedResultAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, CancellationToken cancellationToken = default)
     {
-        var shard = GetShard(messageId);
-        if (shard.TryGetValue(messageId, out var entry))
+        if (TypedIdempotencyCache<TResult>.Cache.TryGetValue(messageId, out var entry))
         {
-            if (DateTime.UtcNow - entry.Item1 > _retentionPeriod)
+            if (DateTime.UtcNow - entry.Timestamp > _retentionPeriod)
             {
-                shard.TryRemove(messageId, out _);
+                TypedIdempotencyCache<TResult>.Cache.TryRemove(messageId, out _);
                 return Task.FromResult<TResult?>(default);
             }
-            if (entry.Item3 != null && entry.Item2 == typeof(TResult))
-                return Task.FromResult(SerializationHelper.DeserializeJson<TResult>(entry.Item3));
+            return Task.FromResult(SerializationHelper.DeserializeJson<TResult>(entry.Json));
         }
         return Task.FromResult<TResult?>(default);
     }

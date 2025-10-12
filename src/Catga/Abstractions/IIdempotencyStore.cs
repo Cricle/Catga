@@ -29,6 +29,7 @@ public interface IIdempotencyStore
 public class MemoryIdempotencyStore : IIdempotencyStore
 {
     private readonly Dictionary<string, (DateTime ProcessedAt, Type? ResultType, string? ResultJson)> _processedMessages = new();
+    private readonly Dictionary<string, Dictionary<Type, string>> _typedResults = new();
     private readonly TimeSpan _retentionPeriod = TimeSpan.FromHours(24);
     private readonly SemaphoreSlim _lock = new(1, 1);
 
@@ -51,17 +52,18 @@ public class MemoryIdempotencyStore : IIdempotencyStore
         try
         {
             CleanupOldEntries();
-
-            string? resultJson = null;
-            Type? resultType = null;
-
+            _processedMessages[messageId] = (DateTime.UtcNow, null, null);
+            
             if (result != null)
             {
-                resultType = typeof(TResult);
-                resultJson = System.Text.Json.JsonSerializer.Serialize(result);
+                var resultJson = System.Text.Json.JsonSerializer.Serialize(result);
+                if (!_typedResults.TryGetValue(messageId, out var dict))
+                {
+                    dict = new Dictionary<Type, string>();
+                    _typedResults[messageId] = dict;
+                }
+                dict[typeof(TResult)] = resultJson;
             }
-
-            _processedMessages[messageId] = (DateTime.UtcNow, resultType, resultJson);
         }
         finally
         {
@@ -73,13 +75,8 @@ public class MemoryIdempotencyStore : IIdempotencyStore
         await _lock.WaitAsync(cancellationToken);
         try
         {
-            if (_processedMessages.TryGetValue(messageId, out var entry))
-            {
-                if (entry.ResultJson != null && entry.ResultType == typeof(TResult))
-                {
-                    return System.Text.Json.JsonSerializer.Deserialize<TResult>(entry.ResultJson);
-                }
-            }
+            if (_typedResults.TryGetValue(messageId, out var dict) && dict.TryGetValue(typeof(TResult), out var resultJson))
+                return System.Text.Json.JsonSerializer.Deserialize<TResult>(resultJson);
             return default;
         }
         finally

@@ -45,14 +45,24 @@ public class ShardedIdempotencyStore : IIdempotencyStore
 
     public Task MarkAsProcessedAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default)
     {
+        var now = DateTime.UtcNow;
         var shard = GetShard(messageId);
-        shard[messageId] = (DateTime.UtcNow, null, null);
 
+        // Always store in main shard for "has been processed" check
+        shard[messageId] = (now, typeof(TResult), null);
+
+        // Store typed result in cache for retrieval
         if (result != null)
         {
             var resultJson = SerializationHelper.SerializeJson(result);
-            TypedIdempotencyCache<TResult>.Cache[messageId] = (DateTime.UtcNow, resultJson);
+            TypedIdempotencyCache<TResult>.Cache[messageId] = (now, resultJson);
         }
+        else
+        {
+            // Store null result explicitly to differentiate from "not found"
+            TypedIdempotencyCache<TResult>.Cache[messageId] = (now, string.Empty);
+        }
+
         return Task.CompletedTask;
     }
 
@@ -63,8 +73,14 @@ public class ShardedIdempotencyStore : IIdempotencyStore
             if (ExpirationHelper.IsExpired(entry.Timestamp, _retentionPeriod))
             {
                 TypedIdempotencyCache<TResult>.Cache.TryRemove(messageId, out _);
+                GetShard(messageId).TryRemove(messageId, out _); // Also remove from main shard
                 return Task.FromResult<TResult?>(default);
             }
+
+            // Empty string means null result was explicitly stored
+            if (string.IsNullOrEmpty(entry.Json))
+                return Task.FromResult<TResult?>(default);
+
             return Task.FromResult(SerializationHelper.DeserializeJson<TResult>(entry.Json));
         }
         return Task.FromResult<TResult?>(default);
@@ -74,10 +90,16 @@ public class ShardedIdempotencyStore : IIdempotencyStore
     {
         var now = DateTime.UtcNow.Ticks;
         var lastCleanup = Interlocked.Read(ref _lastCleanupTicks);
+
+        // Only cleanup every 5 minutes (3000000000L ticks = 300 seconds)
         if (now - lastCleanup < 3000000000L) return;
+
+        // Try to acquire cleanup lock (CAS)
         if (Interlocked.CompareExchange(ref _lastCleanupTicks, now, lastCleanup) != lastCleanup) return;
 
         var cutoff = DateTime.UtcNow - _retentionPeriod;
+
+        // Cleanup main shards
         foreach (var shard in _shards)
         {
             foreach (var kvp in shard)
@@ -86,5 +108,8 @@ public class ShardedIdempotencyStore : IIdempotencyStore
                     shard.TryRemove(kvp.Key, out _);
             }
         }
+
+        // Note: TypedIdempotencyCache<T> is cleaned up lazily when accessed (in GetCachedResultAsync)
+        // This avoids reflection overhead in cleanup loop
     }
 }

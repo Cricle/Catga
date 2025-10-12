@@ -20,7 +20,7 @@ internal static class CatgaAnalyzerRules
     public static readonly DiagnosticDescriptor BlockingCallInHandler = new(
         id: "CAT1002",
         title: "Avoid blocking calls in async handlers",
-        messageFormat: "Handler '{0}' contains blocking call '{1}'. Use async/await instead",
+        messageFormat: "Handler '{0}' contains blocking call '{1}'. Use async/await instead.",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -39,7 +39,7 @@ internal static class CatgaAnalyzerRules
     public static readonly DiagnosticDescriptor HandlerNotRegistered = new(
         id: "CAT2001",
         title: "Handler is not registered in DI container",
-        messageFormat: "Handler '{0}' is defined but not registered. Use AddHandler() or AddGeneratedHandlers()",
+        messageFormat: "Handler '{0}' is defined but not registered. Use AddHandler() or AddGeneratedHandlers().",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Info,
         isEnabledByDefault: true,
@@ -57,7 +57,7 @@ internal static class CatgaAnalyzerRules
     public static readonly DiagnosticDescriptor MultipleSyncHandlers = new(
         id: "CAT2003",
         title: "Multiple handlers for Request",
-        messageFormat: "Request '{0}' has multiple handlers. Only one handler is allowed for IRequest<T>",
+        messageFormat: "Request '{0}' has multiple handlers. Only one handler is allowed for IRequest<T>.",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
@@ -67,7 +67,7 @@ internal static class CatgaAnalyzerRules
     public static readonly DiagnosticDescriptor CommandShouldNotReturnData = new(
         id: "CAT3001",
         title: "Command should not return domain data",
-        messageFormat: "Command '{0}' returns complex data. Consider using Query or returning only ID/status",
+        messageFormat: "Command '{0}' returns complex data. Consider using Query or returning only ID/status.",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Info,
         isEnabledByDefault: true,
@@ -76,7 +76,7 @@ internal static class CatgaAnalyzerRules
     public static readonly DiagnosticDescriptor QueryShouldBeImmutable = new(
         id: "CAT3002",
         title: "Query should be immutable",
-        messageFormat: "Query '{0}' has mutable properties. Queries should be immutable (use record or readonly)",
+        messageFormat: "Query '{0}' has mutable properties. Queries should be immutable (use record or readonly).",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Info,
         isEnabledByDefault: true,

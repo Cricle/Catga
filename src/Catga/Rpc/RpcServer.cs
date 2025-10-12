@@ -32,15 +32,16 @@ public sealed class RpcServer : IRpcServer, IDisposable
         _logger.LogInformation("Registered RPC handler: {Method}", methodName);
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken = default)
+    public Task StartAsync(CancellationToken cancellationToken = default)
     {
-        if (_receiveTask != null) return;
+        if (_receiveTask != null) return Task.CompletedTask;
         var requestSubject = $"rpc.{_options.ServiceName}.>";
         _receiveTask = _transport.SubscribeAsync<RpcRequest>(async (rpcRequest, context) =>
         {
             await HandleRequestAsync(rpcRequest, cancellationToken);
         }, cancellationToken);
         _logger.LogInformation("RPC server started: {ServiceName}", _options.ServiceName);
+        return Task.CompletedTask;
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)

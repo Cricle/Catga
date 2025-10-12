@@ -62,5 +62,3 @@ public static class CatgaJsonSerializerContextExtensions
         return options;
     }
 }
-
-

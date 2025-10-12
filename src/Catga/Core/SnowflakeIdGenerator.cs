@@ -18,7 +18,6 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     private readonly long _workerId;
     private readonly SnowflakeBitLayout _layout;
 
-
     // Packed state: timestamp (high 52 bits) | sequence (low 12 bits)
     // This allows atomic updates using a single Interlocked.CompareExchange
     // Initialize to 0 (timestamp=0, sequence=0)

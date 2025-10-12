@@ -59,13 +59,12 @@ public class CatgaMediator : ICatgaMediator
                 : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
 
             sw.Stop();
-            var duration = sw.Elapsed.TotalMilliseconds;
             CatgaDiagnostics.CommandsExecuted.Add(1, new KeyValuePair<string, object?>("request_type", reqType), new KeyValuePair<string, object?>("success", result.IsSuccess.ToString()));
-            CatgaDiagnostics.CommandDuration.Record(duration, new KeyValuePair<string, object?>("request_type", reqType));
-            CatgaLog.CommandExecuted(_logger, reqType, msgId, duration, result.IsSuccess);
+            CatgaDiagnostics.CommandDuration.Record(sw.Elapsed.TotalMilliseconds, new KeyValuePair<string, object?>("request_type", reqType));
+            CatgaLog.CommandExecuted(_logger, reqType, msgId, sw.Elapsed.TotalMilliseconds, result.IsSuccess);
 
             activity?.SetTag("catga.success", result.IsSuccess);
-            activity?.SetTag("catga.duration_ms", duration);
+            activity?.SetTag("catga.duration_ms", sw.Elapsed.TotalMilliseconds);
             if (!result.IsSuccess)
             {
                 activity?.SetStatus(ActivityStatusCode.Error, result.Error);

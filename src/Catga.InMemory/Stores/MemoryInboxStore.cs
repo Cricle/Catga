@@ -74,7 +74,10 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
     public Task DeleteProcessedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
     {
         var cutoff = DateTime.UtcNow - retentionPeriod;
-        return DeleteExpiredMessagesAsync(retentionPeriod, message => message.Status == InboxStatus.Processed && message.ProcessedAt.HasValue && message.ProcessedAt.Value < cutoff, cancellationToken);
+        return DeleteExpiredMessagesAsync(
+            retentionPeriod,
+            message => message.Status == InboxStatus.Processed && message.ProcessedAt.HasValue && message.ProcessedAt.Value < cutoff,
+            cancellationToken);
     }
 
     public int GetMessageCountByStatus(InboxStatus status) => GetCountByPredicate(m => m.Status == status);

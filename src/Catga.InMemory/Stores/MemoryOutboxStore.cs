@@ -14,11 +14,11 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
     }
 
     public Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(int maxCount = 100, CancellationToken cancellationToken = default)
-    {
-        var comparer = Comparer<OutboxMessage>.Create((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
-        var pending = GetMessagesByPredicate(message => message.Status == OutboxStatus.Pending && message.RetryCount < message.MaxRetries, maxCount, comparer);
-        return Task.FromResult<IReadOnlyList<OutboxMessage>>(pending);
-    }
+        => Task.FromResult<IReadOnlyList<OutboxMessage>>(
+            GetMessagesByPredicate(
+                message => message.Status == OutboxStatus.Pending && message.RetryCount < message.MaxRetries,
+                maxCount,
+                Comparer<OutboxMessage>.Create((a, b) => a.CreatedAt.CompareTo(b.CreatedAt))));
 
     public Task MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)
         => ExecuteIfExistsAsync(messageId, message =>
@@ -38,7 +38,10 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
     public Task DeletePublishedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
     {
         var cutoff = DateTime.UtcNow - retentionPeriod;
-        return DeleteExpiredMessagesAsync(retentionPeriod, message => message.Status == OutboxStatus.Published && message.PublishedAt.HasValue && message.PublishedAt.Value < cutoff, cancellationToken);
+        return DeleteExpiredMessagesAsync(
+            retentionPeriod,
+            message => message.Status == OutboxStatus.Published && message.PublishedAt.HasValue && message.PublishedAt.Value < cutoff,
+            cancellationToken);
     }
 
     public int GetMessageCountByStatus(OutboxStatus status) => GetCountByPredicate(m => m.Status == status);

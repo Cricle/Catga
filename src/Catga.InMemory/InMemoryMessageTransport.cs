@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using Catga.Common;
 using Catga.Core;
 using Catga.Idempotency;
 using Catga.Messages;
@@ -20,43 +21,35 @@ public class InMemoryMessageTransport : IMessageTransport
         if (handlers.Count == 0) return;
 
         var ctx = context ?? new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
+        var msg = message as IMessage;
 
-        var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
-        var deliveryMode = (message as IMessage)?.DeliveryMode ?? DeliveryMode.WaitForResult;
-
-        switch (qos)
+        switch (msg?.QoS ?? QualityOfService.AtLeastOnce)
         {
             case QualityOfService.AtMostOnce:
                 _ = FireAndForgetAsync(handlers, message, ctx, cancellationToken);
                 break;
 
             case QualityOfService.AtLeastOnce:
-                if (deliveryMode == DeliveryMode.WaitForResult)
+                if ((msg?.DeliveryMode ?? DeliveryMode.WaitForResult) == DeliveryMode.WaitForResult)
                 {
-                    var tasks = new Task[handlers.Count];
+                    using var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count);
                     for (int i = 0; i < handlers.Count; i++)
-                    {
-                        var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
-                        tasks[i] = handler(message, ctx);
-                    }
-                    await Task.WhenAll(tasks);
+                        rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, ctx);
+                    await Task.WhenAll(rented.AsSpan().ToArray());
                 }
                 else
-                {
                     _ = DeliverWithRetryAsync(handlers, message, ctx, cancellationToken);
-                }
                 break;
 
             case QualityOfService.ExactlyOnce:
                 if (ctx.MessageId != null && _idempotencyStore.IsProcessed(ctx.MessageId)) return;
 
-                var tasks2 = new Task[handlers.Count];
-                for (int i = 0; i < handlers.Count; i++)
+                using (var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count))
                 {
-                    var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
-                    tasks2[i] = handler(message, ctx);
+                    for (int i = 0; i < handlers.Count; i++)
+                        rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, ctx);
+                    await Task.WhenAll(rented.AsSpan().ToArray());
                 }
-                await Task.WhenAll(tasks2);
 
                 if (ctx.MessageId != null)
                     _idempotencyStore.MarkAsProcessed(ctx.MessageId);
@@ -68,45 +61,31 @@ public class InMemoryMessageTransport : IMessageTransport
     {
         try
         {
-            var tasks = new Task[handlers.Count];
+            using var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count);
             for (int i = 0; i < handlers.Count; i++)
-            {
-                var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
-                tasks[i] = handler(message, context);
-            }
-            await Task.WhenAll(tasks).ConfigureAwait(false);
+                rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, context);
+            await Task.WhenAll(rented.AsSpan().ToArray()).ConfigureAwait(false);
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private static async ValueTask DeliverWithRetryAsync<TMessage>(List<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class
     {
-        const int maxRetries = 3;
-        var baseDelay = TimeSpan.FromMilliseconds(100);
-
-        for (int attempt = 0; attempt <= maxRetries; attempt++)
+        for (int attempt = 0; attempt <= 3; attempt++)
         {
             try
             {
-                var tasks = new Task[handlers.Count];
+                using var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count);
                 for (int i = 0; i < handlers.Count; i++)
-                {
-                    var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
-                    tasks[i] = handler(message, context);
-                }
-                await Task.WhenAll(tasks).ConfigureAwait(false);
+                    rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, context);
+                await Task.WhenAll(rented.AsSpan().ToArray()).ConfigureAwait(false);
                 return;
             }
-            catch when (attempt < maxRetries)
+            catch when (attempt < 3)
             {
-                var delay = TimeSpan.FromMilliseconds(baseDelay.TotalMilliseconds * Math.Pow(2, attempt));
-                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromMilliseconds(100 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
             }
-            catch
-            {
-            }
+            catch { }
         }
     }
     public Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
@@ -127,7 +106,7 @@ public class InMemoryMessageTransport : IMessageTransport
             await PublishAsync(message, context, cancellationToken);
     }
 
-    public async Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
-        => await PublishBatchAsync(messages, context, cancellationToken);
+    public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
+        => PublishBatchAsync(messages, context, cancellationToken);
 }
 

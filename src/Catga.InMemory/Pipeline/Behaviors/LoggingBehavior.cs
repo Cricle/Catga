@@ -12,26 +12,26 @@ public partial class LoggingBehavior<[System.Diagnostics.CodeAnalysis.Dynamicall
 
     public override async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
-        var requestName = GetRequestName();
-        var messageId = TryGetMessageId(request) ?? "N/A";
-        var correlationId = TryGetCorrelationId(request) ?? string.Empty;
         var sw = Stopwatch.StartNew();
-        LogRequestStarted(requestName, messageId, correlationId);
+        var reqName = GetRequestName();
+        var msgId = TryGetMessageId(request) ?? "N/A";
+        var corrId = TryGetCorrelationId(request) ?? string.Empty;
+        LogRequestStarted(reqName, msgId, corrId);
 
         try
         {
             var result = await next();
             sw.Stop();
             if (result.IsSuccess)
-                LogRequestSucceeded(requestName, messageId, sw.ElapsedMilliseconds, correlationId);
+                LogRequestSucceeded(reqName, msgId, sw.ElapsedMilliseconds, corrId);
             else
-                LogRequestFailed(requestName, messageId, sw.ElapsedMilliseconds, result.Error ?? "Unknown error", correlationId, result.Exception?.GetType().Name);
+                LogRequestFailed(reqName, msgId, sw.ElapsedMilliseconds, result.Error ?? "Unknown error", corrId, result.Exception?.GetType().Name);
             return result;
         }
         catch (Exception ex)
         {
             sw.Stop();
-            LogRequestException(ex, requestName, messageId, sw.ElapsedMilliseconds, correlationId);
+            LogRequestException(ex, reqName, msgId, sw.ElapsedMilliseconds, corrId);
             throw;
         }
     }

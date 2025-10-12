@@ -22,14 +22,14 @@ public class QosVerificationTests
     {
         _logger = Substitute.For<ILogger<MockTransport>>();
         _serializer = Substitute.For<IMessageSerializer>();
-        
+
         // Setup serializer to return simple JSON
         _serializer.Serialize(Arg.Any<object>())
-            .Returns(callInfo => 
+            .Returns(callInfo =>
                 System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(callInfo.Arg<object>()));
-        
+
         _serializer.Deserialize<TestEvent>(Arg.Any<byte[]>())
-            .Returns(callInfo => 
+            .Returns(callInfo =>
                 System.Text.Json.JsonSerializer.Deserialize<TestEvent>(callInfo.Arg<byte[]>()));
     }
 
@@ -80,7 +80,7 @@ public class QosVerificationTests
         // Assert
         // QoS 0: 不保证送达，不重试，失败就丢失
         transport.PublishAttempts.Should().Be(publishCount, "QoS 0 should not retry");
-        transport.SuccessfulDeliveries.Should().BeLessThan(publishCount, 
+        transport.SuccessfulDeliveries.Should().BeLessThan(publishCount,
             "with 50% failure rate, some messages should be lost");
     }
 
@@ -98,7 +98,7 @@ public class QosVerificationTests
 
         // Assert
         // QoS 0: 无 ACK 等待，应该最快
-        stopwatch.ElapsedMilliseconds.Should().BeLessThan(10, 
+        stopwatch.ElapsedMilliseconds.Should().BeLessThan(10,
             "QoS 0 should be fastest (no ACK wait)");
         transport.AckWaitTime.Should().Be(TimeSpan.Zero, "QoS 0 should not wait for ACK");
     }
@@ -112,7 +112,7 @@ public class QosVerificationTests
     {
         // Arrange - 使用固定失败计数器来保证可预测的行为
         int failureCount = 0;
-        var transport = new MockTransport(_logger, _serializer, 
+        var transport = new MockTransport(_logger, _serializer,
             failureCallback: () =>
             {
                 // 前 3 次失败，第 4 次成功
@@ -134,7 +134,7 @@ public class QosVerificationTests
     public async Task QoS1_AtLeastOnce_AllowsDuplicates()
     {
         // Arrange
-        var transport = new MockTransport(_logger, _serializer, 
+        var transport = new MockTransport(_logger, _serializer,
             simulateDuplicates: true);
         var @event = new ReliableTestEvent("test-1", "data");
         var receivedMessages = new ConcurrentBag<string>();
@@ -152,7 +152,7 @@ public class QosVerificationTests
         // Assert
         // QoS 1: 保证至少送达一次，但可能重复
         receivedMessages.Should().NotBeEmpty("at least one delivery");
-        receivedMessages.Count.Should().BeGreaterOrEqualTo(1, 
+        receivedMessages.Count.Should().BeGreaterOrEqualTo(1,
             "QoS 1 guarantees at-least-once, may have duplicates");
     }
 
@@ -171,7 +171,7 @@ public class QosVerificationTests
         // Assert
         // QoS 1: 应该等待 ACK
         transport.AckWaitTime.Should().BeGreaterThan(TimeSpan.Zero, "QoS 1 should wait for ACK");
-        stopwatch.ElapsedMilliseconds.Should().BeGreaterOrEqualTo(50, 
+        stopwatch.ElapsedMilliseconds.Should().BeGreaterOrEqualTo(50,
             "should wait for ACK delay");
     }
 
@@ -183,10 +183,10 @@ public class QosVerificationTests
     public async Task QoS2_ExactlyOnce_ShouldDeduplicateMessages()
     {
         // Arrange
-        var transport = new MockTransport(_logger, _serializer, 
+        var transport = new MockTransport(_logger, _serializer,
             enableDeduplication: true);
         var @event = new ExactlyOnceEvent("test-1", "data");
-        
+
         // 使用固定的 MessageId 进行去重
         var context = new TransportContext { MessageId = "fixed-msg-1" };
 
@@ -198,7 +198,7 @@ public class QosVerificationTests
 
         // Assert
         // QoS 2: 即使调用 5 次，由于 MessageId 相同，只发布 1 次
-        transport.SuccessfulDeliveries.Should().Be(1, 
+        transport.SuccessfulDeliveries.Should().Be(1,
             "QoS 2 should deduplicate by MessageId, only 1 actual delivery");
     }
 
@@ -206,21 +206,21 @@ public class QosVerificationTests
     public async Task QoS2_ExactlyOnce_ShouldHandleMultipleUniqueMessages()
     {
         // Arrange
-        var transport = new MockTransport(_logger, _serializer, 
+        var transport = new MockTransport(_logger, _serializer,
             enableDeduplication: true);
 
         // Act - 发布 3 条不同的消息（不同的 MessageId）
-        await transport.PublishAsync(new ExactlyOnceEvent("msg-1", "data1"), 
+        await transport.PublishAsync(new ExactlyOnceEvent("msg-1", "data1"),
             new TransportContext { MessageId = "id-1" });
-        await transport.PublishAsync(new ExactlyOnceEvent("msg-2", "data2"), 
+        await transport.PublishAsync(new ExactlyOnceEvent("msg-2", "data2"),
             new TransportContext { MessageId = "id-2" });
-        await transport.PublishAsync(new ExactlyOnceEvent("msg-3", "data3"), 
+        await transport.PublishAsync(new ExactlyOnceEvent("msg-3", "data3"),
             new TransportContext { MessageId = "id-3" });
-        
+
         // 重复发布前 2 条（相同的 MessageId）
-        await transport.PublishAsync(new ExactlyOnceEvent("msg-1", "data1"), 
+        await transport.PublishAsync(new ExactlyOnceEvent("msg-1", "data1"),
             new TransportContext { MessageId = "id-1" }); // 去重
-        await transport.PublishAsync(new ExactlyOnceEvent("msg-2", "data2"), 
+        await transport.PublishAsync(new ExactlyOnceEvent("msg-2", "data2"),
             new TransportContext { MessageId = "id-2" }); // 去重
 
         // Assert
@@ -232,7 +232,7 @@ public class QosVerificationTests
     public async Task QoS2_ExactlyOnce_ShouldUseDeduplication()
     {
         // Arrange
-        var transport = new MockTransport(_logger, _serializer, 
+        var transport = new MockTransport(_logger, _serializer,
             enableDeduplication: true);
         var @event = new ExactlyOnceEvent("test-1", "data");
         var context = new TransportContext { MessageId = "dedup-test" };
@@ -272,8 +272,8 @@ public class QosVerificationTests
     [InlineData(QualityOfService.AtLeastOnce, true, false)]  // 重试，不去重
     [InlineData(QualityOfService.ExactlyOnce, true, true)]   // 重试，去重
     public void QoS_Behavior_ShouldMatchExpectations(
-        QualityOfService qos, 
-        bool shouldRetry, 
+        QualityOfService qos,
+        bool shouldRetry,
         bool shouldDeduplicate)
     {
         // Assert
@@ -372,7 +372,7 @@ public class MockTransport : IMessageTransport
         CancellationToken cancellationToken) where TMessage : class
     {
         PublishAttempts++;
-        
+
         // QoS 0: Fire-and-forget, 失败就丢失
         if (_random.NextDouble() >= _failureRate)
         {
@@ -391,21 +391,21 @@ public class MockTransport : IMessageTransport
         for (int attempt = 0; attempt < _maxRetries; attempt++)
         {
             PublishAttempts++;
-            
+
             // 判断是否失败（使用 failureCallback 或 failureRate）
-            bool shouldFail = _failureCallback != null 
-                ? _failureCallback() 
+            bool shouldFail = _failureCallback != null
+                ? _failureCallback()
                 : _random.NextDouble() < _failureRate;
-            
+
             if (!shouldFail)
             {
                 // 模拟 ACK 等待
                 await Task.Delay(_ackDelay, cancellationToken);
                 AckWaitTime += _ackDelay;
-                
+
                 SuccessfulDeliveries++;
                 await NotifySubscribersAsync(message, context);
-                
+
                 // 模拟可能的重复投递
                 if (_simulateDuplicates && _random.NextDouble() > 0.7)
                 {
@@ -414,7 +414,7 @@ public class MockTransport : IMessageTransport
                 return;
             }
         }
-        
+
         throw new InvalidOperationException($"Failed to publish after {_maxRetries} attempts");
     }
 
@@ -432,7 +432,7 @@ public class MockTransport : IMessageTransport
 
         // 使用 QoS 1 逻辑（重试直到成功）
         await PublishQoS1Async(message, context, cancellationToken);
-        
+
         // 标记为已发布（防止后续重复）
         if (_enableDeduplication)
         {
@@ -440,7 +440,7 @@ public class MockTransport : IMessageTransport
         }
     }
 
-    private async Task NotifySubscribersAsync<TMessage>(TMessage message, TransportContext context) 
+    private async Task NotifySubscribersAsync<TMessage>(TMessage message, TransportContext context)
         where TMessage : class
     {
         foreach (var subscriber in _subscribers)

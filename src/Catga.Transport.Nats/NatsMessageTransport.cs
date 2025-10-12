@@ -39,7 +39,7 @@ public class NatsMessageTransport : IMessageTransport
         var subject = GetSubject(messageType);
         var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
         var ctx = context ?? new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = messageType.FullName, SentAt = DateTime.UtcNow };
-        
+
         if (qos == QualityOfService.ExactlyOnce && ctx.MessageId != null && _processedMessages.ContainsKey(ctx.MessageId))
         {
             _logger.LogDebug("Message {MessageId} already processed (QoS 2), skipping", ctx.MessageId);

@@ -29,7 +29,7 @@ using Catga.Messages;
 public class CreateOrderHandler : IRequestHandler<CreateOrderRequest, CreateOrderResponse>
 {
     public async ValueTask<CatgaResult<CreateOrderResponse>> HandleAsync(
-        CreateOrderRequest request, 
+        CreateOrderRequest request,
         CancellationToken cancellationToken = default)
     {
         // Handle request
@@ -42,7 +42,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderRequest, CreateOrde
 public class CachedUserHandler : IRequestHandler<GetUserRequest, UserResponse>
 {
     public async ValueTask<CatgaResult<UserResponse>> HandleAsync(
-        GetUserRequest request, 
+        GetUserRequest request,
         CancellationToken cancellationToken = default)
     {
         // Handle request
@@ -126,7 +126,7 @@ public static class CatgaGeneratedHandlerRegistrations
 
         // Scoped lifetime handlers
         services.AddScoped<IRequestHandler<CreateOrderRequest, CreateOrderResponse>, CreateOrderHandler>();
-        
+
         // Transient lifetime handlers
         services.AddTransient<IEventHandler<OrderCreatedEvent>, OrderCreatedEventHandler>();
 
@@ -162,7 +162,7 @@ builder.Services.AddCatga()
 public class StatelessHandler : IRequestHandler<MyRequest, MyResponse> { }
 
 // Handlers with dependencies → Scoped (default)
-public class HandlerWithDbContext : IRequestHandler<MyRequest, MyResponse> 
+public class HandlerWithDbContext : IRequestHandler<MyRequest, MyResponse>
 {
     private readonly MyDbContext _db;
     // DbContext is scoped, so handler should be too

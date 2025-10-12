@@ -14,8 +14,8 @@ public sealed class ResultMetadata
     public void Clear() => _data.Clear();
 }
 
-/// <summary>Catga operation result with value (AOT-compatible)</summary>
-public class CatgaResult<T>
+/// <summary>Catga operation result with value (zero-allocation struct for performance)</summary>
+public readonly struct CatgaResult<T>
 {
     public bool IsSuccess { get; init; }
     public T? Value { get; init; }
@@ -30,8 +30,8 @@ public class CatgaResult<T>
         => new() { IsSuccess = false, Error = error, Exception = exception };
 }
 
-/// <summary>Catga operation result without value (AOT-compatible)</summary>
-public class CatgaResult
+/// <summary>Catga operation result without value (zero-allocation struct for performance)</summary>
+public readonly struct CatgaResult
 {
     public bool IsSuccess { get; init; }
     public string? Error { get; init; }

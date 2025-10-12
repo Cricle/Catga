@@ -143,7 +143,7 @@ services.AddHandler<HelloRequest, string, HelloHandler>();
 // 2. 使用
 var mediator = services.BuildServiceProvider()
     .GetRequiredService<IMediator>();
-    
+
 var result = await mediator.SendAsync(new HelloRequest("World"));
 Console.WriteLine(result.Data); // Hello, World!
 ```

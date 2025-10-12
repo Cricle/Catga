@@ -12,14 +12,14 @@ public interface IBufferedMessageSerializer : IMessageSerializer
     /// <summary>
     /// Serialize to buffer writer (zero-copy, no allocation)
     /// </summary>
-    public void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(
+    public void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         T value,
         IBufferWriter<byte> bufferWriter);
 
     /// <summary>
     /// Deserialize from ReadOnlySpan (zero-copy, no allocation)
     /// </summary>
-    public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(
+    public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         ReadOnlySpan<byte> data);
 
     /// <summary>

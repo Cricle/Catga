@@ -9,7 +9,7 @@ using Polly.Retry;
 namespace Catga.Pipeline.Behaviors;
 
 /// <summary>Retry behavior with exponential backoff</summary>
-public class RetryBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
+public class RetryBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TRequest, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResponse> : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
     private readonly ResiliencePipeline _retryPipeline;
 

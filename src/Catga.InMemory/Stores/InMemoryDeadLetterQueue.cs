@@ -1,14 +1,11 @@
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
 using Catga.Common;
 using Catga.Messages;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.DeadLetter;
 
-/// <summary>
-/// Streamlined in-memory dead letter queue (lock-free)
-/// </summary>
+/// <summary>In-memory dead letter queue (lock-free)</summary>
 public class InMemoryDeadLetterQueue : IDeadLetterQueue
 {
     private readonly ConcurrentQueue<DeadLetterMessage> _deadLetters = new();
@@ -20,12 +17,8 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
         _logger = logger;
         _maxSize = maxSize;
     }
-    public Task SendAsync<TMessage>(
-        TMessage message,
-        Exception exception,
-        int retryCount,
-        CancellationToken cancellationToken = default)
-        where TMessage : IMessage
+
+    public Task SendAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, Exception exception, int retryCount, CancellationToken cancellationToken = default) where TMessage : IMessage
     {
         var deadLetter = new DeadLetterMessage
         {
@@ -41,31 +34,24 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
 
         _deadLetters.Enqueue(deadLetter);
 
-        // Simple trimming strategy
         while (_deadLetters.Count > _maxSize)
             _deadLetters.TryDequeue(out _);
 
-        _logger.LogWarning("Message sent to dead letter queue: {MessageType} {MessageId}, retries: {RetryCount}",
-            deadLetter.MessageType, deadLetter.MessageId, retryCount);
+        _logger.LogWarning("Message sent to dead letter queue: {MessageType} {MessageId}, retries: {RetryCount}", deadLetter.MessageType, deadLetter.MessageId, retryCount);
 
         return Task.CompletedTask;
     }
 
-    public Task<List<DeadLetterMessage>> GetFailedMessagesAsync(
-        int maxCount = 100,
-        CancellationToken cancellationToken = default)
+    public Task<List<DeadLetterMessage>> GetFailedMessagesAsync(int maxCount = 100, CancellationToken cancellationToken = default)
     {
-        // Zero-allocation optimization: avoid LINQ, build list directly
         var result = new List<DeadLetterMessage>(Math.Min(maxCount, _deadLetters.Count));
         var count = 0;
-
         foreach (var item in _deadLetters)
         {
             if (count >= maxCount) break;
             result.Add(item);
             count++;
         }
-
         return Task.FromResult(result);
     }
 }

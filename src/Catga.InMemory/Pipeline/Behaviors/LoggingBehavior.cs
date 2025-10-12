@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Pipeline.Behaviors;
 
 /// <summary>Structured logging behavior</summary>
-public partial class LoggingBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
+public partial class LoggingBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TRequest, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResponse> : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
     public LoggingBehavior(ILogger<LoggingBehavior<TRequest, TResponse>> logger) : base(logger) { }
 

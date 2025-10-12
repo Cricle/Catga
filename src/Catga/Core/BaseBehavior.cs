@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.DistributedId;
 using Catga.Messages;
 using Catga.Results;
@@ -5,76 +6,32 @@ using Microsoft.Extensions.Logging;
 
 namespace Catga.Pipeline.Behaviors;
 
-/// <summary>
-/// Base class for all pipeline behaviors
-/// Provides common utilities and reduces code duplication (DRY principle)
-/// AOT-compatible: Uses interface-based dispatch, no reflection
-/// </summary>
-public abstract class BaseBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+/// <summary>Base class for pipeline behaviors (AOT-compatible)</summary>
+public abstract class BaseBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
     protected readonly ILogger Logger;
 
-    protected BaseBehavior(ILogger logger)
-    {
-        Logger = logger;
-    }
+    protected BaseBehavior(ILogger logger) => Logger = logger;
 
-    public abstract ValueTask<CatgaResult<TResponse>> HandleAsync(
-        TRequest request,
-        PipelineDelegate<TResponse> next,
-        CancellationToken cancellationToken = default);
+    public abstract ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Get request type name
-    /// </summary>
     protected static string GetRequestName() => typeof(TRequest).Name;
-
-    /// <summary>
-    /// Get request full type name
-    /// </summary>
     protected static string GetRequestFullName() => typeof(TRequest).FullName ?? typeof(TRequest).Name;
-
-    /// <summary>
-    /// Get response type name
-    /// </summary>
     protected static string GetResponseName() => typeof(TResponse).Name;
 
-    /// <summary>
-    /// Get MessageId from request (safe extraction)
-    /// </summary>
     protected static string? TryGetMessageId(TRequest request)
-    {
-        return request is IMessage message && !string.IsNullOrEmpty(message.MessageId)
-            ? message.MessageId
-            : null;
-    }
+        => request is IMessage message && !string.IsNullOrEmpty(message.MessageId) ? message.MessageId : null;
 
-    /// <summary>
-    /// Get CorrelationId from request (safe extraction)
-    /// </summary>
     protected static string? TryGetCorrelationId(TRequest request)
-    {
-        return request is IMessage message ? message.CorrelationId : null;
-    }
+        => request is IMessage message ? message.CorrelationId : null;
 
-    /// <summary>
-    /// Get or generate CorrelationId
-    /// </summary>
     protected static string GetCorrelationId(TRequest request, IDistributedIdGenerator idGenerator)
     {
         var correlationId = TryGetCorrelationId(request);
         return correlationId ?? idGenerator.NextId().ToString();
     }
 
-    /// <summary>
-    /// Safe execute with automatic exception handling and logging
-    /// </summary>
-    protected async ValueTask<CatgaResult<TResponse>> SafeExecuteAsync(
-        TRequest request,
-        PipelineDelegate<TResponse> next,
-        Func<TRequest, PipelineDelegate<TResponse>, ValueTask<CatgaResult<TResponse>>> handler,
-        CancellationToken cancellationToken = default)
+    protected async ValueTask<CatgaResult<TResponse>> SafeExecuteAsync(TRequest request, PipelineDelegate<TResponse> next, Func<TRequest, PipelineDelegate<TResponse>, ValueTask<CatgaResult<TResponse>>> handler, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -82,58 +39,21 @@ public abstract class BaseBehavior<TRequest, TResponse> : IPipelineBehavior<TReq
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex,
-                "Error in {BehaviorType} for {RequestType}",
-                GetType().Name,
-                GetRequestName());
+            Logger.LogError(ex, "Error in {BehaviorType} for {RequestType}", GetType().Name, GetRequestName());
             throw;
         }
     }
 
-    /// <summary>
-    /// Log operation success
-    /// </summary>
     protected void LogSuccess(string messageId, long durationMs)
-    {
-        Logger.LogDebug(
-            "{BehaviorType} succeeded for {RequestType} [MessageId={MessageId}, Duration={Duration}ms]",
-            GetType().Name,
-            GetRequestName(),
-            messageId,
-            durationMs);
-    }
+        => Logger.LogDebug("{BehaviorType} succeeded for {RequestType} [MessageId={MessageId}, Duration={Duration}ms]", GetType().Name, GetRequestName(), messageId, durationMs);
 
-    /// <summary>
-    /// Log operation failure
-    /// </summary>
     protected void LogFailure(string messageId, Exception ex)
-    {
-        Logger.LogError(ex,
-            "{BehaviorType} failed for {RequestType} [MessageId={MessageId}]",
-            GetType().Name,
-            GetRequestName(),
-            messageId);
-    }
+        => Logger.LogError(ex, "{BehaviorType} failed for {RequestType} [MessageId={MessageId}]", GetType().Name, GetRequestName(), messageId);
 
-    /// <summary>
-    /// Log operation warning
-    /// </summary>
-    protected void LogWarning(string message, params object[] args)
-    {
-        Logger.LogWarning(message, args);
-    }
+    protected void LogWarning(string message, params object[] args) => Logger.LogWarning(message, args);
 
-    /// <summary>
-    /// Log operation info
-    /// </summary>
-    protected void LogInformation(string message, params object[] args)
-    {
-        Logger.LogInformation(message, args);
-    }
+    protected void LogInformation(string message, params object[] args) => Logger.LogInformation(message, args);
 
-    /// <summary>
-    /// Check if request is an event
-    /// </summary>
     protected static bool IsEvent(TRequest request) => request is IEvent;
 }
 

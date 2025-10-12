@@ -11,7 +11,7 @@ public interface IDeadLetterQueue
     /// <summary>
     /// Send message to dead letter queue
     /// </summary>
-    public Task SendAsync<TMessage>(
+    public Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
         TMessage message,
         Exception exception,
         int retryCount,

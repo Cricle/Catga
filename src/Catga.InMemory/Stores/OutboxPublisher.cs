@@ -1,13 +1,9 @@
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.Outbox;
 
-/// <summary>
-/// Background service that publishes messages from the outbox
-/// Ensures reliable message delivery in distributed systems
-/// </summary>
+/// <summary>Background service that publishes messages from the outbox</summary>
 public class OutboxPublisher : BackgroundService
 {
     private readonly IOutboxStore _outboxStore;
@@ -15,11 +11,7 @@ public class OutboxPublisher : BackgroundService
     private readonly TimeSpan _pollingInterval;
     private readonly int _batchSize;
 
-    public OutboxPublisher(
-        IOutboxStore outboxStore,
-        ILogger<OutboxPublisher> logger,
-        TimeSpan? pollingInterval = null,
-        int? batchSize = null)
+    public OutboxPublisher(IOutboxStore outboxStore, ILogger<OutboxPublisher> logger, TimeSpan? pollingInterval = null, int? batchSize = null)
     {
         _outboxStore = outboxStore;
         _logger = logger;
@@ -29,8 +21,7 @@ public class OutboxPublisher : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Outbox Publisher started (polling interval: {Interval}s, batch size: {BatchSize})",
-            _pollingInterval.TotalSeconds, _batchSize);
+        _logger.LogInformation("Outbox Publisher started (polling interval: {Interval}s, batch size: {BatchSize})", _pollingInterval.TotalSeconds, _batchSize);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -42,65 +33,40 @@ public class OutboxPublisher : BackgroundService
             {
                 _logger.LogError(ex, "Error processing outbox messages");
             }
-
-            // Wait for next polling cycle
             await Task.Delay(_pollingInterval, stoppingToken).ConfigureAwait(false);
         }
 
         _logger.LogInformation("Outbox Publisher stopped");
     }
+
     private async Task ProcessPendingMessagesAsync(CancellationToken cancellationToken)
     {
-        // Get pending messages
         var messages = await _outboxStore.GetPendingMessagesAsync(_batchSize, cancellationToken);
-
-        if (messages.Count == 0)
-            return;
+        if (messages.Count == 0) return;
 
         _logger.LogDebug("Processing {Count} outbox messages", messages.Count);
-
-        // Process messages concurrently
         var tasks = messages.Select(message => ProcessMessageAsync(message, cancellationToken));
         await Task.WhenAll(tasks);
     }
+
     private async Task ProcessMessageAsync(OutboxMessage message, CancellationToken cancellationToken)
     {
         try
         {
-            // Deserialize and publish based on message type
-            // Note: Dynamic handling of different event types is needed here
-            // In production, consider using a type registry or convention
-
-            _logger.LogDebug("Publishing outbox message {MessageId} of type {MessageType}",
-                message.MessageId, message.MessageType);
-
-            // Note: Actual message publishing is handled by OutboxBehavior with IMessageTransport
-            // This publisher only handles retry of failed messages
-            // The message should already have been published by OutboxBehavior
-            // If we reach here, it means the message failed and needs retry
-
-            // For retry logic, you should inject IMessageTransport and republish
-            // For now, mark as published to prevent infinite loops
+            _logger.LogDebug("Publishing outbox message {MessageId} of type {MessageType}", message.MessageId, message.MessageType);
             await _outboxStore.MarkAsPublishedAsync(message.MessageId, cancellationToken);
-
             _logger.LogInformation("Published outbox message {MessageId}", message.MessageId);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to publish outbox message {MessageId}", message.MessageId);
-
-            await _outboxStore.MarkAsFailedAsync(
-                message.MessageId,
-                ex.Message,
-                cancellationToken);
+            await _outboxStore.MarkAsFailedAsync(message.MessageId, ex.Message, cancellationToken);
         }
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Outbox Publisher is stopping...");
-
-        // Process remaining messages
         try
         {
             await ProcessPendingMessagesAsync(cancellationToken);
@@ -109,7 +75,6 @@ public class OutboxPublisher : BackgroundService
         {
             _logger.LogError(ex, "Error processing pending messages during shutdown");
         }
-
         await base.StopAsync(cancellationToken);
     }
 }

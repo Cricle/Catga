@@ -1,41 +1,24 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Messages;
 using Catga.Results;
 
 namespace Catga.Pipeline;
 
-/// <summary>
-/// Pipeline behavior for requests with response
-/// Optimized: Use ValueTask to reduce heap allocations
-/// AOT-compatible: Uses interface-based dispatch, no reflection
-/// </summary>
-public interface IPipelineBehavior<in TRequest, TResponse> where TRequest : IRequest<TResponse>
+/// <summary>Pipeline behavior with response (AOT-compatible)</summary>
+public interface IPipelineBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] in TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> where TRequest : IRequest<TResponse>
 {
-    public ValueTask<CatgaResult<TResponse>> HandleAsync(
-        TRequest request,
-        PipelineDelegate<TResponse> next,
-        CancellationToken cancellationToken = default);
+    public ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// Pipeline behavior for requests without response
-/// Optimized: Use ValueTask to reduce heap allocations
-/// AOT-compatible: Uses interface-based dispatch, no reflection
-/// </summary>
-public interface IPipelineBehavior<in TRequest> where TRequest : IRequest
+/// <summary>Pipeline behavior without response (AOT-compatible)</summary>
+public interface IPipelineBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] in TRequest> where TRequest : IRequest
 {
-    public ValueTask<CatgaResult> HandleAsync(
-        TRequest request,
-        PipelineDelegate next,
-        CancellationToken cancellationToken = default);
+    public ValueTask<CatgaResult> HandleAsync(TRequest request, PipelineDelegate next, CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// Pipeline delegate - Optimized delegate type
-/// </summary>
+/// <summary>Pipeline delegate with response</summary>
 public delegate ValueTask<CatgaResult<TResponse>> PipelineDelegate<TResponse>();
 
-/// <summary>
-/// Pipeline delegate without response
-/// </summary>
+/// <summary>Pipeline delegate without response</summary>
 public delegate ValueTask<CatgaResult> PipelineDelegate();
 

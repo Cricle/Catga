@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Pipeline.Behaviors;
 
 /// <summary>Idempotency behavior</summary>
-public class IdempotencyBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
+public class IdempotencyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
     private readonly IIdempotencyStore _store;
 

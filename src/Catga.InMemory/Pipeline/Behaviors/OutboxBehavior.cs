@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Catga.Common;
 using Catga.DistributedId;
 using Catga.Messages;
@@ -10,41 +9,16 @@ using Microsoft.Extensions.Logging;
 
 namespace Catga.Pipeline.Behaviors;
 
-/// <summary>
-/// Outbox Behavior - Separates storage and transport concerns
-///
-/// Architecture:
-/// - IOutboxStore: Responsible for persistent storage (Redis, SQL, MongoDB, etc.)
-/// - IMessageTransport: Responsible for message transport (NATS, Redis Pub/Sub, RabbitMQ, etc.)
-/// - Both are independently configured, adhering to Single Responsibility Principle
-///
-/// Flow:
-/// 1. Save to Outbox store (synchronized with business transaction)
-/// 2. Execute business logic
-/// 3. Publish message via transport layer
-/// 4. Mark as published (or failed for retry)
-/// </summary>
-/// <remarks>
-/// Inspired by MassTransit design: transport and persistence separation
-/// - Transport layer is swappable (NATS/Redis/RabbitMQ)
-/// - Storage layer is swappable (SQL/Redis/MongoDB)
-/// - Independent evolution
-/// </remarks>
-public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : class, IRequest<TResponse>
+/// <summary>Outbox behavior - storage/transport separation (inspired by MassTransit)</summary>
+public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TRequest, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : class, IRequest<TResponse>
 {
-    private readonly IOutboxStore? _persistence;           // Storage layer
-    private readonly IMessageTransport? _transport;       // Transport layer
+    private readonly IOutboxStore? _persistence;
+    private readonly IMessageTransport? _transport;
     private readonly IMessageSerializer? _serializer;
     private readonly IDistributedIdGenerator _idGenerator;
     private readonly ILogger<OutboxBehavior<TRequest, TResponse>> _logger;
 
-    public OutboxBehavior(
-        ILogger<OutboxBehavior<TRequest, TResponse>> logger,
-        IDistributedIdGenerator idGenerator,
-        IOutboxStore? persistence = null,
-        IMessageTransport? transport = null,
-        IMessageSerializer? serializer = null)
+    public OutboxBehavior(ILogger<OutboxBehavior<TRequest, TResponse>> logger, IDistributedIdGenerator idGenerator, IOutboxStore? persistence = null, IMessageTransport? transport = null, IMessageSerializer? serializer = null)
     {
         _logger = logger;
         _idGenerator = idGenerator;
@@ -53,24 +27,15 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
         _serializer = serializer;
     }
 
-    public async ValueTask<CatgaResult<TResponse>> HandleAsync(
-        TRequest request,
-        PipelineDelegate<TResponse> next,
-        CancellationToken cancellationToken = default)
+    public async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
-        // If no storage or transport configured, skip
-        if (_persistence == null || _transport == null)
-            return await next();
-
-        // Only use outbox for events (publish operations)
-        if (request is not IEvent)
-            return await next();
+        if (_persistence == null || _transport == null) return await next();
+        if (request is not IEvent) return await next();
 
         var messageId = MessageHelper.GetOrGenerateMessageId(request, _idGenerator);
 
         try
         {
-            // 1️⃣ Save to persistent storage (in the same transaction as business logic)
             var outboxMessage = new OutboxMessage
             {
                 MessageId = messageId,
@@ -82,14 +47,10 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
             };
 
             await _persistence.AddAsync(outboxMessage, cancellationToken);
+            _logger.LogDebug("[Outbox] Saved message {MessageId} to {Store}", messageId, _persistence.GetType().Name);
 
-            _logger.LogDebug("[Outbox] Saved message {MessageId} to persistence store ({Store})",
-                messageId, _persistence.GetType().Name);
-
-            // 2️⃣ Execute business logic
             var result = await next();
 
-            // 3️⃣ If business logic succeeds, publish message via transport layer
             if (result.IsSuccess)
             {
                 try
@@ -103,24 +64,13 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
                     };
 
                     await _transport.PublishAsync<TRequest>(request, context, cancellationToken);
-
-                    // 4️⃣ Mark as published
                     await _persistence.MarkAsPublishedAsync(messageId, cancellationToken);
-
-                    _logger.LogInformation("[Outbox] Published message {MessageId} via {Transport}",
-                        messageId, _transport.Name);
+                    _logger.LogInformation("[Outbox] Published message {MessageId} via {Transport}", messageId, _transport.Name);
                 }
                 catch (Exception ex)
                 {
-                    // Transport failed, mark for retry (background service will retry)
                     await _persistence.MarkAsFailedAsync(messageId, ex.Message, cancellationToken);
-
                     _logger.LogError(ex, "[Outbox] Failed to publish message {MessageId}, marked for retry", messageId);
-
-                    // Note: Can choose whether to throw exception here
-                    // If thrown, business transaction will roll back
-                    // If not thrown, message will enter retry queue
-                    // throw; // Optional
                 }
             }
 
@@ -132,6 +82,5 @@ public class OutboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
             throw;
         }
     }
-
 }
 

@@ -4,45 +4,16 @@ using Catga.Results;
 
 namespace Catga.Distributed;
 
-/// <summary>
-/// 分布式 Mediator（扩展 ICatgaMediator 支持分布式）
-/// </summary>
+/// <summary>Distributed Mediator (extends ICatgaMediator)</summary>
 public interface IDistributedMediator : ICatgaMediator
 {
-    /// <summary>
-    /// 获取所有在线节点
-    /// </summary>
     public Task<IReadOnlyList<NodeInfo>> GetNodesAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 获取当前节点信息
-    /// </summary>
     public Task<NodeInfo> GetCurrentNodeAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 发送消息到指定节点
-    /// </summary>
-    public Task<CatgaResult<TResponse>> SendToNodeAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRequest,
-        TResponse>(
-        TRequest request,
-        string nodeId,
-        CancellationToken cancellationToken = default)
-        where TRequest : IRequest<TResponse>;
-
-    /// <summary>
-    /// 广播消息到所有节点
-    /// </summary>
-    public Task BroadcastAsync<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEvent>(
-        TEvent @event,
-        CancellationToken cancellationToken = default)
-        where TEvent : IEvent;
+    public Task<CatgaResult<TResponse>> SendToNodeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, string nodeId, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>;
+    public Task BroadcastAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(TEvent @event, CancellationToken cancellationToken = default) where TEvent : IEvent;
 }
 
-/// <summary>
-/// 节点信息
-/// </summary>
+/// <summary>Node information</summary>
 public record NodeInfo
 {
     public required string NodeId { get; init; }

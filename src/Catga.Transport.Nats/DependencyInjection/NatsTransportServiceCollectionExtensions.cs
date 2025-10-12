@@ -5,21 +5,15 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Catga.DependencyInjection;
 
-/// <summary>
-/// NATS transport service registration extensions
-/// </summary>
+/// <summary>NATS transport DI extensions</summary>
 public static class NatsTransportServiceCollectionExtensions
 {
-    public static IServiceCollection AddNatsTransport(
-        this IServiceCollection services,
-        Action<NatsTransportOptions>? configure = null)
+    public static IServiceCollection AddNatsTransport(this IServiceCollection services, Action<NatsTransportOptions>? configure = null)
     {
         var options = new NatsTransportOptions();
         configure?.Invoke(options);
-
         services.TryAddSingleton(options);
         services.TryAddSingleton<IMessageTransport, NatsMessageTransport>();
-
         return services;
     }
 }

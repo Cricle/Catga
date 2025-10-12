@@ -5,7 +5,7 @@ using Catga.Results;
 namespace Catga.Pipeline.Behaviors;
 
 /// <summary>Distributed tracing behavior (OpenTelemetry compatible)</summary>
-public class TracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
+public class TracingBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TRequest, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
     private static readonly ActivitySource ActivitySource = new("Catga", "1.0.0");
 

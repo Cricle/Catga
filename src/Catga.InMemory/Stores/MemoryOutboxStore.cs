@@ -1,40 +1,25 @@
-using System.Diagnostics.CodeAnalysis;
 using Catga.Common;
 
 namespace Catga.Outbox;
 
-/// <summary>
-/// In-memory outbox store implementation (100% AOT compatible)
-/// Suitable for development and testing
-/// </summary>
+/// <summary>In-memory outbox store (AOT compatible)</summary>
 public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
 {
-
-    /// <inheritdoc/>
     public Task AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
         MessageHelper.ValidateMessageId(message.MessageId, nameof(message.MessageId));
-
         AddOrUpdateMessage(message.MessageId, message);
         return Task.CompletedTask;
     }
 
-    /// <inheritdoc/>
-    public Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
-        int maxCount = 100,
-        CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(int maxCount = 100, CancellationToken cancellationToken = default)
     {
         var comparer = Comparer<OutboxMessage>.Create((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
-        var pending = GetMessagesByPredicate(
-            message => message.Status == OutboxStatus.Pending && message.RetryCount < message.MaxRetries,
-            maxCount,
-            comparer);
-
+        var pending = GetMessagesByPredicate(message => message.Status == OutboxStatus.Pending && message.RetryCount < message.MaxRetries, maxCount, comparer);
         return Task.FromResult<IReadOnlyList<OutboxMessage>>(pending);
     }
 
-    /// <inheritdoc/>
     public Task MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)
     {
         if (TryGetMessage(messageId, out var message) && message != null)
@@ -42,53 +27,26 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
             message.Status = OutboxStatus.Published;
             message.PublishedAt = DateTime.UtcNow;
         }
-
         return Task.CompletedTask;
     }
 
-    /// <inheritdoc/>
-    public Task MarkAsFailedAsync(
-        string messageId,
-        string errorMessage,
-        CancellationToken cancellationToken = default)
+    public Task MarkAsFailedAsync(string messageId, string errorMessage, CancellationToken cancellationToken = default)
     {
         if (TryGetMessage(messageId, out var message) && message != null)
         {
             message.RetryCount++;
             message.LastError = errorMessage;
-
-            // If max retries exceeded, mark as failed
-            if (message.RetryCount >= message.MaxRetries)
-            {
-                message.Status = OutboxStatus.Failed;
-            }
-            else
-            {
-                message.Status = OutboxStatus.Pending;
-            }
+            message.Status = message.RetryCount >= message.MaxRetries ? OutboxStatus.Failed : OutboxStatus.Pending;
         }
-
         return Task.CompletedTask;
     }
 
-    /// <inheritdoc/>
-    public Task DeletePublishedMessagesAsync(
-        TimeSpan retentionPeriod,
-        CancellationToken cancellationToken = default)
+    public Task DeletePublishedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
     {
         var cutoff = DateTime.UtcNow - retentionPeriod;
-        return DeleteExpiredMessagesAsync(
-            retentionPeriod,
-            message => message.Status == OutboxStatus.Published &&
-                      message.PublishedAt.HasValue &&
-                      message.PublishedAt.Value < cutoff,
-            cancellationToken);
+        return DeleteExpiredMessagesAsync(retentionPeriod, message => message.Status == OutboxStatus.Published && message.PublishedAt.HasValue && message.PublishedAt.Value < cutoff, cancellationToken);
     }
 
-    /// <summary>
-    /// Get message count by status (for testing/monitoring)
-    /// </summary>
-    public int GetMessageCountByStatus(OutboxStatus status) =>
-        GetCountByPredicate(m => m.Status == status);
+    public int GetMessageCountByStatus(OutboxStatus status) => GetCountByPredicate(m => m.Status == status);
 }
 

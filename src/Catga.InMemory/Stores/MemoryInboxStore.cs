@@ -2,48 +2,28 @@ using Catga.Common;
 
 namespace Catga.Inbox;
 
-/// <summary>
-/// In-memory inbox store implementation (100% AOT compatible)
-/// Suitable for development and testing
-/// </summary>
+/// <summary>In-memory inbox store (AOT compatible)</summary>
 public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
 {
-
-    /// <inheritdoc/>
-    public Task<bool> TryLockMessageAsync(
-        string messageId,
-        TimeSpan lockDuration,
-        CancellationToken cancellationToken = default)
+    public Task<bool> TryLockMessageAsync(string messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
     {
         MessageHelper.ValidateMessageId(messageId, nameof(messageId));
 
-        // If message already exists
         if (TryGetMessage(messageId, out var existingMessage) && existingMessage != null)
         {
-            // Already processed, cannot lock again
-            if (existingMessage.Status == InboxStatus.Processed)
-                return Task.FromResult(false);
+            if (existingMessage.Status == InboxStatus.Processed) return Task.FromResult(false);
+            if (existingMessage.LockExpiresAt.HasValue && existingMessage.LockExpiresAt.Value > DateTime.UtcNow) return Task.FromResult(false);
 
-            // Check if lock has expired
-            if (existingMessage.LockExpiresAt.HasValue &&
-                existingMessage.LockExpiresAt.Value > DateTime.UtcNow)
-            {
-                // Lock hasn't expired, cannot acquire
-                return Task.FromResult(false);
-            }
-
-            // Lock expired or no lock, can relock
             existingMessage.Status = InboxStatus.Processing;
             existingMessage.LockExpiresAt = DateTime.UtcNow.Add(lockDuration);
             return Task.FromResult(true);
         }
 
-        // First lock, create new inbox message record
         var newMessage = new InboxMessage
         {
             MessageId = messageId,
-            MessageType = string.Empty, // Will be filled during actual processing
-            Payload = string.Empty,     // Will be filled during actual processing
+            MessageType = string.Empty,
+            Payload = string.Empty,
             Status = InboxStatus.Processing,
             LockExpiresAt = DateTime.UtcNow.Add(lockDuration)
         };
@@ -52,17 +32,12 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
         return Task.FromResult(true);
     }
 
-    /// <inheritdoc/>
-    public Task MarkAsProcessedAsync(
-        InboxMessage message,
-        CancellationToken cancellationToken = default)
+    public Task MarkAsProcessedAsync(InboxMessage message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        // Update or create message record
         if (TryGetMessage(message.MessageId, out var existing) && existing != null)
         {
-            // Update existing record
             existing.MessageType = message.MessageType;
             existing.Payload = message.Payload;
             existing.ProcessedAt = DateTime.UtcNow;
@@ -74,7 +49,6 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
         }
         else
         {
-            // Create new record
             message.ProcessedAt = DateTime.UtcNow;
             message.Status = InboxStatus.Processed;
             message.LockExpiresAt = null;
@@ -84,65 +58,36 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
         return Task.CompletedTask;
     }
 
-    /// <inheritdoc/>
-    public Task<bool> HasBeenProcessedAsync(
-        string messageId,
-        CancellationToken cancellationToken = default)
+    public Task<bool> HasBeenProcessedAsync(string messageId, CancellationToken cancellationToken = default)
     {
         if (TryGetMessage(messageId, out var message) && message != null)
-        {
             return Task.FromResult(message.Status == InboxStatus.Processed);
-        }
-
         return Task.FromResult(false);
     }
 
-    /// <inheritdoc/>
-    public Task<string?> GetProcessedResultAsync(
-        string messageId,
-        CancellationToken cancellationToken = default)
+    public Task<string?> GetProcessedResultAsync(string messageId, CancellationToken cancellationToken = default)
     {
-        if (TryGetMessage(messageId, out var message) && message != null &&
-            message.Status == InboxStatus.Processed)
-        {
+        if (TryGetMessage(messageId, out var message) && message != null && message.Status == InboxStatus.Processed)
             return Task.FromResult(message.ProcessingResult);
-        }
-
         return Task.FromResult<string?>(null);
     }
 
-    /// <inheritdoc/>
-    public Task ReleaseLockAsync(
-        string messageId,
-        CancellationToken cancellationToken = default)
+    public Task ReleaseLockAsync(string messageId, CancellationToken cancellationToken = default)
     {
         if (TryGetMessage(messageId, out var message) && message != null)
         {
             message.Status = InboxStatus.Pending;
             message.LockExpiresAt = null;
         }
-
         return Task.CompletedTask;
     }
 
-    /// <inheritdoc/>
-    public Task DeleteProcessedMessagesAsync(
-        TimeSpan retentionPeriod,
-        CancellationToken cancellationToken = default)
+    public Task DeleteProcessedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
     {
         var cutoff = DateTime.UtcNow - retentionPeriod;
-        return DeleteExpiredMessagesAsync(
-            retentionPeriod,
-            message => message.Status == InboxStatus.Processed &&
-                      message.ProcessedAt.HasValue &&
-                      message.ProcessedAt.Value < cutoff,
-            cancellationToken);
+        return DeleteExpiredMessagesAsync(retentionPeriod, message => message.Status == InboxStatus.Processed && message.ProcessedAt.HasValue && message.ProcessedAt.Value < cutoff, cancellationToken);
     }
 
-    /// <summary>
-    /// Get message count by status (for testing/monitoring)
-    /// </summary>
-    public int GetMessageCountByStatus(InboxStatus status) =>
-        GetCountByPredicate(m => m.Status == status);
+    public int GetMessageCountByStatus(InboxStatus status) => GetCountByPredicate(m => m.Status == status);
 }
 

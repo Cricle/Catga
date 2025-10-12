@@ -4,23 +4,14 @@ using System.Threading.Tasks;
 
 namespace Catga.Distributed.Routing;
 
-/// <summary>
-/// 轮询路由策略（Round-Robin）
-/// 无锁实现，使用 Interlocked.Increment
-/// </summary>
+/// <summary>Round-robin routing (lock-free)</summary>
 public sealed class RoundRobinRoutingStrategy : IRoutingStrategy
 {
     private int _counter;
 
-    public Task<NodeInfo?> SelectNodeAsync<TMessage>(
-        IReadOnlyList<NodeInfo> nodes,
-        TMessage message,
-        CancellationToken cancellationToken = default)
+    public Task<NodeInfo?> SelectNodeAsync<TMessage>(IReadOnlyList<NodeInfo> nodes, TMessage message, CancellationToken cancellationToken = default)
     {
-        if (nodes.Count == 0)
-            return Task.FromResult<NodeInfo?>(null);
-
-        // 无锁计数器递增
+        if (nodes.Count == 0) return Task.FromResult<NodeInfo?>(null);
         var index = Interlocked.Increment(ref _counter) % nodes.Count;
         return Task.FromResult<NodeInfo?>(nodes[index]);
     }

@@ -6,64 +6,35 @@ using Catga.Serialization;
 
 namespace Catga.Serialization.Json;
 
-/// <summary>
-/// JSON message serializer (System.Text.Json) - AOT friendly with buffering support
-/// Optimized with ArrayPool for reduced allocations
-/// </summary>
+/// <summary>JSON serializer (System.Text.Json, AOT-friendly, zero-copy)</summary>
 public class JsonMessageSerializer : IBufferedMessageSerializer
 {
-    private static readonly JsonSerializerOptions _options = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        WriteIndented = false
-    };
+    private static readonly JsonSerializerOptions _options = new() { PropertyNameCaseInsensitive = true, WriteIndented = false };
 
     public string Name => "JSON";
 
-    #region IMessageSerializer (legacy, allocating)
-
-    public byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(T value)
+    public byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value)
     {
-        // Use ArrayBufferWriter for simplicity
         var bufferWriter = new ArrayBufferWriter<byte>(256);
         Serialize(value, bufferWriter);
         return bufferWriter.WrittenSpan.ToArray();
     }
 
-    public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(byte[] data)
+    public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(byte[] data)
+        => Deserialize<T>(data.AsSpan());
+
+    public void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value, IBufferWriter<byte> bufferWriter)
     {
-        // Optimized: Deserialize from ReadOnlySpan (zero-copy)
-        return Deserialize<T>(data.AsSpan());
-    }
-
-    #endregion
-
-    #region IBufferedMessageSerializer (optimized, pooled)
-
-    public void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)] T>(
-        T value,
-        IBufferWriter<byte> bufferWriter)
-    {
-        // Zero-allocation serialization using Utf8JsonWriter
         using var writer = new Utf8JsonWriter(bufferWriter);
         JsonSerializer.Serialize(writer, value, _options);
     }
 
-    public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(
-        ReadOnlySpan<byte> data)
+    public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(ReadOnlySpan<byte> data)
     {
-        // Zero-copy deserialization from ReadOnlySpan
         var reader = new Utf8JsonReader(data);
         return JsonSerializer.Deserialize<T>(ref reader, _options);
     }
 
-    public int GetSizeEstimate<T>(T value)
-    {
-        // Conservative estimate: JSON is typically 1.5-2x object size
-        // For small objects, default to 256 bytes
-        return 256;
-    }
-
-    #endregion
+    public int GetSizeEstimate<T>(T value) => 256;
 }
 

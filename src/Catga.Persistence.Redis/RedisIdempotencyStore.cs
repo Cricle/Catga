@@ -59,7 +59,7 @@ public class RedisIdempotencyStore : IIdempotencyStore
     }
 
     /// <inheritdoc/>
-    public async Task<TResult?> GetCachedResultAsync<TResult>(
+    public async Task<TResult?> GetCachedResultAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(
         string messageId,
         CancellationToken cancellationToken = default)
     {

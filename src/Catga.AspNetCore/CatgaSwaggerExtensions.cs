@@ -5,20 +5,12 @@ using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
-/// <summary>
-/// Swagger/OpenAPI extensions for Catga endpoints
-/// </summary>
+/// <summary>Swagger/OpenAPI extensions for Catga</summary>
 public static class CatgaSwaggerExtensions
 {
-    /// <summary>
-    /// Configure Catga-specific OpenAPI metadata for a command endpoint
-    /// </summary>
-    public static RouteHandlerBuilder WithCatgaCommandMetadata<TCommand, TResponse>(
-        this RouteHandlerBuilder builder)
-        where TCommand : IRequest<TResponse>
+    public static RouteHandlerBuilder WithCatgaCommandMetadata<TCommand, TResponse>(this RouteHandlerBuilder builder) where TCommand : IRequest<TResponse>
     {
         var commandName = typeof(TCommand).Name.Replace("Command", "");
-
         return builder
             .WithName(commandName)
             .WithSummary($"Execute {commandName} command")
@@ -31,15 +23,9 @@ public static class CatgaSwaggerExtensions
             .Produces<ErrorResponse>(StatusCodes.Status422UnprocessableEntity);
     }
 
-    /// <summary>
-    /// Configure Catga-specific OpenAPI metadata for a query endpoint
-    /// </summary>
-    public static RouteHandlerBuilder WithCatgaQueryMetadata<TQuery, TResponse>(
-        this RouteHandlerBuilder builder)
-        where TQuery : IRequest<TResponse>
+    public static RouteHandlerBuilder WithCatgaQueryMetadata<TQuery, TResponse>(this RouteHandlerBuilder builder) where TQuery : IRequest<TResponse>
     {
         var queryName = typeof(TQuery).Name.Replace("Query", "");
-
         return builder
             .WithName(queryName)
             .WithSummary($"Query {queryName}")
@@ -49,15 +35,9 @@ public static class CatgaSwaggerExtensions
             .Produces(StatusCodes.Status404NotFound);
     }
 
-    /// <summary>
-    /// Configure Catga-specific OpenAPI metadata for an event endpoint
-    /// </summary>
-    public static RouteHandlerBuilder WithCatgaEventMetadata<TEvent>(
-        this RouteHandlerBuilder builder)
-        where TEvent : IEvent
+    public static RouteHandlerBuilder WithCatgaEventMetadata<TEvent>(this RouteHandlerBuilder builder) where TEvent : IEvent
     {
         var eventName = typeof(TEvent).Name.Replace("Event", "");
-
         return builder
             .WithName($"Publish{eventName}")
             .WithSummary($"Publish {eventName} event")
@@ -67,9 +47,7 @@ public static class CatgaSwaggerExtensions
     }
 }
 
-/// <summary>
-/// Standard error response for Catga endpoints
-/// </summary>
+/// <summary>Standard error response for Catga endpoints</summary>
 public class ErrorResponse
 {
     public required string Error { get; set; }

@@ -3,10 +3,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Catga.Distributed;
 
-/// <summary>
-/// 节点心跳后台服务（完全无锁）
-/// 定期发送心跳，维持节点在线状态
-/// </summary>
+/// <summary>Node heartbeat background service (lock-free)</summary>
 public sealed class HeartbeatBackgroundService : BackgroundService
 {
     private readonly INodeDiscovery _discovery;
@@ -14,11 +11,7 @@ public sealed class HeartbeatBackgroundService : BackgroundService
     private readonly ILogger<HeartbeatBackgroundService> _logger;
     private readonly TimeSpan _heartbeatInterval;
 
-    public HeartbeatBackgroundService(
-        INodeDiscovery discovery,
-        NodeInfo currentNode,
-        ILogger<HeartbeatBackgroundService> logger,
-        TimeSpan? heartbeatInterval = null)
+    public HeartbeatBackgroundService(INodeDiscovery discovery, NodeInfo currentNode, ILogger<HeartbeatBackgroundService> logger, TimeSpan? heartbeatInterval = null)
     {
         _discovery = discovery;
         _currentNode = currentNode;
@@ -30,26 +23,19 @@ public sealed class HeartbeatBackgroundService : BackgroundService
     {
         try
         {
-            // 启动时注册节点
             await _discovery.RegisterAsync(_currentNode, stoppingToken);
-            _logger.LogInformation("Node {NodeId} registered, starting heartbeat every {Interval}s",
-                _currentNode.NodeId, _heartbeatInterval.TotalSeconds);
+            _logger.LogInformation("Node {NodeId} registered, heartbeat every {Interval}s", _currentNode.NodeId, _heartbeatInterval.TotalSeconds);
 
-            // 无锁心跳循环
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
                     await Task.Delay(_heartbeatInterval, stoppingToken);
-
-                    // 发送心跳（无锁）
                     await _discovery.HeartbeatAsync(_currentNode.NodeId, _currentNode.Load, stoppingToken);
-
                     _logger.LogTrace("Heartbeat sent for node {NodeId}", _currentNode.NodeId);
                 }
                 catch (OperationCanceledException)
                 {
-                    // 正常取消
                     break;
                 }
                 catch (Exception ex)
@@ -58,17 +44,13 @@ public sealed class HeartbeatBackgroundService : BackgroundService
                 }
             }
         }
-        catch (OperationCanceledException)
-        {
-            // 正常取消
-        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Fatal error in heartbeat service for node {NodeId}", _currentNode.NodeId);
         }
         finally
         {
-            // 优雅下线：注销节点
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             try
             {

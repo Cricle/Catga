@@ -15,12 +15,12 @@ public interface IIdempotencyStore
     /// <summary>
     /// Mark message as processed with result (generic)
     /// </summary>
-    public Task MarkAsProcessedAsync<TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default);
+    public Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get cached result for previously processed message (generic)
     /// </summary>
-    public Task<TResult?> GetCachedResultAsync<TResult>(string messageId, CancellationToken cancellationToken = default);
+    public Task<TResult?> GetCachedResultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -45,7 +45,7 @@ public class MemoryIdempotencyStore : IIdempotencyStore
             _lock.Release();
         }
     }
-    public async Task MarkAsProcessedAsync<TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default)
+    public async Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);
         try
@@ -68,7 +68,7 @@ public class MemoryIdempotencyStore : IIdempotencyStore
             _lock.Release();
         }
     }
-    public async Task<TResult?> GetCachedResultAsync<TResult>(string messageId, CancellationToken cancellationToken = default)
+    public async Task<TResult?> GetCachedResultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);
         try

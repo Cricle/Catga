@@ -21,25 +21,19 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
     }
 
     public Task MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)
-    {
-        if (TryGetMessage(messageId, out var message) && message != null)
+        => ExecuteIfExistsAsync(messageId, message =>
         {
             message.Status = OutboxStatus.Published;
             message.PublishedAt = DateTime.UtcNow;
-        }
-        return Task.CompletedTask;
-    }
+        });
 
     public Task MarkAsFailedAsync(string messageId, string errorMessage, CancellationToken cancellationToken = default)
-    {
-        if (TryGetMessage(messageId, out var message) && message != null)
+        => ExecuteIfExistsAsync(messageId, message =>
         {
             message.RetryCount++;
             message.LastError = errorMessage;
             message.Status = message.RetryCount >= message.MaxRetries ? OutboxStatus.Failed : OutboxStatus.Pending;
-        }
-        return Task.CompletedTask;
-    }
+        });
 
     public Task DeletePublishedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
     {

@@ -3,6 +3,31 @@ using System.Runtime.CompilerServices;
 
 namespace Catga.Common;
 
+/// <summary>Helper for expired entry cleanup (DRY for idempotency stores)</summary>
+internal static class ExpirationHelper
+{
+    /// <summary>Check if entry is expired based on retention period</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsExpired(DateTime timestamp, TimeSpan retentionPeriod)
+        => DateTime.UtcNow - timestamp > retentionPeriod;
+
+    /// <summary>Remove expired entries from dictionary</summary>
+    public static void CleanupExpired<TValue>(
+        ConcurrentDictionary<string, TValue> dictionary,
+        Func<TValue, DateTime> timestampSelector,
+        TimeSpan retentionPeriod)
+    {
+        var cutoff = DateTime.UtcNow - retentionPeriod;
+        var expiredKeys = dictionary
+            .Where(kvp => timestampSelector(kvp.Value) < cutoff)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        foreach (var key in expiredKeys)
+            dictionary.TryRemove(key, out _);
+    }
+}
+
 /// <summary>Base class for in-memory stores (lock-free)</summary>
 public abstract class BaseMemoryStore<TMessage> where TMessage : class
 {
@@ -53,6 +78,28 @@ public abstract class BaseMemoryStore<TMessage> where TMessage : class
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected bool TryRemoveMessage(string messageId, out TMessage? message) => Messages.TryRemove(messageId, out message);
+
+    /// <summary>
+    /// Execute action on message if exists (DRY helper for common pattern)
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected Task ExecuteIfExistsAsync(string messageId, Action<TMessage> action)
+    {
+        if (TryGetMessage(messageId, out var message) && message != null)
+            action(message);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Get value from message if exists (DRY helper for common pattern)
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected Task<TResult?> GetValueIfExistsAsync<TResult>(string messageId, Func<TMessage, TResult?> selector)
+    {
+        if (TryGetMessage(messageId, out var message) && message != null)
+            return Task.FromResult(selector(message));
+        return Task.FromResult<TResult?>(default);
+    }
 
     public virtual void Clear() => Messages.Clear();
 }

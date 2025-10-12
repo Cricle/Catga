@@ -59,28 +59,17 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
     }
 
     public Task<bool> HasBeenProcessedAsync(string messageId, CancellationToken cancellationToken = default)
-    {
-        if (TryGetMessage(messageId, out var message) && message != null)
-            return Task.FromResult(message.Status == InboxStatus.Processed);
-        return Task.FromResult(false);
-    }
+        => GetValueIfExistsAsync(messageId, message => message.Status == InboxStatus.Processed) ?? Task.FromResult(false);
 
     public Task<string?> GetProcessedResultAsync(string messageId, CancellationToken cancellationToken = default)
-    {
-        if (TryGetMessage(messageId, out var message) && message != null && message.Status == InboxStatus.Processed)
-            return Task.FromResult(message.ProcessingResult);
-        return Task.FromResult<string?>(null);
-    }
+        => GetValueIfExistsAsync(messageId, message => message.Status == InboxStatus.Processed ? message.ProcessingResult : null);
 
     public Task ReleaseLockAsync(string messageId, CancellationToken cancellationToken = default)
-    {
-        if (TryGetMessage(messageId, out var message) && message != null)
+        => ExecuteIfExistsAsync(messageId, message =>
         {
             message.Status = InboxStatus.Pending;
             message.LockExpiresAt = null;
-        }
-        return Task.CompletedTask;
-    }
+        });
 
     public Task DeleteProcessedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
     {

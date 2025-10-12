@@ -33,7 +33,7 @@ public class ShardedIdempotencyStore : IIdempotencyStore
         var shard = GetShard(messageId);
         if (shard.TryGetValue(messageId, out var entry))
         {
-            if (DateTime.UtcNow - entry.Item1 > _retentionPeriod)
+            if (ExpirationHelper.IsExpired(entry.Item1, _retentionPeriod))
             {
                 shard.TryRemove(messageId, out _);
                 return Task.FromResult(false);
@@ -60,7 +60,7 @@ public class ShardedIdempotencyStore : IIdempotencyStore
     {
         if (TypedIdempotencyCache<TResult>.Cache.TryGetValue(messageId, out var entry))
         {
-            if (DateTime.UtcNow - entry.Timestamp > _retentionPeriod)
+            if (ExpirationHelper.IsExpired(entry.Timestamp, _retentionPeriod))
             {
                 TypedIdempotencyCache<TResult>.Cache.TryRemove(messageId, out _);
                 return Task.FromResult<TResult?>(default);

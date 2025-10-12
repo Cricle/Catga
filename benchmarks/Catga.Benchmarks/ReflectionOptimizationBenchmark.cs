@@ -113,7 +113,7 @@ public class ReflectionOptimizationBenchmark
 public class AotCompatibilityBenchmark
 {
     private readonly TestCommand _command = new() { Id = "test-123", Data = "Sample data for benchmarking" };
-    
+
     [Benchmark(Baseline = true, Description = "Reflection-based serialization")]
     public string ReflectionSerialization()
     {

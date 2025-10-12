@@ -1,13 +1,13 @@
 namespace Catga.Transport.Nats;
 
-/// <summary>NATS transport options</summary>
-public class NatsTransportOptions
+/// <summary>NATS transport options (immutable record)</summary>
+public record NatsTransportOptions
 {
-    public string Url { get; set; } = "nats://localhost:4222";
-    public string SubjectPrefix { get; set; } = "catga.";
-    public int ConnectTimeout { get; set; } = 5;
-    public int RequestTimeout { get; set; } = 30;
-    public bool EnableJetStream { get; set; } = false;
-    public string? StreamName { get; set; }
+    public string Url { get; init; } = "nats://localhost:4222";
+    public string SubjectPrefix { get; init; } = "catga.";
+    public int ConnectTimeout { get; init; } = 5;
+    public int RequestTimeout { get; init; } = 30;
+    public bool EnableJetStream { get; init; } = false;
+    public string? StreamName { get; init; }
 }
 

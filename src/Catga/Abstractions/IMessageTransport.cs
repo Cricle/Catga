@@ -27,23 +27,23 @@ public readonly struct TransportContext
     public Dictionary<string, string>? Metadata { get; init; }
 }
 
-/// <summary>Batch transport options</summary>
-public class BatchTransportOptions
+/// <summary>Batch transport options (immutable record)</summary>
+public record BatchTransportOptions
 {
-    public int MaxBatchSize { get; set; } = 100;
-    public TimeSpan BatchTimeout { get; set; } = TimeSpan.FromMilliseconds(100);
-    public bool EnableAutoBatching { get; set; } = true;
-    public int MaxBatchSizeBytes { get; set; } = 1024 * 1024;
+    public int MaxBatchSize { get; init; } = 100;
+    public TimeSpan BatchTimeout { get; init; } = TimeSpan.FromMilliseconds(100);
+    public bool EnableAutoBatching { get; init; } = true;
+    public int MaxBatchSizeBytes { get; init; } = 1024 * 1024;
 }
 
-/// <summary>Compression transport options</summary>
-public class CompressionTransportOptions
+/// <summary>Compression transport options (immutable record)</summary>
+public record CompressionTransportOptions
 {
-    public bool EnableCompression { get; set; } = true;
-    public CompressionAlgorithm Algorithm { get; set; } = CompressionAlgorithm.GZip;
-    public CompressionLevel Level { get; set; } = CompressionLevel.Fastest;
-    public int MinSizeToCompress { get; set; } = 1024;
-    public double ExpectedCompressionRatio { get; set; } = 0.3;
+    public bool EnableCompression { get; init; } = true;
+    public CompressionAlgorithm Algorithm { get; init; } = CompressionAlgorithm.GZip;
+    public CompressionLevel Level { get; init; } = CompressionLevel.Fastest;
+    public int MinSizeToCompress { get; init; } = 1024;
+    public double ExpectedCompressionRatio { get; init; } = 0.3;
 }
 
 /// <summary>Compression algorithms</summary>

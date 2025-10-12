@@ -138,19 +138,19 @@ public static class CatgaServiceCollectionExtensions
     }
 }
 
-/// <summary>Outbox configuration options</summary>
-public class OutboxOptions
+/// <summary>Outbox configuration options (immutable record)</summary>
+public record OutboxOptions
 {
-    public bool EnablePublisher { get; set; } = true;
-    public TimeSpan PollingInterval { get; set; } = TimeSpan.FromSeconds(5);
-    public int BatchSize { get; set; } = 100;
-    public TimeSpan RetentionPeriod { get; set; } = TimeSpan.FromHours(24);
+    public bool EnablePublisher { get; init; } = true;
+    public TimeSpan PollingInterval { get; init; } = TimeSpan.FromSeconds(5);
+    public int BatchSize { get; init; } = 100;
+    public TimeSpan RetentionPeriod { get; init; } = TimeSpan.FromHours(24);
 }
 
-/// <summary>Inbox configuration options</summary>
-public class InboxOptions
+/// <summary>Inbox configuration options (immutable record)</summary>
+public record InboxOptions
 {
-    public TimeSpan LockDuration { get; set; } = TimeSpan.FromMinutes(5);
-    public TimeSpan RetentionPeriod { get; set; } = TimeSpan.FromHours(24);
+    public TimeSpan LockDuration { get; init; } = TimeSpan.FromMinutes(5);
+    public TimeSpan RetentionPeriod { get; init; } = TimeSpan.FromHours(24);
 }
 

@@ -13,11 +13,11 @@ dotnet add package Catga.SourceGenerator
 
 ```csharp
 // Command (有返回值)
-public record CreateOrderCommand(string OrderId, decimal Amount) 
+public record CreateOrderCommand(string OrderId, decimal Amount)
     : IRequest<OrderResult>;
 
 // Event (无返回值)
-public record OrderCreatedEvent(string OrderId, DateTime CreatedAt) 
+public record OrderCreatedEvent(string OrderId, DateTime CreatedAt)
     : INotification;
 ```
 
@@ -27,7 +27,7 @@ public record OrderCreatedEvent(string OrderId, DateTime CreatedAt)
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResult>
 {
     public async Task<CatgaResult<OrderResult>> Handle(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken cancellationToken)
     {
         // 业务逻辑
@@ -81,7 +81,7 @@ public record UserUpdatedEvent(string UserId) : INotification;
 
 ```csharp
 // 自定义 Behavior
-public class LoggingBehavior<TRequest, TResponse> 
+public class LoggingBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
@@ -92,12 +92,12 @@ public class LoggingBehavior<TRequest, TResponse>
     {
         // 前置处理
         Console.WriteLine($"Processing: {typeof(TRequest).Name}");
-        
+
         var result = await next();
-        
+
         // 后置处理
         Console.WriteLine($"Completed: {result.IsSuccess}");
-        
+
         return result;
     }
 }
@@ -134,7 +134,7 @@ services.AddCatgaRpcServer(options =>
 // 客户端
 var client = serviceProvider.GetRequiredService<IRpcClient>();
 var result = await client.CallAsync<GetUserQuery, UserDto>(
-    "user-service", 
+    "user-service",
     new GetUserQuery("user-123"));
 ```
 
@@ -350,7 +350,7 @@ if (result.IsSuccess) { /* ... */ }
 
 ---
 
-**版本**: Catga v1.0  
-**更新**: 2024-10-12  
+**版本**: Catga v1.0
+**更新**: 2024-10-12
 **更多**: [GitHub](https://github.com/Cricle/Catga) | [文档](./README.md)
 

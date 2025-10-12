@@ -24,8 +24,14 @@ public interface IIdempotencyStore
 }
 
 /// <summary>
-/// In-memory idempotency store implementation
+/// Simple in-memory idempotency store (for testing/dev only)
 /// </summary>
+/// <remarks>
+/// ⚠️ This is a basic implementation for testing purposes.
+/// For production use with Native AOT, use ShardedIdempotencyStore from Catga.InMemory package.
+/// </remarks>
+[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses reflection-based JSON serialization. For AOT, use ShardedIdempotencyStore.")]
+[System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Uses reflection-based JSON serialization. For AOT, use ShardedIdempotencyStore.")]
 public class MemoryIdempotencyStore : IIdempotencyStore
 {
     private readonly Dictionary<string, (DateTime ProcessedAt, Type? ResultType, string? ResultJson)> _processedMessages = new();

@@ -6,10 +6,27 @@ using Catga.Serialization;
 
 namespace Catga.Serialization.Json;
 
-/// <summary>JSON serializer (System.Text.Json, AOT-friendly, zero-copy)</summary>
+/// <summary>JSON serializer (System.Text.Json, zero-copy, high-performance)</summary>
+/// <remarks>
+/// <para>For Native AOT compatibility, provide JsonSerializerOptions with a JsonSerializerContext:</para>
+/// <code>
+/// [JsonSerializable(typeof(MyMessage))]
+/// public partial class MyJsonContext : JsonSerializerContext { }
+/// 
+/// var options = new JsonSerializerOptions { TypeInfoResolver = MyJsonContext.Default };
+/// services.AddCatga().UseJsonSerializer(new JsonMessageSerializer(options));
+/// </code>
+/// <para>📖 See docs/aot/serialization-aot-guide.md for complete AOT setup guide.</para>
+/// </remarks>
 public class JsonMessageSerializer : IBufferedMessageSerializer
 {
-    private static readonly JsonSerializerOptions _options = new() { PropertyNameCaseInsensitive = true, WriteIndented = false };
+    private readonly JsonSerializerOptions _options;
+
+    /// <summary>Create JSON serializer with default options (uses reflection, not AOT-compatible)</summary>
+    public JsonMessageSerializer() : this(new JsonSerializerOptions { PropertyNameCaseInsensitive = true, WriteIndented = false }) { }
+
+    /// <summary>Create JSON serializer with custom options (for AOT, provide options with JsonSerializerContext)</summary>
+    public JsonMessageSerializer(JsonSerializerOptions options) => _options = options;
 
     public string Name => "JSON";
 

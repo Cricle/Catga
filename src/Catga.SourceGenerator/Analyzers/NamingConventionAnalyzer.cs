@@ -33,7 +33,7 @@ public class NamingConventionAnalyzer : DiagnosticAnalyzer
         if (!isRequest && !isNotification) return;
 
         // Check Event naming (past tense)
-        if (isNotification && typeName.EndsWith("Event") && 
+        if (isNotification && typeName.EndsWith("Event") &&
             Verbs.Any(v => typeName.StartsWith(v) && !typeName.StartsWith(v + "d") && !typeName.StartsWith(v + "ed")))
         {
             context.ReportDiagnostic(Diagnostic.Create(
@@ -47,7 +47,7 @@ public class NamingConventionAnalyzer : DiagnosticAnalyzer
                 .FirstOrDefault(i => i.Name == "IRequest" && i.TypeArguments.Length == 1)
                 ?.TypeArguments[0];
 
-            if (returnType != null && 
+            if (returnType != null &&
                 returnType.SpecialType == SpecialType.None &&
                 returnType.Name != "Guid" && returnType.Name != "DateTime" && returnType.Name != "TimeSpan" &&
                 returnType.TypeKind == TypeKind.Class &&

@@ -29,7 +29,7 @@ public class BlockingCallAnalyzer : DiagnosticAnalyzer
         if (!methodDecl.Modifiers.Any(SyntaxKind.AsyncKeyword)) return;
 
         var methodSymbol = context.SemanticModel.GetDeclaredSymbol(methodDecl);
-        if (methodSymbol?.ContainingType == null || 
+        if (methodSymbol?.ContainingType == null ||
             !methodSymbol.ContainingType.AllInterfaces.Any(i => i.Name == "IRequestHandler" || i.Name == "INotificationHandler"))
             return;
 

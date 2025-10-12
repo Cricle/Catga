@@ -12,7 +12,7 @@ namespace Catga.Serialization.Json;
 /// <code>
 /// [JsonSerializable(typeof(MyMessage))]
 /// public partial class MyJsonContext : JsonSerializerContext { }
-/// 
+///
 /// var options = new JsonSerializerOptions { TypeInfoResolver = MyJsonContext.Default };
 /// services.AddCatga().UseJsonSerializer(new JsonMessageSerializer(options));
 /// </code>

@@ -172,7 +172,7 @@ A: Catga 采用分层设计：
 
 ### Q: ShardedIdempotencyStore 和 MemoryIdempotencyStore 的区别？
 
-A: 
+A:
 - **MemoryIdempotencyStore**: 简单实现，用于测试/开发，使用反射序列化
 - **ShardedIdempotencyStore**: 生产实现，100% AOT 兼容，高性能分片设计
 
@@ -187,7 +187,7 @@ A: 不是。你可以：
 
 ### Q: 如何在现有项目中迁移到 AOT？
 
-A: 
+A:
 1. 将 `ScanHandlers()` 替换为 `AddGeneratedHandlers()`
 2. 配置序列化器（MemoryPack 或 JSON Context）
 3. 测试发布：`dotnet publish /p:PublishAot=true`
@@ -201,7 +201,7 @@ Catga 的核心已经为 Native AOT 做好了充分准备！
 
 选择合适的序列化方案，享受极致性能：
 - 🚀 **启动快 24x**
-- 💾 **体积小 8.5x**  
+- 💾 **体积小 8.5x**
 - ⚡ **性能高 10x**
 - 🔒 **更安全**（无动态代码生成）
 

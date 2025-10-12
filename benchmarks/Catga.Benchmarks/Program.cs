@@ -28,8 +28,8 @@ public class Program
         Console.WriteLine();
         Console.WriteLine("To run specific benchmark:");
         Console.WriteLine("  dotnet run -c Release --project benchmarks/Catga.Benchmarks --filter *DistributedId*");
-        Console.WriteLine("  dotnet run -c Release --project benchmarks/Catga.Benchmarks --filter *HandlerCache*");
-        Console.WriteLine("  dotnet run -c Release --project benchmarks/Catga.Benchmarks --filter *RateLimiter*");
+        Console.WriteLine("  dotnet run -c Release --project benchmarks/Catga.Benchmarks --filter *ReflectionOptimization*");
+        Console.WriteLine("  dotnet run -c Release --project benchmarks/Catga.Benchmarks --filter *MessageRouting*");
         Console.WriteLine();
     }
 }

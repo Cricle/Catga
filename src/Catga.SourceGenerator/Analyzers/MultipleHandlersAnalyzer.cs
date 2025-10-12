@@ -23,55 +23,22 @@ public class MultipleHandlersAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeCompilation(CompilationAnalysisContext context)
     {
-        var compilation = context.Compilation;
-        
-        // Find all handler types
-        var handlerTypes = compilation.GetSymbolsWithName(
-            _ => true,
-            SymbolFilter.Type)
+        var handlersByMessage = context.Compilation.GetSymbolsWithName(_ => true, SymbolFilter.Type)
             .OfType<INamedTypeSymbol>()
             .Where(t => t.AllInterfaces.Any(i => i.Name == "IRequestHandler"))
-            .ToList();
-
-        // Group by message type
-        var handlersByMessage = handlerTypes
-            .Select(t => new
-            {
-                Handler = t,
-                MessageType = GetRequestMessageType(t)
-            })
+            .Select(t => (Handler: t, MessageType: t.AllInterfaces
+                .FirstOrDefault(i => i.Name == "IRequestHandler" && i.TypeArguments.Length >= 1)
+                ?.TypeArguments[0]))
             .Where(x => x.MessageType != null)
             .GroupBy(x => x.MessageType, SymbolEqualityComparer.Default);
 
-        foreach (var group in handlersByMessage)
-        {
-            var handlers = group.ToList();
-            if (handlers.Count > 1)
-            {
-                // Report error for each duplicate handler
-                foreach (var handler in handlers)
-                {
-                    var locations = handler.Handler.Locations;
-                    if (locations.Length > 0)
-                    {
-                        var diagnostic = Diagnostic.Create(
-                            CatgaAnalyzerRules.MultipleSyncHandlers,
-                            locations[0],
-                            group.Key?.Name ?? "Unknown");
-
-                        context.ReportDiagnostic(diagnostic);
-                    }
-                }
-            }
-        }
-    }
-
-    private static ITypeSymbol? GetRequestMessageType(INamedTypeSymbol handlerType)
-    {
-        var requestHandlerInterface = handlerType.AllInterfaces
-            .FirstOrDefault(i => i.Name == "IRequestHandler" && i.TypeArguments.Length >= 1);
-
-        return requestHandlerInterface?.TypeArguments[0];
+        foreach (var group in handlersByMessage.Where(g => g.Count() > 1))
+            foreach (var handler in group)
+                if (handler.Handler.Locations.Length > 0)
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        CatgaAnalyzerRules.MultipleSyncHandlers,
+                        handler.Handler.Locations[0],
+                        group.Key?.Name ?? "Unknown"));
     }
 }
 

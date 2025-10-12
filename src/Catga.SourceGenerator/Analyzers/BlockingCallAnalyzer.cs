@@ -26,40 +26,22 @@ public class BlockingCallAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeMethod(SyntaxNodeAnalysisContext context)
     {
         var methodDecl = (MethodDeclarationSyntax)context.Node;
-        
-        // Only analyze async methods in handler classes
-        if (!methodDecl.Modifiers.Any(SyntaxKind.AsyncKeyword))
-            return;
+        if (!methodDecl.Modifiers.Any(SyntaxKind.AsyncKeyword)) return;
 
         var methodSymbol = context.SemanticModel.GetDeclaredSymbol(methodDecl);
-        if (methodSymbol?.ContainingType == null)
+        if (methodSymbol?.ContainingType == null || 
+            !methodSymbol.ContainingType.AllInterfaces.Any(i => i.Name == "IRequestHandler" || i.Name == "INotificationHandler"))
             return;
 
-        // Check if containing type implements IRequestHandler or INotificationHandler
-        if (!IsHandlerType(methodSymbol.ContainingType))
-            return;
-
-        // Find blocking calls
-        var blockingCalls = methodDecl.DescendantNodes()
-            .OfType<MemberAccessExpressionSyntax>()
-            .Where(ma => BlockingMembers.Contains(ma.Name.Identifier.Text));
-
-        foreach (var call in blockingCalls)
+        foreach (var call in methodDecl.DescendantNodes().OfType<MemberAccessExpressionSyntax>()
+            .Where(ma => BlockingMembers.Contains(ma.Name.Identifier.Text)))
         {
-            var diagnostic = Diagnostic.Create(
+            context.ReportDiagnostic(Diagnostic.Create(
                 CatgaAnalyzerRules.BlockingCallInHandler,
                 call.GetLocation(),
                 methodSymbol.ContainingType.Name,
-                call.Name.Identifier.Text);
-
-            context.ReportDiagnostic(diagnostic);
+                call.Name.Identifier.Text));
         }
-    }
-
-    private static bool IsHandlerType(INamedTypeSymbol typeSymbol)
-    {
-        return typeSymbol.AllInterfaces.Any(i =>
-            i.Name == "IRequestHandler" || i.Name == "INotificationHandler");
     }
 }
 

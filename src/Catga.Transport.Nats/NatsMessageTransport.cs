@@ -37,51 +37,51 @@ public class NatsMessageTransport : IMessageTransport
     {
         var messageType = typeof(TMessage);
         var subject = GetSubject(messageType);
-        context ??= new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = messageType.FullName, SentAt = DateTime.UtcNow };
         var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
-
-        if (qos == QualityOfService.ExactlyOnce && context.MessageId != null && _processedMessages.ContainsKey(context.MessageId))
+        var ctx = context ?? new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = messageType.FullName, SentAt = DateTime.UtcNow };
+        
+        if (qos == QualityOfService.ExactlyOnce && ctx.MessageId != null && _processedMessages.ContainsKey(ctx.MessageId))
         {
-            _logger.LogDebug("Message {MessageId} already processed (QoS 2), skipping", context.MessageId);
+            _logger.LogDebug("Message {MessageId} already processed (QoS 2), skipping", ctx.MessageId);
             return;
         }
 
         var payload = _serializer.Serialize(message);
         var headers = new NatsHeaders
         {
-            ["MessageId"] = context.MessageId,
-            ["MessageType"] = context.MessageType ?? messageType.FullName!,
-            ["SentAt"] = context.SentAt?.ToString("O") ?? DateTime.UtcNow.ToString("O"),
+            ["MessageId"] = ctx.MessageId,
+            ["MessageType"] = ctx.MessageType ?? messageType.FullName!,
+            ["SentAt"] = ctx.SentAt?.ToString("O") ?? DateTime.UtcNow.ToString("O"),
             ["QoS"] = ((int)qos).ToString()
         };
-        if (!string.IsNullOrEmpty(context.CorrelationId))
-            headers["CorrelationId"] = context.CorrelationId;
+        if (!string.IsNullOrEmpty(ctx.CorrelationId))
+            headers["CorrelationId"] = ctx.CorrelationId;
 
         switch (qos)
         {
             case QualityOfService.AtMostOnce:
                 await _connection.PublishAsync(subject, payload, headers: headers, cancellationToken: cancellationToken);
-                _logger.LogDebug("Published message {MessageId} to NATS Core (QoS 0)", context.MessageId);
+                _logger.LogDebug("Published message {MessageId} to NATS Core (QoS 0)", ctx.MessageId);
                 break;
 
             case QualityOfService.AtLeastOnce:
-                var ack = await _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = context.MessageId }, headers: headers, cancellationToken: cancellationToken);
+                var ack = await _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId }, headers: headers, cancellationToken: cancellationToken);
                 if (ack.Duplicate)
-                    _logger.LogDebug("Message {MessageId} is duplicate, JetStream auto-deduplicated", context.MessageId);
+                    _logger.LogDebug("Message {MessageId} is duplicate, JetStream auto-deduplicated", ctx.MessageId);
                 else
-                    _logger.LogDebug("Message {MessageId} published to JetStream (QoS 1), Seq: {Seq}", context.MessageId, ack.Seq);
+                    _logger.LogDebug("Message {MessageId} published to JetStream (QoS 1), Seq: {Seq}", ctx.MessageId, ack.Seq);
                 break;
 
             case QualityOfService.ExactlyOnce:
-                if (context.MessageId != null && _processedMessages.ContainsKey(context.MessageId))
+                if (ctx.MessageId != null && _processedMessages.ContainsKey(ctx.MessageId))
                 {
-                    _logger.LogDebug("Message {MessageId} already processed locally (QoS 2), skipping", context.MessageId);
+                    _logger.LogDebug("Message {MessageId} already processed locally (QoS 2), skipping", ctx.MessageId);
                     return;
                 }
-                var ack2 = await _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = context.MessageId }, headers: headers, cancellationToken: cancellationToken);
-                if (!string.IsNullOrEmpty(context.MessageId))
-                    _processedMessages.TryAdd(context.MessageId, true);
-                _logger.LogDebug("Message {MessageId} published to JetStream (QoS 2), Duplicate: {Dup}, Seq: {Seq}", context.MessageId, ack2.Duplicate, ack2.Seq);
+                var ack2 = await _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId }, headers: headers, cancellationToken: cancellationToken);
+                if (!string.IsNullOrEmpty(ctx.MessageId))
+                    _processedMessages.TryAdd(ctx.MessageId, true);
+                _logger.LogDebug("Message {MessageId} published to JetStream (QoS 2), Duplicate: {Dup}, Seq: {Seq}", ctx.MessageId, ack2.Duplicate, ack2.Seq);
                 break;
         }
     }
@@ -108,15 +108,17 @@ public class NatsMessageTransport : IMessageTransport
                     _logger.LogWarning("Failed to deserialize message from subject {Subject}", subject);
                     continue;
                 }
+                var sentAtValue = msg.Headers?["SentAt"];
+                DateTime? sentAt = null;
+                if (sentAtValue.HasValue && DateTime.TryParse(sentAtValue.Value.ToString(), out var parsed))
+                    sentAt = parsed;
                 var context = new TransportContext
                 {
                     MessageId = msg.Headers?["MessageId"],
                     MessageType = msg.Headers?["MessageType"],
-                    CorrelationId = msg.Headers?["CorrelationId"]
+                    CorrelationId = msg.Headers?["CorrelationId"],
+                    SentAt = sentAt
                 };
-                var sentAtValue = msg.Headers?["SentAt"];
-                if (sentAtValue.HasValue && DateTime.TryParse(sentAtValue.Value.ToString(), out var sentAt))
-                    context.SentAt = sentAt;
                 await handler(message, context);
             }
             catch (Exception ex) { _logger.LogError(ex, "Error processing message from subject {Subject}", subject); }

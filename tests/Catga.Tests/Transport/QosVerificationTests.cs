@@ -350,19 +350,18 @@ public class MockTransport : IMessageTransport
         TransportContext? context = null,
         CancellationToken cancellationToken = default) where TMessage : class
     {
-        context ??= new TransportContext { MessageId = Guid.NewGuid().ToString() };
         var qos = (message as IMessage)?.QoS ?? QualityOfService.AtMostOnce;
-
+        var ctx = context ?? new TransportContext { MessageId = Guid.NewGuid().ToString() };
         switch (qos)
         {
             case QualityOfService.AtMostOnce:
-                await PublishQoS0Async(message, context, cancellationToken);
+                await PublishQoS0Async(message, ctx, cancellationToken);
                 break;
             case QualityOfService.AtLeastOnce:
-                await PublishQoS1Async(message, context, cancellationToken);
+                await PublishQoS1Async(message, ctx, cancellationToken);
                 break;
             case QualityOfService.ExactlyOnce:
-                await PublishQoS2Async(message, context, cancellationToken);
+                await PublishQoS2Async(message, ctx, cancellationToken);
                 break;
         }
     }

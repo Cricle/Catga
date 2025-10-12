@@ -19,7 +19,7 @@ public class InMemoryMessageTransport : IMessageTransport
         var handlers = TypedSubscribers<TMessage>.Handlers;
         if (handlers.Count == 0) return;
 
-        context ??= new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
+        var ctx = context ?? new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
 
         var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
         var deliveryMode = (message as IMessage)?.DeliveryMode ?? DeliveryMode.WaitForResult;
@@ -27,7 +27,7 @@ public class InMemoryMessageTransport : IMessageTransport
         switch (qos)
         {
             case QualityOfService.AtMostOnce:
-                _ = FireAndForgetAsync(handlers, message, context, cancellationToken);
+                _ = FireAndForgetAsync(handlers, message, ctx, cancellationToken);
                 break;
 
             case QualityOfService.AtLeastOnce:
@@ -37,29 +37,29 @@ public class InMemoryMessageTransport : IMessageTransport
                     for (int i = 0; i < handlers.Count; i++)
                     {
                         var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
-                        tasks[i] = handler(message, context);
+                        tasks[i] = handler(message, ctx);
                     }
                     await Task.WhenAll(tasks);
                 }
                 else
                 {
-                    _ = DeliverWithRetryAsync(handlers, message, context, cancellationToken);
+                    _ = DeliverWithRetryAsync(handlers, message, ctx, cancellationToken);
                 }
                 break;
 
             case QualityOfService.ExactlyOnce:
-                if (context.MessageId != null && _idempotencyStore.IsProcessed(context.MessageId)) return;
+                if (ctx.MessageId != null && _idempotencyStore.IsProcessed(ctx.MessageId)) return;
 
                 var tasks2 = new Task[handlers.Count];
                 for (int i = 0; i < handlers.Count; i++)
                 {
                     var handler = (Func<TMessage, TransportContext, Task>)handlers[i];
-                    tasks2[i] = handler(message, context);
+                    tasks2[i] = handler(message, ctx);
                 }
                 await Task.WhenAll(tasks2);
 
-                if (context.MessageId != null)
-                    _idempotencyStore.MarkAsProcessed(context.MessageId);
+                if (ctx.MessageId != null)
+                    _idempotencyStore.MarkAsProcessed(ctx.MessageId);
                 break;
         }
     }

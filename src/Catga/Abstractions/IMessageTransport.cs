@@ -16,15 +16,15 @@ public interface IMessageTransport
     public CompressionTransportOptions? CompressionOptions { get; }
 }
 
-/// <summary>Transport context - carries message metadata</summary>
-public class TransportContext
+/// <summary>Transport context - carries message metadata (zero-allocation struct)</summary>
+public readonly struct TransportContext
 {
-    public string? MessageId { get; set; }
-    public string? CorrelationId { get; set; }
-    public string? MessageType { get; set; }
-    public DateTime? SentAt { get; set; }
-    public int RetryCount { get; set; }
-    public Dictionary<string, string>? Metadata { get; set; }
+    public string? MessageId { get; init; }
+    public string? CorrelationId { get; init; }
+    public string? MessageType { get; init; }
+    public DateTime? SentAt { get; init; }
+    public int RetryCount { get; init; }
+    public Dictionary<string, string>? Metadata { get; init; }
 }
 
 /// <summary>Batch transport options</summary>

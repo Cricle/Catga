@@ -27,9 +27,9 @@ public interface IDeadLetterQueue
 }
 
 /// <summary>
-/// Dead letter message envelope
+/// Dead letter message envelope (zero-allocation struct)
 /// </summary>
-public class DeadLetterMessage
+public readonly struct DeadLetterMessage
 {
     public required string MessageId { get; init; }
     public required string MessageType { get; init; }

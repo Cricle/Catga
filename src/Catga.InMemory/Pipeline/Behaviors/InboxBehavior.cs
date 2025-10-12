@@ -46,7 +46,7 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
             {
                 _logger.LogInformation("Message {MessageId} has already been processed, returning cached result", messageId);
                 var cachedResult = await _persistence.GetProcessedResultAsync(messageId, cancellationToken);
-                if (!string.IsNullOrEmpty(cachedResult) && 
+                if (!string.IsNullOrEmpty(cachedResult) &&
                     SerializationHelper.TryDeserialize<CatgaResult<TResponse>>(cachedResult, out var result, _serializer))
                     return result;
                 _logger.LogWarning("Failed to deserialize cached result for message {MessageId}, returning default success", messageId);

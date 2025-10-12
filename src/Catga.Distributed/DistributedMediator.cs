@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Catga.Core;
 using Catga.Distributed.Routing;
 using Catga.Messages;
 using Catga.Results;
@@ -67,7 +68,7 @@ public sealed class DistributedMediator : IDistributedMediator
         var targetNode = nodes.FirstOrDefault(n => n.NodeId == nodeId);
         if (targetNode == null)
             return CatgaResult<TResponse>.Failure($"Node {nodeId} not found");
-        var destination = $"{targetNode.Endpoint}/catga/messages/{typeof(TRequest).Name}";
+        var destination = $"{targetNode.Endpoint}/catga/messages/{TypeNameCache<TRequest>.Name}";
         try
         {
             await _transport.SendAsync((object)request!, destination, cancellationToken: cancellationToken);
@@ -99,7 +100,7 @@ public sealed class DistributedMediator : IDistributedMediator
         {
             try
             {
-                var destination = $"{node.Endpoint}/catga/events/{typeof(TEvent).Name}";
+                var destination = $"{node.Endpoint}/catga/events/{TypeNameCache<TEvent>.Name}";
                 await _transport.SendAsync((object)@event!, destination, cancellationToken: cancellationToken);
                 _logger.LogDebug("Broadcasted event to node {NodeId}", node.NodeId);
             }

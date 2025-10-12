@@ -1,4 +1,5 @@
 using Catga.Common;
+using Catga.Core;
 using Catga.DistributedId;
 using Catga.Messages;
 using Catga.Outbox;
@@ -78,7 +79,7 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[Outbox] Error in outbox behavior for {RequestType}", typeof(TRequest).Name);
+            _logger.LogError(ex, "[Outbox] Error in outbox behavior for {RequestType}", TypeNameCache<TRequest>.Name);
             throw;
         }
     }

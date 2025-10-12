@@ -46,7 +46,7 @@ public static class TypeNameCache<T>
 {
     private static string? _name;
     private static string? _fullName;
-    
+
     public static string Name => _name ??= typeof(T).Name;
     public static string FullName => _fullName ??= typeof(T).FullName ?? typeof(T).Name;
 }

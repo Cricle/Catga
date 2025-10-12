@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Common;
+using Catga.Core;
 using Catga.Inbox;
 using Catga.Messages;
 using Catga.Results;
@@ -34,7 +35,7 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
 
         if (string.IsNullOrEmpty(messageId))
         {
-            _logger.LogDebug("No MessageId found for {RequestType}, skipping inbox check", typeof(TRequest).Name);
+            _logger.LogDebug("No MessageId found for {RequestType}, skipping inbox check", TypeNameCache<TRequest>.Name);
             return await next();
         }
 

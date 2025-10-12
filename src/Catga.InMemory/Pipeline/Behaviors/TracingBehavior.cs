@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Catga.Core;
 using Catga.Messages;
 using Catga.Results;
 
@@ -11,7 +12,7 @@ public class TracingBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccesse
 
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
-        var requestType = typeof(TRequest).Name;
+        var requestType = TypeNameCache<TRequest>.Name;
         var startTime = Diagnostics.GetTimestamp();
         using var activity = ActivitySource.StartActivity($"Catga.Request.{requestType}", ActivityKind.Internal);
 
@@ -20,8 +21,8 @@ public class TracingBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccesse
         activity?.SetTag("messaging.message_id", request.MessageId);
         activity?.SetTag("messaging.correlation_id", request.CorrelationId);
         activity?.SetTag("catga.message_type", requestType);
-        activity?.SetTag("catga.request_type", typeof(TRequest).FullName);
-        activity?.SetTag("catga.response_type", typeof(TResponse).FullName);
+        activity?.SetTag("catga.request_type", TypeNameCache<TRequest>.FullName);
+        activity?.SetTag("catga.response_type", TypeNameCache<TResponse>.FullName);
         activity?.SetTag("catga.timestamp", request.CreatedAt);
 
         try

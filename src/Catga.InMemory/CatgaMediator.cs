@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Common;
 using Catga.Configuration;
+using Catga.Core;
 using Catga.Exceptions;
 using Catga.Handlers;
 using Catga.Messages;
@@ -33,7 +34,7 @@ public class CatgaMediator : ICatgaMediator
     {
         var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(_serviceProvider);
         if (handler == null)
-            return CatgaResult<TResponse>.Failure($"No handler for {typeof(TRequest).Name}", new HandlerNotFoundException(typeof(TRequest).Name));
+            return CatgaResult<TResponse>.Failure($"No handler for {TypeNameCache<TRequest>.Name}", new HandlerNotFoundException(TypeNameCache<TRequest>.Name));
 
         var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
         if (behaviors is IList<IPipelineBehavior<TRequest, TResponse>> behaviorsList)
@@ -53,7 +54,7 @@ public class CatgaMediator : ICatgaMediator
     {
         var handler = _serviceProvider.GetService<IRequestHandler<TRequest>>();
         if (handler == null)
-            return CatgaResult.Failure($"No handler for {typeof(TRequest).Name}", new HandlerNotFoundException(typeof(TRequest).Name));
+            return CatgaResult.Failure($"No handler for {TypeNameCache<TRequest>.Name}", new HandlerNotFoundException(TypeNameCache<TRequest>.Name));
         return await handler.HandleAsync(request, cancellationToken);
     }
 

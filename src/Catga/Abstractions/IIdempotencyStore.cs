@@ -53,7 +53,7 @@ public class MemoryIdempotencyStore : IIdempotencyStore
         {
             CleanupOldEntries();
             _processedMessages[messageId] = (DateTime.UtcNow, null, null);
-            
+
             if (result != null)
             {
                 var resultJson = System.Text.Json.JsonSerializer.Serialize(result);

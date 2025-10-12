@@ -47,7 +47,7 @@ public class ShardedIdempotencyStore : IIdempotencyStore
     {
         var shard = GetShard(messageId);
         shard[messageId] = (DateTime.UtcNow, null, null);
-        
+
         if (result != null)
         {
             var resultJson = SerializationHelper.SerializeJson(result);

@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Catga.Common;
 using Catga.Core;
 using Catga.Idempotency;
 using Catga.Messages;
+using Catga.Observability;
 
 namespace Catga.Transport;
 
@@ -17,43 +19,75 @@ public class InMemoryMessageTransport : IMessageTransport
     public CompressionTransportOptions? CompressionOptions => null;
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
     {
+        using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Message.Publish", ActivityKind.Producer);
+        var sw = Stopwatch.StartNew();
+
         var handlers = TypedSubscribers<TMessage>.Handlers;
         if (handlers.Count == 0) return;
 
         var ctx = context ?? new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
         var msg = message as IMessage;
+        var qos = msg?.QoS ?? QualityOfService.AtLeastOnce;
 
-        switch (msg?.QoS ?? QualityOfService.AtLeastOnce)
+        activity?.SetTag("catga.message.type", TypeNameCache<TMessage>.Name);
+        activity?.SetTag("catga.message.id", ctx.MessageId);
+        activity?.SetTag("catga.qos", qos.ToString());
+
+        CatgaDiagnostics.IncrementActiveMessages();
+        try
         {
-            case QualityOfService.AtMostOnce:
-                _ = FireAndForgetAsync(handlers, message, ctx, cancellationToken);
-                break;
+            switch (qos)
+            {
+                case QualityOfService.AtMostOnce:
+                    _ = FireAndForgetAsync(handlers, message, ctx, cancellationToken);
+                    break;
 
-            case QualityOfService.AtLeastOnce:
-                if ((msg?.DeliveryMode ?? DeliveryMode.WaitForResult) == DeliveryMode.WaitForResult)
-                {
-                    using var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count);
-                    for (int i = 0; i < handlers.Count; i++)
-                        rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, ctx);
-                    await Task.WhenAll(rented.AsSpan().ToArray());
-                }
-                else
-                    _ = DeliverWithRetryAsync(handlers, message, ctx, cancellationToken);
-                break;
+                case QualityOfService.AtLeastOnce:
+                    if ((msg?.DeliveryMode ?? DeliveryMode.WaitForResult) == DeliveryMode.WaitForResult)
+                    {
+                        using var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count);
+                        for (int i = 0; i < handlers.Count; i++)
+                            rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, ctx);
+                        await Task.WhenAll(rented.AsSpan().ToArray());
+                    }
+                    else
+                        _ = DeliverWithRetryAsync(handlers, message, ctx, cancellationToken);
+                    break;
 
-            case QualityOfService.ExactlyOnce:
-                if (ctx.MessageId != null && _idempotencyStore.IsProcessed(ctx.MessageId)) return;
+                case QualityOfService.ExactlyOnce:
+                    if (ctx.MessageId != null && _idempotencyStore.IsProcessed(ctx.MessageId))
+                    {
+                        activity?.SetTag("catga.idempotent", true);
+                        return;
+                    }
 
-                using (var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count))
-                {
-                    for (int i = 0; i < handlers.Count; i++)
-                        rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, ctx);
-                    await Task.WhenAll(rented.AsSpan().ToArray());
-                }
+                    using (var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count))
+                    {
+                        for (int i = 0; i < handlers.Count; i++)
+                            rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, ctx);
+                        await Task.WhenAll(rented.AsSpan().ToArray());
+                    }
 
-                if (ctx.MessageId != null)
-                    _idempotencyStore.MarkAsProcessed(ctx.MessageId);
-                break;
+                    if (ctx.MessageId != null)
+                        _idempotencyStore.MarkAsProcessed(ctx.MessageId);
+                    break;
+            }
+
+            sw.Stop();
+            CatgaDiagnostics.MessagesPublished.Add(1, new KeyValuePair<string, object?>("message_type", TypeNameCache<TMessage>.Name), new KeyValuePair<string, object?>("qos", qos.ToString()));
+            CatgaDiagnostics.MessageDuration.Record(sw.Elapsed.TotalMilliseconds, new KeyValuePair<string, object?>("message_type", TypeNameCache<TMessage>.Name));
+        }
+        catch (Exception ex)
+        {
+            CatgaDiagnostics.MessagesFailed.Add(1, new KeyValuePair<string, object?>("message_type", TypeNameCache<TMessage>.Name));
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.AddTag("exception.type", ex.GetType().FullName);
+            activity?.AddTag("exception.message", ex.Message);
+            throw;
+        }
+        finally
+        {
+            CatgaDiagnostics.DecrementActiveMessages();
         }
     }
 

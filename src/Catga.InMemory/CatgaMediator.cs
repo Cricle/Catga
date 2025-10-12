@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Catga.Common;
 using Catga.Configuration;
@@ -5,6 +6,7 @@ using Catga.Core;
 using Catga.Exceptions;
 using Catga.Handlers;
 using Catga.Messages;
+using Catga.Observability;
 using Catga.Performance;
 using Catga.Pipeline;
 using Catga.Results;
@@ -32,22 +34,67 @@ public class CatgaMediator : ICatgaMediator
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public async ValueTask<CatgaResult<TResponse>> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
     {
-        var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(_serviceProvider);
-        if (handler == null)
-            return CatgaResult<TResponse>.Failure($"No handler for {TypeNameCache<TRequest>.Name}", new HandlerNotFoundException(TypeNameCache<TRequest>.Name));
+        using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Command.Execute", ActivityKind.Internal);
+        var sw = Stopwatch.StartNew();
+        var reqType = TypeNameCache<TRequest>.Name;
+        var msgId = (request as IMessage)?.MessageId;
 
-        var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-        if (behaviors is IList<IPipelineBehavior<TRequest, TResponse>> behaviorsList)
+        activity?.SetTag("catga.request.type", reqType);
+        activity?.SetTag("catga.message.id", msgId);
+        CatgaLog.CommandExecuting(_logger, reqType, msgId, (request as IMessage)?.CorrelationId);
+
+        try
         {
-            if (FastPath.CanUseFastPath(behaviorsList.Count))
-                return await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken);
-            return await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
-        }
+            var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(_serviceProvider);
+            if (handler == null)
+            {
+                CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", "false"));
+                return CatgaResult<TResponse>.Failure($"No handler for {reqType}", new HandlerNotFoundException(reqType));
+            }
 
-        var materializedBehaviors = behaviors.ToList();
-        if (FastPath.CanUseFastPath(materializedBehaviors.Count))
-            return await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken);
-        return await PipelineExecutor.ExecuteAsync(request, handler, materializedBehaviors, cancellationToken);
+            var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
+            CatgaResult<TResponse> result;
+
+            if (behaviors is IList<IPipelineBehavior<TRequest, TResponse>> behaviorsList)
+            {
+                result = FastPath.CanUseFastPath(behaviorsList.Count)
+                    ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
+                    : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
+            }
+            else
+            {
+                var materializedBehaviors = behaviors.ToList();
+                result = FastPath.CanUseFastPath(materializedBehaviors.Count)
+                    ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
+                    : await PipelineExecutor.ExecuteAsync(request, handler, materializedBehaviors, cancellationToken);
+            }
+
+            sw.Stop();
+            var duration = sw.Elapsed.TotalMilliseconds;
+            CatgaDiagnostics.CommandsExecuted.Add(1, new KeyValuePair<string, object?>("request_type", reqType), new KeyValuePair<string, object?>("success", result.IsSuccess.ToString()));
+            CatgaDiagnostics.CommandDuration.Record(duration, new KeyValuePair<string, object?>("request_type", reqType));
+            CatgaLog.CommandExecuted(_logger, reqType, msgId, duration, result.IsSuccess);
+
+            activity?.SetTag("catga.success", result.IsSuccess);
+            activity?.SetTag("catga.duration_ms", duration);
+            if (!result.IsSuccess)
+            {
+                activity?.SetStatus(ActivityStatusCode.Error, result.Error);
+                CatgaLog.CommandFailed(_logger, result.Exception, reqType, msgId, result.Error ?? "Unknown");
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            CatgaDiagnostics.CommandsExecuted.Add(1, new KeyValuePair<string, object?>("request_type", reqType), new KeyValuePair<string, object?>("success", "false"));
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.AddTag("exception.type", ex.GetType().FullName);
+            activity?.AddTag("exception.message", ex.Message);
+            CatgaLog.CommandFailed(_logger, ex, reqType, msgId, ex.Message);
+            throw;
+        }
     }
 
     public async Task<CatgaResult> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest
@@ -60,22 +107,37 @@ public class CatgaMediator : ICatgaMediator
 
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(TEvent @event, CancellationToken cancellationToken = default) where TEvent : IEvent
     {
+        using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Event.Publish", ActivityKind.Producer);
+        var eventType = TypeNameCache<TEvent>.Name;
+        var msgId = (@event as IMessage)?.MessageId;
+
+        activity?.SetTag("catga.event.type", eventType);
+        activity?.SetTag("catga.message.id", msgId);
+        CatgaLog.EventPublishing(_logger, eventType, msgId);
+
         var handlerList = _handlerCache.GetEventHandlers<IEventHandler<TEvent>>(_serviceProvider);
         if (handlerList.Count == 0)
         {
             await FastPath.PublishEventNoOpAsync();
+            CatgaLog.EventPublished(_logger, eventType, msgId, 0);
             return;
         }
+
+        CatgaDiagnostics.EventsPublished.Add(1, new KeyValuePair<string, object?>("event_type", eventType), new KeyValuePair<string, object?>("handler_count", handlerList.Count.ToString()));
+
         if (handlerList.Count == 1)
         {
             await HandleEventSafelyAsync(handlerList[0], @event, cancellationToken);
+            CatgaLog.EventPublished(_logger, eventType, msgId, 1);
             return;
         }
+
         using var rentedTasks = Common.ArrayPoolHelper.RentOrAllocate<Task>(handlerList.Count);
         var tasks = rentedTasks.Array;
         for (int i = 0; i < handlerList.Count; i++)
             tasks[i] = HandleEventSafelyAsync(handlerList[i], @event, cancellationToken);
         await Task.WhenAll(rentedTasks.AsSpan().ToArray()).ConfigureAwait(false);
+        CatgaLog.EventPublished(_logger, eventType, msgId, handlerList.Count);
     }
 
     private async Task HandleEventSafelyAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(IEventHandler<TEvent> handler, TEvent @event, CancellationToken cancellationToken) where TEvent : IEvent

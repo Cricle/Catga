@@ -33,10 +33,10 @@ public class CreateUserHandler : IRequestHandler<CreateUserCommand, Guid>
     {
         var userId = Guid.NewGuid();
         _store.Users[userId] = new UserDto(userId, request.Name, request.Email);
-        
+
         // 发布事件
         await _mediator.PublishAsync(new UserCreatedEvent(userId, request.Name), ct);
-        
+
         return CatgaResult<Guid>.Success(userId);
     }
 }

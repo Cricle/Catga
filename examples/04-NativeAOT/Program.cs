@@ -35,7 +35,7 @@ Console.WriteLine($"✅ Result: {result.IsSuccess}");
 /*
  * 发布为 Native AOT:
  * dotnet publish -c Release -r win-x64
- * 
+ *
  * 结果:
  * - 启动时间: ~50ms (vs 1200ms 传统)
  * - 文件大小: ~8MB (vs 68MB 传统)

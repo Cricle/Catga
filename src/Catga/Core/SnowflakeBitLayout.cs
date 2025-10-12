@@ -89,16 +89,7 @@ public readonly struct SnowflakeBitLayout
     /// <summary>
     /// Create layout with custom epoch (uses default 500+ year layout)
     /// </summary>
-    public static SnowflakeBitLayout WithEpoch(DateTime epoch)
-    {
-        return new SnowflakeBitLayout
-        {
-            TimestampBits = 44,
-            WorkerIdBits = 8,
-            SequenceBits = 11,
-            EpochMilliseconds = new DateTimeOffset(epoch.ToUniversalTime()).ToUnixTimeMilliseconds()
-        };
-    }
+    public static SnowflakeBitLayout WithEpoch(DateTime epoch) => Create(epoch);
 
     /// <summary>
     /// Create layout with custom epoch and bit allocation
@@ -114,9 +105,16 @@ public readonly struct SnowflakeBitLayout
             TimestampBits = timestampBits,
             WorkerIdBits = workerIdBits,
             SequenceBits = sequenceBits,
-            EpochMilliseconds = new DateTimeOffset(epoch.ToUniversalTime()).ToUnixTimeMilliseconds()
+            EpochMilliseconds = ToEpochMilliseconds(epoch)
         };
     }
+
+    /// <summary>
+    /// Convert DateTime to epoch milliseconds (DRY helper)
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static long ToEpochMilliseconds(DateTime epoch) =>
+        new DateTimeOffset(epoch.ToUniversalTime()).ToUnixTimeMilliseconds();
 
     /// <summary>
     /// High concurrency layout (39-10-14)

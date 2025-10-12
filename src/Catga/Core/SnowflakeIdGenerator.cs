@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 using System.Threading;
+using Catga.Common;
 
 namespace Catga.DistributedId;
 
@@ -65,67 +66,9 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public long NextId()
     {
-        SpinWait spinWait = default;
-
-        while (true)
-        {
-            // Read current packed state atomically
-            var currentState = Interlocked.Read(ref _packedState);
-            var lastTimestamp = UnpackTimestamp(currentState);
-            var lastSequence = UnpackSequence(currentState);
-
-            // Get current timestamp
-            var timestamp = GetCurrentTimestamp();
-
-            // Clock moved backwards - fail fast
-            if (timestamp < lastTimestamp)
-            {
-                throw new InvalidOperationException(
-                    $"Clock moved backwards. Refusing to generate ID for {lastTimestamp - timestamp}ms");
-            }
-
-            long newSequence;
-            long newTimestamp;
-
-            if (timestamp == lastTimestamp)
-            {
-                // Same millisecond: increment sequence
-                newSequence = (lastSequence + 1) & _layout.SequenceMask;
-
-                if (newSequence == 0)
-                {
-                    // Sequence overflow: wait for next millisecond
-                    timestamp = WaitNextMillisecond(lastTimestamp);
-                    newTimestamp = timestamp;
-                    newSequence = 0;
-                }
-                else
-                {
-                    newTimestamp = timestamp;
-                }
-            }
-            else
-            {
-                // New millisecond: reset sequence
-                newTimestamp = timestamp;
-                newSequence = 0;
-            }
-
-            // Pack new state
-            var newState = PackState(newTimestamp, newSequence);
-
-            // Try to update state atomically (CAS)
-            if (Interlocked.CompareExchange(ref _packedState, newState, currentState) == currentState)
-            {
-                // Success! Generate and return ID
-                return ((newTimestamp - _layout.EpochMilliseconds) << _layout.TimestampShift)
-                       | (_workerId << _layout.WorkerIdShift)
-                       | newSequence;
-            }
-
-            // CAS failed: another thread updated the state, retry
-            spinWait.SpinOnce();
-        }
+        if (!TryNextId(out var id))
+            throw new InvalidOperationException("Clock moved backwards. Refusing to generate ID");
+        return id;
     }
 
     /// <summary>
@@ -226,9 +169,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
             if (Interlocked.CompareExchange(ref _packedState, newState, currentState) == currentState)
             {
                 // Success! Generate ID
-                id = ((newTimestamp - _layout.EpochMilliseconds) << _layout.TimestampShift)
-                     | (_workerId << _layout.WorkerIdShift)
-                     | newSequence;
+                id = GenerateId(newTimestamp, newSequence);
                 return true;
             }
 
@@ -365,41 +306,16 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     public long[] NextIds(int count)
     {
         if (count <= 0)
-        {
             throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than 0");
-        }
 
-        // Memory Pool Optimization: Use ArrayPool for large batches (>100K)
-        const int ArrayPoolThreshold = 100_000;
+        // Use ArrayPoolHelper for consistent pooling behavior (>100K threshold)
+        using var rented = ArrayPoolHelper.RentOrAllocate<long>(count, threshold: 100_000);
+        NextIds(rented.AsSpan());
 
-        if (count > ArrayPoolThreshold)
-        {
-            // Rent from pool (may get larger array)
-            var rentedArray = ArrayPool<long>.Shared.Rent(count);
-            try
-            {
-                // Generate IDs into rented array
-                var actualSpan = rentedArray.AsSpan(0, count);
-                NextIds(actualSpan);
-
-                // Copy to exact-sized result array
-                var result = new long[count];
-                actualSpan.CopyTo(result);
-                return result;
-            }
-            finally
-            {
-                // Return to pool
-                ArrayPool<long>.Shared.Return(rentedArray);
-            }
-        }
-        else
-        {
-            // Normal allocation for small/medium batches
-            var ids = new long[count];
-            NextIds(ids.AsSpan());
-            return ids;
-        }
+        // Return exact-sized array
+        var result = new long[count];
+        rented.AsSpan().CopyTo(result);
+        return result;
     }
 
     /// <summary>
@@ -443,6 +359,17 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     /// Get current bit layout
     /// </summary>
     public SnowflakeBitLayout GetLayout() => _layout;
+
+    /// <summary>
+    /// Generate ID from timestamp, workerId, and sequence (DRY helper)
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private long GenerateId(long timestamp, long sequence)
+    {
+        return ((timestamp - _layout.EpochMilliseconds) << _layout.TimestampShift)
+               | (_workerId << _layout.WorkerIdShift)
+               | sequence;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static long GetCurrentTimestamp()

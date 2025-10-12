@@ -10,17 +10,9 @@ public sealed class DistributedIdOptions
 
     public SnowflakeBitLayout GetEffectiveLayout()
     {
-        if (CustomEpoch.HasValue)
-        {
-            return new SnowflakeBitLayout
-            {
-                TimestampBits = Layout.TimestampBits,
-                WorkerIdBits = Layout.WorkerIdBits,
-                SequenceBits = Layout.SequenceBits,
-                EpochMilliseconds = new DateTimeOffset(CustomEpoch.Value.ToUniversalTime()).ToUnixTimeMilliseconds()
-            };
-        }
-        return Layout;
+        return CustomEpoch.HasValue
+            ? SnowflakeBitLayout.Create(CustomEpoch.Value, Layout.TimestampBits, Layout.WorkerIdBits, Layout.SequenceBits)
+            : Layout;
     }
 
     public void Validate()

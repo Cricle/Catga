@@ -1,240 +1,136 @@
-# Catga Examples
+# Catga 示例
 
-This directory contains complete examples demonstrating **Catga framework** capabilities.
+简洁的示例，展示 Catga 的核心功能。
 
-## 📚 Available Examples
+## 📚 示例列表
 
-### 1. **OrderSystem** - Complete Order Management System 🛒
+### 基础示例
 
-A production-ready order management system showcasing all Catga features.
+| 示例 | 说明 | 代码行数 | 运行 |
+|------|------|----------|------|
+| [01-HelloWorld](./01-HelloWorld/) | 最简单的示例 | ~25 行 | `dotnet run` |
+| [02-CQRS-Basic](./02-CQRS-Basic/) | CQRS 模式完整演示 | ~80 行 | `dotnet run` |
+| [03-Pipeline](./03-Pipeline/) | 中间件和 Pipeline | ~65 行 | `dotnet run` |
+| [04-NativeAOT](./04-NativeAOT/) | Native AOT 发布 | ~35 行 | `dotnet publish` |
 
-**Features:**
-- ✅ SQLite persistence with Entity Framework Core
-- ✅ CQRS pattern (Commands, Queries, Events)
-- ✅ 3 deployment modes: Standalone, Distributed (Redis), Cluster (NATS)
-- ✅ Complete order lifecycle management
-- ✅ Event-driven notifications and analytics
-- ✅ Swagger UI for API testing
-- ✅ Health checks and monitoring
-- ✅ Test scripts and cluster deployment automation
+### 高级示例
 
-**Quick Start:**
+| 示例 | 说明 | 特性 |
+|------|------|------|
+| [OrderSystem](./OrderSystem/) | 完整订单系统 | EF Core, Redis, NATS |
+| [MicroservicesDemo](./MicroservicesDemo/) | 微服务 RPC 调用 | 跨服务调用 |
+
+## 🚀 快速开始
+
+### 运行基础示例
+
 ```bash
-cd OrderSystem
-
-# Run standalone mode (no dependencies)
+# HelloWorld
+cd examples/01-HelloWorld
 dotnet run
 
-# Run with Redis
-$env:DeploymentMode="Distributed-Redis"
+# CQRS
+cd examples/02-CQRS-Basic
 dotnet run
 
-# Run 3-node NATS cluster
-.\run-cluster.ps1
-
-# Test the API
-.\test-api.ps1
-```
-
-**What You'll Learn:**
-- How to structure a CQRS application
-- How to use SQLite with Catga
-- How to deploy in different modes
-- How to implement event handlers
-- How to test distributed systems
-
-📖 **[Full Documentation](OrderSystem/README.md)**
-
----
-
-### 2. **RedisExample** - Redis Integration 🔴
-
-Demonstrates Redis-based distributed features.
-
-**Features:**
-- ✅ Distributed lock
-- ✅ Distributed cache
-- ✅ Redis cluster support
-- ✅ Graceful degradation when Redis is unavailable
-
-**Quick Start:**
-```bash
-cd RedisExample
-
-# Start Redis
-docker run -d -p 6379:6379 redis:alpine
-
-# Run example
+# Pipeline
+cd examples/03-Pipeline
 dotnet run
 ```
 
-**What You'll Learn:**
-- Redis distributed lock usage
-- Redis distributed cache integration
-- Graceful fallback strategies
-- Redis cluster configuration
-
-📖 **[Full Documentation](RedisExample/README.md)**
-
----
-
-## 🎯 Choosing an Example
-
-| Example | Complexity | External Dependencies | Best For |
-|---------|------------|----------------------|----------|
-| **OrderSystem** | Advanced | Optional (SQLite included, Redis/NATS for distributed) | Learning complete CQRS systems |
-| **RedisExample** | Beginner | Optional (works without Redis) | Learning Redis integration |
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- .NET 9.0 SDK or later
-- (Optional) Docker for running Redis/NATS
-
-### Running Examples
-
-Each example can run independently:
+### Native AOT 示例
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/Catga.git
-cd Catga/examples
+cd examples/04-NativeAOT
 
-# Choose an example
-cd OrderSystem  # or RedisExample
+# 发布
+dotnet publish -c Release -r win-x64
 
-# Run it
-dotnet run
+# 运行（超快启动）
+./bin/Release/net9.0/win-x64/publish/NativeAOT.exe
 ```
 
-### Running Tests
+## 📖 学习路径
 
-Each example includes its own test scripts:
+### 第 1 天 - 基础
 
-```bash
-# OrderSystem API tests
-cd OrderSystem
-.\test-api.ps1
+1. **HelloWorld** - 了解基本用法 (5分钟)
+2. **CQRS-Basic** - 理解 CQRS 模式 (15分钟)
+3. **Pipeline** - 掌握中间件 (10分钟)
 
-# Or use curl/Postman with the provided endpoints
+### 第 2 天 - 进阶
+
+4. **NativeAOT** - 体验极致性能 (10分钟)
+5. **OrderSystem** - 学习实际应用 (30分钟)
+
+### 第 3 天 - 分布式
+
+6. **MicroservicesDemo** - 微服务架构 (30分钟)
+
+## 💡 示例特点
+
+### ✅ 简洁
+- 每个示例 < 100 行代码
+- 单文件结构
+- 专注核心功能
+
+### ✅ 实用
+- 真实场景
+- 最佳实践
+- 可直接复制使用
+
+### ✅ 渐进式
+- 从简单到复杂
+- 循序渐进
+- 易于理解
+
+## 🎯 代码风格
+
+所有示例遵循：
+
+```csharp
+// ✅ 简洁的 Record
+public record MyCommand(string Name) : IRequest<bool>;
+
+// ✅ 简短的 Handler
+public class MyHandler : IRequestHandler<MyCommand, bool>
+{
+    public Task<CatgaResult<bool>> Handle(...)
+        => Task.FromResult(CatgaResult<bool>.Success(true));
+}
+
+// ✅ 流畅的配置
+services.AddCatga()
+    .AddHandler<MyCommand, bool, MyHandler>();
 ```
 
----
+## 📊 性能对比
 
-## 📖 Example Structure
+运行 NativeAOT 示例查看差异：
 
-Each example follows this structure:
+| 指标 | 传统 .NET | Native AOT |
+|------|-----------|------------|
+| 启动时间 | ~1200ms | **~50ms** |
+| 文件大小 | ~68MB | **~8MB** |
+| 内存占用 | ~85MB | **~12MB** |
 
-```
-ExampleName/
-├── Program.cs              # Main entry point
-├── README.md               # Detailed documentation
-├── *.csproj                # Project file
-├── appsettings.json        # Configuration
-├── test-*.ps1              # Test scripts (if applicable)
-└── [Other files]           # Example-specific files
-```
+## 🤝 贡献
 
----
+欢迎贡献新示例！
 
-## 🔧 Configuration
+要求：
+- < 100 行代码
+- 单文件或最少文件
+- 清晰的注释
+- README 说明
 
-All examples support environment-based configuration:
+## 📚 更多资源
 
-```bash
-# Deployment mode
-$env:DeploymentMode="Standalone"  # or "Distributed-Redis", "Cluster"
-
-# Node ID (for clustering)
-$env:NodeId="node-1"
-
-# Redis connection
-$env:ConnectionStrings__Redis="localhost:6379"
-
-# NATS connection
-$env:Nats__Url="nats://localhost:4222"
-
-# Run the example
-dotnet run
-```
+- [完整文档](../README.md)
+- [快速参考](../QUICK-REFERENCE.md)
+- [性能优化](../REFLECTION_OPTIMIZATION_SUMMARY.md)
+- [Native AOT 指南](../docs/deployment/native-aot-publishing.md)
 
 ---
 
-## 🐳 Docker Support
-
-Run infrastructure with Docker:
-
-```bash
-# Redis
-docker run -d -p 6379:6379 --name redis redis:alpine
-
-# NATS with JetStream
-docker run -d -p 4222:4222 -p 8222:8222 --name nats nats:latest -js
-
-# Stop and remove
-docker stop redis nats
-docker rm redis nats
-```
-
----
-
-## 📊 Performance
-
-All examples are optimized for performance:
-
-- **Standalone mode**: ~10,000 operations/sec
-- **Distributed mode (Redis)**: ~5,000 operations/sec
-- **Cluster mode (NATS)**: ~8,000 operations/sec per node
-
-*Results may vary based on hardware and network conditions.*
-
----
-
-## 🎓 Learning Path
-
-Recommended order for learning:
-
-1. **Start with RedisExample** - Learn basic Catga concepts and Redis integration
-2. **Move to OrderSystem** - Understand complete CQRS architecture
-3. **Experiment with deployment modes** - Test Standalone → Distributed → Cluster
-4. **Customize for your needs** - Use as templates for your projects
-
----
-
-## 🤝 Contributing
-
-Found an issue or have a suggestion? Please open an issue or submit a pull request!
-
-- **Add new examples**: Follow the existing structure
-- **Improve documentation**: Help others learn faster
-- **Report bugs**: Use GitHub Issues
-
----
-
-## 📝 License
-
-MIT License - See [LICENSE](../LICENSE) for details
-
----
-
-## 🔗 Related Resources
-
-- **[Catga Documentation](../README.md)** - Main framework documentation
-- **[Architecture Guide](../docs/CATGA_VS_MASSTRANSIT.md)** - Catga vs MassTransit comparison
-- **[API Reference](../src/Catga/README.md)** - Core API documentation
-- **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute
-
----
-
-## 💬 Need Help?
-
-- 📚 **Documentation**: Check the example READMEs first
-- 🐛 **Issues**: [GitHub Issues](https://github.com/your-org/Catga/issues)
-- 💡 **Discussions**: [GitHub Discussions](https://github.com/your-org/Catga/discussions)
-
----
-
-**Happy coding! 🚀**
+**从第一个示例开始学习 Catga！** 🚀

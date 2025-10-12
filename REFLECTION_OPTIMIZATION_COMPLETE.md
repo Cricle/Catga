@@ -53,7 +53,7 @@ public static class TypeNameCache<T>
 {
     private static string? _name;
     private static string? _fullName;
-    
+
     // 首次访问使用反射，后续零反射
     public static string Name => _name ??= typeof(T).Name;
     public static string FullName => _fullName ??= typeof(T).FullName ?? typeof(T).Name;

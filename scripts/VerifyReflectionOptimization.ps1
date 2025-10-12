@@ -58,7 +58,7 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 
 if (Test-Path "src/Catga/Core/TypeNameCache.cs") {
     Write-Host "   ✅ TypeNameCache.cs 存在" -ForegroundColor Green
-    
+
     $cacheUsages = (Select-String -Path "src/**/*.cs" -Pattern "TypeNameCache<" -Recurse | Measure-Object).Count
     Write-Host "   ✅ TypeNameCache 使用次数: $cacheUsages" -ForegroundColor Green
 } else {
@@ -72,7 +72,7 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 
 if (Test-Path "src/Catga.InMemory/TypedSubscribers.cs") {
     Write-Host "   ✅ TypedSubscribers.cs 存在" -ForegroundColor Green
-    
+
     $subscriberUsages = (Select-String -Path "src/**/*.cs" -Pattern "TypedSubscribers<" -Recurse | Measure-Object).Count
     Write-Host "   ✅ TypedSubscribers 使用次数: $subscriberUsages" -ForegroundColor Green
 } else {
@@ -86,7 +86,7 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 
 if (Test-Path "src/Catga.InMemory/Stores/TypedIdempotencyStore.cs") {
     Write-Host "   ✅ TypedIdempotencyStore.cs 存在" -ForegroundColor Green
-    
+
     $cacheUsages = (Select-String -Path "src/**/*.cs" -Pattern "TypedIdempotencyCache<" -Recurse | Measure-Object).Count
     Write-Host "   ✅ TypedIdempotencyCache 使用次数: $cacheUsages" -ForegroundColor Green
 } else {

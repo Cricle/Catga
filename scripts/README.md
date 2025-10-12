@@ -11,7 +11,7 @@ Verifies that reflection optimization has been properly implemented.
 **What it checks:**
 - `typeof()` usage in hot paths
 - TypeNameCache implementation and usage
-- TypedSubscribers implementation and usage  
+- TypedSubscribers implementation and usage
 - TypedIdempotencyCache implementation and usage
 - Documentation completeness
 - Native AOT compatibility

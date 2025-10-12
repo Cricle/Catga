@@ -23,22 +23,14 @@ public class IdempotencyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessed
         {
             LogInformation("Message {MessageId} already processed - returning cached result", messageId);
             var cachedResult = await _store.GetCachedResultAsync<TResponse>(messageId, cancellationToken);
-            return CatgaResult<TResponse>.Success(cachedResult ?? default!, CreateCacheMetadata());
+            var metadata = new ResultMetadata();
+            metadata.Add("FromCache", "true");
+            return CatgaResult<TResponse>.Success(cachedResult ?? default!, metadata);
         }
 
         var result = await next();
         if (result.IsSuccess && result.Value != null)
-        {
             await _store.MarkAsProcessedAsync(messageId, result.Value, cancellationToken);
-            Logger.LogDebug("Marked message {MessageId} as processed", messageId);
-        }
         return result;
-    }
-
-    private static ResultMetadata CreateCacheMetadata()
-    {
-        var metadata = new ResultMetadata();
-        metadata.Add("FromCache", "true");
-        return metadata;
     }
 }

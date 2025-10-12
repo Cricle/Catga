@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using Catga.Core;
 using Catga.Messages;
 using Catga.Serialization;
 using Microsoft.Extensions.Logging;
@@ -35,10 +36,9 @@ public class NatsMessageTransport : IMessageTransport
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在接口层标记")]
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
     {
-        var messageType = typeof(TMessage);
-        var subject = GetSubject(messageType);
+        var subject = GetSubjectCached<TMessage>();
         var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
-        var ctx = context ?? new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = messageType.FullName, SentAt = DateTime.UtcNow };
+        var ctx = context ?? new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
 
         if (qos == QualityOfService.ExactlyOnce && ctx.MessageId != null && _processedMessages.ContainsKey(ctx.MessageId))
         {
@@ -50,7 +50,7 @@ public class NatsMessageTransport : IMessageTransport
         var headers = new NatsHeaders
         {
             ["MessageId"] = ctx.MessageId,
-            ["MessageType"] = ctx.MessageType ?? messageType.FullName!,
+            ["MessageType"] = ctx.MessageType ?? TypeNameCache<TMessage>.FullName,
             ["SentAt"] = ctx.SentAt?.ToString("O") ?? DateTime.UtcNow.ToString("O"),
             ["QoS"] = ((int)qos).ToString()
         };
@@ -91,8 +91,7 @@ public class NatsMessageTransport : IMessageTransport
 
     public async Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(Func<TMessage, TransportContext, Task> handler, CancellationToken cancellationToken = default) where TMessage : class
     {
-        var messageType = typeof(TMessage);
-        var subject = GetSubject(messageType);
+        var subject = GetSubjectCached<TMessage>();
         await foreach (var msg in _connection.SubscribeAsync<byte[]>(subject, cancellationToken: cancellationToken))
         {
             try
@@ -134,5 +133,14 @@ public class NatsMessageTransport : IMessageTransport
     public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
         => PublishBatchAsync(messages, context, cancellationToken);
 
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private string GetSubjectCached<TMessage>() => SubjectCache<TMessage>.Subject ??= $"{_subjectPrefix}.{TypeNameCache<TMessage>.Name}";
+
     private string GetSubject(Type messageType) => $"{_subjectPrefix}.{messageType.Name}";
+}
+
+/// <summary>Zero-allocation subject cache per message type</summary>
+internal static class SubjectCache<T>
+{
+    public static string? Subject;
 }

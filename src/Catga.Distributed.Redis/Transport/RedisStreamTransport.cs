@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using Catga.Core;
 using Catga.Transport;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
@@ -36,7 +37,7 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
         var payload = JsonSerializer.Serialize(message);
         var fields = new NameValueEntry[]
         {
-            new("type", typeof(TMessage).FullName!),
+            new("type", TypeNameCache<TMessage>.FullName),
             new("payload", payload),
             new("messageId", context?.MessageId ?? Guid.NewGuid().ToString()),
             new("timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString())

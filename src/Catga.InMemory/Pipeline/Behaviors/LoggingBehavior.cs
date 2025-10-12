@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Catga.Core;
 using Catga.Messages;
 using Catga.Results;
 using Microsoft.Extensions.Logging;
@@ -25,7 +26,7 @@ public partial class LoggingBehavior<[System.Diagnostics.CodeAnalysis.Dynamicall
             if (result.IsSuccess)
                 LogRequestSucceeded(reqName, msgId, sw.ElapsedMilliseconds, corrId);
             else
-                LogRequestFailed(reqName, msgId, sw.ElapsedMilliseconds, result.Error ?? "Unknown error", corrId, result.Exception?.GetType().Name);
+                LogRequestFailed(reqName, msgId, sw.ElapsedMilliseconds, result.Error ?? "Unknown error", corrId, result.Exception != null ? ExceptionTypeCache.GetTypeName(result.Exception) : null);
             return result;
         }
         catch (Exception ex)

@@ -40,12 +40,12 @@ public class TracingBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccesse
                 activity?.SetTag("catga.error_message", result.Error);
                 if (result.Exception != null)
                 {
-                    activity?.SetTag("exception.type", result.Exception.GetType().Name);
+                    activity?.SetTag("exception.type", ExceptionTypeCache.GetTypeName(result.Exception));
                     activity?.SetTag("exception.message", result.Exception.Message);
                     activity?.SetTag("exception.stacktrace", result.Exception.StackTrace);
                     activity?.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
                     {
-                        ["exception.type"] = result.Exception.GetType().FullName,
+                        ["exception.type"] = ExceptionTypeCache.GetFullTypeName(result.Exception),
                         ["exception.message"] = result.Exception.Message
                     }));
                 }
@@ -56,13 +56,13 @@ public class TracingBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccesse
         {
             var duration = Diagnostics.GetElapsedTime(startTime);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            activity?.SetTag("exception.type", ex.GetType().FullName);
+            activity?.SetTag("exception.type", ExceptionTypeCache.GetFullTypeName(ex));
             activity?.SetTag("exception.message", ex.Message);
             activity?.SetTag("exception.stacktrace", ex.StackTrace);
             activity?.SetTag("catga.duration_ms", duration.TotalMilliseconds);
             activity?.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
             {
-                ["exception.type"] = ex.GetType().FullName,
+                ["exception.type"] = ExceptionTypeCache.GetFullTypeName(ex),
                 ["exception.message"] = ex.Message,
                 ["exception.escaped"] = true
             }));

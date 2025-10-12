@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace Catga.Core;
@@ -20,6 +21,27 @@ public static class TypeNameCache<T>
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => _fullName ??= typeof(T).FullName ?? typeof(T).Name;
+    }
+}
+
+/// <summary>Cache for exception type names (non-generic fallback for runtime types)</summary>
+public static class ExceptionTypeCache
+{
+    private static readonly ConcurrentDictionary<Type, string> _nameCache = new();
+    private static readonly ConcurrentDictionary<Type, string> _fullNameCache = new();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string GetTypeName(Exception exception)
+    {
+        var type = exception.GetType();
+        return _nameCache.GetOrAdd(type, t => t.Name);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string GetFullTypeName(Exception exception)
+    {
+        var type = exception.GetType();
+        return _fullNameCache.GetOrAdd(type, t => t.FullName ?? t.Name);
     }
 }
 

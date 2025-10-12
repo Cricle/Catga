@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Catga.Core;
 using Catga.Messages;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -10,7 +11,7 @@ public static class CatgaSwaggerExtensions
 {
     public static RouteHandlerBuilder WithCatgaCommandMetadata<TCommand, TResponse>(this RouteHandlerBuilder builder) where TCommand : IRequest<TResponse>
     {
-        var commandName = typeof(TCommand).Name.Replace("Command", "");
+        var commandName = TypeNameCache<TCommand>.Name.Replace("Command", "");
         return builder
             .WithName(commandName)
             .WithSummary($"Execute {commandName} command")
@@ -25,7 +26,7 @@ public static class CatgaSwaggerExtensions
 
     public static RouteHandlerBuilder WithCatgaQueryMetadata<TQuery, TResponse>(this RouteHandlerBuilder builder) where TQuery : IRequest<TResponse>
     {
-        var queryName = typeof(TQuery).Name.Replace("Query", "");
+        var queryName = TypeNameCache<TQuery>.Name.Replace("Query", "");
         return builder
             .WithName(queryName)
             .WithSummary($"Query {queryName}")
@@ -37,7 +38,7 @@ public static class CatgaSwaggerExtensions
 
     public static RouteHandlerBuilder WithCatgaEventMetadata<TEvent>(this RouteHandlerBuilder builder) where TEvent : IEvent
     {
-        var eventName = typeof(TEvent).Name.Replace("Event", "");
+        var eventName = TypeNameCache<TEvent>.Name.Replace("Event", "");
         return builder
             .WithName($"Publish{eventName}")
             .WithSummary($"Publish {eventName} event")

@@ -135,7 +135,7 @@ public class InMemoryMessageTransport : IMessageTransport
     private static void RecordException(Activity? activity, Exception ex)
     {
         activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-        activity?.AddTag("exception.type", ex.GetType().FullName);
+        activity?.AddTag("exception.type", ExceptionTypeCache.GetFullTypeName(ex));
         activity?.AddTag("exception.message", ex.Message);
     }
 }

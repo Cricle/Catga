@@ -129,10 +129,5 @@ public class DistributedIdLayoutBenchmark
     }
 
     [Benchmark]
-    public long CustomEpoch_Layout()
-    {
-        return _customEpochGenerator.NextId();
-    }
+    public long CustomEpoch_Layout() => _customEpochGenerator.NextId();
 }
-
-

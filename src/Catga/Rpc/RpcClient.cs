@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using Catga.Core;
 using Catga.Messages;
 using Catga.Results;
 using Catga.Serialization;
@@ -28,11 +29,11 @@ public sealed class RpcClient : IRpcClient, IDisposable
     }
 
     public async Task<CatgaResult<TResponse>> CallAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(string serviceName, TRequest request, CancellationToken cancellationToken = default) where TRequest : class, IRequest<TResponse>
-        => await CallAsync<TRequest, TResponse>(serviceName, typeof(TRequest).Name, request, null, cancellationToken);
+        => await CallAsync<TRequest, TResponse>(serviceName, TypeNameCache<TRequest>.Name, request, null, cancellationToken);
 
     public async Task<CatgaResult> CallAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(string serviceName, TRequest request, CancellationToken cancellationToken = default) where TRequest : class, IRequest
     {
-        var result = await CallAsync<TRequest, object>(serviceName, typeof(TRequest).Name, request, null, cancellationToken);
+        var result = await CallAsync<TRequest, object>(serviceName, TypeNameCache<TRequest>.Name, request, null, cancellationToken);
         if (result.IsSuccess) return CatgaResult.Success();
         var errorMsg = "RPC call failed";
         if (result.Metadata?.TryGetValue("ErrorMessage", out var msg) == true && !string.IsNullOrEmpty(msg)) errorMsg = msg;
@@ -53,7 +54,7 @@ public sealed class RpcClient : IRpcClient, IDisposable
                 MethodName = methodName,
                 RequestId = requestId,
                 Payload = _serializer.Serialize(request),
-                RequestType = typeof(TRequest).FullName,
+                RequestType = TypeNameCache<TRequest>.FullName,
                 Timeout = timeout ?? _options.DefaultTimeout
             };
             var subject = $"rpc.{serviceName}.{methodName}";

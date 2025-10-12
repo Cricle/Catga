@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Catga.Core;
 using Catga.DistributedId;
 using Catga.Messages;
 using Catga.Results;
@@ -15,9 +16,9 @@ public abstract class BaseBehavior<[DynamicallyAccessedMembers(DynamicallyAccess
 
     public abstract ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default);
 
-    protected static string GetRequestName() => typeof(TRequest).Name;
-    protected static string GetRequestFullName() => typeof(TRequest).FullName ?? typeof(TRequest).Name;
-    protected static string GetResponseName() => typeof(TResponse).Name;
+    protected static string GetRequestName() => TypeNameCache<TRequest>.Name;
+    protected static string GetRequestFullName() => TypeNameCache<TRequest>.FullName;
+    protected static string GetResponseName() => TypeNameCache<TResponse>.Name;
 
     protected static string? TryGetMessageId(TRequest request)
         => request is IMessage message && !string.IsNullOrEmpty(message.MessageId) ? message.MessageId : null;

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using Catga.Core;
 using Catga.Idempotency;
 using Catga.Messages;
 
@@ -8,7 +9,6 @@ namespace Catga.Transport;
 /// <summary>In-memory message transport (for testing, supports QoS)</summary>
 public class InMemoryMessageTransport : IMessageTransport
 {
-    private readonly ConcurrentDictionary<Type, List<Delegate>> _subscribers = new();
     private readonly InMemoryIdempotencyStore _idempotencyStore = new();
 
     public string Name => "InMemory";
@@ -16,10 +16,10 @@ public class InMemoryMessageTransport : IMessageTransport
     public CompressionTransportOptions? CompressionOptions => null;
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
     {
-        var messageType = typeof(TMessage);
-        if (!_subscribers.TryGetValue(messageType, out var handlers)) return;
+        var handlers = TypedSubscribers<TMessage>.Handlers;
+        if (handlers.Count == 0) return;
 
-        context ??= new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = messageType.FullName, SentAt = DateTime.UtcNow };
+        context ??= new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
 
         var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
         var deliveryMode = (message as IMessage)?.DeliveryMode ?? DeliveryMode.WaitForResult;
@@ -114,12 +114,10 @@ public class InMemoryMessageTransport : IMessageTransport
 
     public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(Func<TMessage, TransportContext, Task> handler, CancellationToken cancellationToken = default) where TMessage : class
     {
-        var messageType = typeof(TMessage);
-        _subscribers.AddOrUpdate(messageType, _ => new List<Delegate> { handler }, (_, list) =>
+        lock (TypedSubscribers<TMessage>.Lock)
         {
-            list.Add(handler);
-            return list;
-        });
+            TypedSubscribers<TMessage>.Handlers.Add(handler);
+        }
         return Task.CompletedTask;
     }
 

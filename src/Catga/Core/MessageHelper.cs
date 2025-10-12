@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Catga.Core;
 using Catga.DistributedId;
 using Catga.Messages;
 
@@ -18,7 +19,7 @@ public static class MessageHelper
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string GetMessageType<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>()
-        => typeof(TRequest).AssemblyQualifiedName ?? typeof(TRequest).FullName ?? typeof(TRequest).Name;
+        => TypeNameCache<TRequest>.FullName;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string? GetCorrelationId<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request) where TRequest : class

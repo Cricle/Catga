@@ -46,7 +46,7 @@ public class ShardedIdempotencyStore : IIdempotencyStore
     public Task MarkAsProcessedAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default)
     {
         var shard = GetShard(messageId);
-        
+
         string? resultJson = null;
         Type? resultType = null;
         if (result != null)

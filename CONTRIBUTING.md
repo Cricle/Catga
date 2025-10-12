@@ -103,9 +103,9 @@ Closes #123
    ```csharp
    // ✅ 推荐
    public record CreateOrderCommand(string OrderId, decimal Amount);
-   
+
    // ❌ 避免
-   public class CreateOrderCommand 
+   public class CreateOrderCommand
    {
        public string OrderId { get; set; }
        public decimal Amount { get; set; }
@@ -116,9 +116,9 @@ Closes #123
    ```csharp
    // ✅ 推荐
    public string GetName() => _name ?? "Unknown";
-   
+
    // ❌ 避免不必要的冗长
-   public string GetName() 
+   public string GetName()
    {
        if (_name != null)
            return _name;
@@ -131,7 +131,7 @@ Closes #123
    ```csharp
    // ✅ 推荐 - 使用泛型缓存
    TypeNameCache<T>.Name
-   
+
    // ❌ 避免 - 热路径反射
    typeof(T).Name
    ```
@@ -142,7 +142,7 @@ Closes #123
    ```csharp
    // ✅ 推荐
    public ValueTask<Result> Handle(...) => ValueTask.FromResult(...);
-   
+
    // ❌ 避免不必要的 Task 分配
    public Task<Result> Handle(...) => Task.FromResult(...);
    ```
@@ -151,7 +151,7 @@ Closes #123
    ```csharp
    // ✅ 推荐
    public void Process(ReadOnlySpan<byte> data) { }
-   
+
    // ❌ 避免不必要的数组
    public void Process(byte[] data) { }
    ```
@@ -178,7 +178,7 @@ Closes #123
    ```csharp
    // ✅ 推荐 - 简短英文
    // Cache type name for performance
-   
+
    // ❌ 避免 - 冗长或中文
    // 这里我们缓存类型名称以提高性能避免反射调用
    ```
@@ -203,10 +203,10 @@ public class CreateOrderHandlerTests
         // Arrange
         var handler = new CreateOrderHandler();
         var command = new CreateOrderCommand("ORD-001", 99.99m);
-        
+
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
-        
+
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal("ORD-001", result.Data.OrderId);
@@ -224,7 +224,7 @@ public class MyBenchmark
 {
     [Benchmark(Baseline = true)]
     public void OldImplementation() { }
-    
+
     [Benchmark]
     public void NewImplementation() { }
 }
@@ -334,7 +334,7 @@ dotnet publish -c Release -r win-x64 /p:PublishAot=true
    ```bash
    # 查看 IL 代码
    ildasm YourAssembly.dll
-   
+
    # 查看源生成器输出
    # 在 obj/Debug/net9.0/generated/ 目录
    ```

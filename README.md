@@ -54,11 +54,11 @@ dotnet add package Catga.SourceGenerator
 
 ```csharp
 // Command - 有返回值的请求
-public record CreateOrderCommand(string OrderId, decimal Amount) 
+public record CreateOrderCommand(string OrderId, decimal Amount)
     : IRequest<OrderResult>;
 
 // Event - 无返回值的通知
-public record OrderCreatedEvent(string OrderId, DateTime CreatedAt) 
+public record OrderCreatedEvent(string OrderId, DateTime CreatedAt)
     : INotification;
 
 // Result
@@ -68,11 +68,11 @@ public record OrderResult(string OrderId, bool Success);
 ### 3. 实现 Handler
 
 ```csharp
-public class CreateOrderHandler 
+public class CreateOrderHandler
     : IRequestHandler<CreateOrderCommand, OrderResult>
 {
     public async Task<CatgaResult<OrderResult>> Handle(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken cancellationToken)
     {
         // 业务逻辑
@@ -103,14 +103,14 @@ app.Run();
 public class OrderController
 {
     private readonly IMediator _mediator;
-    
+
     public OrderController(IMediator mediator) => _mediator = mediator;
-    
+
     public async Task<IActionResult> CreateOrder(CreateOrderCommand command)
     {
         var result = await _mediator.SendAsync(command);
-        
-        return result.IsSuccess 
+
+        return result.IsSuccess
             ? Ok(result.Data)
             : BadRequest(result.Error);
     }
@@ -140,7 +140,7 @@ public record UserUpdatedEvent(string UserId, string Name) : INotification;
 
 ```csharp
 // 自定义 Behavior - 所有请求都会经过
-public class LoggingBehavior<TRequest, TResponse> 
+public class LoggingBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
@@ -316,13 +316,13 @@ public async Task<CatgaResult<OrderResult>> Handle(...)
 {
     // 自动映射为 200 OK
     return CatgaResult<OrderResult>.Success(result);
-    
+
     // 自动映射为 404 Not Found
     return CatgaResult<OrderResult>.NotFound("Order not found");
-    
+
     // 自动映射为 400 Bad Request
     return CatgaResult<OrderResult>.ValidationError("Invalid order");
-    
+
     // 自动映射为 500 Internal Server Error
     return CatgaResult<OrderResult>.Failure("Database error");
 }

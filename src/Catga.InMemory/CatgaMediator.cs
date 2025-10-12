@@ -53,21 +53,10 @@ public class CatgaMediator : ICatgaMediator
             }
 
             var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-            CatgaResult<TResponse> result;
-
-            if (behaviors is IList<IPipelineBehavior<TRequest, TResponse>> behaviorsList)
-            {
-                result = FastPath.CanUseFastPath(behaviorsList.Count)
-                    ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
-                    : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
-            }
-            else
-            {
-                var materializedBehaviors = behaviors.ToList();
-                result = FastPath.CanUseFastPath(materializedBehaviors.Count)
-                    ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
-                    : await PipelineExecutor.ExecuteAsync(request, handler, materializedBehaviors, cancellationToken);
-            }
+            var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToList();
+            var result = FastPath.CanUseFastPath(behaviorsList.Count)
+                ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
+                : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
 
             sw.Stop();
             var duration = sw.Elapsed.TotalMilliseconds;
@@ -89,9 +78,7 @@ public class CatgaMediator : ICatgaMediator
         {
             sw.Stop();
             CatgaDiagnostics.CommandsExecuted.Add(1, new KeyValuePair<string, object?>("request_type", reqType), new KeyValuePair<string, object?>("success", "false"));
-            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            activity?.AddTag("exception.type", ex.GetType().FullName);
-            activity?.AddTag("exception.message", ex.Message);
+            RecordException(activity, ex);
             CatgaLog.CommandFailed(_logger, ex, reqType, msgId, ex.Message);
             throw;
         }
@@ -165,4 +152,12 @@ public class CatgaMediator : ICatgaMediator
 
     public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(IReadOnlyList<TEvent> events, CancellationToken cancellationToken = default) where TEvent : IEvent
         => await events.ExecuteBatchAsync(@event => PublishAsync(@event, cancellationToken));
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static void RecordException(Activity? activity, Exception ex)
+    {
+        activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+        activity?.AddTag("exception.type", ex.GetType().FullName);
+        activity?.AddTag("exception.message", ex.Message);
+    }
 }

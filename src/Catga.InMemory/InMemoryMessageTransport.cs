@@ -44,12 +44,7 @@ public class InMemoryMessageTransport : IMessageTransport
 
                 case QualityOfService.AtLeastOnce:
                     if ((msg?.DeliveryMode ?? DeliveryMode.WaitForResult) == DeliveryMode.WaitForResult)
-                    {
-                        using var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count);
-                        for (int i = 0; i < handlers.Count; i++)
-                            rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, ctx);
-                        await Task.WhenAll(rented.AsSpan().ToArray());
-                    }
+                        await ExecuteHandlersAsync(handlers, message, ctx);
                     else
                         _ = DeliverWithRetryAsync(handlers, message, ctx, cancellationToken);
                     break;
@@ -61,12 +56,7 @@ public class InMemoryMessageTransport : IMessageTransport
                         return;
                     }
 
-                    using (var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count))
-                    {
-                        for (int i = 0; i < handlers.Count; i++)
-                            rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, ctx);
-                        await Task.WhenAll(rented.AsSpan().ToArray());
-                    }
+                    await ExecuteHandlersAsync(handlers, message, ctx);
 
                     if (ctx.MessageId != null)
                         _idempotencyStore.MarkAsProcessed(ctx.MessageId);
@@ -80,9 +70,7 @@ public class InMemoryMessageTransport : IMessageTransport
         catch (Exception ex)
         {
             CatgaDiagnostics.MessagesFailed.Add(1, new KeyValuePair<string, object?>("message_type", TypeNameCache<TMessage>.Name));
-            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            activity?.AddTag("exception.type", ex.GetType().FullName);
-            activity?.AddTag("exception.message", ex.Message);
+            RecordException(activity, ex);
             throw;
         }
         finally
@@ -91,15 +79,18 @@ public class InMemoryMessageTransport : IMessageTransport
         }
     }
 
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static async ValueTask ExecuteHandlersAsync<TMessage>(List<Delegate> handlers, TMessage message, TransportContext context) where TMessage : class
+    {
+        using var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count);
+        for (int i = 0; i < handlers.Count; i++)
+            rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, context);
+        await Task.WhenAll(rented.AsSpan().ToArray()).ConfigureAwait(false);
+    }
+
     private static async ValueTask FireAndForgetAsync<TMessage>(List<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class
     {
-        try
-        {
-            using var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count);
-            for (int i = 0; i < handlers.Count; i++)
-                rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, context);
-            await Task.WhenAll(rented.AsSpan().ToArray()).ConfigureAwait(false);
-        }
+        try { await ExecuteHandlersAsync(handlers, message, context); }
         catch { }
     }
 
@@ -109,10 +100,7 @@ public class InMemoryMessageTransport : IMessageTransport
         {
             try
             {
-                using var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count);
-                for (int i = 0; i < handlers.Count; i++)
-                    rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, context);
-                await Task.WhenAll(rented.AsSpan().ToArray()).ConfigureAwait(false);
+                await ExecuteHandlersAsync(handlers, message, context);
                 return;
             }
             catch when (attempt < 3)
@@ -142,5 +130,13 @@ public class InMemoryMessageTransport : IMessageTransport
 
     public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
         => PublishBatchAsync(messages, context, cancellationToken);
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static void RecordException(Activity? activity, Exception ex)
+    {
+        activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+        activity?.AddTag("exception.type", ex.GetType().FullName);
+        activity?.AddTag("exception.message", ex.Message);
+    }
 }
 

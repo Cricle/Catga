@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using Catga.Core;
 using Catga.Messages;
@@ -9,14 +8,25 @@ using NATS.Client.JetStream;
 
 namespace Catga.Transport.Nats;
 
-/// <summary>NATS transport with QoS support (QoS 0: Core Pub/Sub, QoS 1/2: JetStream)</summary>
+/// <summary>NATS transport - delegates QoS to NATS native capabilities (Core Pub/Sub + JetStream)</summary>
+/// <remarks>
+/// QoS Mapping:
+/// - QoS 0 (AtMostOnce): NATS Core Pub/Sub (fire-and-forget)
+/// - QoS 1 (AtLeastOnce): JetStream with Ack (guaranteed delivery, may duplicate)
+/// - QoS 2 (ExactlyOnce): JetStream with MsgId deduplication (exactly-once using NATS native dedup)
+/// 
+/// Catga responsibilities (via Pipeline Behaviors):
+/// - Application-level idempotency (business logic dedup)
+/// - Retry logic (with exponential backoff)
+/// - Outbox/Inbox pattern (transactional outbox)
+/// - Validation, caching, logging, tracing
+/// </remarks>
 public class NatsMessageTransport : IMessageTransport
 {
     private readonly INatsConnection _connection;
     private readonly IMessageSerializer _serializer;
     private readonly ILogger<NatsMessageTransport> _logger;
     private readonly string _subjectPrefix;
-    private readonly ConcurrentDictionary<string, bool> _processedMessages = new();
     private INatsJSContext? _jsContext;
 
     public string Name => "NATS";
@@ -32,19 +42,13 @@ public class NatsMessageTransport : IMessageTransport
         _jsContext = new NatsJSContext(_connection);
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在接口层标记")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在接口层标记")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on interface layer")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on interface layer")]
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
     {
         var subject = GetSubjectCached<TMessage>();
         var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
         var ctx = context ?? new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
-
-        if (qos == QualityOfService.ExactlyOnce && ctx.MessageId != null && _processedMessages.ContainsKey(ctx.MessageId))
-        {
-            _logger.LogDebug("Message {MessageId} already processed (QoS 2), skipping", ctx.MessageId);
-            return;
-        }
 
         var payload = _serializer.Serialize(message);
         var headers = new NatsHeaders
@@ -57,31 +61,26 @@ public class NatsMessageTransport : IMessageTransport
         if (!string.IsNullOrEmpty(ctx.CorrelationId))
             headers["CorrelationId"] = ctx.CorrelationId;
 
+        // Delegate QoS handling to NATS native capabilities
         switch (qos)
         {
             case QualityOfService.AtMostOnce:
+                // NATS Core Pub/Sub: fire-and-forget, no ack, no persistence
                 await _connection.PublishAsync(subject, payload, headers: headers, cancellationToken: cancellationToken);
-                _logger.LogDebug("Published message {MessageId} to NATS Core (QoS 0)", ctx.MessageId);
+                _logger.LogDebug("Published to NATS Core (QoS 0 - fire-and-forget): {MessageId}", ctx.MessageId);
                 break;
 
             case QualityOfService.AtLeastOnce:
-                var ack = await _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId }, headers: headers, cancellationToken: cancellationToken);
-                if (ack.Duplicate)
-                    _logger.LogDebug("Message {MessageId} is duplicate, JetStream auto-deduplicated", ctx.MessageId);
-                else
-                    _logger.LogDebug("Message {MessageId} published to JetStream (QoS 1), Seq: {Seq}", ctx.MessageId, ack.Seq);
+                // JetStream: guaranteed delivery, may duplicate (consumer acks)
+                var ack1 = await _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId }, headers: headers, cancellationToken: cancellationToken);
+                _logger.LogDebug("Published to JetStream (QoS 1 - at-least-once): {MessageId}, Seq: {Seq}, Duplicate: {Dup}", ctx.MessageId, ack1.Seq, ack1.Duplicate);
                 break;
 
             case QualityOfService.ExactlyOnce:
-                if (ctx.MessageId != null && _processedMessages.ContainsKey(ctx.MessageId))
-                {
-                    _logger.LogDebug("Message {MessageId} already processed locally (QoS 2), skipping", ctx.MessageId);
-                    return;
-                }
+                // JetStream with MsgId deduplication: exactly-once using NATS native dedup window (default 2 minutes)
+                // Note: Application-level idempotency (via IdempotencyBehavior) provides additional business logic dedup
                 var ack2 = await _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId }, headers: headers, cancellationToken: cancellationToken);
-                if (!string.IsNullOrEmpty(ctx.MessageId))
-                    _processedMessages.TryAdd(ctx.MessageId, true);
-                _logger.LogDebug("Message {MessageId} published to JetStream (QoS 2), Duplicate: {Dup}, Seq: {Seq}", ctx.MessageId, ack2.Duplicate, ack2.Seq);
+                _logger.LogDebug("Published to JetStream (QoS 2 - exactly-once): {MessageId}, Seq: {Seq}, Duplicate: {Dup}", ctx.MessageId, ack2.Seq, ack2.Duplicate);
                 break;
         }
     }

@@ -18,10 +18,10 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
     private readonly CancellationTokenSource _disposeCts;
     private readonly Task _backgroundTask;
 
-    public NatsNodeDiscovery(INatsConnection connection, ILogger<NatsNodeDiscovery> _logger, string subjectPrefix = "catga.nodes")
+    public NatsNodeDiscovery(INatsConnection connection, ILogger<NatsNodeDiscovery> logger, string subjectPrefix = "catga.nodes")
     {
         _connection = connection;
-        this._logger = _logger;
+        _logger = logger;
         _subjectPrefix = subjectPrefix;
         _events = Channel.CreateUnbounded<NodeChangeEvent>();
         _disposeCts = new CancellationTokenSource();
@@ -31,19 +31,17 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
     public async Task RegisterAsync(NodeInfo node, CancellationToken cancellationToken = default)
     {
         _nodes.AddOrUpdate(node.NodeId, node, (_, _) => node);
-        var subject = $"{_subjectPrefix}.join";
-        var json = JsonHelper.SerializeNode(node);
-        await _connection.PublishAsync(subject, json, cancellationToken: cancellationToken);
+        await _connection.PublishAsync($"{_subjectPrefix}.join", JsonHelper.SerializeNode(node), cancellationToken: cancellationToken);
         _logger.LogInformation("Registered node {NodeId} at {Endpoint}", node.NodeId, node.Endpoint);
         await _events.Writer.WriteAsync(new NodeChangeEvent { Type = NodeChangeType.Joined, Node = node }, cancellationToken);
     }
 
     public async Task UnregisterAsync(string nodeId, CancellationToken cancellationToken = default)
     {
-        _nodes.TryRemove(nodeId, out var node);
-        var subject = $"{_subjectPrefix}.leave";
-        var json = JsonHelper.SerializeDictionary(new Dictionary<string, string> { ["NodeId"] = nodeId });
-        await _connection.PublishAsync(subject, json, cancellationToken: cancellationToken);
+        _nodes.TryRemove(nodeId, out _);
+        await _connection.PublishAsync($"{_subjectPrefix}.leave", 
+            JsonHelper.SerializeDictionary(new Dictionary<string, string> { ["NodeId"] = nodeId }), 
+            cancellationToken: cancellationToken);
         _logger.LogInformation("Unregistered node {NodeId}", nodeId);
     }
 
@@ -62,9 +60,9 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
 
         if (!updated) return;
 
-        var subject = $"{_subjectPrefix}.heartbeat";
-        var json = JsonHelper.SerializeHeartbeat(nodeId, load, DateTime.UtcNow);
-        await _connection.PublishAsync(subject, json, cancellationToken: cancellationToken);
+        await _connection.PublishAsync($"{_subjectPrefix}.heartbeat", 
+            JsonHelper.SerializeHeartbeat(nodeId, load, DateTime.UtcNow), 
+            cancellationToken: cancellationToken);
 
         if (_nodes.TryGetValue(nodeId, out var node))
             await _events.Writer.WriteAsync(new NodeChangeEvent { Type = NodeChangeType.Updated, Node = node }, cancellationToken);
@@ -73,8 +71,8 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
     public Task<IReadOnlyList<NodeInfo>> GetNodesAsync(CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
-        var onlineNodes = _nodes.Values.Where(n => (now - n.LastSeen).TotalSeconds < 30).ToList();
-        return Task.FromResult<IReadOnlyList<NodeInfo>>(onlineNodes);
+        return Task.FromResult<IReadOnlyList<NodeInfo>>(
+            _nodes.Values.Where(n => (now - n.LastSeen).TotalSeconds < 30).ToList());
     }
 
     public async IAsyncEnumerable<NodeChangeEvent> WatchAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)

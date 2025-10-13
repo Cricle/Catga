@@ -33,7 +33,7 @@ public class ShardedIdempotencyStore : IIdempotencyStore
         var shard = GetShard(messageId);
         if (shard.TryGetValue(messageId, out var entry) && !ExpirationHelper.IsExpired(entry.Item1, _retentionPeriod))
             return Task.FromResult(true);
-        
+
         shard.TryRemove(messageId, out _);
         return Task.FromResult(false);
     }
@@ -42,7 +42,7 @@ public class ShardedIdempotencyStore : IIdempotencyStore
     {
         var now = DateTime.UtcNow;
         GetShard(messageId)[messageId] = (now, typeof(TResult), null);
-        
+
         // Store typed result (null stored as empty string to differentiate from "not found")
         var resultJson = result != null ? SerializationHelper.SerializeJson(result) : string.Empty;
         TypedIdempotencyCache<TResult>.Cache[messageId] = (now, resultJson);

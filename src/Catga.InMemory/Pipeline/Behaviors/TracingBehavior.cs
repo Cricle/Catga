@@ -40,12 +40,13 @@ public class TracingBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccesse
                 activity?.SetTag("catga.error_message", result.Error);
                 if (result.Exception != null)
                 {
+                    var exceptionType = ExceptionTypeCache.GetFullTypeName(result.Exception);
                     activity?.SetTag("exception.type", ExceptionTypeCache.GetTypeName(result.Exception));
                     activity?.SetTag("exception.message", result.Exception.Message);
                     activity?.SetTag("exception.stacktrace", result.Exception.StackTrace);
                     activity?.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
                     {
-                        ["exception.type"] = ExceptionTypeCache.GetFullTypeName(result.Exception),
+                        ["exception.type"] = exceptionType,
                         ["exception.message"] = result.Exception.Message
                     }));
                 }
@@ -55,14 +56,15 @@ public class TracingBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccesse
         catch (Exception ex)
         {
             var duration = Diagnostics.GetElapsedTime(startTime);
+            var exceptionType = ExceptionTypeCache.GetFullTypeName(ex);
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            activity?.SetTag("exception.type", ExceptionTypeCache.GetFullTypeName(ex));
+            activity?.SetTag("exception.type", exceptionType);
             activity?.SetTag("exception.message", ex.Message);
             activity?.SetTag("exception.stacktrace", ex.StackTrace);
             activity?.SetTag("catga.duration_ms", duration.TotalMilliseconds);
             activity?.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
             {
-                ["exception.type"] = ExceptionTypeCache.GetFullTypeName(ex),
+                ["exception.type"] = exceptionType,
                 ["exception.message"] = ex.Message,
                 ["exception.escaped"] = true
             }));

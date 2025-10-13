@@ -23,10 +23,12 @@ public partial class LoggingBehavior<[System.Diagnostics.CodeAnalysis.Dynamicall
         {
             var result = await next();
             sw.Stop();
+            var duration = sw.ElapsedMilliseconds;
             if (result.IsSuccess)
-                LogRequestSucceeded(reqName, msgId, sw.ElapsedMilliseconds, corrId);
+                LogRequestSucceeded(reqName, msgId, duration, corrId);
             else
-                LogRequestFailed(reqName, msgId, sw.ElapsedMilliseconds, result.Error ?? "Unknown error", corrId, result.Exception != null ? ExceptionTypeCache.GetTypeName(result.Exception) : null);
+                LogRequestFailed(reqName, msgId, duration, result.Error ?? "Unknown error", corrId, 
+                    result.Exception != null ? ExceptionTypeCache.GetTypeName(result.Exception) : null);
             return result;
         }
         catch (Exception ex)

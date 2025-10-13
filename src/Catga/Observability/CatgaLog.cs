@@ -81,5 +81,42 @@ public static partial class CatgaLog
 
     [LoggerMessage(EventId = 8001, Level = LogLevel.Information, Message = "High throughput detected [MessagesPerSecond={MessagesPerSecond}]")]
     public static partial void HighThroughputDetected(ILogger logger, long messagesPerSecond);
+
+    // Distributed Transaction Logs (EventId: 9000-9999)
+    [LoggerMessage(EventId = 9000, Level = LogLevel.Information, Message = "Transaction started {TransactionId} [Name={TransactionName}]")]
+    public static partial void TransactionStarted(ILogger logger, string transactionId, string transactionName);
+
+    [LoggerMessage(EventId = 9001, Level = LogLevel.Information, Message = "Transaction completed {TransactionId} [Duration={DurationMs}ms]")]
+    public static partial void TransactionCompleted(ILogger logger, string transactionId, double durationMs);
+
+    [LoggerMessage(EventId = 9002, Level = LogLevel.Error, Message = "Transaction failed {TransactionId} [Error={Error}]")]
+    public static partial void TransactionFailed(ILogger logger, Exception exception, string transactionId, string error);
+
+    [LoggerMessage(EventId = 9003, Level = LogLevel.Warning, Message = "Transaction timed out {TransactionId} [CurrentStep={CurrentStep}, Timeout={TimeoutSeconds}s]")]
+    public static partial void TransactionTimedOut(ILogger logger, string transactionId, int currentStep, double timeoutSeconds);
+
+    [LoggerMessage(EventId = 9010, Level = LogLevel.Debug, Message = "Transaction step executing {TransactionId} [Step={StepIndex}/{TotalSteps}]")]
+    public static partial void TransactionStepExecuting(ILogger logger, string transactionId, int stepIndex, int totalSteps);
+
+    [LoggerMessage(EventId = 9011, Level = LogLevel.Debug, Message = "Transaction step completed {TransactionId} [Step={StepIndex}]")]
+    public static partial void TransactionStepCompleted(ILogger logger, string transactionId, int stepIndex);
+
+    [LoggerMessage(EventId = 9012, Level = LogLevel.Error, Message = "Transaction step failed {TransactionId} [Step={StepIndex}, Error={Error}]")]
+    public static partial void TransactionStepFailed(ILogger logger, string transactionId, int stepIndex, string error);
+
+    [LoggerMessage(EventId = 9020, Level = LogLevel.Warning, Message = "Transaction compensating {TransactionId} [StepsToCompensate={StepsToCompensate}]")]
+    public static partial void TransactionCompensating(ILogger logger, string transactionId, int stepsToCompensate);
+
+    [LoggerMessage(EventId = 9021, Level = LogLevel.Information, Message = "Transaction compensated {TransactionId}")]
+    public static partial void TransactionCompensated(ILogger logger, string transactionId);
+
+    [LoggerMessage(EventId = 9022, Level = LogLevel.Debug, Message = "Transaction step compensating {TransactionId} [Step={StepIndex}]")]
+    public static partial void TransactionStepCompensating(ILogger logger, string transactionId, int stepIndex);
+
+    [LoggerMessage(EventId = 9023, Level = LogLevel.Debug, Message = "Transaction step compensated {TransactionId} [Step={StepIndex}]")]
+    public static partial void TransactionStepCompensated(ILogger logger, string transactionId, int stepIndex);
+
+    [LoggerMessage(EventId = 9024, Level = LogLevel.Error, Message = "Transaction step compensation failed {TransactionId} [Step={StepIndex}, Error={Error}]")]
+    public static partial void TransactionStepCompensationFailed(ILogger logger, string transactionId, int stepIndex, string error);
 }
 

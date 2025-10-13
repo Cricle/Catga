@@ -228,9 +228,11 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
                 await MoveToDLQAsync(db, streamEntry, ex);
                 await db.StreamAcknowledgeAsync(_streamKey, _consumerGroup, streamEntry.Id);
             }
-            else if (qos == QualityOfService.AtMostOnce && !isRetry)
+            else if (qos == QualityOfService.AtMostOnce)
             {
+                // QoS 0: 失败后直接ACK丢弃，不重试
                 _logger.LogWarning("Message {MessageId} failed with QoS=0, discarding", streamEntry.Id);
+                await db.StreamAcknowledgeAsync(_streamKey, _consumerGroup, streamEntry.Id);
             }
             // QoS 1/2: 不 ACK，留在 Pending List 等待重试
         }

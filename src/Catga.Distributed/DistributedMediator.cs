@@ -33,21 +33,33 @@ public sealed class DistributedMediator : IDistributedMediator
 
     public async ValueTask<CatgaResult<TResponse>> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
     {
-        try
+        var localResult = await _localMediator.SendAsync<TRequest, TResponse>(request, cancellationToken);
+
+        // If local execution succeeded, return result
+        if (localResult.IsSuccess)
+            return localResult;
+
+        // If local execution failed, try routing to remote node
+        _logger.LogWarning("Local execution failed for {RequestType}, attempting remote routing: {Error}",
+            TypeNameCache<TRequest>.Name, localResult.Error);
+
+        var nodes = await GetNodesAsync(cancellationToken);
+        var remoteNodes = nodes.Where(n => n.NodeId != _currentNode.NodeId).ToList();
+        if (remoteNodes.Count == 0)
         {
-            return await _localMediator.SendAsync<TRequest, TResponse>(request, cancellationToken);
+            _logger.LogError("No remote nodes available for routing {RequestType}", TypeNameCache<TRequest>.Name);
+            return localResult; // Return original local failure
         }
-        catch
+
+        var targetNode = await _routingStrategy.SelectNodeAsync(remoteNodes, request, cancellationToken);
+        if (targetNode == null)
         {
-            var nodes = await GetNodesAsync(cancellationToken);
-            var remoteNodes = nodes.Where(n => n.NodeId != _currentNode.NodeId).ToList();
-            if (remoteNodes.Count == 0)
-                return CatgaResult<TResponse>.Failure("No available nodes for routing");
-            var targetNode = await _routingStrategy.SelectNodeAsync(remoteNodes, request, cancellationToken);
-            if (targetNode == null)
-                return CatgaResult<TResponse>.Failure("No suitable node found by routing strategy");
-            return await SendToNodeAsync<TRequest, TResponse>(request, targetNode.NodeId, cancellationToken);
+            _logger.LogError("No suitable node found by routing strategy for {RequestType}", TypeNameCache<TRequest>.Name);
+            return localResult; // Return original local failure
         }
+
+        _logger.LogInformation("Routing {RequestType} to remote node {NodeId}", TypeNameCache<TRequest>.Name, targetNode.NodeId);
+        return await SendToNodeAsync<TRequest, TResponse>(request, targetNode.NodeId, cancellationToken);
     }
 
     public async Task<CatgaResult> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest
@@ -83,8 +95,19 @@ public sealed class DistributedMediator : IDistributedMediator
 
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(TEvent @event, CancellationToken cancellationToken = default) where TEvent : IEvent
     {
-        await _localMediator.PublishAsync(@event, cancellationToken);
-        await BroadcastAsync(@event, cancellationToken);
+        // Publish locally and broadcast to remote nodes in parallel for better performance
+        var localTask = _localMediator.PublishAsync(@event, cancellationToken);
+        var broadcastTask = BroadcastAsync(@event, cancellationToken);
+
+        try
+        {
+            await Task.WhenAll(localTask, broadcastTask);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during event publish/broadcast for {EventType}", TypeNameCache<TEvent>.Name);
+            throw;
+        }
     }
 
     public async Task BroadcastAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(TEvent @event, CancellationToken cancellationToken = default) where TEvent : IEvent

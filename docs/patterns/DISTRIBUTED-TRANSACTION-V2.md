@@ -49,7 +49,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrder>
         var order = new Order { Id = cmd.OrderId, UserId = cmd.UserId, Amount = cmd.Amount };
         await _db.Orders.AddAsync(order);
         await _db.SaveChangesAsync();
-        
+
         // 2. 发布事件 - 自动触发下一步
         await _mediator.PublishAsync(new OrderCreated
         {
@@ -58,7 +58,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrder>
             OrderId = cmd.OrderId,
             Amount = cmd.Amount
         });
-        
+
         return CatgaResult.Success();
     }
 }
@@ -87,7 +87,7 @@ public class ReserveInventoryHandler : IRequestHandler<ReserveInventory>
         {
             // 业务逻辑
             var reservation = await _inventory.ReserveAsync(cmd.OrderId);
-            
+
             // 成功 - 发布事件触发下一步
             await _mediator.PublishAsync(new InventoryReserved
             {
@@ -96,7 +96,7 @@ public class ReserveInventoryHandler : IRequestHandler<ReserveInventory>
                 OrderId = cmd.OrderId,
                 ReservationId = reservation.Id
             });
-            
+
             return CatgaResult.Success();
         }
         catch (Exception ex)
@@ -109,7 +109,7 @@ public class ReserveInventoryHandler : IRequestHandler<ReserveInventory>
                 OrderId = cmd.OrderId,
                 Reason = ex.Message
             });
-            
+
             return CatgaResult.Failure(ex.Message);
         }
     }
@@ -219,14 +219,14 @@ public class CreateOrderHandler : IRequestHandler<CreateOrder>
     {
         // 业务逻辑
         await CreateOrderInDb(cmd);
-        
+
         // 发布成功事件 - 自动触发下一步
         await _mediator.PublishAsync(new OrderCreated
         {
             CorrelationId = cmd.CorrelationId,
             OrderId = cmd.OrderId
         });
-        
+
         return CatgaResult.Success();
     }
 }
@@ -251,14 +251,14 @@ public class ReserveInventoryHandler : IRequestHandler<ReserveInventory>
         try
         {
             await ReserveInventoryInDb(cmd);
-            
+
             // 成功 - 触发下一步
             await _mediator.PublishAsync(new InventoryReserved
             {
                 CorrelationId = cmd.CorrelationId,
                 OrderId = cmd.OrderId
             });
-            
+
             return CatgaResult.Success();
         }
         catch (Exception ex)
@@ -270,7 +270,7 @@ public class ReserveInventoryHandler : IRequestHandler<ReserveInventory>
                 OrderId = cmd.OrderId,
                 Reason = ex.Message
             });
-            
+
             return CatgaResult.Failure(ex.Message);
         }
     }

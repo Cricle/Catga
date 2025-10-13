@@ -39,7 +39,7 @@ public class OrderDbContext : DbContext
 }
 
 /// <summary>
-/// Order entity
+/// Order entity - 包含分布式事务状态
 /// </summary>
 public class Order
 {
@@ -50,6 +50,12 @@ public class Order
     public OrderStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
+    
+    // 分布式事务状态
+    public string? ReservationId { get; set; }  // 库存预留ID
+    public string? PaymentId { get; set; }      // 支付ID
+    public string? ShipmentId { get; set; }     // 发货ID
+    public string? CancellationReason { get; set; }  // 取消原因
 }
 
 /// <summary>

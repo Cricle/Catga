@@ -2,242 +2,401 @@
 
 ## 🎯 核心理念
 
-**关注点分离 (Separation of Concerns)**
+**云原生架构 - 依赖基础设施，而非重复造轮子**
 
-Catga 遵循清晰的架构边界：
+Catga 专注于 **CQRS 消息调度**，分布式能力完全依赖云原生基础设施：
 
 ```
 ┌─────────────────────────────────────────────────┐
 │          应用层 (Application Layer)              │
-│  - CQRS 消息调度 (Command/Query/Event)          │
-│  - 业务逻辑处理 (Handlers)                        │
-│  - 消息管道 (Pipeline Behaviors)                 │
+│  ✅ CQRS 消息调度 (Command/Query/Event)          │
+│  ✅ 业务逻辑处理 (Handlers)                       │
+│  ✅ 消息管道 (Pipeline Behaviors)                │
 └─────────────────────────────────────────────────┘
                         ↓
 ┌─────────────────────────────────────────────────┐
-│        基础设施层 (Infrastructure Layer)         │
-│  - 消息传输 (NATS JetStream / Redis Streams)    │
-│  - 服务发现 (K8s DNS / Consul / Aspire)         │
-│  - 负载均衡 (NATS Consumer Groups / Redis)      │
-│  - 高可用性 (Clustering / Replication)           │
+│          传输层 (Transport Layer)                │
+│  ✅ IMessageTransport 抽象                       │
+│  ✅ NatsMessageTransport (Catga.Transport.Nats)  │
+│  ✅ RedisStreamTransport (Catga.Persistence.Redis)│
+└─────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────┐
+│        基础设施层 (Infrastructure)               │
+│  ✅ Kubernetes (服务发现、负载均衡、健康检查)      │
+│  ✅ NATS JetStream (消息持久化、Consumer Groups)  │
+│  ✅ Redis Cluster (高可用、分片、Streams)         │
+│  ✅ .NET Aspire (编排、观测性、服务发现)          │
 └─────────────────────────────────────────────────┘
 ```
 
-## ✅ 设计原则
+## 📦 包结构
 
-### 1. **应用层不关心基础设施细节**
+### 核心包
+- **Catga** - CQRS 核心抽象
+- **Catga.InMemory** - 单体应用实现
+- **Catga.Distributed** - 分布式接口（只有接口，无实现）
 
-❌ **错误做法**（应用层实现节点发现）：
-```csharp
-// 不应该在应用层实现这些
-public interface INodeDiscovery {
-    Task RegisterAsync(NodeInfo node);
-    Task HeartbeatAsync(string nodeId);
-    Task<List<NodeInfo>> GetNodesAsync();
-}
-```
+### 传输层包（自选）
+- **Catga.Transport.Nats** - NATS 消息传输
+- **Catga.Persistence.Redis** - Redis 持久化和传输
 
-✅ **正确做法**（委托给基础设施）：
-```csharp
-// 应用层只需要发布事件
-public interface IDistributedMediator : ICatgaMediator {
-    // 消息会自动分发到订阅者
-    Task PublishAsync<TEvent>(TEvent event);
-}
-```
+### ❌ 不再需要的包
+- ~~Catga.Distributed.Nats~~ - 已删除（使用 Catga.Transport.Nats）
+- ~~Catga.Distributed.Redis~~ - 已删除（使用 Catga.Persistence.Redis）
 
-### 2. **利用基础设施的原生能力**
+## 🚀 Kubernetes 集成方式
 
-#### NATS JetStream
-- ✅ **内置集群** - 无需应用层管理节点
-- ✅ **Consumer Groups** - 自动负载均衡
-- ✅ **消息持久化** - 自动重放和恢复
-- ✅ **At-Least-Once / Exactly-Once** - QoS 保证
+### 方式 1: Kubernetes + NATS JetStream（推荐）
 
-#### Redis Cluster/Sentinel
-- ✅ **自动分片** - 数据分布式存储
-- ✅ **主从复制** - 高可用性
-- ✅ **Sentinel 故障转移** - 自动主节点切换
-- ✅ **Streams Consumer Groups** - 消息队列和负载均衡
-
-#### Kubernetes / Service Mesh
-- ✅ **DNS 服务发现** - `nats.default.svc.cluster.local`
-- ✅ **Health Check** - Liveness / Readiness Probes
-- ✅ **Load Balancing** - Service 自动负载均衡
-- ✅ **Service Mesh (Istio/Linkerd)** - 流量管理、熔断、重试
-
-### 3. **简化的分布式中介器**
-
-```csharp
-/// <summary>
-/// Simplified Distributed Mediator
-/// - Local Commands/Queries → Local Mediator
-/// - Events → Local + Broadcast via Transport
-/// - Distribution handled by infrastructure
-/// </summary>
-public class DistributedMediator : IDistributedMediator
-{
-    public async Task PublishAsync<TEvent>(TEvent @event)
-    {
-        // 1. Local publish
-        await _localMediator.PublishAsync(@event);
-
-        // 2. Broadcast via NATS/Redis
-        //    Infrastructure handles:
-        //    - Consumer group assignment
-        //    - Load balancing
-        //    - Message persistence
-        await _transport.SendAsync(@event, $"catga.events.{typeof(TEvent).Name}");
-    }
-}
-```
-
-## 📦 部署模式
-
-### 模式 1: Kubernetes + NATS JetStream
+#### 1.1 部署 NATS 集群
 
 ```yaml
-# NATS cluster (managed by Helm)
+# nats-cluster.yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: nats
+  namespace: default
 spec:
   selector:
     app: nats
   ports:
-  - port: 4222
-
+  - name: client
+    port: 4222
+  - name: cluster
+    port: 6222
+  - name: monitor
+    port: 8222
 ---
-# Catga microservice
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nats
+spec:
+  serviceName: nats
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nats
+  template:
+    metadata:
+      labels:
+        app: nats
+    spec:
+      containers:
+      - name: nats
+        image: nats:latest
+        args:
+        - "-js"  # Enable JetStream
+        - "-cluster"
+        - "nats://0.0.0.0:6222"
+        ports:
+        - containerPort: 4222
+        - containerPort: 6222
+        - containerPort: 8222
+```
+
+#### 1.2 Catga 微服务配置
+
+```csharp
+// Program.cs
+var builder = WebApplication.CreateBuilder(args);
+
+// 1. 注册 Catga 核心
+builder.Services.AddCatga();
+
+// 2. 注册消息序列化
+builder.Services.AddCatgaJsonSerialization();
+
+// 3. 注册 NATS 传输（通过 K8s DNS）
+builder.Services.AddSingleton<INatsConnection>(sp =>
+{
+    var natsUrl = builder.Configuration["NATS_URL"] ?? "nats://nats:4222";
+    var opts = NatsOpts.Default with { Url = natsUrl };
+    return new NatsConnection(opts);
+});
+
+builder.Services.AddSingleton<IMessageTransport>(sp =>
+{
+    var connection = sp.GetRequiredService<INatsConnection>();
+    var serializer = sp.GetRequiredService<IMessageSerializer>();
+    var logger = sp.GetRequiredService<ILogger<NatsMessageTransport>>();
+    return new NatsMessageTransport(connection, serializer, logger);
+});
+
+// 4. 注册分布式中介器
+builder.Services.AddSingleton<IDistributedMediator, DistributedMediator>();
+```
+
+#### 1.3 Kubernetes Deployment
+
+```yaml
+# order-service.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: order-service
 spec:
-  replicas: 3
+  replicas: 3  # 自动水平扩展
+  selector:
+    matchLabels:
+      app: order-service
   template:
+    metadata:
+      labels:
+        app: order-service
     spec:
       containers:
       - name: api
         image: order-service:latest
         env:
         - name: NATS_URL
-          value: "nats://nats:4222"  # K8s DNS
+          value: "nats://nats:4222"  # K8s DNS 自动解析
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+spec:
+  selector:
+    app: order-service
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: LoadBalancer  # 或 ClusterIP
 ```
 
-**无需应用层配置**：
-```csharp
-services.AddNatsDistributed("nats://nats:4222");
-// NATS自动处理：集群、负载均衡、高可用
-```
+### 方式 2: Kubernetes + Redis Cluster
 
-### 模式 2: Docker Compose + Redis Cluster
+#### 2.1 部署 Redis 集群
 
 ```yaml
-version: '3.8'
-services:
-  redis-cluster:
-    image: redis:latest
-    command: redis-server --cluster-enabled yes
-    ports:
-      - "6379:6379"
-
-  order-service:
-    image: order-service:latest
-    environment:
-      REDIS_CONNECTION: "redis-cluster:6379"
-    depends_on:
-      - redis-cluster
+# redis-cluster.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+spec:
+  serviceName: redis
+  replicas: 6  # 3 master + 3 replica
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:latest
+        command:
+        - redis-server
+        - --cluster-enabled
+        - "yes"
+        ports:
+        - containerPort: 6379
 ```
 
-**无需应用层配置**：
+#### 2.2 Catga 配置
+
 ```csharp
-services.AddRedisDistributed("redis-cluster:6379");
-// Redis自动处理：分片、复制、故障转移
+// Program.cs
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+{
+    var redisConnection = builder.Configuration["REDIS_CONNECTION"] ?? "redis:6379";
+    return ConnectionMultiplexer.Connect(redisConnection);
+});
+
+builder.Services.AddSingleton<IMessageTransport>(sp =>
+{
+    var connection = sp.GetRequiredService<IConnectionMultiplexer>();
+    var logger = sp.GetRequiredService<ILogger<RedisStreamTransport>>();
+    var options = new RedisStreamOptions
+    {
+        StreamKey = "catga:messages",
+        ConsumerGroup = "catga-group",
+        ConsumerId = Environment.GetEnvironmentVariable("HOSTNAME") // K8s Pod Name
+    };
+    return new RedisStreamTransport(connection, logger, options);
+});
+
+builder.Services.AddSingleton<IDistributedMediator, DistributedMediator>();
 ```
 
-### 模式 3: .NET Aspire (推荐)
+### 方式 3: .NET Aspire（最简单）
+
+#### 3.1 AppHost 配置
 
 ```csharp
-// AppHost
-var redis = builder.AddRedis("redis").WithDataVolume();
-var nats = builder.AddNats("nats").WithJetStream();
+// AppHost/Program.cs
+var builder = DistributedApplication.CreateBuilder(args);
 
+// 添加 NATS
+var nats = builder.AddNats("nats")
+    .WithJetStream()
+    .WithDataVolume();
+
+// 添加 Redis
+var redis = builder.AddRedis("redis")
+    .WithDataVolume();
+
+// 添加微服务（自动注入连接字符串）
 var orderService = builder.AddProject<Projects.OrderService>("order")
-    .WithReference(redis)
     .WithReference(nats)
+    .WithReference(redis)
     .WithReplicas(3);
+
+builder.Build().Run();
 ```
 
-**Aspire 自动提供**：
-- ✅ 服务发现（通过服务名）
-- ✅ 健康检查
-- ✅ 日志聚合
-- ✅ 分布式追踪
+#### 3.2 微服务配置（零配置）
+
+```csharp
+// OrderService/Program.cs
+var builder = WebApplication.CreateBuilder(args);
+
+builder.AddServiceDefaults();  // Aspire 自动配置
+
+// Catga 配置
+builder.Services.AddCatga();
+builder.Services.AddCatgaJsonSerialization();
+
+// NATS 传输（Aspire 自动注入连接字符串）
+builder.Services.AddSingleton<INatsConnection>(sp =>
+{
+    var natsUrl = builder.Configuration.GetConnectionString("nats");
+    return new NatsConnection(NatsOpts.Default with { Url = natsUrl });
+});
+
+builder.Services.AddSingleton<IMessageTransport, NatsMessageTransport>();
+builder.Services.AddSingleton<IDistributedMediator, DistributedMediator>();
+```
 
 ## 🔄 消息流程
 
-### Event 发布流程
+### Event 发布流程（Kubernetes + NATS）
 
 ```
-┌─────────────┐
-│  Service A  │
-│   (发布者)   │
-└──────┬──────┘
-       │ PublishAsync(OrderCreatedEvent)
-       ↓
+┌─────────────────┐
+│  order-service  │
+│    Pod 1        │
+└────────┬────────┘
+         │ PublishAsync(OrderCreatedEvent)
+         ↓
 ┌─────────────────────────────────────┐
 │     DistributedMediator             │
-│  1. Local handlers (same process)   │
-│  2. Broadcast to NATS/Redis         │
+│  1. Local handlers (same pod)       │
+│  2. NATS publish                    │
 └──────┬──────────────────────────────┘
        │
        ↓ Subject: catga.events.OrderCreatedEvent
 ┌─────────────────────────────────────┐
-│  NATS JetStream / Redis Streams     │
-│  - Consumer Group: "catga-group"    │
-│  - Load Balance: Round-Robin        │
-│  - Persistence: Enabled             │
+│       NATS JetStream Cluster        │
+│  - K8s Service: nats:4222           │
+│  - Consumer Group: catga-group      │
+│  - Load Balance: Automatic          │
 └──────┬──────────────────────────────┘
-       │
-       ↓ (Load balanced)
+       │ (K8s Load Balancer)
+       ↓
 ┌──────────────┬──────────────┬──────────────┐
-│  Service B   │  Service C   │  Service D   │
-│  (订阅者 1)   │  (订阅者 2)   │  (订阅者 3)   │
+│ inventory    │ payment      │ shipping     │
+│   Pod 1-3    │   Pod 1-3    │   Pod 1-3    │
 └──────────────┴──────────────┴──────────────┘
 ```
 
-### QoS 保证（由基础设施提供）
+## 📊 Kubernetes 提供的能力
 
-| QoS Level | NATS 实现 | Redis 实现 |
-|-----------|-----------|-----------|
-| **QoS 0** (AtMostOnce) | Core Pub/Sub | PUBLISH |
-| **QoS 1** (AtLeastOnce) | JetStream ACK | Streams + ACK |
-| **QoS 2** (ExactlyOnce) | JetStream + App Inbox | Streams + Inbox |
+### 服务发现
+```bash
+# DNS 自动解析
+nats:4222          → nats-0.nats.default.svc.cluster.local
+redis:6379         → redis-0.redis.default.svc.cluster.local
+order-service:80   → order-service.default.svc.cluster.local
+```
 
-## 🚀 优势总结
+### 负载均衡
+```yaml
+# K8s Service 自动负载均衡
+apiVersion: v1
+kind: Service
+spec:
+  selector:
+    app: order-service
+  # 自动轮询到所有 Pod
+```
 
-### 应用层
-- ✅ **极简代码** - 只关注 CQRS 业务逻辑
-- ✅ **零配置集群** - 无需管理节点、心跳、路由
-- ✅ **易于测试** - 可以使用 InMemory 替换
-- ✅ **清晰职责** - 关注点分离
+### 健康检查与自愈
+```yaml
+# 自动重启不健康的 Pod
+livenessProbe:
+  httpGet:
+    path: /health
+readinessProbe:
+  httpGet:
+    path: /ready
+```
 
-### 基础设施层
-- ✅ **成熟可靠** - 使用经过验证的消息系统
-- ✅ **高性能** - NATS/Redis 原生优化
-- ✅ **易于运维** - 标准的 K8s/Docker 部署
-- ✅ **灵活扩展** - 独立扩展消息系统
+### 自动扩缩容
+```yaml
+# Horizontal Pod Autoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+spec:
+  scaleTargetRef:
+    name: order-service
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+```
+
+## ✅ 优势总结
+
+| 能力 | Catga 职责 | K8s/基础设施职责 |
+|------|-----------|-----------------|
+| **CQRS** | ✅ 消息调度 | - |
+| **服务发现** | - | ✅ DNS 解析 |
+| **负载均衡** | - | ✅ Service LB + NATS/Redis |
+| **健康检查** | - | ✅ Liveness/Readiness |
+| **故障恢复** | - | ✅ 自动重启 Pod |
+| **水平扩展** | - | ✅ HPA |
+| **消息持久化** | - | ✅ NATS JetStream |
+| **高可用** | - | ✅ StatefulSet + PV |
 
 ## 📚 相关资源
 
-- [NATS JetStream 文档](https://docs.nats.io/nats-concepts/jetstream)
-- [Redis Cluster 文档](https://redis.io/docs/management/scaling/)
-- [Kubernetes Service Discovery](https://kubernetes.io/docs/concepts/services-networking/service/)
+- [Kubernetes 服务发现](https://kubernetes.io/docs/concepts/services-networking/service/)
+- [NATS JetStream on K8s](https://docs.nats.io/running-a-nats-service/nats-kubernetes)
+- [Redis on Kubernetes](https://redis.io/docs/management/kubernetes/)
 - [.NET Aspire 文档](https://learn.microsoft.com/dotnet/aspire/)
 
 ---
 
-**核心思想**：让专业的事交给专业的系统 - Catga 专注于 CQRS，分布式交给基础设施。
-
+**设计哲学**：Catga 不重复造轮子，充分利用 Kubernetes 和云原生生态的成熟能力。

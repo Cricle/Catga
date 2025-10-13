@@ -26,7 +26,7 @@ public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent>
     {
         _logger.LogInformation("[事件] 订单已创建，自动触发库存预留 [OrderId={OrderId}, CorrelationId={CorrelationId}]",
             @event.OrderId, @event.CorrelationId);
-        await _mediator.SendAsync(new ReserveInventoryCommand(@event.OrderId, @event.Items) 
+        await _mediator.SendAsync(new ReserveInventoryCommand(@event.OrderId, @event.Items)
             { CorrelationId = @event.CorrelationId }, cancellationToken);
     }
 }
@@ -48,7 +48,7 @@ public class InventoryReservedEventHandler : IEventHandler<InventoryReservedEven
 
         var order = await _db.Orders.FindAsync(new object[] { @event.OrderId }, cancellationToken);
         if (order != null)
-            await _mediator.SendAsync(new ProcessPaymentCommand(@event.OrderId, order.TotalAmount) 
+            await _mediator.SendAsync(new ProcessPaymentCommand(@event.OrderId, order.TotalAmount)
                 { CorrelationId = @event.CorrelationId }, cancellationToken);
     }
 }
@@ -66,7 +66,7 @@ public class PaymentProcessedEventHandler : IEventHandler<PaymentProcessedEvent>
     {
         _logger.LogInformation("[事件] 支付已处理，自动触发发货创建 [OrderId={OrderId}, CorrelationId={CorrelationId}]",
             @event.OrderId, @event.CorrelationId);
-        await _mediator.SendAsync(new CreateShipmentCommand(@event.OrderId) 
+        await _mediator.SendAsync(new CreateShipmentCommand(@event.OrderId)
             { CorrelationId = @event.CorrelationId }, cancellationToken);
     }
 }
@@ -102,7 +102,7 @@ public class InventoryReservationFailedEventHandler : IEventHandler<InventoryRes
     {
         _logger.LogWarning("[补偿事件] 库存预留失败，自动触发订单取消 [OrderId={OrderId}, Reason={Reason}, CorrelationId={CorrelationId}]",
             @event.OrderId, @event.Reason, @event.CorrelationId);
-        await _mediator.SendAsync(new CancelOrderCommand(@event.OrderId, $"库存预留失败: {@event.Reason}") 
+        await _mediator.SendAsync(new CancelOrderCommand(@event.OrderId, $"库存预留失败: {@event.Reason}")
             { CorrelationId = @event.CorrelationId }, cancellationToken);
     }
 }
@@ -122,10 +122,10 @@ public class PaymentFailedEventHandler : IEventHandler<PaymentFailedEvent>
             @event.OrderId, @event.Reason, @event.CorrelationId);
 
         if (!string.IsNullOrEmpty(@event.ReservationId))
-            await _mediator.SendAsync(new ReleaseInventoryCommand(@event.OrderId, @event.ReservationId) 
+            await _mediator.SendAsync(new ReleaseInventoryCommand(@event.OrderId, @event.ReservationId)
                 { CorrelationId = @event.CorrelationId }, cancellationToken);
 
-        await _mediator.SendAsync(new CancelOrderCommand(@event.OrderId, $"支付失败: {@event.Reason}") 
+        await _mediator.SendAsync(new CancelOrderCommand(@event.OrderId, $"支付失败: {@event.Reason}")
             { CorrelationId = @event.CorrelationId }, cancellationToken);
     }
 }
@@ -145,14 +145,14 @@ public class ShipmentFailedEventHandler : IEventHandler<ShipmentFailedEvent>
             @event.OrderId, @event.Reason, @event.CorrelationId);
 
         if (!string.IsNullOrEmpty(@event.PaymentId))
-            await _mediator.SendAsync(new RefundPaymentCommand(@event.OrderId, @event.PaymentId) 
+            await _mediator.SendAsync(new RefundPaymentCommand(@event.OrderId, @event.PaymentId)
                 { CorrelationId = @event.CorrelationId }, cancellationToken);
 
         if (!string.IsNullOrEmpty(@event.ReservationId))
-            await _mediator.SendAsync(new ReleaseInventoryCommand(@event.OrderId, @event.ReservationId) 
+            await _mediator.SendAsync(new ReleaseInventoryCommand(@event.OrderId, @event.ReservationId)
                 { CorrelationId = @event.CorrelationId }, cancellationToken);
 
-        await _mediator.SendAsync(new CancelOrderCommand(@event.OrderId, $"发货失败: {@event.Reason}") 
+        await _mediator.SendAsync(new CancelOrderCommand(@event.OrderId, $"发货失败: {@event.Reason}")
             { CorrelationId = @event.CorrelationId }, cancellationToken);
     }
 }

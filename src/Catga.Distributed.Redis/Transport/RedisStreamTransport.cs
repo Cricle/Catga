@@ -189,7 +189,7 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
     private async Task ProcessMessageAsync<TMessage>(IDatabase db, StreamEntry streamEntry, Func<TMessage, TransportContext, Task> handler, CancellationToken cancellationToken, bool isRetry = false) where TMessage : class
     {
         var (payload, messageId, qos, retryCount) = ExtractMessageFields(streamEntry);
-        
+
         try
         {
             if (string.IsNullOrEmpty(payload))
@@ -198,7 +198,7 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
                 await db.StreamAcknowledgeAsync(_streamKey, _consumerGroup, streamEntry.Id);
                 return;
             }
-            
+
             var message = JsonSerializer.Deserialize<TMessage>(payload);
             if (message == null)
             {
@@ -206,24 +206,24 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
                 await db.StreamAcknowledgeAsync(_streamKey, _consumerGroup, streamEntry.Id);
                 return;
             }
-            
+
             await handler(message, new TransportContext { MessageId = messageId, RetryCount = retryCount });
-            
+
             // QoS 1/2 需要 ACK
             if (qos != QualityOfService.AtMostOnce)
             {
                 await db.StreamAcknowledgeAsync(_streamKey, _consumerGroup, streamEntry.Id);
-                _logger.LogDebug("Processed and ACKed message {MessageId} (QoS={QoS}, Retry={RetryCount})", 
+                _logger.LogDebug("Processed and ACKed message {MessageId} (QoS={QoS}, Retry={RetryCount})",
                     streamEntry.Id, qos, retryCount);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to process message {MessageId}", streamEntry.Id);
-            
+
             if (retryCount >= _options.MaxRetries)
             {
-                _logger.LogError("Message {MessageId} exceeded max retries ({MaxRetries}), moving to DLQ", 
+                _logger.LogError("Message {MessageId} exceeded max retries ({MaxRetries}), moving to DLQ",
                     streamEntry.Id, _options.MaxRetries);
                 await MoveToDLQAsync(db, streamEntry, ex);
                 await db.StreamAcknowledgeAsync(_streamKey, _consumerGroup, streamEntry.Id);
@@ -235,13 +235,13 @@ public sealed class RedisStreamTransport : IMessageTransport, IAsyncDisposable
             // QoS 1/2: 不 ACK，留在 Pending List 等待重试
         }
     }
-    
+
     private (string Payload, string MessageId, QualityOfService QoS, int RetryCount) ExtractMessageFields(StreamEntry entry)
     {
         string GetField(string name) => entry.Values.FirstOrDefault(v => v.Name == name).Value.ToString();
-        int GetInt(string name, int defaultValue = 0) => 
+        int GetInt(string name, int defaultValue = 0) =>
             int.TryParse(GetField(name), out var val) ? val : defaultValue;
-        
+
         return (
             GetField("payload"),
             GetField("messageId") ?? entry.Id.ToString(),

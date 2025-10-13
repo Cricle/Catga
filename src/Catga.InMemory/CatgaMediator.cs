@@ -37,11 +37,11 @@ public class CatgaMediator : ICatgaMediator
         using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Command.Execute", ActivityKind.Internal);
         var sw = Stopwatch.StartNew();
         var reqType = TypeNameCache<TRequest>.Name;
-        var msgId = (request as IMessage)?.MessageId;
+        var message = request as IMessage;
 
         activity?.SetTag("catga.request.type", reqType);
-        activity?.SetTag("catga.message.id", msgId);
-        CatgaLog.CommandExecuting(_logger, reqType, msgId, (request as IMessage)?.CorrelationId);
+        activity?.SetTag("catga.message.id", message?.MessageId);
+        CatgaLog.CommandExecuting(_logger, reqType, message?.MessageId, message?.CorrelationId);
 
         try
         {
@@ -59,16 +59,17 @@ public class CatgaMediator : ICatgaMediator
                 : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
 
             sw.Stop();
-            CatgaDiagnostics.CommandsExecuted.Add(1, new KeyValuePair<string, object?>("request_type", reqType), new KeyValuePair<string, object?>("success", result.IsSuccess.ToString()));
-            CatgaDiagnostics.CommandDuration.Record(sw.Elapsed.TotalMilliseconds, new KeyValuePair<string, object?>("request_type", reqType));
-            CatgaLog.CommandExecuted(_logger, reqType, msgId, sw.Elapsed.TotalMilliseconds, result.IsSuccess);
+            var duration = sw.Elapsed.TotalMilliseconds;
+            CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", result.IsSuccess.ToString()));
+            CatgaDiagnostics.CommandDuration.Record(duration, new("request_type", reqType));
+            CatgaLog.CommandExecuted(_logger, reqType, message?.MessageId, duration, result.IsSuccess);
 
             activity?.SetTag("catga.success", result.IsSuccess);
-            activity?.SetTag("catga.duration_ms", sw.Elapsed.TotalMilliseconds);
+            activity?.SetTag("catga.duration_ms", duration);
             if (!result.IsSuccess)
             {
                 activity?.SetStatus(ActivityStatusCode.Error, result.Error);
-                CatgaLog.CommandFailed(_logger, result.Exception, reqType, msgId, result.Error ?? "Unknown");
+                CatgaLog.CommandFailed(_logger, result.Exception, reqType, message?.MessageId, result.Error ?? "Unknown");
             }
 
             return result;
@@ -76,9 +77,9 @@ public class CatgaMediator : ICatgaMediator
         catch (Exception ex)
         {
             sw.Stop();
-            CatgaDiagnostics.CommandsExecuted.Add(1, new KeyValuePair<string, object?>("request_type", reqType), new KeyValuePair<string, object?>("success", "false"));
+            CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", "false"));
             RecordException(activity, ex);
-            CatgaLog.CommandFailed(_logger, ex, reqType, msgId, ex.Message);
+            CatgaLog.CommandFailed(_logger, ex, reqType, message?.MessageId, ex.Message);
             throw;
         }
     }
@@ -95,26 +96,26 @@ public class CatgaMediator : ICatgaMediator
     {
         using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Event.Publish", ActivityKind.Producer);
         var eventType = TypeNameCache<TEvent>.Name;
-        var msgId = (@event as IMessage)?.MessageId;
+        var message = @event as IMessage;
 
         activity?.SetTag("catga.event.type", eventType);
-        activity?.SetTag("catga.message.id", msgId);
-        CatgaLog.EventPublishing(_logger, eventType, msgId);
+        activity?.SetTag("catga.message.id", message?.MessageId);
+        CatgaLog.EventPublishing(_logger, eventType, message?.MessageId);
 
         var handlerList = _handlerCache.GetEventHandlers<IEventHandler<TEvent>>(_serviceProvider);
         if (handlerList.Count == 0)
         {
             await FastPath.PublishEventNoOpAsync();
-            CatgaLog.EventPublished(_logger, eventType, msgId, 0);
+            CatgaLog.EventPublished(_logger, eventType, message?.MessageId, 0);
             return;
         }
 
-        CatgaDiagnostics.EventsPublished.Add(1, new KeyValuePair<string, object?>("event_type", eventType), new KeyValuePair<string, object?>("handler_count", handlerList.Count.ToString()));
+        CatgaDiagnostics.EventsPublished.Add(1, new("event_type", eventType), new("handler_count", handlerList.Count.ToString()));
 
         if (handlerList.Count == 1)
         {
             await HandleEventSafelyAsync(handlerList[0], @event, cancellationToken);
-            CatgaLog.EventPublished(_logger, eventType, msgId, 1);
+            CatgaLog.EventPublished(_logger, eventType, message?.MessageId, 1);
             return;
         }
 
@@ -123,7 +124,7 @@ public class CatgaMediator : ICatgaMediator
         for (int i = 0; i < handlerList.Count; i++)
             tasks[i] = HandleEventSafelyAsync(handlerList[i], @event, cancellationToken);
         await Task.WhenAll(rentedTasks.AsSpan().ToArray()).ConfigureAwait(false);
-        CatgaLog.EventPublished(_logger, eventType, msgId, handlerList.Count);
+        CatgaLog.EventPublished(_logger, eventType, message?.MessageId, handlerList.Count);
     }
 
     private async Task HandleEventSafelyAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(IEventHandler<TEvent> handler, TEvent @event, CancellationToken cancellationToken) where TEvent : IEvent

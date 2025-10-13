@@ -31,37 +31,21 @@ public class ShardedIdempotencyStore : IIdempotencyStore
     {
         TryLazyCleanup();
         var shard = GetShard(messageId);
-        if (shard.TryGetValue(messageId, out var entry))
-        {
-            if (ExpirationHelper.IsExpired(entry.Item1, _retentionPeriod))
-            {
-                shard.TryRemove(messageId, out _);
-                return Task.FromResult(false);
-            }
+        if (shard.TryGetValue(messageId, out var entry) && !ExpirationHelper.IsExpired(entry.Item1, _retentionPeriod))
             return Task.FromResult(true);
-        }
+        
+        shard.TryRemove(messageId, out _);
         return Task.FromResult(false);
     }
 
     public Task MarkAsProcessedAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
-        var shard = GetShard(messageId);
-
-        // Always store in main shard for "has been processed" check
-        shard[messageId] = (now, typeof(TResult), null);
-
-        // Store typed result in cache for retrieval
-        if (result != null)
-        {
-            var resultJson = SerializationHelper.SerializeJson(result);
-            TypedIdempotencyCache<TResult>.Cache[messageId] = (now, resultJson);
-        }
-        else
-        {
-            // Store null result explicitly to differentiate from "not found"
-            TypedIdempotencyCache<TResult>.Cache[messageId] = (now, string.Empty);
-        }
+        GetShard(messageId)[messageId] = (now, typeof(TResult), null);
+        
+        // Store typed result (null stored as empty string to differentiate from "not found")
+        var resultJson = result != null ? SerializationHelper.SerializeJson(result) : string.Empty;
+        TypedIdempotencyCache<TResult>.Cache[messageId] = (now, resultJson);
 
         return Task.CompletedTask;
     }

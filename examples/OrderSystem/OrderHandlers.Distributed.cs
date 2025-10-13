@@ -171,11 +171,11 @@ public class CreateShipmentHandler : IRequestHandler<CreateShipmentCommand, bool
         try
         {
             var shipmentId = $"SHIP-{Guid.NewGuid():N}";
-            await UpdateOrderFieldAsync(request.OrderId, o => 
-            { 
-                o.ShipmentId = shipmentId; 
-                o.Status = OrderStatus.Completed; 
-                o.CompletedAt = DateTime.UtcNow; 
+            await UpdateOrderFieldAsync(request.OrderId, o =>
+            {
+                o.ShipmentId = shipmentId;
+                o.Status = OrderStatus.Completed;
+                o.CompletedAt = DateTime.UtcNow;
             }, cancellationToken);
 
             _logger.LogInformation("✅ 发货已创建 [OrderId={OrderId}, ShipmentId={ShipmentId}]", request.OrderId, shipmentId);
@@ -186,7 +186,7 @@ public class CreateShipmentHandler : IRequestHandler<CreateShipmentCommand, bool
         {
             _logger.LogError(ex, "❌ 发货创建失败 [OrderId={OrderId}]", request.OrderId);
             var order = await _db.Orders.FindAsync(new object[] { request.OrderId }, cancellationToken);
-            await _mediator.PublishAsync(new ShipmentFailedEvent(request.OrderId, ex.Message, order?.PaymentId, order?.ReservationId) 
+            await _mediator.PublishAsync(new ShipmentFailedEvent(request.OrderId, ex.Message, order?.PaymentId, order?.ReservationId)
                 { CorrelationId = request.CorrelationId }, cancellationToken);
             return CatgaResult<bool>.Failure(ex.Message);
         }

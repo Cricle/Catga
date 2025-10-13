@@ -19,10 +19,7 @@ public class IdempotencyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessed
     public override async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
         var messageId = TryGetMessageId(request);
-
-        // Skip idempotency for requests without MessageId
-        if (string.IsNullOrEmpty(messageId))
-            return await next();
+        if (string.IsNullOrEmpty(messageId)) return await next();
 
         // Check if already processed
         if (await _store.HasBeenProcessedAsync(messageId, cancellationToken))
@@ -35,21 +32,10 @@ public class IdempotencyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessed
             return CatgaResult<TResponse>.Success(cachedResult ?? default!, metadata);
         }
 
-        // Process the request
+        // Process and cache successful results only (failed results not cached to allow retry)
         var result = await next();
-
-        // Store result for idempotency (both success and failure)
-        // Only store if result has a value or if it's a successful operation
-        if (result.IsSuccess && result.Value != null)
-        {
+        if (result.IsSuccess)
             await _store.MarkAsProcessedAsync(messageId, result.Value, cancellationToken);
-        }
-        else if (result.IsSuccess)
-        {
-            // Success with no value (void/Unit result)
-            await _store.MarkAsProcessedAsync<TResponse>(messageId, default, cancellationToken);
-        }
-        // Note: Failed results are NOT cached to allow retry
 
         return result;
     }

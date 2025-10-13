@@ -1,50 +1,47 @@
 namespace Catga.Configuration;
 
-/// <summary>Catga configuration with sensible defaults</summary>
-public class CatgaOptions
+/// <summary>Catga configuration with sensible defaults (immutable record)</summary>
+public record CatgaOptions
 {
-    public bool EnableLogging { get; set; } = true;
-    public bool EnableTracing { get; set; } = true;
-    public bool EnableRetry { get; set; } = true;
-    public bool EnableValidation { get; set; } = true;
-    public bool EnableIdempotency { get; set; } = true;
+    public bool EnableLogging { get; init; } = true;
+    public bool EnableTracing { get; init; } = true;
+    public bool EnableRetry { get; init; } = true;
+    public bool EnableValidation { get; init; } = true;
+    public bool EnableIdempotency { get; init; } = true;
 
-    public int MaxRetryAttempts { get; set; } = 3;
-    public int RetryDelayMs { get; set; } = 100;
-    public int TimeoutSeconds { get; set; } = 30;
+    public int MaxRetryAttempts { get; init; } = 3;
+    public int RetryDelayMs { get; init; } = 100;
+    public int TimeoutSeconds { get; init; } = 30;
 
-    public int IdempotencyRetentionHours { get; set; } = 24;
-    public int IdempotencyShardCount { get; set; } = 32;
+    public int IdempotencyRetentionHours { get; init; } = 24;
+    public int IdempotencyShardCount { get; init; } = 32;
 
-    public bool EnableDeadLetterQueue { get; set; } = true;
-    public int DeadLetterQueueMaxSize { get; set; } = 1000;
+    public bool EnableDeadLetterQueue { get; init; } = true;
+    public int DeadLetterQueueMaxSize { get; init; } = 1000;
 
-    public QualityOfService DefaultQoS { get; set; } = QualityOfService.AtLeastOnce;
+    public QualityOfService DefaultQoS { get; init; } = QualityOfService.AtLeastOnce;
 
-    public CatgaOptions WithHighPerformance()
+    public CatgaOptions WithHighPerformance() => this with
     {
-        IdempotencyShardCount = 64;
-        EnableRetry = false;
-        EnableValidation = false;
-        return this;
-    }
+        IdempotencyShardCount = 64,
+        EnableRetry = false,
+        EnableValidation = false
+    };
 
-    public CatgaOptions Minimal()
+    public CatgaOptions Minimal() => this with
     {
-        EnableLogging = false;
-        EnableTracing = false;
-        EnableIdempotency = false;
-        EnableRetry = false;
-        EnableValidation = false;
-        EnableDeadLetterQueue = false;
-        return this;
-    }
+        EnableLogging = false,
+        EnableTracing = false,
+        EnableIdempotency = false,
+        EnableRetry = false,
+        EnableValidation = false,
+        EnableDeadLetterQueue = false
+    };
 
-    public CatgaOptions ForDevelopment()
+    public CatgaOptions ForDevelopment() => this with
     {
-        EnableLogging = true;
-        EnableTracing = true;
-        EnableIdempotency = false;
-        return this;
-    }
+        EnableLogging = true,
+        EnableTracing = true,
+        EnableIdempotency = false
+    };
 }

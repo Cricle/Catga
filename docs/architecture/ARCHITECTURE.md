@@ -130,11 +130,11 @@ public class CatgaMediator : ICatgaMediator
         var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(_serviceProvider);
         var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
         var behaviorsList = behaviors as IList<...> ?? behaviors.ToList();
-        
+
         // Fast path: no behaviors
         if (FastPath.CanUseFastPath(behaviorsList.Count))
             return await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken);
-        
+
         // Pipeline execution
         return await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
     }
@@ -163,11 +163,11 @@ public static class CatgaHandlerRegistration
         // Command handlers
         services.AddTransient<IRequestHandler<CreateOrder, OrderResult>, CreateOrderHandler>();
         services.AddTransient<IRequestHandler<GetOrder, Order>, GetOrderHandler>();
-        
+
         // Event handlers
         services.AddTransient<IEventHandler<OrderCreated>, OrderCreatedHandler>();
         services.AddTransient<IEventHandler<OrderCreated>, SendEmailHandler>();
-        
+
         return services;
     }
 }
@@ -355,7 +355,7 @@ public static class FastPath
 public class ShardedIdempotencyStore
 {
     private readonly ConcurrentDictionary<string, (DateTime, Type?, string?)>[] _shards;
-    
+
     private ConcurrentDictionary<string, (DateTime, Type?, string?)> GetShard(string messageId)
         => _shards[messageId.GetHashCode() & (_shardCount - 1)];
 
@@ -549,7 +549,7 @@ CatgaDiagnostics.DecrementActiveMessages();
 
 ```csharp
 // Zero-allocation logging with LoggerMessage source generation
-[LoggerMessage(EventId = 1000, Level = LogLevel.Information, 
+[LoggerMessage(EventId = 1000, Level = LogLevel.Information,
     Message = "Command {CommandType} executing [MessageId={MessageId}]")]
 public static partial void CommandExecuting(ILogger logger, string commandType, string? messageId);
 

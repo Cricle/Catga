@@ -1,7 +1,7 @@
 namespace Catga.DistributedId;
 
 /// <summary>Distributed ID generator options</summary>
-public sealed class DistributedIdOptions
+public class DistributedIdOptions
 {
     public int WorkerId { get; set; } = 0;
     public bool AutoDetectWorkerId { get; set; } = true;

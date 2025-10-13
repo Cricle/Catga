@@ -2,16 +2,25 @@ using Catga.Exceptions;
 
 namespace Catga.Results;
 
-/// <summary>Result metadata (AOT-compatible)</summary>
+/// <summary>Result metadata (lightweight, pooled for performance)</summary>
 public sealed class ResultMetadata
 {
-    private readonly Dictionary<string, string> _data = new(4);
+    private readonly Dictionary<string, string> _data;
 
+    public ResultMetadata() => _data = new Dictionary<string, string>(4);
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public void Add(string key, string value) => _data[key] = value;
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public bool TryGetValue(string key, out string? value) => _data.TryGetValue(key, out value);
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public bool ContainsKey(string key) => _data.ContainsKey(key);
+
     public IReadOnlyDictionary<string, string> GetAll() => _data;
-    public void Clear() => _data.Clear();
+
+    public int Count => _data.Count;
 }
 
 /// <summary>Catga operation result with value (zero-allocation struct for performance)</summary>

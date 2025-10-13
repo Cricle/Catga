@@ -29,7 +29,7 @@ public class IdempotencyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessed
         {
             LogInformation("Message {MessageId} already processed - returning cached result", messageId);
             var cachedResult = await _store.GetCachedResultAsync<TResponse>(messageId, cancellationToken);
-            var metadata = new ResultMetadata();
+            var metadata = ResultMetadata.Create();
             metadata.Add("FromCache", "true");
             metadata.Add("MessageId", messageId);
             return CatgaResult<TResponse>.Success(cachedResult ?? default!, metadata);

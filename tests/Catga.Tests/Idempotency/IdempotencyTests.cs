@@ -112,7 +112,7 @@ public class IdempotencyTests
         result2.IsSuccess.Should().BeTrue();
         result1.Value.Should().Be("Processed: test");
         result2.Value.Should().Be("Processed: test");
-        
+
         // Handler should only be called once due to idempotency
         IdempotentCommandHandler.CallCount.Should().Be(1);
     }

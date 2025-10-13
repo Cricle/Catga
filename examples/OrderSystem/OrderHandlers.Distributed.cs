@@ -50,7 +50,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, CreateOrde
         _db.Orders.Add(order);
         await _db.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("✅ 订单已创建 [OrderId={OrderId}, OrderNumber={OrderNumber}]", 
+        _logger.LogInformation("✅ 订单已创建 [OrderId={OrderId}, OrderNumber={OrderNumber}]",
             order.Id, order.OrderNumber);
 
         // 2. 发布事件 - 自动触发下一步（库存预留）
@@ -105,7 +105,7 @@ public class ReserveInventoryHandler : IRequestHandler<ReserveInventoryCommand, 
 
             // 模拟预留库存
             var reservationId = $"RES-{Guid.NewGuid():N}";
-            
+
             // 更新订单状态
             var order = await _db.Orders.FindAsync(new object[] { request.OrderId }, cancellationToken);
             if (order != null)
@@ -176,7 +176,7 @@ public class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, bool
 
             // 模拟支付
             var paymentId = $"PAY-{Guid.NewGuid():N}";
-            
+
             // 更新订单状态
             var order = await _db.Orders.FindAsync(new object[] { request.OrderId }, cancellationToken);
             if (order != null)
@@ -244,7 +244,7 @@ public class CreateShipmentHandler : IRequestHandler<CreateShipmentCommand, bool
         {
             // 模拟创建发货（实际应该调用物流服务）
             var shipmentId = $"SHIP-{Guid.NewGuid():N}";
-            
+
             // 更新订单状态
             var order = await _db.Orders.FindAsync(new object[] { request.OrderId }, cancellationToken);
             if (order != null)

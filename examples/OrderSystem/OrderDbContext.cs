@@ -50,7 +50,7 @@ public class Order
     public OrderStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
-    
+
     // 分布式事务状态
     public string? ReservationId { get; set; }  // 库存预留ID
     public string? PaymentId { get; set; }      // 支付ID

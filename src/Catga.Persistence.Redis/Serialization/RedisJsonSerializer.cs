@@ -22,26 +22,26 @@ public static class RedisJsonSerializer
     }
 
     /// <summary>
-    /// 获取 JSON 选项（优先使用自定义选项）
+    /// Get JSON options (uses custom options if provided, or default AOT-compatible context)
     /// </summary>
+    /// <remarks>
+    /// For full AOT compatibility, call SetCustomOptions() with a JsonSerializerContext 
+    /// that includes all your message types. Without custom options, only basic types 
+    /// defined in RedisCatgaJsonContext can be serialized.
+    /// </remarks>
     public static JsonSerializerOptions GetOptions()
     {
         if (_customOptions != null)
             return _customOptions;
 
-        // 默认选项 - 使用源生成上下文处理已知类型
-        // 对于未知类型，fallback 到 reflection（不推荐用于 NativeAOT）
+        // Default options - ONLY uses source-generated context (100% AOT compatible)
+        // No reflection fallback - users MUST call SetCustomOptions for custom types
         return new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            TypeInfoResolver = JsonTypeInfoResolver.Combine(
-                RedisCatgaJsonContext.Default,
-                // Reflection-based fallback for unknown types
-                // Users should use SetCustomOptions to avoid AOT warnings
-                new DefaultJsonTypeInfoResolver()
-            )
+            TypeInfoResolver = RedisCatgaJsonContext.Default  // AOT-only, no reflection
         };
     }
 

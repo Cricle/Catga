@@ -3,19 +3,25 @@ using System.Diagnostics.CodeAnalysis;
 namespace Catga.Caching;
 
 /// <summary>
-/// Distributed cache abstraction
+/// Distributed cache abstraction (AOT-compatible with DynamicallyAccessedMembers constraints)
 /// </summary>
 public interface IDistributedCache
 {
     /// <summary>
     /// Get value from cache
     /// </summary>
-    public ValueTask<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default);
+    public ValueTask<T?> GetAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
+        string key, 
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Set value in cache
     /// </summary>
-    public ValueTask SetAsync<T>(string key, T value, TimeSpan expiration, CancellationToken cancellationToken = default);
+    public ValueTask SetAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
+        string key, 
+        T value, 
+        TimeSpan expiration, 
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Remove value from cache

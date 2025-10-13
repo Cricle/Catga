@@ -190,8 +190,8 @@ services.AddCatga()
 ```csharp
 services.AddCatga()
     .UseNatsTransport(options =>
-    {
-        options.Url = "nats://localhost:4222";
+{
+    options.Url = "nats://localhost:4222";
         options.SubjectPrefix = "catga.";
     });
 ```

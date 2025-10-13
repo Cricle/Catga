@@ -39,8 +39,8 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
     public async Task UnregisterAsync(string nodeId, CancellationToken cancellationToken = default)
     {
         _nodes.TryRemove(nodeId, out _);
-        await _connection.PublishAsync($"{_subjectPrefix}.leave", 
-            JsonHelper.SerializeDictionary(new Dictionary<string, string> { ["NodeId"] = nodeId }), 
+        await _connection.PublishAsync($"{_subjectPrefix}.leave",
+            JsonHelper.SerializeDictionary(new Dictionary<string, string> { ["NodeId"] = nodeId }),
             cancellationToken: cancellationToken);
         _logger.LogInformation("Unregistered node {NodeId}", nodeId);
     }
@@ -60,8 +60,8 @@ public sealed class NatsNodeDiscovery : INodeDiscovery, IAsyncDisposable
 
         if (!updated) return;
 
-        await _connection.PublishAsync($"{_subjectPrefix}.heartbeat", 
-            JsonHelper.SerializeHeartbeat(nodeId, load, DateTime.UtcNow), 
+        await _connection.PublishAsync($"{_subjectPrefix}.heartbeat",
+            JsonHelper.SerializeHeartbeat(nodeId, load, DateTime.UtcNow),
             cancellationToken: cancellationToken);
 
         if (_nodes.TryGetValue(nodeId, out var node))

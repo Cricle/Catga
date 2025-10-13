@@ -30,19 +30,15 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
 
     public async Task RegisterAsync(NodeInfo node, CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
-        var key = $"{_keyPrefix}{node.NodeId}";
-        var json = JsonHelper.SerializeNode(node);
-        await db.StringSetAsync(key, json, _nodeExpiry);
+        await _redis.GetDatabase().StringSetAsync($"{_keyPrefix}{node.NodeId}", 
+            JsonHelper.SerializeNode(node), _nodeExpiry);
         _logger.LogInformation("Registered node {NodeId} at {Endpoint}", node.NodeId, node.Endpoint);
         await _events.Writer.WriteAsync(new NodeChangeEvent { Type = NodeChangeType.Joined, Node = node }, cancellationToken);
     }
 
     public async Task UnregisterAsync(string nodeId, CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
-        var key = $"{_keyPrefix}{nodeId}";
-        await db.KeyDeleteAsync(key);
+        await _redis.GetDatabase().KeyDeleteAsync($"{_keyPrefix}{nodeId}");
         _logger.LogInformation("Unregistered node {NodeId}", nodeId);
     }
 
@@ -56,11 +52,12 @@ public sealed class RedisNodeDiscovery : INodeDiscovery, IAsyncDisposable
             _logger.LogWarning("Node {NodeId} not found for heartbeat", nodeId);
             return;
         }
+        
         var node = JsonHelper.DeserializeNode(json.ToString()!);
         if (node == null) return;
+        
         var updatedNode = node with { LastSeen = DateTime.UtcNow, Load = load };
-        var updatedJson = JsonHelper.SerializeNode(updatedNode);
-        await db.StringSetAsync(key, updatedJson, _nodeExpiry);
+        await db.StringSetAsync(key, JsonHelper.SerializeNode(updatedNode), _nodeExpiry);
         await _events.Writer.WriteAsync(new NodeChangeEvent { Type = NodeChangeType.Updated, Node = updatedNode }, cancellationToken);
     }
 

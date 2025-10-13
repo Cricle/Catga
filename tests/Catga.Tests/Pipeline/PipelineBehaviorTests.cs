@@ -13,21 +13,24 @@ namespace Catga.Tests.Pipeline;
 /// </summary>
 public class PipelineBehaviorTests
 {
-    [Fact]
-    public async Task Pipeline_WithLoggingBehavior_ShouldLogExecution()
+    private static ServiceCollection CreateBasicServices()
     {
-        // Arrange
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
         services.AddCatga();
         services.AddCatgaInMemoryTransport();
         services.AddCatgaInMemoryPersistence();
-
         services.AddSingleton<IRequestHandler<TestPipelineCommand, string>, TestPipelineCommandHandler>();
-        services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(TestLoggingBehavior<,>));
+        return services;
+    }
 
-        var serviceProvider = services.BuildServiceProvider();
-        var mediator = serviceProvider.GetRequiredService<ICatgaMediator>();
+    [Fact]
+    public async Task Pipeline_WithLoggingBehavior_ShouldLogExecution()
+    {
+        // Arrange
+        var services = CreateBasicServices();
+        services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(TestLoggingBehavior<,>));
+        var mediator = services.BuildServiceProvider().GetRequiredService<ICatgaMediator>();
 
         // Act
         var result = await mediator.SendAsync(new TestPipelineCommand("test"));
@@ -42,18 +45,10 @@ public class PipelineBehaviorTests
     public async Task Pipeline_WithMultipleBehaviors_ShouldExecuteInOrder()
     {
         // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
-        services.AddCatga();
-        services.AddCatgaInMemoryTransport();
-        services.AddCatgaInMemoryPersistence();
-
-        services.AddSingleton<IRequestHandler<TestPipelineCommand, string>, TestPipelineCommandHandler>();
+        var services = CreateBasicServices();
         services.AddSingleton<IPipelineBehavior<TestPipelineCommand, string>, FirstBehavior>();
         services.AddSingleton<IPipelineBehavior<TestPipelineCommand, string>, SecondBehavior>();
-
-        var serviceProvider = services.BuildServiceProvider();
-        var mediator = serviceProvider.GetRequiredService<ICatgaMediator>();
+        var mediator = services.BuildServiceProvider().GetRequiredService<ICatgaMediator>();
 
         // Reset execution order
         BehaviorExecutionOrder.Clear();
@@ -70,17 +65,9 @@ public class PipelineBehaviorTests
     public async Task Pipeline_WithValidationBehavior_ShouldValidateRequest()
     {
         // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
-        services.AddCatga();
-        services.AddCatgaInMemoryTransport();
-        services.AddCatgaInMemoryPersistence();
-
-        services.AddSingleton<IRequestHandler<TestPipelineCommand, string>, TestPipelineCommandHandler>();
+        var services = CreateBasicServices();
         services.AddSingleton<IPipelineBehavior<TestPipelineCommand, string>, ValidationBehavior>();
-
-        var serviceProvider = services.BuildServiceProvider();
-        var mediator = serviceProvider.GetRequiredService<ICatgaMediator>();
+        var mediator = services.BuildServiceProvider().GetRequiredService<ICatgaMediator>();
 
         // Act - invalid data
         var result = await mediator.SendAsync(new TestPipelineCommand(""));

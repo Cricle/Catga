@@ -27,7 +27,7 @@ public partial class LoggingBehavior<[System.Diagnostics.CodeAnalysis.Dynamicall
             if (result.IsSuccess)
                 LogRequestSucceeded(reqName, msgId, duration, corrId);
             else
-                LogRequestFailed(reqName, msgId, duration, result.Error ?? "Unknown error", corrId, 
+                LogRequestFailed(reqName, msgId, duration, result.Error ?? "Unknown error", corrId,
                     result.Exception != null ? ExceptionTypeCache.GetTypeName(result.Exception) : null);
             return result;
         }

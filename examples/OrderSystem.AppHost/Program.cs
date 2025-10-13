@@ -10,12 +10,11 @@ var nats = builder.AddNats("nats")
     .WithDataVolume()
     .WithJetStream();
 
-// Add OrderSystem API with different deployment profiles
-var orderSystem = builder.AddProject<Projects.OrderSystem>("ordersystem")
-    .WithReference(redis)
-    .WithReference(nats)
-    .WithEnvironment("DeploymentMode", "Aspire")
-    .WithReplicas(3);  // Run 3 instances for cluster demo
+// TODO: Add your Catga-based microservices here
+// Example:
+// var orderSystem = builder.AddProject<Projects.YourService>("yourservice")
+//     .WithReference(redis)
+//     .WithReference(nats)
+//     .WithReplicas(3);
 
 builder.Build().Run();
-

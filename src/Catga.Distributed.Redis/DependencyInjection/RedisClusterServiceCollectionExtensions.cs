@@ -48,7 +48,13 @@ public static class RedisClusterServiceCollectionExtensions
             {
                 var connection = sp.GetRequiredService<IConnectionMultiplexer>();
                 var logger = sp.GetRequiredService<ILogger<RedisStreamTransport>>();
-                return new RedisStreamTransport(connection, logger, streamKey: "catga:messages", consumerGroup: $"group-{nodeId}", consumerId: nodeId);
+                var options = new RedisStreamOptions
+                {
+                    StreamKey = "catga:messages",
+                    ConsumerGroup = $"group-{nodeId}",
+                    ConsumerId = nodeId
+                };
+                return new RedisStreamTransport(connection, logger, options);
             });
         }
 

@@ -67,42 +67,42 @@ public static class CatgaResultHttpExtensions
 {
     public static CatgaResult<T> NotFound<T>(string error)
     {
-        var metadata = ResultMetadata.Create();
+        var metadata = new ResultMetadata();
         metadata.Add("ErrorType", "NotFound");
         return new CatgaResult<T> { IsSuccess = false, Error = error, Metadata = metadata };
     }
 
     public static CatgaResult<T> Conflict<T>(string error)
     {
-        var metadata = ResultMetadata.Create();
+        var metadata = new ResultMetadata();
         metadata.Add("ErrorType", "Conflict");
         return new CatgaResult<T> { IsSuccess = false, Error = error, Metadata = metadata };
     }
 
     public static CatgaResult<T> ValidationError<T>(string error)
     {
-        var metadata = ResultMetadata.Create();
+        var metadata = new ResultMetadata();
         metadata.Add("ErrorType", "Validation");
         return new CatgaResult<T> { IsSuccess = false, Error = error, Metadata = metadata };
     }
 
     public static CatgaResult<T> Unauthorized<T>(string error)
     {
-        var metadata = ResultMetadata.Create();
+        var metadata = new ResultMetadata();
         metadata.Add("ErrorType", "Unauthorized");
         return new CatgaResult<T> { IsSuccess = false, Error = error, Metadata = metadata };
     }
 
     public static CatgaResult<T> Forbidden<T>(string error)
     {
-        var metadata = ResultMetadata.Create();
+        var metadata = new ResultMetadata();
         metadata.Add("ErrorType", "Forbidden");
         return new CatgaResult<T> { IsSuccess = false, Error = error, Metadata = metadata };
     }
 
     public static CatgaResult<T> WithStatusCode<T>(this CatgaResult<T> result, int statusCode)
     {
-        var metadata = result.Metadata.HasValue ? result.Metadata.Value : ResultMetadata.Create();
+        var metadata = result.Metadata ?? new ResultMetadata();
         metadata.Add("HttpStatusCode", statusCode.ToString());
         return new CatgaResult<T>
         {

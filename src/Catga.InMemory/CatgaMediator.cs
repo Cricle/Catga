@@ -61,7 +61,7 @@ public class CatgaMediator : ICatgaMediator
             sw.Stop();
             var duration = sw.Elapsed.TotalMilliseconds;
             CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", result.IsSuccess.ToString()));
-            CatgaDiagnostics.CommandDuration.Record(duration, new("request_type", reqType));
+            CatgaDiagnostics.CommandDuration.Record(duration, new KeyValuePair<string, object?>("request_type", reqType));
             CatgaLog.CommandExecuted(_logger, reqType, message?.MessageId, duration, result.IsSuccess);
 
             activity?.SetTag("catga.success", result.IsSuccess);

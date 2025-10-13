@@ -28,11 +28,11 @@ public static class CatgaServiceCollectionExtensions
         if (options.EnableDeadLetterQueue)
             services.TryAddSingleton<IDeadLetterQueue>(sp => new InMemoryDeadLetterQueue(sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InMemoryDeadLetterQueue>>(), options.DeadLetterQueueMaxSize));
 
-        if (options.EnableLogging) services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
-        if (options.EnableTracing) services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(TracingBehavior<,>));
-        if (options.EnableIdempotency) services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(IdempotencyBehavior<,>));
-        if (options.EnableValidation) services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-        if (options.EnableRetry) services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(RetryBehavior<,>));
+        if (options.EnableLogging) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+        if (options.EnableTracing) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TracingBehavior<,>));
+        if (options.EnableIdempotency) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(IdempotencyBehavior<,>));
+        if (options.EnableValidation) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        if (options.EnableRetry) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(RetryBehavior<,>));
 
         return services;
     }
@@ -51,11 +51,11 @@ public static class CatgaServiceCollectionExtensions
         if (options.EnableDeadLetterQueue)
             services.TryAddSingleton<IDeadLetterQueue>(sp => new InMemoryDeadLetterQueue(sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InMemoryDeadLetterQueue>>(), options.DeadLetterQueueMaxSize));
 
-        if (options.EnableLogging) services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
-        if (options.EnableTracing) services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(TracingBehavior<,>));
-        if (options.EnableIdempotency) services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(IdempotencyBehavior<,>));
-        if (options.EnableValidation) services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-        if (options.EnableRetry) services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(RetryBehavior<,>));
+        if (options.EnableLogging) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+        if (options.EnableTracing) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TracingBehavior<,>));
+        if (options.EnableIdempotency) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(IdempotencyBehavior<,>));
+        if (options.EnableValidation) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        if (options.EnableRetry) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(RetryBehavior<,>));
 
         return builder;
     }
@@ -110,7 +110,7 @@ public static class CatgaServiceCollectionExtensions
 
         services.AddSingleton(options);
         services.TryAddSingleton<IOutboxStore, MemoryOutboxStore>();
-        services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(OutboxBehavior<,>));
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(OutboxBehavior<,>));
 
         if (options.EnablePublisher)
         {
@@ -132,7 +132,7 @@ public static class CatgaServiceCollectionExtensions
 
         services.AddSingleton(options);
         services.TryAddSingleton<IInboxStore, MemoryInboxStore>();
-        services.TryAddTransient(typeof(IPipelineBehavior<,>), typeof(InboxBehavior<,>));
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(InboxBehavior<,>));
 
         return services;
     }

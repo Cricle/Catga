@@ -14,7 +14,7 @@ namespace Catga.Transport.Nats;
 /// - QoS 0 (AtMostOnce): NATS Core Pub/Sub (fire-and-forget)
 /// - QoS 1 (AtLeastOnce): JetStream with Ack (guaranteed delivery, may duplicate)
 /// - QoS 2 (ExactlyOnce): JetStream with MsgId deduplication (exactly-once using NATS native dedup)
-/// 
+///
 /// Catga responsibilities (via Pipeline Behaviors):
 /// - Application-level idempotency (business logic dedup)
 /// - Retry logic (with exponential backoff)

@@ -1,26 +1,25 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
 using Catga.Caching;
+using Catga.Serialization;
 using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis;
 
 /// <summary>
-/// Redis-based distributed cache implementation
+/// Redis-based distributed cache implementation (uses injected IMessageSerializer for consistency)
 /// </summary>
 public sealed class RedisDistributedCache : IDistributedCache
 {
     private readonly IConnectionMultiplexer _redis;
-    private readonly JsonSerializerOptions _jsonOptions;
+    private readonly IMessageSerializer _serializer;
 
-    public RedisDistributedCache(IConnectionMultiplexer redis)
+    public RedisDistributedCache(IConnectionMultiplexer redis, IMessageSerializer serializer)
     {
         _redis = redis ?? throw new ArgumentNullException(nameof(redis));
-        _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
+        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
     }
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     public async ValueTask<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
@@ -35,13 +34,15 @@ public sealed class RedisDistributedCache : IDistributedCache
 
         try
         {
-            return JsonSerializer.Deserialize<T>(value.ToString(), _jsonOptions);
+            return _serializer.Deserialize<T>((byte[])value!);
         }
         catch
         {
             return default;
         }
     }
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     public async ValueTask SetAsync<T>(
         string key,
         T value,
@@ -51,9 +52,9 @@ public sealed class RedisDistributedCache : IDistributedCache
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
         var db = _redis.GetDatabase();
-        var json = JsonSerializer.Serialize(value, _jsonOptions);
+        var bytes = _serializer.Serialize(value);
 
-        await db.StringSetAsync(key, json, expiration);
+        await db.StringSetAsync(key, bytes, expiration);
     }
 
     public async ValueTask RemoveAsync(string key, CancellationToken cancellationToken = default)

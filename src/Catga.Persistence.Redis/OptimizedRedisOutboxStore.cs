@@ -2,17 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Catga.Outbox;
+using Catga.Serialization;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis;
 
 /// <summary>
-/// Optimized Redis Outbox Store with batch operations
+/// Optimized Redis Outbox Store with batch operations (uses injected IMessageSerializer)
 /// Performance improvements:
 /// - Batch get/set operations (100x faster for large batches)
 /// - Read-write separation support
@@ -23,28 +23,33 @@ public class OptimizedRedisOutboxStore : IOutboxStore
     private readonly IConnectionMultiplexer _redis;
     private readonly IDatabase _db;
     private readonly RedisBatchOperations _batchOps;
+    private readonly IMessageSerializer _serializer;
     private readonly ILogger<OptimizedRedisOutboxStore> _logger;
     private readonly string _keyPrefix;
 
     public OptimizedRedisOutboxStore(
         IConnectionMultiplexer redis,
+        IMessageSerializer serializer,
         ILogger<OptimizedRedisOutboxStore> logger,
         string keyPrefix = "catga:outbox:")
     {
         _redis = redis;
         _db = redis.GetDatabase();
         _batchOps = new RedisBatchOperations(redis);
+        _serializer = serializer;
         _logger = logger;
         _keyPrefix = keyPrefix;
     }
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     public async Task AddAsync(
         OutboxMessage message,
         CancellationToken cancellationToken = default)
     {
         var key = GetKey(message.MessageId);
-        var json = JsonSerializer.Serialize(message);
+        var bytes = _serializer.Serialize(message);
 
-        await _db.StringSetAsync(key, json);
+        await _db.StringSetAsync(key, bytes);
 
         // Add to pending set for efficient querying
         await _db.SortedSetAddAsync(
@@ -73,7 +78,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         {
             if (value != null)
             {
-                var message = JsonSerializer.Deserialize<OutboxMessage>(value);
+                var message = _serializer.Deserialize<OutboxMessage>(System.Text.Encoding.UTF8.GetBytes(value));
                 if (message != null &&
                     message.Status == OutboxStatus.Pending &&
                     message.RetryCount < message.MaxRetries)
@@ -85,27 +90,31 @@ public class OptimizedRedisOutboxStore : IOutboxStore
 
         return messages;
     }
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     public async Task MarkAsPublishedAsync(
         string messageId,
         CancellationToken cancellationToken = default)
     {
         var key = GetKey(messageId);
-        var json = await _db.StringGetAsync(key);
+        var bytes = await _db.StringGetAsync(key);
 
-        if (json.HasValue)
+        if (bytes.HasValue)
         {
-            var message = JsonSerializer.Deserialize<OutboxMessage>(json.ToString());
+            var message = _serializer.Deserialize<OutboxMessage>((byte[])bytes!);
             if (message != null)
             {
                 message.Status = OutboxStatus.Published;
 
-                await _db.StringSetAsync(key, JsonSerializer.Serialize(message));
+                await _db.StringSetAsync(key, _serializer.Serialize(message));
 
                 // Remove from pending set
                 await _db.SortedSetRemoveAsync(GetPendingSetKey(), messageId);
             }
         }
     }
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     public async Task MarkAsFailedAsync(
         string messageId,
         string errorMessage,
@@ -116,7 +125,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
 
         if (json.HasValue)
         {
-            var message = JsonSerializer.Deserialize<OutboxMessage>(json.ToString());
+            var message = _serializer.Deserialize<OutboxMessage>((byte[])json!);
             if (message != null)
             {
                 message.RetryCount++;
@@ -130,10 +139,12 @@ public class OptimizedRedisOutboxStore : IOutboxStore
                     await _db.SortedSetRemoveAsync(GetPendingSetKey(), messageId);
                 }
 
-                await _db.StringSetAsync(key, JsonSerializer.Serialize(message));
+                await _db.StringSetAsync(key, _serializer.Serialize(message));
             }
         }
     }
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     public async Task DeletePublishedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)
@@ -148,10 +159,10 @@ public class OptimizedRedisOutboxStore : IOutboxStore
 
         foreach (var key in allKeys)
         {
-            var json = await _db.StringGetAsync(key.ToString());
-            if (json.HasValue)
+            var bytes = await _db.StringGetAsync(key.ToString());
+            if (bytes.HasValue)
             {
-                var message = JsonSerializer.Deserialize<OutboxMessage>(json.ToString());
+                var message = _serializer.Deserialize<OutboxMessage>((byte[])bytes!);
                 if (message != null &&
                     message.Status == OutboxStatus.Published &&
                     message.PublishedAt.HasValue &&

@@ -1,27 +1,30 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Idempotency;
-using Catga.Persistence.Redis.Serialization;
+using Catga.Serialization;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis;
 
 /// <summary>
-/// Redis 幂等性存储 - 生产级高性能
+/// Redis idempotency store - production-grade high-performance (uses injected IMessageSerializer)
 /// </summary>
 public class RedisIdempotencyStore : IIdempotencyStore
 {
     private readonly IConnectionMultiplexer _redis;
+    private readonly IMessageSerializer _serializer;
     private readonly ILogger<RedisIdempotencyStore> _logger;
     private readonly string _keyPrefix;
     private readonly TimeSpan _defaultExpiry;
 
     public RedisIdempotencyStore(
         IConnectionMultiplexer redis,
+        IMessageSerializer serializer,
         ILogger<RedisIdempotencyStore> logger,
         RedisIdempotencyOptions? options = null)
     {
         _redis = redis;
+        _serializer = serializer;
         _logger = logger;
         _keyPrefix = options?.KeyPrefix ?? "idempotency:";
         _defaultExpiry = options?.Expiry ?? TimeSpan.FromHours(24);
@@ -36,6 +39,8 @@ public class RedisIdempotencyStore : IIdempotencyStore
     }
 
     /// <inheritdoc/>
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     public async Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]TResult>(
         string messageId,
         TResult? result = default,
@@ -49,16 +54,18 @@ public class RedisIdempotencyStore : IIdempotencyStore
             MessageId = messageId,
             ProcessedAt = DateTime.UtcNow,
             ResultType = result?.GetType().AssemblyQualifiedName,
-            ResultJson = result != null ? RedisJsonSerializer.Serialize(result) : null
+            ResultBytes = result != null ? _serializer.Serialize(result) : null
         };
 
-        var json = RedisJsonSerializer.Serialize(entry);
-        await db.StringSetAsync(key, json, _defaultExpiry);
+        var bytes = _serializer.Serialize(entry);
+        await db.StringSetAsync(key, bytes, _defaultExpiry);
 
         _logger.LogDebug("Marked message {MessageId} as processed in Redis", messageId);
     }
 
     /// <inheritdoc/>
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     public async Task<TResult?> GetCachedResultAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(
         string messageId,
         CancellationToken cancellationToken = default)
@@ -66,19 +73,19 @@ public class RedisIdempotencyStore : IIdempotencyStore
         var db = _redis.GetDatabase();
         var key = GetKey(messageId);
 
-        var json = await db.StringGetAsync(key);
-        if (!json.HasValue)
+        var bytes = await db.StringGetAsync(key);
+        if (!bytes.HasValue)
         {
             return default;
         }
 
-        var entry = RedisJsonSerializer.Deserialize<IdempotencyEntry>(json!);
-        if (entry?.ResultJson == null)
+        var entry = _serializer.Deserialize<IdempotencyEntry>((byte[])bytes!);
+        if (entry?.ResultBytes == null)
         {
             return default;
         }
 
-        // 验证类型匹配
+        // Verify type match
         var expectedType = typeof(TResult).AssemblyQualifiedName;
         if (entry.ResultType != expectedType)
         {
@@ -87,20 +94,20 @@ public class RedisIdempotencyStore : IIdempotencyStore
             return default;
         }
 
-        return RedisJsonSerializer.Deserialize<TResult>(entry.ResultJson);
+        return _serializer.Deserialize<TResult>(entry.ResultBytes);
     }
 
     private string GetKey(string messageId) => $"{_keyPrefix}{messageId}";
 
     /// <summary>
-    /// 幂等性条目
+    /// Idempotency entry
     /// </summary>
     private class IdempotencyEntry
     {
         public string MessageId { get; set; } = string.Empty;
         public DateTime ProcessedAt { get; set; }
         public string? ResultType { get; set; }
-        public string? ResultJson { get; set; }
+        public byte[]? ResultBytes { get; set; }
     }
 }
 

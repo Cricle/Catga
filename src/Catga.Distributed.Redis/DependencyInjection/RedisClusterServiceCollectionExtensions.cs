@@ -1,73 +1,43 @@
-using Catga.Distributed.Routing;
+using Catga.Transport;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
 namespace Catga.Distributed.Redis.DependencyInjection;
 
-/// <summary>Redis cluster service extensions</summary>
+/// <summary>
+/// Redis distributed messaging extensions
+/// <para>
+/// Relies on Redis for:
+/// - Redis Cluster: Automatic sharding and high availability
+/// - Redis Sentinel: Master-slave replication and failover
+/// - Streams/Pub-Sub: Message delivery and consumer groups
+/// </para>
+/// <para>
+/// Service discovery: Use K8s DNS, Consul, or Aspire
+/// </para>
+/// </summary>
 public static class RedisClusterServiceCollectionExtensions
 {
-    public static IServiceCollection AddRedisCluster(this IServiceCollection services, string redisConnectionString, string nodeId, string endpoint, string keyPrefix = "catga:nodes:", RoutingStrategyType routingStrategy = RoutingStrategyType.ConsistentHash, bool useSortedSet = true, bool useStreams = true)
+    public static IServiceCollection AddRedisDistributed(this IServiceCollection services, string connectionString)
     {
-        services.AddSingleton<IConnectionMultiplexer>(sp => ConnectionMultiplexer.Connect(redisConnectionString));
-        services.AddSingleton(new NodeInfo { NodeId = nodeId, Endpoint = endpoint, LastSeen = DateTime.UtcNow, Load = 0 });
+        services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(connectionString));
 
-        if (useSortedSet)
+        services.AddSingleton<IMessageTransport>(sp =>
         {
-            services.AddSingleton<INodeDiscovery>(sp =>
+            var connection = sp.GetRequiredService<IConnectionMultiplexer>();
+            var logger = sp.GetRequiredService<ILogger<RedisStreamTransport>>();
+            var options = new RedisStreamOptions
             {
-                var connection = sp.GetRequiredService<IConnectionMultiplexer>();
-                var logger = sp.GetRequiredService<ILogger<RedisSortedSetNodeDiscovery>>();
-                return new RedisSortedSetNodeDiscovery(connection, logger, sortedSetKey: keyPrefix, nodeTtl: TimeSpan.FromMinutes(5));
-            });
-        }
-        else
-        {
-            services.AddSingleton<INodeDiscovery>(sp =>
-            {
-                var connection = sp.GetRequiredService<IConnectionMultiplexer>();
-                var logger = sp.GetRequiredService<ILogger<RedisNodeDiscovery>>();
-                return new RedisNodeDiscovery(connection, logger, keyPrefix);
-            });
-        }
-
-        services.AddSingleton<IRoutingStrategy>(sp =>
-        {
-            var currentNode = sp.GetRequiredService<NodeInfo>();
-            return CreateRoutingStrategy(routingStrategy, currentNode.NodeId);
+                StreamKey = "catga:messages",
+                ConsumerGroup = "catga-group",
+                ConsumerId = Guid.NewGuid().ToString()
+            };
+            return new RedisStreamTransport(connection, logger, options);
         });
 
         services.AddSingleton<IDistributedMediator, DistributedMediator>();
-        services.AddHostedService<HeartbeatBackgroundService>();
-
-        if (useStreams)
-        {
-            services.AddSingleton<RedisStreamTransport>(sp =>
-            {
-                var connection = sp.GetRequiredService<IConnectionMultiplexer>();
-                var logger = sp.GetRequiredService<ILogger<RedisStreamTransport>>();
-                var options = new RedisStreamOptions
-                {
-                    StreamKey = "catga:messages",
-                    ConsumerGroup = $"group-{nodeId}",
-                    ConsumerId = nodeId
-                };
-                return new RedisStreamTransport(connection, logger, options);
-            });
-        }
 
         return services;
     }
-
-    private static IRoutingStrategy CreateRoutingStrategy(RoutingStrategyType type, string currentNodeId) => type switch
-    {
-        RoutingStrategyType.RoundRobin => new RoundRobinRoutingStrategy(),
-        RoutingStrategyType.ConsistentHash => new ConsistentHashRoutingStrategy(),
-        RoutingStrategyType.LoadBased => new LoadBasedRoutingStrategy(),
-        RoutingStrategyType.Random => new RandomRoutingStrategy(),
-        RoutingStrategyType.LocalFirst => new LocalFirstRoutingStrategy(currentNodeId),
-        _ => new ConsistentHashRoutingStrategy()
-    };
 }

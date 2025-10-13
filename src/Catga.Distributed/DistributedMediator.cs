@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Core;
-using Catga.Distributed.Routing;
 using Catga.Messages;
 using Catga.Results;
 using Catga.Transport;
@@ -8,59 +7,34 @@ using Microsoft.Extensions.Logging;
 
 namespace Catga.Distributed;
 
-/// <summary>Distributed Mediator with lock-free design and configurable routing</summary>
+/// <summary>
+/// Simplified Distributed Mediator - delegates distribution to infrastructure (NATS/Redis)
+/// <para>
+/// Design Philosophy:
+/// - Application layer focuses on CQRS message dispatch
+/// - Infrastructure (NATS JetStream/Redis Cluster) handles distribution, load balancing, and high availability
+/// - Service discovery delegated to K8s/Consul/Aspire
+/// </para>
+/// </summary>
 public sealed class DistributedMediator : IDistributedMediator
 {
     private readonly ICatgaMediator _localMediator;
     private readonly IMessageTransport _transport;
-    private readonly INodeDiscovery _discovery;
     private readonly ILogger<DistributedMediator> _logger;
-    private readonly NodeInfo _currentNode;
-    private readonly IRoutingStrategy _routingStrategy;
 
-    public DistributedMediator(ICatgaMediator localMediator, IMessageTransport transport, INodeDiscovery discovery, ILogger<DistributedMediator> logger, NodeInfo currentNode, IRoutingStrategy? routingStrategy = null)
+    public DistributedMediator(
+        ICatgaMediator localMediator,
+        IMessageTransport transport,
+        ILogger<DistributedMediator> logger)
     {
         _localMediator = localMediator;
         _transport = transport;
-        _discovery = discovery;
         _logger = logger;
-        _currentNode = currentNode;
-        _routingStrategy = routingStrategy ?? new RoundRobinRoutingStrategy();
     }
 
-    public Task<NodeInfo> GetCurrentNodeAsync(CancellationToken cancellationToken = default) => Task.FromResult(_currentNode);
-    public Task<IReadOnlyList<NodeInfo>> GetNodesAsync(CancellationToken cancellationToken = default) => _discovery.GetNodesAsync(cancellationToken);
-
+    // Delegate all Command/Query to local mediator (same process)
     public async ValueTask<CatgaResult<TResponse>> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
-    {
-        var localResult = await _localMediator.SendAsync<TRequest, TResponse>(request, cancellationToken);
-
-        // If local execution succeeded, return result
-        if (localResult.IsSuccess)
-            return localResult;
-
-        // If local execution failed, try routing to remote node
-        _logger.LogWarning("Local execution failed for {RequestType}, attempting remote routing: {Error}",
-            TypeNameCache<TRequest>.Name, localResult.Error);
-
-        var nodes = await GetNodesAsync(cancellationToken);
-        var remoteNodes = nodes.Where(n => n.NodeId != _currentNode.NodeId).ToList();
-        if (remoteNodes.Count == 0)
-        {
-            _logger.LogError("No remote nodes available for routing {RequestType}", TypeNameCache<TRequest>.Name);
-            return localResult; // Return original local failure
-        }
-
-        var targetNode = await _routingStrategy.SelectNodeAsync(remoteNodes, request, cancellationToken);
-        if (targetNode == null)
-        {
-            _logger.LogError("No suitable node found by routing strategy for {RequestType}", TypeNameCache<TRequest>.Name);
-            return localResult; // Return original local failure
-        }
-
-        _logger.LogInformation("Routing {RequestType} to remote node {NodeId}", TypeNameCache<TRequest>.Name, targetNode.NodeId);
-        return await SendToNodeAsync<TRequest, TResponse>(request, targetNode.NodeId, cancellationToken);
-    }
+        => await _localMediator.SendAsync<TRequest, TResponse>(request, cancellationToken);
 
     public async Task<CatgaResult> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest
         => await _localMediator.SendAsync(request, cancellationToken);
@@ -74,61 +48,26 @@ public sealed class DistributedMediator : IDistributedMediator
     public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(IReadOnlyList<TEvent> events, CancellationToken cancellationToken = default) where TEvent : IEvent
         => await _localMediator.PublishBatchAsync(events, cancellationToken);
 
-    public async Task<CatgaResult<TResponse>> SendToNodeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, string nodeId, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
-    {
-        var nodes = await GetNodesAsync(cancellationToken);
-        var targetNode = nodes.FirstOrDefault(n => n.NodeId == nodeId);
-        if (targetNode == null)
-            return CatgaResult<TResponse>.Failure($"Node {nodeId} not found");
-        var destination = $"{targetNode.Endpoint}/catga/messages/{TypeNameCache<TRequest>.Name}";
-        try
-        {
-            await _transport.SendAsync((object)request!, destination, cancellationToken: cancellationToken);
-            return CatgaResult<TResponse>.Success(default(TResponse)!);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send message to node {NodeId}", nodeId);
-            return CatgaResult<TResponse>.Failure($"Failed to send to node {nodeId}: {ex.Message}");
-        }
-    }
-
+    /// <summary>
+    /// Publish event: local first, then broadcast via message transport
+    /// Distribution handled by NATS JetStream (consumer groups) or Redis Streams/Pub-Sub
+    /// </summary>
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(TEvent @event, CancellationToken cancellationToken = default) where TEvent : IEvent
     {
-        // Publish locally and broadcast to remote nodes in parallel for better performance
-        var localTask = _localMediator.PublishAsync(@event, cancellationToken);
-        var broadcastTask = BroadcastAsync(@event, cancellationToken);
+        // Local publish first
+        await _localMediator.PublishAsync(@event, cancellationToken);
 
+        // Broadcast to other nodes via message transport (NATS/Redis)
+        // Infrastructure handles load balancing and delivery
+        var subject = $"catga.events.{TypeNameCache<TEvent>.Name}";
         try
         {
-            await Task.WhenAll(localTask, broadcastTask);
+            await _transport.SendAsync((object)@event!, subject, cancellationToken: cancellationToken);
+            _logger.LogDebug("Broadcasted event {EventType} to subject {Subject}", TypeNameCache<TEvent>.Name, subject);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during event publish/broadcast for {EventType}", TypeNameCache<TEvent>.Name);
-            throw;
+            _logger.LogWarning(ex, "Failed to broadcast event {EventType}", TypeNameCache<TEvent>.Name);
         }
-    }
-
-    public async Task BroadcastAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(TEvent @event, CancellationToken cancellationToken = default) where TEvent : IEvent
-    {
-        var nodes = await GetNodesAsync(cancellationToken);
-        var remoteNodes = nodes.Where(n => n.NodeId != _currentNode.NodeId).ToList();
-        if (remoteNodes.Count == 0)
-        {
-            _logger.LogDebug("No remote nodes for broadcast");
-            return;
-        }
-        var tasks = remoteNodes.Select(async node =>
-        {
-            try
-            {
-                var destination = $"{node.Endpoint}/catga/events/{TypeNameCache<TEvent>.Name}";
-                await _transport.SendAsync((object)@event!, destination, cancellationToken: cancellationToken);
-                _logger.LogDebug("Broadcasted event to node {NodeId}", node.NodeId);
-            }
-            catch (Exception ex) { _logger.LogWarning(ex, "Failed to broadcast to node {NodeId}", node.NodeId); }
-        });
-        await Task.WhenAll(tasks);
     }
 }

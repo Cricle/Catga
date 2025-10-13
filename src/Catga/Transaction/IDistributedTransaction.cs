@@ -4,7 +4,7 @@ using Catga.Messages;
 namespace Catga.Transaction;
 
 /// <summary>Catga Distributed Transaction - declarative, event-driven, auto-compensating</summary>
-public interface IDistributedTransaction<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TContext> 
+public interface IDistributedTransaction<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TContext>
     where TContext : class
 {
     /// <summary>Transaction ID (for tracking and idempotency)</summary>
@@ -18,7 +18,7 @@ public interface IDistributedTransaction<[DynamicallyAccessedMembers(Dynamically
 }
 
 /// <summary>Transaction builder - fluent API for defining transaction steps</summary>
-public interface ITransactionBuilder<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TContext> 
+public interface ITransactionBuilder<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TContext>
     where TContext : class
 {
     /// <summary>Execute a command and wait for completion event</summary>

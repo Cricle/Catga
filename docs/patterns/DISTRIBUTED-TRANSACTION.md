@@ -29,7 +29,7 @@ public class OrderContext
 {
     public required string OrderId { get; init; }
     public required string CustomerId { get; init; }
-    
+
     // Populated during execution
     public string? ReservationId { get; set; }
     public string? PaymentId { get; set; }
@@ -53,7 +53,7 @@ public class OrderTransaction : IDistributedTransaction<OrderContext>
                 (ctx, evt) => { ctx.ReservationId = evt.ReservationId; return ctx; })
             .CompensateWith<ReleaseInventoryCommand>(
                 ctx => new ReleaseInventoryCommand { ReservationId = ctx.ReservationId })
-            
+
             .Execute<ChargePaymentCommand, PaymentChargedEvent>(...)
             .CompensateWith<RefundPaymentCommand>(...);
     }
@@ -115,7 +115,7 @@ public class OrderTransaction : IDistributedTransaction<OrderContext>
                 MessageId = Guid.NewGuid().ToString(),
                 ReservationId = ctx.ReservationId!
             })
-            
+
             // Step 2: Charge Payment
             .Execute<ChargePaymentCommand, PaymentChargedEvent>(
                 ctx => new ChargePaymentCommand
@@ -301,13 +301,13 @@ public class ReserveInventoryHandler : IRequestHandler<ReserveInventoryCommand>
         // Check if already processed (via MessageId)
         if (await _idempotencyStore.HasBeenProcessedAsync(request.MessageId))
             return CatgaResult.Success();
-        
+
         // Execute
         var result = await _service.ReserveAsync(...);
-        
+
         // Mark as processed
         await _idempotencyStore.MarkAsProcessedAsync(request.MessageId);
-        
+
         return result;
     }
 }
@@ -335,7 +335,7 @@ public class ReserveInventoryHandler : IRequestHandler<ReserveInventoryCommand>
     // Always check if compensation is needed
     if (string.IsNullOrEmpty(ctx.PaymentId))
         return null; // Skip compensation
-    
+
     return new RefundPaymentCommand
     {
         MessageId = Guid.NewGuid().ToString(),

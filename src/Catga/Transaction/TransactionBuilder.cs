@@ -4,7 +4,7 @@ using Catga.Messages;
 namespace Catga.Transaction;
 
 /// <summary>Transaction step - represents a single operation in the transaction</summary>
-internal abstract class TransactionStep<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TContext> 
+internal abstract class TransactionStep<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TContext>
     where TContext : class
 {
     public abstract Task<StepResult> ExecuteAsync(
@@ -32,7 +32,7 @@ internal readonly struct StepResult
 }
 
 /// <summary>Command execution step</summary>
-internal sealed class CommandStep<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TContext, TCommand, TEvent> 
+internal sealed class CommandStep<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TContext, TCommand, TEvent>
     : TransactionStep<TContext>
     where TContext : class
     where TCommand : ICommand
@@ -105,7 +105,7 @@ internal sealed class CommandStep<[DynamicallyAccessedMembers(DynamicallyAccesse
 }
 
 /// <summary>Fire-and-forget step</summary>
-internal sealed class FireStep<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TContext, TCommand> 
+internal sealed class FireStep<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TContext, TCommand>
     : TransactionStep<TContext>
     where TContext : class
     where TCommand : ICommand
@@ -134,7 +134,7 @@ internal sealed class FireStep<[DynamicallyAccessedMembers(DynamicallyAccessedMe
 }
 
 /// <summary>Transaction builder implementation</summary>
-internal sealed class TransactionBuilder<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TContext> 
+internal sealed class TransactionBuilder<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TContext>
     : ITransactionBuilder<TContext>
     where TContext : class
 {

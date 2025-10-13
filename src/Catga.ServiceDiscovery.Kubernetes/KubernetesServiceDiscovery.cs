@@ -31,7 +31,7 @@ public class KubernetesServiceDiscovery : IDisposable
         try
         {
             var service = await _client.CoreV1.ReadNamespacedServiceAsync(serviceName, _namespace, cancellationToken: cancellationToken);
-            
+
             // Return K8s DNS name
             return $"{serviceName}.{_namespace}.svc.cluster.local:{service.Spec.Ports[0].Port}";
         }

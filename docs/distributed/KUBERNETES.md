@@ -70,7 +70,7 @@ services:
     port: 8080
     env:
       NATS_URL: "nats://nats:4222"
-      
+
   inventory:
     image: inventory-service:latest
     replicas: 3
@@ -247,8 +247,8 @@ var natsUrl = builder.Configuration["NATS_URL"] ?? "nats://nats:4222";
 
 builder.Services.AddSingleton<INatsConnection>(sp =>
 {
-    var opts = NatsOpts.Default with 
-    { 
+    var opts = NatsOpts.Default with
+    {
         Url = natsUrl,
         Name = Environment.GetEnvironmentVariable("HOSTNAME") // K8s Pod 名称
     };
@@ -493,7 +493,7 @@ lifetime.ApplicationStopping.Register(async () =>
     // 停止接收新消息
     var mediator = app.Services.GetRequiredService<IDistributedMediator>();
     await mediator.StopAsync();
-    
+
     // 等待现有消息处理完成
     await Task.Delay(TimeSpan.FromSeconds(5));
 });
@@ -556,7 +556,7 @@ env | grep NATS
    # 检查 NATS Service
    kubectl get svc nats
    kubectl describe svc nats
-   
+
    # 检查 NATS Pods
    kubectl get pods -l app=nats
    ```
@@ -591,12 +591,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Build Docker Image
       run: |
         docker build -t ${{ secrets.REGISTRY }}/order-service:${{ github.sha }} .
         docker push ${{ secrets.REGISTRY }}/order-service:${{ github.sha }}
-    
+
     - name: Deploy to Kubernetes
       run: |
         kubectl set image deployment/order-service \

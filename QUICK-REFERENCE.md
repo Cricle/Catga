@@ -1,356 +1,608 @@
 # Catga 快速参考
 
-## 🚀 5分钟快速开始
+> 5分钟从零到上手 Catga 🚀
 
-### 1. 安装
-
-```bash
-dotnet add package Catga.InMemory
-dotnet add package Catga.SourceGenerator
-```
-
-### 2. 定义消息
-
-```csharp
-// Command (有返回值)
-public record CreateOrderCommand(string OrderId, decimal Amount)
-    : IRequest<OrderResult>;
-
-// Event (无返回值)
-public record OrderCreatedEvent(string OrderId, DateTime CreatedAt)
-    : INotification;
-```
-
-### 3. 编写 Handler
-
-```csharp
-public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResult>
-{
-    public async Task<CatgaResult<OrderResult>> Handle(
-        CreateOrderCommand request,
-        CancellationToken cancellationToken)
-    {
-        // 业务逻辑
-        return CatgaResult<OrderResult>.Success(new OrderResult());
-    }
-}
-```
-
-### 4. 配置服务
-
-```csharp
-services.AddCatga()
-    .UseInMemoryTransport()
-    .AddGeneratedHandlers();  // 使用源生成器，AOT 友好
-```
-
-### 5. 使用
-
-```csharp
-var mediator = serviceProvider.GetRequiredService<IMediator>();
-
-// 发送 Command
-var result = await mediator.SendAsync(
-    new CreateOrderCommand("ORD-001", 99.99m));
-
-// 发布 Event
-await mediator.PublishAsync(
-    new OrderCreatedEvent("ORD-001", DateTime.UtcNow));
-```
-
-✅ **完成！3行配置，开始使用**
+[返回主文档](./README.md)
 
 ---
 
-## 📊 常用场景
+## 📦 安装
 
-### CQRS 模式
+```bash
+# Core packages (required)
+dotnet add package Catga.InMemory
+dotnet add package Catga.SourceGenerator
 
-```csharp
-// Command: 修改状态
-public record UpdateUserCommand(string UserId, string Name) : IRequest<bool>;
+# Optional: ASP.NET Core integration
+dotnet add package Catga.AspNetCore
 
-// Query: 只读查询
-public record GetUserQuery(string UserId) : IRequest<UserDto>;
+# Optional: Distributed (choose one)
+dotnet add package Catga.Transport.Nats
+dotnet add package Catga.Distributed.Redis
 
-// Event: 领域事件
-public record UserUpdatedEvent(string UserId) : INotification;
+# Optional: Persistence
+dotnet add package Catga.Persistence.Redis
+
+# Optional: Serialization (for AOT)
+dotnet add package Catga.Serialization.MemoryPack
 ```
 
-### Pipeline 行为
+---
+
+## 🎯 核心概念
+
+### 消息类型
 
 ```csharp
-// 自定义 Behavior
-public class LoggingBehavior<TRequest, TResponse>
-    : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
+// Command - Has return value, modifies state
+public record CreateOrder(string OrderId, decimal Amount) : IRequest<OrderResult>;
+
+// Query - Has return value, read-only
+public record GetOrder(string OrderId) : IRequest<Order>;
+
+// Event - No return value, notification
+public record OrderCreated(string OrderId, DateTime CreatedAt) : IEvent;
+```
+
+### Handler 实现
+
+```csharp
+// Request Handler (Command/Query)
+public class CreateOrderHandler : IRequestHandler<CreateOrder, OrderResult>
 {
-    public async Task<CatgaResult<TResponse>> Handle(
-        TRequest request,
-        RequestHandlerDelegate<TResponse> next,
-        CancellationToken cancellationToken)
+    public async ValueTask<CatgaResult<OrderResult>> HandleAsync(
+        CreateOrder request,
+        CancellationToken cancellationToken = default)
     {
-        // 前置处理
-        Console.WriteLine($"Processing: {typeof(TRequest).Name}");
-
-        var result = await next();
-
-        // 后置处理
-        Console.WriteLine($"Completed: {result.IsSuccess}");
-
-        return result;
+        // Business logic
+        var result = new OrderResult(request.OrderId, Success: true);
+        return CatgaResult<OrderResult>.Success(result);
     }
 }
 
-// 注册
-services.AddCatga()
-    .AddBehavior(typeof(LoggingBehavior<,>));
+// Event Handler
+public class OrderCreatedHandler : IEventHandler<OrderCreated>
+{
+    public async Task HandleAsync(OrderCreated @event, CancellationToken cancellationToken = default)
+    {
+        Console.WriteLine($"Order {@event.OrderId} created");
+    }
+}
 ```
 
-### 分布式消息
+---
+
+## ⚙️ 配置
+
+### 基础配置
 
 ```csharp
-// NATS
-services.AddCatga()
-    .UseNatsTransport("nats://localhost:4222")
-    .AddGeneratedHandlers();
+var builder = WebApplication.CreateBuilder(args);
 
-// Redis
-services.AddCatga()
-    .UseRedisTransport("localhost:6379")
-    .AddGeneratedHandlers();
+// Add Catga services
+builder.Services.AddCatga()
+    .AddCatgaInMemoryTransport()      // In-memory message transport
+    .AddCatgaInMemoryPersistence();   // In-memory persistence
+
+var app = builder.Build();
+app.Run();
 ```
 
-### RPC 调用
+### Pipeline Behaviors
 
 ```csharp
-// 服务端
-services.AddCatgaRpcServer(options =>
+builder.Services.AddCatga()
+    .AddCatgaInMemoryTransport()
+    .AddCatgaInMemoryPersistence()
+    .AddPipelineBehavior<LoggingBehavior<,>>()
+    .AddPipelineBehavior<ValidationBehavior<,>>()
+    .AddPipelineBehavior<TracingBehavior<,>>();
+```
+
+### 幂等性
+
+```csharp
+// Option 1: ShardedIdempotencyStore (high performance)
+builder.Services.AddCatga()
+    .UseShardedIdempotencyStore(options =>
+    {
+        options.ShardCount = 32;
+        options.RetentionPeriod = TimeSpan.FromHours(24);
+    });
+
+// Option 2: Redis (distributed)
+builder.Services.AddCatga()
+    .UseRedisIdempotencyStore(options =>
+    {
+        options.ConnectionString = "localhost:6379";
+        options.KeyPrefix = "idempotency:";
+    });
+```
+
+---
+
+## 🚀 使用
+
+### 发送 Command/Query
+
+```csharp
+public class OrderService
+{
+    private readonly ICatgaMediator _mediator;
+
+    public OrderService(ICatgaMediator mediator) => _mediator = mediator;
+
+    public async Task<OrderResult> CreateOrderAsync(string orderId, decimal amount)
+    {
+        // Send Command
+        var result = await _mediator.SendAsync<CreateOrder, OrderResult>(
+            new CreateOrder(orderId, amount));
+
+        if (!result.IsSuccess)
+            throw new Exception(result.Error);
+
+        return result.Value!;
+    }
+
+    public async Task<Order?> GetOrderAsync(string orderId)
+    {
+        // Send Query
+        var result = await _mediator.SendAsync<GetOrder, Order>(
+            new GetOrder(orderId));
+
+        return result.IsSuccess ? result.Value : null;
+    }
+}
+```
+
+### 发布 Event
+
+```csharp
+public class OrderService
+{
+    private readonly ICatgaMediator _mediator;
+
+    public async Task NotifyOrderCreatedAsync(string orderId)
+    {
+        // Publish Event (fire-and-forget)
+        await _mediator.PublishAsync(new OrderCreated(orderId, DateTime.UtcNow));
+    }
+}
+```
+
+---
+
+## 🌐 分布式
+
+### NATS Transport
+
+```csharp
+builder.Services.AddCatga()
+    .UseNatsTransport(options =>
+    {
+        options.Url = "nats://localhost:4222";
+        options.SubjectPrefix = "catga.";
+    });
+```
+
+### Redis Transport
+
+```csharp
+builder.Services.AddCatga()
+    .UseRedisTransport(options =>
+    {
+        options.ConnectionString = "localhost:6379";
+        options.StreamName = "catga-messages";
+    });
+```
+
+### Node Discovery (NATS)
+
+```csharp
+builder.Services.AddCatga()
+    .UseNatsNodeDiscovery(options =>
+    {
+        options.NodeName = "order-service-1";
+        options.HeartbeatInterval = TimeSpan.FromSeconds(5);
+        options.NodeMetadata = new Dictionary<string, string>
+        {
+            ["Version"] = "1.0.0",
+            ["Region"] = "us-west"
+        };
+    });
+```
+
+---
+
+## 📞 RPC
+
+### Server
+
+```csharp
+builder.Services.AddCatgaRpcServer(options =>
 {
     options.ServiceName = "order-service";
     options.Port = 5001;
 });
+```
 
-// 客户端
-var client = serviceProvider.GetRequiredService<IRpcClient>();
-var result = await client.CallAsync<GetUserQuery, UserDto>(
-    "user-service",
-    new GetUserQuery("user-123"));
+### Client
+
+```csharp
+// Add client
+builder.Services.AddCatgaRpcClient();
+
+// Use client
+public class OrderService
+{
+    private readonly IRpcClient _rpcClient;
+
+    public async Task<UserDto> GetUserAsync(string userId)
+    {
+        var result = await _rpcClient.CallAsync<GetUser, UserDto>(
+            serviceName: "user-service",
+            request: new GetUser(userId));
+
+        return result.IsSuccess ? result.Value! : throw new Exception(result.Error);
+    }
+}
 ```
 
 ---
 
-## ⚡ Native AOT 配置
+## 🔥 Native AOT
 
-### 快速 AOT (MemoryPack)
-
-```xml
-<!-- .csproj -->
-<PublishAot>true</PublishAot>
-```
+### MemoryPack (推荐)
 
 ```csharp
-// 消息定义
+// 1. Install packages
+// dotnet add package Catga.Serialization.MemoryPack
+// dotnet add package MemoryPack
+// dotnet add package MemoryPack.Generator
+
+// 2. Mark messages
 [MemoryPackable]
-public partial record CreateOrderCommand(string OrderId) : IRequest<bool>;
+public partial record CreateOrder(string OrderId, decimal Amount) : IRequest<OrderResult>;
 
-// 配置
-services.AddCatga()
-    .UseMemoryPackSerializer()  // 零配置 AOT
-    .AddGeneratedHandlers();
-```
+[MemoryPackable]
+public partial record OrderResult(string OrderId, bool Success);
 
-### 发布
-
-```bash
-dotnet publish -c Release -r win-x64
-# 输出: ~8MB, 启动 <50ms
-```
-
----
-
-## 🎯 性能优化清单
-
-### ✅ 必做
-
-- [x] 使用 `AddGeneratedHandlers()` 而不是 `ScanHandlers()`
-- [x] 使用 `ShardedIdempotencyStore` 而不是 `MemoryIdempotencyStore`
-- [x] 使用 MemoryPack 或配置 JsonSerializerContext
-
-### ⚡ 推荐
-
-- [ ] 启用 `PublishAot=true`
-- [ ] 使用 `ValueTask` 而不是 `Task`
-- [ ] 避免闭包和装箱
-- [ ] 使用对象池复用对象
-
-### 📊 基准测试
-
-```bash
-dotnet run -c Release --project benchmarks/Catga.Benchmarks
-```
-
----
-
-## 🔧 常用配置
-
-### 完整配置示例
-
-```csharp
-services.AddCatga(options =>
-{
-    options.DefaultTimeout = TimeSpan.FromSeconds(30);
-    options.EnableMetrics = true;
-})
-.UseInMemoryTransport()
-.UseShardedIdempotencyStore(options =>
-{
-    options.ShardCount = 16;
-    options.RetentionPeriod = TimeSpan.FromHours(24);
-})
-.UseMemoryPackSerializer()
-.AddBehavior<LoggingBehavior>()
-.AddBehavior<ValidationBehavior>()
-.AddBehavior<TransactionBehavior>()
-.AddGeneratedHandlers();
-```
-
-### ASP.NET Core 集成
-
-```csharp
-// Program.cs
+// 3. Configure
 builder.Services.AddCatga()
-    .UseInMemoryTransport()
-    .AddGeneratedHandlers();
+    .UseMemoryPackSerializer()
+    .AddCatgaInMemoryTransport();
 
-// 映射端点
-app.MapCatgaEndpoints();  // 自动映射所有 Handler
+// 4. Publish
+// dotnet publish -c Release -r win-x64 --property:PublishAot=true
 ```
 
----
-
-## 🐛 常见问题
-
-### Q: Handler 没有被调用？
-
-**检查清单**:
-1. ✅ Handler 是否注册？ `AddGeneratedHandlers()` 或 `AddHandler<>`
-2. ✅ 消息类型是否匹配？ `IRequest<TResponse>` vs `INotification`
-3. ✅ 是否在同一服务容器？
-
-### Q: AOT 发布出现警告？
-
-**解决方案**:
-```csharp
-// ❌ 避免反射
-services.AddCatga().ScanHandlers();
-
-// ✅ 使用源生成器
-services.AddCatga().AddGeneratedHandlers();
-```
-
-### Q: 性能不如预期？
-
-**优化步骤**:
-1. 检查是否启用 Release 模式
-2. 使用 `AddGeneratedHandlers()`
-3. 使用 MemoryPack 序列化
-4. 运行基准测试对比
-
----
-
-## 📚 文档链接
-
-| 主题 | 文档 |
-|------|------|
-| 反射优化 | [REFLECTION_OPTIMIZATION_SUMMARY.md](./REFLECTION_OPTIMIZATION_SUMMARY.md) |
-| AOT 序列化 | [docs/aot/serialization-aot-guide.md](./docs/aot/serialization-aot-guide.md) |
-| AOT 发布 | [docs/deployment/native-aot-publishing.md](./docs/deployment/native-aot-publishing.md) |
-| 源生成器 | [docs/guides/source-generator-usage.md](./docs/guides/source-generator-usage.md) |
-| 更新日志 | [CHANGELOG-REFLECTION-OPTIMIZATION.md](./CHANGELOG-REFLECTION-OPTIMIZATION.md) |
-| 完整文档 | [README.md](./README.md) |
-
----
-
-## 🎯 性能数据
-
-| 操作 | 延迟 | 吞吐量 | 分配 |
-|------|------|--------|------|
-| Send Command | ~5ns | 200M ops/s | 0 B |
-| Publish Event | ~10ns | 100M ops/s | 0 B |
-| RPC Call | ~50ns | 20M ops/s | 32 B |
-| Handler 注册 | 0.5ms | - | 0 B |
-
-**Native AOT vs 传统 .NET**:
-- 启动时间: **24x 更快**
-- 文件大小: **8.5x 更小**
-- 内存占用: **7x 更少**
-
----
-
-## 🌟 推荐阅读顺序
-
-1. **入门**: 本文档 (5分钟)
-2. **配置**: [README.md](./README.md) (15分钟)
-3. **AOT**: [serialization-aot-guide.md](./docs/aot/serialization-aot-guide.md) (10分钟)
-4. **发布**: [native-aot-publishing.md](./docs/deployment/native-aot-publishing.md) (15分钟)
-5. **优化**: [REFLECTION_OPTIMIZATION_SUMMARY.md](./REFLECTION_OPTIMIZATION_SUMMARY.md) (10分钟)
-
-**总计**: ~1小时从零到精通
-
----
-
-## 💡 最佳实践
-
-### DO ✅
+### System.Text.Json Source Generation
 
 ```csharp
-// 使用 Record
-public record CreateUserCommand(string Name) : IRequest<Guid>;
+// 1. Define JsonSerializerContext
+[JsonSourceGenerationOptions(WriteIndented = false)]
+[JsonSerializable(typeof(CreateOrder))]
+[JsonSerializable(typeof(OrderResult))]
+public partial class AppJsonContext : JsonSerializerContext { }
 
-// 使用源生成器
-services.AddCatga().AddGeneratedHandlers();
-
-// 使用 MemoryPack
-[MemoryPackable]
-public partial record UserDto { }
-
-// 返回 CatgaResult
-return CatgaResult<Guid>.Success(userId);
+// 2. Configure
+builder.Services.AddCatga()
+    .UseJsonSerializer(options =>
+    {
+        options.JsonSerializerContext = AppJsonContext.Default;
+    })
+    .AddCatgaInMemoryTransport();
 ```
 
-### DON'T ❌
+---
+
+## 🎨 ASP.NET Core
+
+### 集成
 
 ```csharp
-// 不要用反射扫描 (AOT 不兼容)
-services.AddCatga().ScanHandlers();
+builder.Services.AddCatgaAspNetCore(options =>
+{
+    options.EnableDashboard = true;
+    options.DashboardPathPrefix = "/catga";
+});
 
-// 不要直接抛异常 (使用 CatgaResult)
-throw new Exception("User not found");
+var app = builder.Build();
 
-// 不要在生产用测试实现
-.UseMemoryIdempotencyStore()  // 仅测试用
+// Map endpoints
+app.MapCatgaEndpoints();
 
-// 不要忘记处理失败
-if (result.IsSuccess) { /* ... */ }
-// ❌ 没有处理 IsFailure 的情况
+app.Run();
+```
+
+### 生成的端点
+
+- `POST /catga/command/{Name}` - Send Command
+- `POST /catga/query/{Name}` - Send Query
+- `POST /catga/event/{Name}` - Publish Event
+- `GET /catga/health` - Health check
+- `GET /catga/nodes` - Node list
+
+### 自定义端点
+
+```csharp
+app.MapPost("/orders", async (CreateOrder command, ICatgaMediator mediator) =>
+{
+    var result = await mediator.SendAsync<CreateOrder, OrderResult>(command);
+    return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
+})
+.WithCatgaCommandMetadata<CreateOrder, OrderResult>()
+.WithOpenApi();
 ```
 
 ---
 
-## 🚀 下一步
+## 📊 可观测性
 
-1. **基础**: 完成快速开始教程
-2. **进阶**: 学习 Pipeline 和 Behavior
-3. **分布式**: 配置 NATS 或 Redis
-4. **优化**: 启用 Native AOT 发布
-5. **监控**: 集成指标和追踪
+### OpenTelemetry
 
-**开始构建高性能微服务！** 🎉
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing
+        .AddSource(CatgaDiagnostics.ActivitySourceName)
+        .AddConsoleExporter())
+    .WithMetrics(metrics => metrics
+        .AddMeter(CatgaDiagnostics.MeterName)
+        .AddConsoleExporter());
+```
+
+### 结构化日志
+
+```csharp
+// LoggerMessage is auto-generated, zero allocation
+CatgaLog.CommandExecuting(logger, "CreateOrder", messageId, correlationId);
+CatgaLog.CommandExecuted(logger, "CreateOrder", messageId, durationMs, isSuccess);
+```
 
 ---
 
-**版本**: Catga v1.0
-**更新**: 2024-10-12
-**更多**: [GitHub](https://github.com/Cricle/Catga) | [文档](./README.md)
+## 🛠️ Pipeline
 
+### 自定义 Behavior
+
+```csharp
+public class ValidationBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TResponse>
+    where TRequest : IRequest<TResponse>
+{
+    private readonly IValidator<TRequest> _validator;
+
+    public ValidationBehavior(IValidator<TRequest> validator, ILogger logger)
+        : base(logger) => _validator = validator;
+
+    public override async ValueTask<CatgaResult<TResponse>> HandleAsync(
+        TRequest request,
+        PipelineDelegate<TResponse> next,
+        CancellationToken cancellationToken = default)
+    {
+        // Validate
+        var validationResult = await _validator.ValidateAsync(request, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
+            return CatgaResult<TResponse>.Failure(errors);
+        }
+
+        // Continue pipeline
+        return await next();
+    }
+}
+
+// Register
+builder.Services.AddCatga()
+    .AddPipelineBehavior<ValidationBehavior<,>>();
+```
+
+### 内置 Behaviors
+
+Catga 提供以下内置 Behaviors：
+
+- `LoggingBehavior<,>` - 结构化日志记录
+- `TracingBehavior<,>` - 分布式追踪
+- `IdempotencyBehavior<,>` - 幂等性保证
+- `InboxBehavior<,>` - Inbox 模式
+- `OutboxBehavior<,>` - Outbox 模式
+
+---
+
+## 🧪 测试
+
+### 单元测试
+
+```csharp
+[Fact]
+public async Task CreateOrder_Should_ReturnSuccess()
+{
+    // Arrange
+    var services = new ServiceCollection();
+    services.AddCatga()
+        .AddCatgaInMemoryTransport()
+        .AddCatgaInMemoryPersistence();
+
+    services.AddTransient<IRequestHandler<CreateOrder, OrderResult>, CreateOrderHandler>();
+
+    var provider = services.BuildServiceProvider();
+    var mediator = provider.GetRequiredService<ICatgaMediator>();
+
+    // Act
+    var result = await mediator.SendAsync<CreateOrder, OrderResult>(
+        new CreateOrder("ORD-001", 99.99m));
+
+    // Assert
+    Assert.True(result.IsSuccess);
+    Assert.Equal("ORD-001", result.Value!.OrderId);
+}
+```
+
+---
+
+## 📖 常用模式
+
+### Result 处理
+
+```csharp
+// Success
+return CatgaResult<OrderResult>.Success(result);
+return CatgaResult<OrderResult>.Success(result, metadata);
+
+// Failure
+return CatgaResult<OrderResult>.Failure("Error message");
+return CatgaResult<OrderResult>.Failure("Error", exception);
+
+// Check result
+if (result.IsSuccess)
+{
+    var value = result.Value;
+}
+else
+{
+    var error = result.Error;
+    var exception = result.Exception;
+}
+```
+
+### 消息 ID 和关联 ID
+
+```csharp
+// Command with MessageId
+public record CreateOrder(string OrderId, decimal Amount) : IRequest<OrderResult>, IMessage
+{
+    public string MessageId { get; init; } = Guid.NewGuid().ToString();
+    public string? CorrelationId { get; init; }
+}
+
+// Send with correlation ID
+var command = new CreateOrder("ORD-001", 99.99m)
+{
+    CorrelationId = HttpContext.TraceIdentifier
+};
+
+var result = await mediator.SendAsync<CreateOrder, OrderResult>(command);
+```
+
+### QoS (Quality of Service)
+
+```csharp
+public record CreateOrder(...) : IRequest<OrderResult>, IMessage
+{
+    // QoS options
+    public QualityOfService QoS { get; init; } = QualityOfService.AtLeastOnce;
+    public DeliveryMode DeliveryMode { get; init; } = DeliveryMode.WaitForResult;
+}
+```
+
+**QoS Levels:**
+- `AtMostOnce` - Fire-and-forget
+- `AtLeastOnce` - Retry until success (default)
+- `ExactlyOnce` - Idempotent, only once
+
+**Delivery Modes:**
+- `WaitForResult` - Wait for completion
+- `AsyncRetry` - Background with retry
+
+---
+
+## 🔍 调试
+
+### 启用详细日志
+
+```csharp
+builder.Logging.SetMinimumLevel(LogLevel.Debug);
+builder.Logging.AddFilter("Catga", LogLevel.Trace);
+```
+
+### 查看 Activity
+
+```csharp
+using var activity = CatgaDiagnostics.ActivitySource.StartActivity("MyOperation");
+activity?.SetTag("order_id", orderId);
+activity?.SetTag("amount", amount);
+```
+
+### 查看 Metrics
+
+```csharp
+// Commands executed
+CatgaDiagnostics.CommandsExecuted.Add(1, new("command_type", "CreateOrder"));
+
+// Message duration
+CatgaDiagnostics.MessageDuration.Record(durationMs, new("message_type", "CreateOrder"));
+```
+
+---
+
+## 🚀 生产部署
+
+### Docker
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+WORKDIR /app
+EXPOSE 8080
+
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY . .
+RUN dotnet restore
+RUN dotnet build -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish -c Release -o /app/publish
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "YourApp.dll"]
+```
+
+### Native AOT Docker
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY . .
+RUN dotnet restore
+RUN dotnet publish -c Release -r linux-x64 --property:PublishAot=true -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/runtime-deps:9.0 AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+ENTRYPOINT ["./YourApp"]
+```
+
+### 健康检查
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddCheck("catga", () =>
+    {
+        // Check Catga health
+        return HealthCheckResult.Healthy("Catga is running");
+    });
+
+app.MapHealthChecks("/health");
+```
+
+---
+
+## 📚 更多资源
+
+- [完整文档](./README.md#-文档)
+- [示例项目](./examples/)
+- [架构设计](./docs/architecture/ARCHITECTURE.md)
+- [性能基准](./benchmarks/Catga.Benchmarks/)
+- [贡献指南](./CONTRIBUTING.md)
+
+---
+
+<div align="center">
+
+[返回主文档](./README.md) · [查看示例](./examples/) · [性能数据](./README.md#-性能基准)
+
+**Happy coding with Catga!** 🚀
+
+</div>

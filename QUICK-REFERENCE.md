@@ -42,7 +42,7 @@ builder.Services
 ```csharp
 builder.Services
     .AddCatga()
-    .AddNatsTransport(options => 
+    .AddNatsTransport(options =>
     {
         options.Url = "nats://localhost:4222";
         options.SubjectPrefix = "myapp";
@@ -65,7 +65,7 @@ using Catga.Messages;
 using Catga.Results;
 
 [MemoryPackable]
-public partial record CreateOrder(string OrderId, decimal Amount) 
+public partial record CreateOrder(string OrderId, decimal Amount)
     : ICommand<CatgaResult<OrderCreated>>;
 
 [MemoryPackable]
@@ -76,7 +76,7 @@ public partial record OrderCreated(string OrderId, DateTime CreatedAt);
 
 ```csharp
 [MemoryPackable]
-public partial record GetOrderById(string OrderId) 
+public partial record GetOrderById(string OrderId)
     : IQuery<CatgaResult<OrderDetail>>;
 
 [MemoryPackable]
@@ -87,7 +87,7 @@ public partial record OrderDetail(string OrderId, decimal Amount, string Status)
 
 ```csharp
 [MemoryPackable]
-public partial record OrderCreatedEvent(string OrderId, DateTime OccurredAt) 
+public partial record OrderCreatedEvent(string OrderId, DateTime OccurredAt)
     : IEvent;
 ```
 
@@ -111,14 +111,14 @@ public partial record ImportantCommand(string Data) : ICommand<CatgaResult<bool>
 ### Command Handler
 
 ```csharp
-public class CreateOrderHandler 
+public class CreateOrderHandler
     : IRequestHandler<CreateOrder, CatgaResult<OrderCreated>>
 {
     private readonly ILogger<CreateOrderHandler> _logger;
     private readonly IOrderRepository _repository;
 
     public CreateOrderHandler(
-        ILogger<CreateOrderHandler> logger, 
+        ILogger<CreateOrderHandler> logger,
         IOrderRepository repository)
     {
         _logger = logger;
@@ -126,14 +126,14 @@ public class CreateOrderHandler
     }
 
     public async ValueTask<CatgaResult<OrderCreated>> HandleAsync(
-        CreateOrder request, 
+        CreateOrder request,
         CancellationToken cancellationToken)
     {
         try
         {
             // 业务逻辑
             await _repository.CreateAsync(request.OrderId, request.Amount);
-            
+
             var result = new OrderCreated(request.OrderId, DateTime.UtcNow);
             return CatgaResult<OrderCreated>.Success(result);
         }
@@ -159,7 +159,7 @@ public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent>
     }
 
     public async ValueTask HandleAsync(
-        OrderCreatedEvent @event, 
+        OrderCreatedEvent @event,
         CancellationToken cancellationToken)
     {
         // Event handler 不返回值
@@ -212,7 +212,7 @@ public class OrderController : ControllerBase
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
     {
         var command = new CreateOrder(Guid.NewGuid().ToString(), request.Amount);
-        
+
         // 发送 Command
         var result = await _mediator.SendAsync<CreateOrder, OrderCreated>(command);
 
@@ -220,7 +220,7 @@ public class OrderController : ControllerBase
         {
             return Ok(result.Value);
         }
-        
+
         return BadRequest(new { error = result.Error });
     }
 
@@ -228,12 +228,12 @@ public class OrderController : ControllerBase
     public async Task<IActionResult> GetOrder(string id)
     {
         var query = new GetOrderById(id);
-        
+
         // 发送 Query
         var result = await _mediator.SendAsync<GetOrderById, OrderDetail>(query);
 
-        return result.IsSuccess 
-            ? Ok(result.Value) 
+        return result.IsSuccess
+            ? Ok(result.Value)
             : NotFound();
     }
 }
@@ -329,14 +329,14 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         CancellationToken cancellationToken)
     {
         _logger.LogInformation("处理请求: {RequestType}", typeof(TRequest).Name);
-        
+
         var stopwatch = Stopwatch.StartNew();
         var response = await next();
         stopwatch.Stop();
-        
-        _logger.LogInformation("请求完成: {RequestType}, 耗时: {Elapsed}ms", 
+
+        _logger.LogInformation("请求完成: {RequestType}, 耗时: {Elapsed}ms",
             typeof(TRequest).Name, stopwatch.ElapsedMilliseconds);
-        
+
         return response;
     }
 }
@@ -489,7 +489,7 @@ catch (Exception ex)
 
 ```csharp
 // Counter
-CatgaMeter.CommandCounter.Add(1, 
+CatgaMeter.CommandCounter.Add(1,
     new KeyValuePair<string, object?>("command", "CreateOrder"),
     new KeyValuePair<string, object?>("status", "success")
 );
@@ -564,9 +564,9 @@ app.MapPost("/orders", async (
 {
     var command = new CreateOrder(Guid.NewGuid().ToString(), request.Amount);
     var result = await mediator.SendAsync<CreateOrder, OrderCreated>(command);
-    
-    return result.IsSuccess 
-        ? Results.Ok(result.Value) 
+
+    return result.IsSuccess
+        ? Results.Ok(result.Value)
         : Results.BadRequest(result.Error);
 });
 ```
@@ -593,8 +593,8 @@ public class OrderTests
         services.AddCatga()
                 .AddInMemoryTransport()
                 .UseMemoryPackSerializer();
-        
-        services.AddTransient<IRequestHandler<CreateOrder, CatgaResult<OrderCreated>>, 
+
+        services.AddTransient<IRequestHandler<CreateOrder, CatgaResult<OrderCreated>>,
                                 CreateOrderHandler>();
 
         var provider = services.BuildServiceProvider();
@@ -717,27 +717,27 @@ spec:
 
 ## ❓ 常见问题
 
-**Q: 为什么选择 MemoryPack 而不是 JSON?**  
+**Q: 为什么选择 MemoryPack 而不是 JSON?**
 A: MemoryPack 是 100% AOT 兼容的，性能比 JSON 快 10x，且零分配。JSON 需要 `JsonSerializerContext` 才能 AOT 兼容。
 
-**Q: 如何处理消息版本演进?**  
+**Q: 如何处理消息版本演进?**
 A: 使用 MemoryPack 的 `[MemoryPackable(GenerateType.VersionTolerant)]` 和可选字段。
 
-**Q: 支持 Saga 模式吗?**  
+**Q: 支持 Saga 模式吗?**
 A: v1.0 支持基于事件的编排，完整 Saga 将在 v1.1 提供。
 
-**Q: 性能真的这么好吗?**  
+**Q: 性能真的这么好吗?**
 A: 是的！查看 [benchmarks/README.md](./benchmarks/README.md) 获取详细测试数据。
 
-**Q: 适合什么场景?**  
+**Q: 适合什么场景?**
 A: 微服务、事件驱动架构、高性能 API、Native AOT 应用、云原生部署。
 
 ---
 
 <div align="center">
 
-**📖 完整文档**: [docs/README.md](./docs/README.md)  
-**🚀 开始使用**: [examples/](./examples/)  
+**📖 完整文档**: [docs/README.md](./docs/README.md)
+**🚀 开始使用**: [examples/](./examples/)
 **⭐ Star**: [GitHub](https://github.com/Cricle/Catga)
 
 </div>

@@ -105,7 +105,7 @@ public partial record UserCreated(
 );
 
 // Handler 实现
-public class CreateUserHandler 
+public class CreateUserHandler
     : IRequestHandler<CreateUser, CatgaResult<UserCreated>>
 {
     public ValueTask<CatgaResult<UserCreated>> HandleAsync(
@@ -117,7 +117,7 @@ public class CreateUserHandler
             request.Email,
             DateTime.UtcNow
         );
-        
+
         return ValueTask.FromResult(
             CatgaResult<UserCreated>.Success(userCreated)
         );
@@ -140,13 +140,13 @@ public class CreateUserHandler
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    
+
     <!-- AOT 配置 -->
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
     <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
     <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
-    
+
     <!-- 警告为错误 (验证 AOT 兼容性) -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>

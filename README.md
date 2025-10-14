@@ -54,18 +54,18 @@ using MemoryPack;
 using Catga.Messages;
 
 [MemoryPackable]
-public partial record CreateOrder(string OrderId, decimal Amount) 
+public partial record CreateOrder(string OrderId, decimal Amount)
     : ICommand<CatgaResult<OrderCreated>>;
 
 [MemoryPackable]
 public partial record OrderCreated(string OrderId, DateTime CreatedAt);
 
 // 2. 实现 Handler
-public class CreateOrderHandler 
+public class CreateOrderHandler
     : IRequestHandler<CreateOrder, CatgaResult<OrderCreated>>
 {
     public async ValueTask<CatgaResult<OrderCreated>> HandleAsync(
-        CreateOrder request, 
+        CreateOrder request,
         CancellationToken cancellationToken = default)
     {
         // 业务逻辑
@@ -175,7 +175,7 @@ services.AddCatga().AddInMemoryTransport();
 ```csharp
 // NATS JetStream - 高性能消息传输
 services.AddCatga()
-    .AddNatsTransport(options => 
+    .AddNatsTransport(options =>
     {
         options.Url = "nats://localhost:4222";
         options.SubjectPrefix = "myapp";
@@ -237,7 +237,7 @@ CatgaMeter.CommandCounter.Add(1, new("command", "CreateOrder"));
 CatgaMeter.CommandDuration.Record(elapsed, ...);
 
 // LoggerMessage - 结构化日志 (Source Generated)
-[LoggerMessage(Level = LogLevel.Information, 
+[LoggerMessage(Level = LogLevel.Information,
     Message = "Processing command {CommandType} with id {MessageId}")]
 partial void LogProcessingCommand(string commandType, string messageId);
 ```

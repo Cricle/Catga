@@ -107,7 +107,7 @@ public partial record OrderCreated(
 
 ```csharp
 // Commands/Handlers/CreateOrderHandler.cs
-public class CreateOrderHandler 
+public class CreateOrderHandler
     : IRequestHandler<CreateOrder, CatgaResult<OrderCreated>>
 {
     private readonly ILogger<CreateOrderHandler> _logger;

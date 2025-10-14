@@ -314,7 +314,7 @@ public class InMemoryMessageTransportTests
 
         // Assert
         receivedContext.Should().NotBeNull();
-        receivedContext.Value.MessageId.Should().Be("custom-id");
+        receivedContext!.Value.MessageId.Should().Be("custom-id");
         receivedContext.Value.CorrelationId.Should().Be("correlation-123");
     }
 
@@ -337,7 +337,7 @@ public class InMemoryMessageTransportTests
 
         // Assert
         receivedContext.Should().NotBeNull();
-        receivedContext.Value.MessageId.Should().NotBeNullOrEmpty();
+        receivedContext!.Value.MessageId.Should().NotBeNullOrEmpty();
         receivedContext.Value.MessageType.Should().NotBeNullOrEmpty();
         receivedContext.Value.SentAt.Should().NotBeNull();
     }
@@ -363,7 +363,7 @@ public class InMemoryMessageTransportTests
 
         // Assert
         receivedContext.Should().NotBeNull();
-        receivedContext.Value.SentAt.Should().Be(sentAt);
+        receivedContext!.Value.SentAt.Should().Be(sentAt);
     }
 
     #endregion

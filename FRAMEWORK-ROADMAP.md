@@ -1,8 +1,8 @@
 # Catga 框架路线图
 
-> **当前版本**: v1.0.0  
-> **目标**: 企业级分布式 CQRS 框架  
-> **核心模型**: Catga 模型 (引导式 + 自动生成)  
+> **当前版本**: v1.0.0
+> **目标**: 企业级分布式 CQRS 框架
+> **核心模型**: Catga 模型 (引导式 + 自动生成)
 > **更新时间**: 2025-10-14
 
 ---
@@ -963,6 +963,300 @@ public class ProcessPaymentHandler : IRequestHandler<ProcessPayment, CatgaResult
 - ✅ 兼容 OpenTelemetry
 - ✅ 自动使用 (无需配置)
 
+**追踪信息**:
+```
+Trace [TraceId: abc123]
+├─ Span: OrderService.CreateOrder [100ms]
+│  ├─ Span: InventoryService.ReserveInventory [50ms]
+│  ├─ Span: PaymentService.ProcessPayment [80ms]
+│  └─ Span: ShipmentService.CreateShipment [60ms]
+```
+
+---
+
+### 6.1 完整的可观测性支持 (追踪 + 指标 + 日志)
+
+**问题**: 只有追踪不够，还需要指标和日志的完整集成
+
+**Source Generator 自动生成完整可观测性**:
+
+```csharp
+// Source Generator 自动生成 (在 Observability.g.cs)
+public static class GeneratedObservability
+{
+    // 自动创建 ActivitySource 和 Meter
+    private static readonly ActivitySource ActivitySource = new("Catga", "1.0.0");
+    private static readonly Meter Meter = new("Catga", "1.0.0");
+    
+    // 自动创建指标
+    private static readonly Counter<long> CommandCounter = Meter.CreateCounter<long>(
+        "catga.command.count",
+        description: "命令执行次数");
+    
+    private static readonly Histogram<double> CommandDuration = Meter.CreateHistogram<double>(
+        "catga.command.duration",
+        unit: "ms",
+        description: "命令执行耗时");
+    
+    private static readonly Counter<long> EventCounter = Meter.CreateCounter<long>(
+        "catga.event.count",
+        description: "事件发布次数");
+    
+    private static readonly Histogram<double> SagaDuration = Meter.CreateHistogram<double>(
+        "catga.saga.duration",
+        unit: "ms",
+        description: "Saga 执行耗时");
+    
+    private static readonly Counter<long> SagaCompensationCounter = Meter.CreateCounter<long>(
+        "catga.saga.compensation.count",
+        description: "Saga 补偿次数");
+    
+    // 自动包装 Command Handler
+    public static async ValueTask<CatgaResult<TResponse>> ExecuteCommandWithObservability<TRequest, TResponse>(
+        this IRequestHandler<TRequest, CatgaResult<TResponse>> handler,
+        TRequest request,
+        CancellationToken ct)
+        where TRequest : ICommand<CatgaResult<TResponse>>
+    {
+        var commandName = typeof(TRequest).Name;
+        var stopwatch = Stopwatch.StartNew();
+        
+        // 1. 创建 Activity (追踪)
+        using var activity = ActivitySource.StartActivity($"Command.{commandName}", ActivityKind.Internal);
+        activity?.SetTag("command.type", commandName);
+        activity?.SetTag("command.id", request.GetHashCode());
+        
+        try
+        {
+            // 2. 执行命令
+            var result = await handler.HandleAsync(request, ct);
+            
+            stopwatch.Stop();
+            
+            // 3. 记录指标
+            var tags = new TagList
+            {
+                { "command.type", commandName },
+                { "command.status", result.IsSuccess ? "success" : "failure" }
+            };
+            
+            CommandCounter.Add(1, tags);
+            CommandDuration.Record(stopwatch.Elapsed.TotalMilliseconds, tags);
+            
+            // 4. 设置 Activity 状态
+            if (result.IsSuccess)
+            {
+                activity?.SetStatus(ActivityStatusCode.Ok);
+            }
+            else
+            {
+                activity?.SetStatus(ActivityStatusCode.Error, result.ErrorMessage);
+                activity?.SetTag("error.message", result.ErrorMessage);
+            }
+            
+            return result;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            
+            // 记录失败指标
+            var tags = new TagList
+            {
+                { "command.type", commandName },
+                { "command.status", "error" },
+                { "error.type", ex.GetType().Name }
+            };
+            
+            CommandCounter.Add(1, tags);
+            CommandDuration.Record(stopwatch.Elapsed.TotalMilliseconds, tags);
+            
+            // 设置 Activity 错误状态
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.RecordException(ex);
+            
+            throw;
+        }
+    }
+    
+    // 自动包装 Event 发布
+    public static async Task PublishEventWithObservability<TEvent>(
+        this ICatgaMediator mediator,
+        TEvent @event,
+        CancellationToken ct)
+        where TEvent : IEvent
+    {
+        var eventName = typeof(TEvent).Name;
+        
+        // 1. 创建 Activity
+        using var activity = ActivitySource.StartActivity($"Event.{eventName}", ActivityKind.Producer);
+        activity?.SetTag("event.type", eventName);
+        
+        // 2. 发布事件
+        await mediator.PublishAsync(@event, ct);
+        
+        // 3. 记录指标
+        var tags = new TagList { { "event.type", eventName } };
+        EventCounter.Add(1, tags);
+    }
+    
+    // 自动包装 Saga 执行
+    public static async Task<CatgaResult<TData>> ExecuteSagaWithObservability<TData>(
+        this SagaBase<TData> saga,
+        TData data,
+        CancellationToken ct)
+    {
+        var sagaName = saga.GetType().Name;
+        var stopwatch = Stopwatch.StartNew();
+        
+        // 1. 创建 Activity
+        using var activity = ActivitySource.StartActivity($"Saga.{sagaName}", ActivityKind.Internal);
+        activity?.SetTag("saga.type", sagaName);
+        activity?.SetTag("saga.id", saga.GetSagaId(data));
+        
+        try
+        {
+            // 2. 执行 Saga
+            var result = await saga.ExecuteAsync(data, ct);
+            
+            stopwatch.Stop();
+            
+            // 3. 记录指标
+            var tags = new TagList
+            {
+                { "saga.type", sagaName },
+                { "saga.status", result.IsSuccess ? "completed" : "failed" }
+            };
+            
+            SagaDuration.Record(stopwatch.Elapsed.TotalMilliseconds, tags);
+            
+            if (!result.IsSuccess)
+            {
+                SagaCompensationCounter.Add(1, new TagList { { "saga.type", sagaName } });
+            }
+            
+            // 4. 设置 Activity 状态
+            activity?.SetStatus(
+                result.IsSuccess ? ActivityStatusCode.Ok : ActivityStatusCode.Error,
+                result.ErrorMessage);
+            
+            return result;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            
+            // 记录失败指标
+            SagaDuration.Record(stopwatch.Elapsed.TotalMilliseconds, new TagList
+            {
+                { "saga.type", sagaName },
+                { "saga.status", "error" }
+            });
+            
+            SagaCompensationCounter.Add(1, new TagList { { "saga.type", sagaName } });
+            
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.RecordException(ex);
+            
+            throw;
+        }
+    }
+}
+
+// 自动生成结构化日志 (使用 LoggerMessage Source Generator)
+public static partial class GeneratedLogs
+{
+    [LoggerMessage(
+        EventId = 1001,
+        Level = LogLevel.Information,
+        Message = "开始执行命令 {CommandType}, CommandId: {CommandId}")]
+    public static partial void LogCommandStart(
+        this ILogger logger, string commandType, int commandId);
+    
+    [LoggerMessage(
+        EventId = 1002,
+        Level = LogLevel.Information,
+        Message = "命令执行成功 {CommandType}, 耗时: {Duration}ms")]
+    public static partial void LogCommandSuccess(
+        this ILogger logger, string commandType, double duration);
+    
+    [LoggerMessage(
+        EventId = 1003,
+        Level = LogLevel.Error,
+        Message = "命令执行失败 {CommandType}, 错误: {ErrorMessage}")]
+    public static partial void LogCommandFailure(
+        this ILogger logger, string commandType, string errorMessage, Exception ex);
+    
+    [LoggerMessage(
+        EventId = 2001,
+        Level = LogLevel.Information,
+        Message = "开始执行 Saga {SagaType}, SagaId: {SagaId}")]
+    public static partial void LogSagaStart(
+        this ILogger logger, string sagaType, string sagaId);
+    
+    [LoggerMessage(
+        EventId = 2002,
+        Level = LogLevel.Warning,
+        Message = "Saga 执行失败，开始补偿 {SagaType}, SagaId: {SagaId}")]
+    public static partial void LogSagaCompensation(
+        this ILogger logger, string sagaType, string sagaId);
+    
+    [LoggerMessage(
+        EventId = 3001,
+        Level = LogLevel.Debug,
+        Message = "发布事件 {EventType}")]
+    public static partial void LogEventPublish(
+        this ILogger logger, string eventType);
+}
+```
+
+**完整的可观测性效果**:
+
+1. **追踪 (Tracing)** - Jaeger/Zipkin 可视化:
+```
+Trace [abc123] - OrderService.CreateOrder [300ms]
+├─ Command.CreateOrder [280ms] ✅
+│  ├─ Saga.OrderSaga [250ms] ✅
+│  │  ├─ Command.ReserveInventory [50ms] ✅
+│  │  ├─ Command.ProcessPayment [80ms] ✅
+│  │  └─ Command.CreateShipment [60ms] ✅
+│  └─ Event.OrderCreated [5ms] ✅
+```
+
+2. **指标 (Metrics)** - Prometheus/Grafana:
+```
+catga_command_count{command_type="CreateOrder",command_status="success"} 1250
+catga_command_duration_ms{command_type="CreateOrder",p50} 120
+catga_command_duration_ms{command_type="CreateOrder",p95} 250
+catga_command_duration_ms{command_type="CreateOrder",p99} 500
+
+catga_saga_duration_ms{saga_type="OrderSaga",p50} 200
+catga_saga_compensation_count{saga_type="OrderSaga"} 15
+
+catga_event_count{event_type="OrderCreated"} 1250
+```
+
+3. **日志 (Logging)** - 结构化日志:
+```json
+{
+  "timestamp": "2025-10-14T10:30:00Z",
+  "level": "Information",
+  "message": "开始执行命令 CreateOrder, CommandId: 12345",
+  "traceId": "abc123",
+  "spanId": "def456",
+  "commandType": "CreateOrder",
+  "commandId": 12345
+}
+```
+
+**优势**:
+- ✅ 完整的三支柱可观测性 (追踪 + 指标 + 日志)
+- ✅ 自动集成，零侵入
+- ✅ 兼容 OpenTelemetry
+- ✅ 结构化日志 (LoggerMessage Source Generator)
+- ✅ 丰富的指标 (Counter, Histogram)
+- ✅ 完整的追踪上下文传播
+
 ---
 
 ### 7. Saga 步骤追踪生成 (可视化流程)
@@ -1584,7 +1878,7 @@ public class Order : AggregateRoot<string, OrderState>
         OrderCreated e => e.OrderId,
         _ => Id
     };
-    
+
     protected override OrderState Apply(OrderState state, IEvent @event) => @event switch
     {
         OrderCreated e => state with { Status = OrderStatus.Created },
@@ -1603,14 +1897,14 @@ public class OrderSaga : SagaBase<OrderSagaData>
         var payment = await Mediator.SendAsync<ProcessPayment, PaymentProcessed>(...);
         return data;
     }
-    
+
     protected override async Task CompensateAsync(OrderSagaData data, string failedStep, CancellationToken ct)
     {
         // 定义补偿
         if (!string.IsNullOrEmpty(data.PaymentId))
             await Mediator.SendAsync(new RefundPayment(data.OrderId), ct);
     }
-    
+
     protected override Dictionary<Type, Type> GetCompensations() => new()
     {
         [typeof(PaymentProcessed)] = typeof(RefundPayment)

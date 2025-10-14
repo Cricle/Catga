@@ -1,6 +1,6 @@
 # Catga 架构设计
 
-> **深入了解 Catga 的架构设计和实现原理**  
+> **深入了解 Catga 的架构设计和实现原理**
 > 最后更新: 2025-10-14
 
 [返回主文档](../../README.md) · [职责边界](./RESPONSIBILITY-BOUNDARY.md) · [CQRS 模式](./cqrs.md)
@@ -103,7 +103,7 @@ public interface IRequestHandler<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
     ValueTask<CatgaResult<TResponse>> HandleAsync(
-        TRequest request, 
+        TRequest request,
         CancellationToken cancellationToken);
 }
 
@@ -116,10 +116,10 @@ public interface IEventHandler<TEvent> where TEvent : IEvent
 public interface ICatgaMediator
 {
     ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
-        TRequest request, 
+        TRequest request,
         CancellationToken cancellationToken = default)
         where TRequest : IRequest<TResponse>;
-    
+
     Task PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
         where TEvent : IEvent;
 }
@@ -149,10 +149,10 @@ public sealed class CatgaMediator : ICatgaMediator
     {
         // 1. 从静态缓存获取 Handler (零反射)
         var handler = HandlerCache<TRequest, TResponse>.GetHandler(_serviceProvider);
-        
+
         // 2. 执行 Pipeline
         var result = await ExecutePipelineAsync(request, handler, ct);
-        
+
         return result;
     }
 }
@@ -174,7 +174,7 @@ public sealed class CatgaMediator : ICatgaMediator
 public sealed class ShardedIdempotencyStore : IIdempotencyStore
 {
     private readonly ConcurrentDictionary<string, CachedResult>[] _shards;
-    
+
     // 使用分片减少锁竞争
     private int GetShardIndex(string messageId)
         => Math.Abs(messageId.GetHashCode()) % _shardCount;
@@ -208,7 +208,7 @@ public static class GeneratedHandlerRegistration
         services.AddTransient<IRequestHandler<GetOrder, Order>, GetOrderHandler>();
         services.AddTransient<IEventHandler<OrderCreated>, OrderCreatedHandler>();
         // ... 更多 Handler
-        
+
         return services;
     }
 }
@@ -226,7 +226,7 @@ internal static class HandlerCache<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
     private static IRequestHandler<TRequest, TResponse>? _handler;
-    
+
     public static IRequestHandler<TRequest, TResponse> GetHandler(IServiceProvider sp)
     {
         return _handler ??= sp.GetRequiredService<IRequestHandler<TRequest, TResponse>>();
@@ -269,7 +269,7 @@ public sealed class MemoryPackMessageSerializer : IMessageSerializer
     // 100% AOT 兼容，零反射
     public byte[] Serialize<T>(T message)
         => MemoryPackSerializer.Serialize(message);
-    
+
     public T? Deserialize<T>(byte[] data)
         => MemoryPackSerializer.Deserialize<T>(data);
 }

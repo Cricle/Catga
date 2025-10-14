@@ -1,8 +1,8 @@
 # Catga v1.0.0 发布前计划
 
-> **当前状态**: 准备发布  
-> **目标版本**: v1.0.0  
-> **目标日期**: 2025-10-21  
+> **当前状态**: 准备发布
+> **目标版本**: v1.0.0
+> **目标日期**: 2025-10-21
 > **最后更新**: 2025-10-14
 
 ---
@@ -45,16 +45,16 @@ foreach (var node in containingMethod.DescendantNodes())
 }
 ```
 
-**责任人**: @AI  
-**截止日期**: 2025-10-15  
-**优先级**: 🔴 P0  
+**责任人**: @AI
+**截止日期**: 2025-10-15
+**优先级**: 🔴 P0
 **状态**: ❌ 待修复
 
 ---
 
 ### 2. IL2026/IL3050 警告处理 ⚠️
 
-**问题**: 
+**问题**:
 - SerializationHelper.cs - 6 个 JSON 序列化警告
 - RedisJsonSerializer.cs - 4 个 JSON 序列化警告
 
@@ -65,9 +65,9 @@ foreach (var node in containingMethod.DescendantNodes())
 2. ❌ 需要添加 SuppressMessage 属性 + 详细注释
 3. ❌ 需要在 README 中添加 AOT 警告说明
 
-**责任人**: @AI  
-**截止日期**: 2025-10-15  
-**优先级**: 🟡 P1 (降级为 P1)  
+**责任人**: @AI
+**截止日期**: 2025-10-15
+**优先级**: 🟡 P1 (降级为 P1)
 **状态**: ⚠️ 部分完成
 
 ---
@@ -89,9 +89,9 @@ dotnet test --collect:"XPlat Code Coverage"
 reportgenerator -reports:**/coverage.cobertura.xml -targetdir:coveragereport
 ```
 
-**责任人**: @AI  
-**截止日期**: 2025-10-17  
-**优先级**: 🔴 P0  
+**责任人**: @AI
+**截止日期**: 2025-10-17
+**优先级**: 🔴 P0
 **状态**: ❌ 待完成
 
 ---
@@ -111,7 +111,7 @@ reportgenerator -reports:**/coverage.cobertura.xml -targetdir:coveragereport
   <Product>Catga</Product>
   <Description>高性能、100% AOT 兼容的分布式 CQRS 框架</Description>
   <Copyright>Copyright © 2025 Catga Contributors</Copyright>
-  
+
   <!-- Package Settings -->
   <PackageProjectUrl>https://github.com/Cricle/Catga</PackageProjectUrl>
   <RepositoryUrl>https://github.com/Cricle/Catga</RepositoryUrl>
@@ -121,7 +121,7 @@ reportgenerator -reports:**/coverage.cobertura.xml -targetdir:coveragereport
   <PackageIcon>icon.png</PackageIcon>
   <PackageTags>cqrs;mediator;distributed;aot;native-aot;high-performance;event-driven;nats;redis</PackageTags>
   <PackageReleaseNotes>https://github.com/Cricle/Catga/releases/tag/v1.0.0</PackageReleaseNotes>
-  
+
   <!-- Source Link -->
   <PublishRepositoryUrl>true</PublishRepositoryUrl>
   <EmbedUntrackedSources>true</EmbedUntrackedSources>
@@ -130,9 +130,9 @@ reportgenerator -reports:**/coverage.cobertura.xml -targetdir:coveragereport
 </PropertyGroup>
 ```
 
-**责任人**: @AI  
-**截止日期**: 2025-10-16  
-**优先级**: 🔴 P0  
+**责任人**: @AI
+**截止日期**: 2025-10-16
+**优先级**: 🔴 P0
 **状态**: ❌ 待添加
 
 ---
@@ -151,9 +151,9 @@ reportgenerator -reports:**/coverage.cobertura.xml -targetdir:coveragereport
 </ItemGroup>
 ```
 
-**责任人**: @Designer  
-**截止日期**: 2025-10-16  
-**优先级**: 🟡 P1 (降级为 P1)  
+**责任人**: @Designer
+**截止日期**: 2025-10-16
+**优先级**: 🟡 P1 (降级为 P1)
 **状态**: ❌ 待创建
 
 ---
@@ -194,9 +194,9 @@ reportgenerator -reports:**/coverage.cobertura.xml -targetdir:coveragereport
 - ⚡ Lock-free 并发设计
 ```
 
-**责任人**: @AI  
-**截止日期**: 2025-10-16  
-**优先级**: 🔴 P0  
+**责任人**: @AI
+**截止日期**: 2025-10-16
+**优先级**: 🔴 P0
 **状态**: ❌ 待创建
 
 ---
@@ -216,9 +216,9 @@ reportgenerator -reports:**/coverage.cobertura.xml -targetdir:coveragereport
 </PropertyGroup>
 ```
 
-**责任人**: @AI  
-**截止日期**: 2025-10-15  
-**优先级**: 🔴 P0  
+**责任人**: @AI
+**截止日期**: 2025-10-15
+**优先级**: 🔴 P0
 **状态**: ❌ 待统一
 
 ---
@@ -271,9 +271,9 @@ services.AddCatga()
 | 吞吐量 | 50K req/s | 10K req/s | 400% ↑ |
 ```
 
-**责任人**: @Maintainer  
-**截止日期**: 2025-10-21 (发布日)  
-**优先级**: 🔴 P0  
+**责任人**: @Maintainer
+**截止日期**: 2025-10-21 (发布日)
+**优先级**: 🔴 P0
 **状态**: ❌ 待创建
 
 ---
@@ -300,9 +300,9 @@ dotnet list package --vulnerable
 dotnet restore --verbosity detailed
 ```
 
-**责任人**: @Security  
-**截止日期**: 2025-10-18  
-**优先级**: 🔴 P0  
+**责任人**: @Security
+**截止日期**: 2025-10-18
+**优先级**: 🔴 P0
 **状态**: ❌ 待审计
 
 ---
@@ -323,9 +323,9 @@ dotnet restore --verbosity detailed
 dotnet-project-licenses --input . --output-directory licenses
 ```
 
-**责任人**: @Legal  
-**截止日期**: 2025-10-17  
-**优先级**: 🟡 P1 (降级)  
+**责任人**: @Legal
+**截止日期**: 2025-10-17
+**优先级**: 🟡 P1 (降级)
 **状态**: ⚠️ 部分完成
 
 ---
@@ -346,9 +346,9 @@ dotnet-project-licenses --input . --output-directory licenses
 - Idempotency Store
 - Distributed Lock
 
-**责任人**: @AI  
-**截止日期**: 2025-10-17  
-**优先级**: 🟡 P1 (降级)  
+**责任人**: @AI
+**截止日期**: 2025-10-17
+**优先级**: 🟡 P1 (降级)
 **状态**: ❌ 待运行
 
 ---
@@ -373,30 +373,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
-    
+
     - name: Restore
       run: dotnet restore
-    
+
     - name: Build
       run: dotnet build -c Release --no-restore
-    
+
     - name: Test
       run: dotnet test -c Release --no-build --collect:"XPlat Code Coverage"
-    
+
     - name: Upload coverage
       uses: codecov/codecov-action@v4
       with:
         files: '**/coverage.cobertura.xml'
 ```
 
-**责任人**: @DevOps  
-**截止日期**: 2025-10-16  
-**优先级**: 🔴 P0  
+**责任人**: @DevOps
+**截止日期**: 2025-10-16
+**优先级**: 🔴 P0
 **状态**: ❌ 待创建
 
 ---
@@ -412,9 +412,9 @@ jobs:
 2. 使用 DocFX 生成 API 文档
 3. 发布到 GitHub Pages
 
-**责任人**: @AI  
-**截止日期**: 2025-10-19  
-**优先级**: 🟡 P1  
+**责任人**: @AI
+**截止日期**: 2025-10-19
+**优先级**: 🟡 P1
 **状态**: ⚠️ 进行中
 
 ---
@@ -433,9 +433,9 @@ jobs:
 - OpenTelemetry 可观测性
 - K8s 部署 yaml
 
-**责任人**: @AI  
-**截止日期**: 2025-10-19  
-**优先级**: 🟡 P1  
+**责任人**: @AI
+**截止日期**: 2025-10-19
+**优先级**: 🟡 P1
 **状态**: ⚠️ 部分完成
 
 ---
@@ -458,9 +458,9 @@ dotnet-trace collect --process-id <pid> --providers Microsoft-Windows-DotNETRunt
 dotnet-counters monitor --process-id <pid>
 ```
 
-**责任人**: @Performance  
-**截止日期**: 2025-10-18  
-**优先级**: 🟡 P1  
+**责任人**: @Performance
+**截止日期**: 2025-10-18
+**优先级**: 🟡 P1
 **状态**: ❌ 待验证
 
 ---
@@ -474,9 +474,9 @@ dotnet-counters monitor --process-id <pid>
 - [ ] QUICK-REFERENCE.md 英文版
 - [ ] docs/guides/*.md 英文版
 
-**责任人**: @Translator  
-**截止日期**: 2025-10-20  
-**优先级**: 🟢 P2 (降级)  
+**责任人**: @Translator
+**截止日期**: 2025-10-20
+**优先级**: 🟢 P2 (降级)
 **状态**: ❌ 待翻译
 
 ---
@@ -491,9 +491,9 @@ dotnet-counters monitor --process-id <pid>
 - [ ] PR 模板
 - [ ] Discussion 开启
 
-**责任人**: @Community  
-**截止日期**: 2025-10-19  
-**优先级**: 🟡 P1  
+**责任人**: @Community
+**截止日期**: 2025-10-19
+**优先级**: 🟡 P1
 **状态**: ❌ 待创建
 
 ---
@@ -504,7 +504,7 @@ dotnet-counters monitor --process-id <pid>
 
 **解决方案**: 集成 Codecov
 
-**责任人**: @DevOps  
+**责任人**: @DevOps
 **状态**: ⚠️ 待集成
 
 ---
@@ -516,7 +516,7 @@ dotnet-counters monitor --process-id <pid>
 - "MemoryPack vs JSON: 性能对比"
 - "Catga 架构设计详解"
 
-**责任人**: @Marketing  
+**责任人**: @Marketing
 **状态**: ❌ 待撰写
 
 ---
@@ -530,9 +530,9 @@ dotnet pack -c Release
 dotnet nuget push **/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $NUGET_API_KEY
 ```
 
-**责任人**: @Maintainer  
-**截止日期**: 2025-10-18  
-**优先级**: 🟡 P1 (提升)  
+**责任人**: @Maintainer
+**截止日期**: 2025-10-18
+**优先级**: 🟡 P1 (提升)
 **状态**: ❌ 待发布
 
 ---
@@ -552,14 +552,14 @@ gantt
     版本号统一            :crit, p0-7, 2025-10-15, 1d
     安全审计              :crit, p0-9, 2025-10-17, 1d
     CI/CD Pipeline        :crit, p0-12, 2025-10-16, 1d
-    
+
     section P1 任务
     性能基准测试          :p1-1, 2025-10-17, 1d
     API 文档生成          :p1-2, 2025-10-18, 1d
     示例项目完善          :p1-3, 2025-10-18, 1d
     社区文件              :p1-4, 2025-10-19, 1d
     NuGet 预发布          :p1-5, 2025-10-18, 1d
-    
+
     section 发布
     GitHub Release        :milestone, release, 2025-10-21, 0d
 ```

@@ -27,6 +27,8 @@ public static class SerializationHelper
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed. Use MemoryPack serializer for AOT or provide JsonSerializerContext.")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("JSON serialization may require runtime code generation. Use MemoryPack serializer for AOT or use source-generated JsonSerializerContext.")]
     public static string SerializeJson<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] T>(T obj, JsonSerializerOptions? options = null)
         => JsonSerializer.Serialize(obj, options ?? DefaultJsonOptions);
 
@@ -42,6 +44,8 @@ public static class SerializationHelper
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("JSON serialization may require types that cannot be statically analyzed. Use MemoryPack serializer for AOT or provide JsonSerializerContext.")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("JSON serialization may require runtime code generation. Use MemoryPack serializer for AOT or use source-generated JsonSerializerContext.")]
     public static T? DeserializeJson<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] T>(string data, JsonSerializerOptions? options = null)
         => JsonSerializer.Deserialize<T>(data, options ?? DefaultJsonOptions);
 

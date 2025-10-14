@@ -11,16 +11,16 @@ public interface IDistributedCache
     /// Get value from cache
     /// </summary>
     public ValueTask<T?> GetAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
-        string key, 
+        string key,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Set value in cache
     /// </summary>
     public ValueTask SetAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
-        string key, 
-        T value, 
-        TimeSpan expiration, 
+        string key,
+        T value,
+        TimeSpan expiration,
         CancellationToken cancellationToken = default);
 
     /// <summary>

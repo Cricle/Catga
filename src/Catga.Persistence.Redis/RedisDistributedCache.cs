@@ -21,7 +21,7 @@ public sealed class RedisDistributedCache : IDistributedCache
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     public async ValueTask<T?> GetAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
-        string key, 
+        string key,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);

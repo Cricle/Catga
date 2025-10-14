@@ -7,12 +7,12 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Catga.DependencyInjection;
 
 /// <summary>
-/// Redis 持久化存储服务注册扩展
+/// Redis 持久化存储服务注册扩展 (序列化器无关，需用户显式注册 IMessageSerializer)
 /// </summary>
 public static class RedisPersistenceServiceCollectionExtensions
 {
     /// <summary>
-    /// 添加 Redis Outbox 持久化存储
+    /// 添加 Redis Outbox 持久化存储 (requires IMessageSerializer to be registered separately)
     /// </summary>
     public static IServiceCollection AddRedisOutboxPersistence(
         this IServiceCollection services,
@@ -28,7 +28,7 @@ public static class RedisPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
-    /// 添加 Redis Inbox 持久化存储
+    /// 添加 Redis Inbox 持久化存储 (requires IMessageSerializer to be registered separately)
     /// </summary>
     public static IServiceCollection AddRedisInboxPersistence(
         this IServiceCollection services,

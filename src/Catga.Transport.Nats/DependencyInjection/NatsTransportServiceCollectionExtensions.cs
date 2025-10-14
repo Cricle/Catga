@@ -5,9 +5,12 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Catga.DependencyInjection;
 
-/// <summary>NATS transport DI extensions</summary>
+/// <summary>NATS transport DI extensions (serializer-agnostic)</summary>
 public static class NatsTransportServiceCollectionExtensions
 {
+    /// <summary>
+    /// Add NATS message transport (requires IMessageSerializer to be registered separately)
+    /// </summary>
     public static IServiceCollection AddNatsTransport(this IServiceCollection services, Action<NatsTransportOptions>? configure = null)
     {
         var options = new NatsTransportOptions();

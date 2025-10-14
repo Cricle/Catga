@@ -25,8 +25,8 @@ public static class RedisJsonSerializer
     /// Get JSON options (uses custom options if provided, or default AOT-compatible context)
     /// </summary>
     /// <remarks>
-    /// For full AOT compatibility, call SetCustomOptions() with a JsonSerializerContext 
-    /// that includes all your message types. Without custom options, only basic types 
+    /// For full AOT compatibility, call SetCustomOptions() with a JsonSerializerContext
+    /// that includes all your message types. Without custom options, only basic types
     /// defined in RedisCatgaJsonContext can be serialized.
     /// </remarks>
     public static JsonSerializerOptions GetOptions()

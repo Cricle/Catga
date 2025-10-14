@@ -13,9 +13,12 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Catga.DependencyInjection;
 
-/// <summary>Catga service registration extensions (AOT compatible)</summary>
+/// <summary>Catga service registration extensions (AOT compatible, serializer-agnostic)</summary>
 public static class CatgaServiceCollectionExtensions
 {
+    /// <summary>
+    /// Add Catga core services (requires IMessageSerializer to be registered separately for serialization features)
+    /// </summary>
     public static IServiceCollection AddCatga(this IServiceCollection services, Action<CatgaOptions>? configureOptions = null)
     {
         var options = new CatgaOptions();

@@ -100,9 +100,12 @@ public class MissingSerializerRegistrationAnalyzer : DiagnosticAnalyzer
             return false;
 
         // Look for UseMemoryPack/UseJson/AddSingleton<IMessageSerializer> calls
-        var invocations = containingMethod.DescendantNodes().OfType<InvocationExpressionSyntax>();
-        foreach (var inv in invocations)
+        // Manual OfType implementation for AOT compatibility
+        foreach (var node in containingMethod.DescendantNodes())
         {
+            if (node is not InvocationExpressionSyntax inv)
+                continue;
+
             var symbolInfo = semanticModel.GetSymbolInfo(inv);
             var method = symbolInfo.Symbol as IMethodSymbol;
 

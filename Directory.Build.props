@@ -7,37 +7,55 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
-    <!-- 版本信息 -->
+    <!-- 版本信息 (统一管理) -->
     <Version>1.0.0</Version>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
 
-    <!-- 包信息 -->
+    <!-- NuGet 包信息 -->
     <Authors>Catga Contributors</Authors>
     <Company>Catga</Company>
-    <Product>Catga</Product>
+    <Product>Catga - High-Performance CQRS Framework</Product>
     <Copyright>Copyright © 2025 Catga Contributors</Copyright>
+    <Description>高性能、100% AOT 兼容的分布式 CQRS 框架。支持 MemoryPack 序列化、NATS/Redis 传输、幂等性保证、分布式事务等。</Description>
+
+    <!-- NuGet 包设置 -->
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/yourusername/Catga</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/yourusername/Catga</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Cricle/Catga</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageTags>cqrs;mediator;distributed;aot;native-aot;high-performance;event-driven;event-sourcing;nats;redis;memorypack;aspnetcore;microservices</PackageTags>
+    <PackageReleaseNotes>https://github.com/Cricle/Catga/releases/tag/v$(Version)</PackageReleaseNotes>
+
+    <!-- Repository 信息 -->
+    <RepositoryUrl>https://github.com/Cricle/Catga</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>cqrs;distributed-transactions;saga;event-sourcing;mediator;nats;redis</PackageTags>
-    <Description>高性能、AOT 兼容的 CQRS 和分布式事务框架</Description>
+    <RepositoryBranch>master</RepositoryBranch>
 
     <!-- 编译选项 -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <NoWarn>$(NoWarn);CS1591</NoWarn> <!-- 忽略缺少 XML 注释的警告 -->
+    <NoWarn>$(NoWarn);RS2008</NoWarn> <!-- 忽略分析器发布跟踪警告 -->
 
-    <!-- SourceLink 支持 -->
+    <!-- SourceLink 支持 (调试体验优化) -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
 
-    <!-- 确定性构建 -->
+    <!-- 确定性构建 (可重现构建) -->
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
+
+  <!-- README 和 Icon 文件包含 (如果项目根目录存在) -->
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)README.md')">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)icon.png')">
+    <None Include="$(MSBuildThisFileDirectory)icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <!-- 启用中央包管理 -->
   <PropertyGroup>

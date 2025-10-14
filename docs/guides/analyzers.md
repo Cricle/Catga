@@ -1,6 +1,6 @@
 # Catga 分析器完整指南
 
-> **编译时代码检查** - 在编译时发现问题，而非运行时崩溃  
+> **编译时代码检查** - 在编译时发现问题，而非运行时崩溃
 > 最后更新: 2025-10-14
 
 [返回主文档](../../README.md) · [快速参考](../../QUICK-REFERENCE.md) · [源生成器](./source-generator-usage.md)
@@ -68,8 +68,8 @@ dotnet build
 
 ### CATGA001: 缺少 [MemoryPackable] 属性
 
-**严重性**: Info  
-**类别**: AOT 兼容性  
+**严重性**: Info
+**类别**: AOT 兼容性
 **首次引入**: v2.0
 
 #### 描述
@@ -88,7 +88,7 @@ MemoryPack 是推荐的 AOT 序列化器，所有消息类型都应标注 `[Memo
 **触发警告**:
 ```csharp
 // ❌ CATGA001: 缺少 [MemoryPackable]
-public record CreateOrder(string OrderId, decimal Amount) 
+public record CreateOrder(string OrderId, decimal Amount)
     : IRequest<OrderResult>;
 //              ^^^^^^^^^^^
 // 💡 添加 [MemoryPackable] 以获得最佳 AOT 性能
@@ -98,7 +98,7 @@ public record CreateOrder(string OrderId, decimal Amount)
 ```csharp
 // ✅ 正确
 [MemoryPackable]
-public partial record CreateOrder(string OrderId, decimal Amount) 
+public partial record CreateOrder(string OrderId, decimal Amount)
     : IRequest<OrderResult>;
 ```
 
@@ -134,8 +134,8 @@ dotnet_diagnostic.CATGA001.severity = none
 
 ### CATGA002: 缺少序列化器注册
 
-**严重性**: Warning  
-**类别**: 配置  
+**严重性**: Warning
+**类别**: 配置
 **首次引入**: v2.0
 
 #### 描述
@@ -243,10 +243,10 @@ void RegisterSerializer(IServiceCollection services)
   <PropertyGroup>
     <!-- 将所有分析器警告视为错误 (推荐生产环境) -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    
+
     <!-- 或只针对 Catga 分析器 -->
     <WarningsAsErrors>CATGA002</WarningsAsErrors>
-    
+
     <!-- 调整严重性 -->
     <!-- CATGA001 从 Info 提升到 Warning -->
     <CATGA001>warning</CATGA001>
@@ -262,7 +262,7 @@ void RegisterSerializer(IServiceCollection services)
 <PropertyGroup>
   <!-- 禁用特定规则 -->
   <NoWarn>$(NoWarn);CATGA001</NoWarn>
-  
+
   <!-- 启用所有规则（包括默认禁用的） -->
   <AnalysisLevel>latest-all</AnalysisLevel>
 </PropertyGroup>
@@ -300,7 +300,7 @@ public record MyMessage(...) : IRequest<MyResult>;
 
 // 文件级抑制
 [assembly: System.Diagnostics.CodeAnalysis.SuppressMessage(
-    "Usage", 
+    "Usage",
     "CATGA001:Message should have MemoryPackable attribute",
     Justification = "Using JSON serialization")]
 
@@ -320,7 +320,7 @@ public record MyMessage(...) : IRequest<MyResult>;
 <PropertyGroup>
   <!-- 所有警告视为错误 -->
   <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-  
+
   <!-- CATGA001 提升为警告 -->
   <CATGA001>warning</CATGA001>
 </PropertyGroup>
@@ -347,7 +347,7 @@ public record MyMessage(...) : IRequest<MyResult>;
 ```yaml
 - name: Build with analyzers
   run: dotnet build /p:TreatWarningsAsErrors=true
-  
+
 - name: Check for warnings
   run: dotnet build /warnaserror
 ```

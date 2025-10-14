@@ -67,8 +67,11 @@ public class MissingMemoryPackableAttributeAnalyzer : DiagnosticAnalyzer
 
     private static bool HasMemoryPackableAttribute(INamedTypeSymbol namedType)
     {
-        foreach (var attr in namedType.GetAttributes())
+        // Manual iteration instead of LINQ for AOT compatibility
+        var attributes = namedType.GetAttributes();
+        for (int i = 0; i < attributes.Length; i++)
         {
+            var attr = attributes[i];
             if (attr.AttributeClass?.Name == "MemoryPackableAttribute" ||
                 attr.AttributeClass?.ToDisplayString() == "MemoryPack.MemoryPackableAttribute")
             {

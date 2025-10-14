@@ -1,6 +1,6 @@
 # Catga 示例项目
 
-> **30 秒上手，3 行代码** - 通过实际示例学习 Catga  
+> **30 秒上手，3 行代码** - 通过实际示例学习 Catga
 > 最后更新: 2025-10-14
 
 [返回主文档](../README.md) · [快速参考](../QUICK-REFERENCE.md) · [完整文档](../docs/README.md)
@@ -49,7 +49,7 @@ graph TB
     B --> C[Redis<br/>:6379]
     B --> D[NATS<br/>:4222]
     B --> E[SQLite<br/>local]
-    
+
     style A fill:#e1f5ff
     style B fill:#fff3e0
     style C fill:#ffebee
@@ -134,7 +134,7 @@ app.Run();
 ```csharp
 // 消息定义
 [MemoryPackable]
-public partial record CreateOrder(string OrderId, decimal Amount) 
+public partial record CreateOrder(string OrderId, decimal Amount)
     : IRequest<OrderResult>;
 
 [MemoryPackable]
@@ -221,16 +221,16 @@ public partial record OrderResult(string OrderId, string Status);
 
 ## 💡 常见问题
 
-**Q: 先学哪个示例？**  
+**Q: 先学哪个示例？**
 A: Aspire → MemoryPack AOT → K8s 部署
 
-**Q: 本地开发用什么？**  
+**Q: 本地开发用什么？**
 A: Aspire（一键启动，零配置）
 
-**Q: 生产部署用什么？**  
+**Q: 生产部署用什么？**
 A: MemoryPack AOT + K8s（高性能，云原生）
 
-**Q: 如何选择序列化器？**  
+**Q: 如何选择序列化器？**
 A: MemoryPack（推荐，100% AOT）或 JSON（人类可读）
 
 ---

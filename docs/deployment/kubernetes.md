@@ -1,6 +1,6 @@
 # Kubernetes 部署指南
 
-> **生产级 K8s 部署** - Catga + NATS + Redis 完整部署方案  
+> **生产级 K8s 部署** - Catga + NATS + Redis 完整部署方案
 > 最后更新: 2025-10-14
 
 [返回主文档](../../README.md) · [快速参考](../../QUICK-REFERENCE.md) · [架构设计](../architecture/ARCHITECTURE.md)
@@ -11,11 +11,11 @@
 
 本指南涵盖 Catga 应用在 Kubernetes 上的完整部署流程：
 
-✅ **Helm Chart 部署** - 一键部署完整堆栈  
-✅ **NATS + Redis 集成** - 生产级消息队列和缓存  
-✅ **服务发现** - K8s 原生服务发现  
-✅ **可观测性** - OpenTelemetry + Prometheus + Grafana  
-✅ **高可用** - 多副本 + 滚动更新  
+✅ **Helm Chart 部署** - 一键部署完整堆栈
+✅ **NATS + Redis 集成** - 生产级消息队列和缓存
+✅ **服务发现** - K8s 原生服务发现
+✅ **可观测性** - OpenTelemetry + Prometheus + Grafana
+✅ **高可用** - 多副本 + 滚动更新
 ✅ **Auto-scaling** - HPA + VPA 自动扩缩容
 
 ---
@@ -86,43 +86,43 @@ graph TB
     subgraph "Ingress Layer"
         A[Ingress Controller]
     end
-    
+
     subgraph "Application Layer"
         B1[Catga Pod 1]
         B2[Catga Pod 2]
         B3[Catga Pod 3]
     end
-    
+
     subgraph "Infrastructure Layer"
         C1[NATS Cluster]
         C2[Redis Cluster]
     end
-    
+
     subgraph "Observability Layer"
         D1[Prometheus]
         D2[Grafana]
         D3[OTLP Collector]
     end
-    
+
     A --> B1
     A --> B2
     A --> B3
-    
+
     B1 --> C1
     B2 --> C1
     B3 --> C1
-    
+
     B1 --> C2
     B2 --> C2
     B3 --> C2
-    
+
     B1 --> D3
     B2 --> D3
     B3 --> D3
-    
+
     D3 --> D1
     D1 --> D2
-    
+
     style A fill:#e1f5ff
     style B1 fill:#fff3e0
     style B2 fill:#fff3e0
@@ -204,18 +204,18 @@ autoscaling:
 catga:
   serializer: memorypack  # memorypack | json
   environment: production # development | production
-  
+
   # NATS 配置
   nats:
     enabled: true
     url: nats://nats-cluster:4222
-    
+
   # Redis 配置
   redis:
     enabled: true
     host: redis-master
     port: 6379
-    
+
   # 可观测性
   observability:
     tracing: true
@@ -546,16 +546,16 @@ data:
             endpoint: 0.0.0.0:4317
           http:
             endpoint: 0.0.0.0:4318
-    
+
     exporters:
       prometheus:
         endpoint: "0.0.0.0:8889"
-      
+
       jaeger:
         endpoint: jaeger-collector:14250
         tls:
           insecure: true
-    
+
     service:
       pipelines:
         traces:
@@ -755,15 +755,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Build and push Docker image
       run: |
         docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
         docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-    
+
     - name: Set up kubectl
       uses: azure/setup-kubectl@v3
-    
+
     - name: Deploy to K8s
       run: |
         helm upgrade catga-prod ./helm/catga \

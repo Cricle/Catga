@@ -1,6 +1,6 @@
 # MemoryPackAotDemo - Native AOT 示例
 
-> **3MB 可执行文件 · < 20ms 启动 · 100% AOT 兼容**  
+> **3MB 可执行文件 · < 20ms 启动 · 100% AOT 兼容**
 > 展示 Catga + MemoryPack 实现零反射、高性能的 Native AOT 应用
 
 [返回示例首页](../README.md) · [序列化指南](../../docs/guides/serialization.md) · [AOT 部署指南](../../docs/deployment/native-aot-publishing.md)
@@ -9,9 +9,9 @@
 
 ## 🎯 本示例演示
 
-✅ **Native AOT 编译** - 完整的 AOT 兼容配置  
-✅ **MemoryPack 序列化** - 零反射、高性能序列化  
-✅ **最小化 API** - 轻量级 Web API  
+✅ **Native AOT 编译** - 完整的 AOT 兼容配置
+✅ **MemoryPack 序列化** - 零反射、高性能序列化
+✅ **最小化 API** - 轻量级 Web API
 ✅ **生产级性能** - 性能对比和基准测试
 
 ---
@@ -130,7 +130,7 @@ var app = builder.Build();
 ```csharp
 // ✅ [MemoryPackable] 是关键 - 启用编译时序列化
 [MemoryPackable]
-public partial record CreateOrder(string OrderId, decimal Amount) 
+public partial record CreateOrder(string OrderId, decimal Amount)
     : IRequest<OrderResult>;
 
 [MemoryPackable]
@@ -177,10 +177,10 @@ public sealed class CreateOrderHandler : IRequestHandler<CreateOrder, OrderResul
 <PropertyGroup>
   <!-- 启用 Native AOT -->
   <PublishAot>true</PublishAot>
-  
+
   <!-- 全量裁剪（最小包） -->
   <TrimMode>full</TrimMode>
-  
+
   <!-- 使用固定区域设置（减小包大小） -->
   <InvariantGlobalization>true</InvariantGlobalization>
 </PropertyGroup>

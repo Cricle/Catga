@@ -667,7 +667,7 @@ private async Task ReleaseInventory(string orderId)
 private async Task CompensateAsync(Exception ex)
 {
     var completedSteps = await _store.GetCompletedStepsAsync(_processId);
-    
+
     foreach (var step in completedSteps.Reverse())
     {
         switch (step)
@@ -701,7 +701,7 @@ public partial class OrderProcess
         // 自定义规则
         return $"Order_{request.OrderId}_{request.CustomerId}";
     }
-    
+
     public async Task<OrderResult> ExecuteAsync(CreateOrderCommand request)
     {
         // ... 业务逻辑
@@ -756,7 +756,7 @@ private async Task<InventoryReserved> ReserveInventory(string orderId, List<Orde
 private async Task<InventoryReserved> ReserveInventory(string orderId, List<OrderItem> items)
 {
     using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-    
+
     for (int attempt = 0; attempt < 3; attempt++)
     {
         try
@@ -797,29 +797,29 @@ public partial class OrderProcess
         public PaymentProcessed? Payment { get; init; }
         public ShipmentCreated? Shipment { get; init; }
     }
-    
+
     private ProcessState _state;
-    
+
     // 自动生成的步骤包装 - 强类型
     private async Task<InventoryReserved> ReserveInventory(string orderId, List<OrderItem> items)
     {
         // 1. 检查状态 (编译时类型安全)
         if (_state.Inventory.HasValue)
             return _state.Inventory.Value; // 👈 零反序列化
-        
+
         // 2. 执行步骤
         var result = await ReserveInventory_Original(orderId, items);
-        
+
         // 3. 更新状态 (强类型)
         _state = _state with { Inventory = result };
-        
+
         // 4. 异步持久化
         _ = _eventStore.AppendAsync(_processId, new ProcessStepCompleted<InventoryReserved>
         {
             StepName = "预留库存",
             Result = result // 👈 强类型，零序列化开销
         });
-        
+
         return result;
     }
 }
@@ -854,13 +854,13 @@ public partial class OrderProcess
             }
         };
     }
-    
+
     // 自动生成的状态查询
     [GeneratedMonitoringEndpoint]
     public async Task<ProcessExecutionStatus> GetStatusAsync(string processId)
     {
         var events = await _eventStore.GetEventsAsync(processId);
-        
+
         return new ProcessExecutionStatus
         {
             ProcessId = processId,
@@ -873,13 +873,13 @@ public partial class OrderProcess
 }
 
 // ASP.NET Core 自动注册监控端点
-app.MapGet("/api/processes/{processId}/status", 
+app.MapGet("/api/processes/{processId}/status",
     async (string processId, IProcessMonitor monitor) =>
     {
         return await monitor.GetStatusAsync<OrderProcess>(processId);
     });
 
-app.MapGet("/api/processes/definitions", 
+app.MapGet("/api/processes/definitions",
     (IProcessMonitor monitor) =>
     {
         return monitor.GetAllDefinitions();
@@ -956,22 +956,22 @@ private async Task<ApprovalResult> ApproveOrder(string orderId)
 public async Task<OrderResult> ExecuteAsync(CreateOrderCommand request)
 {
     var inventory = await ReserveInventory(request.OrderId, request.Items);
-    
+
     // 等待人工审批
     var approval = await ApproveOrder(request.OrderId);
-    
+
     if (!approval.IsApproved)
     {
         // 自动补偿
         throw new ProcessCancelledException("订单被拒绝");
     }
-    
+
     var payment = await ProcessPayment(request.OrderId, request.Amount);
     // ...
 }
 
 // 审批 API (自动生成)
-app.MapPost("/api/processes/{processId}/approve", 
+app.MapPost("/api/processes/{processId}/approve",
     async (string processId, ApprovalRequest request, IProcessApprovalService service) =>
     {
         await service.ApproveAsync<OrderProcess>(processId, request.IsApproved, request.Comment);
@@ -980,115 +980,278 @@ app.MapPost("/api/processes/{processId}/approve",
 
 ---
 
-#### ✅ 优化后的完整示例
+#### ✅ 终极优化: 完全透明 - 零 Attribute！
+
+**问题**: 太多 Attribute 破坏了透明性，用户需要学习太多概念
+
+**解决方案**: Source Generator 通过命名约定自动推断一切！
 
 ```csharp
-[CatgaProcess]
-[ProcessId(nameof(GetProcessId))]
-[Serializer(typeof(MemoryPackSerializer))]
+// 🎯 用户写法 - 完全透明，零 Attribute！⭐⭐⭐⭐⭐
+[CatgaProcess] // 👈 只需要这一个！
 public partial class OrderProcess
 {
-    private string GetProcessId(CreateOrderCommand request) 
-        => $"Order_{request.OrderId}";
-    
+    // 就是普通的 async 方法！
     public async Task<OrderResult> ExecuteAsync(CreateOrderCommand request)
     {
-        // 步骤 1: 预留库存 (30s 超时，3 次重试)
+        // 步骤 1: 预留库存
         var inventory = await ReserveInventory(request.OrderId, request.Items);
         
-        // 步骤 2: 人工审批 (24h 超时)
-        var approval = await ApproveOrder(request.OrderId);
-        if (!approval.IsApproved) throw new ProcessCancelledException();
+        // 步骤 2: 处理支付
+        var payment = await ProcessPayment(request.OrderId, request.Amount);
         
-        // 步骤 3 和 4: 并行执行
-        var (payment, notification) = await (
-            ProcessPayment(request.OrderId, request.Amount),
-            SendNotification(request.CustomerId, "处理中")
-        );
+        // 步骤 3: 条件发货 (就是普通 if！)
+        ShipmentCreated shipment;
+        if (request.Amount > 1000)
+        {
+            shipment = await CreateExpressShipment(request.OrderId, request.Address);
+        }
+        else
+        {
+            shipment = await CreateShipment(request.OrderId, request.Address);
+        }
         
-        // 步骤 5: 条件发货
-        var shipment = await CreateShipment(request);
-        
-        return new OrderResult { ... };
+        return new OrderResult
+        {
+            OrderId = request.OrderId,
+            InventoryId = inventory.ReservationId,
+            PaymentId = payment.TransactionId,
+            ShipmentId = shipment.TrackingNumber
+        };
     }
     
-    [ProcessStep("预留库存")]
-    [Timeout(Seconds = 30)]
-    [Retry(MaxAttempts = 3, BackoffMs = 1000)]
-    [Compensate(nameof(ReleaseInventory))]
+    // 步骤方法 - 零 Attribute
     private async Task<InventoryReserved> ReserveInventory(string orderId, List<OrderItem> items)
     {
-        var result = await SendAsync<ReserveInventory, InventoryReserved>(...);
+        var result = await SendAsync<ReserveInventory, InventoryReserved>(
+            new ReserveInventory(orderId, items));
         return result.Value;
     }
     
-    [CompensationStep]
-    private async Task ReleaseInventory(string orderId)
+    // 补偿方法 - 命名约定: Compensate{StepName}
+    private async Task CompensateReserveInventory(string orderId)
     {
         await SendAsync(new ReleaseInventory(orderId));
     }
     
-    [ProcessStep("审批订单")]
-    [ManualApproval(TimeoutHours = 24)]
-    private async Task<ApprovalResult> ApproveOrder(string orderId)
-    {
-        return await WaitForApprovalAsync(orderId);
-    }
-    
-    [ProcessStep("处理支付")]
-    [Timeout(Seconds = 60)]
-    [Retry(MaxAttempts = 5, BackoffMs = 2000)]
-    [Compensate(nameof(RefundPayment))]
     private async Task<PaymentProcessed> ProcessPayment(string orderId, decimal amount)
     {
-        var result = await SendAsync<ProcessPayment, PaymentProcessed>(...);
+        var result = await SendAsync<ProcessPayment, PaymentProcessed>(
+            new ProcessPayment(orderId, amount));
         return result.Value;
     }
     
-    [CompensationStep]
-    private async Task RefundPayment(string orderId)
+    private async Task CompensateProcessPayment(string orderId)
     {
         await SendAsync(new RefundPayment(orderId));
     }
     
-    [ProcessStep("发货")]
-    [Condition(nameof(IsVipOrder))]
-    [Compensate(nameof(CancelShipment))]
-    private async Task<ShipmentCreated> CreateExpressShipment(CreateOrderCommand request)
+    private async Task<ShipmentCreated> CreateShipment(string orderId, string address)
     {
-        var result = await SendAsync<CreateExpressShipment, ShipmentCreated>(...);
+        var result = await SendAsync<CreateShipment, ShipmentCreated>(
+            new CreateShipment(orderId, address));
         return result.Value;
     }
     
-    [ProcessStep("发货")]
-    [Condition(nameof(IsNormalOrder))]
-    [Compensate(nameof(CancelShipment))]
-    private async Task<ShipmentCreated> CreateShipment(CreateOrderCommand request)
+    private async Task<ShipmentCreated> CreateExpressShipment(string orderId, string address)
     {
-        var result = await SendAsync<CreateShipment, ShipmentCreated>(...);
+        var result = await SendAsync<CreateExpressShipment, ShipmentCreated>(
+            new CreateExpressShipment(orderId, address));
         return result.Value;
     }
     
-    [CompensationStep]
-    private async Task CancelShipment(string orderId)
+    private async Task CompensateCreateShipment(string orderId)
     {
         await SendAsync(new CancelShipment(orderId));
     }
     
-    private bool IsVipOrder(CreateOrderCommand request) => request.Amount > 1000;
-    private bool IsNormalOrder(CreateOrderCommand request) => request.Amount <= 1000;
+    private async Task CompensateCreateExpressShipment(string orderId)
+    {
+        await SendAsync(new CancelShipment(orderId));
+    }
+}
+
+// ✨ Source Generator 自动推断规则:
+// 1. ExecuteAsync 中的 await 调用 = 步骤
+// 2. Compensate{StepName} = 补偿方法
+// 3. 方法名 = 步骤名
+// 4. if/else = 条件分支
+// 5. Task.WhenAll = 并行步骤
+// 6. 第一个参数通常是 ProcessId
+// 7. 默认超时 30s，重试 3 次 (可通过配置文件覆盖)
+
+// ✨ Source Generator 自动生成的代码
+public partial class OrderProcess : IRequestHandler<CreateOrderCommand, CatgaResult<OrderResult>>
+{
+    private readonly ICatgaMediator _mediator;
+    private readonly IEventStore _eventStore;
+    private string _processId;
+    
+    // 强类型状态 (自动生成)
+    private readonly struct ProcessState
+    {
+        public InventoryReserved? Inventory { get; init; }
+        public PaymentProcessed? Payment { get; init; }
+        public ShipmentCreated? Shipment { get; init; }
+    }
+    
+    private ProcessState _state;
+    
+    public async ValueTask<CatgaResult<OrderResult>> HandleAsync(
+        CreateOrderCommand request, 
+        CancellationToken ct)
+    {
+        _processId = request.OrderId; // 👈 自动推断: 第一个参数
+        
+        // 从事件流恢复状态
+        await RecoverStateAsync();
+        
+        try
+        {
+            var result = await ExecuteAsync(request);
+            return CatgaResult<OrderResult>.Success(result);
+        }
+        catch (Exception ex)
+        {
+            // 自动补偿
+            await CompensateAsync();
+            return CatgaResult<OrderResult>.Failure(ex.Message, ex);
+        }
+    }
+    
+    // 自动包装步骤 (带 Event Sourcing)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private async Task<InventoryReserved> ReserveInventory(string orderId, List<OrderItem> items)
+    {
+        // 1. 检查状态 (幂等性)
+        if (_state.Inventory.HasValue)
+            return _state.Inventory.Value;
+        
+        // 2. 发布 StepStarted 事件
+        await _eventStore.AppendAsync(_processId, new ProcessStepStarted
+        {
+            ProcessId = _processId,
+            StepName = nameof(ReserveInventory), // 👈 自动推断步骤名
+            Timestamp = DateTime.UtcNow
+        });
+        
+        try
+        {
+            // 3. 执行原始方法 (带超时和重试)
+            var result = await ExecuteWithRetryAsync(
+                () => ReserveInventory_Original(orderId, items),
+                maxAttempts: 3, // 👈 默认配置
+                timeout: TimeSpan.FromSeconds(30) // 👈 默认配置
+            );
+            
+            // 4. 更新状态
+            _state = _state with { Inventory = result };
+            
+            // 5. 发布 StepCompleted 事件
+            await _eventStore.AppendAsync(_processId, new ProcessStepCompleted<InventoryReserved>
+            {
+                ProcessId = _processId,
+                StepName = nameof(ReserveInventory),
+                Timestamp = DateTime.UtcNow,
+                Result = result
+            });
+            
+            return result;
+        }
+        catch (Exception ex)
+        {
+            // 6. 发布 StepFailed 事件
+            await _eventStore.AppendAsync(_processId, new ProcessStepFailed
+            {
+                ProcessId = _processId,
+                StepName = nameof(ReserveInventory),
+                Timestamp = DateTime.UtcNow,
+                Error = ex.Message
+            });
+            throw;
+        }
+    }
+    
+    // 原始方法 (自动生成)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private async Task<InventoryReserved> ReserveInventory_Original(string orderId, List<OrderItem> items)
+    {
+        var result = await _mediator.SendAsync<ReserveInventory, InventoryReserved>(
+            new ReserveInventory(orderId, items));
+        return result.Value;
+    }
+    
+    // 自动生成补偿逻辑
+    private async Task CompensateAsync()
+    {
+        // 按相反顺序补偿
+        if (_state.Shipment.HasValue)
+        {
+            await CompensateCreateShipment(_processId); // 👈 自动调用
+        }
+        
+        if (_state.Payment.HasValue)
+        {
+            await CompensateProcessPayment(_processId); // 👈 自动调用
+        }
+        
+        if (_state.Inventory.HasValue)
+        {
+            await CompensateReserveInventory(_processId); // 👈 自动调用
+        }
+    }
+}
+
+// 📝 配置文件 (可选，覆盖默认值)
+// appsettings.json
+{
+  "Catga": {
+    "Process": {
+      "DefaultTimeout": 30,
+      "DefaultRetry": 3,
+      "DefaultBackoff": 1000,
+      "Serializer": "MemoryPack",
+      "Steps": {
+        "ReserveInventory": {
+          "Timeout": 30,
+          "Retry": 3
+        },
+        "ProcessPayment": {
+          "Timeout": 60,
+          "Retry": 5,
+          "Backoff": 2000
+        }
+      }
+    }
+  }
 }
 ```
 
+**透明性对比**:
+
+| 方案 | 用户代码 | 透明性 | 学习成本 |
+|------|---------|--------|---------|
+| **方案 A: 大量 Attribute** | `[ProcessStep]` `[Timeout]` `[Retry]` `[Compensate]` | ❌ 低 | 高 |
+| **方案 B: 命名约定** | 零 Attribute，只有方法名 | ✅ **极高** | **零** |
+
+**命名约定规则** (Source Generator 自动推断):
+1. ✅ `ExecuteAsync` 中的 `await` 调用 = 步骤
+2. ✅ `Compensate{StepName}` = 补偿方法
+3. ✅ 方法名 = 步骤名
+4. ✅ `if/else` = 条件分支
+5. ✅ `Task.WhenAll` / `await (task1, task2)` = 并行步骤
+6. ✅ 第一个 `string` 参数 = ProcessId
+7. ✅ 默认超时 30s，重试 3 次 (配置文件可覆盖)
+
 **优化总结**:
-1. ✅ **自动补偿** - `[Compensate]` 属性自动关联补偿方法
-2. ✅ **灵活 ProcessId** - `[ProcessId]` 属性自定义生成规则
-3. ✅ **可配置序列化** - `[Serializer]` 属性指定序列化器
-4. ✅ **超时和重试** - `[Timeout]` 和 `[Retry]` 属性声明式配置
-5. ✅ **强类型状态** - Source Generator 生成强类型状态，零反序列化
-6. ✅ **监控和可视化** - 自动生成监控端点和状态查询
-7. ✅ **条件分支** - `[Condition]` 属性声明式条件判断
-8. ✅ **人工审批** - `[ManualApproval]` 属性支持人工介入
+1. ✅ **零 Attribute** - 只需要 `[CatgaProcess]`
+2. ✅ **命名约定** - `Compensate{StepName}` 自动关联补偿
+3. ✅ **自动推断** - 步骤名、ProcessId、条件分支、并行步骤
+4. ✅ **配置文件** - 超时、重试等通过配置文件覆盖
+5. ✅ **强类型状态** - Source Generator 生成，零反序列化
+6. ✅ **完全透明** - 就是普通 C# 代码，零学习成本
+7. ✅ **极致性能** - 编译时生成，零运行时开销
+8. ✅ **完美调试** - F5/F9/F10 全支持
 
 **优先级**: P0 (核心功能)
 

@@ -17,9 +17,26 @@ namespace Catga.DependencyInjection;
 public static class CatgaServiceCollectionExtensions
 {
     /// <summary>
-    /// Add Catga core services (requires IMessageSerializer to be registered separately for serialization features)
+    /// Add Catga core services with fluent builder API
     /// </summary>
-    public static IServiceCollection AddCatga(this IServiceCollection services, Action<CatgaOptions>? configureOptions = null)
+    /// <param name="services">Service collection</param>
+    /// <param name="configureOptions">Optional configuration action</param>
+    /// <returns>CatgaServiceBuilder for fluent configuration</returns>
+    /// <remarks>
+    /// Note: Requires IMessageSerializer to be registered. Use one of:
+    /// <code>
+    /// services.AddCatga().UseMemoryPack();  // Recommended for AOT
+    /// services.AddCatga().UseJson();         // Or JSON
+    /// </code>
+    /// 
+    /// Complete example:
+    /// <code>
+    /// services.AddCatga()
+    ///     .UseMemoryPack()
+    ///     .ForProduction();
+    /// </code>
+    /// </remarks>
+    public static CatgaServiceBuilder AddCatga(this IServiceCollection services, Action<CatgaOptions>? configureOptions = null)
     {
         var options = new CatgaOptions();
         configureOptions?.Invoke(options);
@@ -37,7 +54,7 @@ public static class CatgaServiceCollectionExtensions
         if (options.EnableValidation) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         if (options.EnableRetry) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(RetryBehavior<,>));
 
-        return services;
+        return new CatgaServiceBuilder(services, options);
     }
 
     public static CatgaBuilder AddCatgaBuilder(this IServiceCollection services, Action<CatgaBuilder>? configure = null)

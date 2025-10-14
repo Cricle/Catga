@@ -40,3 +40,28 @@ public class HandlerNotFoundException : CatgaException
 {
     public HandlerNotFoundException(string messageType) : base($"No handler found for message type: {messageType}", "HANDLER_NOT_FOUND", isRetryable: false) { }
 }
+
+/// <summary>Configuration exception</summary>
+public class CatgaConfigurationException : CatgaException
+{
+    public CatgaConfigurationException(string message) : base(message, "CONFIGURATION_ERROR", isRetryable: false) { }
+    
+    /// <summary>
+    /// Create exception for missing serializer registration
+    /// </summary>
+    public static CatgaConfigurationException SerializerNotRegistered()
+    {
+        return new CatgaConfigurationException(
+            "❌ IMessageSerializer is not registered.\n\n" +
+            "Quick Fix:\n" +
+            "  services.AddCatga().UseMemoryPack();  // Recommended for AOT\n\n" +
+            "Or manually:\n" +
+            "  services.AddSingleton<IMessageSerializer, MemoryPackMessageSerializer>();\n\n" +
+            "Available serializers:\n" +
+            "  ✅ MemoryPack (recommended for AOT): Install Catga.Serialization.MemoryPack\n" +
+            "     - 100% AOT compatible, 5x faster, 40% smaller\n" +
+            "  ⚠️ JSON: Install Catga.Serialization.Json\n" +
+            "     - Requires JsonSerializerContext for AOT\n\n" +
+            "Learn more: https://github.com/catga/docs/serialization");
+    }
+}

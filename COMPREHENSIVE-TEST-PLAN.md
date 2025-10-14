@@ -57,7 +57,7 @@
   - 错误处理
   - UTF-8 编码验证
 
-**预估时间**: 2 小时  
+**预估时间**: 2 小时
 **覆盖率目标**: 90%+
 
 ---
@@ -82,7 +82,7 @@
   - 错误处理
   - 批量操作
 
-**预估时间**: 3 小时  
+**预估时间**: 3 小时
 **覆盖率目标**: 85%+
 
 ---
@@ -116,7 +116,7 @@
   - 锁超时
   - 并发竞争
 
-**预估时间**: 4 小时  
+**预估时间**: 4 小时
 **覆盖率目标**: 85%+
 
 ---
@@ -135,7 +135,7 @@
   - 请求处理
   - 响应格式化
 
-**预估时间**: 2 小时  
+**预估时间**: 2 小时
 **覆盖率目标**: 80%+
 
 ---
@@ -151,7 +151,7 @@
 - [ ] **CodeFixTests.cs** (10 个测试)
   - 自动修复验证
 
-**预估时间**: 3 小时  
+**预估时间**: 3 小时
 **覆盖率目标**: 85%+
 
 ---
@@ -169,21 +169,21 @@ public class CqrsPerformanceBenchmarks
     // Command 处理吞吐量
     [Benchmark]
     public async Task SendCommand_Single() { }
-    
+
     [Benchmark]
     public async Task SendCommand_Batch_100() { }
-    
+
     [Benchmark]
     public async Task SendCommand_Batch_1000() { }
-    
+
     // Query 处理吞吐量
     [Benchmark]
     public async Task SendQuery_Single() { }
-    
+
     // Event 发布吞吐量
     [Benchmark]
     public async Task PublishEvent_Single() { }
-    
+
     [Benchmark]
     public async Task PublishEvent_Batch_100() { }
 }

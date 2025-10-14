@@ -167,16 +167,16 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
-      
+
       - name: Restore
         run: dotnet restore
-      
+
       - name: Build
         run: dotnet build -c Release --no-restore
-      
+
       - name: Test
         run: dotnet test -c Release --no-build --collect:"XPlat Code Coverage"
-      
+
       - name: Upload Coverage
         uses: codecov/codecov-action@v4
         with:
@@ -262,7 +262,7 @@ jobs:
 
 **Catga** - 高质量、高性能的 CQRS 框架 🚀
 
-**生成时间**: 2025-10-14  
-**测试版本**: 1.0.0  
+**生成时间**: 2025-10-14
+**测试版本**: 1.0.0
 **测试环境**: .NET 9.0.8, Windows 10
 

@@ -25,6 +25,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Catga\Catga.csproj" />
     <ProjectReference Include="..\..\src\Catga.InMemory\Catga.InMemory.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Serialization.Json\Catga.Serialization.Json.csproj" />
   </ItemGroup>
 
 </Project>

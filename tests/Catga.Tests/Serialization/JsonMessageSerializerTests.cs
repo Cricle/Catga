@@ -30,7 +30,7 @@ public class JsonMessageSerializerTests
         // Assert
         bytes.Should().NotBeNull();
         bytes.Length.Should().BeGreaterThan(0);
-        
+
         // Verify it's valid JSON
         var json = Encoding.UTF8.GetString(bytes);
         json.Should().Contain("\"Id\"");
@@ -193,7 +193,7 @@ public class JsonMessageSerializerTests
 
         // Assert
         bufferWriter.WrittenCount.Should().BeGreaterThan(0);
-        
+
         // Verify deserialization
         var deserialized = _serializer.Deserialize<JsonTestMessage>(bufferWriter.WrittenSpan);
         deserialized.Should().NotBeNull();

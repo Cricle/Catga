@@ -128,7 +128,7 @@ public class MemoryPackMessageSerializerTests
 
         // Assert
         bufferWriter.WrittenCount.Should().BeGreaterThan(0);
-        
+
         // Verify deserialization
         var deserialized = _serializer.Deserialize<TestMessage>(bufferWriter.WrittenSpan);
         deserialized.Should().NotBeNull();

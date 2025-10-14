@@ -68,21 +68,21 @@ public class MemoryPackMessageSerializerTests
     [Fact] void RoundTrip_ComplexObject_ShouldPreserveData()
     [Fact] void Serialize_NullValue_ShouldHandleGracefully()
     [Fact] void Deserialize_EmptyBytes_ShouldThrowException()
-    
+
     // 复杂对象测试 (3 个)
     [Fact] void Serialize_NestedObject_ShouldWork()
     [Fact] void Serialize_CollectionObject_ShouldWork()
     [Fact] void Serialize_GenericObject_ShouldWork()
-    
+
     // 性能测试 (3 个)
     [Fact] void Serialize_LargeObject_ShouldBeEfficient()
     [Fact] void Deserialize_LargeObject_ShouldBeEfficient()
     [Fact] void Serialize_10K_Objects_ShouldBeUnder100ms()
-    
+
     // 并发测试 (2 个)
     [Fact] void Serialize_Concurrent_ShouldBeThreadSafe()
     [Fact] void Deserialize_Concurrent_ShouldBeThreadSafe()
-    
+
     // 错误处理测试 (2 个)
     [Fact] void Deserialize_CorruptedData_ShouldThrowException()
     [Fact] void Serialize_UnsupportedType_ShouldThrowException()
@@ -96,9 +96,9 @@ public partial record TestMessage(int Id, string Name, DateTime Timestamp);
 
 [MemoryPackable]
 public partial record ComplexMessage(
-    int Id, 
-    string Name, 
-    List<string> Tags, 
+    int Id,
+    string Name,
+    List<string> Tags,
     Dictionary<string, object> Metadata,
     NestedData Nested
 );
@@ -107,7 +107,7 @@ public partial record ComplexMessage(
 public partial record NestedData(int Value, string Description);
 ```
 
-**预估时间**: 2 小时  
+**预估时间**: 2 小时
 **覆盖率目标**: 90%+
 
 ---
@@ -127,20 +127,20 @@ public class JsonMessageSerializerTests
     [Fact] void RoundTrip_ComplexObject_ShouldPreserveData()
     [Fact] void Serialize_WithCustomOptions_ShouldRespectOptions()
     [Fact] void Deserialize_WithJsonSerializerContext_ShouldWork()
-    
+
     // UTF-8 编码测试 (2 个)
     [Fact] void Serialize_UnicodeString_ShouldHandleCorrectly()
     [Fact] void Deserialize_Utf8Bytes_ShouldDecodeCorrectly()
-    
+
     // 性能测试 (3 个)
     [Fact] void Serialize_WithArrayPool_ShouldReduceAllocations()
     [Fact] void Deserialize_LargeJson_ShouldBeEfficient()
     [Fact] void Serialize_10K_Objects_ShouldBeUnder500ms()
-    
+
     // 并发测试 (2 个)
     [Fact] void Serialize_Concurrent_ShouldBeThreadSafe()
     [Fact] void Deserialize_Concurrent_ShouldBeThreadSafe()
-    
+
     // 错误处理测试 (3 个)
     [Fact] void Deserialize_InvalidJson_ShouldThrowException()
     [Fact] void Deserialize_MismatchedType_ShouldThrowException()
@@ -148,7 +148,7 @@ public class JsonMessageSerializerTests
 }
 ```
 
-**预估时间**: 2 小时  
+**预估时间**: 2 小时
 **覆盖率目标**: 85%+
 
 ---
@@ -169,26 +169,26 @@ public class InMemoryMessageTransportTests
     [Fact] async Task SubscribeAsync_ValidTopic_ShouldReceiveMessages()
     [Fact] async Task UnsubscribeAsync_ShouldStopReceivingMessages()
     [Fact] async Task PublishAsync_NoSubscribers_ShouldNotThrow()
-    
+
     // 多订阅者测试 (2 个)
     [Fact] async Task PublishAsync_MultipleSubscribers_ShouldDeliverToAll()
     [Fact] async Task SubscribeAsync_SameTopic_ShouldReceiveIndependently()
-    
+
     // QoS 测试 (3 个)
     [Fact] async Task PublishAsync_QoS0_ShouldDeliverAtMostOnce()
     [Fact] async Task PublishAsync_QoS1_ShouldDeliverAtLeastOnce()
     [Fact] async Task PublishAsync_QoS2_ShouldDeliverExactlyOnce()
-    
+
     // 并发测试 (2 个)
     [Fact] async Task PublishAsync_Concurrent_ShouldHandleCorrectly()
     [Fact] async Task SubscribeAsync_Concurrent_ShouldBeThreadSafe()
-    
+
     // 错误处理测试 (1 个)
     [Fact] async Task SubscribeAsync_HandlerThrows_ShouldNotAffectOthers()
 }
 ```
 
-**预估时间**: 2 小时  
+**预估时间**: 2 小时
 **覆盖率目标**: 85%+
 
 ---
@@ -206,28 +206,28 @@ public class NatsMessageTransportTests
     [Fact] async Task Constructor_ValidOptions_ShouldConnect()
     [Fact] async Task Dispose_ShouldCloseConnection()
     [Fact] async Task Reconnect_AfterDisconnect_ShouldWork()
-    
+
     // JetStream 发布测试 (4 个)
     [Fact] async Task PublishAsync_ToJetStream_ShouldSucceed()
     [Fact] async Task PublishAsync_WithMetadata_ShouldPreserveMetadata()
     [Fact] async Task PublishAsync_LargeMessage_ShouldHandle()
     [Fact] async Task PublishAsync_Batch_ShouldBeEfficient()
-    
+
     // JetStream 订阅测试 (4 个)
     [Fact] async Task SubscribeAsync_ToJetStream_ShouldReceiveMessages()
     [Fact] async Task SubscribeAsync_WithConsumerGroup_ShouldLoadBalance()
     [Fact] async Task SubscribeAsync_Durable_ShouldResumeAfterRestart()
     [Fact] async Task SubscribeAsync_WithFilter_ShouldFilterMessages()
-    
+
     // QoS 测试 (3 个)
     [Fact] async Task PublishAsync_QoS0_ShouldNotWaitForAck()
     [Fact] async Task PublishAsync_QoS1_ShouldWaitForAck()
     [Fact] async Task PublishAsync_QoS2_ShouldEnsureExactlyOnce()
-    
+
     // 错误处理测试 (2 个)
     [Fact] async Task PublishAsync_ConnectionLost_ShouldRetry()
     [Fact] async Task SubscribeAsync_InvalidStream_ShouldThrowException()
-    
+
     // 性能测试 (2 个)
     [Fact] async Task PublishAsync_10K_Messages_ShouldBeUnder5s()
     [Fact] async Task SubscribeAsync_HighThroughput_ShouldNotDropMessages()
@@ -236,7 +236,7 @@ public class NatsMessageTransportTests
 
 **注意**: 需要 NATS 测试容器或 Mock
 
-**预估时间**: 3 小时  
+**预估时间**: 3 小时
 **覆盖率目标**: 80%+
 
 ---
@@ -258,28 +258,28 @@ public class RedisOutboxStoreTests
     [Fact] async Task MarkAsPublishedAsync_ShouldUpdateStatus()
     [Fact] async Task DeleteAsync_ShouldRemoveMessage()
     [Fact] async Task GetByIdAsync_ShouldReturnMessage()
-    
+
     // 批量操作测试 (3 个)
     [Fact] async Task AddBatchAsync_100Messages_ShouldBeEfficient()
     [Fact] async Task GetPendingAsync_WithLimit_ShouldRespectLimit()
     [Fact] async Task MarkAsPublishedBatchAsync_ShouldUpdateAll()
-    
+
     // 过期清理测试 (2 个)
     [Fact] async Task CleanupExpiredAsync_ShouldRemoveOldMessages()
     [Fact] async Task GetPendingAsync_ShouldExcludeExpired()
-    
+
     // 并发测试 (3 个)
     [Fact] async Task AddAsync_Concurrent_ShouldBeThreadSafe()
     [Fact] async Task GetPendingAsync_Concurrent_ShouldNotDuplicate()
     [Fact] async Task MarkAsPublishedAsync_Concurrent_ShouldHandleRaceConditions()
-    
+
     // 错误恢复测试 (2 个)
     [Fact] async Task AddAsync_RedisDown_ShouldThrowException()
     [Fact] async Task GetPendingAsync_AfterReconnect_ShouldWork()
 }
 ```
 
-**预估时间**: 2 小时  
+**预估时间**: 2 小时
 **覆盖率目标**: 85%+
 
 ---
@@ -298,26 +298,26 @@ public class RedisInboxPersistenceTests
     [Fact] async Task HasProcessedAsync_ProcessedMessage_ShouldReturnTrue()
     [Fact] async Task MarkAsProcessedAsync_ShouldStoreMessageId()
     [Fact] async Task HasProcessedAsync_ExpiredMessage_ShouldReturnFalse()
-    
+
     // 批量处理测试 (2 个)
     [Fact] async Task MarkAsProcessedBatchAsync_ShouldStoreAll()
     [Fact] async Task HasProcessedBatchAsync_ShouldCheckAll()
-    
+
     // 过期清理测试 (2 个)
     [Fact] async Task CleanupExpiredAsync_ShouldRemoveOldEntries()
     [Fact] async Task GetProcessedCountAsync_ShouldReturnCorrectCount()
-    
+
     // 并发测试 (2 个)
     [Fact] async Task MarkAsProcessedAsync_Concurrent_ShouldBeThreadSafe()
     [Fact] async Task HasProcessedAsync_Concurrent_ShouldBeConsistent()
-    
+
     // 错误处理测试 (2 个)
     [Fact] async Task MarkAsProcessedAsync_RedisDown_ShouldThrowException()
     [Fact] async Task HasProcessedAsync_InvalidMessageId_ShouldReturnFalse()
 }
 ```
 
-**预估时间**: 1.5 小时  
+**预估时间**: 1.5 小时
 **覆盖率目标**: 85%+
 
 ---
@@ -337,25 +337,25 @@ public class RedisDistributedCacheTests
     [Fact] async Task SetAsync_ValidKeyValue_ShouldStore()
     [Fact] async Task RemoveAsync_ExistingKey_ShouldDelete()
     [Fact] async Task ExistsAsync_ShouldReturnCorrectStatus()
-    
+
     // 过期时间测试 (2 个)
     [Fact] async Task SetAsync_WithExpiration_ShouldExpireAfterTime()
     [Fact] async Task GetAsync_ExpiredKey_ShouldReturnNull()
-    
+
     // 批量操作测试 (2 个)
     [Fact] async Task GetManyAsync_ShouldReturnAllValues()
     [Fact] async Task SetManyAsync_ShouldStoreAllValues()
-    
+
     // 并发测试 (2 个)
     [Fact] async Task SetAsync_Concurrent_ShouldHandleCorrectly()
     [Fact] async Task GetAsync_Concurrent_ShouldBeThreadSafe()
-    
+
     // 错误处理测试 (1 个)
     [Fact] async Task GetAsync_RedisDown_ShouldThrowException()
 }
 ```
 
-**预估时间**: 1.5 小时  
+**预估时间**: 1.5 小时
 **覆盖率目标**: 85%+
 
 ---
@@ -375,18 +375,18 @@ public class RedisDistributedLockTests
     [Fact] async Task ReleaseAsync_AcquiredLock_ShouldRelease()
     [Fact] async Task AcquireAsync_WithTimeout_ShouldTimeout()
     [Fact] async Task TryAcquireAsync_LockedResource_ShouldReturnFalse()
-    
+
     // 锁超时测试 (3 个)
     [Fact] async Task AcquireAsync_WithExpiration_ShouldAutoRelease()
     [Fact] async Task AcquireAsync_ExpiredLock_ShouldReacquire()
     [Fact] async Task RenewAsync_ShouldExtendLockTime()
-    
+
     // 并发竞争测试 (4 个)
     [Fact] async Task AcquireAsync_Concurrent_OnlyOneShouldSucceed()
     [Fact] async Task AcquireAsync_HighContention_ShouldHandleCorrectly()
     [Fact] async Task ReleaseAsync_Concurrent_ShouldNotAffectOthers()
     [Fact] async Task AcquireAsync_10Threads_ShouldSerialize()
-    
+
     // 错误处理测试 (3 个)
     [Fact] async Task ReleaseAsync_NotOwned_ShouldThrowException()
     [Fact] async Task AcquireAsync_RedisDown_ShouldThrowException()
@@ -394,7 +394,7 @@ public class RedisDistributedLockTests
 }
 ```
 
-**预估时间**: 2 小时  
+**预估时间**: 2 小时
 **覆盖率目标**: 85%+
 
 ---
@@ -413,24 +413,24 @@ public class RedisIdempotencyStoreTests
     [Fact] async Task TryGetAsync_ExistingKey_ShouldReturnCachedResult()
     [Fact] async Task TryStoreAsync_NewKey_ShouldStore()
     [Fact] async Task TryStoreAsync_ExistingKey_ShouldReturnFalse()
-    
+
     // 过期测试 (2 个)
     [Fact] async Task TryGetAsync_ExpiredKey_ShouldReturnNull()
     [Fact] async Task TryStoreAsync_WithExpiration_ShouldExpire()
-    
+
     // 并发测试 (4 个)
     [Fact] async Task TryStoreAsync_Concurrent_OnlyOneShouldSucceed()
     [Fact] async Task TryGetAsync_Concurrent_ShouldBeThreadSafe()
     [Fact] async Task TryStoreAsync_HighContention_ShouldHandleCorrectly()
     [Fact] async Task TryStoreAsync_100Concurrent_ShouldSerialize()
-    
+
     // 清理测试 (2 个)
     [Fact] async Task CleanupExpiredAsync_ShouldRemoveOldEntries()
     [Fact] async Task GetCountAsync_ShouldReturnCorrectCount()
 }
 ```
 
-**预估时间**: 1.5 小时  
+**预估时间**: 1.5 小时
 **覆盖率目标**: 85%+
 
 ---
@@ -451,26 +451,26 @@ public class RpcEndpointTests
     [Fact] async Task RpcCall_InvalidRequest_ShouldReturn400()
     [Fact] async Task RpcCall_HandlerThrows_ShouldReturn500()
     [Fact] async Task RpcCall_NotFound_ShouldReturn404()
-    
+
     // 超时测试 (2 个)
     [Fact] async Task RpcCall_WithTimeout_ShouldTimeout()
     [Fact] async Task RpcCall_LongRunning_ShouldComplete()
-    
+
     // 并发测试 (2 个)
     [Fact] async Task RpcCall_Concurrent_ShouldHandleCorrectly()
     [Fact] async Task RpcCall_HighLoad_ShouldMaintainPerformance()
-    
+
     // 序列化测试 (2 个)
     [Fact] async Task RpcCall_ComplexObject_ShouldSerializeCorrectly()
     [Fact] async Task RpcCall_LargePayload_ShouldHandle()
-    
+
     // 错误处理测试 (2 个)
     [Fact] async Task RpcCall_MalformedJson_ShouldReturn400()
     [Fact] async Task RpcCall_MissingHandler_ShouldReturn404()
 }
 ```
 
-**预估时间**: 2 小时  
+**预估时间**: 2 小时
 **覆盖率目标**: 80%+
 
 ---
@@ -488,23 +488,23 @@ public class CatgaEndpointTests
     [Fact] void MapCatgaEndpoints_ShouldRegisterRoutes()
     [Fact] async Task CommandEndpoint_ShouldInvokeMediator()
     [Fact] async Task QueryEndpoint_ShouldReturnResult()
-    
+
     // 请求处理测试 (3 个)
     [Fact] async Task PostCommand_ValidPayload_ShouldReturn200()
     [Fact] async Task GetQuery_ValidParams_ShouldReturnData()
     [Fact] async Task PostCommand_InvalidPayload_ShouldReturn400()
-    
+
     // 响应格式化测试 (2 个)
     [Fact] async Task CommandEndpoint_ShouldReturnCatgaResult()
     [Fact] async Task QueryEndpoint_ShouldFormatResponse()
-    
+
     // 错误处理测试 (2 个)
     [Fact] async Task CommandEndpoint_HandlerFails_ShouldReturnError()
     [Fact] async Task QueryEndpoint_NotFound_ShouldReturn404()
 }
 ```
 
-**预估时间**: 1.5 小时  
+**预估时间**: 1.5 小时
 **覆盖率目标**: 75%+
 
 ---
@@ -527,7 +527,7 @@ public class AnalyzerTests
     [Fact] void PartialClass_WithMemoryPackable_ShouldNotReport()
     [Fact] void InheritedMessage_ShouldCheckAttribute()
     [Fact] void GenericMessage_ShouldCheckAttribute()
-    
+
     // CATGA002 测试 (6 个)
     [Fact] void MissingSerializerRegistration_ShouldReportDiagnostic()
     [Fact] void HasSerializerRegistration_ShouldNotReportDiagnostic()
@@ -535,7 +535,7 @@ public class AnalyzerTests
     [Fact] void CustomSerializer_ShouldNotReportDiagnostic()
     [Fact] void SerializerInDifferentMethod_ShouldNotReport()
     [Fact] void SerializerInBaseClass_ShouldNotReport()
-    
+
     // 其他分析器测试 (6 个)
     [Fact] void MissingHandler_ShouldReportDiagnostic()
     [Fact] void DuplicateHandler_ShouldReportDiagnostic()
@@ -546,7 +546,7 @@ public class AnalyzerTests
 }
 ```
 
-**预估时间**: 3 小时  
+**预估时间**: 3 小时
 **覆盖率目标**: 85%+
 
 ---
@@ -565,13 +565,13 @@ public class CodeFixTests
     [Fact] async Task AddMemoryPackable_ShouldMakePartial()
     [Fact] async Task AddMemoryPackable_ShouldPreserveOtherAttributes()
     [Fact] async Task AddMemoryPackable_ShouldFormatCorrectly()
-    
+
     // CATGA002 修复测试 (4 个)
     [Fact] async Task AddSerializerRegistration_ShouldAddUseMemoryPack()
     [Fact] async Task AddSerializerRegistration_ShouldAddUseJson()
     [Fact] async Task AddSerializerRegistration_ShouldAddCustomSerializer()
     [Fact] async Task AddSerializerRegistration_ShouldPlaceCorrectly()
-    
+
     // 其他修复测试 (4 个)
     [Fact] async Task AddHandler_ShouldGenerateHandlerClass()
     [Fact] async Task AddAotAttribute_ShouldAddDynamicallyAccessedMembers()
@@ -580,7 +580,7 @@ public class CodeFixTests
 }
 ```
 
-**预估时间**: 2 小时  
+**预估时间**: 2 小时
 **覆盖率目标**: 80%+
 
 ---
@@ -602,26 +602,26 @@ public class PipelineBehaviorExtendedTests
     [Fact] async Task IdempotencyBehavior_ConcurrentRequests_ShouldHandleCorrectly()
     [Fact] async Task LoggingBehavior_LargePayload_ShouldTruncate()
     [Fact] async Task TimeoutBehavior_LongRunning_ShouldCancel()
-    
+
     // 组合测试 (5 个)
     [Fact] async Task MultipleBehaviors_ShouldExecuteInOrder()
     [Fact] async Task RetryWithValidation_ShouldValidateBeforeRetry()
     [Fact] async Task IdempotencyWithLogging_ShouldLogCorrectly()
     [Fact] async Task AllBehaviors_ShouldWorkTogether()
     [Fact] async Task CustomBehavior_ShouldIntegrate()
-    
+
     // 性能测试 (3 个)
     [Fact] async Task PipelineOverhead_ShouldBeLessThan10Percent()
     [Fact] async Task BehaviorChain_10Behaviors_ShouldBeEfficient()
     [Fact] async Task PipelineExecution_1000Requests_ShouldMaintainPerformance()
-    
+
     // 错误传播测试 (2 个)
     [Fact] async Task BehaviorThrows_ShouldPropagateCorrectly()
     [Fact] async Task InnerBehaviorFails_ShouldExecuteOuterCleanup()
 }
 ```
 
-**预估时间**: 2 小时  
+**预估时间**: 2 小时
 **覆盖率目标**: 90%+
 
 ---
@@ -640,24 +640,24 @@ public class IdempotencyStoreExtendedTests
     [Fact] async Task TryGet_HighContention_ShouldBeConsistent()
     [Fact] async Task TryStore_RaceCondition_ShouldHandleCorrectly()
     [Fact] async Task ShardedStore_UniformDistribution_ShouldBalance()
-    
+
     // 内存管理测试 (3 个)
     [Fact] async Task Store_LargeVolume_ShouldNotLeak()
     [Fact] async Task Cleanup_ShouldReleaseMemory()
     [Fact] async Task Store_WithExpiration_ShouldAutoCleanup()
-    
+
     // 性能测试 (3 个)
     [Fact] async Task TryGet_CacheHit_ShouldBeLessThan100ns()
     [Fact] async Task TryStore_ShouldBeLessThan500ns()
     [Fact] async Task Store_1M_Entries_ShouldHandleEfficiently()
-    
+
     // 边界测试 (2 个)
     [Fact] async Task Store_MaxCapacity_ShouldEvictOldest()
     [Fact] async Task Store_EmptyKey_ShouldThrowException()
 }
 ```
 
-**预估时间**: 1.5 小时  
+**预估时间**: 1.5 小时
 **覆盖率目标**: 90%+
 
 ---
@@ -676,25 +676,25 @@ public class IdempotencyPerformanceBenchmarks
 {
     [Benchmark(Baseline = true)]
     public async Task IdempotencyStore_CacheHit()
-    
+
     [Benchmark]
     public async Task IdempotencyStore_CacheMiss()
-    
+
     [Benchmark]
     public async Task IdempotencyStore_Store_New()
-    
+
     [Benchmark]
     public async Task IdempotencyStore_Store_Update()
-    
+
     [Benchmark]
     public async Task IdempotencyStore_Concurrent_10()
-    
+
     [Benchmark]
     public async Task IdempotencyStore_Concurrent_100()
-    
+
     [Benchmark]
     public async Task IdempotencyStore_Cleanup()
-    
+
     [Benchmark]
     public async Task IdempotencyStore_Shards_Comparison()
 }
@@ -722,31 +722,31 @@ public class PipelinePerformanceBenchmarks
 {
     [Benchmark(Baseline = true)]
     public async Task Pipeline_NoBehavior()
-    
+
     [Benchmark]
     public async Task Pipeline_WithRetry()
-    
+
     [Benchmark]
     public async Task Pipeline_WithValidation()
-    
+
     [Benchmark]
     public async Task Pipeline_WithIdempotency()
-    
+
     [Benchmark]
     public async Task Pipeline_WithLogging()
-    
+
     [Benchmark]
     public async Task Pipeline_AllBehaviors()
-    
+
     [Benchmark]
     public async Task Pipeline_3Behaviors()
-    
+
     [Benchmark]
     public async Task Pipeline_5Behaviors()
-    
+
     [Benchmark]
     public async Task Pipeline_10Behaviors()
-    
+
     [Benchmark]
     public async Task Pipeline_CustomBehavior()
 }
@@ -778,12 +778,12 @@ public class CqrsFlowTests
     [Fact] async Task CompleteFlow_WithOutbox_ShouldEnsureDelivery()
     [Fact] async Task CompleteFlow_WithInbox_ShouldEnsureIdempotency()
     [Fact] async Task CompleteFlow_WithAllFeatures_ShouldWork()
-    
+
     // 分布式场景测试 (3 个)
     [Fact] async Task DistributedFlow_MultipleNodes_ShouldLoadBalance()
     [Fact] async Task DistributedFlow_NodeFailure_ShouldRecover()
     [Fact] async Task DistributedFlow_NetworkPartition_ShouldHandle()
-    
+
     // 性能测试 (3 个)
     [Fact] async Task HighThroughput_10K_Commands_ShouldComplete()
     [Fact] async Task LowLatency_P99_ShouldBeLessThan100ms()
@@ -791,7 +791,7 @@ public class CqrsFlowTests
 }
 ```
 
-**预估时间**: 4 小时  
+**预估时间**: 4 小时
 **覆盖率目标**: 端到端场景覆盖
 
 ---

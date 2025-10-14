@@ -19,7 +19,7 @@ public static class MemoryPackSerializerExtensions
     /// - ✅ 5x faster than JSON
     /// - ✅ 40% smaller payload
     /// - ✅ Zero-copy deserialization
-    /// 
+    ///
     /// All message types must be annotated with [MemoryPackable]:
     /// <code>
     /// [MemoryPackable]
@@ -31,7 +31,7 @@ public static class MemoryPackSerializerExtensions
         services.TryAddSingleton<IMessageSerializer, MemoryPackMessageSerializer>();
         return services;
     }
-    
+
     /// <summary>
     /// Use MemoryPack serializer with fluent builder
     /// </summary>

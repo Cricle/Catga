@@ -45,7 +45,7 @@ public class HandlerNotFoundException : CatgaException
 public class CatgaConfigurationException : CatgaException
 {
     public CatgaConfigurationException(string message) : base(message, "CONFIGURATION_ERROR", isRetryable: false) { }
-    
+
     /// <summary>
     /// Create exception for missing serializer registration
     /// </summary>

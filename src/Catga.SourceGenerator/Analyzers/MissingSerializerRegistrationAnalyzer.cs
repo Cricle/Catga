@@ -79,9 +79,9 @@ public class MissingSerializerRegistrationAnalyzer : DiagnosticAnalyzer
         while (parent is MemberAccessExpressionSyntax memberAccess)
         {
             var methodName = memberAccess.Name.Identifier.Text;
-            if (methodName == "UseMemoryPack" || 
-                methodName == "UseJson" || 
-                methodName == "UseMemoryPackSerializer" || 
+            if (methodName == "UseMemoryPack" ||
+                methodName == "UseJson" ||
+                methodName == "UseMemoryPackSerializer" ||
                 methodName == "UseJsonSerializer")
             {
                 return true;

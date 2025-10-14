@@ -51,7 +51,7 @@ public class MissingMemoryPackableAttributeAnalyzer : DiagnosticAnalyzer
             return;
 
         // Skip if type is not accessible (internal/private nested types)
-        if (namedType.DeclaredAccessibility != Accessibility.Public && 
+        if (namedType.DeclaredAccessibility != Accessibility.Public &&
             namedType.DeclaredAccessibility != Accessibility.Internal)
             return;
 
@@ -83,7 +83,7 @@ public class MissingMemoryPackableAttributeAnalyzer : DiagnosticAnalyzer
         foreach (var iface in namedType.AllInterfaces)
         {
             var ifaceName = iface.ToDisplayString();
-            
+
             if (ifaceName.StartsWith("Catga.Messages.IRequest<"))
                 return "IRequest";
             if (ifaceName == "Catga.Messages.IRequest")

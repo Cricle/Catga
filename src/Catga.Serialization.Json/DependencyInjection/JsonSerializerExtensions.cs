@@ -16,19 +16,19 @@ public static class JsonSerializerExtensions
     /// </summary>
     /// <remarks>
     /// ⚠️ Warning: Default JSON serializer uses reflection and is NOT AOT compatible.
-    /// 
+    ///
     /// For Native AOT, use the overload that accepts JsonSerializerOptions with JsonSerializerContext:
     /// <code>
     /// [JsonSerializable(typeof(MyCommand))]
     /// [JsonSerializable(typeof(MyResult))]
     /// public partial class MyJsonContext : JsonSerializerContext { }
-    /// 
-    /// services.UseJsonSerializer(new JsonSerializerOptions 
-    /// { 
-    ///     TypeInfoResolver = MyJsonContext.Default 
+    ///
+    /// services.UseJsonSerializer(new JsonSerializerOptions
+    /// {
+    ///     TypeInfoResolver = MyJsonContext.Default
     /// });
     /// </code>
-    /// 
+    ///
     /// Or use MemoryPack for full AOT support:
     /// <code>
     /// services.UseMemoryPackSerializer();
@@ -39,7 +39,7 @@ public static class JsonSerializerExtensions
         services.TryAddSingleton<IMessageSerializer, JsonMessageSerializer>();
         return services;
     }
-    
+
     /// <summary>
     /// Use JSON serializer with custom options (for AOT, provide JsonSerializerContext)
     /// </summary>
@@ -51,25 +51,25 @@ public static class JsonSerializerExtensions
     /// [JsonSerializable(typeof(MyCommand))]
     /// [JsonSerializable(typeof(MyResult))]
     /// public partial class MyJsonContext : JsonSerializerContext { }
-    /// 
-    /// var options = new JsonSerializerOptions 
-    /// { 
+    ///
+    /// var options = new JsonSerializerOptions
+    /// {
     ///     TypeInfoResolver = MyJsonContext.Default,
     ///     PropertyNameCaseInsensitive = true
     /// };
-    /// 
+    ///
     /// services.UseJsonSerializer(options);
     /// </code>
     /// </remarks>
     public static IServiceCollection UseJsonSerializer(
-        this IServiceCollection services, 
+        this IServiceCollection services,
         JsonSerializerOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
         services.TryAddSingleton<IMessageSerializer>(sp => new JsonMessageSerializer(options));
         return services;
     }
-    
+
     /// <summary>
     /// Use JSON serializer with configuration action
     /// </summary>
@@ -78,18 +78,18 @@ public static class JsonSerializerExtensions
         Action<JsonSerializerOptions> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
-        
+
         var options = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
             WriteIndented = false
         };
         configure(options);
-        
+
         services.TryAddSingleton<IMessageSerializer>(sp => new JsonMessageSerializer(options));
         return services;
     }
-    
+
     /// <summary>
     /// Use JSON serializer with fluent builder (default options - not AOT compatible)
     /// </summary>
@@ -98,7 +98,7 @@ public static class JsonSerializerExtensions
         builder.Services.UseJsonSerializer();
         return builder;
     }
-    
+
     /// <summary>
     /// Use JSON serializer with fluent builder and custom options
     /// </summary>
@@ -107,7 +107,7 @@ public static class JsonSerializerExtensions
         builder.Services.UseJsonSerializer(options);
         return builder;
     }
-    
+
     /// <summary>
     /// Use JSON serializer with fluent builder and configuration action
     /// </summary>

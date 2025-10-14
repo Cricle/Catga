@@ -28,7 +28,7 @@ public static class CatgaServiceCollectionExtensions
     /// services.AddCatga().UseMemoryPack();  // Recommended for AOT
     /// services.AddCatga().UseJson();         // Or JSON
     /// </code>
-    /// 
+    ///
     /// Complete example:
     /// <code>
     /// services.AddCatga()

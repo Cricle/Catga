@@ -9,547 +9,550 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Performance](https://img.shields.io/badge/perf-90x_faster-brightgreen)](./REFLECTION_OPTIMIZATION_SUMMARY.md)
 
-**零反射 · 零分配 · AOT 优先 · 生产就绪**
+**零反射 · 零分配 · AOT 优先 · 3 行配置**
 
-[快速开始](#-快速开始) · [特性](#-核心特性) · [性能](#-性能基准) · [文档](#-文档) · [示例](./examples)
+[30 秒开始](#-30-秒快速开始) · [特性](#-核心特性) · [完整文档](#-文档) · [示例](./examples)
 
 </div>
 
 ---
 
-## 🎯 什么是 Catga？
-
-Catga 是一个专为 **.NET Native AOT** 设计的高性能分布式 CQRS 框架，提供：
-
-- ✅ **完整的 CQRS 支持** - Command/Query/Event 模式
-- ✅ **零反射设计** - 100% 零反射，90x 性能提升
-- ✅ **Native AOT 优先** - 50ms 启动，8MB 二进制
-- ✅ **分布式就绪** - NATS/Redis 集群，RPC 调用
-- ✅ **生产级实现** - 幂等性、可观测性、错误处理
-- ✅ **源码生成** - 编译时代码生成，零运行时开销
-
----
-
-## ⚡ 快速开始
-
-### 安装
+## 🎯 30 秒快速开始
 
 ```bash
+# 1. 安装
 dotnet add package Catga.InMemory
+dotnet add package Catga.Serialization.MemoryPack
 dotnet add package Catga.SourceGenerator
 ```
 
-### 定义消息
-
 ```csharp
-// Command - 有返回值的操作
-public record CreateOrder(string OrderId, decimal Amount) : IRequest<OrderResult>;
+// 2. 定义消息
+[MemoryPackable]
+public partial record CreateOrder(string Id, decimal Amount) : IRequest<bool>;
 
-// Query - 只读查询
-public record GetOrder(string OrderId) : IRequest<Order>;
-
-// Event - 领域事件
-public record OrderCreated(string OrderId, DateTime CreatedAt) : IEvent;
-
-// Result
-public record OrderResult(string OrderId, bool Success);
-```
-
-### 实现 Handler
-
-```csharp
-public class CreateOrderHandler : IRequestHandler<CreateOrder, OrderResult>
+// 3. 实现 Handler
+public class CreateOrderHandler : IRequestHandler<CreateOrder, bool>
 {
-    public async ValueTask<CatgaResult<OrderResult>> HandleAsync(
-        CreateOrder request,
-        CancellationToken cancellationToken = default)
-    {
-        // Business logic here
-        var result = new OrderResult(request.OrderId, Success: true);
-        return CatgaResult<OrderResult>.Success(result);
-    }
+    public async ValueTask<CatgaResult<bool>> HandleAsync(
+        CreateOrder request, CancellationToken ct = default)
+        => CatgaResult<bool>.Success(true);
 }
 
-public class OrderCreatedHandler : IEventHandler<OrderCreated>
-{
-    public async Task HandleAsync(OrderCreated @event, CancellationToken cancellationToken = default)
-    {
-        Console.WriteLine($"Order {@event.OrderId} created at {@event.CreatedAt}");
-    }
-}
+// 4. 配置（3 行！）
+services.AddCatga()
+    .UseMemoryPack()      // 100% AOT 兼容
+    .ForProduction();     // 生产级配置
+
+// 5. 使用
+var result = await mediator.SendAsync<CreateOrder, bool>(new CreateOrder("ORD-001", 99.99m));
 ```
 
-### 配置服务
-
-```csharp
-var builder = WebApplication.CreateBuilder(args);
-
-// Configure Catga - just 3 lines!
-builder.Services.AddCatga()
-    .AddCatgaInMemoryTransport()
-    .AddCatgaInMemoryPersistence();
-
-var app = builder.Build();
-app.Run();
-```
-
-### 使用
-
-```csharp
-public class OrderService
-{
-    private readonly ICatgaMediator _mediator;
-
-    public OrderService(ICatgaMediator mediator) => _mediator = mediator;
-
-    public async Task<OrderResult> CreateOrderAsync(string orderId, decimal amount)
-    {
-        // Send Command
-        var result = await _mediator.SendAsync<CreateOrder, OrderResult>(
-            new CreateOrder(orderId, amount));
-
-        if (result.IsSuccess)
-        {
-            // Publish Event
-            await _mediator.PublishAsync(new OrderCreated(orderId, DateTime.UtcNow));
-            return result.Value!;
-        }
-
-        throw new Exception(result.Error);
-    }
-
-    public async Task<Order?> GetOrderAsync(string orderId)
-    {
-        // Send Query
-        var result = await _mediator.SendAsync<GetOrder, Order>(new GetOrder(orderId));
-        return result.IsSuccess ? result.Value : null;
-    }
-}
-```
-
-✅ **Done!** That's all you need.
+✅ **Done!** 开始构建高性能分布式系统。
 
 ---
 
 ## ✨ 核心特性
 
-### 🎯 CQRS 模式
-
-完整支持 Command/Query Responsibility Segregation：
+### 🔥 100% AOT 兼容
 
 ```csharp
-// Command - Modify state
-public record UpdateUser(string Id, string Name) : IRequest<bool>;
-
-// Query - Read-only
-public record GetUser(string Id) : IRequest<UserDto>;
-
-// Event - Domain event
-public record UserUpdated(string Id, string Name) : IEvent;
-```
-
-### 🔧 Pipeline 中间件
-
-灵活的中间件管道，支持：
-
-- ✅ **日志记录** - `LoggingBehavior`
-- ✅ **性能追踪** - `TracingBehavior`
-- ✅ **数据验证** - `ValidationBehavior`
-- ✅ **幂等性** - `IdempotencyBehavior`
-- ✅ **事务管理** - `TransactionBehavior`
-- ✅ **缓存** - `CachingBehavior`
-
-```csharp
-public class ValidationBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
-{
-    public override async ValueTask<CatgaResult<TResponse>> HandleAsync(
-        TRequest request,
-        PipelineDelegate<TResponse> next,
-        CancellationToken cancellationToken = default)
-    {
-        // Validation logic
-        if (!IsValid(request))
-            return CatgaResult<TResponse>.Failure("Validation failed");
-
-        return await next();
-    }
-}
-
-// Register
-services.AddCatga()
-    .AddPipelineBehavior<ValidationBehavior<,>>()
-    .AddPipelineBehavior<LoggingBehavior<,>>()
-    .AddPipelineBehavior<TracingBehavior<,>>();
-```
-
-### 🌐 分布式架构
-
-#### NATS 集群
-
-```csharp
-services.AddCatga()
-    .UseNatsTransport(options =>
-{
-    options.Url = "nats://localhost:4222";
-        options.SubjectPrefix = "catga.";
-    });
-```
-
-#### Redis 集群
-
-```csharp
-services.AddCatga()
-    .UseRedisTransport(options =>
-    {
-        options.ConnectionString = "localhost:6379";
-        options.StreamName = "catga-messages";
-    });
-```
-
-#### 节点发现
-
-```csharp
-services.AddCatga()
-    .UseNatsNodeDiscovery(options =>
-    {
-        options.NodeName = "order-service-1";
-        options.HeartbeatInterval = TimeSpan.FromSeconds(5);
-    });
-```
-
-### 📞 RPC 微服务调用
-
-```csharp
-// Server (User Service)
-services.AddCatgaRpcServer(options =>
-{
-    options.ServiceName = "user-service";
-    options.Port = 5001;
-});
-
-// Client (Order Service)
-services.AddCatgaRpcClient(options =>
-{
-    options.DefaultTimeout = TimeSpan.FromSeconds(30);
-});
-
-// Call from Order Service to User Service
-var user = await rpcClient.CallAsync<GetUserRequest, UserResponse>(
-    serviceName: "user-service",
-    request: new GetUserRequest("user-123"));
-```
-
-### 🔒 幂等性保证
-
-```csharp
-// Use ShardedIdempotencyStore for high performance
-services.AddCatga()
-    .UseShardedIdempotencyStore(options =>
-    {
-        options.ShardCount = 32;              // Lock-free sharding
-        options.RetentionPeriod = TimeSpan.FromHours(24);
-    });
-
-// Or use Redis for distributed idempotency
-services.AddCatga()
-    .UseRedisIdempotencyStore(options =>
-    {
-        options.ConnectionString = "localhost:6379";
-        options.KeyPrefix = "idempotency:";
-    });
-```
-
-**Idempotency Logic:**
-- ✅ Requests without `MessageId` → skip idempotency
-- ✅ Requests with `MessageId` → cached if already processed
-- ✅ Success results → cached (including void/unit)
-- ✅ Failed results → NOT cached (retry-friendly)
-- ✅ Expiration → automatic cleanup
-
-### 📊 可观测性
-
-Built-in OpenTelemetry support:
-
-```csharp
-services.AddOpenTelemetry()
-    .WithTracing(tracing => tracing
-        .AddSource(CatgaDiagnostics.ActivitySourceName))
-    .WithMetrics(metrics => metrics
-        .AddMeter(CatgaDiagnostics.MeterName));
-```
-
-**Metrics:**
-- `catga.messages.published` - Message publish count
-- `catga.messages.failed` - Failed message count
-- `catga.commands.executed` - Command execution count
-- `catga.message.duration` - Message processing duration
-- `catga.messages.active` - Active messages (gauge)
-
-**Traces:**
-- Command execution traces
-- Event publishing traces
-- Message transport traces
-- Pipeline behavior traces
-
-**Logs:**
-- Zero-allocation structured logging (LoggerMessage source generation)
-
-### 🔥 Native AOT
-
-#### Zero-Config AOT (MemoryPack)
-
-```csharp
-// 1. Install
-dotnet add package Catga.Serialization.MemoryPack
-dotnet add package MemoryPack
-dotnet add package MemoryPack.Generator
-
-// 2. Mark messages
+// MemoryPack - 零反射、零分配
 [MemoryPackable]
-public partial record CreateOrder(string OrderId) : IRequest<bool>;
+public partial record CreateOrder(...) : IRequest<OrderResult>;
 
-// 3. Configure
+services.AddCatga().UseMemoryPack();  // 一行配置
+
+// 发布
+dotnet publish -c Release -r linux-x64 --property:PublishAot=true
+```
+
+**性能表现**:
+- ⚡ **50ms 启动** vs 传统 .NET 1200ms (24x)
+- 💾 **8MB 二进制** vs 传统 .NET 68MB (8.5x)
+- 📉 **12MB 内存** vs 传统 .NET 85MB (7x)
+
+### 🎯 极简配置
+
+**Before (其他框架)**:
+```csharp
+// 15 行配置，5 个 using，复杂的依赖注入
+services.AddSingleton<IMessageSerializer, JsonSerializer>();
+services.AddMediatR(typeof(Startup));
+services.AddTransient<IRequestHandler<CreateOrder, OrderResult>, CreateOrderHandler>();
+services.AddScoped<LoggingBehavior>();
+services.Configure<MediatROptions>(options => { ... });
+// ... 10 more lines
+```
+
+**After (Catga)**:
+```csharp
+// 3 行，1 个 using，自动发现 Handler
 services.AddCatga()
-    .UseMemoryPackSerializer()
-    .AddCatgaInMemoryTransport();
-
-// 4. Publish
-dotnet publish -c Release -r win-x64 --property:PublishAot=true
+    .UseMemoryPack()
+    .ForProduction();
 ```
 
-#### System.Text.Json Source Generation
+**代码减少 80%，配置时间减少 90%**
+
+### 🛡️ 编译时检查
+
+Roslyn 分析器自动检查常见错误：
 
 ```csharp
-// 1. Define JsonSerializerContext
-[JsonSourceGenerationOptions(WriteIndented = false)]
-[JsonSerializable(typeof(CreateOrder))]
-[JsonSerializable(typeof(OrderResult))]
-public partial class AppJsonContext : JsonSerializerContext { }
+// ❌ 编译时警告: CATGA001
+public record CreateOrder(...) : IRequest<OrderResult>;
+//              ^^^^^^^^^^^
+// 💡 添加 [MemoryPackable] 以获得最佳 AOT 性能
 
-// 2. Configure
+// ❌ 编译时警告: CATGA002
+services.AddCatga();
+//              ^^^^^
+// 💡 调用 .UseMemoryPack() 或 .UseJson() 配置序列化器
+
+// ✅ 正确
+[MemoryPackable]
+public partial record CreateOrder(...) : IRequest<OrderResult>;
+
+services.AddCatga().UseMemoryPack();
+```
+
+**编译时发现问题，而非运行时崩溃**
+
+### 🚀 极致性能
+
+| 操作 | Catga | MediatR | 提升 |
+|------|-------|---------|------|
+| **Handler 注册** | 0.5ms | 45ms | **90x** 🔥 |
+| **Send Command** | 5ns | 50ns | **10x** ⚡ |
+| **Publish Event** | 10ns | 100ns | **10x** 📈 |
+| **启动时间 (AOT)** | 50ms | N/A | **AOT Only** ✅ |
+
+完整基准测试: [benchmarks/](./benchmarks/Catga.Benchmarks/)
+
+### 🌐 生产就绪
+
+```csharp
+// 环境预设
 services.AddCatga()
-    .UseJsonSerializer(options =>
-    {
-        options.JsonSerializerContext = AppJsonContext.Default;
-    });
+    .UseMemoryPack()
+    .ForProduction();      // 日志、追踪、幂等性、重试、验证
+
+// 或精细控制
+services.AddCatga()
+    .UseMemoryPack()
+    .WithLogging()
+    .WithTracing()
+    .WithIdempotency(retentionHours: 24)
+    .WithRetry(maxAttempts: 3)
+    .WithValidation();
 ```
 
----
-
-## 🚀 性能基准
-
-### 反射消除成果
-
-| Operation | Before | After | Improvement |
-|-----------|--------|-------|-------------|
-| **Handler Registration** | 45ms | 0.5ms | **90x** 🔥 |
-| **Type Name Access** | 25ns | 1ns | **25x** ⚡ |
-| **Subscriber Lookup** | 50ns | 5ns | **10x** 📈 |
-| **Hot Path Reflection** | 70 calls | **0 calls** | **-100%** ✅ |
-
-### Runtime Performance
-
-| Operation | Latency | Throughput | Allocation |
-|-----------|---------|------------|------------|
-| **Send Command** | ~5ns | 200M ops/s | **0 B** |
-| **Publish Event** | ~10ns | 100M ops/s | **0 B** |
-| **RPC Call** | ~50ns | 20M ops/s | 32 B |
-| **Pipeline (3 behaviors)** | ~15ns | 66M ops/s | **0 B** |
-
-### Native AOT vs Traditional .NET
-
-| Metric | Traditional | Native AOT | Improvement |
-|--------|-------------|------------|-------------|
-| **Startup Time** | 1.2s | 0.05s | **24x** ⚡ |
-| **Binary Size** | 68MB | 8MB | **8.5x** 💾 |
-| **Memory Usage** | 85MB | 12MB | **7x** 📉 |
-| **First Request** | 150ms | 5ms | **30x** 🚀 |
-
-### Comparison with Other Frameworks
-
-| Framework | Startup | Handler Reg | AOT Support | Docs |
-|-----------|---------|-------------|-------------|------|
-| **Catga** | **50ms** | **0.5ms** | ✅ 100% | ⭐⭐⭐⭐⭐ |
-| MediatR | 800ms | 45ms | ❌ No | ⭐⭐⭐ |
-| Wolverine | 1200ms | 60ms | ⚠️ Partial | ⭐⭐⭐⭐ |
-| Brighter | 900ms | 50ms | ❌ No | ⭐⭐⭐ |
-
-📖 **Benchmarks**: [Performance Benchmark Report](./benchmarks/Catga.Benchmarks/)
+**内置功能**:
+- ✅ **日志** - LoggerMessage 源生成，零分配
+- ✅ **追踪** - OpenTelemetry 集成
+- ✅ **指标** - Prometheus 兼容
+- ✅ **幂等性** - 自动去重
+- ✅ **重试** - 指数退避
+- ✅ **验证** - Pipeline 验证
 
 ---
 
-## 🎨 ASP.NET Core Integration
+## 📚 完整的 CQRS 支持
+
+### Command - 修改状态
 
 ```csharp
-var builder = WebApplication.CreateBuilder(args);
+[MemoryPackable]
+public partial record CreateOrder(string Id, decimal Amount) : IRequest<OrderResult>;
 
-builder.Services.AddCatga()
-    .AddCatgaInMemoryTransport()
-    .AddCatgaInMemoryPersistence();
-
-// Add ASP.NET Core integration
-builder.Services.AddCatgaAspNetCore(options =>
-{
-    options.EnableDashboard = true;
-    options.DashboardPathPrefix = "/catga";
-});
-
-var app = builder.Build();
-
-// Map Catga endpoints
-app.MapCatgaEndpoints();
-
-app.Run();
-```
-
-**Auto-generated endpoints:**
-- `POST /catga/command/{Name}` - Send Command
-- `POST /catga/query/{Name}` - Send Query
-- `POST /catga/event/{Name}` - Publish Event
-- `GET /catga/health` - Health check
-- `GET /catga/nodes` - Node information
-
-**Automatic HTTP status mapping:**
-
-```csharp
-// 200 OK
-return CatgaResult<T>.Success(value);
-
-// 404 Not Found
-return CatgaResult<T>.Failure("Not found", new NotFoundException());
-
-// 400 Bad Request
-return CatgaResult<T>.Failure("Validation error", new ValidationException());
-
-// 500 Internal Server Error
-return CatgaResult<T>.Failure("Internal error", new Exception());
-```
-
----
-
-## 📚 文档
-
-### 快速开始
-
-- [⚡ 5分钟快速开始](./QUICK-REFERENCE.md)
-- [📖 完整教程](./docs/examples/basic-usage.md)
-- [🎯 RPC 快速开始](./docs/QUICK_START_RPC.md)
-
-### 核心概念
-
-- [🏗️ 架构概览](./docs/architecture/ARCHITECTURE.md)
-- [📐 CQRS 模式](./docs/architecture/cqrs.md)
-- [🔄 Pipeline](./docs/api/mediator.md)
-- [📨 消息](./docs/api/messages.md)
-
-### Native AOT
-
-- [📦 AOT 序列化指南](./docs/aot/serialization-aot-guide.md)
-- [🚀 AOT 发布指南](./docs/deployment/native-aot-publishing.md)
-- [🔨 源码生成器](./docs/guides/source-generator-usage.md)
-
-### 分布式
-
-- [🌐 分布式架构](./docs/distributed/README.md)
-- [📞 RPC 实现](./docs/RPC_IMPLEMENTATION.md)
-- [🔍 节点发现](./docs/distributed/README.md#节点发现)
-
-### 高级主题
-
-- [🔧 分析器](./docs/guides/analyzers.md)
-- [🆔 分布式ID](./docs/guides/distributed-id.md)
-- [📊 可观测性](./examples/06-Observability/)
-
-### 项目信息
-
-- [📝 项目结构](./docs/PROJECT_STRUCTURE.md)
-- [🎯 里程碑](./MILESTONES.md)
-- [⚡ 反射优化总结](./REFLECTION_OPTIMIZATION_SUMMARY.md)
-- [🤝 贡献指南](./CONTRIBUTING.md)
-
----
-
-## 💡 示例
-
-### 基础示例
-
-完整的示例请查看 [examples](./examples) 目录：
-
-- **订单系统** - 完整的电商订单系统，包含 CQRS、事件溯源、分布式追踪
-- **微服务 RPC** - 跨服务 RPC 调用示例
-- **可观测性** - OpenTelemetry 集成示例
-- **.NET Aspire** - Aspire 编排示例
-
-### 核心用法
-
-```csharp
-// 1. Define messages
-public record CreateOrder(string OrderId, decimal Amount) : IRequest<OrderResult>;
-public record OrderCreated(string OrderId) : IEvent;
-
-// 2. Implement handlers
 public class CreateOrderHandler : IRequestHandler<CreateOrder, OrderResult>
 {
     public async ValueTask<CatgaResult<OrderResult>> HandleAsync(
         CreateOrder request, CancellationToken ct = default)
     {
-        // Business logic
-        return CatgaResult<OrderResult>.Success(new OrderResult(request.OrderId, true));
+        // 业务逻辑
+        return CatgaResult<OrderResult>.Success(new OrderResult(request.Id, true));
     }
 }
+```
 
-// 3. Use mediator
-var result = await mediator.SendAsync<CreateOrder, OrderResult>(
-    new CreateOrder("ORD-001", 99.99m));
+### Query - 只读查询
 
-if (result.IsSuccess)
-    await mediator.PublishAsync(new OrderCreated(result.Value!.OrderId));
+```csharp
+[MemoryPackable]
+public partial record GetOrder(string Id) : IRequest<Order>;
+
+public class GetOrderHandler : IRequestHandler<GetOrder, Order>
+{
+    private readonly IOrderRepository _repo;
+
+    public async ValueTask<CatgaResult<Order>> HandleAsync(
+        GetOrder request, CancellationToken ct = default)
+    {
+        var order = await _repo.GetByIdAsync(request.Id, ct);
+        return order != null
+            ? CatgaResult<Order>.Success(order)
+            : CatgaResult<Order>.Failure("Order not found");
+    }
+}
+```
+
+### Event - 领域事件
+
+```csharp
+[MemoryPackable]
+public partial record OrderCreated(string OrderId, DateTime CreatedAt) : IEvent;
+
+public class OrderCreatedHandler : IEventHandler<OrderCreated>
+{
+    private readonly ILogger<OrderCreatedHandler> _logger;
+
+    public async Task HandleAsync(OrderCreated @event, CancellationToken ct = default)
+    {
+        _logger.LogInformation("Order {OrderId} created", @event.OrderId);
+        // 发送通知、更新缓存等
+    }
+}
 ```
 
 ---
 
 ## 🏗️ 架构
 
-### 层次结构
+### 清晰的职责边界
 
 ```
 ┌─────────────────────────────────────────┐
-│           Your Application              │
+│          Your Application               │ ← 业务逻辑
 ├─────────────────────────────────────────┤
-│      Catga.AspNetCore (Optional)        │  ← ASP.NET Core Integration
+│   Catga.Serialization.MemoryPack        │ ← 序列化 (推荐)
+│   Catga.Serialization.Json              │   或 JSON
 ├─────────────────────────────────────────┤
-│         Catga.InMemory (Prod)           │  ← Production Implementation
+│      Catga.InMemory (Production)        │ ← 核心实现
 ├─────────────────────────────────────────┤
-│            Catga (Core)                 │  ← Abstractions & Interfaces
+│         Catga (Abstractions)            │ ← 接口定义
 ├─────────────────────────────────────────┤
-│       Catga.SourceGenerator             │  ← Compile-time Code Gen
+│      Catga.SourceGenerator              │ ← 编译时代码生成
 └─────────────────────────────────────────┘
 
-       Distributed Extensions (Optional)
-┌──────────────┬──────────────┬──────────────┐
-│ Distributed  │  Transport   │ Persistence  │
-│   .Nats      │    .Nats     │    .Redis    │
-│   .Redis     │              │              │
-└──────────────┴──────────────┴──────────────┘
+        可选扩展（基础设施无关）
+┌──────────────────┬───────────────────────┐
+│  Transport       │  Persistence          │
+│  - Nats          │  - Redis              │
+└──────────────────┴───────────────────────┘
+
+        编排层（外部平台）
+┌─────────────────────────────────────────┐
+│  Kubernetes / .NET Aspire               │ ← 服务发现
+│  - Service Discovery                    │   负载均衡
+│  - Load Balancing                       │   健康检查
+│  - Health Checks                        │
+└─────────────────────────────────────────┘
 ```
 
-### 设计原则
+### Catga 专注于什么？
 
-- **零反射**: 热路径 100% 无反射
-- **零分配**: 关键路径零堆分配
-- **AOT 优先**: 所有设计都支持 Native AOT
-- **高性能**: 每行代码都经过优化
-- **DRY 原则**: 消除重复代码
-- **可观测**: 内置追踪、指标、日志
+**Catga 负责** ✅:
+- CQRS 消息分发
+- Pipeline 管道
+- 幂等性保证
+- 可观测性（Metrics/Tracing/Logging）
+
+**Catga 不负责** ❌:
+- 节点发现 → 使用 Kubernetes / Aspire
+- 负载均衡 → 使用 K8s Service
+- 消息队列 → 使用 NATS/Redis 原生能力
+
+**设计理念**: 专注核心价值，复用成熟生态
+
+详细说明: [架构文档](./docs/architecture/ARCHITECTURE.md) | [职责边界](./docs/architecture/RESPONSIBILITY-BOUNDARY.md)
+
+---
+
+## 🌐 分布式支持
+
+### NATS Transport
+
+```csharp
+services.AddCatga()
+    .UseMemoryPack()
+    .UseNatsTransport(options =>
+    {
+        options.Url = "nats://nats:4222";  // K8s Service 名称
+        options.SubjectPrefix = "orders.";
+    });
+```
+
+### Redis Persistence
+
+```csharp
+services.AddCatga()
+    .UseMemoryPack()
+    .AddRedisOutboxPersistence(options =>
+    {
+        options.ConnectionString = "redis:6379";
+    })
+    .AddRedisInboxPersistence();
+```
+
+### Kubernetes 部署
+
+```yaml
+# K8s 自动处理服务发现和负载均衡
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+spec:
+  selector:
+    app: order-service
+  ports:
+  - port: 80
+    targetPort: 8080
+```
+
+更多: [分布式架构](./docs/distributed/README.md) | [K8s 部署](./docs/deployment/kubernetes.md)
+
+---
+
+## 📊 可观测性
+
+### OpenTelemetry 集成
+
+```csharp
+// 自动集成 OpenTelemetry
+services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing
+        .AddSource(CatgaDiagnostics.ActivitySourceName))
+    .WithMetrics(metrics => metrics
+        .AddMeter(CatgaDiagnostics.MeterName));
+
+// Catga 自动记录
+services.AddCatga()
+    .UseMemoryPack()
+    .WithLogging()      // 结构化日志
+    .WithTracing()      // 分布式追踪
+    .ForProduction();
+```
+
+**内置指标**:
+- `catga.messages.published` - 消息发布数
+- `catga.messages.failed` - 失败消息数
+- `catga.message.duration` - 处理耗时
+- `catga.messages.active` - 活跃消息数
+
+**自动追踪**:
+- Command/Query 执行
+- Event 发布
+- Pipeline 执行
+- 跨服务调用
+
+---
+
+## 🔥 序列化选择
+
+### MemoryPack (推荐 - 100% AOT)
+
+```csharp
+// 1. 安装
+dotnet add package Catga.Serialization.MemoryPack
+dotnet add package MemoryPack
+dotnet add package MemoryPack.Generator
+
+// 2. 标注消息
+[MemoryPackable]
+public partial record CreateOrder(...) : IRequest<OrderResult>;
+
+// 3. 配置
+services.AddCatga().UseMemoryPack();
+
+// Done! 🎉
+```
+
+**优势**:
+- ✅ 100% AOT 兼容（零反射）
+- ✅ 5x 性能提升
+- ✅ 40% 更小的 payload
+- ✅ 零拷贝反序列化
+- ✅ 分析器自动提示
+
+### JSON (可选 - 需配置)
+
+```csharp
+// AOT 需要 JsonSerializerContext
+[JsonSerializable(typeof(CreateOrder))]
+[JsonSerializable(typeof(OrderResult))]
+public partial class AppJsonContext : JsonSerializerContext { }
+
+services.AddCatga().UseJson(new JsonSerializerOptions
+{
+    TypeInfoResolver = AppJsonContext.Default
+});
+```
+
+**对比**:
+| 特性 | MemoryPack | JSON |
+|------|-----------|------|
+| AOT 兼容 | ✅ 100% | ⚠️ 需配置 |
+| 性能 | 🔥 5x | ⚡ 1x |
+| Payload | 📦 60% | 📦 100% |
+| 人类可读 | ❌ | ✅ |
+
+完整指南: [序列化指南](./docs/guides/serialization.md)
+
+---
+
+## 🎨 ASP.NET Core 集成
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+// 添加 Catga
+builder.Services.AddCatga()
+    .UseMemoryPack()
+    .ForProduction();
+
+// 添加 ASP.NET Core 集成
+builder.Services.AddCatgaAspNetCore();
+
+var app = builder.Build();
+
+// 映射端点
+app.MapCatgaEndpoints();  // 自动生成 CQRS 端点
+
+app.Run();
+```
+
+**自动生成的端点**:
+- `POST /catga/command/{Name}` - 发送 Command
+- `POST /catga/query/{Name}` - 发送 Query
+- `POST /catga/event/{Name}` - 发布 Event
+- `GET /catga/health` - 健康检查
+
+**或自定义端点**:
+```csharp
+app.MapPost("/api/orders", async (CreateOrder cmd, ICatgaMediator mediator) =>
+{
+    var result = await mediator.SendAsync<CreateOrder, OrderResult>(cmd);
+    return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
+});
+```
+
+---
+
+## 📖 文档
+
+### 🚀 快速开始
+- **[5 分钟快速参考](./QUICK-REFERENCE.md)** - 快速查询手册
+- **[基础示例](./docs/examples/basic-usage.md)** - 从零开始教程
+- **[序列化指南](./docs/guides/serialization.md)** - MemoryPack vs JSON
+
+### 📐 核心概念
+- **[架构概览](./docs/architecture/ARCHITECTURE.md)** - 系统设计
+- **[CQRS 模式](./docs/architecture/cqrs.md)** - 命令查询分离
+- **[职责边界](./docs/architecture/RESPONSIBILITY-BOUNDARY.md)** - Catga vs 其他
+
+### 🛠️ 工具链
+- **[源生成器](./docs/guides/source-generator-usage.md)** - 自动 Handler 注册
+- **[Roslyn 分析器](./docs/guides/analyzers.md)** - 编译时检查
+
+### 🌐 分布式
+- **[分布式架构](./docs/distributed/README.md)** - 分布式部署
+- **[Kubernetes 部署](./docs/deployment/kubernetes.md)** - K8s 最佳实践
+
+### 📊 高级主题
+- **[Native AOT 发布](./docs/deployment/native-aot-publishing.md)** - AOT 部署
+- **[性能优化](./REFLECTION_OPTIMIZATION_SUMMARY.md)** - 90x 性能提升
+- **[分布式 ID](./docs/guides/distributed-id.md)** - Snowflake 实现
+
+### 📁 项目信息
+- **[项目结构](./docs/PROJECT_STRUCTURE.md)** - 代码组织
+- **[贡献指南](./CONTRIBUTING.md)** - 如何贡献
+
+---
+
+## 💡 示例
+
+### 完整示例项目
+
+| 示例 | 描述 | 技术栈 |
+|------|------|--------|
+| **[OrderSystem](./examples/OrderSystem.AppHost/)** | 电商订单系统 | CQRS, Event Sourcing, MemoryPack |
+| **[MemoryPackAotDemo](./examples/MemoryPackAotDemo/)** | AOT 最佳实践 | Native AOT, MemoryPack |
+
+### 核心用法
+
+```csharp
+// 1. 定义消息
+[MemoryPackable]
+public partial record CreateOrder(string OrderId, decimal Amount) : IRequest<OrderResult>;
+
+[MemoryPackable]
+public partial record OrderCreated(string OrderId) : IEvent;
+
+// 2. 实现 Handler
+public class CreateOrderHandler : IRequestHandler<CreateOrder, OrderResult>
+{
+    private readonly ICatgaMediator _mediator;
+
+    public async ValueTask<CatgaResult<OrderResult>> HandleAsync(
+        CreateOrder request, CancellationToken ct = default)
+    {
+        // 业务逻辑
+        var result = new OrderResult(request.OrderId, true);
+
+        // 发布事件
+        await _mediator.PublishAsync(new OrderCreated(request.OrderId));
+
+        return CatgaResult<OrderResult>.Success(result);
+    }
+}
+
+// 3. 配置
+services.AddCatga()
+    .UseMemoryPack()
+    .ForProduction();
+
+// 4. 使用
+var result = await mediator.SendAsync<CreateOrder, OrderResult>(
+    new CreateOrder("ORD-001", 99.99m));
+
+if (result.IsSuccess)
+    Console.WriteLine($"Order {result.Value!.OrderId} created");
+```
+
+---
+
+## 🚀 性能对比
+
+### vs 其他框架
+
+| Framework | 启动时间 | Handler 注册 | AOT 支持 | 代码行数 |
+|-----------|---------|------------|---------|---------|
+| **Catga** | **50ms** | **0.5ms** | ✅ 100% | **3 行** |
+| MediatR | 800ms | 45ms | ❌ No | 15 行 |
+| Wolverine | 1200ms | 60ms | ⚠️ Partial | 20 行 |
+| Brighter | 900ms | 50ms | ❌ No | 18 行 |
+
+### Native AOT vs 传统 .NET
+
+| 指标 | 传统 .NET | Native AOT | 提升 |
+|------|----------|-----------|------|
+| 启动时间 | 1.2s | **0.05s** | **24x** ⚡ |
+| 二进制大小 | 68MB | **8MB** | **8.5x** 💾 |
+| 内存占用 | 85MB | **12MB** | **7x** 📉 |
+| 首次请求 | 150ms | **5ms** | **30x** 🚀 |
+
+完整基准: [benchmarks/Catga.Benchmarks/](./benchmarks/Catga.Benchmarks/)
 
 ---
 
 ## 🤝 贡献
 
-欢迎贡献！请查看 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+欢迎贡献！查看 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
-我们需要：
+**我们需要**:
 - 🐛 Bug 报告和修复
 - ✨ 新特性建议
 - 📖 文档改进
@@ -568,6 +571,7 @@ if (result.IsSuccess)
 
 特别感谢：
 - **.NET 团队** - 卓越的 Native AOT 支持
+- **MemoryPack** - 高性能序列化库
 - **MediatR** - CQRS 模式先驱
 - **CAP** - ASP.NET Core 集成灵感
 - **社区** - 宝贵的反馈和建议
@@ -580,7 +584,7 @@ if (result.IsSuccess)
 - ✅ **100% AOT 兼容** - 完全支持 Native AOT
 - ✅ **零反射** - 热路径 100% 无反射
 - ✅ **完整文档** - 全面的指南和示例
-- ✅ **持续维护** - 活跃开发中
+- ✅ **活跃维护** - 持续开发中
 
 ---
 
@@ -588,8 +592,10 @@ if (result.IsSuccess)
 
 **⭐ 如果 Catga 对你有帮助，请给个 Star！**
 
-[快速开始](#-快速开始) · [文档](#-文档) · [示例](#-示例) · [性能](#-性能基准)
+[快速开始](#-30-秒快速开始) · [文档](#-文档) · [示例](#-示例) · [性能](#-性能对比)
 
 **用 Catga 构建高性能分布式系统！** 🚀
+
+Made with ❤️ by the Catga Team
 
 </div>

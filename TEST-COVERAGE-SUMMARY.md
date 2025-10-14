@@ -293,8 +293,8 @@ dotnet run -c Release --filter "*"
 
 ---
 
-**最后更新**: 2025-10-14  
-**测试框架**: xUnit 2.8.2  
-**覆盖率工具**: Coverlet  
+**最后更新**: 2025-10-14
+**测试框架**: xUnit 2.8.2
+**覆盖率工具**: Coverlet
 **基准测试**: BenchmarkDotNet 0.14.0
 

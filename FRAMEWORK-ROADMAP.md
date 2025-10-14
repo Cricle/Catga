@@ -475,7 +475,7 @@ public class Order : AggregateRoot<string>
 {
     public OrderStatus Status { get; private set; }
     public List<OrderItem> Items { get; private set; }
-    
+
     protected override void ApplyEvent(IEvent @event)
     {
         switch (@event)
@@ -504,7 +504,7 @@ public partial class Order : AggregateRoot<string>
 {
     public OrderStatus Status { get; private set; }
     public List<OrderItem> Items { get; private set; }
-    
+
     // 标记方法，Source Generator 会自动生成 ApplyEvent
     private void Apply(OrderCreated e)
     {
@@ -512,12 +512,12 @@ public partial class Order : AggregateRoot<string>
         Items = e.Items;
         Status = OrderStatus.Created;
     }
-    
+
     private void Apply(OrderPaid e)
     {
         Status = OrderStatus.Paid;
     }
-    
+
     private void Apply(OrderShipped e)
     {
         Status = OrderStatus.Shipped;
@@ -575,7 +575,7 @@ services.AddProjection<CustomerOrderHistoryProjection>();
 public class OrderReadModelProjection : IProjection
 {
     public string Name => "OrderReadModel";
-    
+
     public async Task HandleAsync(IEvent @event, CancellationToken ct)
     {
         // ... 投影逻辑
@@ -702,7 +702,7 @@ public static class GeneratedEventRouter
         }
         // ... 自动生成所有事件类型
     };
-    
+
     public static Task RouteAsync(IServiceProvider sp, IEvent @event, CancellationToken ct)
     {
         if (Routes.TryGetValue(@event.GetType(), out var route))
@@ -753,7 +753,7 @@ public static class GeneratedAggregateFactory
         [typeof(Product)] = () => new Product()
         // ... 自动生成所有聚合根
     };
-    
+
     public static TAggregate Create<TAggregate>() where TAggregate : AggregateRoot
     {
         if (Factories.TryGetValue(typeof(TAggregate), out var factory))
@@ -783,14 +783,206 @@ public async Task<TAggregate> LoadAggregateAsync<TAggregate>(string id)
 
 ---
 
+### 6. 分布式追踪上下文传播生成 (自动传播)
+
+**问题**: 跨服务调用时，TraceId/SpanId 需要手动传播
+
+**手动写法** (当前):
+```csharp
+// 发送端 - 手动注入 TraceId
+var command = new ProcessPayment(orderId, amount);
+command.Metadata["TraceId"] = Activity.Current?.TraceId.ToString();
+command.Metadata["SpanId"] = Activity.Current?.SpanId.ToString();
+await _mediator.SendAsync(command);
+
+// 接收端 - 手动恢复 TraceId
+public class ProcessPaymentHandler : IRequestHandler<ProcessPayment, CatgaResult>
+{
+    public async ValueTask<CatgaResult> HandleAsync(ProcessPayment request, CancellationToken ct)
+    {
+        // 手动恢复上下文
+        if (request.Metadata.TryGetValue("TraceId", out var traceId))
+        {
+            Activity.Current = new Activity("ProcessPayment");
+            Activity.Current.SetParentId(ActivityTraceId.CreateFromString(traceId), ...);
+        }
+        
+        // 业务逻辑
+        await _paymentService.ProcessAsync(request.OrderId, request.Amount);
+        return CatgaResult.Success();
+    }
+}
+```
+
+**Source Generator 优化** (自动):
+```csharp
+// Source Generator 自动生成拦截器 (在 TracingInterceptor.g.cs)
+public static class GeneratedTracingInterceptor
+{
+    // 自动包装 SendAsync
+    public static async ValueTask<CatgaResult<TResponse>> SendAsyncWithTracing<TRequest, TResponse>(
+        this ICatgaMediator mediator,
+        TRequest request,
+        CancellationToken ct = default)
+        where TRequest : IRequest<CatgaResult<TResponse>>
+    {
+        // 1. 自动注入追踪上下文
+        if (Activity.Current != null)
+        {
+            request.Metadata["TraceId"] = Activity.Current.TraceId.ToString();
+            request.Metadata["SpanId"] = Activity.Current.SpanId.ToString();
+            request.Metadata["TraceState"] = Activity.Current.TraceStateString;
+            request.Metadata["Baggage"] = string.Join(",", Activity.Current.Baggage.Select(b => $"{b.Key}={b.Value}"));
+        }
+        
+        // 2. 调用原始方法
+        return await mediator.SendAsync<TRequest, TResponse>(request, ct);
+    }
+}
+
+// Source Generator 自动生成 Handler 包装 (在 Handler.g.cs)
+public partial class ProcessPaymentHandler
+{
+    // 自动生成的包装方法
+    public async ValueTask<CatgaResult> HandleAsync_Generated(ProcessPayment request, CancellationToken ct)
+    {
+        // 1. 自动恢复追踪上下文
+        Activity? activity = null;
+        if (request.Metadata.TryGetValue("TraceId", out var traceIdStr) &&
+            request.Metadata.TryGetValue("SpanId", out var spanIdStr))
+        {
+            var traceId = ActivityTraceId.CreateFromString(traceIdStr);
+            var spanId = ActivitySpanId.CreateFromString(spanIdStr);
+            
+            activity = new Activity("ProcessPayment");
+            activity.SetParentId(traceId, spanId);
+            
+            if (request.Metadata.TryGetValue("TraceState", out var traceState))
+                activity.TraceStateString = traceState;
+            
+            if (request.Metadata.TryGetValue("Baggage", out var baggage))
+            {
+                foreach (var item in baggage.Split(','))
+                {
+                    var parts = item.Split('=');
+                    if (parts.Length == 2)
+                        activity.AddBaggage(parts[0], parts[1]);
+                }
+            }
+            
+            activity.Start();
+        }
+        
+        try
+        {
+            // 2. 调用原始 Handler
+            return await HandleAsync(request, ct);
+        }
+        finally
+        {
+            // 3. 停止 Activity
+            activity?.Stop();
+        }
+    }
+}
+
+// 用户代码 - 完全透明
+public class ProcessPaymentHandler : IRequestHandler<ProcessPayment, CatgaResult>
+{
+    public async ValueTask<CatgaResult> HandleAsync(ProcessPayment request, CancellationToken ct)
+    {
+        // 业务逻辑 - Activity.Current 自动可用！
+        await _paymentService.ProcessAsync(request.OrderId, request.Amount);
+        return CatgaResult.Success();
+    }
+}
+```
+
+**优势**:
+- ✅ 自动传播追踪上下文 (TraceId, SpanId, TraceState, Baggage)
+- ✅ 跨服务调用完整链路追踪
+- ✅ 用户代码零侵入
+- ✅ 兼容 OpenTelemetry
+- ✅ 自动使用 (无需配置)
+
+---
+
+### 7. Saga 步骤追踪生成 (可视化流程)
+
+**问题**: Saga 执行过程缺少可视化追踪
+
+**Source Generator 优化** (自动):
+```csharp
+// Source Generator 自动生成 Saga 追踪 (在 SagaTracing.g.cs)
+public static class GeneratedSagaTracing
+{
+    public static async Task<CatgaResult> ExecuteWithTracingAsync(
+        this SagaCoordinator saga,
+        string sagaId,
+        Func<Task> action,
+        Dictionary<Type, Type> compensations)
+    {
+        using var sagaActivity = new Activity("Saga")
+            .SetTag("saga.id", sagaId)
+            .SetTag("saga.steps", compensations.Count)
+            .Start();
+        
+        try
+        {
+            // 执行 Saga
+            await action();
+            
+            sagaActivity.SetTag("saga.status", "completed");
+            return CatgaResult.Success();
+        }
+        catch (Exception ex)
+        {
+            sagaActivity.SetTag("saga.status", "failed");
+            sagaActivity.SetTag("saga.error", ex.Message);
+            
+            // 补偿追踪
+            using var compensationActivity = new Activity("Saga.Compensation")
+                .SetTag("saga.id", sagaId)
+                .Start();
+            
+            await saga.CompensateAsync(sagaId, compensations);
+            
+            return CatgaResult.Failure(ex.Message);
+        }
+    }
+}
+
+// 使用 - 自动追踪
+await _saga.ExecuteWithTracingAsync(
+    sagaId: cmd.OrderId,
+    action: async () => { /* ... */ },
+    compensations: OrderSagaCompensations
+);
+```
+
+**追踪效果** (在 Jaeger/Zipkin 中可见):
+```
+Saga [OrderId: 12345]
+├─ Step: ReserveInventory [200ms] ✅
+├─ Step: ProcessPayment [500ms] ✅
+├─ Step: CreateShipment [300ms] ❌ Failed
+└─ Compensation
+   ├─ Compensate: ProcessPayment [100ms] ✅
+   └─ Compensate: ReserveInventory [80ms] ✅
+```
+
+---
+
 ## 📊 Source Generator 优先级
 
 | 功能 | 优先级 | 价值 | 复杂度 |
 |------|--------|------|--------|
-| **Event Apply 生成** | P1 | 高 (减少大量 switch) | 低 |
-| **Projection 注册生成** | P1 | 中 (减少手动注册) | 低 |
 | **Event Router 生成** | P0 | 高 (性能提升) | 中 |
 | **Aggregate 工厂生成** | P0 | 高 (AOT 友好) | 低 |
+| **分布式追踪传播生成** | P0 | 高 (链路追踪) | 中 |
+| **Event Apply 生成** | P1 | 高 (减少 switch) | 低 |
+| **Projection 注册生成** | P1 | 中 (减少注册) | 低 |
+| **Saga 步骤追踪生成** | P1 | 高 (可视化) | 中 |
 | **Saga 补偿映射生成** | P2 | 中 (减少配置) | 低 |
 
 ---
@@ -801,7 +993,8 @@ public async Task<TAggregate> LoadAggregateAsync<TAggregate>(string id)
 2. **可选性** - 用户可以选择不使用 Source Generator
 3. **透明性** - 生成的代码可以查看和调试
 4. **简单性** - 只生成重复代码，不改变架构
-5. **性能优先** - 优先实现性能相关的生成器 (Event Router, Aggregate Factory)
+5. **性能优先** - 优先实现性能相关的生成器
+6. **可观测性** - 自动集成分布式追踪
 
 ---
 
@@ -810,16 +1003,23 @@ public async Task<TAggregate> LoadAggregateAsync<TAggregate>(string id)
 ### v1.1.0 (Q1 2026)
 - Event Sourcing
 - Read Model Projection
-- **Source Generator**: Event Router, Aggregate Factory (P0)
+- **Source Generator (P0)**:
+  - Event Router (零反射路由)
+  - Aggregate Factory (零反射创建)
+  - **分布式追踪传播** (跨服务链路追踪)
 
 ### v1.2.0 (Q2 2026)
 - Distributed Saga
-- **Source Generator**: Event Apply, Projection 注册 (P1)
+- **Source Generator (P1)**:
+  - Event Apply (减少 switch/case)
+  - Projection 注册 (自动发现)
+  - **Saga 步骤追踪** (可视化流程)
 - 性能优化
 
 ### v1.3.0 (Q3 2026)
 - Process Manager
-- **Source Generator**: Saga 补偿映射 (P2)
+- **Source Generator (P2)**:
+  - Saga 补偿映射 (自动生成)
 - 可视化工具
 
 ### v2.0.0 (Q4 2026)

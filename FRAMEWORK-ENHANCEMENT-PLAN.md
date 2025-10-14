@@ -107,13 +107,13 @@ public partial class OrderProcess
     {
         // 步骤 1: 预留库存
         var inventory = await ReserveInventory(request.OrderId, request.Items);
-        
+
         // 步骤 2: 处理支付
         var payment = await ProcessPayment(request.OrderId, request.Amount);
-        
+
         // 步骤 3: 创建发货
         var shipment = await CreateShipment(request.OrderId, request.Address);
-        
+
         // 返回结果
         return new OrderResult
         {
@@ -123,7 +123,7 @@ public partial class OrderProcess
             ShipmentId = shipment.TrackingNumber
         };
     }
-    
+
     // 定义步骤 (Source Generator 会自动包装)
     [ProcessStep("预留库存")]
     private async Task<InventoryReserved> ReserveInventory(string orderId, List<OrderItem> items)
@@ -132,7 +132,7 @@ public partial class OrderProcess
             new ReserveInventory(orderId, items));
         return result.Value;
     }
-    
+
     [ProcessStep("处理支付")]
     private async Task<PaymentProcessed> ProcessPayment(string orderId, decimal amount)
     {
@@ -140,7 +140,7 @@ public partial class OrderProcess
             new ProcessPayment(orderId, amount));
         return result.Value;
     }
-    
+
     [ProcessStep("创建发货")]
     private async Task<ShipmentCreated> CreateShipment(string orderId, string address)
     {
@@ -156,14 +156,14 @@ public partial class OrderProcess : IRequestHandler<CreateOrderCommand, CatgaRes
     private readonly ICatgaMediator _mediator;
     private readonly IProcessStore _store;
     private string _processId;
-    
+
     // 自动生成的 Handler
     public async ValueTask<CatgaResult<OrderResult>> HandleAsync(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken ct)
     {
         _processId = $"OrderProcess_{request.OrderId}";
-        
+
         try
         {
             var result = await ExecuteAsync(request);
@@ -176,26 +176,26 @@ public partial class OrderProcess : IRequestHandler<CreateOrderCommand, CatgaRes
             return CatgaResult<OrderResult>.Failure(ex.Message, ex);
         }
     }
-    
+
     // 自动生成的步骤包装 (带持久化、重试、幂等)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private async Task<InventoryReserved> ReserveInventory(string orderId, List<OrderItem> items)
     {
         const string stepName = "预留库存";
-        
+
         // 1. 检查缓存 (幂等性)
         if (_store.TryGetCached<InventoryReserved>(_processId, stepName, out var cached))
             return cached;
-        
+
         // 2. 执行原始方法
         var result = await ReserveInventory_Original(orderId, items);
-        
+
         // 3. 异步保存 (不阻塞)
         _ = _store.SaveAsync(_processId, stepName, result);
-        
+
         return result;
     }
-    
+
     // 原始方法重命名
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private async Task<InventoryReserved> ReserveInventory_Original(string orderId, List<OrderItem> items)
@@ -204,12 +204,12 @@ public partial class OrderProcess : IRequestHandler<CreateOrderCommand, CatgaRes
             new ReserveInventory(orderId, items));
         return result.Value;
     }
-    
+
     // 自动生成的补偿逻辑
     private async Task CompensateAsync(Exception ex)
     {
         var completedSteps = await _store.GetCompletedStepsAsync(_processId);
-        
+
         // 按相反顺序补偿
         foreach (var step in completedSteps.Reverse())
         {
@@ -227,7 +227,7 @@ public partial class OrderProcess : IRequestHandler<CreateOrderCommand, CatgaRes
             }
         }
     }
-    
+
     // 自动生成的 SendAsync 辅助方法
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(TRequest request)
@@ -245,14 +245,14 @@ public partial class OrderProcess
     {
         // 步骤 1: 预留库存
         var inventory = await ReserveInventory(request.OrderId, request.Items);
-        
+
         // 步骤 2 和 3: 并行执行 (Source Generator 自动优化)
         [ProcessStepParallel] // 👈 自动并行
         var (payment, notification) = await (
             ProcessPayment(request.OrderId, request.Amount),
             SendNotification(request.CustomerId, "处理中")
         );
-        
+
         // 步骤 4: 条件分支 (就是普通 if！)
         ShipmentCreated shipment;
         if (request.Amount > 1000)
@@ -263,7 +263,7 @@ public partial class OrderProcess
         {
             shipment = await CreateShipment(request.OrderId, request.Address);
         }
-        
+
         return new OrderResult { ... };
     }
 }
@@ -341,7 +341,7 @@ public partial class OrderProcess
         var shipment = await CreateShipment(...);
         return new OrderResult { ... };
     }
-    
+
     [ProcessStep("预留库存")]
     private async Task<InventoryReserved> ReserveInventory(...) { ... }
 }
@@ -380,6 +380,257 @@ Catga Process (Source Generator):
 ```
 
 **优先级**: P0 (核心功能，用户最需要)
+
+---
+
+### 2.1 **Event Sourcing 和恢复能力** ⭐⭐⭐⭐⭐
+
+**核心设计**:
+- ✅ **每步自动发布事件** - Source Generator 自动生成
+- ✅ **事件持久化** - 自动保存到 Event Store
+- ✅ **断点恢复** - 从事件流重建状态
+- ✅ **零开销** - 编译时优化，零运行时反射
+
+**需要实现**:
+```csharp
+// 🎯 用户写法 - 完全不变！
+[CatgaProcess] // 👈 Source Generator 自动处理 Event Sourcing
+public partial class OrderProcess
+{
+    public async Task<OrderResult> ExecuteAsync(CreateOrderCommand request)
+    {
+        // 步骤 1: 预留库存
+        var inventory = await ReserveInventory(request.OrderId, request.Items);
+        
+        // 步骤 2: 处理支付
+        var payment = await ProcessPayment(request.OrderId, request.Amount);
+        
+        // 步骤 3: 创建发货
+        var shipment = await CreateShipment(request.OrderId, request.Address);
+        
+        return new OrderResult { ... };
+    }
+    
+    [ProcessStep("预留库存")]
+    private async Task<InventoryReserved> ReserveInventory(string orderId, List<OrderItem> items)
+    {
+        var result = await SendAsync<ReserveInventory, InventoryReserved>(
+            new ReserveInventory(orderId, items));
+        return result.Value;
+    }
+}
+
+// ✨ Source Generator 自动生成 - Event Sourcing 支持
+public partial class OrderProcess
+{
+    // 自动生成的步骤包装 (带 Event Sourcing)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private async Task<InventoryReserved> ReserveInventory(string orderId, List<OrderItem> items)
+    {
+        const string stepName = "预留库存";
+        
+        // 1. 检查事件流 (幂等性 + 恢复)
+        var events = await _eventStore.GetEventsAsync(_processId, stepName);
+        if (events.Any(e => e is ProcessStepCompleted completed && completed.StepName == stepName))
+        {
+            // 从事件重建状态
+            var completedEvent = events.OfType<ProcessStepCompleted>().First();
+            return JsonSerializer.Deserialize<InventoryReserved>(completedEvent.Result);
+        }
+        
+        // 2. 发布 StepStarted 事件
+        await _eventStore.AppendAsync(_processId, new ProcessStepStarted
+        {
+            ProcessId = _processId,
+            StepName = stepName,
+            Timestamp = DateTime.UtcNow,
+            Input = JsonSerializer.Serialize(new { orderId, items })
+        });
+        
+        try
+        {
+            // 3. 执行原始方法
+            var result = await ReserveInventory_Original(orderId, items);
+            
+            // 4. 发布 StepCompleted 事件
+            await _eventStore.AppendAsync(_processId, new ProcessStepCompleted
+            {
+                ProcessId = _processId,
+                StepName = stepName,
+                Timestamp = DateTime.UtcNow,
+                Result = JsonSerializer.Serialize(result)
+            });
+            
+            return result;
+        }
+        catch (Exception ex)
+        {
+            // 5. 发布 StepFailed 事件
+            await _eventStore.AppendAsync(_processId, new ProcessStepFailed
+            {
+                ProcessId = _processId,
+                StepName = stepName,
+                Timestamp = DateTime.UtcNow,
+                Error = ex.Message,
+                StackTrace = ex.StackTrace
+            });
+            throw;
+        }
+    }
+}
+
+// 📦 Process Events (自动生成)
+public record ProcessStepStarted : IEvent
+{
+    public string ProcessId { get; init; }
+    public string StepName { get; init; }
+    public DateTime Timestamp { get; init; }
+    public string Input { get; init; }
+}
+
+public record ProcessStepCompleted : IEvent
+{
+    public string ProcessId { get; init; }
+    public string StepName { get; init; }
+    public DateTime Timestamp { get; init; }
+    public string Result { get; init; }
+}
+
+public record ProcessStepFailed : IEvent
+{
+    public string ProcessId { get; init; }
+    public string StepName { get; init; }
+    public DateTime Timestamp { get; init; }
+    public string Error { get; init; }
+    public string StackTrace { get; init; }
+}
+
+// 🔄 恢复能力 (自动生成)
+public partial class OrderProcess
+{
+    // 从事件流恢复流程
+    public static async Task<OrderProcess> RecoverAsync(
+        string processId,
+        IEventStore eventStore,
+        ICatgaMediator mediator)
+    {
+        var process = new OrderProcess
+        {
+            _processId = processId,
+            _eventStore = eventStore,
+            _mediator = mediator
+        };
+        
+        // 从事件流重建状态
+        var events = await eventStore.GetEventsAsync(processId);
+        
+        // 找到最后一个完成的步骤
+        var completedSteps = events
+            .OfType<ProcessStepCompleted>()
+            .Select(e => e.StepName)
+            .ToHashSet();
+        
+        // 恢复状态到内存
+        foreach (var evt in events.OfType<ProcessStepCompleted>())
+        {
+            process._completedSteps[evt.StepName] = evt.Result;
+        }
+        
+        return process;
+    }
+    
+    // 继续执行 (从断点恢复)
+    public async Task<CatgaResult<OrderResult>> ResumeAsync(
+        CreateOrderCommand request,
+        CancellationToken ct)
+    {
+        // 直接调用 HandleAsync，步骤会自动跳过已完成的
+        return await HandleAsync(request, ct);
+    }
+}
+
+// 🎯 使用示例 - 断点恢复
+public class OrderService
+{
+    private readonly IEventStore _eventStore;
+    private readonly ICatgaMediator _mediator;
+    
+    // 场景 1: 正常执行
+    public async Task<CatgaResult<OrderResult>> CreateOrderAsync(CreateOrderCommand cmd)
+    {
+        var process = new OrderProcess(_eventStore, _mediator);
+        return await process.HandleAsync(cmd, CancellationToken.None);
+    }
+    
+    // 场景 2: 服务重启后恢复
+    public async Task<CatgaResult<OrderResult>> RecoverOrderAsync(string processId, CreateOrderCommand cmd)
+    {
+        // 从事件流恢复流程
+        var process = await OrderProcess.RecoverAsync(processId, _eventStore, _mediator);
+        
+        // 继续执行 (自动跳过已完成的步骤)
+        return await process.ResumeAsync(cmd, CancellationToken.None);
+    }
+    
+    // 场景 3: 查看流程状态
+    public async Task<ProcessStatus> GetProcessStatusAsync(string processId)
+    {
+        var events = await _eventStore.GetEventsAsync(processId);
+        
+        var completedSteps = events.OfType<ProcessStepCompleted>().Count();
+        var failedSteps = events.OfType<ProcessStepFailed>().Count();
+        var totalSteps = events.OfType<ProcessStepStarted>().Select(e => e.StepName).Distinct().Count();
+        
+        return new ProcessStatus
+        {
+            ProcessId = processId,
+            CompletedSteps = completedSteps,
+            FailedSteps = failedSteps,
+            TotalSteps = totalSteps,
+            IsCompleted = completedSteps == totalSteps && failedSteps == 0
+        };
+    }
+}
+```
+
+**Event Sourcing 优势**:
+1. ✅ **完整审计** - 每步都有事件记录
+2. ✅ **断点恢复** - 服务重启后自动恢复
+3. ✅ **时间旅行** - 可以重放到任意时间点
+4. ✅ **调试友好** - 事件流清晰展示执行过程
+5. ✅ **零开销** - Source Generator 编译时生成，零运行时
+
+**恢复场景**:
+```
+场景 1: 服务崩溃
+1. 步骤 1 完成 ✅ -> ProcessStepCompleted 事件
+2. 步骤 2 执行中 -> ProcessStepStarted 事件
+3. 💥 服务崩溃
+4. 服务重启
+5. 从事件流恢复 -> 跳过步骤 1，重新执行步骤 2
+
+场景 2: 网络超时
+1. 步骤 1 完成 ✅ -> ProcessStepCompleted 事件
+2. 步骤 2 超时 ⏱️ -> ProcessStepFailed 事件
+3. 自动重试 -> ProcessStepStarted 事件
+4. 步骤 2 完成 ✅ -> ProcessStepCompleted 事件
+
+场景 3: 手动补偿
+1. 步骤 1 完成 ✅ -> ProcessStepCompleted 事件
+2. 步骤 2 完成 ✅ -> ProcessStepCompleted 事件
+3. 步骤 3 失败 ❌ -> ProcessStepFailed 事件
+4. 自动补偿 -> ProcessCompensationStarted 事件
+5. 补偿步骤 2 ✅ -> ProcessStepCompensated 事件
+6. 补偿步骤 1 ✅ -> ProcessStepCompensated 事件
+```
+
+**性能优化**:
+- Event Store 使用 NATS JetStream 或 Redis Streams
+- 事件序列化使用 MemoryPack (AOT 友好)
+- 内存缓存已完成步骤 (避免重复查询)
+- 异步追加事件 (不阻塞主流程)
+
+**优先级**: P0 (核心功能)
 
 ---
 

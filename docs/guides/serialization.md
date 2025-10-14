@@ -1,6 +1,6 @@
 # Catga 序列化指南
 
-> **一站式序列化配置指南** - MemoryPack vs JSON 完整对比  
+> **一站式序列化配置指南** - MemoryPack vs JSON 完整对比
 > 最后更新: 2025-10-14
 
 [返回主文档](../../README.md) · [快速参考](../../QUICK-REFERENCE.md) · [架构设计](../architecture/ARCHITECTURE.md)
@@ -17,13 +17,13 @@ graph TD
     A -->|否| C[需要人类可读?]
     C -->|是| D[JSON]
     C -->|否| B
-    
+
     B --> E[所有消息标注 [MemoryPackable]]
     D --> F[配置 JsonSerializerContext]
-    
+
     E --> G[✅ 100% AOT 兼容]
     F --> H[⚠️ 需额外配置]
-    
+
     style B fill:#90EE90
     style D fill:#FFD700
     style G fill:#90EE90
@@ -75,17 +75,17 @@ using Catga.Messages;
 
 // Command
 [MemoryPackable]
-public partial record CreateOrder(string OrderId, decimal Amount) 
+public partial record CreateOrder(string OrderId, decimal Amount)
     : IRequest<OrderResult>;
 
 // Query
 [MemoryPackable]
-public partial record GetOrder(string OrderId) 
+public partial record GetOrder(string OrderId)
     : IRequest<Order?>;
 
 // Event
 [MemoryPackable]
-public partial record OrderCreated(string OrderId, DateTime CreatedAt) 
+public partial record OrderCreated(string OrderId, DateTime CreatedAt)
     : IEvent;
 
 // Result
@@ -372,7 +372,7 @@ builder.Services.AddCatga()
 
 ```csharp
 // 普通 record，无需 [MemoryPackable]
-public record CreateOrder(string OrderId, decimal Amount) 
+public record CreateOrder(string OrderId, decimal Amount)
     : IRequest<OrderResult>;
 
 public record OrderResult(string OrderId, bool Success);
@@ -505,12 +505,12 @@ dotnet add package MemoryPack.Generator
 
 ```csharp
 // Before
-public record CreateOrder(string OrderId, decimal Amount) 
+public record CreateOrder(string OrderId, decimal Amount)
     : IRequest<OrderResult>;
 
 // After
 [MemoryPackable]
-public partial record CreateOrder(string OrderId, decimal Amount) 
+public partial record CreateOrder(string OrderId, decimal Amount)
     : IRequest<OrderResult>;
 ```
 
@@ -657,7 +657,7 @@ services.AddCatga().UseCustomSerializer();
    // ✅ 推荐: record (不可变)
    [MemoryPackable]
    public partial record CreateOrder(...);
-   
+
    // ⚠️ 可以但不推荐: class (可变)
    [MemoryPackable]
    public partial class CreateOrder { ... }
@@ -685,7 +685,7 @@ services.AddCatga().UseCustomSerializer();
    // ❌ 编译错误
    [MemoryPackable]
    public record CreateOrder(...);  // 缺少 partial
-   
+
    // ✅ 正确
    [MemoryPackable]
    public partial record CreateOrder(...);
@@ -695,7 +695,7 @@ services.AddCatga().UseCustomSerializer();
    ```csharp
    // ❌ AOT 不支持
    services.AddCatga().UseJson();  // 默认使用反射
-   
+
    // ✅ AOT 支持
    services.AddCatga().UseJson(new JsonSerializerOptions
    {

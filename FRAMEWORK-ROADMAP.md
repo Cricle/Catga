@@ -806,7 +806,7 @@ public class ProcessPaymentHandler : IRequestHandler<ProcessPayment, CatgaResult
             Activity.Current = new Activity("ProcessPayment");
             Activity.Current.SetParentId(ActivityTraceId.CreateFromString(traceId), ...);
         }
-        
+
         // 业务逻辑
         await _paymentService.ProcessAsync(request.OrderId, request.Amount);
         return CatgaResult.Success();
@@ -834,7 +834,7 @@ public static class GeneratedTracingInterceptor
             request.Metadata["TraceState"] = Activity.Current.TraceStateString;
             request.Metadata["Baggage"] = string.Join(",", Activity.Current.Baggage.Select(b => $"{b.Key}={b.Value}"));
         }
-        
+
         // 2. 调用原始方法
         return await mediator.SendAsync<TRequest, TResponse>(request, ct);
     }
@@ -853,13 +853,13 @@ public partial class ProcessPaymentHandler
         {
             var traceId = ActivityTraceId.CreateFromString(traceIdStr);
             var spanId = ActivitySpanId.CreateFromString(spanIdStr);
-            
+
             activity = new Activity("ProcessPayment");
             activity.SetParentId(traceId, spanId);
-            
+
             if (request.Metadata.TryGetValue("TraceState", out var traceState))
                 activity.TraceStateString = traceState;
-            
+
             if (request.Metadata.TryGetValue("Baggage", out var baggage))
             {
                 foreach (var item in baggage.Split(','))
@@ -869,10 +869,10 @@ public partial class ProcessPaymentHandler
                         activity.AddBaggage(parts[0], parts[1]);
                 }
             }
-            
+
             activity.Start();
         }
-        
+
         try
         {
             // 2. 调用原始 Handler
@@ -926,12 +926,12 @@ public static class GeneratedSagaTracing
             .SetTag("saga.id", sagaId)
             .SetTag("saga.steps", compensations.Count)
             .Start();
-        
+
         try
         {
             // 执行 Saga
             await action();
-            
+
             sagaActivity.SetTag("saga.status", "completed");
             return CatgaResult.Success();
         }
@@ -939,14 +939,14 @@ public static class GeneratedSagaTracing
         {
             sagaActivity.SetTag("saga.status", "failed");
             sagaActivity.SetTag("saga.error", ex.Message);
-            
+
             // 补偿追踪
             using var compensationActivity = new Activity("Saga.Compensation")
                 .SetTag("saga.id", sagaId)
                 .Start();
-            
+
             await saga.CompensateAsync(sagaId, compensations);
-            
+
             return CatgaResult.Failure(ex.Message);
         }
     }
@@ -973,7 +973,428 @@ Saga [OrderId: 12345]
 
 ---
 
-## 📊 Source Generator 优先级
+### 8. 引导式基类生成 (降低学习成本)
+
+**问题**: 用户不知道如何开始，缺少模板和引导
+
+**解决方案**: 提供引导式抽象基类 + Source Generator 自动实现
+
+#### 8.1 聚合根引导式基类
+
+```csharp
+// 框架提供的引导式基类
+public abstract class AggregateRoot<TId, TState> 
+    where TState : class, new()
+{
+    public TId Id { get; protected set; }
+    public long Version { get; private set; }
+    public TState State { get; private set; } = new();
+    
+    private readonly List<IEvent> _uncommittedEvents = new();
+    
+    // 用户只需要实现这两个方法
+    protected abstract TId GetId(IEvent @event);
+    protected abstract TState Apply(TState state, IEvent @event);
+    
+    // 框架自动实现
+    protected void RaiseEvent(IEvent @event)
+    {
+        State = Apply(State, @event);
+        if (Id == null) Id = GetId(@event);
+        _uncommittedEvents.Add(@event);
+        Version++;
+    }
+    
+    public void LoadFromHistory(IEnumerable<IEvent> history)
+    {
+        foreach (var @event in history)
+        {
+            State = Apply(State, @event);
+            if (Id == null) Id = GetId(@event);
+            Version++;
+        }
+    }
+    
+    public IReadOnlyList<IEvent> GetUncommittedEvents() => _uncommittedEvents;
+    public void MarkEventsAsCommitted() => _uncommittedEvents.Clear();
+}
+
+// 用户使用 - 超级简单！
+public class Order : AggregateRoot<string, OrderState>
+{
+    // 状态类 - 纯数据
+    public class OrderState
+    {
+        public OrderStatus Status { get; set; }
+        public List<OrderItem> Items { get; set; } = new();
+        public decimal TotalAmount { get; set; }
+    }
+    
+    // 命令处理
+    public void Create(string orderId, List<OrderItem> items)
+    {
+        RaiseEvent(new OrderCreated(orderId, items, DateTime.UtcNow));
+    }
+    
+    public void Pay(decimal amount)
+    {
+        if (State.Status != OrderStatus.Created)
+            throw new InvalidOperationException("订单状态不正确");
+        
+        RaiseEvent(new OrderPaid(Id, amount, DateTime.UtcNow));
+    }
+    
+    // 只需要实现两个方法
+    protected override string GetId(IEvent @event) => @event switch
+    {
+        OrderCreated e => e.OrderId,
+        _ => Id
+    };
+    
+    protected override OrderState Apply(OrderState state, IEvent @event) => @event switch
+    {
+        OrderCreated e => state with 
+        { 
+            Items = e.Items, 
+            Status = OrderStatus.Created,
+            TotalAmount = e.Items.Sum(i => i.Price * i.Quantity)
+        },
+        OrderPaid e => state with { Status = OrderStatus.Paid },
+        OrderShipped e => state with { Status = OrderStatus.Shipped },
+        _ => state
+    };
+}
+```
+
+**优势**:
+- ✅ 用户只需要实现 2 个方法 (GetId, Apply)
+- ✅ 状态不可变 (使用 record/with)
+- ✅ 类型安全 (pattern matching)
+- ✅ 易于测试 (纯函数)
+
+---
+
+#### 8.2 Saga 引导式基类
+
+```csharp
+// 框架提供的引导式基类
+public abstract class SagaBase<TData>
+{
+    protected readonly ICatgaMediator Mediator;
+    protected readonly ILogger Logger;
+    
+    protected SagaBase(ICatgaMediator mediator, ILogger logger)
+    {
+        Mediator = mediator;
+        Logger = logger;
+    }
+    
+    // 用户只需要实现这三个方法
+    protected abstract Task<TData> ExecuteStepsAsync(TData data, CancellationToken ct);
+    protected abstract Task CompensateAsync(TData data, string failedStep, CancellationToken ct);
+    protected abstract Dictionary<Type, Type> GetCompensations();
+    
+    // 框架自动实现
+    public async Task<CatgaResult<TData>> ExecuteAsync(TData data, CancellationToken ct = default)
+    {
+        var sagaId = GetSagaId(data);
+        
+        using var activity = new Activity("Saga")
+            .SetTag("saga.id", sagaId)
+            .Start();
+        
+        try
+        {
+            Logger.LogInformation("开始执行 Saga: {SagaId}", sagaId);
+            
+            var result = await ExecuteStepsAsync(data, ct);
+            
+            activity.SetTag("saga.status", "completed");
+            Logger.LogInformation("Saga 执行成功: {SagaId}", sagaId);
+            
+            return CatgaResult<TData>.Success(result);
+        }
+        catch (Exception ex)
+        {
+            activity.SetTag("saga.status", "failed");
+            activity.SetTag("saga.error", ex.Message);
+            
+            Logger.LogWarning(ex, "Saga 执行失败，开始补偿: {SagaId}", sagaId);
+            
+            await CompensateAsync(data, ex.Message, ct);
+            
+            return CatgaResult<TData>.Failure(ex.Message, ex);
+        }
+    }
+    
+    protected virtual string GetSagaId(TData data) => data?.ToString() ?? Guid.NewGuid().ToString();
+}
+
+// 用户使用 - 超级简单！
+public class OrderSaga : SagaBase<OrderSagaData>
+{
+    public OrderSaga(ICatgaMediator mediator, ILogger<OrderSaga> logger) 
+        : base(mediator, logger) { }
+    
+    // 1. 定义步骤
+    protected override async Task<OrderSagaData> ExecuteStepsAsync(OrderSagaData data, CancellationToken ct)
+    {
+        // 步骤 1: 预留库存
+        var inventory = await Mediator.SendAsync<ReserveInventory, InventoryReserved>(
+            new ReserveInventory(data.OrderId, data.Items), ct);
+        data.InventoryId = inventory.Value.ReservationId;
+        
+        // 步骤 2: 处理支付
+        var payment = await Mediator.SendAsync<ProcessPayment, PaymentProcessed>(
+            new ProcessPayment(data.OrderId, data.Amount), ct);
+        data.PaymentId = payment.Value.TransactionId;
+        
+        // 步骤 3: 创建发货
+        var shipment = await Mediator.SendAsync<CreateShipment, ShipmentCreated>(
+            new CreateShipment(data.OrderId, data.Address), ct);
+        data.ShipmentId = shipment.Value.TrackingNumber;
+        
+        return data;
+    }
+    
+    // 2. 定义补偿
+    protected override async Task CompensateAsync(OrderSagaData data, string failedStep, CancellationToken ct)
+    {
+        if (!string.IsNullOrEmpty(data.ShipmentId))
+            await Mediator.SendAsync(new CancelShipment(data.OrderId), ct);
+        
+        if (!string.IsNullOrEmpty(data.PaymentId))
+            await Mediator.SendAsync(new RefundPayment(data.OrderId), ct);
+        
+        if (!string.IsNullOrEmpty(data.InventoryId))
+            await Mediator.SendAsync(new ReleaseInventory(data.OrderId), ct);
+    }
+    
+    // 3. 定义补偿映射 (可选)
+    protected override Dictionary<Type, Type> GetCompensations() => new()
+    {
+        [typeof(InventoryReserved)] = typeof(ReleaseInventory),
+        [typeof(PaymentProcessed)] = typeof(RefundPayment),
+        [typeof(ShipmentCreated)] = typeof(CancelShipment)
+    };
+    
+    protected override string GetSagaId(OrderSagaData data) => data.OrderId;
+}
+
+// Saga 数据
+public class OrderSagaData
+{
+    public string OrderId { get; set; }
+    public List<OrderItem> Items { get; set; }
+    public decimal Amount { get; set; }
+    public string Address { get; set; }
+    
+    // 步骤结果
+    public string InventoryId { get; set; }
+    public string PaymentId { get; set; }
+    public string ShipmentId { get; set; }
+}
+```
+
+**优势**:
+- ✅ 用户只需要实现 3 个方法
+- ✅ 自动追踪和日志
+- ✅ 自动补偿
+- ✅ 清晰的步骤定义
+
+---
+
+#### 8.3 Projection 引导式基类
+
+```csharp
+// 框架提供的引导式基类
+public abstract class ProjectionBase<TReadModel> : IProjection
+    where TReadModel : class
+{
+    protected readonly ILogger Logger;
+    
+    protected ProjectionBase(ILogger logger)
+    {
+        Logger = logger;
+    }
+    
+    public abstract string Name { get; }
+    
+    // 用户只需要实现这个方法
+    protected abstract Task HandleEventAsync(IEvent @event, CancellationToken ct);
+    
+    // 框架自动实现
+    public async Task HandleAsync(IEvent @event, CancellationToken ct)
+    {
+        using var activity = new Activity($"Projection.{Name}")
+            .SetTag("projection.name", Name)
+            .SetTag("event.type", @event.GetType().Name)
+            .Start();
+        
+        try
+        {
+            Logger.LogDebug("投影 {ProjectionName} 处理事件 {EventType}", Name, @event.GetType().Name);
+            
+            await HandleEventAsync(@event, ct);
+            
+            activity.SetTag("projection.status", "success");
+        }
+        catch (Exception ex)
+        {
+            activity.SetTag("projection.status", "failed");
+            activity.SetTag("projection.error", ex.Message);
+            
+            Logger.LogError(ex, "投影 {ProjectionName} 处理事件失败", Name);
+            throw;
+        }
+    }
+    
+    // 辅助方法
+    protected abstract Task<TReadModel?> GetAsync(string id, CancellationToken ct);
+    protected abstract Task SaveAsync(TReadModel model, CancellationToken ct);
+    protected abstract Task DeleteAsync(string id, CancellationToken ct);
+}
+
+// 用户使用 - 超级简单！
+public class OrderReadModelProjection : ProjectionBase<OrderReadModel>
+{
+    private readonly IOrderReadModelStore _store;
+    
+    public OrderReadModelProjection(IOrderReadModelStore store, ILogger<OrderReadModelProjection> logger) 
+        : base(logger)
+    {
+        _store = store;
+    }
+    
+    public override string Name => "OrderReadModel";
+    
+    // 只需要实现事件处理
+    protected override async Task HandleEventAsync(IEvent @event, CancellationToken ct)
+    {
+        switch (@event)
+        {
+            case OrderCreated e:
+                await SaveAsync(new OrderReadModel
+                {
+                    OrderId = e.OrderId,
+                    Status = "Created",
+                    Items = e.Items,
+                    CreatedAt = e.CreatedAt
+                }, ct);
+                break;
+                
+            case OrderPaid e:
+                var order = await GetAsync(e.OrderId, ct);
+                if (order != null)
+                {
+                    order.Status = "Paid";
+                    order.PaidAt = e.PaidAt;
+                    await SaveAsync(order, ct);
+                }
+                break;
+                
+            case OrderCancelled e:
+                await DeleteAsync(e.OrderId, ct);
+                break;
+        }
+    }
+    
+    protected override Task<OrderReadModel?> GetAsync(string id, CancellationToken ct) 
+        => _store.GetAsync(id, ct);
+    
+    protected override Task SaveAsync(OrderReadModel model, CancellationToken ct) 
+        => _store.SaveAsync(model, ct);
+    
+    protected override Task DeleteAsync(string id, CancellationToken ct) 
+        => _store.DeleteAsync(id, ct);
+}
+```
+
+**优势**:
+- ✅ 用户只需要实现事件处理逻辑
+- ✅ 自动追踪和日志
+- ✅ 统一的错误处理
+- ✅ 清晰的 CRUD 抽象
+
+---
+
+### 9. 样板代码生成 (进一步减少重复)
+
+**问题**: 即使有引导式基类，还是有一些重复代码
+
+**Source Generator 优化**:
+
+#### 9.1 自动生成 Command/Query/Event
+
+```csharp
+// 用户只需要定义接口
+[GenerateCommand]
+public interface ICreateOrder
+{
+    string OrderId { get; }
+    List<OrderItem> Items { get; }
+    string CustomerId { get; }
+}
+
+// Source Generator 自动生成 (在 Commands.g.cs)
+public record CreateOrderCommand(
+    string OrderId, 
+    List<OrderItem> Items, 
+    string CustomerId
+) : ICommand<CatgaResult<OrderCreated>>, ICreateOrder
+{
+    public Dictionary<string, string> Metadata { get; init; } = new();
+}
+
+// 用户只需要定义接口
+[GenerateEvent]
+public interface IOrderCreated
+{
+    string OrderId { get; }
+    List<OrderItem> Items { get; }
+    DateTime CreatedAt { get; }
+}
+
+// Source Generator 自动生成 (在 Events.g.cs)
+[MemoryPackable]
+public partial record OrderCreated(
+    string OrderId,
+    List<OrderItem> Items,
+    DateTime CreatedAt
+) : IEvent, IOrderCreated;
+```
+
+#### 9.2 自动生成 Handler 骨架
+
+```csharp
+// 用户只需要标记
+[GenerateHandler]
+public partial class CreateOrderHandler
+{
+    // Source Generator 自动生成接口实现
+    // public async ValueTask<CatgaResult<OrderCreated>> HandleAsync(CreateOrderCommand request, CancellationToken ct)
+    // {
+    //     return await ExecuteAsync(request, ct);
+    // }
+    
+    // 用户只需要实现业务逻辑
+    private async Task<CatgaResult<OrderCreated>> ExecuteAsync(CreateOrderCommand request, CancellationToken ct)
+    {
+        // 业务逻辑
+        var order = new Order();
+        order.Create(request.OrderId, request.Items);
+        
+        await _repository.SaveAsync(order, ct);
+        
+        return CatgaResult<OrderCreated>.Success(
+            new OrderCreated(request.OrderId, request.Items, DateTime.UtcNow));
+    }
+}
+```
+
+---
+
+## 📊 Source Generator 优先级 (更新)
 
 | 功能 | 优先级 | 价值 | 复杂度 |
 |------|--------|------|--------|
@@ -983,6 +1404,8 @@ Saga [OrderId: 12345]
 | **Event Apply 生成** | P1 | 高 (减少 switch) | 低 |
 | **Projection 注册生成** | P1 | 中 (减少注册) | 低 |
 | **Saga 步骤追踪生成** | P1 | 高 (可视化) | 中 |
+| **引导式基类** | P1 | 高 (降低学习成本) | 低 |
+| **样板代码生成** | P2 | 中 (减少重复) | 中 |
 | **Saga 补偿映射生成** | P2 | 中 (减少配置) | 低 |
 
 ---
@@ -1003,6 +1426,9 @@ Saga [OrderId: 12345]
 ### v1.1.0 (Q1 2026)
 - Event Sourcing
 - Read Model Projection
+- **引导式基类**:
+  - `AggregateRoot<TId, TState>` (用户只需实现 2 个方法)
+  - `ProjectionBase<TReadModel>` (用户只需实现事件处理)
 - **Source Generator (P0)**:
   - Event Router (零反射路由)
   - Aggregate Factory (零反射创建)
@@ -1010,6 +1436,8 @@ Saga [OrderId: 12345]
 
 ### v1.2.0 (Q2 2026)
 - Distributed Saga
+- **引导式基类**:
+  - `SagaBase<TData>` (用户只需实现 3 个方法)
 - **Source Generator (P1)**:
   - Event Apply (减少 switch/case)
   - Projection 注册 (自动发现)
@@ -1020,6 +1448,7 @@ Saga [OrderId: 12345]
 - Process Manager
 - **Source Generator (P2)**:
   - Saga 补偿映射 (自动生成)
+  - 样板代码生成 (Command/Event/Handler)
 - 可视化工具
 
 ### v2.0.0 (Q4 2026)

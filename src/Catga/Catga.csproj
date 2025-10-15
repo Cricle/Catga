@@ -19,6 +19,7 @@
 		<!-- Minimal dependencies - only abstractions -->
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+		<PackageReference Include="Microsoft.Extensions.ObjectPool" />
 	</ItemGroup>
 
 	<ItemGroup>

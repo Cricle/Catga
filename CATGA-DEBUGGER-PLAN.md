@@ -1196,25 +1196,25 @@ public class AdaptiveSampler
     private double _currentRate = 0.001; // 初始 0.1%
     private readonly double _minRate = 0.0001; // 最低 0.01%
     private readonly double _maxRate = 0.01;   // 最高 1%
-    
+
     public bool ShouldSample()
     {
         // 1. 基于请求ID哈希的确定性采样
         var hash = GetRequestHash();
         if (hash % 10000 >= _currentRate * 10000)
             return false;
-            
+
         // 2. 根据系统负载自适应调整
         AdjustRateBasedOnLoad();
-        
+
         return true;
     }
-    
+
     private void AdjustRateBasedOnLoad()
     {
         var cpuUsage = GetCpuUsage();
         var memoryUsage = GetMemoryUsage();
-        
+
         // CPU > 80% 或 内存 > 80%，降低采样率
         if (cpuUsage > 0.8 || memoryUsage > 0.8)
         {
@@ -1240,13 +1240,13 @@ public class RingBuffer<T>
     private int _head;
     private int _tail;
     private int _count;
-    
+
     public RingBuffer(int capacity = 1000)
     {
         _capacity = capacity;
         _buffer = new T[capacity]; // 一次性分配
     }
-    
+
     public bool TryAdd(T item)
     {
         if (_count >= _capacity)
@@ -1257,13 +1257,13 @@ public class RingBuffer<T>
             _head = (_head + 1) % _capacity;
             return true;
         }
-        
+
         _buffer[_tail] = item;
         _tail = (_tail + 1) % _capacity;
         _count++;
         return true;
     }
-    
+
     // 零拷贝读取
     public ReadOnlySpan<T> GetSnapshot()
     {
@@ -1282,31 +1282,31 @@ public class BatchProcessor<T>
     private readonly Channel<T> _channel;
     private readonly int _batchSize = 100;
     private readonly TimeSpan _batchInterval = TimeSpan.FromSeconds(1);
-    
+
     public async Task ProcessAsync(CancellationToken ct)
     {
         var batch = new List<T>(_batchSize);
         var timer = new PeriodicTimer(_batchInterval);
-        
+
         while (!ct.IsCancellationRequested)
         {
             var hasItem = await _channel.Reader.WaitToReadAsync(ct);
             if (!hasItem) continue;
-            
+
             // 收集批次
-            while (batch.Count < _batchSize && 
+            while (batch.Count < _batchSize &&
                    _channel.Reader.TryRead(out var item))
             {
                 batch.Add(item);
             }
-            
+
             // 批量处理
             if (batch.Count > 0)
             {
                 await ProcessBatchAsync(batch, ct);
                 batch.Clear();
             }
-            
+
             // 背压控制：如果积压过多，丢弃旧数据
             if (_channel.Reader.Count > 10000)
             {
@@ -1329,10 +1329,10 @@ public static class DebuggerInstrumentation
     {
         // 只有在 DEBUGGER_ENABLED 编译时才会执行
         if (!_sampler.ShouldSample()) return;
-        
+
         _tracker.RecordStepFast(correlationId, step);
     }
-    
+
     // 生产环境编译时完全移除
     // #if !DEBUGGER_ENABLED
     // public static void RecordStep(...) { } // 空实现，零开销
@@ -1346,17 +1346,17 @@ public static class DebuggerInstrumentation
 /// <summary>流程上下文对象池</summary>
 public class FlowContextPool
 {
-    private static readonly ObjectPool<FlowContext> _pool = 
+    private static readonly ObjectPool<FlowContext> _pool =
         new DefaultObjectPoolProvider()
             .Create(new FlowContextPoolPolicy());
-    
+
     public static FlowContext Rent()
     {
         var context = _pool.Get();
         context.Reset(); // 重置状态
         return context;
     }
-    
+
     public static void Return(FlowContext context)
     {
         context.Clear(); // 清理敏感数据
@@ -1367,7 +1367,7 @@ public class FlowContextPool
 public class FlowContextPoolPolicy : IPooledObjectPolicy<FlowContext>
 {
     public FlowContext Create() => new FlowContext();
-    
+
     public bool Return(FlowContext obj)
     {
         // 限制池大小，避免内存泄漏
@@ -1383,17 +1383,17 @@ public class FlowContextPoolPolicy : IPooledObjectPolicy<FlowContext>
 public class ZeroCopySerializer
 {
     private readonly MemoryPool<byte> _memoryPool = MemoryPool<byte>.Shared;
-    
+
     public IMemoryOwner<byte> Serialize(FlowContext context)
     {
         // 估算大小，避免多次分配
         var estimatedSize = EstimateSize(context);
         var memory = _memoryPool.Rent(estimatedSize);
-        
+
         // 直接写入 Memory<byte>
         var writer = new MemoryPackWriter(memory.Memory.Span);
         MemoryPackSerializer.Serialize(ref writer, context);
-        
+
         return memory; // 返回租用的内存，调用者负责释放
     }
 }
@@ -1480,12 +1480,36 @@ await session.InviteUserAsync("user@example.com");
 // 实时同步视图、断点、标注
 ```
 
-### 5. 时间旅行回放
+### 5. 时间旅行回放 ⭐ 核心功能
 ```csharp
 // 精确重现历史状态
 var replay = await debugger.ReplayFromSnapshotAsync(snapshotId);
 await replay.StepForward();  // 单步前进
 await replay.StepBackward(); // 单步后退
+await replay.JumpToTimestamp(timestamp); // 跳转到特定时间
+var state = await replay.GetStateAt(timestamp); // 查看任意时刻状态
+```
+
+**宏观回放**：系统级事件流
+```csharp
+// 回放整个系统在某个时间段的行为
+var systemReplay = await debugger.ReplaySystemAsync(
+    startTime: DateTime.UtcNow.AddMinutes(-30),
+    endTime: DateTime.UtcNow,
+    speed: 10.0 // 10倍速播放
+);
+
+// 查看系统全局指标变化
+var metrics = await systemReplay.GetMetricsTimeline();
+```
+
+**微观回放**：单流程逐步执行
+```csharp
+// 回放单个消息流程的详细执行过程
+var flowReplay = await debugger.ReplayFlowAsync(correlationId);
+await flowReplay.StepInto();  // 进入子流程
+await flowReplay.StepOver();  // 跳过子流程
+await flowReplay.StepOut();   // 跳出当前流程
 ```
 
 ### 6. 自动化诊断规则
@@ -2043,12 +2067,12 @@ builder.Services.AddCatgaDebugger(options =>
     // === 核心配置 ===
     options.Mode = DebuggerMode.ProductionOptimized;
     options.Enabled = builder.Configuration.GetValue<bool>("Debugger:Enabled", false);
-    
+
     // === 采样策略 ===
     options.SamplingRate = 0.001; // 0.1% 采样 (千分之一)
     options.EnableAdaptiveSampling = true; // 根据负载自动调整
     options.SamplingStrategy = SamplingStrategy.HashBased; // 确定性采样
-    
+
     // === 性能优化 ===
     options.UseRingBuffer = true; // 环形缓冲区（固定内存）
     options.MaxMemoryMB = 50; // 内存上限 50MB
@@ -2056,13 +2080,13 @@ builder.Services.AddCatgaDebugger(options =>
     options.EnableObjectPooling = true; // 对象池
     options.BatchSize = 100; // 批处理大小
     options.BatchInterval = TimeSpan.FromSeconds(5); // 批处理间隔
-    
+
     // === 功能开关 ===
     options.TrackMessageFlows = true; // 流程追踪
     options.TrackPerformance = true; // 性能追踪
     options.TrackStateSnapshots = false; // 关闭快照（生产环境）
     options.TrackExceptions = true; // 异常追踪
-    
+
     // === 存储配置 ===
     options.UseInMemoryStorage(storage =>
     {
@@ -2070,29 +2094,29 @@ builder.Services.AddCatgaDebugger(options =>
         storage.RingBufferSize = 1000; // 环形缓冲区大小
         storage.EnableCompression = true; // 压缩存储
     });
-    
+
     // === 安全配置 ===
     options.RequireAuthentication = true;
     options.RequireAuthorization = "DebuggerPolicy";
     options.DataSanitizer = data => data.RemoveKeys("Password", "Token", "Secret");
     options.AllowedIPs = new[] { "10.0.0.0/8" }; // 仅内网访问
-    
+
     // === 背压控制 ===
     options.EnableBackpressure = true;
     options.BackpressureThreshold = 10000; // 超过 10000 条丢弃旧数据
     options.OverflowStrategy = OverflowStrategy.DropOldest;
-    
+
     // === 自动关闭 ===
     options.AutoDisableAfter = TimeSpan.FromMinutes(30); // 30分钟后自动关闭
     options.AllowManualEnable = true; // 允许手动重启
-    
+
     // === 监控告警 ===
     options.OnMemoryThresholdExceeded += (sender, e) =>
     {
         // 内存超限告警
         telemetry.TrackEvent("DebuggerMemoryAlert", new { UsageMB = e.CurrentMB });
     };
-    
+
     options.OnPerformanceImpact += (sender, e) =>
     {
         // 性能影响告警（延迟 > 1ms）
@@ -2108,7 +2132,7 @@ builder.Services.AddCatgaDebugger(options =>
 var app = builder.Build();
 
 // === 仅在需要时启用 UI ===
-if (builder.Environment.IsDevelopment() || 
+if (builder.Environment.IsDevelopment() ||
     builder.Configuration.GetValue<bool>("Debugger:EnableUI", false))
 {
     app.MapCatgaDebugger("/debug");
@@ -2128,7 +2152,7 @@ app.Run();
 public class DebuggerController : ControllerBase
 {
     private readonly IDebuggerControl _debuggerControl;
-    
+
     [HttpPost("enable")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> EnableDebugger([FromBody] EnableRequest request)
@@ -2141,13 +2165,13 @@ public class DebuggerController : ControllerBase
             AutoDisable = true,
             Reason = request.Reason // 审计日志
         });
-        
+
         _logger.LogWarning("Debugger manually enabled by {User} for {Duration} minutes. Reason: {Reason}",
             User.Identity.Name, request.DurationMinutes, request.Reason);
-        
+
         return Ok(new { message = "Debugger enabled", expiresAt = DateTime.UtcNow.AddMinutes(request.DurationMinutes ?? 5) });
     }
-    
+
     [HttpPost("disable")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DisableDebugger()
@@ -2155,7 +2179,7 @@ public class DebuggerController : ControllerBase
         await _debuggerControl.DisableAsync();
         return Ok(new { message = "Debugger disabled" });
     }
-    
+
     [HttpGet("status")]
     public IActionResult GetStatus()
     {
@@ -2182,23 +2206,23 @@ public class DebuggerController : ControllerBase
       ⚠️ 调试器性能影响: {{ status.performanceImpact.toFixed(2) }}%
       (建议降低采样率或关闭)
     </el-alert>
-    
+
     <el-card>
       <el-statistic title="采样率" :value="status.samplingRate * 100" suffix="%" />
       <el-statistic title="内存占用" :value="status.memoryUsageMB" suffix="MB" />
       <el-statistic title="活跃流程" :value="status.activeFlows" />
       <el-statistic title="性能影响" :value="status.performanceImpact" suffix="%" />
     </el-card>
-    
-    <el-button 
-      v-if="!status.enabled" 
-      type="primary" 
+
+    <el-button
+      v-if="!status.enabled"
+      type="primary"
       @click="enableDebugger">
       应急开启 (5分钟)
     </el-button>
-    <el-button 
-      v-else 
-      type="danger" 
+    <el-button
+      v-else
+      type="danger"
       @click="disableDebugger">
       立即关闭
     </el-button>
@@ -2214,16 +2238,16 @@ public class DebuggerMetrics
 {
     private static readonly Counter SampledFlows = Metrics
         .CreateCounter("catga_debugger_sampled_flows_total", "采样的流程总数");
-        
+
     private static readonly Gauge ActiveFlows = Metrics
         .CreateGauge("catga_debugger_active_flows", "当前活跃流程数");
-        
+
     private static readonly Histogram ProcessingLatency = Metrics
         .CreateHistogram("catga_debugger_processing_latency_ms", "处理延迟（毫秒）");
-        
+
     private static readonly Gauge MemoryUsage = Metrics
         .CreateGauge("catga_debugger_memory_usage_mb", "内存占用（MB）");
-        
+
     private static readonly Gauge SamplingRate = Metrics
         .CreateGauge("catga_debugger_sampling_rate", "当前采样率");
 }
@@ -2246,7 +2270,636 @@ public class DebuggerMetrics
 
 ---
 
-**状态**: 📝 生产就绪计划  
+---
+
+## 🎬 时间旅行和回放功能（详细设计）
+
+### 核心理念
+
+**问题**: 生产环境问题发生时，开发者往往只能看到结果（错误日志），无法看到**问题发生的完整过程**。
+
+**解决方案**: 时间旅行调试 - 像视频回放一样，可以随时暂停、前进、后退、慢放，从宏观和微观两个维度观察系统行为。
+
+### 架构设计
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       时间旅行引擎                               │
+│                                                                 │
+│  ┌─────────────────┐        ┌─────────────────┐               │
+│  │  事件捕获层      │───────→│  事件存储层      │               │
+│  │                 │        │                 │               │
+│  │ • Message       │        │ • Event Store   │               │
+│  │ • State Change  │        │ • Snapshot Store│               │
+│  │ • Performance   │        │ • Index         │               │
+│  │ • Exception     │        │ • Compression   │               │
+│  └─────────────────┘        └─────────────────┘               │
+│           │                          │                         │
+│           ▼                          ▼                         │
+│  ┌─────────────────────────────────────────────┐               │
+│  │           回放引擎 (Replay Engine)           │               │
+│  │                                             │               │
+│  │  • 时间索引 (Timestamp Index)                │               │
+│  │  • 状态重建 (State Reconstruction)           │               │
+│  │  • 因果追踪 (Causality Tracking)             │               │
+│  │  • 多流程同步 (Multi-Flow Sync)              │               │
+│  └─────────────────────────────────────────────┘               │
+│           │                          │                         │
+│           ▼                          ▼                         │
+│  ┌──────────────┐          ┌──────────────┐                   │
+│  │  宏观视图     │          │  微观视图     │                   │
+│  │  System-Wide │          │  Flow-Level  │                   │
+│  │              │          │              │                   │
+│  │ • 全局事件流  │          │ • 单步执行    │                   │
+│  │ • 系统指标    │          │ • 变量追踪    │                   │
+│  │ • 服务拓扑    │          │ • 调用栈      │                   │
+│  └──────────────┘          └──────────────┘                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 核心组件
+
+#### 1. 事件捕获器（Event Capturer）
+
+```csharp
+/// <summary>捕获所有可回放的事件</summary>
+public class ReplayableEventCapturer : IPipelineBehavior<TRequest, TResponse>
+{
+    private readonly IEventStore _eventStore;
+    private readonly ReplayOptions _options;
+    
+    public async ValueTask<CatgaResult<TResponse>> HandleAsync(
+        TRequest request, 
+        PipelineDelegate<TResponse> next, 
+        CancellationToken ct)
+    {
+        if (!_options.EnableReplay) return await next();
+        
+        var correlationId = GetCorrelationId(request);
+        var captureContext = new CaptureContext(correlationId);
+        
+        // 捕获输入状态
+        await CaptureSnapshotAsync("BeforeExecution", captureContext);
+        
+        // 执行并捕获所有中间事件
+        var result = await next();
+        
+        // 捕获输出状态
+        await CaptureSnapshotAsync("AfterExecution", captureContext);
+        
+        // 保存到事件存储
+        await _eventStore.SaveAsync(captureContext.Events);
+        
+        return result;
+    }
+    
+    private async Task CaptureSnapshotAsync(string stage, CaptureContext context)
+    {
+        var snapshot = new StateSnapshot
+        {
+            Timestamp = DateTime.UtcNow,
+            Stage = stage,
+            CorrelationId = context.CorrelationId,
+            Variables = CaptureVariables(), // 捕获变量值
+            MemoryState = CaptureMemoryState(), // 可选：内存快照
+            CallStack = CaptureCallStack() // 调用栈
+        };
+        
+        context.Events.Add(new ReplayableEvent
+        {
+            Type = EventType.StateSnapshot,
+            Timestamp = snapshot.Timestamp,
+            Data = snapshot
+        });
+    }
+}
+```
+
+#### 2. 事件存储（Event Store）
+
+```csharp
+/// <summary>高性能事件存储 - 支持时间索引</summary>
+public class TimeIndexedEventStore : IEventStore
+{
+    // 使用 B+ 树索引提高查询性能
+    private readonly BPlusTree<DateTime, EventBatch> _timeIndex;
+    
+    // 使用 LSM 树优化写入性能
+    private readonly LSMTree<string, List<ReplayableEvent>> _correlationIndex;
+    
+    // 压缩存储以节省空间
+    private readonly ICompressor _compressor;
+    
+    public async Task SaveAsync(IEnumerable<ReplayableEvent> events)
+    {
+        var batch = new EventBatch
+        {
+            Events = events.ToList(),
+            Timestamp = DateTime.UtcNow
+        };
+        
+        // 压缩后存储
+        var compressed = await _compressor.CompressAsync(batch);
+        
+        // 写入时间索引（快速按时间范围查询）
+        await _timeIndex.InsertAsync(batch.Timestamp, compressed);
+        
+        // 写入关联ID索引（快速按流程ID查询）
+        foreach (var evt in events)
+        {
+            await _correlationIndex.InsertAsync(evt.CorrelationId, evt);
+        }
+    }
+    
+    public async Task<IEnumerable<ReplayableEvent>> GetEventsAsync(
+        DateTime startTime, 
+        DateTime endTime)
+    {
+        // 使用 B+ 树范围查询，O(log n) 复杂度
+        var batches = await _timeIndex.RangeQueryAsync(startTime, endTime);
+        
+        var events = new List<ReplayableEvent>();
+        foreach (var batch in batches)
+        {
+            var decompressed = await _compressor.DecompressAsync(batch);
+            events.AddRange(decompressed.Events);
+        }
+        
+        return events;
+    }
+}
+```
+
+#### 3. 回放引擎（Replay Engine）
+
+```csharp
+/// <summary>时间旅行回放引擎</summary>
+public class TimeTravelReplayEngine
+{
+    private readonly IEventStore _eventStore;
+    private readonly IStateReconstructor _stateReconstructor;
+    
+    /// <summary>宏观回放：系统全局视图</summary>
+    public async Task<SystemReplay> ReplaySystemAsync(
+        DateTime startTime, 
+        DateTime endTime, 
+        double speed = 1.0)
+    {
+        // 加载时间范围内的所有事件
+        var events = await _eventStore.GetEventsAsync(startTime, endTime);
+        
+        // 按时间排序
+        var timeline = events.OrderBy(e => e.Timestamp).ToList();
+        
+        return new SystemReplay(timeline, speed)
+        {
+            // 宏观视图功能
+            GetGlobalMetrics = () => CalculateGlobalMetrics(timeline),
+            GetServiceTopology = () => BuildServiceTopology(timeline),
+            GetEventFlow = () => BuildEventFlow(timeline),
+            GetHotspots = () => FindPerformanceHotspots(timeline)
+        };
+    }
+    
+    /// <summary>微观回放：单流程详细执行</summary>
+    public async Task<FlowReplay> ReplayFlowAsync(string correlationId)
+    {
+        // 加载特定流程的所有事件
+        var events = await _eventStore.GetEventsByCorrelationAsync(correlationId);
+        
+        // 构建状态机
+        var stateMachine = new FlowStateMachine(events);
+        
+        return new FlowReplay(stateMachine)
+        {
+            // 单步执行
+            StepForward = async () => await stateMachine.StepAsync(1),
+            StepBackward = async () => await stateMachine.StepAsync(-1),
+            
+            // 断点跳转
+            StepInto = async () => await stateMachine.StepIntoAsync(),
+            StepOver = async () => await stateMachine.StepOverAsync(),
+            StepOut = async () => await stateMachine.StepOutAsync(),
+            
+            // 时间跳转
+            JumpToTimestamp = async (ts) => await stateMachine.JumpToAsync(ts),
+            
+            // 状态查询
+            GetCurrentState = () => stateMachine.CurrentState,
+            GetVariables = () => stateMachine.Variables,
+            GetCallStack = () => stateMachine.CallStack
+        };
+    }
+    
+    /// <summary>并行回放：多流程同步观察</summary>
+    public async Task<ParallelReplay> ReplayParallelAsync(
+        IEnumerable<string> correlationIds)
+    {
+        var replays = new List<FlowReplay>();
+        
+        foreach (var id in correlationIds)
+        {
+            replays.Add(await ReplayFlowAsync(id));
+        }
+        
+        // 同步多个流程的时间线
+        return new ParallelReplay(replays)
+        {
+            StepAll = async () => await Task.WhenAll(replays.Select(r => r.StepForward())),
+            SyncToTimestamp = async (ts) => await Task.WhenAll(
+                replays.Select(r => r.JumpToTimestamp(ts)))
+        };
+    }
+}
+```
+
+#### 4. 状态重建器（State Reconstructor）
+
+```csharp
+/// <summary>从事件流重建任意时刻的状态</summary>
+public class StateReconstructor
+{
+    /// <summary>重建特定时刻的完整状态</summary>
+    public async Task<SystemState> ReconstructStateAsync(DateTime timestamp)
+    {
+        // 1. 找到最近的快照（Snapshot）
+        var snapshot = await FindNearestSnapshotAsync(timestamp);
+        
+        // 2. 从快照开始重放事件
+        var events = await _eventStore.GetEventsAsync(
+            snapshot.Timestamp, 
+            timestamp);
+        
+        // 3. 逐个应用事件，重建状态
+        var state = snapshot.State.Clone();
+        foreach (var evt in events)
+        {
+            state = ApplyEvent(state, evt);
+        }
+        
+        return state;
+    }
+    
+    /// <summary>追踪变量值的变化历史</summary>
+    public async Task<VariableTimeline> TrackVariableAsync(
+        string variableName, 
+        DateTime startTime, 
+        DateTime endTime)
+    {
+        var timeline = new VariableTimeline(variableName);
+        
+        var events = await _eventStore.GetEventsAsync(startTime, endTime);
+        
+        foreach (var evt in events.Where(e => e.Type == EventType.StateSnapshot))
+        {
+            var snapshot = evt.Data as StateSnapshot;
+            if (snapshot.Variables.TryGetValue(variableName, out var value))
+            {
+                timeline.AddPoint(evt.Timestamp, value);
+            }
+        }
+        
+        return timeline;
+    }
+}
+```
+
+### Vue 3 回放 UI 组件
+
+#### 时间旅行控制器
+
+```vue
+<!-- components/TimeTravelController.vue -->
+<template>
+  <div class="time-travel-controller">
+    <!-- 时间线滑块 -->
+    <div class="timeline">
+      <el-slider
+        v-model="currentTimestamp"
+        :min="startTimestamp"
+        :max="endTimestamp"
+        :marks="eventMarks"
+        @change="onTimelineChange"
+      />
+    </div>
+    
+    <!-- 播放控制 -->
+    <div class="controls">
+      <el-button-group>
+        <el-button @click="stepBackward" :icon="ArrowLeft">
+          后退
+        </el-button>
+        
+        <el-button @click="togglePlay" :icon="isPlaying ? VideoPause : VideoPlay">
+          {{ isPlaying ? '暂停' : '播放' }}
+        </el-button>
+        
+        <el-button @click="stepForward" :icon="ArrowRight">
+          前进
+        </el-button>
+      </el-button-group>
+      
+      <!-- 播放速度 -->
+      <el-select v-model="playSpeed" style="width: 120px">
+        <el-option label="0.25x" :value="0.25" />
+        <el-option label="0.5x" :value="0.5" />
+        <el-option label="1x" :value="1.0" />
+        <el-option label="2x" :value="2.0" />
+        <el-option label="5x" :value="5.0" />
+        <el-option label="10x" :value="10.0" />
+      </el-select>
+      
+      <!-- 当前时间显示 -->
+      <span class="current-time">
+        {{ formatTimestamp(currentTimestamp) }}
+      </span>
+    </div>
+    
+    <!-- 事件标记 -->
+    <div class="event-markers">
+      <el-tag
+        v-for="event in visibleEvents"
+        :key="event.id"
+        :type="getEventType(event)"
+        class="event-marker"
+        :style="{ left: getEventPosition(event) }"
+        @click="jumpToEvent(event)"
+      >
+        {{ event.type }}
+      </el-tag>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
+import { useReplayStore } from '@/stores/replay';
+
+const replayStore = useReplayStore();
+
+const isPlaying = ref(false);
+const playSpeed = ref(1.0);
+const currentTimestamp = ref(Date.now());
+
+// 播放控制
+const togglePlay = () => {
+  if (isPlaying.value) {
+    replayStore.pause();
+  } else {
+    replayStore.play(playSpeed.value);
+  }
+  isPlaying.value = !isPlaying.value;
+};
+
+const stepForward = () => replayStore.stepForward();
+const stepBackward = () => replayStore.stepBackward();
+const jumpToEvent = (event) => replayStore.jumpToTimestamp(event.timestamp);
+</script>
+```
+
+#### 宏观视图 - 系统全局回放
+
+```vue
+<!-- components/MacroReplayView.vue -->
+<template>
+  <div class="macro-replay-view">
+    <!-- 系统拓扑图 - 显示服务间调用关系 -->
+    <div class="topology-view">
+      <el-card title="服务拓扑（实时回放）">
+        <ServiceTopologyGraph
+          :nodes="currentTopology.nodes"
+          :edges="currentTopology.edges"
+          :activeFlow="currentActiveFlow"
+        />
+      </el-card>
+    </div>
+    
+    <!-- 全局事件流 -->
+    <div class="global-event-stream">
+      <el-card title="全局事件流">
+        <el-timeline>
+          <el-timeline-item
+            v-for="event in visibleEvents"
+            :key="event.id"
+            :timestamp="formatTime(event.timestamp)"
+            :type="getEventSeverity(event)"
+          >
+            <strong>{{ event.service }}</strong>: {{ event.message }}
+            <el-tag size="small">{{ event.type }}</el-tag>
+          </el-timeline-item>
+        </el-timeline>
+      </el-card>
+    </div>
+    
+    <!-- 系统指标变化 -->
+    <div class="metrics-timeline">
+      <el-card title="系统指标变化">
+        <MetricsChart
+          :data="metricsTimeline"
+          :currentTime="currentTimestamp"
+        />
+      </el-card>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue';
+import { useReplayStore } from '@/stores/replay';
+
+const replayStore = useReplayStore();
+
+const currentTopology = computed(() => 
+  replayStore.getTopologyAt(replayStore.currentTimestamp)
+);
+
+const visibleEvents = computed(() => 
+  replayStore.getEventsInWindow(
+    replayStore.currentTimestamp - 10000, // 前10秒
+    replayStore.currentTimestamp
+  )
+);
+
+const metricsTimeline = computed(() => 
+  replayStore.getMetricsTimeline()
+);
+</script>
+```
+
+#### 微观视图 - 单流程逐步调试
+
+```vue
+<!-- components/MicroReplayView.vue -->
+<template>
+  <div class="micro-replay-view">
+    <!-- 调用栈 -->
+    <div class="call-stack">
+      <el-card title="调用栈">
+        <el-tree
+          :data="callStack"
+          :props="{ label: 'name', children: 'children' }"
+          :highlight-current="true"
+          :current-node-key="currentStepId"
+        />
+      </el-card>
+    </div>
+    
+    <!-- 变量监视 -->
+    <div class="variables-watch">
+      <el-card title="变量监视">
+        <el-table :data="variables" style="width: 100%">
+          <el-table-column prop="name" label="名称" />
+          <el-table-column prop="value" label="当前值" />
+          <el-table-column label="变化">
+            <template #default="{ row }">
+              <el-tag v-if="row.changed" type="warning">已变化</el-tag>
+              <VariableTimeline :variable="row.name" />
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
+    </div>
+    
+    <!-- 执行步骤详情 -->
+    <div class="step-details">
+      <el-card title="当前步骤">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="步骤">{{ currentStep.name }}</el-descriptions-item>
+          <el-descriptions-item label="耗时">{{ currentStep.duration }}ms</el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="getStepStatusType(currentStep.status)">
+              {{ currentStep.status }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="输入">
+            <JsonViewer :data="currentStep.input" />
+          </el-descriptions-item>
+          <el-descriptions-item label="输出">
+            <JsonViewer :data="currentStep.output" />
+          </el-descriptions-item>
+        </el-descriptions>
+      </el-card>
+    </div>
+    
+    <!-- 单步控制 -->
+    <div class="step-controls">
+      <el-button-group>
+        <el-button @click="stepInto">进入 (F11)</el-button>
+        <el-button @click="stepOver">跳过 (F10)</el-button>
+        <el-button @click="stepOut">跳出 (Shift+F11)</el-button>
+        <el-button @click="runToCursor">运行到光标</el-button>
+      </el-button-group>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue';
+import { useFlowReplayStore } from '@/stores/flowReplay';
+
+const flowReplayStore = useFlowReplayStore();
+
+const callStack = computed(() => flowReplayStore.callStack);
+const variables = computed(() => flowReplayStore.variables);
+const currentStep = computed(() => flowReplayStore.currentStep);
+
+// 单步控制
+const stepInto = () => flowReplayStore.stepInto();
+const stepOver = () => flowReplayStore.stepOver();
+const stepOut = () => flowReplayStore.stepOut();
+</script>
+```
+
+### 性能优化
+
+#### 增量快照（Delta Snapshots）
+
+```csharp
+/// <summary>增量快照 - 只存储变化的部分</summary>
+public class DeltaSnapshotStore
+{
+    public async Task SaveSnapshotAsync(StateSnapshot snapshot)
+    {
+        // 与上一个快照对比
+        var previous = await GetPreviousSnapshotAsync(snapshot.CorrelationId);
+        
+        if (previous != null)
+        {
+            // 只保存变化的字段（Delta）
+            var delta = ComputeDelta(previous, snapshot);
+            await _storage.SaveAsync(delta); // 大幅减少存储空间
+        }
+        else
+        {
+            // 第一个快照，完整保存
+            await _storage.SaveAsync(snapshot);
+        }
+    }
+    
+    private DeltaSnapshot ComputeDelta(StateSnapshot previous, StateSnapshot current)
+    {
+        return new DeltaSnapshot
+        {
+            Timestamp = current.Timestamp,
+            CorrelationId = current.CorrelationId,
+            ChangedVariables = current.Variables
+                .Where(kv => !previous.Variables.ContainsKey(kv.Key) || 
+                             !Equals(previous.Variables[kv.Key], kv.Value))
+                .ToDictionary(kv => kv.Key, kv => kv.Value)
+        };
+    }
+}
+```
+
+#### 懒加载和分页
+
+```typescript
+// 大时间范围回放时，懒加载事件
+export const useReplayStore = defineStore('replay', () => {
+  const events = ref<ReplayEvent[]>([]);
+  const loadedRanges = ref<TimeRange[]>([]);
+  
+  // 只加载可见时间窗口的事件
+  const loadEventsForWindow = async (startTime: number, endTime: number) => {
+    // 检查是否已加载
+    if (isRangeLoaded(startTime, endTime)) return;
+    
+    // 分页加载
+    const pageSize = 1000;
+    let offset = 0;
+    
+    while (true) {
+      const page = await apiClient.get('/replay/events', {
+        params: { startTime, endTime, offset, limit: pageSize }
+      });
+      
+      events.value.push(...page.data);
+      
+      if (page.data.length < pageSize) break;
+      offset += pageSize;
+    }
+    
+    loadedRanges.value.push({ startTime, endTime });
+  };
+  
+  return { events, loadEventsForWindow };
+});
+```
+
+### 成本和存储优化
+
+| 存储策略 | 保留时长 | 压缩率 | 存储成本 (1M QPS) |
+|---------|---------|--------|------------------|
+| **全量快照** | 1小时 | 1:1 | ~$500/月 |
+| **增量快照** | 6小时 | 10:1 | ~$50/月 |
+| **增量+压缩** | 24小时 | 50:1 | ~$20/月 |
+| **采样+压缩** | 7天 | 100:1 | **~$15/月** ⭐ |
+
+**推荐策略**: 采样 (0.1%) + 增量快照 + ZSTD 压缩
+
+---
+
+**状态**: 📝 完整回放功能设计  
 **提交**: (待更新)  
-**下一步**: Phase 1 实施（零开销核心）
+**下一步**: Phase 1 实施（事件捕获 + 基础回放）
 

@@ -89,7 +89,7 @@ public abstract class CatgaTransactionBase<TData> where TData : class
             {
                 CatgaLog.CatgaTransactionCompensationFailed(Logger, GetType().Name, transactionId, compensationEx.Message, compensationEx);
 
-                // Return combined error  
+                // Return combined error
                 return CatgaResult<TData>.Failure(
                     $"Transaction failed: {ex.Message}. Compensation also failed: {compensationEx.Message}");
             }

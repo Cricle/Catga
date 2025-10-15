@@ -20,19 +20,19 @@ public static class DebuggerServiceCollectionExtensions
         var options = new ReplayOptions();
         configureOptions?.Invoke(options);
         services.AddSingleton(options);
-        
+
         // Core services
         services.AddSingleton<AdaptiveSampler>();
         services.TryAddSingleton<IEventStore, InMemoryEventStore>();
         services.AddSingleton<IReplayEngine, TimeTravelReplayEngine>();
         services.AddSingleton<StateReconstructor>();
-        
+
         // Register pipeline behavior for event capture
         services.AddSingleton(typeof(ReplayableEventCapturer<,>));
-        
+
         return services;
     }
-    
+
     /// <summary>Add Catga debugger with production-optimized settings</summary>
     public static IServiceCollection AddCatgaDebuggerForProduction(
         this IServiceCollection services)
@@ -52,7 +52,7 @@ public static class DebuggerServiceCollectionExtensions
             options.AutoDisableAfter = TimeSpan.FromMinutes(30);
         });
     }
-    
+
     /// <summary>Add Catga debugger with development settings</summary>
     public static IServiceCollection AddCatgaDebuggerForDevelopment(
         this IServiceCollection services)

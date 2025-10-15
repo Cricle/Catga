@@ -18,25 +18,25 @@ public sealed class ReplayableEvent
 {
     /// <summary>Event unique ID</summary>
     public required string Id { get; init; }
-    
+
     /// <summary>Correlation ID for flow tracking</summary>
     public required string CorrelationId { get; init; }
-    
+
     /// <summary>Event type</summary>
     public required EventType Type { get; init; }
-    
+
     /// <summary>Event timestamp (UTC)</summary>
     public required DateTime Timestamp { get; init; }
-    
+
     /// <summary>Event data (polymorphic)</summary>
     public required object Data { get; init; }
-    
+
     /// <summary>Parent event ID (for causality tracking)</summary>
     public string? ParentEventId { get; init; }
-    
+
     /// <summary>Service/component name</summary>
     public string? ServiceName { get; init; }
-    
+
     /// <summary>Additional metadata</summary>
     public Dictionary<string, string>? Metadata { get; init; }
 }
@@ -46,19 +46,19 @@ public sealed class StateSnapshot
 {
     /// <summary>Snapshot timestamp</summary>
     public required DateTime Timestamp { get; init; }
-    
+
     /// <summary>Execution stage (BeforeExecution, AfterExecution, etc.)</summary>
     public required string Stage { get; init; }
-    
+
     /// <summary>Correlation ID</summary>
     public required string CorrelationId { get; init; }
-    
+
     /// <summary>Variables and their values</summary>
     public Dictionary<string, object?> Variables { get; set; } = new();
-    
+
     /// <summary>Call stack</summary>
     public List<CallFrame> CallStack { get; set; } = new();
-    
+
     /// <summary>Memory state (optional, for deep debugging)</summary>
     public MemoryState? MemoryState { get; set; }
 }

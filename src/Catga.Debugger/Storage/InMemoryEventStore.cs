@@ -10,34 +10,34 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
 {
     private readonly ReplayOptions _options;
     private readonly ILogger<InMemoryEventStore> _logger;
-    
+
     // Ring buffer for events (fixed size, circular)
     private readonly ReplayableEvent?[] _ringBuffer;
     private int _head;
     private int _tail;
     private int _count;
     private readonly object _bufferLock = new();
-    
+
     // Indexes for fast lookups
     private readonly ConcurrentDictionary<string, List<int>> _correlationIndex = new();
     private readonly ConcurrentDictionary<string, int> _eventIdIndex = new();
-    
+
     // Time-based index (simplified B+ tree using SortedList)
     private readonly SortedList<DateTime, List<int>> _timeIndex = new();
     private readonly object _timeIndexLock = new();
-    
+
     // Cleanup timer
     private readonly System.Threading.Timer? _cleanupTimer;
     private bool _disposed;
-    
+
     public InMemoryEventStore(ReplayOptions options, ILogger<InMemoryEventStore> logger)
     {
         _options = options;
         _logger = logger;
-        
+
         var capacity = options.UseRingBuffer ? options.RingBufferCapacity : 10000;
         _ringBuffer = new ReplayableEvent[capacity];
-        
+
         // Start cleanup timer
         if (options.EventRetention > TimeSpan.Zero)
         {
@@ -49,26 +49,26 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
             );
         }
     }
-    
+
     public Task SaveAsync(IEnumerable<ReplayableEvent> events, CancellationToken cancellationToken = default)
     {
         foreach (var evt in events)
         {
             if (cancellationToken.IsCancellationRequested) break;
-            
+
             SaveEventToRingBuffer(evt);
         }
-        
+
         return Task.CompletedTask;
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void SaveEventToRingBuffer(ReplayableEvent evt)
     {
         lock (_bufferLock)
         {
             var index = _tail;
-            
+
             // Check for overflow
             if (_count >= _ringBuffer.Length)
             {
@@ -81,7 +81,7 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
                     {
                         RemoveFromIndexes(oldEvent, _head);
                     }
-                    
+
                     // Overwrite oldest
                     _ringBuffer[_tail] = evt;
                     _tail = (_tail + 1) % _ringBuffer.Length;
@@ -100,25 +100,25 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
                 _tail = (_tail + 1) % _ringBuffer.Length;
                 _count++;
             }
-            
+
             // Update indexes
             AddToIndexes(evt, index);
         }
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void AddToIndexes(ReplayableEvent evt, int bufferIndex)
     {
         // Event ID index
         _eventIdIndex[evt.Id] = bufferIndex;
-        
+
         // Correlation ID index
         _correlationIndex.AddOrUpdate(
             evt.CorrelationId,
             _ => new List<int> { bufferIndex },
             (_, list) => { list.Add(bufferIndex); return list; }
         );
-        
+
         // Time index
         lock (_timeIndexLock)
         {
@@ -130,13 +130,13 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
             timeList.Add(bufferIndex);
         }
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void RemoveFromIndexes(ReplayableEvent evt, int bufferIndex)
     {
         // Event ID index
         _eventIdIndex.TryRemove(evt.Id, out _);
-        
+
         // Correlation ID index
         if (_correlationIndex.TryGetValue(evt.CorrelationId, out var corrList))
         {
@@ -144,7 +144,7 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
             if (corrList.Count == 0)
                 _correlationIndex.TryRemove(evt.CorrelationId, out _);
         }
-        
+
         // Time index
         lock (_timeIndexLock)
         {
@@ -156,14 +156,14 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
             }
         }
     }
-    
+
     public Task<IEnumerable<ReplayableEvent>> GetEventsAsync(
         DateTime startTime,
         DateTime endTime,
         CancellationToken cancellationToken = default)
     {
         var results = new List<ReplayableEvent>();
-        
+
         lock (_timeIndexLock)
         {
             // Use time index for efficient range query
@@ -171,7 +171,7 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
             {
                 if (kvp.Key < startTime) continue;
                 if (kvp.Key > endTime) break;
-                
+
                 foreach (var index in kvp.Value)
                 {
                     lock (_bufferLock)
@@ -183,16 +183,16 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
                 }
             }
         }
-        
+
         return Task.FromResult<IEnumerable<ReplayableEvent>>(results.OrderBy(e => e.Timestamp));
     }
-    
+
     public Task<IEnumerable<ReplayableEvent>> GetEventsByCorrelationAsync(
         string correlationId,
         CancellationToken cancellationToken = default)
     {
         var results = new List<ReplayableEvent>();
-        
+
         if (_correlationIndex.TryGetValue(correlationId, out var indexes))
         {
             lock (_bufferLock)
@@ -205,10 +205,10 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
                 }
             }
         }
-        
+
         return Task.FromResult<IEnumerable<ReplayableEvent>>(results.OrderBy(e => e.Timestamp));
     }
-    
+
     public Task<ReplayableEvent?> GetEventByIdAsync(
         string eventId,
         CancellationToken cancellationToken = default)
@@ -220,20 +220,20 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
                 return Task.FromResult(_ringBuffer[index]);
             }
         }
-        
+
         return Task.FromResult<ReplayableEvent?>(null);
     }
-    
+
     public Task CleanupAsync(DateTime olderThan, CancellationToken cancellationToken = default)
     {
         var removed = 0;
-        
+
         lock (_bufferLock)
         {
             lock (_timeIndexLock)
             {
                 var keysToRemove = _timeIndex.Keys.Where(k => k < olderThan).ToList();
-                
+
                 foreach (var key in keysToRemove)
                 {
                     if (_timeIndex.TryGetValue(key, out var indexes))
@@ -249,21 +249,21 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
                                 _count--;
                             }
                         }
-                        
+
                         _timeIndex.Remove(key);
                     }
                 }
             }
         }
-        
+
         if (removed > 0)
         {
             _logger.LogInformation("Cleaned up {Count} old events older than {Time}", removed, olderThan);
         }
-        
+
         return Task.CompletedTask;
     }
-    
+
     public Task<EventStoreStats> GetStatsAsync(CancellationToken cancellationToken = default)
     {
         lock (_bufferLock)
@@ -278,30 +278,30 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
                     OldestEvent = _timeIndex.Keys.FirstOrDefault(),
                     NewestEvent = _timeIndex.Keys.LastOrDefault()
                 };
-                
+
                 return Task.FromResult(stats);
             }
         }
     }
-    
+
     private long EstimateStorageSize()
     {
         // Rough estimation: each event ~1KB
         return _count * 1024L;
     }
-    
+
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        
+
         _cleanupTimer?.Dispose();
-        
+
         lock (_bufferLock)
         {
             Array.Clear(_ringBuffer, 0, _ringBuffer.Length);
         }
-        
+
         _correlationIndex.Clear();
         _eventIdIndex.Clear();
         _timeIndex.Clear();

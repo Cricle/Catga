@@ -18,7 +18,7 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
     private readonly ReplayOptions _options;
     private readonly AdaptiveSampler _sampler;
     private readonly ILogger<ReplayableEventCapturer<TRequest, TResponse>> _logger;
-    
+
     public ReplayableEventCapturer(
         IEventStore eventStore,
         ReplayOptions options,
@@ -30,7 +30,7 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
         _sampler = sampler;
         _logger = logger;
     }
-    
+
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,
@@ -39,59 +39,59 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
         // Check if replay is enabled and should sample
         if (!_options.EnableReplay)
             return await next();
-        
+
         var correlationId = GetCorrelationId(request);
-        
+
         if (!_sampler.ShouldSample(correlationId))
             return await next();
-        
+
         var captureContext = new CaptureContext(correlationId)
         {
             ServiceName = Environment.MachineName
         };
-        
+
         var stopwatch = Stopwatch.StartNew();
-        
+
         try
         {
             // Capture input state
             await CaptureSnapshotAsync("BeforeExecution", captureContext, request);
-            
+
             // Capture message received event
             if (_options.TrackMessageFlows)
             {
                 CaptureMessageEvent(EventType.MessageReceived, captureContext, request);
             }
-            
+
             // Execute pipeline
             var result = await next();
-            
+
             stopwatch.Stop();
-            
+
             // Capture output state
             await CaptureSnapshotAsync("AfterExecution", captureContext, result);
-            
+
             // Capture performance metric
             if (_options.TrackPerformance)
             {
                 CapturePerformanceMetric(captureContext, stopwatch.Elapsed);
             }
-            
+
             // Save events to store
             await _eventStore.SaveAsync(captureContext.Events, cancellationToken);
-            
+
             return result;
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
-            
+
             // Capture exception
             if (_options.TrackExceptions)
             {
                 CaptureException(captureContext, ex, stopwatch.Elapsed);
             }
-            
+
             // Save events even on failure
             try
             {
@@ -101,51 +101,51 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
             {
                 _logger.LogError(saveEx, "Failed to save replay events for {CorrelationId}", correlationId);
             }
-            
+
             throw;
         }
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private string GetCorrelationId(TRequest request)
     {
         // Try to get correlation ID from IMessage
         if (request is IMessage message && !string.IsNullOrEmpty(message.CorrelationId))
             return message.CorrelationId;
-        
+
         // Generate new correlation ID
         return Guid.NewGuid().ToString("N");
     }
-    
+
     private async Task CaptureSnapshotAsync(string stage, CaptureContext context, object? data)
     {
         if (!_options.TrackStateSnapshots) return;
-        
+
         var snapshot = new StateSnapshot
         {
             Timestamp = DateTime.UtcNow,
             Stage = stage,
             CorrelationId = context.CorrelationId
         };
-        
+
         // Capture variables
         if (_options.CaptureVariables && data != null)
         {
             snapshot.Variables = CaptureVariables(data);
         }
-        
+
         // Capture call stack
         if (_options.CaptureCallStacks)
         {
             snapshot.CallStack.AddRange(CaptureCallStack());
         }
-        
+
         // Capture memory state
         if (_options.CaptureMemoryState)
         {
             snapshot.MemoryState = CaptureMemoryState();
         }
-        
+
         context.Events.Add(new ReplayableEvent
         {
             Id = Guid.NewGuid().ToString("N"),
@@ -155,10 +155,10 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
             Data = snapshot,
             ServiceName = context.ServiceName
         });
-        
+
         await Task.CompletedTask;
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void CaptureMessageEvent(EventType eventType, CaptureContext context, object message)
     {
@@ -173,7 +173,7 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
             ParentEventId = context.ParentEventId
         });
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void CapturePerformanceMetric(CaptureContext context, TimeSpan duration)
     {
@@ -187,7 +187,7 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
             ServiceName = context.ServiceName
         });
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void CaptureException(CaptureContext context, Exception exception, TimeSpan duration)
     {
@@ -207,14 +207,23 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
             ServiceName = context.ServiceName
         });
     }
-    
+
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Variable capture uses reflection. For AOT, implement custom IDebugCapture on your types.")]
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Variable capture uses reflection. For AOT, implement custom IDebugCapture on your types.")]
     private Dictionary<string, object?> CaptureVariables(object data)
     {
         var variables = new Dictionary<string, object?>();
         
+        // Check if type implements custom capture interface
+        if (data is IDebugCapture debugCapture)
+        {
+            // AOT-friendly: use custom capture
+            return debugCapture.CaptureVariables();
+        }
+        
+        // Fallback to reflection (not AOT-compatible)
         try
         {
-            // Use reflection to capture public properties
             var type = data.GetType();
             var properties = type.GetProperties(System.Reflection.BindingFlags.Public | 
                                                System.Reflection.BindingFlags.Instance);
@@ -239,23 +248,23 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
         
         return variables;
     }
-    
+
     private List<CallFrame> CaptureCallStack()
     {
         var frames = new List<CallFrame>();
-        
+
         try
         {
             var stackTrace = new StackTrace(true);
             var stackFrames = stackTrace.GetFrames();
-            
+
             if (stackFrames != null)
             {
                 foreach (var frame in stackFrames.Take(10)) // Limit to 10 frames
                 {
                     var method = frame.GetMethod();
                     if (method == null) continue;
-                    
+
                     frames.Add(new CallFrame
                     {
                         MethodName = $"{method.DeclaringType?.FullName}.{method.Name}",
@@ -269,10 +278,10 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
         {
             _logger.LogWarning(ex, "Failed to capture call stack");
         }
-        
+
         return frames;
     }
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private MemoryState CaptureMemoryState()
     {

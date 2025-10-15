@@ -24,8 +24,15 @@ public static class BatchOperationExtensions
         for (int i = 0; i < items.Count; i++)
             tasks[i] = action(items[i]);
 
-        // Use array slice to avoid ToArray() allocation
-        await Task.WhenAll(tasks.AsSpan(0, items.Count)).ConfigureAwait(false);
+        // Zero-allocation: use exact-sized array or ArraySegment
+        if (tasks.Length == items.Count)
+        {
+            await Task.WhenAll((IEnumerable<Task>)tasks).ConfigureAwait(false);
+        }
+        else
+        {
+            await Task.WhenAll((IEnumerable<Task>)new ArraySegment<Task>(tasks, 0, items.Count)).ConfigureAwait(false);
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

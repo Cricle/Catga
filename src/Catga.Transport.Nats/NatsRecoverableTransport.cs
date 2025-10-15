@@ -94,7 +94,7 @@ public sealed class NatsRecoverableTransport : IRecoverableComponent, IDisposabl
     {
         if (_disposed) return;
         _disposed = true;
-        
+
         _monitorTimer?.Dispose();
     }
 }

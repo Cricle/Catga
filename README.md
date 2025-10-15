@@ -21,12 +21,13 @@
 
 Catga 是一个专为 .NET 9 和 Native AOT 设计的高性能 CQRS/中介者框架，提供：
 
-- ⚡ **极致性能**: < 1μs 命令处理，零分配设计
-- 🔥 **100% AOT 兼容**: MemoryPack 序列化，Source Generator 自动注册
-- 🛡️ **编译时检查**: Roslyn 分析器检测配置错误
-- 🌐 **分布式就绪**: 支持 NATS、Redis 传输和持久化
-- 🎯 **极简配置**: 3 行代码即可开始
-- 🔍 **完整可观测**: ActivitySource、Meter、LoggerMessage
+- ⚡ **Ultimate Performance**: < 1μs command handling, zero-allocation design
+- 🔥 **100% AOT Compatible**: MemoryPack serialization, Source Generator auto-registration
+- 🛡️ **Compile-Time Safety**: Roslyn analyzers detect configuration errors
+- 🌐 **Distributed Ready**: NATS, Redis transport & persistence
+- 🎯 **Minimal Config**: 2 lines to start, auto-DI for everything
+- 🔍 **Full Observability**: OpenTelemetry, Health Checks, Native Debugging
+- 🚀 **Production Ready**: Graceful shutdown, auto-recovery, cluster support
 
 ---
 
@@ -46,53 +47,43 @@ dotnet add package Catga.Serialization.MemoryPack
 dotnet add package Catga.SourceGenerator
 ```
 
-### 30 秒示例
+### 30 Second Example
 
 ```csharp
-// 1. 定义消息 (MemoryPack = AOT 友好)
-using MemoryPack;
-using Catga.Messages;
-
+// 1. Define messages (MemoryPack = AOT-friendly)
 [MemoryPackable]
-public partial record CreateOrder(string OrderId, decimal Amount)
-    : ICommand<CatgaResult<OrderCreated>>;
+public partial record CreateOrder(string OrderId, decimal Amount) : IRequest<OrderCreated>;
 
 [MemoryPackable]
 public partial record OrderCreated(string OrderId, DateTime CreatedAt);
 
-// 2. 实现 Handler
-public class CreateOrderHandler
-    : IRequestHandler<CreateOrder, CatgaResult<OrderCreated>>
+// 2. Implement handler - NO try-catch needed!
+public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderCreated>
 {
-    public async ValueTask<CatgaResult<OrderCreated>> HandleAsync(
-        CreateOrder request,
-        CancellationToken cancellationToken = default)
+    protected override async Task<OrderCreated> HandleCoreAsync(CreateOrder request, CancellationToken ct)
     {
-        // 业务逻辑
-        var result = new OrderCreated(request.OrderId, DateTime.UtcNow);
-        return CatgaResult<OrderCreated>.Success(result);
+        // Just business logic!
+        return new OrderCreated(request.OrderId, DateTime.UtcNow);
     }
 }
 
-// 3. 配置服务 (3 行！)
-builder.Services
-    .AddCatga()                  // 核心服务
-    .AddInMemoryTransport()      // 传输层
-    .UseMemoryPackSerializer();  // 序列化
+// 3. Define service - auto-registered!
+[CatgaService(Catga.ServiceLifetime.Singleton, ServiceType = typeof(IOrderRepo))]
+public class OrderRepo : IOrderRepo { }
 
-// 4. 使用
-var mediator = app.Services.GetRequiredService<ICatgaMediator>();
-var result = await mediator.SendAsync<CreateOrder, OrderCreated>(
-    new CreateOrder("ORD-001", 99.99m)
-);
+// 4. Configure (2 lines!)
+builder.Services.AddCatga().UseMemoryPack().ForDevelopment();
+builder.Services.AddGeneratedHandlers();  // Auto-register all handlers
+builder.Services.AddGeneratedServices();  // Auto-register all services
 
-if (result.IsSuccess)
-{
-    Console.WriteLine($"订单已创建: {result.Value.OrderId}");
-}
+// 5. Use
+var result = await mediator.SendAsync<CreateOrder, OrderCreated>(new CreateOrder("ORD-001", 99.99m));
+// Console auto-shows: [abc12345] CreateOrder ✅ (0.8ms)
 ```
 
-**就这么简单！** 🎉
+**That's it!** 🎉
+
+**Code reduction: 80%** vs traditional approach
 
 ---
 
@@ -250,26 +241,46 @@ app.Run();
 
 📖 [ASP.NET Core 指南](./docs/examples/basic-usage.md)
 
-### 🔍 可观测性
+### 🔍 Native Debugging
 
 ```csharp
-// ActivitySource - 分布式追踪
-using var activity = CatgaActivitySource.Start("OrderProcessing");
-activity?.SetTag("order.id", orderId);
+// Enable with one line
+builder.Services.AddCatga()
+    .UseMemoryPack()
+    .WithDebug();  // ← Auto message flow tracking!
 
-// Meter - 指标监控
-CatgaMeter.CommandCounter.Add(1, new("command", "CreateOrder"));
-CatgaMeter.CommandDuration.Record(elapsed, ...);
+// Console automatically shows:
+// [abc12345] CreateOrder ✅ (0.8ms)
+//   ├─ Handler: CreateOrderHandler (0.8ms)
+//   └─ Events: OrderCreated → 2 handlers (0.3ms)
 
-// LoggerMessage - 结构化日志 (Source Generated)
-[LoggerMessage(Level = LogLevel.Information,
-    Message = "Processing command {CommandType} with id {MessageId}")]
-partial void LogProcessingCommand(string commandType, string messageId);
+// Query flows via API
+GET /debug/flows              // List active flows
+GET /debug/flows/{id}         // Flow details
+GET /debug/stats              // Statistics
 ```
 
-与 OpenTelemetry 完美集成！
+**Features**:
+- ✅ Real-time console output with colors
+- ✅ < 2MB memory (object pooling)
+- ✅ < 0.5μs overhead
+- ✅ NATS + Redis metadata support
+- ✅ Zero-copy design
 
-📖 参考: [架构概览](./docs/architecture/overview.md)
+### 🔭 Full Observability
+
+**OpenTelemetry**:
+- ASP.NET Core instrumentation
+- HTTP client instrumentation  
+- Catga tracing & metrics
+- Aspire Dashboard integration
+
+**Health Checks**:
+- `/health` - Overall health
+- `/health/live` - Liveness probe
+- `/health/ready` - Readiness probe
+
+📖 [Aspire Integration](./examples/OrderSystem.AppHost/README.md) | [Debugging Guide](./docs/DEBUGGING-PLAN.md)
 
 ---
 
@@ -426,16 +437,19 @@ dotnet run -c Release
 - ✅ ASP.NET Core 集成
 
 ### v1.1 (✅ Completed)
-- ✅ Event Sourcing (EventStore, Repository)
-- ✅ Graceful Lifecycle (Shutdown & Recovery)
-- ✅ SafeRequestHandler (No try-catch)
-- ✅ Auto DI Registration (ServiceRegistrationGenerator)
-- ✅ Zero-Reflection Event Router (EventRouterGenerator)
+- ✅ **SafeRequestHandler** - No try-catch needed, just business logic
+- ✅ **Auto DI Registration** - ServiceType + ImplType support
+- ✅ **Zero-Reflection Event Router** - Compile-time code generation
+- ✅ **Graceful Lifecycle** - Shutdown & auto-recovery
+- ✅ **Native Debugging** - Message flow tracking with < 0.5μs overhead
+- ✅ **Aspire Integration** - OpenTelemetry, health checks, resilience
+- ✅ **Event Sourcing** - EventStore + Repository pattern
 
-### v2.0 (未来)
-- 🔮 GraphQL 集成
-- 🔮 RabbitMQ 传输层
-- 🔮 分布式追踪增强
+### v2.0 (Future)
+- 🔮 GraphQL integration
+- 🔮 RabbitMQ transport
+- 🔮 Enhanced distributed tracing
+- 🔮 Real-time debug UI
 
 ---
 

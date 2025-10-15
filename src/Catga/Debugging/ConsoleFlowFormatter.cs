@@ -43,7 +43,7 @@ public static class ConsoleFlowFormatter
         try
         {
             var status = context.Steps.All(s => s.Success) ? $"{Green}✅{Reset}" : $"{Red}❌{Reset}";
-            
+
             sb.AppendLine($"{Blue}Flow {context.CorrelationId}{Reset} {status}");
             sb.AppendLine($"  {Gray}Type:{Reset} {context.MessageType}");
             sb.AppendLine($"  {Gray}Trace:{Reset} {context.TraceId}");
@@ -54,15 +54,15 @@ public static class ConsoleFlowFormatter
             {
                 var stepStatus = step.Success ? Green : Red;
                 var icon = step.Success ? "✓" : "✗";
-                
+
                 sb.Append($"    {stepStatus}{icon}{Reset} {step.Type}: {step.Name}");
                 sb.Append($" {Yellow}({step.Duration.TotalMilliseconds:F2}ms){Reset}");
-                
+
                 if (!step.Success && step.Error != null)
                 {
                     sb.Append($" {Red}[{step.Error}]{Reset}");
                 }
-                
+
                 sb.AppendLine();
             }
 

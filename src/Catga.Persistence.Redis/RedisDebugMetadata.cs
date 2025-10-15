@@ -37,7 +37,7 @@ public static class RedisDebugMetadata
     public static void ExtractCommandMetadata(string command, Dictionary<string, string> metadata)
     {
         metadata["redis.command"] = command;
-        
+
         // Command type classification (no allocations)
         metadata["redis.operation"] = command switch
         {

@@ -13,6 +13,7 @@ builder.AddServiceDefaults();  // OpenTelemetry, Health Checks, Service Discover
 // ===== Catga Configuration =====
 builder.Services.AddCatga()                      // Add Catga core services
     .UseMemoryPack()                             // Serializer (AOT-friendly)
+    .WithDebug()                                 // Enable native debugging (dev only)
     .ForDevelopment();                           // Development environment
 
 builder.Services.AddInMemoryTransport();         // Transport layer (replaceable with NATS)
@@ -91,6 +92,12 @@ app.MapGet("/api/customers/{customerId}/orders", async (
     var result = await m.SendAsync<GetCustomerOrdersQuery, List<Order>>(query);
     return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
 }).WithName("GetCustomerOrders").WithTags("Orders");
+
+// Debug endpoints (dev only)
+if (app.Environment.IsDevelopment())
+{
+    app.MapCatgaDebugEndpoints();  // /debug/flows, /debug/stats
+}
 
 // Health check
 app.MapGet("/health", () => Results.Ok(new

@@ -21,18 +21,18 @@ public sealed class MessageFlowTracker : IDisposable
     public MessageFlowTracker(DebugOptions options)
     {
         _options = options;
-        
+
         // Pre-size dictionary to reduce resizing (better GC)
         _activeFlows = new ConcurrentDictionary<string, FlowContext>(
             concurrencyLevel: Environment.ProcessorCount,
             capacity: Math.Min(_options.MaxActiveFlows, 100));
-        
+
         _contextPool = new DefaultObjectPool<FlowContext>(
-            new FlowContextPoolPolicy(), 
+            new FlowContextPoolPolicy(),
             _options.MaxActiveFlows);
-        
+
         _stepListPool = new DefaultObjectPool<List<StepInfo>>(
-            new StepListPoolPolicy(), 
+            new StepListPoolPolicy(),
             _options.MaxActiveFlows);
 
         // Start cleanup timer - runs on ThreadPool, minimal overhead
@@ -168,7 +168,7 @@ public sealed class MessageFlowTracker : IDisposable
             if (now - kvp.Value.StartTime > _options.FlowTTL)
             {
                 expiredKeys.Add(kvp.Key);
-                
+
                 if (expiredKeys.Count >= 100)  // Limit per cleanup
                     break;
             }
@@ -184,7 +184,7 @@ public sealed class MessageFlowTracker : IDisposable
     public void Dispose()
     {
         _cleanupTimer?.Dispose();
-        
+
         // Return all contexts to pool
         foreach (var kvp in _activeFlows)
         {

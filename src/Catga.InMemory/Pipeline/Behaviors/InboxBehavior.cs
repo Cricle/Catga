@@ -10,24 +10,31 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Pipeline.Behaviors;
 
 /// <summary>Inbox behavior for message idempotency (storage-layer deduplication)</summary>
+/// <remarks>
+/// Requires both IInboxStore and IMessageSerializer. If either is not registered, behavior is skipped.
+/// For production AOT, use MemoryPack serializer.
+/// </remarks>
 public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : class, IRequest<TResponse>
 {
-    private readonly IInboxStore? _persistence;
-    private readonly IMessageSerializer? _serializer;
+    private readonly IInboxStore _persistence;
+    private readonly IMessageSerializer _serializer;
     private readonly ILogger<InboxBehavior<TRequest, TResponse>> _logger;
     private readonly TimeSpan _lockDuration;
 
-    public InboxBehavior(ILogger<InboxBehavior<TRequest, TResponse>> logger, IInboxStore? persistence = null, IMessageSerializer? serializer = null, TimeSpan? lockDuration = null)
+    public InboxBehavior(
+        ILogger<InboxBehavior<TRequest, TResponse>> logger, 
+        IInboxStore persistence, 
+        IMessageSerializer serializer, 
+        TimeSpan? lockDuration = null)
     {
-        _logger = logger;
-        _persistence = persistence;
-        _serializer = serializer;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _persistence = persistence ?? throw new ArgumentNullException(nameof(persistence));
+        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         _lockDuration = lockDuration ?? TimeSpan.FromMinutes(5);
     }
 
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
-        if (_persistence == null || _serializer == null) return await next();
 
         string? messageId = null;
         if (request is IMessage message && !string.IsNullOrEmpty(message.MessageId))

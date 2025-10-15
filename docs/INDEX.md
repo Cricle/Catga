@@ -5,8 +5,8 @@
 | Document | Description | Audience |
 |----------|-------------|----------|
 | [Main README](../README.md) | Framework overview and quick start | Everyone |
-| [Quick Reference](../QUICK-REFERENCE.md) | API cheat sheet | Developers |
-| [Framework Roadmap](../FRAMEWORK-ROADMAP.md) | Feature roadmap and vision | Architects |
+| [Quick Reference](QUICK-REFERENCE.md) | API cheat sheet | Developers |
+| [Framework Roadmap](FRAMEWORK-ROADMAP.md) | Feature roadmap and vision | Architects |
 
 ---
 
@@ -15,7 +15,7 @@
 ### Getting Started
 - [README](README.md) - Documentation hub
 - [Basic Usage](examples/basic-usage.md) - Your first Catga app
-- [Quick Reference](../QUICK-REFERENCE.md) - 5-minute cheat sheet
+- [Quick Reference](QUICK-REFERENCE.md) - 5-minute cheat sheet
 
 ### Architecture
 - [Architecture Overview](architecture/ARCHITECTURE.md) - System design
@@ -81,16 +81,17 @@
 ## 📝 Reference Documents
 
 ### Implementation Summaries
-- [Implementation Complete](../IMPLEMENTATION-COMPLETE.md) - Feature completion summary
-- [OrderSystem Complete](../ORDERSYSTEM-COMPLETE.md) - OrderSystem implementation
-- [Optimization Plan](../OPTIMIZATION-PLAN.md) - Optimization strategy
-- [Optimization Execution](../OPTIMIZATION-EXECUTION.md) - Optimization results
+- [Implementation Complete](IMPLEMENTATION-COMPLETE.md) - Feature completion summary
+- [OrderSystem Complete](ORDERSYSTEM-COMPLETE.md) - OrderSystem implementation
+- [Optimization Plan](OPTIMIZATION-PLAN.md) - Optimization strategy
+- [Optimization Execution](OPTIMIZATION-EXECUTION.md) - Optimization results
 
 ### Project Info
-- [Changelog](../CHANGELOG.md) - Version history
+- [Changelog](CHANGELOG.md) - Version history
 - [Contributing](../CONTRIBUTING.md) - Contribution guide
-- [Release Checklist](../RELEASE-READINESS-CHECKLIST.md) - Release criteria
-- [Project Summary](../PROJECT_SUMMARY.md) - Project overview
+- [Release Checklist](RELEASE-READINESS-CHECKLIST.md) - Release criteria
+- [Project Summary](PROJECT_SUMMARY.md) - Project overview
+- [Project Status](PROJECT-STATUS.md) - Current status
 
 ---
 
@@ -111,12 +112,12 @@ Historical process documents (for reference only):
 3. [OrderSystem Example](../examples/OrderSystem.Api/README.md)
 
 **Developers**:
-1. [Quick Reference](../QUICK-REFERENCE.md)
+1. [Quick Reference](QUICK-REFERENCE.md)
 2. [Auto DI Guide](guides/auto-di-registration.md)
 3. [Serialization Guide](guides/serialization.md)
 
 **Architects**:
-1. [Framework Roadmap](../FRAMEWORK-ROADMAP.md)
+1. [Framework Roadmap](FRAMEWORK-ROADMAP.md)
 2. [Architecture](architecture/ARCHITECTURE.md)
 3. [Distributed Architecture](distributed/ARCHITECTURE.md)
 
@@ -145,7 +146,7 @@ Archive: 13+
 
 **📖 Find what you need, fast!**
 
-[Main README](../README.md) · [Quick Reference](../QUICK-REFERENCE.md) · [Examples](../examples/)
+[Main README](../README.md) · [Quick Reference](QUICK-REFERENCE.md) · [Examples](../examples/)
 
 </div>
 

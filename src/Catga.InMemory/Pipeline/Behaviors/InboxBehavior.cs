@@ -27,7 +27,7 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
 
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
-        if (_persistence == null) return await next();
+        if (_persistence == null || _serializer == null) return await next();
 
         string? messageId = null;
         if (request is IMessage message && !string.IsNullOrEmpty(message.MessageId))

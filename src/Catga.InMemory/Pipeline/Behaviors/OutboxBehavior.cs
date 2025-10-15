@@ -30,7 +30,7 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
 
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
-        if (_persistence == null || _transport == null) return await next();
+        if (_persistence == null || _transport == null || _serializer == null) return await next();
         if (request is not IEvent) return await next();
 
         var messageId = MessageHelper.GetOrGenerateMessageId(request, _idGenerator);

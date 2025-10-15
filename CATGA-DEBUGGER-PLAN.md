@@ -580,21 +580,21 @@ App.vue
 export function useSignalR() {
   const connection = ref<HubConnection | null>(null);
   const isConnected = ref(false);
-  
+
   const connect = async (url: string) => {
     connection.value = new HubConnectionBuilder()
       .withUrl(url)
       .withAutomaticReconnect()
       .build();
-      
+
     await connection.value.start();
     isConnected.value = true;
   };
-  
+
   const on = <T>(event: string, handler: (data: T) => void) => {
     connection.value?.on(event, handler);
   };
-  
+
   return { connection, isConnected, connect, on };
 }
 
@@ -603,23 +603,23 @@ export function useRealtime() {
   const { connection, connect, on } = useSignalR();
   const flowStore = useFlowStore();
   const metricsStore = useMetricsStore();
-  
+
   const startRealtimeUpdates = async () => {
     await connect('/hubs/debug');
-    
+
     on<FlowEvent>('FlowStarted', (flow) => {
       flowStore.addFlow(flow);
     });
-    
+
     on<FlowEvent>('FlowCompleted', (flow) => {
       flowStore.updateFlow(flow);
     });
-    
+
     on<MetricsUpdate>('MetricsUpdated', (metrics) => {
       metricsStore.updateMetrics(metrics);
     });
   };
-  
+
   return { startRealtimeUpdates };
 }
 
@@ -627,19 +627,19 @@ export function useRealtime() {
 export function useDebugger() {
   const api = useApi();
   const flowStore = useFlowStore();
-  
+
   const pauseFlow = async (correlationId: string) => {
     await api.flows.pause(correlationId);
   };
-  
+
   const captureSnapshot = async (aggregateId: string) => {
     return await api.snapshots.capture(aggregateId);
   };
-  
+
   const compareFlows = async (flowId1: string, flowId2: string) => {
     return await api.flows.compare(flowId1, flowId2);
   };
-  
+
   return { pauseFlow, captureSnapshot, compareFlows };
 }
 ```
@@ -650,22 +650,22 @@ export function useDebugger() {
 // stores/flow.ts
 export const useFlowStore = defineStore('flow', () => {
   const flows = ref<Map<string, FlowContext>>(new Map());
-  const activeFlows = computed(() => 
+  const activeFlows = computed(() =>
     Array.from(flows.value.values()).filter(f => !f.endTime)
   );
-  
+
   const addFlow = (flow: FlowContext) => {
     flows.value.set(flow.correlationId, flow);
   };
-  
+
   const updateFlow = (flow: FlowContext) => {
     flows.value.set(flow.correlationId, flow);
   };
-  
+
   const getFlow = (correlationId: string) => {
     return flows.value.get(correlationId);
   };
-  
+
   return { flows, activeFlows, addFlow, updateFlow, getFlow };
 });
 
@@ -677,10 +677,10 @@ export const usePerformanceStore = defineStore('performance', () => {
     p95Latency: 0,
     errorRate: 0
   });
-  
+
   const hotspots = ref<PerformanceHotspot[]>([]);
   const history = ref<MetricsHistory[]>([]);
-  
+
   const updateMetrics = (newMetrics: PerformanceMetrics) => {
     metrics.value = newMetrics;
     history.value.push({
@@ -688,7 +688,7 @@ export const usePerformanceStore = defineStore('performance', () => {
       ...newMetrics
     });
   };
-  
+
   return { metrics, hotspots, history, updateMetrics };
 });
 ```
@@ -778,7 +778,7 @@ export const flowsApi = {
   query: (query: FlowQuery) => apiClient.post<FlowContext[]>('/flows/query', query),
   pause: (id: string) => apiClient.post(`/flows/${id}/pause`),
   resume: (id: string) => apiClient.post(`/flows/${id}/resume`),
-  compare: (id1: string, id2: string) => 
+  compare: (id1: string, id2: string) =>
     apiClient.get(`/flows/compare?id1=${id1}&id2=${id2}`)
 };
 
@@ -791,13 +791,13 @@ export const performanceApi = {
 
 // api/snapshots.ts
 export const snapshotsApi = {
-  getAll: (aggregateId: string) => 
+  getAll: (aggregateId: string) =>
     apiClient.get(`/snapshots/${aggregateId}`),
-  getById: (id: string) => 
+  getById: (id: string) =>
     apiClient.get(`/snapshots/${id}`),
-  capture: (aggregateId: string) => 
+  capture: (aggregateId: string) =>
     apiClient.post(`/snapshots/${aggregateId}/capture`),
-  compare: (id1: string, id2: string) => 
+  compare: (id1: string, id2: string) =>
     apiClient.post('/snapshots/compare', { id1, id2 })
 };
 ```
@@ -1258,6 +1258,522 @@ builder.Services.AddDebuggerRule<SlowQueryRule>(rule =>
 
 ---
 
-**状态**: 📝 计划阶段
-**下一步**: 开始 Phase 1 实施
+## 🔧 开发者关键信息
+
+### 快速开始（5分钟）
+
+```bash
+# 1. 安装 Catga.Debugger
+dotnet add package Catga.Debugger
+
+# 2. 添加到 Program.cs
+builder.Services.AddCatgaDebugger();
+
+# 3. 启用 UI
+app.MapCatgaDebugger("/debug");
+
+# 4. 运行并访问
+# https://localhost:5001/debug
+```
+
+### 性能开销对比
+
+| 场景 | 未启用 | 开发模式 (100%) | 生产模式 (1%) | 完全禁用 |
+|------|--------|----------------|---------------|----------|
+| **延迟增加** | - | +50-100μs | +0.5-1μs | 0 |
+| **吞吐量影响** | 100% | 95-98% | 99.5% | 100% |
+| **内存占用** | Baseline | +10-50MB | +1-5MB | Baseline |
+| **GC 压力** | - | +5% | +0.5% | 0 |
+
+**推荐配置**:
+- ✅ 开发环境：100% 采样，所有功能开启
+- ✅ 预生产环境：10% 采样，关键功能
+- ✅ 生产环境：1% 采样或完全关闭（按需开启）
+
+### 常见问题排查
+
+#### 1. Dashboard 无法访问
+```csharp
+// 检查中间件顺序
+app.UseRouting();
+app.MapCatgaDebugger("/debug"); // ✅ 在 UseRouting 之后
+
+// 检查 CORS（如果前后端分离）
+builder.Services.AddCors(options => {
+    options.AddPolicy("DebuggerCors", builder => 
+        builder.WithOrigins("http://localhost:3000")
+               .AllowCredentials());
+});
+```
+
+#### 2. SignalR 实时推送不工作
+```csharp
+// 检查 WebSocket 支持
+app.UseWebSockets();
+app.MapHub<DebugHub>("/hubs/debug");
+
+// Nginx 代理配置
+location /hubs/ {
+    proxy_pass http://backend;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+}
+```
+
+#### 3. 内存占用过高
+```csharp
+// 调整保留时间和数量
+builder.Services.AddCatgaDebugger(options =>
+{
+    options.MaxActiveFlows = 500;  // 降低到 500
+    options.FlowRetentionTime = TimeSpan.FromMinutes(10); // 缩短到 10 分钟
+    options.EnableSnapshots = false; // 关闭快照功能
+});
+```
+
+#### 4. Vue 前端构建失败
+```bash
+# 进入前端目录
+cd src/Catga.Debugger/AspNetCore/Spa
+
+# 清理并重新安装依赖
+rm -rf node_modules package-lock.json
+npm install
+
+# 构建
+npm run build
+
+# 开发模式
+npm run dev
+```
+
+### 调试器本身的调试
+
+```csharp
+// 启用调试器内部日志
+builder.Logging.AddFilter("Catga.Debugger", LogLevel.Debug);
+
+// 监控调试器性能
+builder.Services.AddCatgaDebugger(options =>
+{
+    options.EnableSelfDiagnostics = true; // 自我诊断
+    options.LogInternalMetrics = true;    // 记录内部指标
+});
+
+// 查看调试器统计
+GET /debug-api/diagnostics/stats
+{
+  "activeFlows": 123,
+  "totalFlowsTracked": 45678,
+  "memoryUsedMB": 42.5,
+  "processingLatencyMs": 0.85
+}
+```
+
+---
+
+## 🎯 维护者关键信息
+
+### 架构决策记录（ADR）
+
+#### ADR-001: 为什么选择 Vue 3 而不是 React/Angular?
+
+**决策**: 使用 Vue 3 + TypeScript
+
+**理由**:
+1. **性能**: Vue 3 的响应式系统基于 Proxy，性能优于 Vue 2 和 React
+2. **体积**: 打包体积小（~100KB vs React ~140KB）
+3. **学习曲线**: 更易上手，降低贡献门槛
+4. **组合式 API**: 与 React Hooks 类似但更简洁
+5. **生态**: Element Plus 提供完整的企业级组件
+
+#### ADR-002: 为什么使用 Pinia 而不是 Vuex?
+
+**决策**: 使用 Pinia 作为状态管理
+
+**理由**:
+1. **TypeScript**: 完美的类型推断，无需额外配置
+2. **简洁**: 移除 mutations，只保留 state/getters/actions
+3. **组合式**: 支持 Composition API 风格
+4. **DevTools**: 与 Vue DevTools 深度集成
+5. **官方推荐**: Vue 3 官方推荐的状态管理方案
+
+#### ADR-003: 为什么使用 ECharts 而不是 Chart.js?
+
+**决策**: 主要使用 ECharts，Chart.js 作为辅助
+
+**理由**:
+1. **功能丰富**: ECharts 支持更复杂的可视化（热力图、关系图）
+2. **性能**: 大数据量下性能更好（Canvas 渲染）
+3. **交互**: 内置强大的交互功能
+4. **主题**: 丰富的主题系统
+5. **生态**: 中国开源社区支持好
+
+#### ADR-004: 为什么零分配设计如此重要?
+
+**决策**: 调试器核心路径必须零分配
+
+**理由**:
+1. **低侵入**: 调试器不应显著影响被调试程序的性能
+2. **生产可用**: 生产环境可以开启低采样率诊断
+3. **GC 压力**: 避免增加 GC 频率影响业务
+4. **对象池**: 使用 ObjectPool 重用对象
+5. **Span<T>**: 使用 Span 避免数组分配
+
+### 性能优化检查清单
+
+#### 后端优化
+
+- [ ] **Pipeline Behaviors** 使用 `[MethodImpl(AggressiveInlining)]`
+- [ ] **对象池** 使用 `ObjectPool<T>` 重用高频对象
+- [ ] **无锁设计** 优先使用 `ConcurrentDictionary`/`Interlocked`
+- [ ] **异步流** 使用 `IAsyncEnumerable` 避免缓冲
+- [ ] **内存映射** 大数据集使用 `MemoryMappedFile`
+- [ ] **采样策略** 实现自适应采样算法
+
+#### 前端优化
+
+- [ ] **懒加载** 路由和组件按需加载
+- [ ] **虚拟滚动** 大列表使用虚拟滚动（vue-virtual-scroller）
+- [ ] **防抖节流** 搜索/过滤使用 debounce/throttle
+- [ ] **Web Workers** CPU 密集计算移至 Worker
+- [ ] **缓存策略** API 响应使用 SWR 策略
+- [ ] **代码分割** Vite manualChunks 合理配置
+
+#### SignalR 优化
+
+- [ ] **消息批处理** 批量发送减少网络往返
+- [ ] **压缩** 启用 MessagePack 协议
+- [ ] **心跳** 合理配置心跳间隔
+- [ ] **重连策略** 指数退避重连
+- [ ] **背压控制** 客户端消费慢时暂停推送
+
+### 扩展点设计
+
+#### 1. 自定义分析器
+
+```csharp
+public class CustomSlowQueryAnalyzer : IPerformanceAnalyzer
+{
+    public string Name => "SlowQueryAnalyzer";
+    
+    public async Task<AnalysisResult> AnalyzeAsync(
+        IEnumerable<FlowContext> flows, 
+        CancellationToken ct)
+    {
+        var slowQueries = flows
+            .SelectMany(f => f.Steps)
+            .Where(s => s.Type == "Query" && s.Duration > TimeSpan.FromMilliseconds(100))
+            .ToList();
+            
+        return new AnalysisResult
+        {
+            Severity = slowQueries.Count > 10 ? Severity.High : Severity.Low,
+            Title = $"检测到 {slowQueries.Count} 个慢查询",
+            Suggestions = new[] { "考虑添加索引", "使用查询缓存" }
+        };
+    }
+}
+
+// 注册
+builder.Services.AddDebuggerAnalyzer<CustomSlowQueryAnalyzer>();
+```
+
+#### 2. 自定义可视化器
+
+```csharp
+public class CustomHeatmapVisualizer : IVisualizer
+{
+    public string Type => "Heatmap";
+    
+    public VisualizationData Generate(IEnumerable<FlowContext> flows)
+    {
+        // 生成热力图数据
+        var heatmap = flows
+            .GroupBy(f => new { f.StartTime.Hour, DayOfWeek = f.StartTime.DayOfWeek })
+            .Select(g => new HeatmapCell
+            {
+                Hour = g.Key.Hour,
+                Day = g.Key.DayOfWeek,
+                Value = g.Count()
+            })
+            .ToList();
+            
+        return new VisualizationData
+        {
+            Type = "Heatmap",
+            Data = heatmap,
+            Options = new { colorScheme = "Blues" }
+        };
+    }
+}
+```
+
+#### 3. 自定义存储后端
+
+```csharp
+public class MongoDebugStorage : IDebugStorage
+{
+    private readonly IMongoCollection<FlowContext> _flows;
+    
+    public async Task SaveFlowAsync(FlowContext flow, CancellationToken ct)
+    {
+        await _flows.InsertOneAsync(flow, cancellationToken: ct);
+    }
+    
+    public async Task<FlowContext?> GetFlowAsync(string correlationId, CancellationToken ct)
+    {
+        return await _flows
+            .Find(f => f.CorrelationId == correlationId)
+            .FirstOrDefaultAsync(ct);
+    }
+    
+    // ... 其他方法
+}
+
+// 注册
+builder.Services.AddSingleton<IDebugStorage, MongoDebugStorage>();
+```
+
+### 测试策略
+
+#### 单元测试
+
+```csharp
+public class MessageFlowTrackerTests
+{
+    [Fact]
+    public void BeginFlow_ShouldCreateNewFlow()
+    {
+        // Arrange
+        var tracker = new MessageFlowTracker();
+        
+        // Act
+        var flow = tracker.BeginFlow("test-123", FlowType.Command);
+        
+        // Assert
+        Assert.NotNull(flow);
+        Assert.Equal("test-123", flow.CorrelationId);
+        Assert.Equal(FlowType.Command, flow.Type);
+    }
+    
+    [Fact]
+    public async Task RecordStep_ShouldAppendToFlow()
+    {
+        // 测试步骤记录
+    }
+}
+```
+
+#### 集成测试
+
+```csharp
+public class DebugApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+{
+    private readonly HttpClient _client;
+    
+    [Fact]
+    public async Task GetFlows_ShouldReturnFlows()
+    {
+        // Arrange
+        await SeedFlowData();
+        
+        // Act
+        var response = await _client.GetAsync("/debug-api/flows");
+        
+        // Assert
+        response.EnsureSuccessStatusCode();
+        var flows = await response.Content.ReadFromJsonAsync<List<FlowContext>>();
+        Assert.NotEmpty(flows);
+    }
+}
+```
+
+#### 前端测试
+
+```typescript
+// components/__tests__/FlowList.spec.ts
+import { describe, it, expect } from 'vitest';
+import { mount } from '@vue/test-utils';
+import FlowList from '../FlowList.vue';
+
+describe('FlowList', () => {
+  it('renders flow items', () => {
+    const wrapper = mount(FlowList, {
+      props: {
+        flows: [
+          { correlationId: 'test-1', type: 'Command', status: 'Completed' }
+        ]
+      }
+    });
+    
+    expect(wrapper.find('.flow-item').exists()).toBe(true);
+  });
+});
+```
+
+### 发布检查清单
+
+#### 发布前
+
+- [ ] 所有测试通过（单元 + 集成）
+- [ ] 性能基准测试达标
+- [ ] 内存泄漏检查（dotMemory）
+- [ ] 安全扫描（Snyk/OWASP）
+- [ ] 文档更新（README + CHANGELOG）
+- [ ] 示例代码验证
+- [ ] 前端构建优化（压缩/Tree-shaking）
+- [ ] NuGet 包元数据检查
+
+#### 发布后
+
+- [ ] 版本标签（Git Tag）
+- [ ] GitHub Release Notes
+- [ ] NuGet.org 发布
+- [ ] NPM 包发布（如果前端独立）
+- [ ] 文档站点更新
+- [ ] 社区公告（Twitter/Reddit）
+- [ ] 监控错误报告
+
+### 贡献指南要点
+
+```markdown
+# 如何贡献
+
+## 代码风格
+- C#: 遵循 .editorconfig
+- TypeScript: 遵循 ESLint + Prettier
+- Vue: 使用 Composition API + `<script setup>`
+
+## 提交规范
+- feat: 新功能
+- fix: 修复
+- perf: 性能优化
+- docs: 文档
+- test: 测试
+
+## PR 检查清单
+- [ ] 添加单元测试
+- [ ] 更新文档
+- [ ] 通过 CI 检查
+- [ ] 性能无回退
+```
+
+### 监控和告警
+
+#### 生产环境监控
+
+```csharp
+// 集成 Application Insights
+builder.Services.AddCatgaDebugger(options =>
+{
+    options.OnPerformanceAnomaly += (sender, e) =>
+    {
+        telemetryClient.TrackEvent("DebuggerAnomaly", new Dictionary<string, string>
+        {
+            ["Type"] = e.Type,
+            ["Severity"] = e.Severity.ToString(),
+            ["Message"] = e.Message
+        });
+    };
+});
+```
+
+#### 健康检查
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddCheck<DebuggerHealthCheck>("debugger");
+
+// /health 端点
+{
+  "status": "Healthy",
+  "results": {
+    "debugger": {
+      "status": "Healthy",
+      "data": {
+        "activeFlows": 45,
+        "memoryUsageMB": 23.5,
+        "processingLatencyMs": 1.2
+      }
+    }
+  }
+}
+```
+
+---
+
+## 📚 学习路径
+
+### 初级开发者（1-2天）
+1. 阅读 README 和快速开始
+2. 运行 DebuggerDemo 示例
+3. 查看 Dashboard UI，熟悉功能
+4. 阅读核心概念文档
+
+### 中级开发者（1周）
+1. 理解架构设计（ADR）
+2. 阅读源码（Core + Pipeline）
+3. 编写自定义分析器
+4. 扩展 Vue 组件
+
+### 高级开发者（2-4周）
+1. 性能优化实战
+2. 贡献核心功能
+3. 编写高级可视化器
+4. 参与架构决策
+
+---
+
+## 🔒 安全考虑
+
+### 生产环境安全
+
+```csharp
+// 1. 仅在授权情况下启用
+builder.Services.AddCatgaDebugger(options =>
+{
+    options.Enabled = builder.Configuration.GetValue<bool>("Debugger:Enabled");
+    options.RequireAuthentication = true; // 需要认证
+    options.RequireAuthorization = "DebuggerPolicy"; // 需要授权策略
+});
+
+// 2. 配置授权策略
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("DebuggerPolicy", policy =>
+        policy.RequireRole("Admin", "Developer"));
+});
+
+// 3. 敏感数据脱敏
+options.DataSanitizer = (data) =>
+{
+    // 移除密码、令牌等敏感信息
+    data.RemoveKeys("Password", "Token", "Secret");
+    return data;
+};
+
+// 4. IP 白名单
+options.AllowedIPs = new[] { "10.0.0.0/8", "192.168.0.0/16" };
+```
+
+### 数据保留策略
+
+```csharp
+options.DataRetention = new DataRetentionPolicy
+{
+    FlowRetentionDays = 7,      // 流程数据保留 7 天
+    SnapshotRetentionDays = 3,  // 快照保留 3 天
+    PerformanceRetentionDays = 30, // 性能数据保留 30 天
+    AutoCleanup = true,         // 自动清理
+    CleanupSchedule = "0 2 * * *" // 每天凌晨 2 点清理
+};
+```
+
+---
+
+**状态**: 📝 完整计划  
+**提交**: 54e3b52  
+**下一步**: 根据需求开始 Phase 1 实施
 

@@ -20,7 +20,7 @@ using Catga.Messages;
 namespace MyApp.Orders.Commands
 {
     // 命令
-    public record CreateOrderCommand : MessageBase, ICommand<CreateOrderResult>
+    public record CreateOrderCommand : MessageBase, IRequest<CreateOrderResult>
     {
         public string CustomerId { get; init; } = string.Empty;
         public string ProductId { get; init; } = string.Empty;
@@ -463,7 +463,7 @@ builder.Services.AddCatga(options =>
 ```csharp
 using System.ComponentModel.DataAnnotations;
 
-public record CreateOrderCommand : MessageBase, ICommand<CreateOrderResult>
+public record CreateOrderCommand : MessageBase, IRequest<CreateOrderResult>
 {
     [Required]
     [StringLength(50)]

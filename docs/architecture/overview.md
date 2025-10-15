@@ -63,7 +63,7 @@ public interface ICatgaMediator
 ```
 IMessage (基础消息接口)
 ├── IRequest<TResponse> (请求接口)
-│   ├── ICommand<TResponse> (命令接口)
+│   ├── IRequest<TResponse> (命令接口)
 │   └── IQuery<TResponse> (查询接口)
 └── IEvent (事件接口)
 ```
@@ -127,7 +127,7 @@ public class CatgaResult<T>
 命令表示改变系统状态的操作：
 
 ```csharp
-public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
+public record CreateOrderCommand : MessageBase, IRequest<OrderResult>
 {
     public string CustomerId { get; init; } = string.Empty;
     public string ProductId { get; init; } = string.Empty;

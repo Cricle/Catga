@@ -126,9 +126,9 @@ builder.Services.AddGeneratedServices();   // Auto-register all services
 ### 🔥 100% Native AOT Support
 
 ```csharp
-// MemoryPack - 零反射、高性能二进制序列化
+// MemoryPack - zero-reflection, high-performance binary serialization
 [MemoryPackable]
-public partial record MyCommand(...) : ICommand<MyResult>;
+public partial record MyCommand(...) : IRequest<MyResult>;
 
 // Source Generator - 编译时生成注册代码
 services.AddCatga().AddInMemoryTransport();

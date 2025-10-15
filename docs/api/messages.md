@@ -45,7 +45,7 @@ public abstract record MessageBase : IMessage
 **示例**
 
 ```csharp
-public record MyCommand : MessageBase, ICommand<MyResponse>
+public record MyCommand : MessageBase, IRequest<MyResponse>
 {
     public string Data { get; init; } = string.Empty;
 }
@@ -74,7 +74,7 @@ public interface IRequest<out TResponse> : IMessage
 ### 接口定义
 
 ```csharp
-public interface ICommand<out TResponse> : IRequest<TResponse>
+public interface IRequest<out TResponse> : IRequest<TResponse>
 {
 }
 ```
@@ -82,7 +82,7 @@ public interface ICommand<out TResponse> : IRequest<TResponse>
 ### 示例
 
 ```csharp
-public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
+public record CreateOrderCommand : MessageBase, IRequest<OrderResult>
 {
     public string ProductId { get; init; } = string.Empty;
     public int Quantity { get; init; }
@@ -212,7 +212,7 @@ public record OrderShippedEvent : EventBase
 ✅ **推荐**
 
 ```csharp
-public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
+public record CreateOrderCommand : MessageBase, IRequest<OrderResult>
 {
     public string ProductId { get; init; } = string.Empty;
     public int Quantity { get; init; }
@@ -230,7 +230,7 @@ public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
 ✅ **推荐**
 
 ```csharp
-public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
+public record CreateOrderCommand : MessageBase, IRequest<OrderResult>
 {
     public string ProductId { get; init; } = string.Empty; // 提供默认值
     public int Quantity { get; init; } = 1; // 提供默认值
@@ -243,7 +243,7 @@ public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
 // Commands
 namespace MyApp.Orders.Commands
 {
-    public record CreateOrderCommand : MessageBase, ICommand<OrderResult> { }
+    public record CreateOrderCommand : MessageBase, IRequest<OrderResult> { }
 }
 
 // Queries
@@ -264,7 +264,7 @@ namespace MyApp.Orders.Events
 ✅ **推荐** - 简单的数据传输对象
 
 ```csharp
-public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
+public record CreateOrderCommand : MessageBase, IRequest<OrderResult>
 {
     public string ProductId { get; init; } = string.Empty;
     public int Quantity { get; init; }
@@ -274,7 +274,7 @@ public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
 ❌ **不推荐** - 包含业务逻辑
 
 ```csharp
-public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
+public record CreateOrderCommand : MessageBase, IRequest<OrderResult>
 {
     public string ProductId { get; init; } = string.Empty;
     public int Quantity { get; init; }
@@ -289,7 +289,7 @@ public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
 ```csharp
 using System.ComponentModel.DataAnnotations;
 
-public record CreateOrderCommand : MessageBase, ICommand<OrderResult>
+public record CreateOrderCommand : MessageBase, IRequest<OrderResult>
 {
     [Required]
     [StringLength(50)]

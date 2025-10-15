@@ -1,7 +1,7 @@
 # Catga Project Status
 
-**Last Updated**: 2025-10-15  
-**Version**: v1.1.0  
+**Last Updated**: 2025-10-15
+**Version**: v1.1.0
 **Status**: ✅ Production Ready
 
 ---
@@ -62,7 +62,7 @@ AOT Compatibility: 100%
 ### Performance Metrics
 ```
 Command Handling:  < 1 μs
-Event Publishing:  < 1 μs  
+Event Publishing:  < 1 μs
 Snowflake ID Gen:  ~80 ns
 GC Allocations:    Minimal (ArrayPool, ValueTask)
 Lock Operations:   3 per request

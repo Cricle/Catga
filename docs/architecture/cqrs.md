@@ -65,10 +65,10 @@ public abstract record MessageBase : IMessage
 命令表示用户的意图，用于改变系统状态：
 
 ```csharp
-public interface ICommand<TResponse> : IRequest<TResponse> { }
+public interface IRequest<TResponse> : IRequest<TResponse> { }
 
 // 示例：创建订单命令
-public record CreateOrderCommand : MessageBase, ICommand<OrderCreatedResult>
+public record CreateOrderCommand : MessageBase, IRequest<OrderCreatedResult>
 {
     public string CustomerId { get; init; } = string.Empty;
     public string ProductId { get; init; } = string.Empty;

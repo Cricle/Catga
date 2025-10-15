@@ -57,7 +57,7 @@ Task<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
 **示例**
 
 ```csharp
-public class CreateOrderCommand : MessageBase, ICommand<OrderResult>
+public class CreateOrderCommand : MessageBase, IRequest<OrderResult>
 {
     public string ProductId { get; init; } = string.Empty;
     public int Quantity { get; init; }

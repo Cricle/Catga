@@ -34,7 +34,7 @@ using Catga.Serialization.MemoryPack;
 builder.Services
     .AddCatga()                  // 核心服务
     .AddInMemoryTransport()      // 传输层
-    .UseMemoryPackSerializer();  // 序列化
+    .UseMemoryPack();  // 序列化 (AOT-friendly)
 ```
 
 ### 生产配置
@@ -47,7 +47,7 @@ builder.Services
         options.Url = "nats://localhost:4222";
         options.SubjectPrefix = "myapp";
     })
-    .UseMemoryPackSerializer()
+    .UseMemoryPack()
     .AddRedisIdempotencyStore()
     .AddRedisDistributedCache()
     .AddObservability();  // ActivitySource + Meter + Logging
@@ -66,7 +66,7 @@ using Catga.Results;
 
 [MemoryPackable]
 public partial record CreateOrder(string OrderId, decimal Amount)
-    : ICommand<CatgaResult<OrderCreated>>;
+    : IRequest<OrderCreated>;
 
 [MemoryPackable]
 public partial record OrderCreated(string OrderId, DateTime CreatedAt);
@@ -77,7 +77,7 @@ public partial record OrderCreated(string OrderId, DateTime CreatedAt);
 ```csharp
 [MemoryPackable]
 public partial record GetOrderById(string OrderId)
-    : IQuery<CatgaResult<OrderDetail>>;
+    : IRequest<OrderDetail>;
 
 [MemoryPackable]
 public partial record OrderDetail(string OrderId, decimal Amount, string Status);
@@ -95,7 +95,7 @@ public partial record OrderCreatedEvent(string OrderId, DateTime OccurredAt)
 
 ```csharp
 [MemoryPackable]
-public partial record ImportantCommand(string Data) : ICommand<CatgaResult<bool>>
+public partial record ImportantCommand(string Data) : IRequest<bool>
 {
     // AtMostOnce (QoS 0) - 默认，最快
     // AtLeastOnce (QoS 1) - 至少一次
@@ -533,13 +533,7 @@ builder.Services
     .AddInMemoryTransport()
     .UseMemoryPackSerializer();
 
-// 添加 HTTP 端点
-builder.Services.AddCatgaHttpEndpoints();
-
 var app = builder.Build();
-
-// 映射端点
-app.MapCatgaEndpoints();
 
 app.Run();
 ```
@@ -547,12 +541,9 @@ app.Run();
 ### 自定义路由
 
 ```csharp
-app.MapCatgaEndpoints(options =>
-{
-    options.RoutePrefix = "api";  // /api/commands/{CommandType}
-    options.EnableSwagger = true;
-    options.RequireAuthorization = true;
-});
+// 使用 Minimal API 辅助扩展映射请求/查询
+app.MapCatgaRequest<CreateOrder, OrderCreated>("/api/orders");
+app.MapCatgaQuery<GetOrderById, OrderDetail>("/api/orders/{id}");
 ```
 
 ### 手动端点

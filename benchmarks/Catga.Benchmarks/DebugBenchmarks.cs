@@ -23,7 +23,7 @@ public class DebugBenchmarks
         _debugEnabled = new DebugOptions { EnableDebug = true, MaxActiveFlows = 1000 };
         _debugDisabled = new DebugOptions { EnableDebug = false };
         _tracker = new MessageFlowTracker(_debugEnabled);
-        
+
         // Pre-create context for reuse tests
         _context = _tracker.BeginFlow("test-flow", "TestCommand");
     }
@@ -107,10 +107,10 @@ public class DebugBenchmarks
             StartTime = DateTime.UtcNow,
             TraceId = "xyz789"
         };
-        
+
         context.Steps.Add(new StepInfo("Handler", "TestHandler", TimeSpan.FromMilliseconds(1), true));
         context.Steps.Add(new StepInfo("Repository", "SaveAsync", TimeSpan.FromMilliseconds(0.5), true));
-        
+
         var formatted = ConsoleFlowFormatter.FormatTree(context);
     }
 }

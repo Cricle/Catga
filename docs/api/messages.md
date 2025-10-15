@@ -67,16 +67,14 @@ public interface IRequest<out TResponse> : IMessage
 
 - `TResponse` - 响应类型
 
-## ICommand&lt;TResponse&gt;
+## Commands (IRequest&lt;TResponse&gt;)
 
-命令接口，表示会改变系统状态的操作。
+命令使用 IRequest&lt;TResponse&gt;，表示会改变系统状态的操作。
 
-### 接口定义
+### 定义方式
 
 ```csharp
-public interface IRequest<out TResponse> : IRequest<TResponse>
-{
-}
+public record CreateOrderCommand : MessageBase, IRequest<OrderResult>;
 ```
 
 ### 示例
@@ -97,22 +95,20 @@ public record OrderResult
 }
 ```
 
-## IQuery&lt;TResponse&gt;
+## Queries (IRequest&lt;TResponse&gt;)
 
-查询接口，表示不会改变系统状态的读取操作。
+查询同样使用 IRequest&lt;TResponse&gt; 表示不会改变系统状态的读取操作。
 
-### 接口定义
+### 定义方式
 
 ```csharp
-public interface IQuery<out TResponse> : IRequest<TResponse>
-{
-}
+public record GetOrderQuery : MessageBase, IRequest<OrderDto>;
 ```
 
 ### 示例
 
 ```csharp
-public record GetOrderQuery : MessageBase, IQuery<OrderDto>
+public record GetOrderQuery : MessageBase, IRequest<OrderDto>
 {
     public string OrderId { get; init; } = string.Empty;
 }

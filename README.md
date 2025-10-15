@@ -221,15 +221,13 @@ var builder = WebApplication.CreateBuilder(args);
 // 添加 Catga
 builder.Services.AddCatga()
     .AddInMemoryTransport()
-    .UseMemoryPackSerializer();
-
-// 添加 HTTP 端点
-builder.Services.AddCatgaHttpEndpoints();
+    .UseMemoryPack();
 
 var app = builder.Build();
 
-// 映射 CQRS 端点 - 自动路由
-app.MapCatgaEndpoints();
+// Minimal API helpers
+app.MapCatgaRequest<CreateOrder, OrderCreated>("/api/orders");
+app.MapCatgaQuery<GetOrderById, OrderDetail>("/api/orders/{orderId}");
 
 app.Run();
 

@@ -33,7 +33,7 @@ Outbox            Inbox                    Inbox
 
 ```csharp
 // Step 1: Create Order Command
-public record CreateOrder(string OrderId, string UserId, decimal Amount) : ICommand
+public record CreateOrder(string OrderId, string UserId, decimal Amount) : IRequest
 {
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public string? CorrelationId { get; init; } = Guid.NewGuid().ToString(); // 事务追踪
@@ -201,16 +201,16 @@ OrderCancelled Event
 
 ```csharp
 // 1. 命令和事件定义
-public record CreateOrder(...) : ICommand;
+public record CreateOrder(...) : IRequest;
 public record OrderCreated(...) : IEvent;
-public record ReserveInventory(...) : ICommand;
+public record ReserveInventory(...) : IRequest;
 public record InventoryReserved(...) : IEvent;
 public record InventoryReservationFailed(...) : IEvent;
-public record ReleaseInventory(...) : ICommand;
-public record ChargePayment(...) : ICommand;
+public record ReleaseInventory(...) : IRequest;
+public record ChargePayment(...) : IRequest;
 public record PaymentCharged(...) : IEvent;
 public record PaymentFailed(...) : IEvent;
-public record RefundPayment(...) : ICommand;
+public record RefundPayment(...) : IRequest;
 
 // 2. 正向流程处理器
 public class CreateOrderHandler : IRequestHandler<CreateOrder>

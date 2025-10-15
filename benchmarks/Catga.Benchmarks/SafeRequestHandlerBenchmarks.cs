@@ -67,7 +67,7 @@ public class SafeRequestHandlerBenchmarks
         protected override async Task<TestResponse> HandleCoreAsync(TestRequest request, CancellationToken cancellationToken)
         {
             await Task.Yield();
-            
+
             if (request.ShouldFail)
                 throw new CatgaException("Test error");
 
@@ -83,7 +83,7 @@ public class SafeRequestHandlerBenchmarks
             try
             {
                 await Task.Yield();
-                
+
                 if (request.ShouldFail)
                     return CatgaResult<TestResponse>.Failure("Test error", new CatgaException("Test error"));
 

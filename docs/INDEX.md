@@ -5,7 +5,7 @@
 | Document | Description | Audience |
 |----------|-------------|----------|
 | [Main README](../README.md) | Framework overview and quick start | Everyone |
-| [Quick Reference](QUICK-REFERENCE.md) | API cheat sheet | Developers |
+| [Quick Reference](QUICK-REFERENCE.md) | API cheat sheet (in docs/) | Developers |
 | [Framework Roadmap](FRAMEWORK-ROADMAP.md) | Feature roadmap and vision | Architects |
 
 ---

@@ -136,8 +136,8 @@ if (@event is OrderCancelledEvent ev2) { ... }
 
 **问题**：
 ```csharp
-// ❌ 使用了不存在的接口
-public partial record CreateOrderCommand(...) : ICommand<CatgaResult<OrderCreatedResult>>;
+// ✅ 使用 IRequest
+public partial record CreateOrderCommand(...) : IRequest<OrderCreatedResult>;
 ```
 
 **修复**：

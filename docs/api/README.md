@@ -7,8 +7,8 @@
 ### 消息类型
 
 - [IMessage](messages.md#imessage) - 所有消息的基接口
-- [ICommand](messages.md#icommand) - 命令接口
-- [IQuery](messages.md#iquery) - 查询接口
+- [IRequest](messages.md#irequest) - 请求接口（命令/查询）
+- [IEvent](messages.md#ievent) - 事件接口
 - [IEvent](messages.md#ievent) - 事件接口
 
 ### 处理器

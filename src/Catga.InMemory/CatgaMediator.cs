@@ -145,7 +145,8 @@ public class CatgaMediator : ICatgaMediator
         var tasks = rentedTasks.Array;
         for (int i = 0; i < handlerList.Count; i++)
             tasks[i] = HandleEventSafelyAsync(handlerList[i], @event, cancellationToken);
-        await Task.WhenAll(rentedTasks.AsSpan().ToArray()).ConfigureAwait(false);
+        // Use array slice to avoid ToArray() allocation
+        await Task.WhenAll(tasks.AsSpan(0, handlerList.Count)).ConfigureAwait(false);
         CatgaLog.EventPublished(_logger, eventType, message?.MessageId, handlerList.Count);
     }
 

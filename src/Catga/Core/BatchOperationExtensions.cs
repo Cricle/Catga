@@ -24,7 +24,8 @@ public static class BatchOperationExtensions
         for (int i = 0; i < items.Count; i++)
             tasks[i] = action(items[i]);
 
-        await Task.WhenAll(rentedTasks.AsSpan().ToArray()).ConfigureAwait(false);
+        // Use array slice to avoid ToArray() allocation  
+        await Task.WhenAll(tasks.AsSpan(0, items.Count)).ConfigureAwait(false);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

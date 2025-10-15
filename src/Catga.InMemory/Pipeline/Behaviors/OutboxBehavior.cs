@@ -24,10 +24,10 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
     private readonly ILogger<OutboxBehavior<TRequest, TResponse>> _logger;
 
     public OutboxBehavior(
-        ILogger<OutboxBehavior<TRequest, TResponse>> logger, 
-        IDistributedIdGenerator idGenerator, 
-        IOutboxStore persistence, 
-        IMessageTransport transport, 
+        ILogger<OutboxBehavior<TRequest, TResponse>> logger,
+        IDistributedIdGenerator idGenerator,
+        IOutboxStore persistence,
+        IMessageTransport transport,
         IMessageSerializer serializer)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));

@@ -83,9 +83,11 @@ public class InMemoryMessageTransport : IMessageTransport
     private static async ValueTask ExecuteHandlersAsync<TMessage>(List<Delegate> handlers, TMessage message, TransportContext context) where TMessage : class
     {
         using var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count);
+        var tasks = rented.Array;
         for (int i = 0; i < handlers.Count; i++)
-            rented.Array[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, context);
-        await Task.WhenAll(rented.AsSpan().ToArray()).ConfigureAwait(false);
+            tasks[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, context);
+        // Use array slice to avoid ToArray() allocation
+        await Task.WhenAll(tasks.AsSpan(0, handlers.Count)).ConfigureAwait(false);
     }
 
     private static async ValueTask FireAndForgetAsync<TMessage>(List<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class

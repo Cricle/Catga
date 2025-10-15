@@ -22,9 +22,9 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
     private readonly TimeSpan _lockDuration;
 
     public InboxBehavior(
-        ILogger<InboxBehavior<TRequest, TResponse>> logger, 
-        IInboxStore persistence, 
-        IMessageSerializer serializer, 
+        ILogger<InboxBehavior<TRequest, TResponse>> logger,
+        IInboxStore persistence,
+        IMessageSerializer serializer,
         TimeSpan? lockDuration = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));

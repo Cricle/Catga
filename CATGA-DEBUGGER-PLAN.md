@@ -1173,20 +1173,262 @@ connection.on("MetricsUpdated", (metrics) => { ... });
 
 ## 🎯 性能目标
 
-### 零侵入
-- ✅ 开发环境 100% 采样
-- ✅ 生产环境可配置采样率 (1-10%)
-- ✅ 可完全禁用（零开销）
+### 生产级零开销设计 ⭐
 
-### 高性能
-- ✅ 单个追踪 < 1μs 开销
-- ✅ 内存占用 < 10MB (1000 活跃流程)
-- ✅ 零 GC 压力（对象池）
+**核心原则**: 即使在生产环境全天候开启，也几乎无感知
 
-### 可扩展
+| 指标 | 目标 | 实现方式 |
+|------|------|---------|
+| **延迟增加** | **< 0.01μs** | 条件编译 + 内联优化 |
+| **吞吐量** | **> 99.99%** | 无锁设计 + 采样 |
+| **内存占用** | **< 500KB** | 环形缓冲区 + 对象池 |
+| **GC 压力** | **< 0.01%** | 零分配 + Span<T> |
+| **CPU 占用** | **< 0.01%** | 异步批处理 + 采样 |
+
+### 零侵入技术
+
+#### 1. 智能采样策略
+
+```csharp
+/// <summary>自适应采样器 - 根据系统负载动态调整</summary>
+public class AdaptiveSampler
+{
+    private double _currentRate = 0.001; // 初始 0.1%
+    private readonly double _minRate = 0.0001; // 最低 0.01%
+    private readonly double _maxRate = 0.01;   // 最高 1%
+    
+    public bool ShouldSample()
+    {
+        // 1. 基于请求ID哈希的确定性采样
+        var hash = GetRequestHash();
+        if (hash % 10000 >= _currentRate * 10000)
+            return false;
+            
+        // 2. 根据系统负载自适应调整
+        AdjustRateBasedOnLoad();
+        
+        return true;
+    }
+    
+    private void AdjustRateBasedOnLoad()
+    {
+        var cpuUsage = GetCpuUsage();
+        var memoryUsage = GetMemoryUsage();
+        
+        // CPU > 80% 或 内存 > 80%，降低采样率
+        if (cpuUsage > 0.8 || memoryUsage > 0.8)
+        {
+            _currentRate = Math.Max(_minRate, _currentRate * 0.5);
+        }
+        // 系统空闲，提高采样率
+        else if (cpuUsage < 0.3 && memoryUsage < 0.5)
+        {
+            _currentRate = Math.Min(_maxRate, _currentRate * 1.2);
+        }
+    }
+}
+```
+
+#### 2. 环形缓冲区（零分配）
+
+```csharp
+/// <summary>固定大小环形缓冲区 - 无需动态分配</summary>
+public class RingBuffer<T>
+{
+    private readonly T[] _buffer;
+    private readonly int _capacity;
+    private int _head;
+    private int _tail;
+    private int _count;
+    
+    public RingBuffer(int capacity = 1000)
+    {
+        _capacity = capacity;
+        _buffer = new T[capacity]; // 一次性分配
+    }
+    
+    public bool TryAdd(T item)
+    {
+        if (_count >= _capacity)
+        {
+            // 满了就覆盖最旧的
+            _buffer[_tail] = item;
+            _tail = (_tail + 1) % _capacity;
+            _head = (_head + 1) % _capacity;
+            return true;
+        }
+        
+        _buffer[_tail] = item;
+        _tail = (_tail + 1) % _capacity;
+        _count++;
+        return true;
+    }
+    
+    // 零拷贝读取
+    public ReadOnlySpan<T> GetSnapshot()
+    {
+        // 返回内部缓冲区的快照视图
+        return _buffer.AsSpan(0, _count);
+    }
+}
+```
+
+#### 3. 批处理和背压控制
+
+```csharp
+/// <summary>批处理管道 - 减少I/O和网络开销</summary>
+public class BatchProcessor<T>
+{
+    private readonly Channel<T> _channel;
+    private readonly int _batchSize = 100;
+    private readonly TimeSpan _batchInterval = TimeSpan.FromSeconds(1);
+    
+    public async Task ProcessAsync(CancellationToken ct)
+    {
+        var batch = new List<T>(_batchSize);
+        var timer = new PeriodicTimer(_batchInterval);
+        
+        while (!ct.IsCancellationRequested)
+        {
+            var hasItem = await _channel.Reader.WaitToReadAsync(ct);
+            if (!hasItem) continue;
+            
+            // 收集批次
+            while (batch.Count < _batchSize && 
+                   _channel.Reader.TryRead(out var item))
+            {
+                batch.Add(item);
+            }
+            
+            // 批量处理
+            if (batch.Count > 0)
+            {
+                await ProcessBatchAsync(batch, ct);
+                batch.Clear();
+            }
+            
+            // 背压控制：如果积压过多，丢弃旧数据
+            if (_channel.Reader.Count > 10000)
+            {
+                _logger.LogWarning("Debugger buffer overflow, dropping old data");
+                while (_channel.Reader.TryRead(out _)) { }
+            }
+        }
+    }
+}
+```
+
+#### 4. 条件编译优化
+
+```csharp
+public static class DebuggerInstrumentation
+{
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Conditional("DEBUGGER_ENABLED")]
+    public static void RecordStep(string correlationId, StepInfo step)
+    {
+        // 只有在 DEBUGGER_ENABLED 编译时才会执行
+        if (!_sampler.ShouldSample()) return;
+        
+        _tracker.RecordStepFast(correlationId, step);
+    }
+    
+    // 生产环境编译时完全移除
+    // #if !DEBUGGER_ENABLED
+    // public static void RecordStep(...) { } // 空实现，零开销
+    // #endif
+}
+```
+
+#### 5. 内存池和对象重用
+
+```csharp
+/// <summary>流程上下文对象池</summary>
+public class FlowContextPool
+{
+    private static readonly ObjectPool<FlowContext> _pool = 
+        new DefaultObjectPoolProvider()
+            .Create(new FlowContextPoolPolicy());
+    
+    public static FlowContext Rent()
+    {
+        var context = _pool.Get();
+        context.Reset(); // 重置状态
+        return context;
+    }
+    
+    public static void Return(FlowContext context)
+    {
+        context.Clear(); // 清理敏感数据
+        _pool.Return(context);
+    }
+}
+
+public class FlowContextPoolPolicy : IPooledObjectPolicy<FlowContext>
+{
+    public FlowContext Create() => new FlowContext();
+    
+    public bool Return(FlowContext obj)
+    {
+        // 限制池大小，避免内存泄漏
+        return obj.Steps.Count < 1000;
+    }
+}
+```
+
+#### 6. 零拷贝数据传输
+
+```csharp
+/// <summary>零拷贝序列化</summary>
+public class ZeroCopySerializer
+{
+    private readonly MemoryPool<byte> _memoryPool = MemoryPool<byte>.Shared;
+    
+    public IMemoryOwner<byte> Serialize(FlowContext context)
+    {
+        // 估算大小，避免多次分配
+        var estimatedSize = EstimateSize(context);
+        var memory = _memoryPool.Rent(estimatedSize);
+        
+        // 直接写入 Memory<byte>
+        var writer = new MemoryPackWriter(memory.Memory.Span);
+        MemoryPackSerializer.Serialize(ref writer, context);
+        
+        return memory; // 返回租用的内存，调用者负责释放
+    }
+}
+```
+
+### 高性能架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  应用程序 (99.99% 正常执行)                              │
+│                                                         │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ Debugger Pipeline (0.01% 采样)                   │  │
+│  │                                                   │  │
+│  │  [采样器] → [环形缓冲] → [批处理] → [异步存储]    │  │
+│  │     ↓          ↓            ↓           ↓        │  │
+│  │   0.01μs    零分配      1秒批次    后台线程       │  │
+│  └──────────────────────────────────────────────────┘  │
+│                                                         │
+│  特性：                                                  │
+│  • 条件编译 - 生产环境可选择完全移除                      │
+│  • 内联优化 - AggressiveInlining                        │
+│  • 无锁设计 - Interlocked + CAS                         │
+│  • 对象池 - 重用高频对象                                 │
+│  • 背压控制 - 防止内存溢出                               │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 可扩展性
+
+- ✅ 支持 100,000+ QPS (0.1% 采样)
 - ✅ 支持 10,000+ 并发流程
 - ✅ 实时推送延迟 < 100ms
 - ✅ Dashboard 支持 1000+ 并发用户
+- ✅ 单节点内存占用 < 500MB
 
 ---
 
@@ -1278,17 +1520,32 @@ app.MapCatgaDebugger("/debug");
 
 ### 性能开销对比
 
-| 场景 | 未启用 | 开发模式 (100%) | 生产模式 (1%) | 完全禁用 |
-|------|--------|----------------|---------------|----------|
-| **延迟增加** | - | +50-100μs | +0.5-1μs | 0 |
-| **吞吐量影响** | 100% | 95-98% | 99.5% | 100% |
-| **内存占用** | Baseline | +10-50MB | +1-5MB | Baseline |
-| **GC 压力** | - | +5% | +0.5% | 0 |
+| 场景 | 未启用 | 开发模式 (100%) | 生产模式 (0.1%) | 生产优化 | 完全禁用 |
+|------|--------|----------------|----------------|----------|----------|
+| **延迟增加** | - | +50-100μs | +0.05-0.1μs | **<0.01μs** | 0 |
+| **吞吐量影响** | 100% | 95-98% | 99.95% | **>99.99%** | 100% |
+| **内存占用** | Baseline | +10-50MB | +500KB-1MB | **+100-500KB** | Baseline |
+| **GC 压力** | - | +5% | +0.05% | **<0.01%** | 0 |
+| **CPU 占用** | - | +2-5% | +0.02% | **<0.01%** | 0 |
 
 **推荐配置**:
 - ✅ 开发环境：100% 采样，所有功能开启
-- ✅ 预生产环境：10% 采样，关键功能
-- ✅ 生产环境：1% 采样或完全关闭（按需开启）
+- ✅ 预生产环境：1-10% 采样，关键功能
+- ✅ **生产环境：0.01-0.1% 采样，零开销模式** ⭐ NEW
+- ✅ 生产应急：按需开启，5分钟自动关闭
+
+**生产零开销模式**：
+```csharp
+builder.Services.AddCatgaDebugger(options =>
+{
+    options.Mode = DebuggerMode.ProductionOptimized; // 生产优化模式
+    options.SamplingRate = 0.001; // 0.1% 采样 (1/1000)
+    options.EnableAdaptiveSampling = true; // 自适应采样
+    options.MaxMemoryMB = 50; // 内存限制 50MB
+    options.UseRingBuffer = true; // 环形缓冲区
+    options.EnableZeroCopy = true; // 零拷贝优化
+});
+```
 
 ### 常见问题排查
 
@@ -1300,7 +1557,7 @@ app.MapCatgaDebugger("/debug"); // ✅ 在 UseRouting 之后
 
 // 检查 CORS（如果前后端分离）
 builder.Services.AddCors(options => {
-    options.AddPolicy("DebuggerCors", builder => 
+    options.AddPolicy("DebuggerCors", builder =>
         builder.WithOrigins("http://localhost:3000")
                .AllowCredentials());
 });
@@ -1457,16 +1714,16 @@ GET /debug-api/diagnostics/stats
 public class CustomSlowQueryAnalyzer : IPerformanceAnalyzer
 {
     public string Name => "SlowQueryAnalyzer";
-    
+
     public async Task<AnalysisResult> AnalyzeAsync(
-        IEnumerable<FlowContext> flows, 
+        IEnumerable<FlowContext> flows,
         CancellationToken ct)
     {
         var slowQueries = flows
             .SelectMany(f => f.Steps)
             .Where(s => s.Type == "Query" && s.Duration > TimeSpan.FromMilliseconds(100))
             .ToList();
-            
+
         return new AnalysisResult
         {
             Severity = slowQueries.Count > 10 ? Severity.High : Severity.Low,
@@ -1486,7 +1743,7 @@ builder.Services.AddDebuggerAnalyzer<CustomSlowQueryAnalyzer>();
 public class CustomHeatmapVisualizer : IVisualizer
 {
     public string Type => "Heatmap";
-    
+
     public VisualizationData Generate(IEnumerable<FlowContext> flows)
     {
         // 生成热力图数据
@@ -1499,7 +1756,7 @@ public class CustomHeatmapVisualizer : IVisualizer
                 Value = g.Count()
             })
             .ToList();
-            
+
         return new VisualizationData
         {
             Type = "Heatmap",
@@ -1516,19 +1773,19 @@ public class CustomHeatmapVisualizer : IVisualizer
 public class MongoDebugStorage : IDebugStorage
 {
     private readonly IMongoCollection<FlowContext> _flows;
-    
+
     public async Task SaveFlowAsync(FlowContext flow, CancellationToken ct)
     {
         await _flows.InsertOneAsync(flow, cancellationToken: ct);
     }
-    
+
     public async Task<FlowContext?> GetFlowAsync(string correlationId, CancellationToken ct)
     {
         return await _flows
             .Find(f => f.CorrelationId == correlationId)
             .FirstOrDefaultAsync(ct);
     }
-    
+
     // ... 其他方法
 }
 
@@ -1548,16 +1805,16 @@ public class MessageFlowTrackerTests
     {
         // Arrange
         var tracker = new MessageFlowTracker();
-        
+
         // Act
         var flow = tracker.BeginFlow("test-123", FlowType.Command);
-        
+
         // Assert
         Assert.NotNull(flow);
         Assert.Equal("test-123", flow.CorrelationId);
         Assert.Equal(FlowType.Command, flow.Type);
     }
-    
+
     [Fact]
     public async Task RecordStep_ShouldAppendToFlow()
     {
@@ -1572,16 +1829,16 @@ public class MessageFlowTrackerTests
 public class DebugApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly HttpClient _client;
-    
+
     [Fact]
     public async Task GetFlows_ShouldReturnFlows()
     {
         // Arrange
         await SeedFlowData();
-        
+
         // Act
         var response = await _client.GetAsync("/debug-api/flows");
-        
+
         // Assert
         response.EnsureSuccessStatusCode();
         var flows = await response.Content.ReadFromJsonAsync<List<FlowContext>>();
@@ -1607,7 +1864,7 @@ describe('FlowList', () => {
         ]
       }
     });
-    
+
     expect(wrapper.find('.flow-item').exists()).toBe(true);
   });
 });
@@ -1773,7 +2030,223 @@ options.DataRetention = new DataRetentionPolicy
 
 ---
 
-**状态**: 📝 完整计划  
-**提交**: 54e3b52  
-**下一步**: 根据需求开始 Phase 1 实施
+## 🚀 生产环境最佳实践
+
+### 推荐配置（生产级零开销）
+
+```csharp
+// Program.cs - 生产环境配置
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCatgaDebugger(options =>
+{
+    // === 核心配置 ===
+    options.Mode = DebuggerMode.ProductionOptimized;
+    options.Enabled = builder.Configuration.GetValue<bool>("Debugger:Enabled", false);
+    
+    // === 采样策略 ===
+    options.SamplingRate = 0.001; // 0.1% 采样 (千分之一)
+    options.EnableAdaptiveSampling = true; // 根据负载自动调整
+    options.SamplingStrategy = SamplingStrategy.HashBased; // 确定性采样
+    
+    // === 性能优化 ===
+    options.UseRingBuffer = true; // 环形缓冲区（固定内存）
+    options.MaxMemoryMB = 50; // 内存上限 50MB
+    options.EnableZeroCopy = true; // 零拷贝优化
+    options.EnableObjectPooling = true; // 对象池
+    options.BatchSize = 100; // 批处理大小
+    options.BatchInterval = TimeSpan.FromSeconds(5); // 批处理间隔
+    
+    // === 功能开关 ===
+    options.TrackMessageFlows = true; // 流程追踪
+    options.TrackPerformance = true; // 性能追踪
+    options.TrackStateSnapshots = false; // 关闭快照（生产环境）
+    options.TrackExceptions = true; // 异常追踪
+    
+    // === 存储配置 ===
+    options.UseInMemoryStorage(storage =>
+    {
+        storage.MaxFlows = 1000; // 最多保留 1000 个流程
+        storage.RingBufferSize = 1000; // 环形缓冲区大小
+        storage.EnableCompression = true; // 压缩存储
+    });
+    
+    // === 安全配置 ===
+    options.RequireAuthentication = true;
+    options.RequireAuthorization = "DebuggerPolicy";
+    options.DataSanitizer = data => data.RemoveKeys("Password", "Token", "Secret");
+    options.AllowedIPs = new[] { "10.0.0.0/8" }; // 仅内网访问
+    
+    // === 背压控制 ===
+    options.EnableBackpressure = true;
+    options.BackpressureThreshold = 10000; // 超过 10000 条丢弃旧数据
+    options.OverflowStrategy = OverflowStrategy.DropOldest;
+    
+    // === 自动关闭 ===
+    options.AutoDisableAfter = TimeSpan.FromMinutes(30); // 30分钟后自动关闭
+    options.AllowManualEnable = true; // 允许手动重启
+    
+    // === 监控告警 ===
+    options.OnMemoryThresholdExceeded += (sender, e) =>
+    {
+        // 内存超限告警
+        telemetry.TrackEvent("DebuggerMemoryAlert", new { UsageMB = e.CurrentMB });
+    };
+    
+    options.OnPerformanceImpact += (sender, e) =>
+    {
+        // 性能影响告警（延迟 > 1ms）
+        if (e.LatencyMs > 1.0)
+        {
+            telemetry.TrackEvent("DebuggerPerformanceImpact", new { LatencyMs = e.LatencyMs });
+            // 自动降低采样率
+            options.SamplingRate *= 0.5;
+        }
+    };
+});
+
+var app = builder.Build();
+
+// === 仅在需要时启用 UI ===
+if (builder.Environment.IsDevelopment() || 
+    builder.Configuration.GetValue<bool>("Debugger:EnableUI", false))
+{
+    app.MapCatgaDebugger("/debug");
+}
+
+// === API 端点（生产环境可选）===
+app.MapCatgaDebuggerApi("/debug-api")
+    .RequireAuthorization("DebuggerPolicy");
+
+app.Run();
+```
+
+### 运行时动态控制
+
+```csharp
+// 应急诊断：运行时动态开启
+public class DebuggerController : ControllerBase
+{
+    private readonly IDebuggerControl _debuggerControl;
+    
+    [HttpPost("enable")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> EnableDebugger([FromBody] EnableRequest request)
+    {
+        // 临时开启，指定时长
+        await _debuggerControl.EnableAsync(new DebuggerEnableOptions
+        {
+            Duration = TimeSpan.FromMinutes(request.DurationMinutes ?? 5),
+            SamplingRate = request.SamplingRate ?? 0.01, // 默认 1%
+            AutoDisable = true,
+            Reason = request.Reason // 审计日志
+        });
+        
+        _logger.LogWarning("Debugger manually enabled by {User} for {Duration} minutes. Reason: {Reason}",
+            User.Identity.Name, request.DurationMinutes, request.Reason);
+        
+        return Ok(new { message = "Debugger enabled", expiresAt = DateTime.UtcNow.AddMinutes(request.DurationMinutes ?? 5) });
+    }
+    
+    [HttpPost("disable")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DisableDebugger()
+    {
+        await _debuggerControl.DisableAsync();
+        return Ok(new { message = "Debugger disabled" });
+    }
+    
+    [HttpGet("status")]
+    public IActionResult GetStatus()
+    {
+        var status = _debuggerControl.GetStatus();
+        return Ok(new
+        {
+            enabled = status.Enabled,
+            samplingRate = status.SamplingRate,
+            memoryUsageMB = status.MemoryUsageMB,
+            activeFlows = status.ActiveFlows,
+            performanceImpact = status.PerformanceImpactPercent
+        });
+    }
+}
+```
+
+### 性能监控仪表板
+
+```typescript
+// Vue 组件 - 生产环境监控
+<template>
+  <div class="production-monitor">
+    <el-alert v-if="status.performanceImpact > 0.1" type="warning">
+      ⚠️ 调试器性能影响: {{ status.performanceImpact.toFixed(2) }}%
+      (建议降低采样率或关闭)
+    </el-alert>
+    
+    <el-card>
+      <el-statistic title="采样率" :value="status.samplingRate * 100" suffix="%" />
+      <el-statistic title="内存占用" :value="status.memoryUsageMB" suffix="MB" />
+      <el-statistic title="活跃流程" :value="status.activeFlows" />
+      <el-statistic title="性能影响" :value="status.performanceImpact" suffix="%" />
+    </el-card>
+    
+    <el-button 
+      v-if="!status.enabled" 
+      type="primary" 
+      @click="enableDebugger">
+      应急开启 (5分钟)
+    </el-button>
+    <el-button 
+      v-else 
+      type="danger" 
+      @click="disableDebugger">
+      立即关闭
+    </el-button>
+  </div>
+</template>
+```
+
+### Prometheus 指标导出
+
+```csharp
+// 暴露 Prometheus 指标
+public class DebuggerMetrics
+{
+    private static readonly Counter SampledFlows = Metrics
+        .CreateCounter("catga_debugger_sampled_flows_total", "采样的流程总数");
+        
+    private static readonly Gauge ActiveFlows = Metrics
+        .CreateGauge("catga_debugger_active_flows", "当前活跃流程数");
+        
+    private static readonly Histogram ProcessingLatency = Metrics
+        .CreateHistogram("catga_debugger_processing_latency_ms", "处理延迟（毫秒）");
+        
+    private static readonly Gauge MemoryUsage = Metrics
+        .CreateGauge("catga_debugger_memory_usage_mb", "内存占用（MB）");
+        
+    private static readonly Gauge SamplingRate = Metrics
+        .CreateGauge("catga_debugger_sampling_rate", "当前采样率");
+}
+
+// Grafana 告警规则
+// - catga_debugger_memory_usage_mb > 100: 内存超限告警
+// - catga_debugger_processing_latency_ms{quantile="0.95"} > 1: 延迟告警
+```
+
+### 成本分析
+
+| 场景 | QPS | 采样率 | 内存 | CPU | 成本增加 |
+|------|-----|--------|------|-----|---------|
+| **小型** | 1K | 0.1% | 50MB | 0.01% | **~$0/月** |
+| **中型** | 10K | 0.1% | 200MB | 0.02% | **~$1/月** |
+| **大型** | 100K | 0.05% | 500MB | 0.05% | **~$5/月** |
+| **超大** | 1M | 0.01% | 1GB | 0.1% | **~$10/月** |
+
+**结论**: 即使在超大规模系统，调试器的成本增加也**可忽略不计**！
+
+---
+
+**状态**: 📝 生产就绪计划  
+**提交**: (待更新)  
+**下一步**: Phase 1 实施（零开销核心）
 

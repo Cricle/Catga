@@ -63,7 +63,7 @@ public sealed class MessageFlowTracker
     private readonly ConcurrentDictionary<string, FlowContext> _activeFlows;
     private readonly ObjectPool<FlowContext> _contextPool;  // Memory pooling
     private readonly int _maxActiveFlows = 1000;            // Limit memory
-    
+
     public FlowContext BeginFlow(string correlationId);
     public void RecordStep(string correlationId, StepInfo step);
     public void EndFlow(string correlationId);
@@ -86,7 +86,7 @@ public sealed class FlowContext : IResettable
     public string TraceId { get; set; }
     public DateTime StartTime { get; set; }
     public List<StepInfo> Steps { get; } = new(capacity: 16);  // Pre-sized
-    
+
     public void Reset()
     {
         CorrelationId = string.Empty;
@@ -99,15 +99,15 @@ public sealed class FlowContext : IResettable
 #### 3. `DebugMiddleware` (Zero-allocation)
 
 ```csharp
-public sealed class DebugMiddleware<TRequest, TResponse> 
+public sealed class DebugMiddleware<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
 {
     private readonly MessageFlowTracker _tracker;
-    
+
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(...)
     {
         if (!_options.EnableDebug) return await next();  // Fast path
-        
+
         var flowContext = _tracker.BeginFlow(request.CorrelationId);
         // Record steps...
         return result;
@@ -182,7 +182,7 @@ public sealed class DebugMiddleware<TRequest, TResponse>
 #### 4.1 Object Pooling
 ```csharp
 // Use Microsoft.Extensions.ObjectPool
-private readonly ObjectPool<FlowContext> _pool = 
+private readonly ObjectPool<FlowContext> _pool =
     new DefaultObjectPool<FlowContext>(new FlowContextPolicy());
 
 public FlowContext Get() => _pool.Get();

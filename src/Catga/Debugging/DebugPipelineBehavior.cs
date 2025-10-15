@@ -89,7 +89,7 @@ public sealed class DebugPipelineBehavior<[DynamicallyAccessedMembers(Dynamicall
         {
             // End flow and return to pool
             var summary = _tracker.EndFlow(correlationId);
-            
+
             if (_options.EnableConsoleOutput && summary.StepCount > 0)
             {
                 _logger.LogInformation("Flow {CorrelationId} complete: {Steps} steps, {Duration}ms",
@@ -104,7 +104,7 @@ public sealed class DebugPipelineBehavior<[DynamicallyAccessedMembers(Dynamicall
     {
         var status = success ? "✅" : "❌";
         var errorMsg = error != null ? $" Error: {error}" : "";
-        
+
         _logger.LogInformation("[{CorrelationId}] {MessageType} {Status} ({Duration}ms){Error}",
             correlationId[..8], messageType, status, duration.TotalMilliseconds, errorMsg);
     }

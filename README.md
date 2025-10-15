@@ -271,7 +271,7 @@ GET /debug/stats              // Statistics
 
 **OpenTelemetry**:
 - ASP.NET Core instrumentation
-- HTTP client instrumentation  
+- HTTP client instrumentation
 - Catga tracing & metrics
 - Aspire Dashboard integration
 

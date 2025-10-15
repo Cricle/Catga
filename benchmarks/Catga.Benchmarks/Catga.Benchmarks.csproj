@@ -22,6 +22,11 @@
     <ProjectReference Include="..\..\src\Catga.InMemory\Catga.InMemory.csproj" />
     <ProjectReference Include="..\..\src\Catga.Serialization.Json\Catga.Serialization.Json.csproj" />
     <ProjectReference Include="..\..\src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj" />
+    
+    <!-- Source Generator for benchmarking auto-registration -->
+    <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

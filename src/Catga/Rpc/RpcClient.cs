@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Rpc;
 
 /// <summary>High-performance lock-free RPC client</summary>
-public sealed class RpcClient : IRpcClient, IDisposable
+public sealed class RpcClient : IRpcClient, IAsyncDisposable
 {
     private readonly IMessageTransport _transport;
     private readonly IMessageSerializer _serializer;
@@ -19,6 +19,7 @@ public sealed class RpcClient : IRpcClient, IDisposable
     private readonly ConcurrentDictionary<string, TaskCompletionSource<RpcResponse>> _pendingCalls = new();
     private readonly CancellationTokenSource _cts = new();
     private Task? _receiveTask;
+    private bool _disposed;
 
     public RpcClient(IMessageTransport transport, IMessageSerializer serializer, ILogger<RpcClient> logger, RpcOptions? options = null)
     {
@@ -94,11 +95,38 @@ public sealed class RpcClient : IRpcClient, IDisposable
         }, cancellationToken);
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
+        if (_disposed) return;
+        _disposed = true;
+
         _cts.Cancel();
+
+        // Cancel all pending calls
+        foreach (var kvp in _pendingCalls)
+        {
+            kvp.Value.TrySetCanceled();
+        }
+        _pendingCalls.Clear();
+
+        if (_receiveTask != null)
+        {
+            try
+            {
+                // Use WaitAsync with timeout (available in .NET 6+)
+                await _receiveTask.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogWarning("RPC client receive task did not complete within timeout");
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on cancellation
+            }
+        }
+
         _cts.Dispose();
-        _receiveTask?.Wait(TimeSpan.FromSeconds(5));
     }
 }
 

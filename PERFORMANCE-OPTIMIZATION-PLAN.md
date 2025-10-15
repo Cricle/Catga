@@ -1,7 +1,7 @@
 # Catga 性能优化计划
 
-**审查日期**: 2025-10-15  
-**审查范围**: 全部代码  
+**审查日期**: 2025-10-15
+**审查范围**: 全部代码
 **优化目标**: 逻辑准确性、GC压力、CPU效率、线程池使用、并发性能
 
 ---
@@ -94,7 +94,7 @@ private CancellationTokenSource? _monitoringCts;
 private void MonitorConnectionStatus()
 {
     _monitoringCts = new CancellationTokenSource();
-    
+
     _ = Task.Factory.StartNew(async () =>
     {
         try
@@ -102,7 +102,7 @@ private void MonitorConnectionStatus()
             while (!_monitoringCts.Token.IsCancellationRequested)
             {
                 await Task.Delay(TimeSpan.FromSeconds(5), _monitoringCts.Token);
-                
+
                 var wasHealthy = _isHealthy;
                 _isHealthy = _connection.ConnectionState == NatsConnectionState.Open;
 
@@ -198,7 +198,7 @@ return tasks.Last().Result;
 public async ValueTask DisposeAsync()
 {
     _cts.Cancel();
-    
+
     if (_receiveTask != null)
     {
         try
@@ -214,7 +214,7 @@ public async ValueTask DisposeAsync()
             // Expected
         }
     }
-    
+
     _cts.Dispose();
 }
 
@@ -236,7 +236,7 @@ public async Task<int> BatchDeleteAsync(
 
     batch.Execute();
     var results = await Task.WhenAll(tasks);
-    
+
     return results.Count(r => r); // ✅ 无阻塞
 }
 
@@ -255,7 +255,7 @@ public async Task<long> BatchListPushAsync(
 
     batch.Execute();
     var results = await Task.WhenAll(tasks);
-    
+
     return results[^1]; // ✅ 最后一个结果，无阻塞
 }
 ```
@@ -388,7 +388,7 @@ public async Task<int> BatchDeleteAsync(
 {
     var keyList = keys as IList<string> ?? keys.ToList();
     var count = keyList.Count;
-    
+
     using var rentedTasks = ArrayPoolHelper.RentOrAllocate<Task<bool>>(count);
     var batch = _db.CreateBatch();
 
@@ -399,14 +399,14 @@ public async Task<int> BatchDeleteAsync(
 
     batch.Execute();
     await Task.WhenAll(new ArraySegment<Task<bool>>(rentedTasks.Array, 0, count));
-    
+
     int successCount = 0;
     for (int i = 0; i < count; i++)
     {
         if (rentedTasks.Array[i].Result)
             successCount++;
     }
-    
+
     return successCount;
 }
 ```
@@ -450,7 +450,7 @@ foreach (var shard in _shards)
 | 2. Task.Run 无控制 | 2小时 | 高 | P0 |
 | 3. .Result 阻塞 | 3小时 | 中 | P1 |
 
-**预期收益**: 
+**预期收益**:
 - GC 压力降低 ~15%
 - 吞吐量提升 ~10%
 - 消除线程池饥饿风险
@@ -504,7 +504,7 @@ Concurrent Event (10 hdl)  < 3 μs      0 B          50% faster (RWLock)
 - 并发安全正确（ConcurrentDictionary, Interlocked）
 - 异常处理完善
 
-### GC 优化 ✅ 
+### GC 优化 ✅
 - ArrayPool 广泛使用
 - ValueTask 用于热路径
 - Span<T> 零拷贝
@@ -572,7 +572,7 @@ Concurrent Event (10 hdl)  < 3 μs      0 B          50% faster (RWLock)
 
 ---
 
-**审查人**: AI Assistant  
-**日期**: 2025-10-15  
+**审查人**: AI Assistant
+**日期**: 2025-10-15
 **版本**: v1.1.0
 

@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Rpc;
 
 /// <summary>High-performance lock-free RPC server</summary>
-public sealed class RpcServer : IRpcServer, IDisposable
+public sealed class RpcServer : IRpcServer, IAsyncDisposable
 {
     private readonly IMessageTransport _transport;
     private readonly IMessageSerializer _serializer;
@@ -17,6 +17,7 @@ public sealed class RpcServer : IRpcServer, IDisposable
     private readonly ConcurrentDictionary<string, IRpcHandler> _handlers = new();
     private readonly CancellationTokenSource _cts = new();
     private Task? _receiveTask;
+    private bool _disposed;
 
     public RpcServer(IMessageTransport transport, IMessageSerializer serializer, ILogger<RpcServer> logger, RpcOptions? options = null)
     {
@@ -89,11 +90,31 @@ public sealed class RpcServer : IRpcServer, IDisposable
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
+        if (_disposed) return;
+        _disposed = true;
+
         _cts.Cancel();
+
+        if (_receiveTask != null)
+        {
+            try
+            {
+                // Use WaitAsync with timeout (available in .NET 6+)
+                await _receiveTask.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogWarning("RPC server receive task did not complete within timeout");
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on cancellation
+            }
+        }
+
         _cts.Dispose();
-        _receiveTask?.Wait(TimeSpan.FromSeconds(5));
     }
 }
 

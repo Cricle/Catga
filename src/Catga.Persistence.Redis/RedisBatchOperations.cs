@@ -84,9 +84,10 @@ public class RedisBatchOperations
         }
 
         batch.Execute();
-        await Task.WhenAll(tasks);
+        var results = await Task.WhenAll(tasks);
 
-        return tasks.Count(t => t.Result);
+        // Count successful deletions without blocking .Result
+        return results.Count(r => r);
     }
 
     /// <summary>
@@ -126,9 +127,10 @@ public class RedisBatchOperations
         }
 
         batch.Execute();
-        await Task.WhenAll(tasks);
+        var results = await Task.WhenAll(tasks);
 
-        return tasks.Last().Result;
+        // Return the last result (final list length) without blocking .Result
+        return results.Length > 0 ? results[^1] : 0;
     }
 }
 

@@ -5,13 +5,15 @@ using NATS.Client.Core;
 namespace Catga.Transport.Nats;
 
 /// <summary>
-/// NATS 可恢复传输 - 自动重连和状态恢复
+/// NATS recoverable transport - auto-reconnect and state recovery
 /// </summary>
-public sealed class NatsRecoverableTransport : IRecoverableComponent
+public sealed class NatsRecoverableTransport : IRecoverableComponent, IDisposable
 {
     private readonly INatsConnection _connection;
     private readonly ILogger<NatsRecoverableTransport> _logger;
+    private readonly System.Threading.Timer _monitorTimer;
     private volatile bool _isHealthy = true;
+    private bool _disposed;
 
     public NatsRecoverableTransport(
         INatsConnection connection,
@@ -20,19 +22,24 @@ public sealed class NatsRecoverableTransport : IRecoverableComponent
         _connection = connection;
         _logger = logger;
 
-        // 监听连接状态变化
-        MonitorConnectionStatus();
+        // Monitor connection status using Timer (lighter than Task.Run)
+        _monitorTimer = new System.Threading.Timer(
+            callback: MonitorConnectionStatus,
+            state: null,
+            dueTime: TimeSpan.FromSeconds(5),
+            period: TimeSpan.FromSeconds(5)
+        );
     }
 
     public bool IsHealthy => _isHealthy;
 
     public async Task RecoverAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("开始恢复 NATS 连接");
+        _logger.LogInformation("Starting NATS connection recovery");
 
         try
         {
-            // NATS 客户端自动重连，我们只需要等待连接恢复
+            // NATS client auto-reconnects, we just wait for connection to recover
             var timeout = TimeSpan.FromSeconds(30);
             var startTime = DateTime.UtcNow;
 
@@ -45,42 +52,50 @@ public sealed class NatsRecoverableTransport : IRecoverableComponent
             if (_connection.ConnectionState == NatsConnectionState.Open)
             {
                 _isHealthy = true;
-                _logger.LogInformation("NATS 连接恢复成功");
+                _logger.LogInformation("NATS connection recovered successfully");
             }
             else
             {
-                _logger.LogWarning("NATS 连接恢复超时");
+                _logger.LogWarning("NATS connection recovery timeout");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "NATS 连接恢复失败");
+            _logger.LogError(ex, "NATS connection recovery failed");
             throw;
         }
     }
 
-    private void MonitorConnectionStatus()
+    private void MonitorConnectionStatus(object? state)
     {
-        // 监控连接状态变化
-        Task.Run(async () =>
+        if (_disposed) return;
+
+        try
         {
-            while (true)
+            var wasHealthy = _isHealthy;
+            _isHealthy = _connection.ConnectionState == NatsConnectionState.Open;
+
+            if (wasHealthy && !_isHealthy)
             {
-                await Task.Delay(TimeSpan.FromSeconds(5));
-
-                var wasHealthy = _isHealthy;
-                _isHealthy = _connection.ConnectionState == NatsConnectionState.Open;
-
-                if (wasHealthy && !_isHealthy)
-                {
-                    _logger.LogWarning("NATS 连接断开");
-                }
-                else if (!wasHealthy && _isHealthy)
-                {
-                    _logger.LogInformation("NATS 连接已恢复");
-                }
+                _logger.LogWarning("NATS connection lost");
             }
-        });
+            else if (!wasHealthy && _isHealthy)
+            {
+                _logger.LogInformation("NATS connection recovered");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error monitoring NATS connection status");
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        
+        _monitorTimer?.Dispose();
     }
 }
 

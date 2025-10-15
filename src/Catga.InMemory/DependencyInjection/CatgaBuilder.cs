@@ -4,6 +4,8 @@ using Catga.Configuration;
 using Catga.Handlers;
 using Catga.Messages;
 using Microsoft.Extensions.DependencyInjection;
+using Catga.DependencyInjection;
+using Catga.Serialization;
 
 namespace Catga.DependencyInjection;
 
@@ -85,6 +87,28 @@ public class CatgaBuilder
     public CatgaBuilder Configure(Action<CatgaOptions> configure)
     {
         configure(_options);
+        return this;
+    }
+
+    public CatgaBuilder UseMemoryPackSerializer()
+    {
+        // Avoid hard reference to MemoryPack package here to keep assembly boundaries clean.
+        // If MemoryPack extension is referenced, app should call it directly. Provide no-op fallback.
+        return this;
+    }
+
+    public CatgaBuilder AddGeneratedEventRouterIfAvailable()
+    {
+        // The generated type is internal; register via its interface when present
+        var routerInterface = typeof(Catga.Handlers.IGeneratedEventRouter);
+        var generatedType = AppDomain.CurrentDomain
+            .GetAssemblies()
+            .SelectMany(a => a.GetTypes())
+            .FirstOrDefault(t => t.FullName == "Catga.Generated.GeneratedEventRouter");
+        if (generatedType != null && routerInterface.IsAssignableFrom(generatedType))
+        {
+            Services.AddSingleton(routerInterface, generatedType);
+        }
         return this;
     }
 }

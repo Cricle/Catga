@@ -89,7 +89,7 @@ public sealed class InMemoryEventStore : IEventStore
         {
             stream.Append(events, expectedVersion);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             // Convert to ConcurrencyException
             throw new ConcurrencyException(streamId, expectedVersion, stream.Version);

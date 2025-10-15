@@ -244,7 +244,7 @@ partial void LogProcessingCommand(string commandType, string messageId);
 
 与 OpenTelemetry 完美集成！
 
-📖 [可观测性指南](./docs/guides/observability.md)
+📖 参考: [架构概览](./docs/architecture/overview.md)
 
 ---
 
@@ -287,7 +287,6 @@ partial void LogProcessingCommand(string commandType, string messageId);
 
 ### 示例
 - [完整示例: OrderSystem](./examples/OrderSystem.AppHost/)
-- [AOT 示例: MemoryPackAotDemo](./examples/MemoryPackAotDemo/)
 
 ---
 
@@ -309,8 +308,7 @@ Catga/
 ├── benchmarks/
 │   └── Catga.Benchmarks/               # 性能基准测试
 ├── examples/
-│   ├── OrderSystem.AppHost/            # .NET Aspire 示例
-│   └── MemoryPackAotDemo/              # Native AOT 示例
+│   └── OrderSystem.AppHost/            # .NET Aspire 示例
 └── docs/                               # 完整文档
 ```
 

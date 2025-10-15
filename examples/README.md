@@ -12,7 +12,6 @@
 | 示例 | 描述 | 难度 | 技术栈 | AOT |
 |------|------|------|--------|-----|
 | [OrderSystem.AppHost](#-ordersystemapphost) | .NET Aspire 编排示例 | ⭐ | Aspire, 服务发现 | ✅ |
-| [MemoryPackAotDemo](#-memorypackaotdemo) | MemoryPack AOT 示例 | ⭐ | Native AOT, MemoryPack | ✅ |
 
 **推荐学习顺序**: Aspire → MemoryPack AOT → 生产部署
 
@@ -92,62 +91,7 @@ builder.Build().Run();
 
 ---
 
-## 🧪 MemoryPackAotDemo
-
-**Native AOT + MemoryPack 完整示例**
-
-### 🚀 30 秒快速开始
-
-```bash
-cd examples/MemoryPackAotDemo
-dotnet publish -c Release
-./bin/Release/net9.0/win-x64/publish/MemoryPackAotDemo.exe
-# ✅ 3MB 可执行文件
-# ✅ < 20ms 启动时间
-# ✅ < 10MB 内存占用
-```
-
-### ✨ 核心特性
-
-| 特性 | 数据 | 对比 JIT |
-|------|------|---------|
-| **包大小** | 3MB | 60MB (-95%) |
-| **启动时间** | < 20ms | 500ms (-96%) |
-| **内存占用** | < 10MB | 50MB (-80%) |
-| **性能** | 5x | 1x (+400%) |
-
-### 💡 核心代码（3 行配置）
-
-```csharp
-// Program.cs
-var builder = WebApplication.CreateBuilder(args);
-
-// ✅ Catga + MemoryPack (100% AOT 兼容)
-builder.Services.AddCatga()
-    .UseMemoryPack()
-    .ForProduction();
-
-var app = builder.Build();
-app.Run();
-```
-
-```csharp
-// 消息定义
-[MemoryPackable]
-public partial record CreateOrder(string OrderId, decimal Amount)
-    : IRequest<OrderResult>;
-
-[MemoryPackable]
-public partial record OrderResult(string OrderId, string Status);
-```
-
-### 📖 详细文档
-
-查看 [MemoryPackAotDemo/README.md](MemoryPackAotDemo/README.md) 了解：
-- AOT 发布配置
-- 性能基准测试
-- 常见问题排查
-- 生产部署指南
+<!-- 仅保留 OrderSystem 示例，移除其他示例 -->
 
 ---
 
@@ -199,13 +143,13 @@ public partial record OrderResult(string OrderId, string Status);
 
 ## 📊 示例对比
 
-| 特性 | Aspire | MemoryPack AOT |
-|------|--------|----------------|
-| **目标** | 本地开发 | 生产部署 |
-| **启动时间** | 2s | < 20ms |
-| **包大小** | 60MB | 3MB |
-| **难度** | ⭐ | ⭐ |
-| **推荐场景** | 开发、团队协作 | 生产、云原生 |
+| 特性 | Aspire |
+|------|--------|
+| **目标** | 本地开发 |
+| **启动时间** | 2s |
+| **包大小** | 60MB |
+| **难度** | ⭐ |
+| **推荐场景** | 开发、团队协作 |
 
 ---
 

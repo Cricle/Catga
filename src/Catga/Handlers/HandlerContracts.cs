@@ -22,3 +22,12 @@ public interface IEventHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMe
     public Task HandleAsync(TEvent @event, CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Generated event router contract - implemented by source generator for zero-reflection routing.
+/// </summary>
+public interface IGeneratedEventRouter
+{
+    // Returns true if a fast-path route exists for this event type
+    bool TryRoute<TEvent>(IServiceProvider sp, TEvent @event, CancellationToken ct, out Task? dispatched) where TEvent : IEvent;
+}
+

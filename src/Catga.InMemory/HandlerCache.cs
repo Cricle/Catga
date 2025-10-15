@@ -17,7 +17,13 @@ public sealed class HandlerCache {
     [ThreadStatic] private static Dictionary<Type, Delegate>? _threadLocalHandlerCache;
     [ThreadStatic] private static Dictionary<Type, Delegate>? _threadLocalEventHandlerCache;
 
-    public HandlerCache(IServiceProvider serviceProvider) => _serviceProvider = serviceProvider;
+    public HandlerCache(IServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider;
+        // Warm thread-local caches to initial capacity to reduce first-hit latency
+        _threadLocalHandlerCache ??= new Dictionary<Type, Delegate>(capacity: InitialCacheCapacity);
+        _threadLocalEventHandlerCache ??= new Dictionary<Type, Delegate>(capacity: InitialCacheCapacity);
+    }
 
     private static Dictionary<Type, Delegate> GetThreadLocalHandlerCache()
         => _threadLocalHandlerCache ??= new Dictionary<Type, Delegate>(capacity: InitialCacheCapacity);

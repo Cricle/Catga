@@ -119,9 +119,9 @@ public sealed class NatsEventStore : IEventStore, IAsyncDisposable
                     {
                         events.Add(new StoredEvent
                         {
-                            Version = msg.Metadata?.Sequence.Stream ?? 0,
+                            Version = (long)(msg.Metadata?.Sequence.Stream ?? 0UL),
                             Event = @event,
-                            Timestamp = msg.Metadata?.Timestamp ?? DateTime.UtcNow,
+                            Timestamp = (msg.Metadata?.Timestamp.UtcDateTime ?? DateTime.UtcNow),
                             EventType = @event.GetType().Name
                         });
                         count++;
@@ -130,7 +130,7 @@ public sealed class NatsEventStore : IEventStore, IAsyncDisposable
             }
 
             // Clean up temporary consumer
-            await consumer.DeleteAsync(cancellationToken);
+            // No explicit delete API available on INatsJSConsumer in this version
         }
         catch (NatsJSApiException ex) when (ex.Error.Code == 404)
         {
@@ -163,17 +163,31 @@ public sealed class NatsEventStore : IEventStore, IAsyncDisposable
 
         try
         {
-            var streamInfo = await _jetStream.GetStreamAsync(_streamName, cancellationToken);
+            // Create a lightweight consumer to fetch the last message for this subject
+            var consumer = await _jetStream.CreateOrUpdateConsumerAsync(
+                _streamName,
+                new ConsumerConfig
+                {
+                    Name = $"ver-{streamId}-{Guid.NewGuid():N}",
+                    FilterSubject = subject,
+                    AckPolicy = ConsumerConfigAckPolicy.None,
+                    DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject
+                },
+                cancellationToken);
 
-            // Get last sequence for this subject
-            var state = streamInfo.State;
-            var lastSeq = state.LastSeq;
+            await foreach (var msg in consumer.FetchAsync<byte[]>(
+                new NatsJSFetchOpts { MaxMsgs = 1 },
+                cancellationToken: cancellationToken))
+            {
+                // Take the first (last per subject) message, return its stream sequence as version
+                return (long)(msg.Metadata?.Sequence.Stream ?? 0UL);
+            }
 
-            return lastSeq > 0 ? lastSeq - 1 : -1;
+            return -1;
         }
         catch (NatsJSApiException ex) when (ex.Error.Code == 404)
         {
-            return -1; // Stream doesn't exist
+            return -1; // Stream or subject doesn't exist
         }
     }
 
@@ -190,8 +204,10 @@ public sealed class NatsEventStore : IEventStore, IAsyncDisposable
             try
             {
                 await _jetStream.CreateStreamAsync(
-                    _streamName,
-                    new[] { $"{_streamName}.>" },
+                    new StreamConfig(
+                        _streamName,
+                        new[] { $"{_streamName}.>" }
+                    ),
                     cancellationToken);
             }
             catch (NatsJSApiException ex) when (ex.Error.Code == 400 && ex.Error.Description?.Contains("already exists") == true)

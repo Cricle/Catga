@@ -17,5 +17,9 @@
     <PackageReference Include="Aspire.Hosting.Nats" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\OrderSystem.Api\OrderSystem.Api.csproj" />
+  </ItemGroup>
+
 </Project>
 

@@ -96,22 +96,7 @@ cd examples/OrderSystem.AppHost
 dotnet run
 ```
 
-### MemoryPackAotDemo (AOT 示例)
-
-最小化的 Native AOT 示例：
-
-- **位置**: [examples/MemoryPackAotDemo/](../examples/MemoryPackAotDemo/)
-- **功能**:
-  - 100% AOT 兼容
-  - MemoryPack 序列化
-  - 最小化二进制 (< 10MB)
-  - 快速启动 (< 50ms)
-
-**编译为 AOT**:
-```bash
-cd examples/MemoryPackAotDemo
-dotnet publish -c Release -r linux-x64 --property:PublishAot=true
-```
+<!-- 仅保留 OrderSystem 作为官方示例 -->
 
 ---
 
@@ -135,7 +120,6 @@ dotnet publish -c Release -r linux-x64 --property:PublishAot=true
 
 1. [Native AOT 发布](./deployment/native-aot-publishing.md)
 2. [AOT 序列化配置](./aot/serialization-aot-guide.md)
-3. [MemoryPackAotDemo 示例](../examples/MemoryPackAotDemo/)
 
 ### Kubernetes 部署
 

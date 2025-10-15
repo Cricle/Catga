@@ -22,18 +22,27 @@ public class CatgaMediator : ICatgaMediator
     private readonly ILogger<CatgaMediator> _logger;
     private readonly CatgaOptions _options;
     private readonly HandlerCache _handlerCache;
+    private readonly GracefulShutdownManager? _shutdownManager;
 
-    public CatgaMediator(IServiceProvider serviceProvider, ILogger<CatgaMediator> logger, CatgaOptions options)
+    public CatgaMediator(
+        IServiceProvider serviceProvider,
+        ILogger<CatgaMediator> logger,
+        CatgaOptions options,
+        GracefulShutdownManager? shutdownManager = null)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _options = options;
         _handlerCache = new HandlerCache(serviceProvider);
+        _shutdownManager = shutdownManager;
     }
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public async ValueTask<CatgaResult<TResponse>> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
     {
+        // 优雅停机：自动跟踪操作
+        using var operationScope = _shutdownManager?.BeginOperation();
+
         using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Command.Execute", ActivityKind.Internal);
         var sw = Stopwatch.StartNew();
         var reqType = TypeNameCache<TRequest>.Name;
@@ -94,6 +103,9 @@ public class CatgaMediator : ICatgaMediator
 
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(TEvent @event, CancellationToken cancellationToken = default) where TEvent : IEvent
     {
+        // 优雅停机：自动跟踪操作
+        using var operationScope = _shutdownManager?.BeginOperation();
+
         using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Event.Publish", ActivityKind.Producer);
         var eventType = TypeNameCache<TEvent>.Name;
         var message = @event as IMessage;
@@ -101,6 +113,16 @@ public class CatgaMediator : ICatgaMediator
         activity?.SetTag("catga.event.type", eventType);
         activity?.SetTag("catga.message.id", message?.MessageId);
         CatgaLog.EventPublishing(_logger, eventType, message?.MessageId);
+
+        // Fast-path: use generated router if available
+        var generatedRouter = _serviceProvider.GetService<Catga.Handlers.IGeneratedEventRouter>();
+        if (generatedRouter != null && generatedRouter.TryRoute(_serviceProvider, @event, cancellationToken, out var dispatchedTask))
+        {
+            if (dispatchedTask != null)
+                await dispatchedTask.ConfigureAwait(false);
+            CatgaLog.EventPublished(_logger, eventType, message?.MessageId, 0);
+            return;
+        }
 
         var handlerList = _handlerCache.GetEventHandlers<IEventHandler<TEvent>>(_serviceProvider);
         if (handlerList.Count == 0)

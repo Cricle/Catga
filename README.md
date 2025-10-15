@@ -192,8 +192,8 @@ services.AddCatga().AddInMemoryTransport();
 // NATS JetStream - 高性能消息传输
 services.AddCatga()
     .AddNatsTransport(options =>
-    {
-        options.Url = "nats://localhost:4222";
+{
+    options.Url = "nats://localhost:4222";
         options.SubjectPrefix = "myapp";
     })
     .UseMemoryPackSerializer();

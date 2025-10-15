@@ -145,7 +145,7 @@ public class CatgaMediator : ICatgaMediator
         var tasks = rentedTasks.Array;
         for (int i = 0; i < handlerList.Count; i++)
             tasks[i] = HandleEventSafelyAsync(handlerList[i], @event, cancellationToken);
-        
+
         // Zero-allocation: use exact-sized array or ArraySegment
         if (tasks.Length == handlerList.Count)
         {

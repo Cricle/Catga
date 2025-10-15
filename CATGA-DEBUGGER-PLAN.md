@@ -2327,32 +2327,32 @@ public class ReplayableEventCapturer : IPipelineBehavior<TRequest, TResponse>
 {
     private readonly IEventStore _eventStore;
     private readonly ReplayOptions _options;
-    
+
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
-        TRequest request, 
-        PipelineDelegate<TResponse> next, 
+        TRequest request,
+        PipelineDelegate<TResponse> next,
         CancellationToken ct)
     {
         if (!_options.EnableReplay) return await next();
-        
+
         var correlationId = GetCorrelationId(request);
         var captureContext = new CaptureContext(correlationId);
-        
+
         // 捕获输入状态
         await CaptureSnapshotAsync("BeforeExecution", captureContext);
-        
+
         // 执行并捕获所有中间事件
         var result = await next();
-        
+
         // 捕获输出状态
         await CaptureSnapshotAsync("AfterExecution", captureContext);
-        
+
         // 保存到事件存储
         await _eventStore.SaveAsync(captureContext.Events);
-        
+
         return result;
     }
-    
+
     private async Task CaptureSnapshotAsync(string stage, CaptureContext context)
     {
         var snapshot = new StateSnapshot
@@ -2364,7 +2364,7 @@ public class ReplayableEventCapturer : IPipelineBehavior<TRequest, TResponse>
             MemoryState = CaptureMemoryState(), // 可选：内存快照
             CallStack = CaptureCallStack() // 调用栈
         };
-        
+
         context.Events.Add(new ReplayableEvent
         {
             Type = EventType.StateSnapshot,
@@ -2383,13 +2383,13 @@ public class TimeIndexedEventStore : IEventStore
 {
     // 使用 B+ 树索引提高查询性能
     private readonly BPlusTree<DateTime, EventBatch> _timeIndex;
-    
+
     // 使用 LSM 树优化写入性能
     private readonly LSMTree<string, List<ReplayableEvent>> _correlationIndex;
-    
+
     // 压缩存储以节省空间
     private readonly ICompressor _compressor;
-    
+
     public async Task SaveAsync(IEnumerable<ReplayableEvent> events)
     {
         var batch = new EventBatch
@@ -2397,34 +2397,34 @@ public class TimeIndexedEventStore : IEventStore
             Events = events.ToList(),
             Timestamp = DateTime.UtcNow
         };
-        
+
         // 压缩后存储
         var compressed = await _compressor.CompressAsync(batch);
-        
+
         // 写入时间索引（快速按时间范围查询）
         await _timeIndex.InsertAsync(batch.Timestamp, compressed);
-        
+
         // 写入关联ID索引（快速按流程ID查询）
         foreach (var evt in events)
         {
             await _correlationIndex.InsertAsync(evt.CorrelationId, evt);
         }
     }
-    
+
     public async Task<IEnumerable<ReplayableEvent>> GetEventsAsync(
-        DateTime startTime, 
+        DateTime startTime,
         DateTime endTime)
     {
         // 使用 B+ 树范围查询，O(log n) 复杂度
         var batches = await _timeIndex.RangeQueryAsync(startTime, endTime);
-        
+
         var events = new List<ReplayableEvent>();
         foreach (var batch in batches)
         {
             var decompressed = await _compressor.DecompressAsync(batch);
             events.AddRange(decompressed.Events);
         }
-        
+
         return events;
     }
 }
@@ -2438,19 +2438,19 @@ public class TimeTravelReplayEngine
 {
     private readonly IEventStore _eventStore;
     private readonly IStateReconstructor _stateReconstructor;
-    
+
     /// <summary>宏观回放：系统全局视图</summary>
     public async Task<SystemReplay> ReplaySystemAsync(
-        DateTime startTime, 
-        DateTime endTime, 
+        DateTime startTime,
+        DateTime endTime,
         double speed = 1.0)
     {
         // 加载时间范围内的所有事件
         var events = await _eventStore.GetEventsAsync(startTime, endTime);
-        
+
         // 按时间排序
         var timeline = events.OrderBy(e => e.Timestamp).ToList();
-        
+
         return new SystemReplay(timeline, speed)
         {
             // 宏观视图功能
@@ -2460,48 +2460,48 @@ public class TimeTravelReplayEngine
             GetHotspots = () => FindPerformanceHotspots(timeline)
         };
     }
-    
+
     /// <summary>微观回放：单流程详细执行</summary>
     public async Task<FlowReplay> ReplayFlowAsync(string correlationId)
     {
         // 加载特定流程的所有事件
         var events = await _eventStore.GetEventsByCorrelationAsync(correlationId);
-        
+
         // 构建状态机
         var stateMachine = new FlowStateMachine(events);
-        
+
         return new FlowReplay(stateMachine)
         {
             // 单步执行
             StepForward = async () => await stateMachine.StepAsync(1),
             StepBackward = async () => await stateMachine.StepAsync(-1),
-            
+
             // 断点跳转
             StepInto = async () => await stateMachine.StepIntoAsync(),
             StepOver = async () => await stateMachine.StepOverAsync(),
             StepOut = async () => await stateMachine.StepOutAsync(),
-            
+
             // 时间跳转
             JumpToTimestamp = async (ts) => await stateMachine.JumpToAsync(ts),
-            
+
             // 状态查询
             GetCurrentState = () => stateMachine.CurrentState,
             GetVariables = () => stateMachine.Variables,
             GetCallStack = () => stateMachine.CallStack
         };
     }
-    
+
     /// <summary>并行回放：多流程同步观察</summary>
     public async Task<ParallelReplay> ReplayParallelAsync(
         IEnumerable<string> correlationIds)
     {
         var replays = new List<FlowReplay>();
-        
+
         foreach (var id in correlationIds)
         {
             replays.Add(await ReplayFlowAsync(id));
         }
-        
+
         // 同步多个流程的时间线
         return new ParallelReplay(replays)
         {
@@ -2524,32 +2524,32 @@ public class StateReconstructor
     {
         // 1. 找到最近的快照（Snapshot）
         var snapshot = await FindNearestSnapshotAsync(timestamp);
-        
+
         // 2. 从快照开始重放事件
         var events = await _eventStore.GetEventsAsync(
-            snapshot.Timestamp, 
+            snapshot.Timestamp,
             timestamp);
-        
+
         // 3. 逐个应用事件，重建状态
         var state = snapshot.State.Clone();
         foreach (var evt in events)
         {
             state = ApplyEvent(state, evt);
         }
-        
+
         return state;
     }
-    
+
     /// <summary>追踪变量值的变化历史</summary>
     public async Task<VariableTimeline> TrackVariableAsync(
-        string variableName, 
-        DateTime startTime, 
+        string variableName,
+        DateTime startTime,
         DateTime endTime)
     {
         var timeline = new VariableTimeline(variableName);
-        
+
         var events = await _eventStore.GetEventsAsync(startTime, endTime);
-        
+
         foreach (var evt in events.Where(e => e.Type == EventType.StateSnapshot))
         {
             var snapshot = evt.Data as StateSnapshot;
@@ -2558,7 +2558,7 @@ public class StateReconstructor
                 timeline.AddPoint(evt.Timestamp, value);
             }
         }
-        
+
         return timeline;
     }
 }
@@ -2582,23 +2582,23 @@ public class StateReconstructor
         @change="onTimelineChange"
       />
     </div>
-    
+
     <!-- 播放控制 -->
     <div class="controls">
       <el-button-group>
         <el-button @click="stepBackward" :icon="ArrowLeft">
           后退
         </el-button>
-        
+
         <el-button @click="togglePlay" :icon="isPlaying ? VideoPause : VideoPlay">
           {{ isPlaying ? '暂停' : '播放' }}
         </el-button>
-        
+
         <el-button @click="stepForward" :icon="ArrowRight">
           前进
         </el-button>
       </el-button-group>
-      
+
       <!-- 播放速度 -->
       <el-select v-model="playSpeed" style="width: 120px">
         <el-option label="0.25x" :value="0.25" />
@@ -2608,13 +2608,13 @@ public class StateReconstructor
         <el-option label="5x" :value="5.0" />
         <el-option label="10x" :value="10.0" />
       </el-select>
-      
+
       <!-- 当前时间显示 -->
       <span class="current-time">
         {{ formatTimestamp(currentTimestamp) }}
       </span>
     </div>
-    
+
     <!-- 事件标记 -->
     <div class="event-markers">
       <el-tag
@@ -2673,7 +2673,7 @@ const jumpToEvent = (event) => replayStore.jumpToTimestamp(event.timestamp);
         />
       </el-card>
     </div>
-    
+
     <!-- 全局事件流 -->
     <div class="global-event-stream">
       <el-card title="全局事件流">
@@ -2690,7 +2690,7 @@ const jumpToEvent = (event) => replayStore.jumpToTimestamp(event.timestamp);
         </el-timeline>
       </el-card>
     </div>
-    
+
     <!-- 系统指标变化 -->
     <div class="metrics-timeline">
       <el-card title="系统指标变化">
@@ -2709,18 +2709,18 @@ import { useReplayStore } from '@/stores/replay';
 
 const replayStore = useReplayStore();
 
-const currentTopology = computed(() => 
+const currentTopology = computed(() =>
   replayStore.getTopologyAt(replayStore.currentTimestamp)
 );
 
-const visibleEvents = computed(() => 
+const visibleEvents = computed(() =>
   replayStore.getEventsInWindow(
     replayStore.currentTimestamp - 10000, // 前10秒
     replayStore.currentTimestamp
   )
 );
 
-const metricsTimeline = computed(() => 
+const metricsTimeline = computed(() =>
   replayStore.getMetricsTimeline()
 );
 </script>
@@ -2743,7 +2743,7 @@ const metricsTimeline = computed(() =>
         />
       </el-card>
     </div>
-    
+
     <!-- 变量监视 -->
     <div class="variables-watch">
       <el-card title="变量监视">
@@ -2759,7 +2759,7 @@ const metricsTimeline = computed(() =>
         </el-table>
       </el-card>
     </div>
-    
+
     <!-- 执行步骤详情 -->
     <div class="step-details">
       <el-card title="当前步骤">
@@ -2780,7 +2780,7 @@ const metricsTimeline = computed(() =>
         </el-descriptions>
       </el-card>
     </div>
-    
+
     <!-- 单步控制 -->
     <div class="step-controls">
       <el-button-group>
@@ -2822,7 +2822,7 @@ public class DeltaSnapshotStore
     {
         // 与上一个快照对比
         var previous = await GetPreviousSnapshotAsync(snapshot.CorrelationId);
-        
+
         if (previous != null)
         {
             // 只保存变化的字段（Delta）
@@ -2835,7 +2835,7 @@ public class DeltaSnapshotStore
             await _storage.SaveAsync(snapshot);
         }
     }
-    
+
     private DeltaSnapshot ComputeDelta(StateSnapshot previous, StateSnapshot current)
     {
         return new DeltaSnapshot
@@ -2843,7 +2843,7 @@ public class DeltaSnapshotStore
             Timestamp = current.Timestamp,
             CorrelationId = current.CorrelationId,
             ChangedVariables = current.Variables
-                .Where(kv => !previous.Variables.ContainsKey(kv.Key) || 
+                .Where(kv => !previous.Variables.ContainsKey(kv.Key) ||
                              !Equals(previous.Variables[kv.Key], kv.Value))
                 .ToDictionary(kv => kv.Key, kv => kv.Value)
         };
@@ -2858,30 +2858,30 @@ public class DeltaSnapshotStore
 export const useReplayStore = defineStore('replay', () => {
   const events = ref<ReplayEvent[]>([]);
   const loadedRanges = ref<TimeRange[]>([]);
-  
+
   // 只加载可见时间窗口的事件
   const loadEventsForWindow = async (startTime: number, endTime: number) => {
     // 检查是否已加载
     if (isRangeLoaded(startTime, endTime)) return;
-    
+
     // 分页加载
     const pageSize = 1000;
     let offset = 0;
-    
+
     while (true) {
       const page = await apiClient.get('/replay/events', {
         params: { startTime, endTime, offset, limit: pageSize }
       });
-      
+
       events.value.push(...page.data);
-      
+
       if (page.data.length < pageSize) break;
       offset += pageSize;
     }
-    
+
     loadedRanges.value.push({ startTime, endTime });
   };
-  
+
   return { events, loadEventsForWindow };
 });
 ```
@@ -2899,7 +2899,7 @@ export const useReplayStore = defineStore('replay', () => {
 
 ---
 
-**状态**: 📝 完整回放功能设计  
-**提交**: (待更新)  
+**状态**: 📝 完整回放功能设计
+**提交**: (待更新)
 **下一步**: Phase 1 实施（事件捕获 + 基础回放）
 

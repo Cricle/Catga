@@ -450,7 +450,7 @@ foreach (var shard in _shards)
 | 2. Task.Run 无控制 | 2小时 | 高 | P0 | ✅ 完成 |
 | 3. .Result 阻塞 | 3小时 | 中 | P1 | ✅ 完成 |
 
-**实际收益**: 
+**实际收益**:
 - ✅ GC 压力降低 ~15%
 - ✅ 吞吐量提升 ~5-10%
 - ✅ 消除线程池饥饿风险
@@ -591,8 +591,8 @@ Concurrent Event (10 hdl)  < 3 μs      0 B          50% faster (RWLock)
 
 ---
 
-**审查人**: AI Assistant  
-**完成日期**: 2025-10-15  
-**提交**: d0a6ed4 (Phase 1), 28038db (Phase 2)  
+**审查人**: AI Assistant
+**完成日期**: 2025-10-15
+**提交**: d0a6ed4 (Phase 1), 28038db (Phase 2)
 **版本**: v1.2.0
 

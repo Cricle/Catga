@@ -86,7 +86,7 @@ public class InMemoryMessageTransport : IMessageTransport
         var tasks = rented.Array;
         for (int i = 0; i < handlers.Count; i++)
             tasks[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, context);
-        
+
         // Zero-allocation: use exact-sized array or ArraySegment
         if (tasks.Length == handlers.Count)
         {

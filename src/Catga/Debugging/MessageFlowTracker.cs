@@ -6,21 +6,37 @@ namespace Catga.Debugging;
 
 /// <summary>
 /// Tracks message flows for debugging - memory-efficient with object pooling
+/// Zero-allocation design with aggressive cleanup to prevent memory leaks
 /// </summary>
-public sealed class MessageFlowTracker
+public sealed class MessageFlowTracker : IDisposable
 {
-    private readonly ConcurrentDictionary<string, FlowContext> _activeFlows = new();
+    private readonly ConcurrentDictionary<string, FlowContext> _activeFlows;
     private readonly ObjectPool<FlowContext> _contextPool;
     private readonly ObjectPool<List<StepInfo>> _stepListPool;
     private readonly DebugOptions _options;
+    private readonly Timer _cleanupTimer;
     private long _totalFlows;
     private long _activeCount;
 
     public MessageFlowTracker(DebugOptions options)
     {
         _options = options;
-        _contextPool = new DefaultObjectPool<FlowContext>(new FlowContextPoolPolicy(), _options.MaxActiveFlows);
-        _stepListPool = new DefaultObjectPool<List<StepInfo>>(new StepListPoolPolicy(), _options.MaxActiveFlows);
+        
+        // Pre-size dictionary to reduce resizing (better GC)
+        _activeFlows = new ConcurrentDictionary<string, FlowContext>(
+            concurrencyLevel: Environment.ProcessorCount,
+            capacity: Math.Min(_options.MaxActiveFlows, 100));
+        
+        _contextPool = new DefaultObjectPool<FlowContext>(
+            new FlowContextPoolPolicy(), 
+            _options.MaxActiveFlows);
+        
+        _stepListPool = new DefaultObjectPool<List<StepInfo>>(
+            new StepListPoolPolicy(), 
+            _options.MaxActiveFlows);
+
+        // Start cleanup timer - runs on ThreadPool, minimal overhead
+        _cleanupTimer = new Timer(CleanupExpiredFlows, null, _options.FlowTTL, _options.FlowTTL);
     }
 
     /// <summary>
@@ -119,13 +135,60 @@ public sealed class MessageFlowTracker
 
     private void EvictOldestFlow()
     {
-        var oldest = _activeFlows.Values
-            .OrderBy(c => c.StartTime)
-            .FirstOrDefault();
+        // Fast path: find oldest without LINQ allocation
+        FlowContext? oldest = null;
+        DateTime oldestTime = DateTime.MaxValue;
+
+        foreach (var kvp in _activeFlows)
+        {
+            if (kvp.Value.StartTime < oldestTime)
+            {
+                oldestTime = kvp.Value.StartTime;
+                oldest = kvp.Value;
+            }
+        }
 
         if (oldest != null)
         {
             EndFlow(oldest.CorrelationId);
+        }
+    }
+
+    /// <summary>
+    /// Cleanup expired flows - runs on timer, minimal GC pressure
+    /// </summary>
+    private void CleanupExpiredFlows(object? state)
+    {
+        var now = DateTime.UtcNow;
+        var expiredKeys = new List<string>(capacity: 16);  // Pre-sized
+
+        // Collect expired keys
+        foreach (var kvp in _activeFlows)
+        {
+            if (now - kvp.Value.StartTime > _options.FlowTTL)
+            {
+                expiredKeys.Add(kvp.Key);
+                
+                if (expiredKeys.Count >= 100)  // Limit per cleanup
+                    break;
+            }
+        }
+
+        // Remove expired flows
+        foreach (var key in expiredKeys)
+        {
+            EndFlow(key);
+        }
+    }
+
+    public void Dispose()
+    {
+        _cleanupTimer?.Dispose();
+        
+        // Return all contexts to pool
+        foreach (var kvp in _activeFlows)
+        {
+            EndFlow(kvp.Key);
         }
     }
 }

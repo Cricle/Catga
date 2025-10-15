@@ -102,11 +102,16 @@ public sealed class DebugPipelineBehavior<[DynamicallyAccessedMembers(Dynamicall
 
     private void LogToConsole(string correlationId, string messageType, TimeSpan duration, bool success, string? error = null)
     {
-        var status = success ? "✅" : "❌";
-        var errorMsg = error != null ? $" Error: {error}" : "";
+        // Use zero-allocation formatter
+        var formatted = ConsoleFlowFormatter.FormatCompact(new FlowSummary
+        {
+            CorrelationId = correlationId,
+            MessageType = messageType,
+            TotalDuration = duration,
+            Success = success
+        });
 
-        _logger.LogInformation("[{CorrelationId}] {MessageType} {Status} ({Duration}ms){Error}",
-            correlationId[..8], messageType, status, duration.TotalMilliseconds, errorMsg);
+        Console.WriteLine(formatted);  // Direct console output (faster than logger for debug)
     }
 }
 

@@ -7,6 +7,9 @@ using OrderSystem.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ===== Aspire Service Defaults =====
+builder.AddServiceDefaults();  // OpenTelemetry, Health Checks, Service Discovery
+
 // ===== Catga Configuration =====
 builder.Services.AddCatga()                      // Add Catga core services
     .UseMemoryPack()                             // Serializer (AOT-friendly)
@@ -32,6 +35,9 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// ===== Aspire Default Endpoints =====
+app.MapDefaultEndpoints();  // /health, /health/live, /health/ready
 
 // ===== Middleware Configuration =====
 if (app.Environment.IsDevelopment())

@@ -19,6 +19,8 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
         _maxSize = maxSize;
     }
 
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "InMemory store is for development/testing. Use Redis for production AOT.")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050", Justification = "InMemory store is for development/testing. Use Redis for production AOT.")]
     public Task SendAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, Exception exception, int retryCount, CancellationToken cancellationToken = default) where TMessage : IMessage
     {
         var deadLetter = new DeadLetterMessage

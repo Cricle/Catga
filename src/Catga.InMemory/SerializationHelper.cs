@@ -16,6 +16,8 @@ public static class SerializationHelper
     };
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "InMemory store helpers are for development/testing. Use provided serializer or Redis for production AOT.")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050", Justification = "InMemory store helpers are for development/testing. Use provided serializer or Redis for production AOT.")]
     public static string Serialize<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] T>(T obj, IMessageSerializer? serializer = null)
     {
         if (serializer != null)
@@ -33,6 +35,8 @@ public static class SerializationHelper
         => JsonSerializer.Serialize(obj, options ?? DefaultJsonOptions);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "InMemory store helpers are for development/testing. Use provided serializer or Redis for production AOT.")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050", Justification = "InMemory store helpers are for development/testing. Use provided serializer or Redis for production AOT.")]
     public static T? Deserialize<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] T>(string data, IMessageSerializer? serializer = null)
     {
         if (serializer != null)
@@ -63,6 +67,8 @@ public static class SerializationHelper
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "InMemory store helpers are for development/testing. Use provided serializer or Redis for production AOT.")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050", Justification = "InMemory store helpers are for development/testing. Use provided serializer or Redis for production AOT.")]
     public static bool TryDeserializeJson<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] T>(string data, out T? result, JsonSerializerOptions? options = null)
     {
         try

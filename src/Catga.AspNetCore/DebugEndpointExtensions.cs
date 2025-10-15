@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Debugging;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -13,6 +14,12 @@ public static class CatgaDebugEndpointExtensions
     /// <summary>
     /// Map Catga debug endpoints - /debug/flows, /debug/stats
     /// </summary>
+    /// <remarks>
+    /// Debug endpoints use reflection-based JSON serialization and are intended for development only.
+    /// Do not call this method in AOT-published applications.
+    /// </remarks>
+    [RequiresUnreferencedCode("Debug endpoints use reflection-based JSON serialization. Not compatible with trimming.")]
+    [RequiresDynamicCode("Debug endpoints require runtime code generation. Not compatible with Native AOT.")]
     public static IEndpointRouteBuilder MapCatgaDebugEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var debugGroup = endpoints.MapGroup("/debug").WithTags("Debug");

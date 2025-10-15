@@ -40,12 +40,16 @@ public class JsonMessageSerializer : IBufferedMessageSerializer
     public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(byte[] data)
         => Deserialize<T>(data.AsSpan());
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "JSON serializer is marked as non-AOT via DynamicallyAccessedMembers. Users should provide JsonSerializerContext for AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "JSON serializer is marked as non-AOT via DynamicallyAccessedMembers. Users should provide JsonSerializerContext for AOT.")]
     public void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value, IBufferWriter<byte> bufferWriter)
     {
         using var writer = new Utf8JsonWriter(bufferWriter);
         JsonSerializer.Serialize(writer, value, _options);
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "JSON serializer is marked as non-AOT via DynamicallyAccessedMembers. Users should provide JsonSerializerContext for AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "JSON serializer is marked as non-AOT via DynamicallyAccessedMembers. Users should provide JsonSerializerContext for AOT.")]
     public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(ReadOnlySpan<byte> data)
     {
         var reader = new Utf8JsonReader(data);

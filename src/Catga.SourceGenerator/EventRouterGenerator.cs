@@ -2,6 +2,8 @@
 // Source Generator that emits a zero-reflection event router
 // </auto-generated>
 
+#nullable enable
+
 using System;
 using System.Collections.Generic;
 using System.Linq;

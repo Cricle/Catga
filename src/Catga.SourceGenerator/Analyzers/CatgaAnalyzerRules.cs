@@ -61,7 +61,8 @@ internal static class CatgaAnalyzerRules
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "Requests can only have one handler. Use INotification for multiple handlers.");
+        description: "Requests can only have one handler. Use INotification for multiple handlers.",
+        customTags: "CompilationEnd");
 
     // Design rules (CAT3xxx)
     public static readonly DiagnosticDescriptor CommandShouldNotReturnData = new(

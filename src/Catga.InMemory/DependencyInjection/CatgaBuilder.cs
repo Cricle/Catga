@@ -97,6 +97,8 @@ public class CatgaBuilder
         return this;
     }
 
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Generated event router is for runtime reflection fallback. Use Source Generator [GenerateEventRouter] for AOT.")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Generated event router is for runtime reflection fallback. Use Source Generator [GenerateEventRouter] for AOT.")]
     public CatgaBuilder AddGeneratedEventRouterIfAvailable()
     {
         // The generated type is internal; register via its interface when present

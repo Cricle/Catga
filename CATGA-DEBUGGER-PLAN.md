@@ -1,7 +1,7 @@
 # Catga.Debugger - 全方位实时调试诊断系统
 
-**版本**: v1.0  
-**创建日期**: 2025-10-15  
+**版本**: v1.0
+**创建日期**: 2025-10-15
 **目标**: 打造业界最强大的 CQRS/Event Sourcing 调试诊断平台
 
 ---
@@ -41,54 +41,143 @@
 ```
 src/Catga.Debugger/
 ├── Core/
-│   ├── DebugSession.cs           # 调试会话管理
-│   ├── MessageFlowTracker.cs     # 消息流追踪（增强版）
-│   ├── PerformanceRecorder.cs    # 性能记录器
-│   ├── StateSnapshotManager.cs   # 状态快照管理
-│   └── DebugEventStore.cs        # 调试事件存储
+│   ├── DebugSession.cs                   # 调试会话管理
+│   ├── MessageFlowTracker.cs             # 消息流追踪（增强版）
+│   ├── PerformanceRecorder.cs            # 性能记录器
+│   ├── StateSnapshotManager.cs           # 状态快照管理
+│   ├── DebugEventStore.cs                # 调试事件存储
+│   ├── DebugEventAggregator.cs           # 事件聚合器
+│   └── FlowCorrelationManager.cs         # 流程关联管理
 │
 ├── Pipeline/
-│   ├── DebugPipelineBehavior.cs  # 调试管道行为（增强版）
-│   ├── PerformanceBehavior.cs    # 性能分析行为
-│   ├── TracingBehavior.cs        # 追踪行为
-│   └── DiagnosticBehavior.cs     # 诊断行为
+│   ├── DebugPipelineBehavior.cs          # 调试管道行为（增强版）
+│   ├── PerformanceBehavior.cs            # 性能分析行为
+│   ├── TracingBehavior.cs                # 追踪行为
+│   ├── DiagnosticBehavior.cs             # 诊断行为
+│   └── SnapshotBehavior.cs               # 快照捕获行为
 │
 ├── Analyzers/
-│   ├── PerformanceAnalyzer.cs    # 性能分析器
-│   ├── ConcurrencyAnalyzer.cs    # 并发分析器
-│   ├── MemoryAnalyzer.cs         # 内存分析器
-│   └── ErrorAnalyzer.cs          # 错误分析器
+│   ├── PerformanceAnalyzer.cs            # 性能分析器
+│   ├── ConcurrencyAnalyzer.cs            # 并发分析器
+│   ├── MemoryAnalyzer.cs                 # 内存分析器
+│   ├── ErrorAnalyzer.cs                  # 错误分析器
+│   ├── AnomalyDetector.cs                # 异常检测器
+│   └── PatternRecognizer.cs              # 模式识别器
 │
 ├── Visualizers/
-│   ├── FlowVisualizer.cs         # 流程可视化
-│   ├── StateVisualizer.cs        # 状态可视化
-│   ├── GraphBuilder.cs           # 图形构建器
-│   └── TimelineBuilder.cs        # 时间线构建器
+│   ├── FlowVisualizer.cs                 # 流程可视化
+│   ├── StateVisualizer.cs                # 状态可视化
+│   ├── GraphBuilder.cs                   # 图形构建器
+│   ├── TimelineBuilder.cs                # 时间线构建器
+│   ├── DependencyGraphBuilder.cs         # 依赖图构建器
+│   └── HeatmapBuilder.cs                 # 热力图构建器
 │
 ├── Storage/
-│   ├── IDebugStorage.cs          # 调试数据存储接口
-│   ├── InMemoryDebugStorage.cs   # 内存存储
-│   ├── RedisDebugStorage.cs      # Redis 存储
-│   └── FileDebugStorage.cs       # 文件存储
+│   ├── IDebugStorage.cs                  # 调试数据存储接口
+│   ├── InMemoryDebugStorage.cs           # 内存存储
+│   ├── RedisDebugStorage.cs              # Redis 存储
+│   ├── FileDebugStorage.cs               # 文件存储
+│   └── DebugStorageOptions.cs            # 存储配置
+│
+├── Export/
+│   ├── IExporter.cs                      # 导出接口
+│   ├── JsonExporter.cs                   # JSON 导出
+│   ├── CsvExporter.cs                    # CSV 导出
+│   ├── MermaidExporter.cs                # Mermaid 导出
+│   └── ReportGenerator.cs                # 报告生成器
 │
 ├── AspNetCore/
-│   ├── DebugDashboardMiddleware.cs   # Dashboard 中间件
-│   ├── DebugApiController.cs         # REST API
-│   ├── DebugWebSocketHandler.cs      # WebSocket 实时推送
-│   └── wwwroot/
-│       ├── index.html                # 主页面
-│       ├── dashboard.js              # Dashboard 逻辑
-│       ├── visualizer.js             # 可视化组件
-│       └── styles.css                # 样式
+│   ├── Middleware/
+│   │   ├── DebugDashboardMiddleware.cs   # Dashboard 中间件
+│   │   └── DebugCorsMiddleware.cs        # CORS 中间件
+│   ├── Controllers/
+│   │   ├── DebugApiController.cs         # REST API 控制器
+│   │   ├── FlowController.cs             # 流程 API
+│   │   ├── PerformanceController.cs      # 性能 API
+│   │   ├── SnapshotController.cs         # 快照 API
+│   │   └── ExportController.cs           # 导出 API
+│   ├── Hubs/
+│   │   ├── DebugHub.cs                   # SignalR Hub
+│   │   └── MetricsHub.cs                 # 指标推送 Hub
+│   ├── Spa/                              # Vue 3 前端应用
+│   │   ├── package.json
+│   │   ├── vite.config.ts
+│   │   ├── tsconfig.json
+│   │   ├── index.html
+│   │   └── src/
+│   │       ├── main.ts                   # 入口文件
+│   │       ├── App.vue                   # 根组件
+│   │       ├── router/
+│   │       │   └── index.ts              # 路由配置
+│   │       ├── stores/
+│   │       │   ├── debug.ts              # Debug 状态
+│   │       │   ├── flow.ts               # 流程状态
+│   │       │   └── performance.ts        # 性能状态
+│   │       ├── api/
+│   │       │   ├── client.ts             # API 客户端
+│   │       │   ├── flows.ts              # 流程 API
+│   │       │   ├── performance.ts        # 性能 API
+│   │       │   └── snapshots.ts          # 快照 API
+│   │       ├── composables/
+│   │       │   ├── useSignalR.ts         # SignalR 组合式函数
+│   │       │   ├── useRealtime.ts        # 实时数据
+│   │       │   └── useDebugger.ts        # 调试器功能
+│   │       ├── components/
+│   │       │   ├── Dashboard/
+│   │       │   │   ├── Overview.vue      # 概览面板
+│   │       │   │   ├── MetricsPanel.vue  # 指标面板
+│   │       │   │   └── AlertsPanel.vue   # 告警面板
+│   │       │   ├── Flows/
+│   │       │   │   ├── FlowList.vue      # 流程列表
+│   │       │   │   ├── FlowDetail.vue    # 流程详情
+│   │       │   │   ├── FlowDiagram.vue   # 流程图
+│   │       │   │   └── FlowTimeline.vue  # 时间线
+│   │       │   ├── Performance/
+│   │       │   │   ├── PerformanceChart.vue  # 性能图表
+│   │       │   │   ├── HotspotsTable.vue     # 热点表格
+│   │       │   │   └── LatencyDistribution.vue # 延迟分布
+│   │       │   ├── Snapshots/
+│   │       │   │   ├── SnapshotList.vue      # 快照列表
+│   │       │   │   ├── SnapshotViewer.vue    # 快照查看器
+│   │       │   │   └── SnapshotDiff.vue      # 快照对比
+│   │       │   ├── Visualizations/
+│   │       │   │   ├── MermaidDiagram.vue    # Mermaid 图表
+│   │       │   │   ├── D3Graph.vue           # D3 图形
+│   │       │   │   ├── Heatmap.vue           # 热力图
+│   │       │   │   └── FlameGraph.vue        # 火焰图
+│   │       │   └── Common/
+│   │       │       ├── StatusBadge.vue       # 状态徽章
+│   │       │       ├── DurationLabel.vue     # 时长标签
+│   │       │       └── CodeViewer.vue        # 代码查看器
+│   │       ├── views/
+│   │       │   ├── DashboardView.vue         # 仪表盘视图
+│   │       │   ├── FlowsView.vue             # 流程视图
+│   │       │   ├── PerformanceView.vue       # 性能视图
+│   │       │   ├── SnapshotsView.vue         # 快照视图
+│   │       │   └── SettingsView.vue          # 设置视图
+│   │       ├── types/
+│   │       │   ├── flow.ts                   # 流程类型
+│   │       │   ├── performance.ts            # 性能类型
+│   │       │   └── snapshot.ts               # 快照类型
+│   │       └── utils/
+│   │           ├── formatters.ts             # 格式化工具
+│   │           ├── colors.ts                 # 颜色工具
+│   │           └── charts.ts                 # 图表工具
+│   └── wwwroot/                              # 静态资源输出
 │
 └── DependencyInjection/
-    └── DebuggerServiceExtensions.cs  # DI 注册
+    └── DebuggerServiceExtensions.cs          # DI 注册
 
 tests/Catga.Debugger.Tests/
-└── ... (完整测试套件)
+├── Core/
+├── Analyzers/
+├── Visualizers/
+└── Integration/
 
 examples/DebuggerDemo/
-└── ... (完整示例)
+├── DebuggerDemo.csproj
+├── Program.cs
+└── Scenarios/                                # 各种调试场景
 ```
 
 ---
@@ -104,15 +193,15 @@ public sealed class DebugSession : IDisposable
     public string SessionId { get; }
     public DateTime StartTime { get; }
     public DebugSessionOptions Options { get; }
-    
+
     // 会话级别的追踪器
     public IMessageFlowTracker FlowTracker { get; }
     public IPerformanceRecorder PerformanceRecorder { get; }
     public IStateSnapshotManager SnapshotManager { get; }
-    
+
     // 实时数据流
     public IObservable<DebugEvent> EventStream { get; }
-    
+
     // 控制方法
     public Task PauseAsync();
     public Task ResumeAsync();
@@ -133,13 +222,13 @@ public sealed class MessageFlowTracker : IMessageFlowTracker
     public void RecordState(string correlationId, object state);
     public void RecordPerformance(string correlationId, PerformanceMetrics metrics);
     public FlowSummary EndFlow(string correlationId);
-    
+
     // 查询和分析
     public FlowContext? GetFlow(string correlationId);
     public IEnumerable<FlowContext> GetActiveFlows();
     public IEnumerable<FlowContext> QueryFlows(FlowQuery query);
     public FlowStatistics GetStatistics(TimeRange? range = null);
-    
+
     // 实时推送
     public IObservable<FlowEvent> FlowEvents { get; }
 }
@@ -151,19 +240,19 @@ public class FlowContext
     public DateTime StartTime { get; set; }
     public DateTime? EndTime { get; set; }
     public TimeSpan? Duration { get; set; }
-    
+
     // 步骤链
     public List<StepInfo> Steps { get; } = new();
-    
+
     // 状态快照
     public List<StateSnapshot> Snapshots { get; } = new();
-    
+
     // 性能数据
     public PerformanceMetrics Performance { get; set; }
-    
+
     // 错误信息
     public ExceptionInfo? Exception { get; set; }
-    
+
     // 元数据
     public Dictionary<string, object> Metadata { get; } = new();
 }
@@ -192,12 +281,12 @@ public sealed class PerformanceRecorder
     public void RecordExecution(string operation, TimeSpan duration, long allocatedBytes);
     public void RecordThroughput(string operation, int count, TimeSpan window);
     public void RecordConcurrency(string operation, int concurrentCount);
-    
+
     // 性能报告
     public PerformanceReport GetReport(TimeRange? range = null);
     public IEnumerable<PerformanceHotspot> GetHotspots(int topN = 10);
     public IEnumerable<PerformanceAnomaly> DetectAnomalies();
-    
+
     // 实时监控
     public IObservable<PerformanceMetrics> MetricsStream { get; }
 }
@@ -209,21 +298,21 @@ public class PerformanceMetrics
     public TimeSpan AverageDuration { get; set; }
     public TimeSpan P95Duration { get; set; }
     public TimeSpan P99Duration { get; set; }
-    
+
     // 吞吐量
     public double RequestsPerSecond { get; set; }
     public double EventsPerSecond { get; set; }
-    
+
     // 内存
     public long AllocatedBytes { get; set; }
     public int Gen0Collections { get; set; }
     public int Gen1Collections { get; set; }
     public int Gen2Collections { get; set; }
-    
+
     // 并发
     public int ConcurrentOperations { get; set; }
     public int PeakConcurrency { get; set; }
-    
+
     // 错误率
     public double ErrorRate { get; set; }
     public int TotalErrors { get; set; }
@@ -239,15 +328,15 @@ public sealed class StateSnapshotManager
     // 捕获快照
     public Task<Snapshot> CaptureAsync<TAggregate>(string aggregateId) where TAggregate : IAggregateRoot;
     public Task<Snapshot> CaptureAtVersionAsync<TAggregate>(string aggregateId, long version);
-    
+
     // 快照查询
     public Task<Snapshot?> GetSnapshotAsync(string snapshotId);
     public Task<IEnumerable<Snapshot>> GetSnapshotsAsync(string aggregateId);
     public Task<Snapshot?> GetSnapshotAtTimeAsync(string aggregateId, DateTime timestamp);
-    
+
     // 快照对比
     public SnapshotDiff CompareSnapshots(Snapshot before, Snapshot after);
-    
+
     // 时间旅行
     public Task<TAggregate> RehydrateAtVersionAsync<TAggregate>(string aggregateId, long version);
     public Task<TAggregate> RehydrateAtTimeAsync<TAggregate>(string aggregateId, DateTime timestamp);
@@ -274,14 +363,14 @@ public sealed class FlowVisualizer
     // 生成流程图
     public FlowGraph GenerateFlowGraph(FlowContext flow);
     public FlowGraph GenerateCatgaGraph(CatgaTransaction transaction);
-    
+
     // 生成时间线
     public Timeline GenerateTimeline(FlowContext flow);
     public Timeline GenerateEventTimeline(string aggregateId);
-    
+
     // 生成依赖图
     public DependencyGraph GenerateDependencyGraph(IEnumerable<FlowContext> flows);
-    
+
     // 导出格式
     public string ExportAsMermaid(FlowGraph graph);
     public string ExportAsGraphViz(FlowGraph graph);
@@ -412,18 +501,405 @@ public class FlowNode
 
 ### UI 技术栈
 
-```javascript
+```typescript
 // 前端技术
-- Vanilla JS / Alpine.js (轻量)
-- Chart.js (图表)
+- Vue 3 + TypeScript (响应式框架)
+- Vite (构建工具)
+- Pinia (状态管理)
+- Vue Router (路由)
+- ECharts / Chart.js (图表)
 - Mermaid.js (流程图)
-- SignalR (实时通信)
-- Tailwind CSS (样式)
+- D3.js (复杂可视化)
+- @microsoft/signalr (实时通信)
+- TailwindCSS (样式)
+- Element Plus (UI 组件库)
 
 // 后端 API
 - ASP.NET Core Minimal APIs
 - SignalR Hubs
 - WebSockets
+- Swagger/OpenAPI (API 文档)
+```
+
+---
+
+## 🎨 Vue 3 前端架构
+
+### 组件层次结构
+
+```
+App.vue
+├── Layout
+│   ├── Header.vue (顶部导航栏)
+│   ├── Sidebar.vue (侧边栏菜单)
+│   └── Footer.vue (底部状态栏)
+│
+└── Views (路由视图)
+    ├── DashboardView.vue
+    │   ├── Overview.vue (总览卡片)
+    │   ├── MetricsPanel.vue (实时指标)
+    │   ├── ActiveFlowsList.vue (活跃流程)
+    │   └── RecentAlerts.vue (最近告警)
+    │
+    ├── FlowsView.vue
+    │   ├── FlowList.vue (流程列表 + 过滤器)
+    │   ├── FlowDetail.vue
+    │   │   ├── FlowInfo.vue (基本信息)
+    │   │   ├── StepsList.vue (步骤列表)
+    │   │   ├── FlowDiagram.vue (可视化图)
+    │   │   ├── FlowTimeline.vue (时间线)
+    │   │   ├── StateSnapshots.vue (状态快照)
+    │   │   └── PerformanceMetrics.vue (性能指标)
+    │   └── FlowComparison.vue (流程对比)
+    │
+    ├── PerformanceView.vue
+    │   ├── PerformanceOverview.vue (性能总览)
+    │   ├── PerformanceChart.vue (性能曲线图)
+    │   ├── HotspotsTable.vue (热点分析表)
+    │   ├── LatencyDistribution.vue (延迟分布图)
+    │   ├── ThroughputChart.vue (吞吐量图)
+    │   └── MemoryProfile.vue (内存分析)
+    │
+    ├── SnapshotsView.vue
+    │   ├── SnapshotList.vue (快照列表)
+    │   ├── SnapshotViewer.vue (快照查看器)
+    │   ├── SnapshotDiff.vue (快照对比)
+    │   └── TimeTravel.vue (时间旅行)
+    │
+    └── SettingsView.vue
+        ├── GeneralSettings.vue (通用设置)
+        ├── FilterSettings.vue (过滤器设置)
+        ├── StorageSettings.vue (存储设置)
+        └── ExportSettings.vue (导出设置)
+```
+
+### 核心 Composables
+
+```typescript
+// composables/useSignalR.ts
+export function useSignalR() {
+  const connection = ref<HubConnection | null>(null);
+  const isConnected = ref(false);
+  
+  const connect = async (url: string) => {
+    connection.value = new HubConnectionBuilder()
+      .withUrl(url)
+      .withAutomaticReconnect()
+      .build();
+      
+    await connection.value.start();
+    isConnected.value = true;
+  };
+  
+  const on = <T>(event: string, handler: (data: T) => void) => {
+    connection.value?.on(event, handler);
+  };
+  
+  return { connection, isConnected, connect, on };
+}
+
+// composables/useRealtime.ts
+export function useRealtime() {
+  const { connection, connect, on } = useSignalR();
+  const flowStore = useFlowStore();
+  const metricsStore = useMetricsStore();
+  
+  const startRealtimeUpdates = async () => {
+    await connect('/hubs/debug');
+    
+    on<FlowEvent>('FlowStarted', (flow) => {
+      flowStore.addFlow(flow);
+    });
+    
+    on<FlowEvent>('FlowCompleted', (flow) => {
+      flowStore.updateFlow(flow);
+    });
+    
+    on<MetricsUpdate>('MetricsUpdated', (metrics) => {
+      metricsStore.updateMetrics(metrics);
+    });
+  };
+  
+  return { startRealtimeUpdates };
+}
+
+// composables/useDebugger.ts
+export function useDebugger() {
+  const api = useApi();
+  const flowStore = useFlowStore();
+  
+  const pauseFlow = async (correlationId: string) => {
+    await api.flows.pause(correlationId);
+  };
+  
+  const captureSnapshot = async (aggregateId: string) => {
+    return await api.snapshots.capture(aggregateId);
+  };
+  
+  const compareFlows = async (flowId1: string, flowId2: string) => {
+    return await api.flows.compare(flowId1, flowId2);
+  };
+  
+  return { pauseFlow, captureSnapshot, compareFlows };
+}
+```
+
+### Pinia Stores
+
+```typescript
+// stores/flow.ts
+export const useFlowStore = defineStore('flow', () => {
+  const flows = ref<Map<string, FlowContext>>(new Map());
+  const activeFlows = computed(() => 
+    Array.from(flows.value.values()).filter(f => !f.endTime)
+  );
+  
+  const addFlow = (flow: FlowContext) => {
+    flows.value.set(flow.correlationId, flow);
+  };
+  
+  const updateFlow = (flow: FlowContext) => {
+    flows.value.set(flow.correlationId, flow);
+  };
+  
+  const getFlow = (correlationId: string) => {
+    return flows.value.get(correlationId);
+  };
+  
+  return { flows, activeFlows, addFlow, updateFlow, getFlow };
+});
+
+// stores/performance.ts
+export const usePerformanceStore = defineStore('performance', () => {
+  const metrics = ref<PerformanceMetrics>({
+    throughput: 0,
+    averageLatency: 0,
+    p95Latency: 0,
+    errorRate: 0
+  });
+  
+  const hotspots = ref<PerformanceHotspot[]>([]);
+  const history = ref<MetricsHistory[]>([]);
+  
+  const updateMetrics = (newMetrics: PerformanceMetrics) => {
+    metrics.value = newMetrics;
+    history.value.push({
+      timestamp: Date.now(),
+      ...newMetrics
+    });
+  };
+  
+  return { metrics, hotspots, history, updateMetrics };
+});
+```
+
+### TypeScript 类型定义
+
+```typescript
+// types/flow.ts
+export interface FlowContext {
+  correlationId: string;
+  type: FlowType;
+  startTime: Date;
+  endTime?: Date;
+  duration?: number;
+  steps: StepInfo[];
+  snapshots: StateSnapshot[];
+  performance: PerformanceMetrics;
+  exception?: ExceptionInfo;
+  metadata: Record<string, any>;
+}
+
+export interface StepInfo {
+  sequence: number;
+  name: string;
+  type: string;
+  timestamp: Date;
+  duration: number;
+  status: StepStatus;
+  input?: any;
+  output?: any;
+  metadata: Record<string, any>;
+}
+
+export enum FlowType {
+  Command = 'Command',
+  Query = 'Query',
+  Event = 'Event',
+  Catga = 'Catga'
+}
+
+export enum StepStatus {
+  Pending = 'Pending',
+  Running = 'Running',
+  Completed = 'Completed',
+  Failed = 'Failed'
+}
+
+// types/performance.ts
+export interface PerformanceMetrics {
+  duration?: number;
+  averageDuration?: number;
+  p95Duration?: number;
+  p99Duration?: number;
+  requestsPerSecond?: number;
+  eventsPerSecond?: number;
+  allocatedBytes?: number;
+  gen0Collections?: number;
+  concurrentOperations?: number;
+  errorRate?: number;
+}
+
+export interface PerformanceHotspot {
+  operation: string;
+  calls: number;
+  averageTime: number;
+  totalTime: number;
+  allocatedBytes: number;
+}
+```
+
+### API 客户端
+
+```typescript
+// api/client.ts
+import axios from 'axios';
+
+export const apiClient = axios.create({
+  baseURL: '/debug-api',
+  timeout: 30000
+});
+
+// api/flows.ts
+export const flowsApi = {
+  getAll: () => apiClient.get<FlowContext[]>('/flows'),
+  getById: (id: string) => apiClient.get<FlowContext>(`/flows/${id}`),
+  getActive: () => apiClient.get<FlowContext[]>('/flows/active'),
+  query: (query: FlowQuery) => apiClient.post<FlowContext[]>('/flows/query', query),
+  pause: (id: string) => apiClient.post(`/flows/${id}/pause`),
+  resume: (id: string) => apiClient.post(`/flows/${id}/resume`),
+  compare: (id1: string, id2: string) => 
+    apiClient.get(`/flows/compare?id1=${id1}&id2=${id2}`)
+};
+
+// api/performance.ts
+export const performanceApi = {
+  getReport: () => apiClient.get('/performance/report'),
+  getHotspots: (topN = 10) => apiClient.get(`/performance/hotspots?top=${topN}`),
+  getAnomalies: () => apiClient.get('/performance/anomalies')
+};
+
+// api/snapshots.ts
+export const snapshotsApi = {
+  getAll: (aggregateId: string) => 
+    apiClient.get(`/snapshots/${aggregateId}`),
+  getById: (id: string) => 
+    apiClient.get(`/snapshots/${id}`),
+  capture: (aggregateId: string) => 
+    apiClient.post(`/snapshots/${aggregateId}/capture`),
+  compare: (id1: string, id2: string) => 
+    apiClient.post('/snapshots/compare', { id1, id2 })
+};
+```
+
+### 路由配置
+
+```typescript
+// router/index.ts
+import { createRouter, createWebHistory } from 'vue-router';
+
+const routes = [
+  {
+    path: '/',
+    redirect: '/dashboard'
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: () => import('@/views/DashboardView.vue'),
+    meta: { title: '仪表盘' }
+  },
+  {
+    path: '/flows',
+    name: 'Flows',
+    component: () => import('@/views/FlowsView.vue'),
+    meta: { title: '流程追踪' },
+    children: [
+      {
+        path: ':id',
+        name: 'FlowDetail',
+        component: () => import('@/components/Flows/FlowDetail.vue')
+      }
+    ]
+  },
+  {
+    path: '/performance',
+    name: 'Performance',
+    component: () => import('@/views/PerformanceView.vue'),
+    meta: { title: '性能分析' }
+  },
+  {
+    path: '/snapshots',
+    name: 'Snapshots',
+    component: () => import('@/views/SnapshotsView.vue'),
+    meta: { title: '状态快照' }
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('@/views/SettingsView.vue'),
+    meta: { title: '设置' }
+  }
+];
+
+export const router = createRouter({
+  history: createWebHistory('/debug'),
+  routes
+});
+```
+
+### 构建配置
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
+import path from 'path';
+
+export default defineConfig({
+  plugins: [vue()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src')
+    }
+  },
+  build: {
+    outDir: '../wwwroot',
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor': ['vue', 'vue-router', 'pinia'],
+          'charts': ['echarts', 'd3'],
+          'signalr': ['@microsoft/signalr']
+        }
+      }
+    }
+  },
+  server: {
+    proxy: {
+      '/debug-api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true
+      },
+      '/hubs': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        ws: true
+      }
+    }
+  }
+});
 ```
 
 ---
@@ -442,20 +918,20 @@ builder.Services.AddCatgaDebugger(options =>
     // 基础配置
     options.Enabled = builder.Environment.IsDevelopment();
     options.SessionTimeout = TimeSpan.FromHours(1);
-    
+
     // 追踪配置
     options.TrackMessageFlows = true;
     options.TrackPerformance = true;
     options.TrackStateSnapshots = true;
     options.TrackExceptions = true;
-    
+
     // 性能配置
     options.MaxActiveFlows = 1000;
     options.FlowRetentionTime = TimeSpan.FromMinutes(30);
-    
+
     // 存储配置
     options.UseInMemoryStorage(); // 或 UseRedisStorage() / UseFileStorage()
-    
+
     // 采样配置
     options.SamplingRate = 1.0; // 100% in dev, 0.1 (10%) in prod
 });
@@ -478,13 +954,13 @@ builder.Services.AddCatgaDebugger(options =>
 {
     // 自定义过滤器
     options.AddFlowFilter(flow => flow.Duration > TimeSpan.FromMilliseconds(100));
-    
+
     // 自定义分析器
     options.AddAnalyzer<CustomPerformanceAnalyzer>();
-    
+
     // 自定义可视化器
     options.AddVisualizer<CustomFlowVisualizer>();
-    
+
     // 事件订阅
     options.OnFlowStarted += (sender, e) => Console.WriteLine($"Flow started: {e.CorrelationId}");
     options.OnFlowCompleted += (sender, e) => Console.WriteLine($"Flow completed: {e.CorrelationId}");
@@ -499,26 +975,26 @@ public class OrderService
 {
     private readonly IDebugSession _debugSession;
     private readonly IMessageFlowTracker _flowTracker;
-    
+
     public async Task<Order> CreateOrderAsync(CreateOrderCommand command)
     {
         // 开始追踪
         var flow = _flowTracker.BeginFlow(command.CorrelationId, FlowType.Command);
-        
+
         try
         {
             // 记录步骤
             flow.RecordStep("Validation", () => ValidateOrder(command));
-            
+
             // 捕获快照
             var snapshot = await _debugSession.SnapshotManager.CaptureAsync<Order>(command.OrderId);
-            
+
             // 执行业务逻辑
             var order = await CreateOrder(command);
-            
+
             // 记录性能
             flow.RecordPerformance(new PerformanceMetrics { ... });
-            
+
             return order;
         }
         finally
@@ -578,7 +1054,7 @@ graph LR
     B -->|45ms| C[Handler]
     C -->|12ms| D[Event]
     D -->|5ms| E[Response]
-    
+
     style B fill:#90EE90
     style C fill:#90EE90
     style D fill:#90EE90
@@ -678,10 +1154,10 @@ public class DebugHub : Hub
 {
     // 订阅实时流程事件
     public async Task SubscribeToFlows();
-    
+
     // 订阅性能指标
     public async Task SubscribeToMetrics();
-    
+
     // 控制会话
     public async Task PauseSession(string sessionId);
     public async Task ResumeSession(string sessionId);
@@ -726,13 +1202,19 @@ connection.on("MetricsUpdated", (metrics) => { ... });
 
 ---
 
-## 🎉 创新特性
+## 🎉 高级特性
 
-### 1. AI 辅助诊断
+### 1. 智能分析引擎
 ```csharp
-// 未来: AI 分析性能瓶颈
-var suggestions = await aiAnalyzer.AnalyzeAsync(flow);
-// => "检测到 N+1 查询问题", "建议使用批量操作"
+// 模式识别和异常检测
+var patterns = await patternRecognizer.AnalyzeAsync(flows);
+var anomalies = await anomalyDetector.DetectAsync(metrics);
+
+// 基于规则的建议（非 AI）
+// - 检测 N+1 查询模式
+// - 识别重复计算
+// - 发现并发瓶颈
+// - 检测内存泄漏模式
 ```
 
 ### 2. 对比调试
@@ -748,8 +1230,34 @@ var diff = debugger.Compare(flowId1, flowId2);
 await debugger.ReplayAsync(flowId, concurrency: 100);
 ```
 
+### 4. 实时协作调试
+```csharp
+// 多人协作调试会话
+var session = await debugger.CreateSharedSessionAsync();
+await session.InviteUserAsync("user@example.com");
+// 实时同步视图、断点、标注
+```
+
+### 5. 时间旅行回放
+```csharp
+// 精确重现历史状态
+var replay = await debugger.ReplayFromSnapshotAsync(snapshotId);
+await replay.StepForward();  // 单步前进
+await replay.StepBackward(); // 单步后退
+```
+
+### 6. 自动化诊断规则
+```csharp
+// 自定义诊断规则
+builder.Services.AddDebuggerRule<SlowQueryRule>(rule =>
+{
+    rule.Threshold = TimeSpan.FromMilliseconds(100);
+    rule.OnDetected = alert => SendNotification(alert);
+});
+```
+
 ---
 
-**状态**: 📝 计划阶段  
+**状态**: 📝 计划阶段
 **下一步**: 开始 Phase 1 实施
 

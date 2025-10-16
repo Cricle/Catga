@@ -1,7 +1,7 @@
 # Catga 性能测试报告
 
-**测试日期**: 2024-10-16  
-**测试环境**: AMD Ryzen 7 5800H, 16 核心, .NET 9.0.8  
+**测试日期**: 2024-10-16
+**测试环境**: AMD Ryzen 7 5800H, 16 核心, .NET 9.0.8
 **测试工具**: BenchmarkDotNet v0.14.0
 
 ---
@@ -99,7 +99,7 @@ MediatR 是 .NET 生态中最流行的 CQRS 库，以下是详细对比：
    ```csharp
    // MediatR: 运行时反射查找 Handler
    var handler = _serviceProvider.GetService(typeof(IRequestHandler<,>));
-   
+
    // Catga: 编译时 Source Generator 直接调用
    // Generated code:
    return await handler.HandleAsync(request, cancellationToken);

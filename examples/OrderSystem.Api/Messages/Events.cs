@@ -6,6 +6,8 @@ namespace OrderSystem.Api.Messages;
 
 /// <summary>
 /// Order created event
+/// Published when an order is successfully created
+/// Demonstrates: Event-driven architecture, pub/sub pattern
 /// </summary>
 [MemoryPackable]
 public partial record OrderCreatedEvent(
@@ -17,38 +19,8 @@ public partial record OrderCreatedEvent(
 ) : IEvent;
 
 /// <summary>
-/// Order confirmed event
-/// </summary>
-[MemoryPackable]
-public partial record OrderConfirmedEvent(
-    string OrderId,
-    DateTime ConfirmedAt
-) : IEvent;
-
-/// <summary>
-/// Order paid event
-/// </summary>
-[MemoryPackable]
-public partial record OrderPaidEvent(
-    string OrderId,
-    string PaymentMethod,
-    decimal Amount,
-    DateTime PaidAt
-) : IEvent;
-
-/// <summary>
-/// Order shipped event
-/// </summary>
-[MemoryPackable]
-public partial record OrderShippedEvent(
-    string OrderId,
-    string TrackingNumber,
-    string Carrier,
-    DateTime ShippedAt
-) : IEvent;
-
-/// <summary>
 /// Order cancelled event
+/// Published when an order is cancelled
 /// </summary>
 [MemoryPackable]
 public partial record OrderCancelledEvent(
@@ -58,27 +30,9 @@ public partial record OrderCancelledEvent(
 ) : IEvent;
 
 /// <summary>
-/// Inventory reserved event
-/// </summary>
-[MemoryPackable]
-public partial record InventoryReservedEvent(
-    string OrderId,
-    List<OrderItem> Items,
-    DateTime ReservedAt
-) : IEvent;
-
-/// <summary>
-/// Inventory released event
-/// </summary>
-[MemoryPackable]
-public partial record InventoryReleasedEvent(
-    string OrderId,
-    List<OrderItem> Items,
-    DateTime ReleasedAt
-) : IEvent;
-
-/// <summary>
 /// Order failed event (for rollback scenarios)
+/// Published when order creation fails after some steps completed
+/// Demonstrates: Compensation pattern, failure handling
 /// </summary>
 [MemoryPackable]
 public partial record OrderFailedEvent(
@@ -88,3 +42,50 @@ public partial record OrderFailedEvent(
     DateTime FailedAt
 ) : IEvent;
 
+// ===== 扩展指南 =====
+// 💡 如何添加新事件？
+//
+// 1. 定义事件 Record：
+//    [MemoryPackable]
+//    public partial record MyEvent(string Data) : IEvent;
+//
+// 2. 在 Handler 中发布事件：
+//    await _mediator.PublishAsync(new MyEvent("data"), cancellationToken);
+//
+// 3. 创建事件处理器（可选，自动注册）：
+//    public class MyEventHandler : IEventHandler<MyEvent>
+//    {
+//        public async Task HandleAsync(MyEvent notification, CancellationToken ct)
+//        {
+//            // 处理事件（例如：发送通知、更新统计）
+//        }
+//    }
+//
+// 一个事件可以有多个处理器，它们会并发执行！
+//
+// 示例：添加订单确认事件
+// [MemoryPackable]
+// public partial record OrderConfirmedEvent(
+//     string OrderId,
+//     DateTime ConfirmedAt
+// ) : IEvent;
+//
+// // Handler 1: 发送确认邮件
+// public class SendConfirmationEmailHandler : IEventHandler<OrderConfirmedEvent>
+// {
+//     public Task HandleAsync(OrderConfirmedEvent e, CancellationToken ct)
+//     {
+//         // 发送邮件逻辑
+//         return Task.CompletedTask;
+//     }
+// }
+//
+// // Handler 2: 更新统计
+// public class UpdateStatsHandler : IEventHandler<OrderConfirmedEvent>
+// {
+//     public Task HandleAsync(OrderConfirmedEvent e, CancellationToken ct)
+//     {
+//         // 更新统计逻辑
+//         return Task.CompletedTask;
+//     }
+// }

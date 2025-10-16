@@ -3,90 +3,66 @@ using OrderSystem.Api.Messages;
 
 namespace OrderSystem.Api.Handlers;
 
-/// <summary>
-/// Order created notification handler - sends notifications
-/// </summary>
-public class OrderCreatedNotificationHandler : IEventHandler<OrderCreatedEvent>
+public partial class OrderCreatedNotificationHandler : IEventHandler<OrderCreatedEvent>
 {
     private readonly ILogger<OrderCreatedNotificationHandler> _logger;
 
-    public OrderCreatedNotificationHandler(ILogger<OrderCreatedNotificationHandler> logger)
-    {
-        _logger = logger;
-    }
+    public OrderCreatedNotificationHandler(ILogger<OrderCreatedNotificationHandler> logger) => _logger = logger;
 
     public Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
     {
-        // Send notifications (email, SMS, etc.)
-        _logger.LogInformation("Notification sent: order {OrderId}, customer {CustomerId}",
-            @event.OrderId, @event.CustomerId);
-
+        LogNotificationSent(@event.OrderId, @event.CustomerId, @event.TotalAmount);
         return Task.CompletedTask;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "📧 Notification sent: order {OrderId}, customer {CustomerId}, amount {Amount}")]
+    partial void LogNotificationSent(string orderId, string customerId, decimal amount);
 }
 
-/// <summary>
-/// Order paid shipping handler - triggers shipping workflow
-/// </summary>
-public class OrderPaidShippingHandler : IEventHandler<OrderPaidEvent>
+public partial class OrderCreatedAnalyticsHandler : IEventHandler<OrderCreatedEvent>
 {
-    private readonly ILogger<OrderPaidShippingHandler> _logger;
+    private readonly ILogger<OrderCreatedAnalyticsHandler> _logger;
 
-    public OrderPaidShippingHandler(ILogger<OrderPaidShippingHandler> logger)
+    public OrderCreatedAnalyticsHandler(ILogger<OrderCreatedAnalyticsHandler> logger) => _logger = logger;
+
+    public Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
     {
-        _logger = logger;
-    }
-
-    public Task HandleAsync(OrderPaidEvent @event, CancellationToken cancellationToken = default)
-    {
-        // Trigger shipping workflow
-        _logger.LogInformation("Shipping triggered: order {OrderId}, amount {Amount}",
-            @event.OrderId, @event.Amount);
-
+        LogAnalyticsUpdated(@event.OrderId, @event.Items.Count, @event.TotalAmount);
         return Task.CompletedTask;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "📊 Analytics updated: order {OrderId}, items {Count}, total {Amount}")]
+    partial void LogAnalyticsUpdated(string orderId, int count, decimal amount);
 }
 
-/// <summary>
-/// Order cancelled refund handler - processes refunds
-/// </summary>
-public class OrderCancelledRefundHandler : IEventHandler<OrderCancelledEvent>
+public partial class OrderCancelledHandler : IEventHandler<OrderCancelledEvent>
 {
-    private readonly ILogger<OrderCancelledRefundHandler> _logger;
+    private readonly ILogger<OrderCancelledHandler> _logger;
 
-    public OrderCancelledRefundHandler(ILogger<OrderCancelledRefundHandler> logger)
-    {
-        _logger = logger;
-    }
+    public OrderCancelledHandler(ILogger<OrderCancelledHandler> logger) => _logger = logger;
 
     public Task HandleAsync(OrderCancelledEvent @event, CancellationToken cancellationToken = default)
     {
-        // Process refund
-        _logger.LogInformation("Refund processed: order {OrderId}, reason: {Reason}",
-            @event.OrderId, @event.Reason);
-
+        LogOrderCancelled(@event.OrderId, @event.Reason);
         return Task.CompletedTask;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "❌ Order cancelled: {OrderId}, reason: {Reason}")]
+    partial void LogOrderCancelled(string orderId, string reason);
 }
 
-/// <summary>
-/// Inventory reserved log handler - logs inventory operations
-/// </summary>
-public class InventoryReservedLogHandler : IEventHandler<InventoryReservedEvent>
+public partial class OrderFailedHandler : IEventHandler<OrderFailedEvent>
 {
-    private readonly ILogger<InventoryReservedLogHandler> _logger;
+    private readonly ILogger<OrderFailedHandler> _logger;
 
-    public InventoryReservedLogHandler(ILogger<InventoryReservedLogHandler> logger)
+    public OrderFailedHandler(ILogger<OrderFailedHandler> logger) => _logger = logger;
+
+    public Task HandleAsync(OrderFailedEvent @event, CancellationToken cancellationToken = default)
     {
-        _logger = logger;
-    }
-
-    public Task HandleAsync(InventoryReservedEvent @event, CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("Inventory reserved: order {OrderId}, items {Count}",
-            @event.OrderId, @event.Items.Count);
-
+        LogOrderFailed(@event.OrderId, @event.CustomerId, @event.Reason);
         return Task.CompletedTask;
     }
-}
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "⚠️ Order failed: {OrderId}, customer {CustomerId}, reason: {Reason}")]
+    partial void LogOrderFailed(string orderId, string customerId, string reason);
+}

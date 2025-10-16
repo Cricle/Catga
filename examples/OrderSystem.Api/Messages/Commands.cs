@@ -8,6 +8,7 @@ namespace OrderSystem.Api.Messages;
 
 /// <summary>
 /// Create order command (with auto-generated debug capture via Source Generator)
+/// Demonstrates: CQRS pattern, automatic error handling, rollback mechanism
 /// </summary>
 [MemoryPackable]
 [GenerateDebugCapture] // Source Generator automatically implements IDebugCapture
@@ -26,35 +27,8 @@ public partial record OrderCreatedResult(
 );
 
 /// <summary>
-/// Confirm order command
-/// </summary>
-[MemoryPackable]
-public partial record ConfirmOrderCommand(
-    string OrderId
-) : IRequest;
-
-/// <summary>
-/// Pay order command
-/// </summary>
-[MemoryPackable]
-public partial record PayOrderCommand(
-    string OrderId,
-    string PaymentMethod,
-    decimal Amount
-) : IRequest;
-
-/// <summary>
-/// Ship order command
-/// </summary>
-[MemoryPackable]
-public partial record ShipOrderCommand(
-    string OrderId,
-    string TrackingNumber,
-    string Carrier
-) : IRequest;
-
-/// <summary>
 /// Cancel order command
+/// Demonstrates: Simple command handling, state transitions
 /// </summary>
 [MemoryPackable]
 public partial record CancelOrderCommand(
@@ -64,19 +38,51 @@ public partial record CancelOrderCommand(
 
 /// <summary>
 /// Get order query
+/// Demonstrates: Query pattern, read model
 /// </summary>
 [MemoryPackable]
 public partial record GetOrderQuery(
     string OrderId
 ) : IRequest<Order?>;
 
-/// <summary>
-/// Get customer orders query
-/// </summary>
-[MemoryPackable]
-public partial record GetCustomerOrdersQuery(
-    string CustomerId,
-    int PageIndex = 0,
-    int PageSize = 20
-) : IRequest<List<Order>>;
-
+// ===== 扩展指南 =====
+// 💡 如何添加新命令？
+//
+// 1. 定义命令 Record：
+//    [MemoryPackable]
+//    public partial record MyCommand(string Param) : IRequest<MyResult>;
+//
+// 2. 创建 Handler（自动注册）：
+//    public class MyCommandHandler : IRequestHandler<MyCommand, MyResult>
+//    {
+//        public async Task<CatgaResult<MyResult>> HandleAsync(MyCommand request, CancellationToken ct)
+//        {
+//            // 业务逻辑
+//            return CatgaResult<MyResult>.Success(new MyResult());
+//        }
+//    }
+//
+// 3. 添加 API 端点（Program.cs）：
+//    app.MapCatgaRequest<MyCommand, MyResult>("/api/my-endpoint");
+//
+// 就这么简单！Source Generator 会自动发现并注册。
+//
+// 示例：添加 ConfirmOrder 命令
+// [MemoryPackable]
+// public partial record ConfirmOrderCommand(string OrderId) : IRequest;
+//
+// public class ConfirmOrderHandler : IRequestHandler<ConfirmOrderCommand>
+// {
+//     private readonly IOrderRepository _repo;
+//     public ConfirmOrderHandler(IOrderRepository repo) => _repo = repo;
+//
+//     public async Task<CatgaResult> HandleAsync(ConfirmOrderCommand request, CancellationToken ct)
+//     {
+//         var order = await _repo.GetByIdAsync(request.OrderId, ct);
+//         if (order == null) return CatgaResult.Failure("Order not found");
+//
+//         order.Confirm();
+//         await _repo.SaveAsync(order, ct);
+//         return CatgaResult.Success();
+//     }
+// }

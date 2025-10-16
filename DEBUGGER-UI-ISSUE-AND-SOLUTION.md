@@ -29,7 +29,7 @@
 
 **当前架构**:
 ```
-Request/Event 
+Request/Event
   ↓
 CatgaMediator.SendAsync() / PublishAsync()
   ↓
@@ -40,7 +40,7 @@ Handler.HandleAsync()  ← 直接调用，跳过所有 Pipeline
 
 **期望架构**:
 ```
-Request/Event 
+Request/Event
   ↓
 CatgaMediator
   ↓
@@ -96,7 +96,7 @@ public class CatgaMediator : ICatgaMediator
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly IEnumerable<IPipelineBehavior<,>> _behaviors; // 新增
-    
+
     public CatgaMediator(
         IServiceProvider serviceProvider,
         IEnumerable<IPipelineBehavior<,>> behaviors) // 新增
@@ -113,10 +113,10 @@ public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(..
 {
     using var scope = _serviceProvider.CreateScope();
     var handler = scope.ServiceProvider.GetService<IRequestHandler<TRequest, TResponse>>();
-    
+
     // 构建 Pipeline
     PipelineDelegate<TResponse> pipeline = () => handler.HandleAsync(request, cancellationToken);
-    
+
     // 获取所有 Behaviors 并倒序执行
     var behaviors = scope.ServiceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
     foreach (var behavior in behaviors.Reverse())
@@ -124,7 +124,7 @@ public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(..
         var currentPipeline = pipeline;
         pipeline = () => behavior.HandleAsync(request, currentPipeline, cancellationToken);
     }
-    
+
     // 执行 Pipeline
     return await pipeline();
 }
@@ -157,16 +157,16 @@ public class DebuggingMediatorDecorator : ICatgaMediator
 {
     private readonly ICatgaMediator _inner;
     private readonly IEventStore _eventStore;
-    
+
     public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(...)
     {
         var sw = Stopwatch.StartNew();
         var result = await _inner.SendAsync(request, cancellationToken);
         sw.Stop();
-        
+
         // 捕获事件
         await CaptureEvent(request, result, sw.Elapsed);
-        
+
         return result;
     }
 }
@@ -190,12 +190,12 @@ builder.Services.Decorate<ICatgaMediator, DebuggingMediatorDecorator>();
 public class InMemoryTransport : IMessageTransport
 {
     private readonly IEventStore? _eventStore;
-    
+
     public async Task PublishAsync<T>(T message, ...)
     {
         // 捕获事件
         await _eventStore?.SaveAsync(CreateReplayableEvent(message));
-        
+
         // 原有逻辑
         await _channel.Writer.WriteAsync(message, cancellationToken);
     }
@@ -244,18 +244,18 @@ public class InMemoryTransport : IMessageTransport
 public class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderCreatedResult>
 {
     private readonly IEventStore? _eventStore;
-    
+
     protected override async Task<OrderCreatedResult> HandleCoreAsync(...)
     {
         // 原有逻辑
         var result = ...;
-        
+
         // 手动捕获 (临时)
         if (_eventStore != null)
         {
             await _eventStore.SaveAsync(new[] { CreateEvent(request, result) });
         }
-        
+
         return result;
     }
 }

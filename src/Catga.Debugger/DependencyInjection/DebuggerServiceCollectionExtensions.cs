@@ -3,6 +3,7 @@ using Catga.Debugger.Models;
 using Catga.Debugger.Pipeline;
 using Catga.Debugger.Replay;
 using Catga.Debugger.Storage;
+using Catga.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -28,7 +29,7 @@ public static class DebuggerServiceCollectionExtensions
         services.AddSingleton<StateReconstructor>();
 
         // Register pipeline behavior for event capture
-        services.AddSingleton(typeof(ReplayableEventCapturer<,>));
+        services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ReplayableEventCapturer<,>));
 
         return services;
     }

@@ -1,8 +1,8 @@
 # Catga 测试覆盖率分析和改进计划
 
-**分析日期**: 2024-10-16  
-**测试数量**: 191  
-**测试通过率**: 100% (191/191)  
+**分析日期**: 2024-10-16
+**测试数量**: 191
+**测试通过率**: 100% (191/191)
 **代码覆盖率**: 16.93%
 
 ---
@@ -283,10 +283,10 @@ public async Task Method_Scenario_ExpectedBehavior()
     var services = new ServiceCollection();
     services.AddCatga().UseMemoryPack();
     var mediator = services.BuildServiceProvider().GetRequiredService<ICatgaMediator>();
-    
+
     // Act - 执行操作
     var result = await mediator.SendAsync(command);
-    
+
     // Assert - 验证结果
     result.IsSuccess.Should().BeTrue();
     result.Value.Should().NotBeNull();

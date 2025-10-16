@@ -10,7 +10,7 @@
     <IsTrimmable>true</IsTrimmable>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
-    
+
     <!-- Suppress IL2026 warnings from System.Text.Json.SourceGeneration accessing Exception.TargetSite -->
     <!-- This is a known issue with JSON Source Generator for Exception types -->
     <!-- InMemory is for development/testing; use MemoryPack for production AOT -->

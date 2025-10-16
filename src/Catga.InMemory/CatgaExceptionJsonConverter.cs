@@ -21,21 +21,21 @@ public class CatgaExceptionJsonConverter : JsonConverter<Exception>
     public override void Write(Utf8JsonWriter writer, Exception value, JsonSerializerOptions options)
     {
         writer.WriteStartObject();
-        
+
         writer.WriteString("message", value.Message);
         writer.WriteString("stackTrace", value.StackTrace);
         writer.WriteString("type", value.GetType().FullName);
         writer.WriteString("source", value.Source);
-        
+
         // Don't access TargetSite - it requires reflection
         // writer.WriteString("targetSite", value.TargetSite?.ToString());
-        
+
         if (value.InnerException != null)
         {
             writer.WritePropertyName("innerException");
             Write(writer, value.InnerException, options);
         }
-        
+
         if (value.Data.Count > 0)
         {
             writer.WritePropertyName("data");
@@ -47,7 +47,7 @@ public class CatgaExceptionJsonConverter : JsonConverter<Exception>
             }
             writer.WriteEndObject();
         }
-        
+
         writer.WriteEndObject();
     }
 }

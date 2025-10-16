@@ -37,6 +37,15 @@ public sealed class ReplayableEvent
     /// <summary>Service/component name</summary>
     public string? ServiceName { get; init; }
 
+    /// <summary>Message type (Request/Event name)</summary>
+    public string? MessageType { get; init; }
+
+    /// <summary>Execution duration in milliseconds</summary>
+    public double Duration { get; init; }
+
+    /// <summary>Exception message if error occurred</summary>
+    public string? Exception { get; init; }
+
     /// <summary>Additional metadata</summary>
     public Dictionary<string, string>? Metadata { get; init; }
 }

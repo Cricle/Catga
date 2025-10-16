@@ -30,6 +30,9 @@ public sealed partial class InMemoryEventStore : IEventStore, IDisposable
     private readonly System.Threading.Timer? _cleanupTimer;
     private bool _disposed;
 
+    // Event notification for real-time updates
+    public event Action<ReplayableEvent>? EventSaved;
+
     public InMemoryEventStore(ReplayOptions options, ILogger<InMemoryEventStore> logger)
     {
         _options = options;
@@ -57,6 +60,9 @@ public sealed partial class InMemoryEventStore : IEventStore, IDisposable
             if (cancellationToken.IsCancellationRequested) break;
 
             SaveEventToRingBuffer(evt);
+
+            // Notify subscribers (SignalR, etc.)
+            EventSaved?.Invoke(evt);
         }
 
         return default;

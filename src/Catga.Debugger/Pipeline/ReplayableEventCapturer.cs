@@ -161,7 +161,10 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
             Type = EventType.StateSnapshot,
             Timestamp = snapshot.Timestamp,
             Data = snapshot,
-            ServiceName = context.ServiceName
+            ServiceName = context.ServiceName,
+            MessageType = data?.GetType().Name ?? stage,
+            Duration = 0,
+            Exception = null
         });
 
         await Task.CompletedTask;
@@ -178,6 +181,9 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
             Timestamp = DateTime.UtcNow,
             Data = message,
             ServiceName = context.ServiceName,
+            MessageType = message?.GetType().Name ?? "Unknown",
+            Duration = 0,
+            Exception = null,
             ParentEventId = context.ParentEventId
         });
     }
@@ -192,7 +198,10 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
             Type = EventType.PerformanceMetric,
             Timestamp = DateTime.UtcNow,
             Data = new { Duration = duration.TotalMilliseconds },
-            ServiceName = context.ServiceName
+            ServiceName = context.ServiceName,
+            MessageType = typeof(TRequest).Name,
+            Duration = duration.TotalMilliseconds,
+            Exception = null
         });
     }
 
@@ -212,7 +221,10 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
                 StackTrace = exception.StackTrace,
                 Duration = duration.TotalMilliseconds
             },
-            ServiceName = context.ServiceName
+            ServiceName = context.ServiceName,
+            MessageType = typeof(TRequest).Name,
+            Duration = duration.TotalMilliseconds,
+            Exception = $"{exception.GetType().Name}: {exception.Message}"
         });
     }
 

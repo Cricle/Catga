@@ -46,6 +46,9 @@ public sealed partial class DebuggerNotificationService : BackgroundService
         });
 
         _statsTimer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+
+        // Subscribe to event store notifications
+        _eventStore.EventSaved += EnqueueEvent;
     }
 
     /// <summary>Enqueue event for broadcast (called by EventStore)</summary>
@@ -136,6 +139,9 @@ public sealed partial class DebuggerNotificationService : BackgroundService
 
     public override void Dispose()
     {
+        // Unsubscribe from event store
+        _eventStore.EventSaved -= EnqueueEvent;
+
         _statsTimer.Dispose();
         base.Dispose();
     }

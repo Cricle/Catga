@@ -2,8 +2,8 @@
 
 ## 🎉 问题已完全解决！
 
-**修复时间**: 2025-10-16  
-**修复内容**: 两个问题  
+**修复时间**: 2025-10-16
+**修复内容**: 两个问题
 **测试状态**: ✅ 完全通过
 
 ### 问题 1: 事件捕获 ✅ 已修复
@@ -260,9 +260,9 @@ services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ReplayableEventCaptur
 
 ### 修复 1: 事件捕获
 
-**问题**: Debugger 事件捕获不工作  
-**原因**: DI 注册错误  
-**修复**: 一行代码  
+**问题**: Debugger 事件捕获不工作
+**原因**: DI 注册错误
+**修复**: 一行代码
 
 ```diff
 - services.AddSingleton(typeof(ReplayableEventCapturer<,>));
@@ -275,9 +275,9 @@ services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ReplayableEventCaptur
 
 ### 修复 2: SignalR 连接
 
-**问题**: Debugger UI 显示"未连接"  
-**原因**: 缺少 CORS 中间件  
-**错误**: `Endpoint contains CORS metadata, but middleware was not found`  
+**问题**: Debugger UI 显示"未连接"
+**原因**: 缺少 CORS 中间件
+**错误**: `Endpoint contains CORS metadata, but middleware was not found`
 **修复**: 添加 CORS 配置
 
 ```csharp

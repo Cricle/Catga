@@ -5,6 +5,9 @@ namespace Catga.Debugger.Storage;
 /// <summary>Event store for replay - supports time-range queries</summary>
 public interface IEventStore
 {
+    /// <summary>Event saved notification (for real-time updates)</summary>
+    event Action<ReplayableEvent>? EventSaved;
+
     /// <summary>Save events to store</summary>
     ValueTask SaveAsync(IEnumerable<ReplayableEvent> events, CancellationToken cancellationToken = default);
 

@@ -1,3 +1,4 @@
+using Catga.Debugger.Models;
 using Catga.Debugger.Replay;
 using Catga.Debugger.Storage;
 using Microsoft.AspNetCore.Builder;
@@ -28,6 +29,12 @@ public static class DebuggerEndpoints
             .WithSummary("Get specific flow by correlation ID")
             .Produces<FlowResponse>()
             .Produces(404);
+
+        // Get all events
+        group.MapGet("/events", GetEventsAsync)
+            .WithName("GetEvents")
+            .WithSummary("Get recent events")
+            .Produces<EventsResponse>();
 
         // Get event store stats
         group.MapGet("/stats", GetStatsAsync)
@@ -67,13 +74,23 @@ public static class DebuggerEndpoints
 
         var groupedFlows = events
             .GroupBy(e => e.CorrelationId)
-            .Select(g => new FlowInfo
+            .Select(g =>
             {
-                CorrelationId = g.Key,
-                StartTime = g.Min(e => e.Timestamp),
-                EndTime = g.Max(e => e.Timestamp),
-                EventCount = g.Count(),
-                HasErrors = g.Any(e => e.Type == Models.EventType.ExceptionThrown)
+                var firstEvent = g.OrderBy(e => e.Timestamp).First();
+                var lastEvent = g.OrderByDescending(e => e.Timestamp).First();
+                var duration = (lastEvent.Timestamp - firstEvent.Timestamp).TotalMilliseconds;
+
+                return new FlowInfo
+                {
+                    CorrelationId = g.Key,
+                    MessageType = firstEvent.MessageType ?? "Unknown",
+                    StartTime = firstEvent.Timestamp,
+                    EndTime = lastEvent.Timestamp,
+                    Duration = duration,
+                    EventCount = g.Count(),
+                    Status = g.Any(e => e.Type == EventType.ExceptionThrown) ? "Error" : "Success",
+                    HasErrors = g.Any(e => e.Type == EventType.ExceptionThrown)
+                };
             })
             .OrderByDescending(f => f.StartTime)
             .Take(100)
@@ -111,6 +128,40 @@ public static class DebuggerEndpoints
                 Timestamp = e.Timestamp,
                 ServiceName = e.ServiceName ?? "Unknown"
             }).ToList()
+        });
+    }
+
+    private static async Task<Ok<EventsResponse>> GetEventsAsync(
+        IEventStore eventStore,
+        int? limit,
+        CancellationToken ct)
+    {
+        var events = await eventStore.GetEventsAsync(
+            DateTime.UtcNow.AddHours(-1),
+            DateTime.UtcNow,
+            ct);
+
+        var eventList = events
+            .OrderByDescending(e => e.Timestamp)
+            .Take(limit ?? 100)
+            .Select(e => new DetailedEventInfo
+            {
+                Id = e.Id,
+                Type = e.Type.ToString(),
+                Timestamp = e.Timestamp,
+                CorrelationId = e.CorrelationId,
+                ServiceName = e.ServiceName ?? "Unknown",
+                MessageType = e.MessageType ?? "Unknown",
+                Duration = e.Duration,
+                Status = e.Exception == null ? "Success" : "Error",
+                Error = e.Exception
+            })
+            .ToList();
+
+        return TypedResults.Ok(new EventsResponse
+        {
+            Events = eventList,
+            Timestamp = DateTime.UtcNow
         });
     }
 
@@ -179,9 +230,12 @@ public sealed record FlowsResponse
 public sealed record FlowInfo
 {
     public required string CorrelationId { get; init; }
+    public required string MessageType { get; init; }
     public required DateTime StartTime { get; init; }
     public required DateTime EndTime { get; init; }
+    public required double Duration { get; init; }
     public required int EventCount { get; init; }
+    public required string Status { get; init; }
     public required bool HasErrors { get; init; }
 }
 
@@ -200,6 +254,25 @@ public sealed record EventInfo
     public required string Type { get; init; }
     public required DateTime Timestamp { get; init; }
     public required string ServiceName { get; init; }
+}
+
+public sealed record DetailedEventInfo
+{
+    public required string Id { get; init; }
+    public required string Type { get; init; }
+    public required DateTime Timestamp { get; init; }
+    public required string CorrelationId { get; init; }
+    public required string ServiceName { get; init; }
+    public required string MessageType { get; init; }
+    public required double Duration { get; init; }
+    public required string Status { get; init; }
+    public string? Error { get; init; }
+}
+
+public sealed record EventsResponse
+{
+    public required List<DetailedEventInfo> Events { get; init; }
+    public required DateTime Timestamp { get; init; }
 }
 
 public sealed record StatsResponse

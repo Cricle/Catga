@@ -59,7 +59,7 @@ if ($flows.flows.Count -gt 0) {
     foreach ($flow in $flows.flows | Select-Object -First 3) {
         $statusColor = if ($flow.status -eq 'Success') { 'Green' } else { 'Red' }
         $statusIcon = if ($flow.status -eq 'Success') { 'Success' } else { 'Error' }
-        
+
         Write-Host "   [$statusIcon] $($flow.messageType)" -ForegroundColor $statusColor
         Write-Host "      CorrelationId: $($flow.correlationId.Substring(0, 8))..." -ForegroundColor Gray
         Write-Host "      Status: $($flow.status)" -ForegroundColor Gray
@@ -112,11 +112,11 @@ try {
     $ui = Invoke-WebRequest -Uri "http://localhost:5000/debug"
     Write-Host "Debugger UI is accessible" -ForegroundColor Green
     Write-Host "   Status code: $($ui.StatusCode)" -ForegroundColor Gray
-    
+
     if ($ui.Content -match 'signalR') {
         Write-Host "   SignalR client loaded" -ForegroundColor Green
     }
-    
+
     if ($ui.Content -match 'alpinejs') {
         Write-Host "   Alpine.js loaded" -ForegroundColor Green
     }

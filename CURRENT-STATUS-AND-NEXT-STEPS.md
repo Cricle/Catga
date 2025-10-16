@@ -1,7 +1,7 @@
 # Catga 当前状态与下一步计划
 
-**更新时间**: 2025-10-16  
-**分支**: master  
+**更新时间**: 2025-10-16
+**分支**: master
 **提交**: 已完成增强功能提交
 
 ---
@@ -61,7 +61,7 @@
    ```csharp
    // Add using
    using Catga.Core; // For BatchOperationExtensions
-   
+
    // Fix constructor
    public BatchCreateOrdersHandler(
        IOrderRepository repository,
@@ -71,7 +71,7 @@
        _repository = repository;
        _logger = logger;
    }
-   
+
    // Fix messages
    public partial record BatchCreateOrdersCommand(...) : IRequest<BatchCreateOrdersResult>;
    public partial record BatchGetOrdersQuery(...) : IRequest<List<Order?>>;
@@ -131,7 +131,7 @@ var orderApi = builder.AddProject<Projects.OrderSystem_Api>("orderapi")
 
 // 添加Debugger链接到Aspire Dashboard
 orderApi.WithAnnotation(new ResourceAnnotation(
-    "debugger-ui", 
+    "debugger-ui",
     "http://localhost:5000/debug"));
 ```
 
@@ -246,7 +246,7 @@ builder.Services.AddCatgaDebuggerWithAspNetCore(options => {
 
 **剩余工作**主要是**文档优化和示例完善**，不影响核心使用。
 
-**推荐操作**: 
+**推荐操作**:
 1. 修复 OrderSystem 小错误（15分钟）
 2. 更新 README（30分钟）
 3. 创建快速入门指南（15分钟）

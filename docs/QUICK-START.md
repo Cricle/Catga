@@ -257,13 +257,13 @@ curl http://localhost:5000/api/orders/abc123
 
 ## 🎉 完成！你已经拥有：
 
-✅ **CQRS 架构** - 清晰的命令/查询分离  
-✅ **事件驱动** - 多个 Handler 响应同一事件  
-✅ **零反射** - 100% Source Generator 自动注册  
-✅ **类型安全** - 编译时检查，运行时零错误  
-✅ **高性能** - < 1μs 命令处理，零内存分配  
-✅ **可观测性** - 内置日志、追踪  
-✅ **调试友好** - 时间旅行调试器（开发环境）  
+✅ **CQRS 架构** - 清晰的命令/查询分离
+✅ **事件驱动** - 多个 Handler 响应同一事件
+✅ **零反射** - 100% Source Generator 自动注册
+✅ **类型安全** - 编译时检查，运行时零错误
+✅ **高性能** - < 1μs 命令处理，零内存分配
+✅ **可观测性** - 内置日志、追踪
+✅ **调试友好** - 时间旅行调试器（开发环境）
 
 ---
 
@@ -287,13 +287,13 @@ curl http://localhost:5000/api/orders/abc123
 
 1. **添加持久化**：
    ```csharp
-   builder.Services.AddRedisEventStore(options => 
+   builder.Services.AddRedisEventStore(options =>
        options.ConnectionString = "localhost:6379");
    ```
 
 2. **切换到 NATS 传输**：
    ```csharp
-   builder.Services.AddNatsTransport(options => 
+   builder.Services.AddNatsTransport(options =>
        options.Url = "nats://localhost:4222");
    ```
 

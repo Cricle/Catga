@@ -26,11 +26,11 @@
                         <span class="text-sm text-gray-500">订单管理系统</span>
                     </div>
                     <div class="flex items-center space-x-4">
-                        <button @click="openDebugger()" 
+                        <button @click="openDebugger()"
                                 class="px-3 py-2 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition">
                             🐱 调试器
                         </button>
-                        <button @click="refreshData()" 
+                        <button @click="refreshData()"
                                 class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                             🔄 刷新
                         </button>
@@ -43,22 +43,22 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
             <div class="border-b border-gray-200">
                 <nav class="-mb-px flex space-x-8">
-                    <button @click="currentTab = 'dashboard'" 
+                    <button @click="currentTab = 'dashboard'"
                             :class="currentTab === 'dashboard' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
                             class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
                         📊 仪表盘
                     </button>
-                    <button @click="currentTab = 'orders'" 
+                    <button @click="currentTab = 'orders'"
                             :class="currentTab === 'orders' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
                             class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
                         📦 订单列表
                     </button>
-                    <button @click="currentTab = 'create'" 
+                    <button @click="currentTab = 'create'"
                             :class="currentTab === 'create' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
                             class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
                         ➕ 创建订单
                     </button>
-                    <button @click="currentTab = 'demo'" 
+                    <button @click="currentTab = 'demo'"
                             :class="currentTab === 'demo' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
                             class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
                         🎬 Demo演示
@@ -177,7 +177,7 @@
                             <p class="text-sm text-gray-500 mt-1">管理所有订单</p>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <select x-model="filterStatus" @change="loadOrders()" 
+                            <select x-model="filterStatus" @change="loadOrders()"
                                     class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 <option value="">全部状态</option>
                                 <option value="Pending">待处理</option>
@@ -214,7 +214,7 @@
                                         </div>
                                     </div>
                                     <div class="flex items-center space-x-2">
-                                        <button @click="viewOrderDetail(order)" 
+                                        <button @click="viewOrderDetail(order)"
                                                 class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
                                             查看
                                         </button>
@@ -285,7 +285,7 @@
                             <div class="text-lg font-semibold">
                                 总计: ¥<span x-text="calculateTotal()"></span>
                             </div>
-                            <button type="submit" 
+                            <button type="submit"
                                     class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                                 创建订单
                             </button>
@@ -301,7 +301,7 @@
                     <div class="bg-white rounded-lg shadow p-6">
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-lg font-semibold text-gray-900">✅ 成功流程</h3>
-                            <button @click="runSuccessDemo()" 
+                            <button @click="runSuccessDemo()"
                                     :disabled="demoRunning"
                                     class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50">
                                 <span x-show="!demoRunning">▶️ 运行</span>
@@ -331,7 +331,7 @@
                     <div class="bg-white rounded-lg shadow p-6">
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-lg font-semibold text-gray-900">❌ 失败回滚</h3>
-                            <button @click="runFailureDemo()" 
+                            <button @click="runFailureDemo()"
                                     :disabled="demoRunning"
                                     class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50">
                                 <span x-show="!demoRunning">▶️ 运行</span>
@@ -373,7 +373,7 @@
         </main>
 
         <!-- Order Detail Modal -->
-        <div x-show="selectedOrder" 
+        <div x-show="selectedOrder"
              x-cloak
              @click.self="selectedOrder = null"
              class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -443,7 +443,7 @@
         </div>
 
         <!-- Toast Notification -->
-        <div x-show="toast.show" 
+        <div x-show="toast.show"
              x-cloak
              x-transition
              class="fixed bottom-4 right-4 z-50">
@@ -506,7 +506,7 @@
                     // 这里我们使用本地存储来模拟持久化
                     const stored = localStorage.getItem('orders');
                     this.orders = stored ? JSON.parse(stored) : [];
-                    this.recentOrders = [...this.orders].sort((a, b) => 
+                    this.recentOrders = [...this.orders].sort((a, b) =>
                         new Date(b.createdAt) - new Date(a.createdAt)
                     );
                     await this.loadStats();
@@ -546,7 +546,7 @@
                             // 保存到本地存储
                             this.orders.push(order);
                             localStorage.setItem('orders', JSON.stringify(this.orders));
-                            
+
                             this.showToast('success', '订单创建成功！');
                             this.resetNewOrder();
                             this.currentTab = 'orders';
@@ -589,7 +589,7 @@
                 },
 
                 calculateTotal() {
-                    return this.newOrder.items.reduce((sum, item) => 
+                    return this.newOrder.items.reduce((sum, item) =>
                         sum + (item.quantity * item.unitPrice), 0
                     ).toFixed(2);
                 },

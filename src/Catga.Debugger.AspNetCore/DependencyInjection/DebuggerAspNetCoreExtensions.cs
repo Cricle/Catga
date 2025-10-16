@@ -61,7 +61,7 @@ public static class DebuggerAspNetCoreExtensions
         this IEndpointRouteBuilder endpoints,
         string basePath = "/debug")
     {
-        var app = endpoints as IApplicationBuilder 
+        var app = endpoints as IApplicationBuilder
             ?? throw new InvalidOperationException("endpoints must be IApplicationBuilder");
 
         // Map API endpoints

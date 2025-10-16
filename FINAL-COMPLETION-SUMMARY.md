@@ -1,6 +1,6 @@
 # Catga 项目最终完成总结
 
-**日期**: 2024-10-16  
+**日期**: 2024-10-16
 **状态**: ✅ 100% 完成，生产就绪
 
 ---
@@ -302,10 +302,10 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderRe
     {
         // 业务逻辑
         var orderId = Guid.NewGuid().ToString();
-        
+
         // 发布事件（自动异步）
         await _mediator.PublishAsync(new OrderCreatedEvent(orderId), cancellationToken);
-        
+
         return CatgaResult<OrderResult>.Success(new OrderResult(orderId));
     }
 }

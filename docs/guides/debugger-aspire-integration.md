@@ -411,7 +411,7 @@ public class CatgaDebuggerHealthCheck : IHealthCheck
         try
         {
             var stats = await _eventStore.GetStatisticsAsync(cancellationToken);
-            
+
             if (stats.EventCount > 1_000_000)
             {
                 return HealthCheckResult.Degraded(
@@ -467,7 +467,7 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderRe
         CancellationToken cancellationToken)
     {
         using var activity = Activity.Current;
-        
+
         // 添加自定义标签（在 Aspire Dashboard 中可筛选）
         activity?.SetTag("order.customer_id", request.CustomerId);
         activity?.SetTag("order.amount", request.Amount);

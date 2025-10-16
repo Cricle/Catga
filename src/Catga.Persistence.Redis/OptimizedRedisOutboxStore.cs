@@ -42,7 +42,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
     }
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
-    public async Task AddAsync(
+    public async ValueTask AddAsync(
         OutboxMessage message,
         CancellationToken cancellationToken = default)
     {
@@ -57,7 +57,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
             message.MessageId,
             message.CreatedAt.Ticks);
     }
-    public async Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
+    public async ValueTask<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
         int maxCount = 100,
         CancellationToken cancellationToken = default)
     {
@@ -92,7 +92,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
     }
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
-    public async Task MarkAsPublishedAsync(
+    public async ValueTask MarkAsPublishedAsync(
         string messageId,
         CancellationToken cancellationToken = default)
     {
@@ -115,7 +115,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
     }
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
-    public async Task MarkAsFailedAsync(
+    public async ValueTask MarkAsFailedAsync(
         string messageId,
         string errorMessage,
         CancellationToken cancellationToken = default)
@@ -145,7 +145,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
     }
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
-    public async Task DeletePublishedMessagesAsync(
+    public async ValueTask DeletePublishedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)
     {

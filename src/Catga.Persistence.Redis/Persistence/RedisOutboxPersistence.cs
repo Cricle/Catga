@@ -45,7 +45,7 @@ public class RedisOutboxPersistence : IOutboxStore
     }
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    public async Task AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
+    public async ValueTask AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
     {
         if (message == null) throw new ArgumentNullException(nameof(message));
 

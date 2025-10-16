@@ -53,7 +53,7 @@ app.MapPost("/demo/order-success", async (ICatgaMediator m) =>
     };
     var result = await m.SendAsync<CreateOrderCommand, OrderCreatedResult>(
         new("DEMO-CUST-001", items, "123 Success Street, Beijing", "Alipay"));
-    
+
     return Results.Ok(new
     {
         result.IsSuccess,
@@ -73,7 +73,7 @@ app.MapPost("/demo/order-failure", async (ICatgaMediator m) =>
     };
     var result = await m.SendAsync<CreateOrderCommand, OrderCreatedResult>(
         new("DEMO-CUST-002", items, "456 Failure Road, Shanghai", "FAIL-CreditCard"));
-    
+
     return Results.Ok(new
     {
         result.IsSuccess,
@@ -90,17 +90,17 @@ app.MapGet("/demo/compare", () => Results.Ok(new
     SuccessFlow = new
     {
         Endpoint = "POST /demo/order-success",
-        Steps = new[] { "1. ✅ Check stock", "2. ✅ Save order", "3. ✅ Reserve inventory", 
+        Steps = new[] { "1. ✅ Check stock", "2. ✅ Save order", "3. ✅ Reserve inventory",
                         "4. ✅ Validate payment", "5. ✅ Publish event" }
     },
     FailureFlow = new
     {
         Endpoint = "POST /demo/order-failure",
-        Steps = new[] { "1. ✅ Check stock", "2. ✅ Save order", "3. ✅ Reserve inventory", 
-                        "4. ❌ Validate payment (FAILED)", "5. 🔄 Rollback: Release inventory", 
+        Steps = new[] { "1. ✅ Check stock", "2. ✅ Save order", "3. ✅ Reserve inventory",
+                        "4. ❌ Validate payment (FAILED)", "5. 🔄 Rollback: Release inventory",
                         "6. 🔄 Rollback: Delete order" }
     },
-    Features = new[] { "✨ Automatic error handling", "✨ Custom rollback logic", 
+    Features = new[] { "✨ Automatic error handling", "✨ Custom rollback logic",
                        "✨ Rich metadata", "✨ Event-driven architecture" }
 })).WithName("DemoComparison").WithTags("Demo");
 

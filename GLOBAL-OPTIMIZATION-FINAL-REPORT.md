@@ -44,7 +44,7 @@
    ```csharp
    // 优化前
    _logger.LogInformation("Order created: {OrderId}, Amount: {Amount}", orderId, amount);
-   
+
    // 优化后
    [LoggerMessage(Level = LogLevel.Information, Message = "Order created: {OrderId}, Amount: {Amount}")]
    partial void LogOrderCreated(string orderId, decimal amount);
@@ -56,7 +56,7 @@
    // 优化前
    public Task<Order?> GetByIdAsync(string id)
        => Task.FromResult(_orders.TryGetValue(id, out var order) ? order : null);
-   
+
    // 优化后
    public ValueTask<Order?> GetByIdAsync(string id)
        => new(_orders.TryGetValue(id, out var order) ? order : null);
@@ -294,7 +294,7 @@ LogOrderCreated(orderId, timestamp);
 // 优势: 零分配、编译时生成、类型安全
 ```
 
-**性能提升**: 20-30%  
+**性能提升**: 20-30%
 **代码减少**: 每个日志调用节省 ~5-10 lines (包括重复的字符串)
 
 ---
@@ -323,7 +323,7 @@ public ValueTask<Order?> GetByIdAsync(string id)
 }
 ```
 
-**性能提升**: 15-20%  
+**性能提升**: 15-20%
 **内存节省**: 每次调用节省 ~48 bytes (Task对象)
 
 ---
@@ -335,7 +335,7 @@ public ValueTask<Order?> GetByIdAsync(string id)
 **优化前**:
 ```csharp
 public ValueTask<bool> HasBeenProcessedAsync(string messageId)
-    => GetValueIfExistsAsync(messageId, message => message.Status == InboxStatus.Processed) 
+    => GetValueIfExistsAsync(messageId, message => message.Status == InboxStatus.Processed)
        ?? Task.FromResult(false);
 // 问题: 多次方法调用, 可能的 null 检查
 ```
@@ -347,7 +347,7 @@ public ValueTask<bool> HasBeenProcessedAsync(string messageId)
 // 优势: 单一表达式, 零分配, 更快
 ```
 
-**性能提升**: 10-15%  
+**性能提升**: 10-15%
 **代码减少**: 更简洁
 
 ---
@@ -387,7 +387,7 @@ public ValueTask ReleaseLockAsync(string messageId)
 // 移除 ExecuteIfExistsAsync 辅助方法
 ```
 
-**性能提升**: 5-10%  
+**性能提升**: 5-10%
 **代码减少**: -10 lines (移除辅助方法)
 
 ---
@@ -505,9 +505,9 @@ public ValueTask ReleaseLockAsync(string messageId)
 
 ---
 
-**优化进度**: 3/6 Phases 完成 (50%)  
-**代码减少**: -425 lines (-7%)  
-**性能提升**: +20-30%  
+**优化进度**: 3/6 Phases 完成 (50%)
+**代码减少**: -425 lines (-7%)
+**性能提升**: +20-30%
 **编译状态**: ✅ 成功
 
 🎉 **已完成的优化效果显著，剩余 3 个 Phase 可按需继续执行！**

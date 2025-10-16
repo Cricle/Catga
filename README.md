@@ -26,8 +26,9 @@ Catga 是一个专为 .NET 9 和 Native AOT 设计的高性能 CQRS/中介者框
 - 🛡️ **Compile-Time Safety**: Roslyn analyzers detect configuration errors
 - 🌐 **Distributed Ready**: NATS, Redis transport & persistence
 - 🎯 **Minimal Config**: 2 lines to start, auto-DI for everything
-- 🔍 **Full Observability**: OpenTelemetry, Health Checks, Native Debugging
-- 🚀 **Production Ready**: Graceful shutdown, auto-recovery, cluster support
+- 🔍 **Full Observability**: OpenTelemetry, Health Checks, Time-Travel Debugging
+- 🚀 **Production Ready**: Graceful shutdown, auto-recovery, Vue 3 debug UI
+- ⏪ **Time-Travel Replay**: Rewind & replay any flow with zero overhead
 
 ---
 
@@ -278,7 +279,29 @@ GET /debug/stats              // Statistics
 - `/health/live` - Liveness probe
 - `/health/ready` - Readiness probe
 
-📖 [Aspire Integration](./examples/OrderSystem.AppHost/README.md) | [Debugging Guide](./docs/DEBUGGING-PLAN.md)
+**Time-Travel Debugging** (New!):
+- Vue 3 debug UI with real-time updates
+- Replay any flow at macro/micro level
+- <0.01μs overhead with adaptive sampling
+- Production-safe (0.1% sampling)
+
+```csharp
+// Enable in development
+builder.Services.AddCatgaDebuggerWithAspNetCore(options =>
+{
+    options.Mode = DebuggerMode.Development;
+    options.SamplingRate = 1.0; // 100% capture
+});
+
+// Map UI and APIs
+app.MapCatgaDebugger("/debug");
+
+// Access:
+// UI:  http://localhost:5000/debug
+// API: http://localhost:5000/debug-api/*
+```
+
+📖 [Aspire Integration](./examples/OrderSystem.AppHost/README.md) | [Debugger Guide](./docs/DEBUGGER.md) | [Debugger Plan](./docs/CATGA-DEBUGGER-PLAN.md)
 
 ---
 
@@ -293,6 +316,8 @@ GET /debug/stats              // Statistics
 | **Catga.Transport.Nats** | NATS 传输层 | [![NuGet](https://img.shields.io/nuget/v/Catga.Transport.Nats.svg)](https://www.nuget.org/packages/Catga.Transport.Nats/) |
 | **Catga.Persistence.Redis** | Redis 持久化 | [![NuGet](https://img.shields.io/nuget/v/Catga.Persistence.Redis.svg)](https://www.nuget.org/packages/Catga.Persistence.Redis/) |
 | **Catga.AspNetCore** | ASP.NET Core 集成 | [![NuGet](https://img.shields.io/nuget/v/Catga.AspNetCore.svg)](https://www.nuget.org/packages/Catga.AspNetCore/) |
+| **Catga.Debugger** | Time-Travel 调试核心 | [![NuGet](https://img.shields.io/nuget/v/Catga.Debugger.svg)](https://www.nuget.org/packages/Catga.Debugger/) |
+| **Catga.Debugger.AspNetCore** | 调试器 UI + APIs | [![NuGet](https://img.shields.io/nuget/v/Catga.Debugger.AspNetCore.svg)](https://www.nuget.org/packages/Catga.Debugger.AspNetCore/) |
 | **Catga.SourceGenerator** | Source Generator | [![NuGet](https://img.shields.io/nuget/v/Catga.SourceGenerator.svg)](https://www.nuget.org/packages/Catga.SourceGenerator/) |
 
 ---

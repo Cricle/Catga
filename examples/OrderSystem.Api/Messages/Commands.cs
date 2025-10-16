@@ -1,3 +1,4 @@
+using Catga.Debugger.Core;
 using Catga.Messages;
 using Catga.Results;
 using MemoryPack;
@@ -6,7 +7,7 @@ using OrderSystem.Api.Domain;
 namespace OrderSystem.Api.Messages;
 
 /// <summary>
-/// Create order command
+/// Create order command (with AOT-friendly debug capture)
 /// </summary>
 [MemoryPackable]
 public partial record CreateOrderCommand(
@@ -14,7 +15,21 @@ public partial record CreateOrderCommand(
     List<OrderItem> Items,
     string ShippingAddress,
     string PaymentMethod
-) : IRequest<OrderCreatedResult>;
+) : IRequest<OrderCreatedResult>, IDebugCapture
+{
+    /// <summary>AOT-friendly variable capture for debugging</summary>
+    public Dictionary<string, object?> CaptureVariables()
+    {
+        return new()
+        {
+            [nameof(CustomerId)] = CustomerId,
+            ["ItemCount"] = Items?.Count ?? 0,
+            [nameof(ShippingAddress)] = ShippingAddress,
+            [nameof(PaymentMethod)] = PaymentMethod,
+            ["TotalAmount"] = Items?.Sum(i => i.Quantity * i.UnitPrice) ?? 0m,
+        };
+    }
+}
 
 [MemoryPackable]
 public partial record OrderCreatedResult(

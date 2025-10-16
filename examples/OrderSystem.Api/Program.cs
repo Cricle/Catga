@@ -1,5 +1,6 @@
 using Catga;
 using Catga.AspNetCore;
+using Catga.Debugger.AspNetCore.DependencyInjection;
 using Catga.DependencyInjection;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;
@@ -20,6 +21,19 @@ builder.Services.AddInMemoryTransport();         // Transport layer (replaceable
 
 // Graceful lifecycle (using CatgaBuilder)
 builder.Services.AddCatgaBuilder(b => b.UseGracefulLifecycle());
+
+// ===== Catga Debugger (Time-Travel Replay) =====
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddCatgaDebuggerWithAspNetCore(options =>
+    {
+        options.Mode = Catga.Debugger.Models.DebuggerMode.Development;
+        options.SamplingRate = 1.0; // 100% sampling in dev
+        options.RingBufferCapacity = 10000;
+        options.CaptureVariables = true;
+        options.CaptureCallStacks = true;
+    });
+}
 
 // Auto-register all handlers and services (Source Generator)
 builder.Services.AddGeneratedHandlers();   // Handlers
@@ -45,6 +59,11 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    
+    // Map Catga Debugger UI and APIs
+    app.MapCatgaDebugger("/debug");
+    // UI: http://localhost:5000/debug
+    // API: http://localhost:5000/debug-api/*
 }
 
 // ===== API Endpoints =====

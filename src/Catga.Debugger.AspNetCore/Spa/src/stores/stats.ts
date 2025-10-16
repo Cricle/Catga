@@ -17,7 +17,7 @@ export const useStatsStore = defineStore('stats', () => {
   // Computed
   const totalEvents = computed(() => stats.value?.totalEvents || 0);
   const totalFlows = computed(() => stats.value?.totalFlows || 0);
-  const storageSizeMB = computed(() => 
+  const storageSizeMB = computed(() =>
     ((stats.value?.storageSizeBytes || 0) / (1024 * 1024)).toFixed(2)
   );
 
@@ -78,7 +78,7 @@ export const useStatsStore = defineStore('stats', () => {
     const last = recent[recent.length - 1];
 
     const eventDelta = last.totalEvents - first.totalEvents;
-    const timeDelta = (new Date(last.timestamp).getTime() - 
+    const timeDelta = (new Date(last.timestamp).getTime() -
                        new Date(first.timestamp).getTime()) / 1000; // seconds
 
     return timeDelta > 0 ? (eventDelta / timeDelta).toFixed(2) : '0';

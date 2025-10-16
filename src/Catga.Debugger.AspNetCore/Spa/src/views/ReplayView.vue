@@ -1,12 +1,12 @@
 <template>
   <div class="replay-view">
     <h2>Time-Travel Replay</h2>
-    
+
     <el-card>
       <template #header>
         <span>System Replay</span>
       </template>
-      
+
       <el-form :model="replayForm" label-width="120px">
         <el-form-item label="Start Time">
           <el-date-picker
@@ -15,7 +15,7 @@
             placeholder="Select start time"
           />
         </el-form-item>
-        
+
         <el-form-item label="End Time">
           <el-date-picker
             v-model="replayForm.endTime"
@@ -23,11 +23,11 @@
             placeholder="Select end time"
           />
         </el-form-item>
-        
+
         <el-form-item label="Speed">
           <el-slider v-model="replayForm.speed" :min="0.25" :max="10" :step="0.25" show-input />
         </el-form-item>
-        
+
         <el-form-item>
           <el-button type="primary" @click="startReplay" :loading="loading">
             Start Replay
@@ -75,14 +75,14 @@ const replayForm = reactive({
 
 const startReplay = async () => {
   loading.value = true;
-  
+
   try {
     const result = await flowsApi.replaySystem({
       startTime: replayForm.startTime.toISOString(),
       endTime: replayForm.endTime.toISOString(),
       speed: replayForm.speed,
     });
-    
+
     replayResult.value = result;
     ElMessage.success('Replay started successfully');
   } catch (error) {

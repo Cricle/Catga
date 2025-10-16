@@ -1,7 +1,7 @@
 <template>
   <div class="dashboard">
     <h2>Dashboard</h2>
-    
+
     <el-row :gutter="20" class="stats-row">
       <el-col :span="6">
         <el-card shadow="hover">
@@ -12,7 +12,7 @@
           </el-statistic>
         </el-card>
       </el-col>
-      
+
       <el-col :span="6">
         <el-card shadow="hover">
           <el-statistic title="Total Flows" :value="statsStore.totalFlows">
@@ -22,7 +22,7 @@
           </el-statistic>
         </el-card>
       </el-col>
-      
+
       <el-col :span="6">
         <el-card shadow="hover">
           <el-statistic title="Storage Size" :value="statsStore.storageSizeMB" suffix="MB">
@@ -32,7 +32,7 @@
           </el-statistic>
         </el-card>
       </el-col>
-      
+
       <el-col :span="6">
         <el-card shadow="hover">
           <el-statistic title="Growth Rate" :value="statsStore.getGrowthRate" suffix="events/s">
@@ -68,7 +68,7 @@
           </el-table>
         </el-card>
       </el-col>
-      
+
       <el-col :span="8">
         <el-card shadow="hover">
           <template #header>

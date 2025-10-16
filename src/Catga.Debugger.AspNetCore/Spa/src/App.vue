@@ -8,7 +8,7 @@
             <el-icon><Monitor /></el-icon>
             Catga Debugger
           </h1>
-          
+
           <div class="header-stats">
             <el-tag type="info" size="large">
               <el-icon><Document /></el-icon>

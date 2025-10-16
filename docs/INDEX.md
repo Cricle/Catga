@@ -33,7 +33,8 @@
 
 ### Core Features
 - [Auto DI Registration](guides/auto-di-registration.md) - Zero-config dependency injection
-- [Native Debugging](DEBUGGING-PLAN.md) - Message flow tracking with < 0.5μs overhead
+- [Time-Travel Debugger](DEBUGGER.md) - Production-grade debugging with Vue 3 UI
+- [Debugger Architecture](CATGA-DEBUGGER-PLAN.md) - Complete debugger design & implementation
 - [Serialization](guides/serialization.md) - MemoryPack vs JSON
 - [Source Generator](guides/source-generator.md) - Auto-code generation
 - [Distributed ID](guides/distributed-id.md) - Snowflake ID generator

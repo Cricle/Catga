@@ -19,7 +19,7 @@ export const useFlowStore = defineStore('flow', () => {
   const errorCount = computed(() => errorFlows.value.length);
 
   // Actions
-  
+
   /**
    * Load all flows
    */
@@ -68,7 +68,7 @@ export const useFlowStore = defineStore('flow', () => {
       // Update existing flow
       flows.value[existingIndex].eventCount++;
       flows.value[existingIndex].endTime = update.timestamp;
-      
+
       if (update.eventType === 'ExceptionThrown') {
         flows.value[existingIndex].hasErrors = true;
       }

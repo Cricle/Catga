@@ -292,9 +292,9 @@ if (app.Environment.IsDevelopment())
 app.MapPost("/users", async (CreateUserCommand cmd, ICatgaMediator mediator) =>
 {
     var result = await mediator.SendAsync<CreateUserCommand, UserCreatedResult>(cmd);
-    
-    return result.IsSuccess 
-        ? Results.Ok(result.Value) 
+
+    return result.IsSuccess
+        ? Results.Ok(result.Value)
         : Results.BadRequest(new { error = result.Error });
 })
 .WithName("CreateUser")
@@ -392,7 +392,7 @@ public class CreateUserHandler : SafeRequestHandler<CreateUserCommand, UserCreat
         CancellationToken ct)
     {
         // 自定义错误处理
-        Logger.LogWarning("User creation failed for email {Email}: {Error}", 
+        Logger.LogWarning("User creation failed for email {Email}: {Error}",
             request.Email, exception.Message);
 
         var metadata = new ResultMetadata();
@@ -416,7 +416,7 @@ public class CreateUserHandler : SafeRequestHandler<CreateUserCommand, UserCreat
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddCatgaDebuggerWithAspNetCore();
-    
+
     // ... 在 app 配置后
     app.MapCatgaDebugger("/debug");  // http://localhost:5000/debug
 }

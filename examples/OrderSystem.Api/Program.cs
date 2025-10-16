@@ -1,6 +1,7 @@
 using Catga;
 using Catga.AspNetCore;
 using Catga.Debugger.AspNetCore.DependencyInjection;
+using Catga.Debugger.DependencyInjection;
 using Catga.DependencyInjection;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Handlers;
@@ -15,7 +16,7 @@ builder.AddServiceDefaults();  // OpenTelemetry, Health Checks, Service Discover
 // ===== Catga Configuration =====
 builder.Services.AddCatga()                      // Add Catga core services
     .UseMemoryPack()                             // Serializer (AOT-friendly)
-    .WithDebug()                                 // Enable native debugging (dev only)
+    .WithDebug()                                 // Enable debugging (auto-detects environment)
     .ForDevelopment();                           // Development environment
 
 builder.Services.AddInMemoryTransport();         // Transport layer (replaceable with NATS)
@@ -23,17 +24,10 @@ builder.Services.AddInMemoryTransport();         // Transport layer (replaceable
 // Graceful lifecycle (using CatgaBuilder)
 builder.Services.AddCatgaBuilder(b => b.UseGracefulLifecycle());
 
-// ===== Catga Debugger (Time-Travel Replay) =====
+// ===== Catga Debugger UI (Optional - Vue 3 + SignalR) =====
 if (builder.Environment.IsDevelopment())
 {
-    builder.Services.AddCatgaDebuggerWithAspNetCore(options =>
-    {
-        options.Mode = Catga.Debugger.Models.DebuggerMode.Development;
-        options.SamplingRate = 1.0; // 100% sampling in dev
-        options.RingBufferCapacity = 10000;
-        options.CaptureVariables = true;
-        options.CaptureCallStacks = true;
-    });
+    builder.Services.AddCatgaDebuggerWithAspNetCore();
 }
 
 // Auto-register all handlers and services (Source Generator)
@@ -61,10 +55,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 
-    // Map Catga Debugger UI and APIs
+    // Map Catga Debugger UI (if enabled)
     app.MapCatgaDebugger("/debug");
-    // UI: http://localhost:5000/debug
-    // API: http://localhost:5000/debug-api/*
+    // UI: http://localhost:5000/debug (Vue 3 UI with time-travel)
+    // API: http://localhost:5000/debug-api/* (REST endpoints)
 }
 
 // ===== API Endpoints =====
@@ -112,12 +106,6 @@ app.MapGet("/api/customers/{customerId}/orders", async (
     var result = await m.SendAsync<GetCustomerOrdersQuery, List<Order>>(query);
     return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
 }).WithName("GetCustomerOrders").WithTags("Orders");
-
-// Debug endpoints (dev only)
-if (app.Environment.IsDevelopment())
-{
-    app.MapCatgaDebugEndpoints();  // /debug/flows, /debug/stats
-}
 
 // Health check
 app.MapGet("/health", () => Results.Ok(new

@@ -112,16 +112,16 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
 {
     // 只需编写业务逻辑，无需 try-catch！
     protected override async Task<OrderResult> HandleCoreAsync(
-        CreateOrder request, 
+        CreateOrder request,
         CancellationToken ct)
     {
         if (request.Amount <= 0)
             throw new CatgaException("Amount must be positive");  // 自动转换为失败结果
-            
+
         // 业务逻辑
         return new OrderResult(orderId, DateTime.UtcNow);
     }
-    
+
     // 可选：自定义错误处理和回滚
     protected override async Task<CatgaResult<OrderResult>> OnBusinessErrorAsync(...)
     {

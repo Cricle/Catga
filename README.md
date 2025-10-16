@@ -71,7 +71,7 @@ using MemoryPack;
 
 // 1. 定义消息（MemoryPack = AOT 友好）
 [MemoryPackable]
-public partial record CreateOrder(string OrderId, decimal Amount) 
+public partial record CreateOrder(string OrderId, decimal Amount)
     : IRequest<OrderResult>;
 
 [MemoryPackable]
@@ -84,15 +84,15 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
 
     // 只需编写业务逻辑，框架自动处理异常！
     protected override async Task<OrderResult> HandleCoreAsync(
-        CreateOrder request, 
+        CreateOrder request,
         CancellationToken ct)
     {
         if (request.Amount <= 0)
             throw new CatgaException("Amount must be positive");  // 自动转换为 CatgaResult.Failure
-            
+
         // 业务逻辑
         await SaveOrderAsync(request.OrderId, request.Amount, ct);
-        
+
         return new OrderResult(request.OrderId, DateTime.UtcNow);
     }
 }
@@ -162,13 +162,13 @@ public async Task<IActionResult> CreateOrder(CreateOrderRequest request)
 public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
 {
     protected override async Task<OrderResult> HandleCoreAsync(
-        CreateOrder request, 
+        CreateOrder request,
         CancellationToken ct)
     {
         // 直接抛出异常，框架自动转换为 CatgaResult.Failure
         if (!await _inventory.CheckStockAsync(request.Items, ct))
             throw new CatgaException("Insufficient stock");
-            
+
         // 业务逻辑
         var order = await _repository.SaveAsync(...);
         return new OrderResult(order.Id, order.CreatedAt);
@@ -185,42 +185,42 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
 {
     private string? _orderId;
     private bool _inventorySaved;
-    
+
     protected override async Task<OrderResult> HandleCoreAsync(...)
     {
         // 1. 保存订单
         _orderId = await _repository.SaveAsync(...);
-        
+
         // 2. 预留库存
         await _inventory.ReserveAsync(_orderId, ...);
         _inventorySaved = true;
-        
+
         // 3. 处理支付（可能失败）
         if (!await _payment.ValidateAsync(...))
             throw new CatgaException("Payment validation failed");
-            
+
         return new OrderResult(_orderId, DateTime.UtcNow);
     }
-    
+
     // 自定义错误处理：自动回滚
     protected override async Task<CatgaResult<OrderResult>> OnBusinessErrorAsync(
-        CreateOrder request, 
-        CatgaException exception, 
+        CreateOrder request,
+        CatgaException exception,
         CancellationToken ct)
     {
         Logger.LogWarning("Order creation failed, rolling back...");
-        
+
         // 反向回滚
         if (_inventorySaved && _orderId != null)
             await _inventory.ReleaseAsync(_orderId, ...);
         if (_orderId != null)
             await _repository.DeleteAsync(_orderId, ...);
-            
+
         // 返回详细错误信息
         var metadata = new ResultMetadata();
         metadata.Add("OrderId", _orderId ?? "N/A");
         metadata.Add("RollbackCompleted", "true");
-        
+
         return new CatgaResult<OrderResult>
         {
             IsSuccess = false,

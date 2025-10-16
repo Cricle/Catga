@@ -109,7 +109,7 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
         CreateOrder request,
         CancellationToken ct)
     {
-        Logger.LogInformation("Starting order creation for customer {CustomerId}", 
+        Logger.LogInformation("Starting order creation for customer {CustomerId}",
             request.CustomerId);
 
         // 步骤 1: 检查库存
@@ -150,13 +150,13 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
         CatgaException exception,
         CancellationToken ct)
     {
-        Logger.LogWarning("⚠️ Order creation failed: {Error}. Initiating rollback...", 
+        Logger.LogWarning("⚠️ Order creation failed: {Error}. Initiating rollback...",
             exception.Message);
 
         try
         {
             // 反向回滚（与执行顺序相反）
-            
+
             // 回滚步骤 3: 释放库存
             if (_inventoryReserved && _orderId != null)
             {
@@ -189,7 +189,7 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
         catch (Exception rollbackEx)
         {
             // 回滚本身失败！记录错误，需要人工介入
-            Logger.LogError(rollbackEx, 
+            Logger.LogError(rollbackEx,
                 "❌ CRITICAL: Rollback failed for order {OrderId}! Manual intervention required.",
                 _orderId);
         }
@@ -229,7 +229,7 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
         Exception exception,
         CancellationToken ct)
     {
-        Logger.LogError(exception, 
+        Logger.LogError(exception,
             "❌ Unexpected system error during order creation for customer {CustomerId}",
             request.CustomerId);
 
@@ -294,7 +294,7 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderCr
         CreateOrderCommand request,
         CancellationToken ct)
     {
-        _logger.LogInformation("🚀 Starting order creation for customer {CustomerId}", 
+        _logger.LogInformation("🚀 Starting order creation for customer {CustomerId}",
             request.CustomerId);
 
         // 1. 验证库存
@@ -353,7 +353,7 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderCr
             order.CreatedAt
         ), ct);
 
-        _logger.LogInformation("✅ Order created successfully: {OrderId}, Amount: {Amount:C}", 
+        _logger.LogInformation("✅ Order created successfully: {OrderId}, Amount: {Amount:C}",
             _orderId, totalAmount);
 
         return new OrderCreatedResult(_orderId, totalAmount, order.CreatedAt);
@@ -364,7 +364,7 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderCr
         CatgaException exception,
         CancellationToken ct)
     {
-        _logger.LogWarning("⚠️ Order creation failed: {Error}. Initiating rollback...", 
+        _logger.LogWarning("⚠️ Order creation failed: {Error}. Initiating rollback...",
             exception.Message);
 
         var rollbackSteps = new List<string>();
@@ -400,12 +400,12 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderCr
                 rollbackSteps.Add("Failure event published");
             }
 
-            _logger.LogInformation("✅ Rollback completed: {Steps}", 
+            _logger.LogInformation("✅ Rollback completed: {Steps}",
                 string.Join(", ", rollbackSteps));
         }
         catch (Exception rollbackEx)
         {
-            _logger.LogError(rollbackEx, 
+            _logger.LogError(rollbackEx,
                 "❌ CRITICAL: Rollback failed for order {OrderId}! Manual intervention required. " +
                 "Completed steps: {CompletedSteps}",
                 _orderId, string.Join(", ", rollbackSteps));

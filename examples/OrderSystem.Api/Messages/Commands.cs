@@ -7,29 +7,16 @@ using OrderSystem.Api.Domain;
 namespace OrderSystem.Api.Messages;
 
 /// <summary>
-/// Create order command (with AOT-friendly debug capture)
+/// Create order command (with auto-generated debug capture via Source Generator)
 /// </summary>
 [MemoryPackable]
+[GenerateDebugCapture] // Source Generator automatically implements IDebugCapture
 public partial record CreateOrderCommand(
     string CustomerId,
     List<OrderItem> Items,
     string ShippingAddress,
     string PaymentMethod
-) : IRequest<OrderCreatedResult>, IDebugCapture
-{
-    /// <summary>AOT-friendly variable capture for debugging</summary>
-    public Dictionary<string, object?> CaptureVariables()
-    {
-        return new()
-        {
-            [nameof(CustomerId)] = CustomerId,
-            ["ItemCount"] = Items?.Count ?? 0,
-            [nameof(ShippingAddress)] = ShippingAddress,
-            [nameof(PaymentMethod)] = PaymentMethod,
-            ["TotalAmount"] = Items?.Sum(i => i.Quantity * i.UnitPrice) ?? 0m,
-        };
-    }
-}
+) : IRequest<OrderCreatedResult>;
 
 [MemoryPackable]
 public partial record OrderCreatedResult(

@@ -59,7 +59,7 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-    
+
     // Map Catga Debugger UI and APIs
     app.MapCatgaDebugger("/debug");
     // UI: http://localhost:5000/debug

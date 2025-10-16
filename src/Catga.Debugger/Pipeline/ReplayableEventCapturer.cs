@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Catga.Debugger.Core;
 using Catga.Debugger.Models;
@@ -11,6 +12,11 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Debugger.Pipeline;
 
 /// <summary>Pipeline behavior that captures all events for replay</summary>
+/// <remarks>
+/// For AOT compatibility, implement IDebugCapture on your message types.
+/// Reflection-based variable capture is only used as a fallback in development.
+/// </remarks>
+[UnconditionalSuppressMessage("Trimming", "IL2091", Justification = "Generic constraints are enforced by IPipelineBehavior. Types are validated at registration time.")]
 public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : class, IRequest<TResponse>
 {
@@ -117,6 +123,8 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
         return Guid.NewGuid().ToString("N");
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "CaptureVariables is marked with RequiresUnreferencedCode. Callers are aware of AOT limitations.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "CaptureVariables is marked with RequiresDynamicCode. Callers are aware of AOT limitations.")]
     private async Task CaptureSnapshotAsync(string stage, CaptureContext context, object? data)
     {
         if (!_options.TrackStateSnapshots) return;
@@ -249,6 +257,7 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
         return variables;
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "StackFrame.GetMethod uses reflection. Call stack capture is optional and disabled in production AOT builds.")]
     private List<CallFrame> CaptureCallStack()
     {
         var frames = new List<CallFrame>();

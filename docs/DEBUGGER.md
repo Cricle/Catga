@@ -120,7 +120,7 @@ For production AOT deployments, implement `IDebugCapture` on your messages:
 
 ```csharp
 [MemoryPackable]
-public partial record CreateOrderCommand : IRequest<CatgaResult<OrderCreatedResult>>, 
+public partial record CreateOrderCommand : IRequest<CatgaResult<OrderCreatedResult>>,
                                            IDebugCapture
 {
     public required string CustomerId { get; init; }

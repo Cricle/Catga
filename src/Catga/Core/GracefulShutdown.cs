@@ -7,7 +7,7 @@ namespace Catga.Core;
 /// Graceful shutdown manager - tracks active operations, ensures safe shutdown
 /// Users don't need to worry about complex shutdown logic
 /// </summary>
-public sealed class GracefulShutdownManager : IAsyncDisposable
+public sealed partial class GracefulShutdownManager : IAsyncDisposable
 {
     private readonly ILogger<GracefulShutdownManager> _logger;
     private readonly CancellationTokenSource _shutdownCts = new();
@@ -64,7 +64,7 @@ public sealed class GracefulShutdownManager : IAsyncDisposable
         _isShuttingDown = true;
         timeout = timeout == default ? TimeSpan.FromSeconds(30) : timeout;
 
-        _logger.LogInformation("Shutdown started, active operations: {ActiveOperations}", ActiveOperations);
+        LogShutdownStarted(ActiveOperations);
 
         // Notify all components to start shutdown
         await _shutdownCts.CancelAsync();
@@ -74,19 +74,17 @@ public sealed class GracefulShutdownManager : IAsyncDisposable
         // Wait for all active operations to complete
         while (ActiveOperations > 0 && sw.Elapsed < timeout)
         {
-            _logger.LogInformation("Waiting for {ActiveOperations} operations... ({Elapsed:F1}s / {Timeout:F1}s)",
-                ActiveOperations, sw.Elapsed.TotalSeconds, timeout.TotalSeconds);
-
+            LogWaitingForOperations(ActiveOperations, sw.Elapsed.TotalSeconds, timeout.TotalSeconds);
             await Task.Delay(100, cancellationToken);
         }
 
         if (ActiveOperations > 0)
         {
-            _logger.LogWarning("Shutdown timeout, {ActiveOperations} operations incomplete", ActiveOperations);
+            LogShutdownTimeout(ActiveOperations);
         }
         else
         {
-            _logger.LogInformation("Shutdown complete, duration: {Elapsed:F1}s", sw.Elapsed.TotalSeconds);
+            LogShutdownComplete(sw.Elapsed.TotalSeconds);
         }
 
         _shutdownSignal.Release();
@@ -105,7 +103,7 @@ public sealed class GracefulShutdownManager : IAsyncDisposable
         var remaining = Interlocked.Decrement(ref _activeOperations);
         if (_isShuttingDown && remaining == 0)
         {
-            _logger.LogDebug("Last operation complete, safe to shutdown");
+            LogLastOperationComplete();
         }
     }
 
@@ -117,6 +115,21 @@ public sealed class GracefulShutdownManager : IAsyncDisposable
         _shutdownCts.Dispose();
         _shutdownSignal.Dispose();
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Shutdown started, active operations: {ActiveOperations}")]
+    partial void LogShutdownStarted(int activeOperations);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Waiting for {ActiveOperations} operations... ({Elapsed:F1}s / {Timeout:F1}s)")]
+    partial void LogWaitingForOperations(int activeOperations, double elapsed, double timeout);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Shutdown timeout, {ActiveOperations} operations incomplete")]
+    partial void LogShutdownTimeout(int activeOperations);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Shutdown complete, duration: {Elapsed:F1}s")]
+    partial void LogShutdownComplete(double elapsed);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Last operation complete, safe to shutdown")]
+    partial void LogLastOperationComplete();
 
     /// <summary>
     /// Operation scope - auto-tracks operation lifecycle

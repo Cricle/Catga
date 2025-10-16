@@ -5,18 +5,18 @@ namespace Catga.Inbox;
 /// <summary>In-memory inbox store (AOT compatible)</summary>
 public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
 {
-    public Task<bool> TryLockMessageAsync(string messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
+    public ValueTask<bool> TryLockMessageAsync(string messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
     {
         MessageHelper.ValidateMessageId(messageId, nameof(messageId));
 
         if (TryGetMessage(messageId, out var existingMessage) && existingMessage != null)
         {
-            if (existingMessage.Status == InboxStatus.Processed) return Task.FromResult(false);
-            if (existingMessage.LockExpiresAt.HasValue && existingMessage.LockExpiresAt.Value > DateTime.UtcNow) return Task.FromResult(false);
+            if (existingMessage.Status == InboxStatus.Processed) return new(false);
+            if (existingMessage.LockExpiresAt.HasValue && existingMessage.LockExpiresAt.Value > DateTime.UtcNow) return new(false);
 
             existingMessage.Status = InboxStatus.Processing;
             existingMessage.LockExpiresAt = DateTime.UtcNow.Add(lockDuration);
-            return Task.FromResult(true);
+            return new(true);
         }
 
         var newMessage = new InboxMessage
@@ -29,10 +29,10 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
         };
 
         AddOrUpdateMessage(messageId, newMessage);
-        return Task.FromResult(true);
+        return new(true);
     }
 
-    public Task MarkAsProcessedAsync(InboxMessage message, CancellationToken cancellationToken = default)
+    public ValueTask MarkAsProcessedAsync(InboxMessage message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
 
@@ -55,29 +55,32 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
             AddOrUpdateMessage(message.MessageId, message);
         }
 
-        return Task.CompletedTask;
+        return default;
     }
 
-    public Task<bool> HasBeenProcessedAsync(string messageId, CancellationToken cancellationToken = default)
-        => GetValueIfExistsAsync(messageId, message => message.Status == InboxStatus.Processed) ?? Task.FromResult(false);
+    public ValueTask<bool> HasBeenProcessedAsync(string messageId, CancellationToken cancellationToken = default)
+        => new(TryGetMessage(messageId, out var message) && message != null && message.Status == InboxStatus.Processed);
 
-    public Task<string?> GetProcessedResultAsync(string messageId, CancellationToken cancellationToken = default)
-        => GetValueIfExistsAsync(messageId, message => message.Status == InboxStatus.Processed ? message.ProcessingResult : null);
+    public ValueTask<string?> GetProcessedResultAsync(string messageId, CancellationToken cancellationToken = default)
+        => new(TryGetMessage(messageId, out var message) && message != null && message.Status == InboxStatus.Processed ? message.ProcessingResult : null);
 
-    public Task ReleaseLockAsync(string messageId, CancellationToken cancellationToken = default)
-        => ExecuteIfExistsAsync(messageId, message =>
+    public ValueTask ReleaseLockAsync(string messageId, CancellationToken cancellationToken = default)
+    {
+        if (TryGetMessage(messageId, out var message) && message != null)
         {
             message.Status = InboxStatus.Pending;
             message.LockExpiresAt = null;
-        });
+        }
+        return default;
+    }
 
-    public Task DeleteProcessedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
+    public ValueTask DeleteProcessedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
     {
         var cutoff = DateTime.UtcNow - retentionPeriod;
-        return DeleteExpiredMessagesAsync(
-            retentionPeriod,
-            message => message.Status == InboxStatus.Processed && message.ProcessedAt.HasValue && message.ProcessedAt.Value < cutoff,
-            cancellationToken);
+        var keysToRemove = Messages.Where(kvp => kvp.Value.Status == InboxStatus.Processed && kvp.Value.ProcessedAt.HasValue && kvp.Value.ProcessedAt.Value < cutoff).Select(kvp => kvp.Key).ToList();
+        foreach (var key in keysToRemove)
+            Messages.TryRemove(key, out _);
+        return default;
     }
 
     public int GetMessageCountByStatus(InboxStatus status) => GetCountByPredicate(m => m.Status == status);

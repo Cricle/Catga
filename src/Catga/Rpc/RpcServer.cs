@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Rpc;
 
 /// <summary>High-performance lock-free RPC server</summary>
-public sealed class RpcServer : IRpcServer, IAsyncDisposable
+public sealed partial class RpcServer : IRpcServer, IAsyncDisposable
 {
     private readonly IMessageTransport _transport;
     private readonly IMessageSerializer _serializer;
@@ -30,7 +30,7 @@ public sealed class RpcServer : IRpcServer, IAsyncDisposable
     public void RegisterHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(string methodName, Func<TRequest, CancellationToken, Task<TResponse>> handler) where TRequest : class
     {
         _handlers[methodName] = new RpcHandler<TRequest, TResponse>(handler, _serializer);
-        _logger.LogInformation("Registered RPC handler: {Method}", methodName);
+        LogHandlerRegistered(methodName);
     }
 
     public Task StartAsync(CancellationToken cancellationToken = default)
@@ -41,7 +41,7 @@ public sealed class RpcServer : IRpcServer, IAsyncDisposable
         {
             await HandleRequestAsync(rpcRequest, cancellationToken);
         }, cancellationToken);
-        _logger.LogInformation("RPC server started: {ServiceName}", _options.ServiceName);
+        LogServerStarted(_options.ServiceName);
         return Task.CompletedTask;
     }
 
@@ -49,7 +49,7 @@ public sealed class RpcServer : IRpcServer, IAsyncDisposable
     {
         _cts.Cancel();
         if (_receiveTask != null) await _receiveTask;
-        _logger.LogInformation("RPC server stopped: {ServiceName}", _options.ServiceName);
+        LogServerStopped(_options.ServiceName);
     }
 
     private async Task HandleRequestAsync(RpcRequest request, CancellationToken cancellationToken)
@@ -70,7 +70,7 @@ public sealed class RpcServer : IRpcServer, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "RPC handler exception: {Method}", request.MethodName);
+            LogHandlerException(ex, request.MethodName);
             response.ErrorMessage = ex.Message;
             response.ErrorCode = "HANDLER_EXCEPTION";
         }
@@ -86,7 +86,7 @@ public sealed class RpcServer : IRpcServer, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send RPC response for request {RequestId}", request.RequestId);
+            LogSendResponseFailed(ex, request.RequestId);
         }
     }
 
@@ -106,7 +106,7 @@ public sealed class RpcServer : IRpcServer, IAsyncDisposable
             }
             catch (TimeoutException)
             {
-                _logger.LogWarning("RPC server receive task did not complete within timeout");
+                LogReceiveTaskTimeout();
             }
             catch (OperationCanceledException)
             {
@@ -116,6 +116,24 @@ public sealed class RpcServer : IRpcServer, IAsyncDisposable
 
         _cts.Dispose();
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Registered RPC handler: {Method}")]
+    partial void LogHandlerRegistered(string method);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "RPC server started: {ServiceName}")]
+    partial void LogServerStarted(string serviceName);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "RPC server stopped: {ServiceName}")]
+    partial void LogServerStopped(string serviceName);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "RPC handler exception: {Method}")]
+    partial void LogHandlerException(Exception ex, string method);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to send RPC response for request {RequestId}")]
+    partial void LogSendResponseFailed(Exception ex, string requestId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "RPC server receive task did not complete within timeout")]
+    partial void LogReceiveTaskTimeout();
 }
 
 internal interface IRpcHandler

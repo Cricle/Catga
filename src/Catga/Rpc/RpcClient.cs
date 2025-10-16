@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Rpc;
 
 /// <summary>High-performance lock-free RPC client</summary>
-public sealed class RpcClient : IRpcClient, IAsyncDisposable
+public sealed partial class RpcClient : IRpcClient, IAsyncDisposable
 {
     private readonly IMessageTransport _transport;
     private readonly IMessageSerializer _serializer;
@@ -76,7 +76,7 @@ public sealed class RpcClient : IRpcClient, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "RPC call failed: {Service}.{Method}", serviceName, methodName);
+            LogCallFailed(ex, serviceName, methodName);
             return CatgaResult<TResponse>.Failure($"RPC call exception: {ex.Message}");
         }
         finally
@@ -118,7 +118,7 @@ public sealed class RpcClient : IRpcClient, IAsyncDisposable
             }
             catch (TimeoutException)
             {
-                _logger.LogWarning("RPC client receive task did not complete within timeout");
+                LogReceiveTaskTimeout();
             }
             catch (OperationCanceledException)
             {
@@ -128,5 +128,11 @@ public sealed class RpcClient : IRpcClient, IAsyncDisposable
 
         _cts.Dispose();
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "RPC call failed: {Service}.{Method}")]
+    partial void LogCallFailed(Exception ex, string service, string method);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "RPC client receive task did not complete within timeout")]
+    partial void LogReceiveTaskTimeout();
 }
 

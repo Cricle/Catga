@@ -8,7 +8,7 @@ namespace Catga.Core;
 /// Graceful recovery manager - auto-handles reconnection and state recovery
 /// Users don't need to worry about complex recovery logic
 /// </summary>
-public sealed class GracefulRecoveryManager
+public sealed partial class GracefulRecoveryManager
 {
     private readonly ILogger<GracefulRecoveryManager> _logger;
     private readonly ConcurrentBag<IRecoverableComponent> _components = new();
@@ -31,7 +31,7 @@ public sealed class GracefulRecoveryManager
     public void RegisterComponent(IRecoverableComponent component)
     {
         _components.Add(component);  // Lock-free with ConcurrentBag
-        _logger.LogDebug("Component registered: {ComponentType}", component.GetType().Name);
+        LogComponentRegistered(component.GetType().Name);
     }
 
     /// <summary>
@@ -44,13 +44,13 @@ public sealed class GracefulRecoveryManager
         {
             if (_isRecovering)
             {
-                _logger.LogWarning("Recovery already in progress");
+                LogRecoveryInProgress();
                 return RecoveryResult.AlreadyRecovering;
             }
 
             _isRecovering = true;
             var components = _components.ToArray();  // Lock-free read
-            _logger.LogInformation("Starting recovery, components: {Count}", components.Length);
+            LogRecoveryStarted(components.Length);
 
             var sw = Stopwatch.StartNew();
             var succeeded = 0;
@@ -60,19 +60,18 @@ public sealed class GracefulRecoveryManager
             {
                 try
                 {
-                    _logger.LogDebug("Recovering component: {ComponentType}", component.GetType().Name);
+                    LogRecoveringComponent(component.GetType().Name);
                     await component.RecoverAsync(cancellationToken);
                     succeeded++;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Component recovery failed: {ComponentType}", component.GetType().Name);
+                    LogComponentRecoveryFailed(ex, component.GetType().Name);
                     failed++;
                 }
             }
 
-            _logger.LogInformation("Recovery complete - succeeded: {Succeeded}, failed: {Failed}, duration: {Elapsed:F1}s",
-                succeeded, failed, sw.Elapsed.TotalSeconds);
+            LogRecoveryComplete(succeeded, failed, sw.Elapsed.TotalSeconds);
 
             return new RecoveryResult(succeeded, failed, sw.Elapsed);
         }
@@ -91,7 +90,7 @@ public sealed class GracefulRecoveryManager
         int maxRetries = 3,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Auto-recovery started, interval: {Interval}", checkInterval);
+        LogAutoRecoveryStarted(checkInterval);
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -106,7 +105,7 @@ public sealed class GracefulRecoveryManager
                 if (!component.IsHealthy)
                 {
                     needsRecovery = true;
-                    _logger.LogWarning("Unhealthy component detected: {ComponentType}", component.GetType().Name);
+                    LogUnhealthyComponentDetected(component.GetType().Name);
                     break;
                 }
             }
@@ -119,7 +118,7 @@ public sealed class GracefulRecoveryManager
                     var result = await RecoverAsync(cancellationToken);
                     if (result.Failed == 0)
                     {
-                        _logger.LogInformation("Auto-recovery succeeded");
+                        LogAutoRecoverySucceeded();
                         break;
                     }
 
@@ -127,14 +126,43 @@ public sealed class GracefulRecoveryManager
                     if (retries < maxRetries)
                     {
                         var delay = TimeSpan.FromSeconds(Math.Pow(2, retries)); // Exponential backoff
-                        _logger.LogWarning("Recovery incomplete, retry in {Delay}s ({Retry}/{MaxRetries})",
-                            delay.TotalSeconds, retries, maxRetries);
+                        LogRecoveryIncomplete(delay.TotalSeconds, retries, maxRetries);
                         await Task.Delay(delay, cancellationToken);
                     }
                 }
             }
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Component registered: {ComponentType}")]
+    partial void LogComponentRegistered(string componentType);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Recovery already in progress")]
+    partial void LogRecoveryInProgress();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Starting recovery, components: {Count}")]
+    partial void LogRecoveryStarted(int count);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Recovering component: {ComponentType}")]
+    partial void LogRecoveringComponent(string componentType);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Component recovery failed: {ComponentType}")]
+    partial void LogComponentRecoveryFailed(Exception ex, string componentType);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Recovery complete - succeeded: {Succeeded}, failed: {Failed}, duration: {Elapsed:F1}s")]
+    partial void LogRecoveryComplete(int succeeded, int failed, double elapsed);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Auto-recovery started, interval: {Interval}")]
+    partial void LogAutoRecoveryStarted(TimeSpan interval);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Unhealthy component detected: {ComponentType}")]
+    partial void LogUnhealthyComponentDetected(string componentType);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Auto-recovery succeeded")]
+    partial void LogAutoRecoverySucceeded();
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Recovery incomplete, retry in {Delay}s ({Retry}/{MaxRetries})")]
+    partial void LogRecoveryIncomplete(double delay, int retry, int maxRetries);
 }
 
 /// <summary>

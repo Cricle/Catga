@@ -11,24 +11,24 @@ public interface IOutboxStore
     /// <summary>
     /// Add a message to the outbox (within the same transaction)
     /// </summary>
-    public Task AddAsync(OutboxMessage message, CancellationToken cancellationToken = default);
+    public ValueTask AddAsync(OutboxMessage message, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get pending messages ready to be published
     /// </summary>
-    public Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
+    public ValueTask<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
         int maxCount = 100,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Mark message as published successfully
     /// </summary>
-    public Task MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default);
+    public ValueTask MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Mark message as failed and increment retry count
     /// </summary>
-    public Task MarkAsFailedAsync(
+    public ValueTask MarkAsFailedAsync(
         string messageId,
         string errorMessage,
         CancellationToken cancellationToken = default);
@@ -36,7 +36,7 @@ public interface IOutboxStore
     /// <summary>
     /// Delete old published messages (cleanup)
     /// </summary>
-    public Task DeletePublishedMessagesAsync(
+    public ValueTask DeletePublishedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default);
 }

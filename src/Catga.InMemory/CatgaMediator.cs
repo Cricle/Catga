@@ -54,14 +54,17 @@ public class CatgaMediator : ICatgaMediator
 
         try
         {
-            var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(_serviceProvider);
+            using var scope = _serviceProvider.CreateScope();
+            var scopedProvider = scope.ServiceProvider;
+            
+            var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(scopedProvider);
             if (handler == null)
             {
                 CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", "false"));
                 return CatgaResult<TResponse>.Failure($"No handler for {reqType}", new HandlerNotFoundException(reqType));
             }
 
-            var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
+            var behaviors = scopedProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
             var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToList();
             var result = FastPath.CanUseFastPath(behaviorsList.Count)
                 ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
@@ -95,7 +98,8 @@ public class CatgaMediator : ICatgaMediator
 
     public async Task<CatgaResult> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest
     {
-        var handler = _serviceProvider.GetService<IRequestHandler<TRequest>>();
+        using var scope = _serviceProvider.CreateScope();
+        var handler = scope.ServiceProvider.GetService<IRequestHandler<TRequest>>();
         if (handler == null)
             return CatgaResult.Failure($"No handler for {TypeNameCache<TRequest>.Name}", new HandlerNotFoundException(TypeNameCache<TRequest>.Name));
         return await handler.HandleAsync(request, cancellationToken);
@@ -114,9 +118,12 @@ public class CatgaMediator : ICatgaMediator
         activity?.SetTag("catga.message.id", message?.MessageId);
         CatgaLog.EventPublishing(_logger, eventType, message?.MessageId);
 
+        using var scope = _serviceProvider.CreateScope();
+        var scopedProvider = scope.ServiceProvider;
+        
         // Fast-path: use generated router if available
-        var generatedRouter = _serviceProvider.GetService<Catga.Handlers.IGeneratedEventRouter>();
-        if (generatedRouter != null && generatedRouter.TryRoute(_serviceProvider, @event, cancellationToken, out var dispatchedTask))
+        var generatedRouter = scopedProvider.GetService<Catga.Handlers.IGeneratedEventRouter>();
+        if (generatedRouter != null && generatedRouter.TryRoute(scopedProvider, @event, cancellationToken, out var dispatchedTask))
         {
             if (dispatchedTask != null)
                 await dispatchedTask.ConfigureAwait(false);
@@ -124,7 +131,7 @@ public class CatgaMediator : ICatgaMediator
             return;
         }
 
-        var handlerList = _handlerCache.GetEventHandlers<IEventHandler<TEvent>>(_serviceProvider);
+        var handlerList = _handlerCache.GetEventHandlers<IEventHandler<TEvent>>(scopedProvider);
         if (handlerList.Count == 0)
         {
             await FastPath.PublishEventNoOpAsync();

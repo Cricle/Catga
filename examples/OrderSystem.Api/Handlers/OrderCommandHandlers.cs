@@ -38,7 +38,7 @@ public partial class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand,
         var totalAmount = request.Items.Sum(item => item.Subtotal);
         LogOrderTotalCalculated(totalAmount);
 
-        _orderId = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N[..8]}";
+        _orderId = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..8]}";
         var order = new Order
         {
             OrderId = _orderId,

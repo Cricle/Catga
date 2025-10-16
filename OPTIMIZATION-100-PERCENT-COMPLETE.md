@@ -46,7 +46,7 @@
 _logger.LogInformation($"Order created: {orderId}, Amount: {amount}");
 
 // After (零分配)
-[LoggerMessage(Level = LogLevel.Information, 
+[LoggerMessage(Level = LogLevel.Information,
     Message = "✅ Order created: {OrderId}, Amount: {Amount}")]
 partial void LogOrderCreatedSuccess(string orderId, decimal amount);
 ```
@@ -137,7 +137,7 @@ public ValueTask DeleteProcessedMessagesAsync(...)
 
 ## ✅ 编译验证
 
-**编译结果**: 
+**编译结果**:
 ```
 已成功生成。
     0 个警告

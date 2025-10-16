@@ -3,8 +3,11 @@ using Catga.AspNetCore;
 using Catga.Debugger.AspNetCore.DependencyInjection;
 using Catga.Debugger.DependencyInjection;
 using Catga.DependencyInjection;
+using Catga.Handlers;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;
+using OrderSystem.Api.Handlers;
+using OrderSystem.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +17,21 @@ builder.Services.AddInMemoryTransport();
 
 if (builder.Environment.IsDevelopment())
     builder.Services.AddCatgaDebuggerWithAspNetCore();
+
+// Register generated handlers and services
+builder.Services.AddGeneratedHandlers();
+builder.Services.AddGeneratedServices();
+
+// Manual registration for debugging
+builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderHandler>();
+builder.Services.AddScoped<IRequestHandler<CancelOrderCommand>, CancelOrderHandler>();
+builder.Services.AddScoped<IRequestHandler<GetOrderQuery, Order?>, GetOrderHandler>();
+builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedNotificationHandler>();
+builder.Services.AddScoped<IEventHandler<OrderCancelledEvent>, OrderCancelledHandler>();
+builder.Services.AddScoped<IEventHandler<OrderFailedEvent>, OrderFailedHandler>();
+builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
+builder.Services.AddSingleton<IInventoryService, MockInventoryService>();
+builder.Services.AddSingleton<IPaymentService, MockPaymentService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -29,8 +47,8 @@ if (app.Environment.IsDevelopment())
     app.MapCatgaDebugger("/debug");
 }
 
-app.UseStaticFiles();
 app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.MapCatgaRequest<CreateOrderCommand, OrderCreatedResult>("/api/orders")
     .WithName("CreateOrder").WithTags("Orders");

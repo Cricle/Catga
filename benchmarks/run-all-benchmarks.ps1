@@ -27,10 +27,10 @@ $results = @()
 
 foreach ($benchmark in $benchmarks) {
     Write-Host "📊 Running: $($benchmark.Name)" -ForegroundColor Yellow
-    
+
     try {
         $output = & dotnet run -c Release --filter $benchmark.Filter 2>&1
-        
+
         if ($LASTEXITCODE -eq 0) {
             Write-Host "   ✅ Completed" -ForegroundColor Green
             $results += @{
@@ -54,7 +54,7 @@ foreach ($benchmark in $benchmarks) {
             Output = $_.Exception.Message
         }
     }
-    
+
     Write-Host ""
 }
 

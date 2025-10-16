@@ -12,7 +12,8 @@ namespace Catga.Serialization;
     WriteIndented = false,
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    GenerationMode = JsonSourceGenerationMode.Default)]
+    GenerationMode = JsonSourceGenerationMode.Default,
+    Converters = [typeof(CatgaExceptionJsonConverter)])]
 // Basic types
 [JsonSerializable(typeof(string))]
 [JsonSerializable(typeof(int))]

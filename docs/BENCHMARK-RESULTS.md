@@ -1,8 +1,8 @@
 # Catga 完整性能基准测试报告
 
-**测试日期**: 2024-10-16  
-**测试环境**: AMD Ryzen 7 5800H, 16 核心, .NET 9.0.8  
-**测试工具**: BenchmarkDotNet v0.14.0  
+**测试日期**: 2024-10-16
+**测试环境**: AMD Ryzen 7 5800H, 16 核心, .NET 9.0.8
+**测试工具**: BenchmarkDotNet v0.14.0
 **操作系统**: Windows 10 (10.0.19045)
 
 ---
@@ -440,14 +440,14 @@ public static class GeneratedServiceRegistration
         this IServiceCollection services)
     {
         // 编译时生成，零反射
-        services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, 
+        services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>,
                           CreateOrderHandler>();
-        services.AddScoped<IRequestHandler<GetOrderQuery, Order?>, 
+        services.AddScoped<IRequestHandler<GetOrderQuery, Order?>,
                           GetOrderHandler>();
-        services.AddScoped<IEventHandler<OrderCreatedEvent>, 
+        services.AddScoped<IEventHandler<OrderCreatedEvent>,
                           SendOrderNotificationHandler>();
         // ... 更多 handlers
-        
+
         return services;
     }
 }
@@ -456,7 +456,7 @@ vs 传统反射方式:
 // 运行时反射扫描 (慢)
 foreach (var type in assembly.GetTypes())
 {
-    if (type.GetInterfaces().Any(i => i.IsGenericType && 
+    if (type.GetInterfaces().Any(i => i.IsGenericType &&
         i.GetGenericTypeDefinition() == typeof(IRequestHandler<,>)))
     {
         services.AddScoped(handlerInterface, type);  // 反射调用

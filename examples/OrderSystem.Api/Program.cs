@@ -150,7 +150,7 @@ app.MapPost("/demo/order-success", async (ICatgaMediator mediator) =>
         Success = result.IsSuccess,
         OrderId = result.Value?.OrderId,
         TotalAmount = result.Value?.TotalAmount,
-        Message = result.IsSuccess 
+        Message = result.IsSuccess
             ? "✅ Order created successfully! All steps completed: Stock checked → Order saved → Inventory reserved → Event published"
             : result.Error,
         Metadata = result.Metadata?.GetAll()
@@ -179,7 +179,7 @@ app.MapPost("/demo/order-failure", async (ICatgaMediator mediator) =>
     {
         Success = result.IsSuccess,
         Error = result.Error,
-        Message = result.IsSuccess 
+        Message = result.IsSuccess
             ? "Order created"
             : "❌ Order creation failed! Automatic rollback completed: Inventory released → Order deleted → Failure event published",
         RollbackDetails = result.Metadata?.GetAll(),

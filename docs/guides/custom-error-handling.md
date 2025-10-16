@@ -1,455 +1,561 @@
-# Custom Error Handling in SafeRequestHandler
+# 自定义错误处理和自动回滚
 
-## Overview
-
-`SafeRequestHandler` provides two virtual methods that allow you to customize how errors are handled:
-
-- **`OnBusinessErrorAsync`** - Handle business logic errors (`CatgaException`)
-- **`OnUnexpectedErrorAsync`** - Handle unexpected errors (all other exceptions)
-
-Both methods have default implementations, but you can override them to add custom behavior like:
-- Custom logging
-- Error notification/alerting
-- Error transformation
-- Retry logic
-- Metrics/telemetry
-- Fallback responses
+本指南介绍如何使用 `SafeRequestHandler` 的虚函数来实现自定义错误处理和自动回滚。
 
 ---
 
-## Default Behavior
+## 🎯 概述
 
-### Business Errors (CatgaException)
+`SafeRequestHandler` 提供三个虚函数供你重写：
+
+1. **`OnBusinessErrorAsync`** - 处理业务异常（`CatgaException`）
+2. **`OnUnexpectedErrorAsync`** - 处理系统异常（其他 `Exception`）
+3. **`OnValidationErrorAsync`** - 处理验证异常（可选）
+
+---
+
+## 🚀 基础用法
+
+### 默认行为
 
 ```csharp
-protected virtual Task<CatgaResult<TResponse>> OnBusinessErrorAsync(
-    TRequest request,
-    CatgaException exception,
-    CancellationToken cancellationToken)
+public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
 {
-    Logger.LogWarning(exception, "Business logic failed: {Message}", exception.Message);
-    return Task.FromResult(CatgaResult<TResponse>.Failure(exception.Message, exception));
+    protected override async Task<OrderResult> HandleCoreAsync(
+        CreateOrder request,
+        CancellationToken ct)
+    {
+        if (request.Amount <= 0)
+            throw new CatgaException("Amount must be positive");  // 自动记录日志并返回失败
+
+        return new OrderResult(...);
+    }
 }
 ```
 
-### Unexpected Errors (Exception)
+**默认行为**：
+- ✅ 自动记录警告日志
+- ✅ 返回 `CatgaResult.Failure` 包含错误消息
+- ✅ 不会中断应用程序
+
+---
+
+## 🎨 自定义业务错误处理
+
+### 示例：添加详细元数据
 
 ```csharp
-protected virtual Task<CatgaResult<TResponse>> OnUnexpectedErrorAsync(
-    TRequest request,
-    Exception exception,
-    CancellationToken cancellationToken)
+public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
 {
-    Logger.LogError(exception, "Unexpected error in handler");
-    return Task.FromResult(CatgaResult<TResponse>.Failure("Internal error", new CatgaException("Internal error", exception)));
+    protected override async Task<OrderResult> HandleCoreAsync(...)
+    {
+        // 业务逻辑
+        if (!await _inventory.CheckStockAsync(...))
+            throw new CatgaException("Insufficient stock");
+
+        return new OrderResult(...);
+    }
+
+    protected override async Task<CatgaResult<OrderResult>> OnBusinessErrorAsync(
+        CreateOrder request,
+        CatgaException exception,
+        CancellationToken ct)
+    {
+        // 记录自定义日志
+        Logger.LogWarning("Order creation failed for customer {CustomerId}: {Error}",
+            request.CustomerId, exception.Message);
+
+        // 添加详细元数据
+        var metadata = new ResultMetadata();
+        metadata.Add("CustomerId", request.CustomerId);
+        metadata.Add("RequestedAmount", request.Amount.ToString());
+        metadata.Add("ErrorType", "BusinessValidation");
+        metadata.Add("Timestamp", DateTime.UtcNow.ToString("O"));
+
+        // 返回自定义错误响应
+        return new CatgaResult<OrderResult>
+        {
+            IsSuccess = false,
+            Error = $"Failed to create order: {exception.Message}",
+            Exception = exception,
+            Metadata = metadata
+        };
+    }
 }
 ```
 
 ---
 
-## Common Use Cases
+## 🔄 自动回滚模式
 
-### 1. Custom Logging with Context
-
-Add request-specific information to error logs:
+### 示例：订单创建失败回滚
 
 ```csharp
-public class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderResult>
+public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
 {
-    public CreateOrderHandler(ILogger<CreateOrderHandler> logger) : base(logger) { }
+    private readonly IOrderRepository _repository;
+    private readonly IInventoryService _inventory;
+    private readonly IPaymentService _payment;
+    private readonly ICatgaMediator _mediator;
+
+    // 跟踪操作状态
+    private string? _orderId;
+    private bool _orderSaved;
+    private bool _inventoryReserved;
+
+    public CreateOrderHandler(...) : base(logger) { }
 
     protected override async Task<OrderResult> HandleCoreAsync(
-        CreateOrderCommand request,
-        CancellationToken cancellationToken)
+        CreateOrder request,
+        CancellationToken ct)
     {
-        // Business logic...
-        throw new CatgaException("Insufficient inventory");
+        Logger.LogInformation("Starting order creation for customer {CustomerId}", 
+            request.CustomerId);
+
+        // 步骤 1: 检查库存
+        var stockCheck = await _inventory.CheckStockAsync(request.Items, ct);
+        if (!stockCheck.IsSuccess)
+            throw new CatgaException("Insufficient stock");
+
+        // 步骤 2: 保存订单（检查点 1）
+        _orderId = Guid.NewGuid().ToString("N");
+        await _repository.SaveAsync(_orderId, request, ct);
+        _orderSaved = true;
+        Logger.LogInformation("Order saved: {OrderId}", _orderId);
+
+        // 步骤 3: 预留库存（检查点 2）
+        var reserveResult = await _inventory.ReserveAsync(_orderId, request.Items, ct);
+        if (!reserveResult.IsSuccess)
+            throw new CatgaException("Failed to reserve inventory");
+        _inventoryReserved = true;
+        Logger.LogInformation("Inventory reserved: {OrderId}", _orderId);
+
+        // 步骤 4: 验证支付（可能失败）
+        var paymentResult = await _payment.ValidateAsync(request.PaymentMethod, ct);
+        if (!paymentResult.IsSuccess)
+            throw new CatgaException("Payment validation failed");
+
+        // 步骤 5: 发布成功事件
+        await _mediator.PublishAsync(new OrderCreatedEvent(_orderId, ...), ct);
+
+        Logger.LogInformation("✅ Order created successfully: {OrderId}", _orderId);
+        return new OrderResult(_orderId, DateTime.UtcNow);
     }
 
-    protected override Task<CatgaResult<OrderResult>> OnBusinessErrorAsync(
-        CreateOrderCommand request,
+    /// <summary>
+    /// 自动回滚所有已完成的操作
+    /// </summary>
+    protected override async Task<CatgaResult<OrderResult>> OnBusinessErrorAsync(
+        CreateOrder request,
         CatgaException exception,
-        CancellationToken cancellationToken)
+        CancellationToken ct)
     {
-        // Custom logging with request context
-        Logger.LogWarning(exception,
-            "Order creation failed for Customer={CustomerId}, Items={ItemCount}: {Message}",
-            request.CustomerId,
-            request.Items.Count,
+        Logger.LogWarning("⚠️ Order creation failed: {Error}. Initiating rollback...", 
             exception.Message);
 
-        return Task.FromResult(CatgaResult<OrderResult>.Failure(exception.Message, exception));
-    }
-}
-```
-
-### 2. Error Notification/Alerting
-
-Send alerts for critical errors:
-
-```csharp
-public class PaymentHandler : SafeRequestHandler<ProcessPaymentCommand, PaymentResult>
-{
-    private readonly IAlertService _alertService;
-
-    public PaymentHandler(ILogger<PaymentHandler> logger, IAlertService alertService)
-        : base(logger)
-    {
-        _alertService = alertService;
-    }
-
-    protected override async Task<PaymentResult> HandleCoreAsync(
-        ProcessPaymentCommand request,
-        CancellationToken cancellationToken)
-    {
-        // Payment processing logic...
-    }
-
-    protected override async Task<CatgaResult<PaymentResult>> OnUnexpectedErrorAsync(
-        ProcessPaymentCommand request,
-        Exception exception,
-        CancellationToken cancellationToken)
-    {
-        // Alert on unexpected payment errors
-        await _alertService.SendCriticalAlertAsync(
-            $"Payment processing failed unexpectedly",
-            new
-            {
-                OrderId = request.OrderId,
-                Amount = request.Amount,
-                Error = exception.Message,
-                StackTrace = exception.StackTrace
-            },
-            cancellationToken);
-
-        // Call base implementation
-        return await base.OnUnexpectedErrorAsync(request, exception, cancellationToken);
-    }
-}
-```
-
-### 3. Error Transformation
-
-Transform internal errors to user-friendly messages:
-
-```csharp
-public class GetUserProfileHandler : SafeRequestHandler<GetUserProfileQuery, UserProfile>
-{
-    public GetUserProfileHandler(ILogger<GetUserProfileHandler> logger) : base(logger) { }
-
-    protected override async Task<UserProfile> HandleCoreAsync(
-        GetUserProfileQuery request,
-        CancellationToken cancellationToken)
-    {
-        // Query logic...
-    }
-
-    protected override Task<CatgaResult<UserProfile>> OnBusinessErrorAsync(
-        GetUserProfileQuery request,
-        CatgaException exception,
-        CancellationToken cancellationToken)
-    {
-        // Transform error message based on error code
-        var userMessage = exception.Message switch
+        try
         {
-            var m when m.Contains("not found") => $"User profile for '{request.UserId}' does not exist",
-            var m when m.Contains("access denied") => "You don't have permission to view this profile",
-            var m when m.Contains("suspended") => "This user account has been suspended",
-            _ => "Unable to retrieve user profile"
-        };
+            // 反向回滚（与执行顺序相反）
+            
+            // 回滚步骤 3: 释放库存
+            if (_inventoryReserved && _orderId != null)
+            {
+                Logger.LogInformation("Rolling back inventory for order {OrderId}", _orderId);
+                await _inventory.ReleaseAsync(_orderId, request.Items, ct);
+                Logger.LogInformation("✓ Inventory rollback completed");
+            }
 
-        Logger.LogWarning(exception, "Profile query failed: {OriginalMessage}", exception.Message);
+            // 回滚步骤 2: 删除订单
+            if (_orderSaved && _orderId != null)
+            {
+                Logger.LogInformation("Rolling back order {OrderId}", _orderId);
+                await _repository.DeleteAsync(_orderId, ct);
+                Logger.LogInformation("✓ Order deletion completed");
+            }
 
-        return Task.FromResult(CatgaResult<UserProfile>.Failure(userMessage, exception));
-    }
-}
-```
+            // 发布失败事件
+            if (_orderId != null)
+            {
+                await _mediator.PublishAsync(new OrderFailedEvent(
+                    _orderId,
+                    request.CustomerId,
+                    exception.Message,
+                    DateTime.UtcNow
+                ), ct);
+            }
 
-### 4. Retry Logic (Advanced)
-
-Implement automatic retry for transient errors:
-
-```csharp
-public class ImportDataHandler : SafeRequestHandler<ImportDataCommand, ImportResult>
-{
-    private readonly IRetryPolicy _retryPolicy;
-
-    public ImportDataHandler(ILogger<ImportDataHandler> logger, IRetryPolicy retryPolicy)
-        : base(logger)
-    {
-        _retryPolicy = retryPolicy;
-    }
-
-    protected override async Task<ImportResult> HandleCoreAsync(
-        ImportDataCommand request,
-        CancellationToken cancellationToken)
-    {
-        // Data import logic...
-    }
-
-    protected override async Task<CatgaResult<ImportResult>> OnUnexpectedErrorAsync(
-        ImportDataCommand request,
-        Exception exception,
-        CancellationToken cancellationToken)
-    {
-        // Retry transient errors
-        if (IsTransientError(exception))
+            Logger.LogInformation("✅ Rollback completed successfully");
+        }
+        catch (Exception rollbackEx)
         {
-            Logger.LogInformation("Transient error detected, will retry: {Message}", exception.Message);
-
-            try
-            {
-                var result = await _retryPolicy.ExecuteAsync(
-                    async () => await HandleCoreAsync(request, cancellationToken),
-                    cancellationToken);
-
-                return CatgaResult<ImportResult>.Success(result);
-            }
-            catch (Exception retryException)
-            {
-                Logger.LogError(retryException, "Retry failed after transient error");
-                return await base.OnUnexpectedErrorAsync(request, retryException, cancellationToken);
-            }
+            // 回滚本身失败！记录错误，需要人工介入
+            Logger.LogError(rollbackEx, 
+                "❌ CRITICAL: Rollback failed for order {OrderId}! Manual intervention required.",
+                _orderId);
         }
 
-        return await base.OnUnexpectedErrorAsync(request, exception, cancellationToken);
-    }
+        // 返回详细的错误和回滚信息
+        var metadata = new ResultMetadata();
+        metadata.Add("OrderId", _orderId ?? "N/A");
+        metadata.Add("CustomerId", request.CustomerId);
+        metadata.Add("RollbackCompleted", "true");
+        metadata.Add("InventoryRolledBack", _inventoryReserved.ToString());
+        metadata.Add("OrderDeleted", _orderSaved.ToString());
+        metadata.Add("FailureTimestamp", DateTime.UtcNow.ToString("O"));
+        metadata.Add("OriginalError", exception.Message);
 
-    private bool IsTransientError(Exception exception)
-    {
-        return exception is TimeoutException
-            || exception is HttpRequestException
-            || (exception.Message?.Contains("temporary", StringComparison.OrdinalIgnoreCase) ?? false);
-    }
-}
-```
-
-### 5. Metrics and Telemetry
-
-Track error metrics:
-
-```csharp
-public class CheckoutHandler : SafeRequestHandler<CheckoutCommand, CheckoutResult>
-{
-    private readonly IMetricsCollector _metrics;
-
-    public CheckoutHandler(ILogger<CheckoutHandler> logger, IMetricsCollector metrics)
-        : base(logger)
-    {
-        _metrics = metrics;
-    }
-
-    protected override async Task<CheckoutResult> HandleCoreAsync(
-        CheckoutCommand request,
-        CancellationToken cancellationToken)
-    {
-        // Checkout logic...
-    }
-
-    protected override async Task<CatgaResult<CheckoutResult>> OnBusinessErrorAsync(
-        CheckoutCommand request,
-        CatgaException exception,
-        CancellationToken cancellationToken)
-    {
-        // Track business error metrics
-        _metrics.IncrementCounter("checkout.business_errors", new Dictionary<string, string>
+        return new CatgaResult<OrderResult>
         {
-            ["error_type"] = GetErrorType(exception.Message),
-            ["customer_id"] = request.CustomerId
-        });
-
-        return await base.OnBusinessErrorAsync(request, exception, cancellationToken);
-    }
-
-    protected override async Task<CatgaResult<CheckoutResult>> OnUnexpectedErrorAsync(
-        CheckoutCommand request,
-        Exception exception,
-        CancellationToken cancellationToken)
-    {
-        // Track unexpected error metrics
-        _metrics.IncrementCounter("checkout.unexpected_errors", new Dictionary<string, string>
-        {
-            ["exception_type"] = exception.GetType().Name,
-            ["customer_id"] = request.CustomerId
-        });
-
-        return await base.OnUnexpectedErrorAsync(request, exception, cancellationToken);
-    }
-
-    private string GetErrorType(string message)
-    {
-        if (message.Contains("inventory")) return "inventory";
-        if (message.Contains("payment")) return "payment";
-        if (message.Contains("validation")) return "validation";
-        return "other";
-    }
-}
-```
-
-### 6. Fallback Response
-
-Provide fallback responses for certain errors:
-
-```csharp
-public class GetRecommendationsHandler : SafeRequestHandler<GetRecommendationsQuery, RecommendationResult>
-{
-    public GetRecommendationsHandler(ILogger<GetRecommendationsHandler> logger)
-        : base(logger) { }
-
-    protected override async Task<RecommendationResult> HandleCoreAsync(
-        GetRecommendationsQuery request,
-        CancellationToken cancellationToken)
-    {
-        // Recommendation logic...
-    }
-
-    protected override Task<CatgaResult<RecommendationResult>> OnUnexpectedErrorAsync(
-        GetRecommendationsQuery request,
-        Exception exception,
-        CancellationToken cancellationToken)
-    {
-        Logger.LogWarning(exception, "Recommendation service failed, returning fallback results");
-
-        // Return empty recommendations instead of failing
-        var fallbackResult = new RecommendationResult
-        {
-            Items = new List<RecommendationItem>(),
-            Message = "Recommendations are temporarily unavailable"
+            IsSuccess = false,
+            Error = $"Order creation failed: {exception.Message}. All changes have been rolled back.",
+            Exception = exception,
+            Metadata = metadata
         };
-
-        return Task.FromResult(CatgaResult<RecommendationResult>.Success(fallbackResult));
     }
 }
 ```
 
 ---
 
-## Best Practices
+## 🛡️ 处理系统异常
 
-### ✅ Do
-
-1. **Call base implementation** when adding custom behavior:
-   ```csharp
-   protected override async Task<CatgaResult<TResponse>> OnBusinessErrorAsync(...)
-   {
-       // Custom logic
-       await _notificationService.NotifyAsync(...);
-
-       // Then call base
-       return await base.OnBusinessErrorAsync(request, exception, cancellationToken);
-   }
-   ```
-
-2. **Use async/await properly** for I/O operations:
-   ```csharp
-   protected override async Task<CatgaResult<TResponse>> OnUnexpectedErrorAsync(...)
-   {
-       await _alertService.SendAlertAsync(...);
-       return await base.OnUnexpectedErrorAsync(request, exception, cancellationToken);
-   }
-   ```
-
-3. **Keep error handling logic simple** - complex logic should be in services:
-   ```csharp
-   // ✅ Good
-   protected override async Task<CatgaResult<TResponse>> OnBusinessErrorAsync(...)
-   {
-       await _errorHandler.HandleBusinessErrorAsync(request, exception);
-       return await base.OnBusinessErrorAsync(request, exception, cancellationToken);
-   }
-
-   // ❌ Bad - too much logic in override
-   protected override async Task<CatgaResult<TResponse>> OnBusinessErrorAsync(...)
-   {
-       // 50 lines of complex error handling logic...
-   }
-   ```
-
-4. **Preserve original exception** for debugging:
-   ```csharp
-   return CatgaResult<TResponse>.Failure(userFriendlyMessage, originalException);
-   ```
-
-### ❌ Don't
-
-1. **Don't swallow exceptions** without logging:
-   ```csharp
-   // ❌ Bad - exception is lost
-   protected override Task<CatgaResult<TResponse>> OnUnexpectedErrorAsync(...)
-   {
-       return Task.FromResult(CatgaResult<TResponse>.Success(default!));
-   }
-   ```
-
-2. **Don't throw exceptions** from error handlers:
-   ```csharp
-   // ❌ Bad - will cause unhandled exception
-   protected override Task<CatgaResult<TResponse>> OnBusinessErrorAsync(...)
-   {
-       throw new Exception("Error in error handler");
-   }
-   ```
-
-3. **Don't perform heavy operations** without timeouts:
-   ```csharp
-   // ❌ Bad - could hang indefinitely
-   protected override async Task<CatgaResult<TResponse>> OnUnexpectedErrorAsync(...)
-   {
-       await _service.HeavyOperationWithoutTimeoutAsync();
-       return await base.OnUnexpectedErrorAsync(request, exception, cancellationToken);
-   }
-   ```
-
----
-
-## Testing Custom Error Handlers
-
-Example unit test:
+### 示例：捕获意外错误
 
 ```csharp
-[Fact]
-public async Task OnBusinessErrorAsync_ShouldSendAlert()
+public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
 {
-    // Arrange
-    var mockAlertService = new Mock<IAlertService>();
-    var handler = new PaymentHandler(
-        NullLogger<PaymentHandler>.Instance,
-        mockAlertService.Object);
+    protected override async Task<CatgaResult<OrderResult>> OnUnexpectedErrorAsync(
+        CreateOrder request,
+        Exception exception,
+        CancellationToken ct)
+    {
+        Logger.LogError(exception, 
+            "❌ Unexpected system error during order creation for customer {CustomerId}",
+            request.CustomerId);
 
-    var request = new ProcessPaymentCommand("order-1", 100m);
-    var exception = new CatgaException("Payment gateway timeout");
-
-    // Act - Use reflection to call protected method in test
-    var method = typeof(PaymentHandler).GetMethod(
-        "OnBusinessErrorAsync",
-        BindingFlags.NonPublic | BindingFlags.Instance);
-
-    await (Task<CatgaResult<PaymentResult>>)method!.Invoke(
-        handler,
-        new object[] { request, exception, CancellationToken.None })!;
-
-    // Assert
-    mockAlertService.Verify(
-        x => x.SendAlertAsync(
-            It.Is<string>(s => s.Contains("Payment")),
-            It.IsAny<object>(),
-            It.IsAny<CancellationToken>()),
-        Times.Once);
+        // 对于系统错误，也尝试回滚
+        // 可以复用 OnBusinessErrorAsync 的逻辑
+        return await OnBusinessErrorAsync(
+            request,
+            new CatgaException("System error occurred", exception),
+            ct);
+    }
 }
 ```
 
 ---
 
-## Summary
+## 📋 完整示例：电商订单
 
-Custom error handling in `SafeRequestHandler` allows you to:
+### 场景描述
 
-- ✅ Add contextual logging
-- ✅ Send alerts/notifications
-- ✅ Transform error messages
-- ✅ Implement retry logic
-- ✅ Collect metrics
-- ✅ Provide fallback responses
+1. **成功流程**：检查库存 → 保存订单 → 预留库存 → 验证支付 → 发布事件
+2. **失败流程**：在支付验证失败时，自动回滚库存和订单
 
-**Default behavior is production-ready, but override for custom needs!**
+### 完整代码
 
+```csharp
+using Catga;
+using Catga.Core;
+using Catga.Exceptions;
+using Catga.Messages;
+using Catga.Results;
+
+namespace MyApp.Handlers;
+
+public class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderCreatedResult>
+{
+    private readonly IOrderRepository _repository;
+    private readonly IInventoryService _inventory;
+    private readonly IPaymentService _payment;
+    private readonly ICatgaMediator _mediator;
+    private readonly ILogger<CreateOrderHandler> _logger;
+
+    // 状态跟踪
+    private string? _orderId;
+    private bool _orderSaved;
+    private bool _inventoryReserved;
+
+    public CreateOrderHandler(
+        IOrderRepository repository,
+        IInventoryService inventory,
+        IPaymentService payment,
+        ICatgaMediator mediator,
+        ILogger<CreateOrderHandler> logger) : base(logger)
+    {
+        _repository = repository;
+        _inventory = inventory;
+        _payment = payment;
+        _mediator = mediator;
+        _logger = logger;
+    }
+
+    protected override async Task<OrderCreatedResult> HandleCoreAsync(
+        CreateOrderCommand request,
+        CancellationToken ct)
+    {
+        _logger.LogInformation("🚀 Starting order creation for customer {CustomerId}", 
+            request.CustomerId);
+
+        // 1. 验证库存
+        var stockCheck = await _inventory.CheckStockAsync(request.Items, ct);
+        if (!stockCheck.IsSuccess)
+        {
+            throw new CatgaException(
+                $"Insufficient stock for items: {string.Join(", ", request.Items.Select(i => i.ProductId))}");
+        }
+        _logger.LogInformation("✓ Stock check passed");
+
+        // 2. 计算总金额
+        var totalAmount = request.Items.Sum(item => item.Subtotal);
+        _logger.LogInformation("✓ Total amount: {Amount:C}", totalAmount);
+
+        // 3. 保存订单（检查点 1）
+        _orderId = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N[..8]}";
+        var order = new Order
+        {
+            OrderId = _orderId,
+            CustomerId = request.CustomerId,
+            Items = request.Items,
+            TotalAmount = totalAmount,
+            Status = OrderStatus.Pending,
+            CreatedAt = DateTime.UtcNow
+        };
+        await _repository.SaveAsync(order, ct);
+        _orderSaved = true;
+        _logger.LogInformation("✓ Order saved: {OrderId}", _orderId);
+
+        // 4. 预留库存（检查点 2）
+        var reserveResult = await _inventory.ReserveAsync(_orderId, request.Items, ct);
+        if (!reserveResult.IsSuccess)
+        {
+            throw new CatgaException("Failed to reserve inventory", reserveResult.Exception!);
+        }
+        _inventoryReserved = true;
+        _logger.LogInformation("✓ Inventory reserved: {OrderId}", _orderId);
+
+        // 5. 验证支付方式
+        var paymentResult = await _payment.ValidateAsync(request.PaymentMethod, totalAmount, ct);
+        if (!paymentResult.IsSuccess)
+        {
+            throw new CatgaException(
+                $"Payment validation failed for method '{request.PaymentMethod}'",
+                paymentResult.Exception);
+        }
+        _logger.LogInformation("✓ Payment validated");
+
+        // 6. 发布成功事件
+        await _mediator.PublishAsync(new OrderCreatedEvent(
+            _orderId,
+            request.CustomerId,
+            request.Items,
+            totalAmount,
+            order.CreatedAt
+        ), ct);
+
+        _logger.LogInformation("✅ Order created successfully: {OrderId}, Amount: {Amount:C}", 
+            _orderId, totalAmount);
+
+        return new OrderCreatedResult(_orderId, totalAmount, order.CreatedAt);
+    }
+
+    protected override async Task<CatgaResult<OrderCreatedResult>> OnBusinessErrorAsync(
+        CreateOrderCommand request,
+        CatgaException exception,
+        CancellationToken ct)
+    {
+        _logger.LogWarning("⚠️ Order creation failed: {Error}. Initiating rollback...", 
+            exception.Message);
+
+        var rollbackSteps = new List<string>();
+
+        try
+        {
+            // 反向回滚
+            if (_inventoryReserved && _orderId != null)
+            {
+                _logger.LogInformation("🔄 Rolling back inventory for {OrderId}...", _orderId);
+                await _inventory.ReleaseAsync(_orderId, request.Items, ct);
+                rollbackSteps.Add("Inventory released");
+                _logger.LogInformation("✓ Inventory rollback completed");
+            }
+
+            if (_orderSaved && _orderId != null)
+            {
+                _logger.LogInformation("🔄 Rolling back order {OrderId}...", _orderId);
+                await _repository.DeleteAsync(_orderId, ct);
+                rollbackSteps.Add("Order deleted");
+                _logger.LogInformation("✓ Order deletion completed");
+            }
+
+            // 发布失败事件
+            if (_orderId != null)
+            {
+                await _mediator.PublishAsync(new OrderFailedEvent(
+                    _orderId,
+                    request.CustomerId,
+                    exception.Message,
+                    DateTime.UtcNow
+                ), ct);
+                rollbackSteps.Add("Failure event published");
+            }
+
+            _logger.LogInformation("✅ Rollback completed: {Steps}", 
+                string.Join(", ", rollbackSteps));
+        }
+        catch (Exception rollbackEx)
+        {
+            _logger.LogError(rollbackEx, 
+                "❌ CRITICAL: Rollback failed for order {OrderId}! Manual intervention required. " +
+                "Completed steps: {CompletedSteps}",
+                _orderId, string.Join(", ", rollbackSteps));
+        }
+
+        // 构建详细的错误响应
+        var metadata = new ResultMetadata();
+        metadata.Add("OrderId", _orderId ?? "N/A");
+        metadata.Add("CustomerId", request.CustomerId);
+        metadata.Add("TotalAmount", request.Items.Sum(i => i.Subtotal).ToString("C"));
+        metadata.Add("RollbackSteps", string.Join(", ", rollbackSteps));
+        metadata.Add("InventoryRolledBack", _inventoryReserved.ToString());
+        metadata.Add("OrderDeleted", _orderSaved.ToString());
+        metadata.Add("FailureTimestamp", DateTime.UtcNow.ToString("O"));
+
+        return new CatgaResult<OrderCreatedResult>
+        {
+            IsSuccess = false,
+            Error = $"Order creation failed: {exception.Message}. " +
+                    $"Rollback completed: {string.Join(", ", rollbackSteps)}.",
+            Exception = exception,
+            Metadata = metadata
+        };
+    }
+
+    protected override async Task<CatgaResult<OrderCreatedResult>> OnUnexpectedErrorAsync(
+        CreateOrderCommand request,
+        Exception exception,
+        CancellationToken ct)
+    {
+        _logger.LogError(exception, "❌ Unexpected system error during order creation");
+
+        // 对系统错误也执行回滚
+        return await OnBusinessErrorAsync(
+            request,
+            new CatgaException("System error occurred", exception),
+            ct);
+    }
+}
+```
+
+---
+
+## 🎯 最佳实践
+
+### 1. 状态跟踪
+
+```csharp
+// ✅ 好：使用字段跟踪操作状态
+private string? _orderId;
+private bool _orderSaved;
+private bool _inventoryReserved;
+
+// ❌ 差：没有状态跟踪，无法精确回滚
+```
+
+### 2. 反向回滚
+
+```csharp
+// ✅ 好：按执行的反向顺序回滚
+// 执行：Save → Reserve → Validate
+// 回滚：Release → Delete
+
+// ❌ 差：回滚顺序与执行顺序相同
+```
+
+### 3. 回滚失败处理
+
+```csharp
+// ✅ 好：记录回滚失败，需要人工介入
+try
+{
+    await RollbackAsync();
+}
+catch (Exception ex)
+{
+    Logger.LogError(ex, "CRITICAL: Rollback failed! Manual intervention required.");
+    // 可以发送告警、创建工单等
+}
+
+// ❌ 差：忽略回滚失败
+await RollbackAsync();  // 如果失败就静默失败了
+```
+
+### 4. 详细的元数据
+
+```csharp
+// ✅ 好：提供丰富的诊断信息
+var metadata = new ResultMetadata();
+metadata.Add("OrderId", _orderId);
+metadata.Add("RollbackSteps", "Inventory released, Order deleted");
+metadata.Add("FailureTimestamp", DateTime.UtcNow.ToString("O"));
+
+// ❌ 差：只有错误消息，没有上下文
+return CatgaResult.Failure("Failed");
+```
+
+### 5. 日志级别
+
+```csharp
+// ✅ 好：使用合适的日志级别
+Logger.LogInformation("✓ Step completed");      // 正常流程
+Logger.LogWarning("⚠️ Business error occurred");  // 预期的业务错误
+Logger.LogError(ex, "❌ System error");          // 非预期的系统错误
+
+// ❌ 差：所有都用 Error
+Logger.LogError("Step completed");  // 过度记录
+```
+
+---
+
+## 📊 实际效果
+
+### 日志输出（成功）
+
+```
+info: 🚀 Starting order creation for customer CUST-001
+info: ✓ Stock check passed
+info: ✓ Total amount: $299.97
+info: ✓ Order saved: ORD-20241016120000-a1b2c3d4
+info: ✓ Inventory reserved: ORD-20241016120000-a1b2c3d4
+info: ✓ Payment validated
+info: ✅ Order created successfully: ORD-20241016120000-a1b2c3d4, Amount: $299.97
+```
+
+### 日志输出（失败 + 回滚）
+
+```
+info: 🚀 Starting order creation for customer CUST-002
+info: ✓ Stock check passed
+info: ✓ Total amount: $17,648.00
+info: ✓ Order saved: ORD-20241016120001-e5f6g7h8
+info: ✓ Inventory reserved: ORD-20241016120001-e5f6g7h8
+warn: ⚠️ Order creation failed: Payment validation failed for method 'FAIL-CreditCard'. Initiating rollback...
+info: 🔄 Rolling back inventory for ORD-20241016120001-e5f6g7h8...
+info: ✓ Inventory rollback completed
+info: 🔄 Rolling back order ORD-20241016120001-e5f6g7h8...
+info: ✓ Order deletion completed
+info: ✅ Rollback completed: Inventory released, Order deleted, Failure event published
+```
+
+---
+
+## 🔗 相关资源
+
+- [SafeRequestHandler API](../api/handlers.md#saferequesthandler)
+- [错误处理基础](./error-handling.md)
+- [OrderSystem 完整示例](../../examples/OrderSystem.Api/Handlers/OrderCommandHandlers.cs)
+- [CatgaResult 文档](../api/results.md)
+
+---
+
+**通过自定义错误处理，你可以实现生产级的事务回滚和错误恢复！** 🎉

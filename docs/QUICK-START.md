@@ -1,377 +1,452 @@
-# Catga 5 分钟快速入门
+# Catga 快速开始
 
-**从零到生产级 CQRS 应用，只需 5 分钟！**
+本指南将在 5 分钟内带你构建第一个 Catga 应用。
 
 ---
 
-## 📦 第 1 步：安装包（30 秒）
+## 📦 安装
+
+### 1. 创建项目
 
 ```bash
-# 创建新项目
 dotnet new webapi -n MyApp
 cd MyApp
+```
 
-# 安装 Catga 核心包
+### 2. 安装 NuGet 包
+
+```bash
+# 核心框架
 dotnet add package Catga
 dotnet add package Catga.InMemory
+
+# AOT 兼容序列化
 dotnet add package Catga.Serialization.MemoryPack
+
+# Source Generator（自动注册）
 dotnet add package Catga.SourceGenerator
+
+# ASP.NET Core 集成
 dotnet add package Catga.AspNetCore
-
-# 可选：开发时调试
-dotnet add package Catga.Debugger
-dotnet add package Catga.Debugger.AspNetCore
 ```
 
 ---
 
-## 🔧 第 2 步：配置 Catga（1 分钟）
+## 🚀 快速示例
 
-在 `Program.cs` 中添加：
-
-```csharp
-using Catga;
-using Catga.AspNetCore;
-using Catga.DependencyInjection;
-
-var builder = WebApplication.CreateBuilder(args);
-
-// ===== 配置 Catga（只需 3 行）=====
-builder.Services.AddCatga()           // 1. 添加核心服务
-    .UseMemoryPack()                  // 2. 配置序列化器（100% AOT）
-    .ForDevelopment();                // 3. 开发环境配置
-
-builder.Services.AddInMemoryTransport(); // 内存传输（生产环境用 NATS）
-
-// 自动注册所有 Handler 和 Service（Source Generator）
-builder.Services.AddGeneratedHandlers();
-builder.Services.AddGeneratedServices();
-
-// 可选：启用时间旅行调试器
-if (builder.Environment.IsDevelopment())
-{
-    builder.Services.AddCatgaDebuggerWithAspNetCore();
-}
-
-var app = builder.Build();
-
-// 可选：映射调试器 UI
-if (app.Environment.IsDevelopment())
-{
-    app.MapCatgaDebugger("/debug");  // http://localhost:5000/debug
-}
-
-app.Run();
-```
-
----
-
-## 📝 第 3 步：定义消息（1 分钟）
+### 步骤 1: 定义消息
 
 创建 `Messages.cs`：
 
 ```csharp
 using Catga.Messages;
-using Catga.Results;
 using MemoryPack;
 
-// 命令：创建订单
-[MemoryPackable]
-public partial record CreateOrderCommand(
-    string CustomerId,
-    decimal Amount
-) : IRequest<OrderResult>;
+namespace MyApp;
 
-// 查询：获取订单
+// 命令（有返回值）
 [MemoryPackable]
-public partial record GetOrderQuery(
-    string OrderId
-) : IRequest<Order?>;
+public partial record CreateUserCommand(
+    string Name,
+    string Email
+) : IRequest<UserCreatedResult>;
 
-// 事件：订单已创建（通知其他服务）
+// 命令结果
 [MemoryPackable]
-public partial record OrderCreatedEvent(
-    string OrderId,
-    string CustomerId,
-    decimal Amount
-) : INotification;
-
-// 返回结果
-[MemoryPackable]
-public partial record OrderResult(string OrderId);
-
-[MemoryPackable]
-public partial record Order(
-    string OrderId,
-    string CustomerId,
-    decimal Amount,
+public partial record UserCreatedResult(
+    string UserId,
     DateTime CreatedAt
 );
+
+// 事件（通知）
+[MemoryPackable]
+public partial record UserCreatedEvent(
+    string UserId,
+    string Name,
+    string Email,
+    DateTime CreatedAt
+) : IEvent;
 ```
 
----
+### 步骤 2: 实现 Handler
 
-## ⚡ 第 4 步：实现 Handler（2 分钟）
-
-创建 `Handlers.cs`：
+创建 `Handlers/CreateUserHandler.cs`：
 
 ```csharp
 using Catga;
-using Catga.Handlers;
-using Catga.Results;
+using Catga.Core;
+using Catga.Exceptions;
 
-// ===== 命令 Handler：创建订单 =====
-public class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderResult>
+namespace MyApp.Handlers;
+
+/// <summary>
+/// 创建用户 Handler - 继承 SafeRequestHandler，无需 try-catch！
+/// </summary>
+public class CreateUserHandler : SafeRequestHandler<CreateUserCommand, UserCreatedResult>
 {
-    private readonly ILogger<CreateOrderHandler> _logger;
+    private readonly IUserRepository _repository;
     private readonly ICatgaMediator _mediator;
 
-    public CreateOrderHandler(
-        ILogger<CreateOrderHandler> logger,
-        ICatgaMediator mediator)
+    public CreateUserHandler(
+        IUserRepository repository,
+        ICatgaMediator mediator,
+        ILogger<CreateUserHandler> logger) : base(logger)
     {
-        _logger = logger;
+        _repository = repository;
         _mediator = mediator;
     }
 
-    protected override async Task<CatgaResult<OrderResult>> HandleAsync(
-        CreateOrderCommand request,
+    /// <summary>
+    /// 只需编写业务逻辑，框架自动处理异常！
+    /// </summary>
+    protected override async Task<UserCreatedResult> HandleCoreAsync(
+        CreateUserCommand request,
         CancellationToken cancellationToken)
     {
-        // 1. 创建订单
-        var orderId = Guid.NewGuid().ToString("N");
-        _logger.LogInformation("Creating order {OrderId} for {CustomerId}", orderId, request.CustomerId);
+        // 验证（直接抛出异常，框架自动转换为 CatgaResult.Failure）
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new CatgaException("Name is required");
 
-        // 2. 发布事件（异步通知其他服务）
-        await _mediator.PublishAsync(new OrderCreatedEvent(
-            orderId,
-            request.CustomerId,
-            request.Amount
+        if (string.IsNullOrWhiteSpace(request.Email))
+            throw new CatgaException("Email is required");
+
+        // 检查重复
+        if (await _repository.ExistsByEmailAsync(request.Email, cancellationToken))
+            throw new CatgaException($"Email '{request.Email}' already exists");
+
+        // 创建用户
+        var userId = Guid.NewGuid().ToString("N");
+        var user = new User
+        {
+            Id = userId,
+            Name = request.Name,
+            Email = request.Email,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _repository.SaveAsync(user, cancellationToken);
+
+        // 发布事件
+        await _mediator.PublishAsync(new UserCreatedEvent(
+            userId,
+            request.Name,
+            request.Email,
+            user.CreatedAt
         ), cancellationToken);
 
-        // 3. 返回结果
-        return CatgaResult<OrderResult>.Success(new OrderResult(orderId));
-    }
-}
+        Logger.LogInformation("User created: {UserId}", userId);
 
-// ===== 查询 Handler：获取订单 =====
-public class GetOrderHandler : SafeRequestHandler<GetOrderQuery, Order?>
-{
-    protected override Task<CatgaResult<Order?>> HandleAsync(
-        GetOrderQuery request,
-        CancellationToken cancellationToken)
-    {
-        // 模拟从数据库查询
-        var order = new Order(
-            request.OrderId,
-            "CUST-001",
-            99.99m,
-            DateTime.UtcNow
-        );
-
-        return Task.FromResult(CatgaResult<Order?>.Success(order));
-    }
-}
-
-// ===== 事件 Handler：发送通知 =====
-public class SendOrderNotificationHandler : IEventHandler<OrderCreatedEvent>
-{
-    private readonly ILogger<SendOrderNotificationHandler> _logger;
-
-    public SendOrderNotificationHandler(ILogger<SendOrderNotificationHandler> logger)
-    {
-        _logger = logger;
-    }
-
-    public Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("📧 Sending notification for order {@Event}", @event);
-        // 发送邮件、短信等
-        return Task.CompletedTask;
-    }
-}
-
-// ===== 事件 Handler：记录审计日志 =====
-public class AuditOrderHandler : IEventHandler<OrderCreatedEvent>
-{
-    private readonly ILogger<AuditOrderHandler> _logger;
-
-    public AuditOrderHandler(ILogger<AuditOrderHandler> logger)
-    {
-        _logger = logger;
-    }
-
-    public Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("📝 Auditing order creation: {@Event}", @event);
-        // 写入审计表
-        return Task.CompletedTask;
+        // 直接返回结果，无需包装为 CatgaResult！
+        return new UserCreatedResult(userId, user.CreatedAt);
     }
 }
 ```
 
----
+### 步骤 3: 实现事件 Handler
 
-## 🚀 第 5 步：添加 API 端点（1 分钟）
-
-在 `Program.cs` 的 `app.Run()` 之前添加：
+创建 `Handlers/UserEventHandlers.cs`：
 
 ```csharp
-// ===== 映射 Catga 端点 =====
+using Catga.Handlers;
 
-// POST /api/orders - 创建订单
-app.MapCatgaRequest<CreateOrderCommand, OrderResult>("/api/orders")
-    .WithName("CreateOrder")
-    .WithTags("Orders");
+namespace MyApp.Handlers;
 
-// GET /api/orders/{orderId} - 查询订单
-app.MapCatgaQuery<GetOrderQuery, Order?>("/api/orders/{orderId}")
-    .WithName("GetOrder")
-    .WithTags("Orders");
+/// <summary>
+/// 发送欢迎邮件
+/// </summary>
+public class SendWelcomeEmailHandler : IEventHandler<UserCreatedEvent>
+{
+    private readonly IEmailService _emailService;
+    private readonly ILogger<SendWelcomeEmailHandler> _logger;
+
+    public SendWelcomeEmailHandler(
+        IEmailService emailService,
+        ILogger<SendWelcomeEmailHandler> logger)
+    {
+        _emailService = emailService;
+        _logger = logger;
+    }
+
+    public async Task HandleAsync(UserCreatedEvent @event, CancellationToken cancellationToken)
+    {
+        await _emailService.SendWelcomeEmailAsync(@event.Email, @event.Name);
+        _logger.LogInformation("Welcome email sent to {Email}", @event.Email);
+    }
+}
+
+/// <summary>
+/// 更新统计
+/// </summary>
+public class UpdateUserStatsHandler : IEventHandler<UserCreatedEvent>
+{
+    private readonly IStatsService _statsService;
+
+    public UpdateUserStatsHandler(IStatsService statsService)
+    {
+        _statsService = statsService;
+    }
+
+    public async Task HandleAsync(UserCreatedEvent @event, CancellationToken cancellationToken)
+    {
+        await _statsService.IncrementUserCountAsync(cancellationToken);
+    }
+}
 ```
 
----
+### 步骤 4: 定义服务
 
-## ✅ 第 6 步：运行和测试（30 秒）
+创建 `Services/UserRepository.cs`：
+
+```csharp
+using Catga;
+
+namespace MyApp.Services;
+
+public interface IUserRepository
+{
+    Task<User?> GetByIdAsync(string id, CancellationToken ct = default);
+    Task<bool> ExistsByEmailAsync(string email, CancellationToken ct = default);
+    Task SaveAsync(User user, CancellationToken ct = default);
+}
+
+/// <summary>
+/// 使用 [CatgaService] 属性，Source Generator 自动注册！
+/// </summary>
+[CatgaService(ServiceLifetime.Singleton, ServiceType = typeof(IUserRepository))]
+public class InMemoryUserRepository : IUserRepository
+{
+    private readonly Dictionary<string, User> _users = new();
+    private readonly ILogger<InMemoryUserRepository> _logger;
+
+    public InMemoryUserRepository(ILogger<InMemoryUserRepository> logger)
+    {
+        _logger = logger;
+    }
+
+    public Task<User?> GetByIdAsync(string id, CancellationToken ct = default)
+    {
+        _users.TryGetValue(id, out var user);
+        return Task.FromResult(user);
+    }
+
+    public Task<bool> ExistsByEmailAsync(string email, CancellationToken ct = default)
+    {
+        return Task.FromResult(_users.Values.Any(u => u.Email == email));
+    }
+
+    public Task SaveAsync(User user, CancellationToken ct = default)
+    {
+        _users[user.Id] = user;
+        _logger.LogDebug("User saved: {UserId}", user.Id);
+        return Task.CompletedTask;
+    }
+}
+
+// 领域模型
+public class User
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public required string Email { get; init; }
+    public required DateTime CreatedAt { get; init; }
+}
+```
+
+### 步骤 5: 配置应用
+
+编辑 `Program.cs`：
+
+```csharp
+using Catga;
+using MyApp;
+using MyApp.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// 1. 配置 Catga
+builder.Services
+    .AddCatga()                      // 添加 Catga 核心服务
+    .UseMemoryPack()                 // 使用 MemoryPack 序列化（AOT 兼容）
+    .ForDevelopment();               // 开发模式（启用详细日志）
+
+// 2. 添加传输层
+builder.Services.AddInMemoryTransport();  // 使用内存传输（开发环境）
+
+// 3. 自动注册 Handler 和服务（Source Generator 魔法！）
+builder.Services.AddGeneratedHandlers();   // 自动发现所有 IRequestHandler, IEventHandler
+builder.Services.AddGeneratedServices();   // 自动发现所有 [CatgaService]
+
+// 4. 添加 Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// 5. 定义 API 端点
+app.MapPost("/users", async (CreateUserCommand cmd, ICatgaMediator mediator) =>
+{
+    var result = await mediator.SendAsync<CreateUserCommand, UserCreatedResult>(cmd);
+    
+    return result.IsSuccess 
+        ? Results.Ok(result.Value) 
+        : Results.BadRequest(new { error = result.Error });
+})
+.WithName("CreateUser")
+.WithTags("Users");
+
+app.MapGet("/users/{id}", async (string id, IUserRepository repository) =>
+{
+    var user = await repository.GetByIdAsync(id);
+    return user != null ? Results.Ok(user) : Results.NotFound();
+})
+.WithName("GetUser")
+.WithTags("Users");
+
+app.Run();
+```
+
+### 步骤 6: 运行应用
 
 ```bash
-# 运行应用
 dotnet run
+```
 
-# 测试创建订单
-curl -X POST http://localhost:5000/api/orders \
+访问 Swagger UI: http://localhost:5000/swagger
+
+---
+
+## 🧪 测试
+
+### 使用 curl
+
+```bash
+# 创建用户
+curl -X POST http://localhost:5000/users \
   -H "Content-Type: application/json" \
-  -d '{"customerId": "CUST-001", "amount": 99.99}'
+  -d '{"name":"张三","email":"zhangsan@example.com"}'
 
-# 响应：
-# {"orderId": "abc123..."}
+# 响应
+{
+  "userId": "a1b2c3d4e5f6...",
+  "createdAt": "2024-10-16T12:00:00Z"
+}
 
-# 测试查询订单
-curl http://localhost:5000/api/orders/abc123
+# 获取用户
+curl http://localhost:5000/users/a1b2c3d4e5f6...
+```
 
-# 响应：
-# {"orderId": "abc123", "customerId": "CUST-001", "amount": 99.99, "createdAt": "2024-01-01T10:00:00Z"}
+### 使用 Swagger UI
+
+1. 打开 http://localhost:5000/swagger
+2. 展开 `POST /users`
+3. 点击 "Try it out"
+4. 输入请求体：
+   ```json
+   {
+     "name": "李四",
+     "email": "lisi@example.com"
+   }
+   ```
+5. 点击 "Execute"
+
+---
+
+## 🎯 关键概念
+
+### 1. SafeRequestHandler
+
+- **无需 try-catch** - 框架自动处理异常
+- **直接抛出 `CatgaException`** - 自动转换为 `CatgaResult.Failure`
+- **直接返回结果** - 无需包装为 `CatgaResult.Success`
+
+### 2. 自动注册
+
+- **`AddGeneratedHandlers()`** - 自动注册所有 Handler
+- **`AddGeneratedServices()`** - 自动注册所有 `[CatgaService]`
+- **零配置** - Source Generator 在编译时生成注册代码
+
+### 3. 事件驱动
+
+- **一个事件，多个 Handler** - 自动并行执行
+- **解耦** - 事件发布者无需知道订阅者
+- **可扩展** - 随时添加新的事件 Handler
+
+---
+
+## 🚀 下一步
+
+### 添加自定义错误处理
+
+```csharp
+public class CreateUserHandler : SafeRequestHandler<CreateUserCommand, UserCreatedResult>
+{
+    protected override async Task<CatgaResult<UserCreatedResult>> OnBusinessErrorAsync(
+        CreateUserCommand request,
+        CatgaException exception,
+        CancellationToken ct)
+    {
+        // 自定义错误处理
+        Logger.LogWarning("User creation failed for email {Email}: {Error}", 
+            request.Email, exception.Message);
+
+        var metadata = new ResultMetadata();
+        metadata.Add("Email", request.Email);
+        metadata.Add("ErrorType", "Validation");
+
+        return new CatgaResult<UserCreatedResult>
+        {
+            IsSuccess = false,
+            Error = $"Failed to create user: {exception.Message}",
+            Metadata = metadata
+        };
+    }
+}
+```
+
+### 添加调试器
+
+```csharp
+// Program.cs
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddCatgaDebuggerWithAspNetCore();
+    
+    // ... 在 app 配置后
+    app.MapCatgaDebugger("/debug");  // http://localhost:5000/debug
+}
+```
+
+### 升级到分布式
+
+```csharp
+// 替换内存传输为 NATS
+builder.Services.AddNatsTransport(options =>
+{
+    options.Url = "nats://localhost:4222";
+});
+
+// 添加 Redis 持久化
+builder.Services.AddRedisStores(options =>
+{
+    options.Configuration = "localhost:6379";
+});
 ```
 
 ---
 
-## 🎉 完成！你已经拥有：
+## 📚 更多资源
 
-✅ **CQRS 架构** - 清晰的命令/查询分离
-✅ **事件驱动** - 多个 Handler 响应同一事件
-✅ **零反射** - 100% Source Generator 自动注册
-✅ **类型安全** - 编译时检查，运行时零错误
-✅ **高性能** - < 1μs 命令处理，零内存分配
-✅ **可观测性** - 内置日志、追踪
-✅ **调试友好** - 时间旅行调试器（开发环境）
+- [完整文档](../docs/INDEX.md)
+- [API 参考](./QUICK-REFERENCE.md)
+- [OrderSystem 示例](../examples/OrderSystem.Api/)
+- [性能基准](./PERFORMANCE-REPORT.md)
 
 ---
 
-## 🌟 体验时间旅行调试器
-
-访问 `http://localhost:5000/debug`，你将看到：
-
-- 📊 **实时流程图** - 每个请求的完整执行流程
-- 🔍 **变量查看器** - 捕获所有变量快照
-- ⏪ **时间旅行** - 回到任意时刻，重放执行过程
-- 📈 **性能监控** - CPU、内存、延迟统计
-- 🌐 **系统拓扑** - 服务间调用关系
-
-**零配置，开箱即用！**
-
----
-
-## 📚 下一步
-
-### 进阶功能
-
-1. **添加持久化**：
-   ```csharp
-   builder.Services.AddRedisEventStore(options =>
-       options.ConnectionString = "localhost:6379");
-   ```
-
-2. **切换到 NATS 传输**：
-   ```csharp
-   builder.Services.AddNatsTransport(options =>
-       options.Url = "nats://localhost:4222");
-   ```
-
-3. **启用分布式追踪**：
-   ```csharp
-   builder.Services.AddOpenTelemetry()
-       .WithTracing(tracing => tracing.AddCatgaInstrumentation());
-   ```
-
-4. **生产环境配置**：
-   ```csharp
-   builder.Services.AddCatga()
-       .UseMemoryPack()
-       .ForProduction()  // 生产环境优化
-       .UseGracefulLifecycle();  // 优雅关闭
-   ```
-
-### 学习资源
-
-- 📖 **[完整示例：OrderSystem](../examples/README-ORDERSYSTEM.md)** - 420+ 行详细指南
-- 📚 **[文档索引](INDEX.md)** - 85+ 篇文档
-- 🎯 **[API 速查](QUICK-REFERENCE.md)** - 常用 API 速查表
-- 🌟 **[Debugger 完整指南](DEBUGGER.md)** - 时间旅行调试详解
-- 🏗️ **[架构概览](architecture/ARCHITECTURE.md)** - 系统设计详解
-
-### 常见场景
-
-- **[分布式事务](patterns/DISTRIBUTED-TRANSACTION-V2.md)** - Catga Transaction 模式
-- **[事件溯源](guides/event-sourcing.md)** - Event Store 集成
-- **[读模型投影](guides/read-model-projection.md)** - CQRS 读写分离
-- **[批量操作](../src/Catga/Core/BatchOperationExtensions.cs)** - 高性能批处理
-- **[Native AOT 部署](deployment/native-aot-publishing.md)** - 毫秒级启动
-
----
-
-## 💡 核心设计理念
-
-### 1. 零配置（Zero Config）
-- ✅ Source Generator 自动发现和注册
-- ✅ 约定优于配置
-- ✅ 开箱即用的默认值
-
-### 2. 类型安全（Type Safety）
-- ✅ 编译时检查（Roslyn Analyzer）
-- ✅ 强类型消息契约
-- ✅ 泛型约束保证正确性
-
-### 3. 高性能（High Performance）
-- ✅ < 1μs 命令处理
-- ✅ 零内存分配设计
-- ✅ 100% AOT 编译支持
-
-### 4. 可观测性（Observability）
-- ✅ OpenTelemetry 原生支持
-- ✅ 结构化日志
-- ✅ 时间旅行调试器
-
-### 5. 生产就绪（Production Ready）
-- ✅ 优雅关闭和恢复
-- ✅ 健康检查
-- ✅ 弹性和重试策略
-
----
-
-## 🤝 需要帮助？
-
-- 💬 [讨论区](https://github.com/catga/catga/discussions) - 提问和分享
-- 🐛 [Issue Tracker](https://github.com/catga/catga/issues) - 报告 Bug
-- 📧 [Email](mailto:support@catga.dev) - 商业支持
-- 📚 [完整文档](INDEX.md) - 详细指南
-
----
-
-<div align="center">
-
-**🎉 恭喜！你已经掌握了 Catga 的基础用法！**
-
-[完整示例](../examples/README-ORDERSYSTEM.md) · [文档索引](INDEX.md) · [API 速查](QUICK-REFERENCE.md)
-
-</div>
-
+**恭喜！你已经创建了第一个 Catga 应用！** 🎉

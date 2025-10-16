@@ -26,9 +26,29 @@ builder.Services.AddOrderSystemServices();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Add CORS for SignalR in development
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddCors(options =>
+    {
+        options.AddDefaultPolicy(policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+    });
+}
+
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
+
+// Use CORS before endpoints
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors();
+}
 
 if (app.Environment.IsDevelopment())
 {

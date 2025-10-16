@@ -3,6 +3,7 @@ using Catga.AspNetCore;
 using Catga.Debugger.AspNetCore.DependencyInjection;
 using Catga.DependencyInjection;
 using OrderSystem.Api.Domain;
+using OrderSystem.Api.Handlers;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Services;
 
@@ -111,6 +112,22 @@ app.MapGet("/api/customers/{customerId}/orders", async (
     var result = await m.SendAsync<GetCustomerOrdersQuery, List<Order>>(query);
     return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
 }).WithName("GetCustomerOrders").WithTags("Orders");
+
+// ===== Advanced Features Demo =====
+
+// Batch create orders
+app.MapPost("/api/orders/batch", async (BatchCreateOrdersCommand cmd, ICatgaMediator m) =>
+{
+    var result = await m.SendAsync(cmd);
+    return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
+}).WithName("BatchCreateOrders").WithTags("Orders", "Batch");
+
+// Batch get orders
+app.MapPost("/api/orders/batch/get", async (BatchGetOrdersQuery query, ICatgaMediator m) =>
+{
+    var result = await m.SendAsync(query);
+    return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
+}).WithName("BatchGetOrders").WithTags("Orders", "Batch");
 
 // Debug endpoints (dev only)
 if (app.Environment.IsDevelopment())

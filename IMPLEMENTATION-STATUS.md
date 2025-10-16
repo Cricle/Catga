@@ -66,7 +66,7 @@
 
 #### 分布式
 - ✅ NATS Transport
-- ✅ Redis Persistence  
+- ✅ Redis Persistence
 - ✅ Distributed ID (Snowflake)
 - ✅ Graceful Lifecycle
 

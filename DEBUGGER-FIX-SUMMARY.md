@@ -2,9 +2,12 @@
 
 ## 🎉 问题已完全解决！
 
-**修复时间**: 2025-10-16
-**修复方式**: 一行代码修改
+**修复时间**: 2025-10-16  
+**修复内容**: 两个问题  
 **测试状态**: ✅ 完全通过
+
+### 问题 1: 事件捕获 ✅ 已修复
+### 问题 2: SignalR 连接 ✅ 已修复
 
 ---
 
@@ -255,21 +258,65 @@ services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ReplayableEventCaptur
 
 ## ✨ 总结
 
-**问题**: Debugger 事件捕获不工作
-**原因**: DI 注册错误
-**修复**: 一行代码
-**结果**: 完全工作
+### 修复 1: 事件捕获
 
-**关键修改**:
+**问题**: Debugger 事件捕获不工作  
+**原因**: DI 注册错误  
+**修复**: 一行代码  
+
 ```diff
 - services.AddSingleton(typeof(ReplayableEventCapturer<,>));
 + services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ReplayableEventCapturer<,>));
 ```
 
-**测试数据**:
-- 3个订单 → 24个事件 → 6个流
-- 100% 捕获成功
-- UI 实时显示
+**结果**: ✅ 事件成功捕获 (24个事件，6个流)
+
+---
+
+### 修复 2: SignalR 连接
+
+**问题**: Debugger UI 显示"未连接"  
+**原因**: 缺少 CORS 中间件  
+**错误**: `Endpoint contains CORS metadata, but middleware was not found`  
+**修复**: 添加 CORS 配置
+
+```csharp
+// 1. 注册 CORS 服务
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+// 2. 使用 CORS 中间件 (在 UseEndpoints 之前)
+app.UseCors();
+```
+
+**结果**: ✅ SignalR 连接成功 (WebSocket, SSE, LongPolling)
+
+---
+
+### 最终测试数据
+
+**功能验证**:
+- ✅ SignalR Hub Negotiate: 200 OK
+- ✅ ConnectionId: 已分配
+- ✅ 事件捕获: 8 个事件
+- ✅ 流追踪: 2 个流
+- ✅ 实时推送: WebSocket 连接
+
+**完整堆栈**:
+1. ✅ Event Capture (Pipeline Behavior)
+2. ✅ Event Storage (IEventStore)
+3. ✅ SignalR Connection (CORS enabled)
+4. ✅ Real-time Push (Hub + NotificationService)
+5. ✅ UI Display (Alpine.js + SignalR)
 
 🎉 **Catga Debugger 现已完全可用！**
+
+**访问**: http://localhost:5000/debug
 

@@ -54,6 +54,13 @@ public class InMemoryOrderRepository : IOrderRepository
         _logger.LogDebug("Order updated: {OrderId}, status: {Status}", order.OrderId, order.Status);
         return Task.CompletedTask;
     }
+
+    public Task DeleteAsync(string orderId, CancellationToken cancellationToken = default)
+    {
+        _orders.TryRemove(orderId, out _);
+        _logger.LogDebug("Order deleted: {OrderId}", orderId);
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>

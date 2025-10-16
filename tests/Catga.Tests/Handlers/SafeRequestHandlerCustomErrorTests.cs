@@ -24,8 +24,8 @@ public class SafeRequestHandlerCustomErrorTests
 
         // Act
         var result = await handler.PublicOnBusinessErrorAsync(
-            request, 
-            new CatgaException("Business error"), 
+            request,
+            new CatgaException("Business error"),
             CancellationToken.None);
 
         // Assert
@@ -42,8 +42,8 @@ public class SafeRequestHandlerCustomErrorTests
 
         // Act
         var result = await handler.PublicOnUnexpectedErrorAsync(
-            request, 
-            new InvalidOperationException("Unexpected error"), 
+            request,
+            new InvalidOperationException("Unexpected error"),
             CancellationToken.None);
 
         // Assert
@@ -195,7 +195,7 @@ public class SafeRequestHandlerCustomErrorTests
             var metadata = new ResultMetadata();
             metadata.Add("CustomErrorType", "Business");
             metadata.Add("RequestId", request.Id);
-            
+
             var result = new CatgaResult<TestResponse>
             {
                 IsSuccess = false,
@@ -203,7 +203,7 @@ public class SafeRequestHandlerCustomErrorTests
                 Exception = exception,
                 Metadata = metadata
             };
-            
+
             return Task.FromResult(result);
         }
     }
@@ -225,7 +225,7 @@ public class SafeRequestHandlerCustomErrorTests
             metadata.Add("CustomErrorType", "Unexpected");
             metadata.Add("RequestId", request.Id);
             metadata.Add("OriginalException", exception.GetType().Name);
-            
+
             var result = new CatgaResult<TestResponse>
             {
                 IsSuccess = false,
@@ -233,7 +233,7 @@ public class SafeRequestHandlerCustomErrorTests
                 Exception = new CatgaException("Custom wrapped error", exception),
                 Metadata = metadata
             };
-            
+
             return Task.FromResult(result);
         }
     }
@@ -255,7 +255,7 @@ public class SafeRequestHandlerCustomErrorTests
             metadata.Add("Timestamp", DateTime.UtcNow.ToString("O"));
             metadata.Add("ErrorCategory", "Business");
             metadata.Add("Severity", "Warning");
-            
+
             var result = new CatgaResult<TestResponse>
             {
                 IsSuccess = false,
@@ -263,7 +263,7 @@ public class SafeRequestHandlerCustomErrorTests
                 Exception = exception,
                 Metadata = metadata
             };
-            
+
             return Task.FromResult(result);
         }
     }
@@ -314,7 +314,7 @@ public class SafeRequestHandlerCustomErrorTests
             // Use request data to create contextual error message
             var metadata = new ResultMetadata();
             metadata.Add("RequestData", request.Id);
-            
+
             var result = new CatgaResult<TestResponse>
             {
                 IsSuccess = false,
@@ -322,7 +322,7 @@ public class SafeRequestHandlerCustomErrorTests
                 Exception = exception,
                 Metadata = metadata
             };
-            
+
             return Task.FromResult(result);
         }
     }

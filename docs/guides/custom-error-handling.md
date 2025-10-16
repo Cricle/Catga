@@ -23,8 +23,8 @@ Both methods have default implementations, but you can override them to add cust
 
 ```csharp
 protected virtual Task<CatgaResult<TResponse>> OnBusinessErrorAsync(
-    TRequest request, 
-    CatgaException exception, 
+    TRequest request,
+    CatgaException exception,
     CancellationToken cancellationToken)
 {
     Logger.LogWarning(exception, "Business logic failed: {Message}", exception.Message);
@@ -36,8 +36,8 @@ protected virtual Task<CatgaResult<TResponse>> OnBusinessErrorAsync(
 
 ```csharp
 protected virtual Task<CatgaResult<TResponse>> OnUnexpectedErrorAsync(
-    TRequest request, 
-    Exception exception, 
+    TRequest request,
+    Exception exception,
     CancellationToken cancellationToken)
 {
     Logger.LogError(exception, "Unexpected error in handler");
@@ -59,7 +59,7 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderRe
     public CreateOrderHandler(ILogger<CreateOrderHandler> logger) : base(logger) { }
 
     protected override async Task<OrderResult> HandleCoreAsync(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken cancellationToken)
     {
         // Business logic...
@@ -67,12 +67,12 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderRe
     }
 
     protected override Task<CatgaResult<OrderResult>> OnBusinessErrorAsync(
-        CreateOrderCommand request, 
-        CatgaException exception, 
+        CreateOrderCommand request,
+        CatgaException exception,
         CancellationToken cancellationToken)
     {
         // Custom logging with request context
-        Logger.LogWarning(exception, 
+        Logger.LogWarning(exception,
             "Order creation failed for Customer={CustomerId}, Items={ItemCount}: {Message}",
             request.CustomerId,
             request.Items.Count,
@@ -92,22 +92,22 @@ public class PaymentHandler : SafeRequestHandler<ProcessPaymentCommand, PaymentR
 {
     private readonly IAlertService _alertService;
 
-    public PaymentHandler(ILogger<PaymentHandler> logger, IAlertService alertService) 
+    public PaymentHandler(ILogger<PaymentHandler> logger, IAlertService alertService)
         : base(logger)
     {
         _alertService = alertService;
     }
 
     protected override async Task<PaymentResult> HandleCoreAsync(
-        ProcessPaymentCommand request, 
+        ProcessPaymentCommand request,
         CancellationToken cancellationToken)
     {
         // Payment processing logic...
     }
 
     protected override async Task<CatgaResult<PaymentResult>> OnUnexpectedErrorAsync(
-        ProcessPaymentCommand request, 
-        Exception exception, 
+        ProcessPaymentCommand request,
+        Exception exception,
         CancellationToken cancellationToken)
     {
         // Alert on unexpected payment errors
@@ -138,15 +138,15 @@ public class GetUserProfileHandler : SafeRequestHandler<GetUserProfileQuery, Use
     public GetUserProfileHandler(ILogger<GetUserProfileHandler> logger) : base(logger) { }
 
     protected override async Task<UserProfile> HandleCoreAsync(
-        GetUserProfileQuery request, 
+        GetUserProfileQuery request,
         CancellationToken cancellationToken)
     {
         // Query logic...
     }
 
     protected override Task<CatgaResult<UserProfile>> OnBusinessErrorAsync(
-        GetUserProfileQuery request, 
-        CatgaException exception, 
+        GetUserProfileQuery request,
+        CatgaException exception,
         CancellationToken cancellationToken)
     {
         // Transform error message based on error code
@@ -174,35 +174,35 @@ public class ImportDataHandler : SafeRequestHandler<ImportDataCommand, ImportRes
 {
     private readonly IRetryPolicy _retryPolicy;
 
-    public ImportDataHandler(ILogger<ImportDataHandler> logger, IRetryPolicy retryPolicy) 
+    public ImportDataHandler(ILogger<ImportDataHandler> logger, IRetryPolicy retryPolicy)
         : base(logger)
     {
         _retryPolicy = retryPolicy;
     }
 
     protected override async Task<ImportResult> HandleCoreAsync(
-        ImportDataCommand request, 
+        ImportDataCommand request,
         CancellationToken cancellationToken)
     {
         // Data import logic...
     }
 
     protected override async Task<CatgaResult<ImportResult>> OnUnexpectedErrorAsync(
-        ImportDataCommand request, 
-        Exception exception, 
+        ImportDataCommand request,
+        Exception exception,
         CancellationToken cancellationToken)
     {
         // Retry transient errors
         if (IsTransientError(exception))
         {
             Logger.LogInformation("Transient error detected, will retry: {Message}", exception.Message);
-            
+
             try
             {
                 var result = await _retryPolicy.ExecuteAsync(
                     async () => await HandleCoreAsync(request, cancellationToken),
                     cancellationToken);
-                
+
                 return CatgaResult<ImportResult>.Success(result);
             }
             catch (Exception retryException)
@@ -217,7 +217,7 @@ public class ImportDataHandler : SafeRequestHandler<ImportDataCommand, ImportRes
 
     private bool IsTransientError(Exception exception)
     {
-        return exception is TimeoutException 
+        return exception is TimeoutException
             || exception is HttpRequestException
             || (exception.Message?.Contains("temporary", StringComparison.OrdinalIgnoreCase) ?? false);
     }
@@ -233,22 +233,22 @@ public class CheckoutHandler : SafeRequestHandler<CheckoutCommand, CheckoutResul
 {
     private readonly IMetricsCollector _metrics;
 
-    public CheckoutHandler(ILogger<CheckoutHandler> logger, IMetricsCollector metrics) 
+    public CheckoutHandler(ILogger<CheckoutHandler> logger, IMetricsCollector metrics)
         : base(logger)
     {
         _metrics = metrics;
     }
 
     protected override async Task<CheckoutResult> HandleCoreAsync(
-        CheckoutCommand request, 
+        CheckoutCommand request,
         CancellationToken cancellationToken)
     {
         // Checkout logic...
     }
 
     protected override async Task<CatgaResult<CheckoutResult>> OnBusinessErrorAsync(
-        CheckoutCommand request, 
-        CatgaException exception, 
+        CheckoutCommand request,
+        CatgaException exception,
         CancellationToken cancellationToken)
     {
         // Track business error metrics
@@ -262,8 +262,8 @@ public class CheckoutHandler : SafeRequestHandler<CheckoutCommand, CheckoutResul
     }
 
     protected override async Task<CatgaResult<CheckoutResult>> OnUnexpectedErrorAsync(
-        CheckoutCommand request, 
-        Exception exception, 
+        CheckoutCommand request,
+        Exception exception,
         CancellationToken cancellationToken)
     {
         // Track unexpected error metrics
@@ -293,19 +293,19 @@ Provide fallback responses for certain errors:
 ```csharp
 public class GetRecommendationsHandler : SafeRequestHandler<GetRecommendationsQuery, RecommendationResult>
 {
-    public GetRecommendationsHandler(ILogger<GetRecommendationsHandler> logger) 
+    public GetRecommendationsHandler(ILogger<GetRecommendationsHandler> logger)
         : base(logger) { }
 
     protected override async Task<RecommendationResult> HandleCoreAsync(
-        GetRecommendationsQuery request, 
+        GetRecommendationsQuery request,
         CancellationToken cancellationToken)
     {
         // Recommendation logic...
     }
 
     protected override Task<CatgaResult<RecommendationResult>> OnUnexpectedErrorAsync(
-        GetRecommendationsQuery request, 
-        Exception exception, 
+        GetRecommendationsQuery request,
+        Exception exception,
         CancellationToken cancellationToken)
     {
         Logger.LogWarning(exception, "Recommendation service failed, returning fallback results");
@@ -334,7 +334,7 @@ public class GetRecommendationsHandler : SafeRequestHandler<GetRecommendationsQu
    {
        // Custom logic
        await _notificationService.NotifyAsync(...);
-       
+
        // Then call base
        return await base.OnBusinessErrorAsync(request, exception, cancellationToken);
    }
@@ -413,7 +413,7 @@ public async Task OnBusinessErrorAsync_ShouldSendAlert()
     // Arrange
     var mockAlertService = new Mock<IAlertService>();
     var handler = new PaymentHandler(
-        NullLogger<PaymentHandler>.Instance, 
+        NullLogger<PaymentHandler>.Instance,
         mockAlertService.Object);
 
     var request = new ProcessPaymentCommand("order-1", 100m);
@@ -421,11 +421,11 @@ public async Task OnBusinessErrorAsync_ShouldSendAlert()
 
     // Act - Use reflection to call protected method in test
     var method = typeof(PaymentHandler).GetMethod(
-        "OnBusinessErrorAsync", 
+        "OnBusinessErrorAsync",
         BindingFlags.NonPublic | BindingFlags.Instance);
-    
+
     await (Task<CatgaResult<PaymentResult>>)method!.Invoke(
-        handler, 
+        handler,
         new object[] { request, exception, CancellationToken.None })!;
 
     // Assert
@@ -433,7 +433,7 @@ public async Task OnBusinessErrorAsync_ShouldSendAlert()
         x => x.SendAlertAsync(
             It.Is<string>(s => s.Contains("Payment")),
             It.IsAny<object>(),
-            It.IsAny<CancellationToken>()), 
+            It.IsAny<CancellationToken>()),
         Times.Once);
 }
 ```

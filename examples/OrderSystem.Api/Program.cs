@@ -127,26 +127,115 @@ app.MapGet("/health", () => Results.Ok(new
     Service = "OrderSystem.Api"
 }));
 
-// Test endpoint: create sample order
-app.MapPost("/test/create-order", async (ICatgaMediator mediator) =>
+// ===== Demo Endpoints: Success & Failure with Rollback =====
+
+// Demo 1: Successful order creation
+app.MapPost("/demo/order-success", async (ICatgaMediator mediator) =>
 {
     var command = new CreateOrderCommand(
-        CustomerId: "CUST-001",
+        CustomerId: "DEMO-CUST-001",
         Items: new List<OrderItem>
         {
-            new() { ProductId = "PROD-001", ProductName = "Product A", Quantity = 2, UnitPrice = 99.99m },
-            new() { ProductId = "PROD-002", ProductName = "Product B", Quantity = 1, UnitPrice = 199.99m }
+            new() { ProductId = "PROD-001", ProductName = "iPhone 15", Quantity = 1, UnitPrice = 5999m },
+            new() { ProductId = "PROD-002", ProductName = "AirPods Pro", Quantity = 2, UnitPrice = 1999m }
         },
-        ShippingAddress: "123 Main St, Beijing",
-        PaymentMethod: "Alipay"
+        ShippingAddress: "123 Success Street, Beijing",
+        PaymentMethod: "Alipay"  // Valid payment method
     );
 
     var result = await mediator.SendAsync<CreateOrderCommand, OrderCreatedResult>(command);
 
-    return result.IsSuccess
-        ? Results.Ok(result.Value)
-        : Results.BadRequest(new { Error = result.Error });
-});
+    return Results.Ok(new
+    {
+        Success = result.IsSuccess,
+        OrderId = result.Value?.OrderId,
+        TotalAmount = result.Value?.TotalAmount,
+        Message = result.IsSuccess 
+            ? "✅ Order created successfully! All steps completed: Stock checked → Order saved → Inventory reserved → Event published"
+            : result.Error,
+        Metadata = result.Metadata?.GetAll()
+    });
+}).WithName("DemoOrderSuccess")
+  .WithTags("Demo")
+  .WithSummary("Demo: Successful order with all steps");
+
+// Demo 2: Failed order with automatic rollback
+app.MapPost("/demo/order-failure", async (ICatgaMediator mediator) =>
+{
+    var command = new CreateOrderCommand(
+        CustomerId: "DEMO-CUST-002",
+        Items: new List<OrderItem>
+        {
+            new() { ProductId = "PROD-003", ProductName = "MacBook Pro", Quantity = 1, UnitPrice = 16999m },
+            new() { ProductId = "PROD-004", ProductName = "Magic Mouse", Quantity = 1, UnitPrice = 649m }
+        },
+        ShippingAddress: "456 Failure Road, Shanghai",
+        PaymentMethod: "FAIL-CreditCard"  // Will trigger failure
+    );
+
+    var result = await mediator.SendAsync<CreateOrderCommand, OrderCreatedResult>(command);
+
+    return Results.Ok(new
+    {
+        Success = result.IsSuccess,
+        Error = result.Error,
+        Message = result.IsSuccess 
+            ? "Order created"
+            : "❌ Order creation failed! Automatic rollback completed: Inventory released → Order deleted → Failure event published",
+        RollbackDetails = result.Metadata?.GetAll(),
+        Explanation = "Payment validation failed, triggering automatic rollback of all completed steps"
+    });
+}).WithName("DemoOrderFailure")
+  .WithTags("Demo")
+  .WithSummary("Demo: Failed order with automatic rollback");
+
+// Demo 3: Quick comparison endpoint
+app.MapGet("/demo/compare", () => Results.Ok(new
+{
+    Title = "Order Creation Flow Comparison",
+    SuccessFlow = new
+    {
+        Endpoint = "POST /demo/order-success",
+        PaymentMethod = "Alipay",
+        Steps = new[]
+        {
+            "1. ✅ Check stock availability",
+            "2. ✅ Calculate total amount",
+            "3. ✅ Save order to database",
+            "4. ✅ Reserve inventory",
+            "5. ✅ Validate payment method",
+            "6. ✅ Publish OrderCreatedEvent",
+            "Result: Order created successfully"
+        }
+    },
+    FailureFlow = new
+    {
+        Endpoint = "POST /demo/order-failure",
+        PaymentMethod = "FAIL-CreditCard",
+        Steps = new[]
+        {
+            "1. ✅ Check stock availability",
+            "2. ✅ Calculate total amount",
+            "3. ✅ Save order to database",
+            "4. ✅ Reserve inventory",
+            "5. ❌ Validate payment method (FAILED)",
+            "6. 🔄 Rollback: Release inventory",
+            "7. 🔄 Rollback: Delete order",
+            "8. 📢 Publish OrderFailedEvent",
+            "Result: All changes rolled back"
+        }
+    },
+    Features = new[]
+    {
+        "✨ Automatic error handling via SafeRequestHandler",
+        "✨ Custom OnBusinessErrorAsync for rollback logic",
+        "✨ Rich metadata in error responses",
+        "✨ Event-driven architecture",
+        "✨ Zero manual try-catch needed"
+    }
+})).WithName("DemoComparison")
+  .WithTags("Demo")
+  .WithSummary("Compare success vs failure flows");
 
 app.Logger.LogInformation("OrderSystem.Api started successfully");
 app.Logger.LogInformation("Swagger UI: http://localhost:{Port}/swagger",

@@ -12,6 +12,7 @@ public interface IOrderRepository
     Task<List<Order>> GetByCustomerIdAsync(string customerId, int pageIndex, int pageSize, CancellationToken cancellationToken = default);
     Task SaveAsync(Order order, CancellationToken cancellationToken = default);
     Task UpdateAsync(Order order, CancellationToken cancellationToken = default);
+    Task DeleteAsync(string orderId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

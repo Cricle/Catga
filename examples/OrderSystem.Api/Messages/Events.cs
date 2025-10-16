@@ -77,3 +77,14 @@ public partial record InventoryReleasedEvent(
     DateTime ReleasedAt
 ) : IEvent;
 
+/// <summary>
+/// Order failed event (for rollback scenarios)
+/// </summary>
+[MemoryPackable]
+public partial record OrderFailedEvent(
+    string OrderId,
+    string CustomerId,
+    string Reason,
+    DateTime FailedAt
+) : IEvent;
+

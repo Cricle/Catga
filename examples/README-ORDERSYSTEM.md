@@ -8,7 +8,7 @@
 
 ### ✅ CQRS 核心
 - **Commands**: CreateOrder, ConfirmOrder, PayOrder, ShipOrder, CancelOrder
-- **Queries**: GetOrder, GetCustomerOrders  
+- **Queries**: GetOrder, GetCustomerOrders
 - **Events**: OrderCreated, OrderPaid, OrderShipped, OrderCancelled
 
 ### ✅ 多事件处理器（One Event → Multiple Handlers）
@@ -93,7 +93,7 @@ POST /api/orders/confirm
 { "orderId": "..." }
 
 # 支付订单
-POST /api/orders/pay  
+POST /api/orders/pay
 { "orderId": "...", "amount": 199.98 }
 
 # 发货订单
@@ -241,7 +241,7 @@ await _mediator.PublishAsync(new OrderCreatedEvent(...));
 // - 发送通知
 // - 更新分析
 // - 记录日志
-// - ... 
+// - ...
 ```
 
 ---
@@ -273,7 +273,7 @@ if (builder.Environment.IsDevelopment()) {
         options.CaptureVariables = true;
         options.CaptureCallStacks = true;
     });
-    
+
     // Debugger UI
     app.MapCatgaDebugger("/debug");
 }

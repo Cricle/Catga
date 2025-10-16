@@ -23,7 +23,7 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
     {
         // 只需业务逻辑！
     }
-    
+
     // 新功能：自定义错误处理
     protected override async Task<CatgaResult<OrderResult>> OnBusinessErrorAsync(...)
     {
@@ -122,35 +122,35 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
     private string? _orderId;
     private bool _orderSaved;
     private bool _inventoryReserved;
-    
+
     protected override async Task<OrderResult> HandleCoreAsync(...)
     {
         // 步骤 1: 保存订单
         _orderId = await _repository.SaveAsync(...);
         _orderSaved = true;
-        
+
         // 步骤 2: 预留库存
         await _inventory.ReserveAsync(_orderId, ...);
         _inventoryReserved = true;
-        
+
         // 步骤 3: 验证支付（可能失败）
         if (!await _payment.ValidateAsync(...))
             throw new CatgaException("Payment failed");
-            
+
         return new OrderResult(_orderId, DateTime.UtcNow);
     }
-    
+
     protected override async Task<CatgaResult<OrderResult>> OnBusinessErrorAsync(...)
     {
         // 反向回滚
         if (_inventoryReserved) await _inventory.ReleaseAsync(...);
         if (_orderSaved) await _repository.DeleteAsync(...);
-        
+
         // 返回详细错误
         var metadata = new ResultMetadata();
         metadata.Add("RollbackCompleted", "true");
         metadata.Add("InventoryRolledBack", _inventoryReserved.ToString());
-        
+
         return CatgaResult.Failure("All changes rolled back", metadata);
     }
 }

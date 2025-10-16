@@ -161,7 +161,7 @@
        public static CatgaServiceBuilder WithDebug(this CatgaServiceBuilder builder)
        {
            var isDevelopment = /* detect environment */;
-           
+
            if (isDevelopment)
            {
                builder.Services.AddCatgaDebuggerForDevelopment();
@@ -170,7 +170,7 @@
            {
                builder.Services.AddCatgaDebuggerForProduction();
            }
-           
+
            return builder;
        }
    }
@@ -191,7 +191,7 @@
        .UseMemoryPack()
        .WithDebug()  // 自动检测环境
        .ForDevelopment();
-   
+
    // 如果需要 UI
    if (builder.Environment.IsDevelopment())
    {

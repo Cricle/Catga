@@ -40,7 +40,7 @@
 public static CatgaServiceBuilder WithDebug(this CatgaServiceBuilder builder)
 {
     var isDevelopment = IsDefaultDevelopment();
-    
+
     if (isDevelopment)
     {
         builder.Services.AddCatgaDebuggerForDevelopment();
@@ -49,7 +49,7 @@ public static CatgaServiceBuilder WithDebug(this CatgaServiceBuilder builder)
     {
         builder.Services.AddCatgaDebuggerForProduction();
     }
-    
+
     return builder;
 }
 
@@ -72,7 +72,7 @@ private static bool IsDefaultDevelopment()
 {
     var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
                    ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
-    
+
     return environment?.Equals("Development", StringComparison.OrdinalIgnoreCase) ?? false;
 }
 ```

@@ -98,15 +98,22 @@ curl http://localhost:5000/health
 ### 2. 自动化配置（零配置）
 
 ```csharp
-// ✅ 只需 3 行代码！
+// ✅ 只需 4 行代码！
 builder.Services.AddCatga()
     .UseMemoryPack()
+    .WithDebug()  // ← 自动启用调试（环境检测）
     .ForDevelopment();
 
 builder.Services.AddInMemoryTransport();
 
 // 优雅生命周期（自动停机和恢复）
 builder.Services.AddCatgaBuilder(b => b.UseGracefulLifecycle());
+
+// 可选：添加调试器 UI（Vue 3 + 时间旅行）
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddCatgaDebuggerWithAspNetCore();
+}
 
 // 自动注册所有 Handler（Source Generator）
 builder.Services.AddGeneratedHandlers();
@@ -168,13 +175,98 @@ var orderApi = builder.AddProject<Projects.OrderSystem_Api>("order-api")
 |------|------|------|
 | `/health` | GET | 健康检查 |
 | `/swagger` | GET | API 文档 |
-| `/test/create-order` | POST | 快速测试端点 |
+
+### 演示端点（开发环境）
+
+| 端点 | 方法 | 描述 |
+|------|------|------|
+| `/demo/order-success` | POST | 演示：成功创建订单（完整流程） |
+| `/demo/order-failure` | POST | 演示：创建失败 + 自动回滚 |
+| `/demo/compare` | GET | 对比成功和失败流程 |
+| `/debug` | GET | 调试器 UI（Vue 3 + 时间旅行） |
+| `/debug-api/flows` | GET | 查看所有消息流 |
+| `/debug-api/stats` | GET | 查看调试统计 |
+
+---
+
+## 🎬 演示功能
+
+### 成功流程演示 (`/demo/order-success`)
+
+完整展示订单创建的所有步骤：
+
+```bash
+curl -X POST http://localhost:5000/demo/order-success
+```
+
+**执行步骤**：
+1. ✅ 检查库存可用性
+2. ✅ 计算订单总金额
+3. ✅ 保存订单到数据库
+4. ✅ 预留库存
+5. ✅ 验证支付方式（Alipay）
+6. ✅ 发布 OrderCreatedEvent
+7. ✅ 返回 OrderCreatedResult
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "orderId": "ORD-20241016120000-a1b2c3d4",
+  "totalAmount": 9997.00,
+  "message": "✅ Order created successfully! All steps completed: Stock checked → Order saved → Inventory reserved → Event published"
+}
+```
+
+### 失败 + 回滚演示 (`/demo/order-failure`)
+
+展示订单创建失败时的自动回滚：
+
+```bash
+curl -X POST http://localhost:5000/demo/order-failure
+```
+
+**执行步骤**：
+1. ✅ 检查库存可用性
+2. ✅ 计算订单总金额
+3. ✅ 保存订单到数据库（检查点 1）
+4. ✅ 预留库存（检查点 2）
+5. ❌ 验证支付方式失败（FAIL-CreditCard）
+6. 🔄 触发自动回滚
+7. 🔄 释放预留的库存
+8. 🔄 删除已保存的订单
+9. 📢 发布 OrderFailedEvent
+
+**响应示例**：
+```json
+{
+  "success": false,
+  "error": "Order creation failed: Payment method 'FAIL-CreditCard' validation failed. All changes have been rolled back.",
+  "message": "❌ Order creation failed! Automatic rollback completed: Inventory released → Order deleted → Failure event published",
+  "rollbackDetails": {
+    "orderId": "ORD-20241016120001-e5f6g7h8",
+    "customerId": "DEMO-CUST-002",
+    "rollbackCompleted": "true",
+    "inventoryRolledBack": "true",
+    "orderDeleted": "true",
+    "failureTimestamp": "2024-10-16T12:00:01Z"
+  }
+}
+```
+
+### 对比视图 (`/demo/compare`)
+
+查看成功和失败流程的详细对比：
+
+```bash
+curl http://localhost:5000/demo/compare
+```
 
 ---
 
 ## 🎯 业务流程
 
-### 订单创建流程
+### 订单创建流程（成功）
 
 ```mermaid
 sequenceDiagram

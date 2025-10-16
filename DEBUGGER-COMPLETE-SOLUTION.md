@@ -2,8 +2,8 @@
 
 ## 🎉 修复完成！
 
-**状态**: ✅ 所有功能正常工作  
-**日期**: 2025-10-16  
+**状态**: ✅ 所有功能正常工作
+**日期**: 2025-10-16
 **测试**: 完全通过
 
 ---
@@ -146,7 +146,7 @@ var groupedFlows = events
 
 **问题**: EventStore 保存事件后，SignalR 没有收到通知
 
-**根本原因**: 
+**根本原因**:
 - `InMemoryEventStore` 在 `Catga.Debugger` 核心库中
 - `DebuggerNotificationService` 在 `Catga.Debugger.AspNetCore` 库中
 - 两者没有连接，EventStore 不知道要通知谁

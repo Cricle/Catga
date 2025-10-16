@@ -91,8 +91,8 @@
                                         </div>
                                         <div class="mt-2 flex items-center space-x-4 text-xs text-gray-500">
                                             <span>🔗 <span x-text="flow.correlationId.substring(0, 8)"></span>...</span>
-                                            <span>⏱️ <span x-text="flow.duration"></span>ms</span>
-                                            <span>📅 <span x-text="new Date(flow.timestamp).toLocaleString()"></span></span>
+                                            <span>⏱️ <span x-text="flow.duration.toFixed(2)"></span>ms</span>
+                                            <span>📅 <span x-text="new Date(flow.startTime).toLocaleString()"></span></span>
                                         </div>
                                     </div>
                                     <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -249,8 +249,12 @@
                                 <p class="mt-1 text-sm text-gray-900" x-text="selectedFlow.duration + 'ms'"></p>
                             </div>
                             <div>
-                                <label class="text-sm font-medium text-gray-500">时间戳</label>
-                                <p class="mt-1 text-sm text-gray-900" x-text="new Date(selectedFlow.timestamp).toLocaleString()"></p>
+                                <label class="text-sm font-medium text-gray-500">开始时间</label>
+                                <p class="mt-1 text-sm text-gray-900" x-text="new Date(selectedFlow.startTime).toLocaleString()"></p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">结束时间</label>
+                                <p class="mt-1 text-sm text-gray-900" x-text="new Date(selectedFlow.endTime).toLocaleString()"></p>
                             </div>
                         </div>
                     </template>

@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Debugger.AspNetCore.Hubs;
 
 /// <summary>SignalR Hub for real-time debugger updates (AOT-compatible)</summary>
-public sealed class DebuggerHub : Hub<IDebuggerClient>
+public sealed partial class DebuggerHub : Hub<IDebuggerClient>
 {
     private readonly IEventStore _eventStore;
     private readonly IReplayEngine _replayEngine;
@@ -26,32 +26,28 @@ public sealed class DebuggerHub : Hub<IDebuggerClient>
     public async Task SubscribeToFlow(string correlationId)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, $"flow-{correlationId}");
-        _logger.LogInformation("Client {ConnectionId} subscribed to flow {CorrelationId}",
-            Context.ConnectionId, correlationId);
+        LogFlowSubscribed(Context.ConnectionId, correlationId);
     }
 
     /// <summary>Unsubscribe from flow updates</summary>
     public async Task UnsubscribeFromFlow(string correlationId)
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"flow-{correlationId}");
-        _logger.LogInformation("Client {ConnectionId} unsubscribed from flow {CorrelationId}",
-            Context.ConnectionId, correlationId);
+        LogFlowUnsubscribed(Context.ConnectionId, correlationId);
     }
 
     /// <summary>Subscribe to system-wide updates</summary>
     public async Task SubscribeToSystem()
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, "system");
-        _logger.LogInformation("Client {ConnectionId} subscribed to system updates",
-            Context.ConnectionId);
+        LogSystemSubscribed(Context.ConnectionId);
     }
 
     /// <summary>Unsubscribe from system-wide updates</summary>
     public async Task UnsubscribeFromSystem()
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, "system");
-        _logger.LogInformation("Client {ConnectionId} unsubscribed from system updates",
-            Context.ConnectionId);
+        LogSystemUnsubscribed(Context.ConnectionId);
     }
 
     /// <summary>Get current stats</summary>
@@ -70,16 +66,33 @@ public sealed class DebuggerHub : Hub<IDebuggerClient>
 
     public override async Task OnConnectedAsync()
     {
-        _logger.LogInformation("Client {ConnectionId} connected", Context.ConnectionId);
+        LogClientConnected(Context.ConnectionId);
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        _logger.LogInformation("Client {ConnectionId} disconnected. Exception: {Exception}",
-            Context.ConnectionId, exception?.Message);
+        LogClientDisconnected(Context.ConnectionId, exception?.Message);
         await base.OnDisconnectedAsync(exception);
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Client {ConnectionId} subscribed to flow {CorrelationId}")]
+    partial void LogFlowSubscribed(string connectionId, string correlationId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Client {ConnectionId} unsubscribed from flow {CorrelationId}")]
+    partial void LogFlowUnsubscribed(string connectionId, string correlationId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Client {ConnectionId} subscribed to system updates")]
+    partial void LogSystemSubscribed(string connectionId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Client {ConnectionId} unsubscribed from system updates")]
+    partial void LogSystemUnsubscribed(string connectionId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Client {ConnectionId} connected")]
+    partial void LogClientConnected(string connectionId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Client {ConnectionId} disconnected. Exception: {Exception}")]
+    partial void LogClientDisconnected(string connectionId, string? exception);
 }
 
 /// <summary>Strongly-typed client interface (AOT-compatible)</summary>

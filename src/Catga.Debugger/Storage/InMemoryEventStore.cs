@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Debugger.Storage;
 
 /// <summary>In-memory event store with ring buffer - zero-allocation design</summary>
-public sealed class InMemoryEventStore : IEventStore, IDisposable
+public sealed partial class InMemoryEventStore : IEventStore, IDisposable
 {
     private readonly ReplayOptions _options;
     private readonly ILogger<InMemoryEventStore> _logger;
@@ -50,7 +50,7 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
         }
     }
 
-    public Task SaveAsync(IEnumerable<ReplayableEvent> events, CancellationToken cancellationToken = default)
+    public ValueTask SaveAsync(IEnumerable<ReplayableEvent> events, CancellationToken cancellationToken = default)
     {
         foreach (var evt in events)
         {
@@ -59,7 +59,7 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
             SaveEventToRingBuffer(evt);
         }
 
-        return Task.CompletedTask;
+        return default;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -90,7 +90,7 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
                 else if (_options.OverflowStrategy == OverflowStrategy.DropNewest)
                 {
                     // Drop new event
-                    _logger.LogWarning("Ring buffer full, dropping new event {EventId}", evt.Id);
+                    LogBufferFullDroppingEvent(evt.Id);
                     return;
                 }
             }
@@ -157,7 +157,7 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
         }
     }
 
-    public Task<IEnumerable<ReplayableEvent>> GetEventsAsync(
+    public ValueTask<IEnumerable<ReplayableEvent>> GetEventsAsync(
         DateTime startTime,
         DateTime endTime,
         CancellationToken cancellationToken = default)
@@ -184,10 +184,10 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
             }
         }
 
-        return Task.FromResult<IEnumerable<ReplayableEvent>>(results.OrderBy(e => e.Timestamp));
+        return new(results.OrderBy(e => e.Timestamp));
     }
 
-    public Task<IEnumerable<ReplayableEvent>> GetEventsByCorrelationAsync(
+    public ValueTask<IEnumerable<ReplayableEvent>> GetEventsByCorrelationAsync(
         string correlationId,
         CancellationToken cancellationToken = default)
     {
@@ -206,10 +206,10 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
             }
         }
 
-        return Task.FromResult<IEnumerable<ReplayableEvent>>(results.OrderBy(e => e.Timestamp));
+        return new(results.OrderBy(e => e.Timestamp));
     }
 
-    public Task<ReplayableEvent?> GetEventByIdAsync(
+    public ValueTask<ReplayableEvent?> GetEventByIdAsync(
         string eventId,
         CancellationToken cancellationToken = default)
     {
@@ -217,14 +217,14 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
         {
             lock (_bufferLock)
             {
-                return Task.FromResult(_ringBuffer[index]);
+                return new(_ringBuffer[index]);
             }
         }
 
-        return Task.FromResult<ReplayableEvent?>(null);
+        return new((ReplayableEvent?)null);
     }
 
-    public Task CleanupAsync(DateTime olderThan, CancellationToken cancellationToken = default)
+    public ValueTask CleanupAsync(DateTime olderThan, CancellationToken cancellationToken = default)
     {
         var removed = 0;
 
@@ -258,13 +258,13 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
 
         if (removed > 0)
         {
-            _logger.LogInformation("Cleaned up {Count} old events older than {Time}", removed, olderThan);
+            LogCleanupCompleted(removed, olderThan);
         }
 
-        return Task.CompletedTask;
+        return default;
     }
 
-    public Task<EventStoreStats> GetStatsAsync(CancellationToken cancellationToken = default)
+    public ValueTask<EventStoreStats> GetStatsAsync(CancellationToken cancellationToken = default)
     {
         lock (_bufferLock)
         {
@@ -279,7 +279,7 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
                     NewestEvent = _timeIndex.Keys.LastOrDefault()
                 };
 
-                return Task.FromResult(stats);
+                return new(stats);
             }
         }
     }
@@ -306,5 +306,11 @@ public sealed class InMemoryEventStore : IEventStore, IDisposable
         _eventIdIndex.Clear();
         _timeIndex.Clear();
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Ring buffer full, dropping new event {EventId}")]
+    partial void LogBufferFullDroppingEvent(string eventId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Cleaned up {Count} old events older than {Time}")]
+    partial void LogCleanupCompleted(int count, DateTime time);
 }
 

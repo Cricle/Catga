@@ -12,7 +12,7 @@ namespace Catga.Debugger.AspNetCore.Hubs;
 /// Uses System.Threading.Channels for zero-allocation queuing.
 /// Avoids Task.Run to prevent thread pool exhaustion.
 /// </remarks>
-public sealed class DebuggerNotificationService : BackgroundService
+public sealed partial class DebuggerNotificationService : BackgroundService
 {
     private readonly IHubContext<DebuggerHub, IDebuggerClient> _hubContext;
     private readonly IEventStore _eventStore;
@@ -54,13 +54,13 @@ public sealed class DebuggerNotificationService : BackgroundService
         // Non-blocking write
         if (!_eventChannel.Writer.TryWrite(evt))
         {
-            _logger.LogWarning("Event channel full, dropping event {EventId}", evt.Id);
+            LogEventChannelFull(evt.Id);
         }
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("DebuggerNotificationService started");
+        LogServiceStarted();
 
         // Start event processing task
         var eventTask = ProcessEventsAsync(stoppingToken);
@@ -71,7 +71,7 @@ public sealed class DebuggerNotificationService : BackgroundService
         // Wait for both tasks
         await Task.WhenAll(eventTask, statsTask);
 
-        _logger.LogInformation("DebuggerNotificationService stopped");
+        LogServiceStopped();
     }
 
     private async Task ProcessEventsAsync(CancellationToken ct)
@@ -103,7 +103,7 @@ public sealed class DebuggerNotificationService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to broadcast event {EventId}", evt.Id);
+                LogBroadcastFailed(ex, evt.Id);
             }
         }
     }
@@ -129,7 +129,7 @@ public sealed class DebuggerNotificationService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to broadcast stats");
+                LogStatsBroadcastFailed(ex);
             }
         }
     }
@@ -139,5 +139,20 @@ public sealed class DebuggerNotificationService : BackgroundService
         _statsTimer.Dispose();
         base.Dispose();
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Event channel full, dropping event {EventId}")]
+    partial void LogEventChannelFull(string eventId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "DebuggerNotificationService started")]
+    partial void LogServiceStarted();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "DebuggerNotificationService stopped")]
+    partial void LogServiceStopped();
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to broadcast event {EventId}")]
+    partial void LogBroadcastFailed(Exception ex, string eventId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to broadcast stats")]
+    partial void LogStatsBroadcastFailed(Exception ex);
 }
 

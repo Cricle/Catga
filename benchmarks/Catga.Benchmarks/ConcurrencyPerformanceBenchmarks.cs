@@ -26,7 +26,7 @@ public class ConcurrencyPerformanceBenchmarks
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddCatga();
+        services.AddCatga().UseMemoryPack(); // Add serializer for CATGA002
         services.AddScoped<IRequestHandler<ConcurrentCommand, ConcurrentResult>, ConcurrentCommandHandler>();
         services.AddScoped<IEventHandler<ConcurrentEvent>, ConcurrentEventHandler>();
 

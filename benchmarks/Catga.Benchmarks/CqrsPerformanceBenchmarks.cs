@@ -29,7 +29,7 @@ public class CqrsPerformanceBenchmarks
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddCatga();
+        services.AddCatga().UseMemoryPack(); // Add serializer for CATGA002
         services.AddScoped<IRequestHandler<BenchCommand, BenchCommandResult>, BenchCommandHandler>();
         services.AddScoped<IRequestHandler<BenchQuery, BenchQueryResult>, BenchQueryHandler>();
         services.AddScoped<IEventHandler<BenchEvent>, BenchEventHandler>();

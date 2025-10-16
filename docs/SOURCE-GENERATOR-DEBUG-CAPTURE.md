@@ -302,11 +302,11 @@ See `examples/OrderSystem.Api/Messages/Commands.cs` for a complete working examp
 
 ## Summary
 
-✅ **Zero boilerplate** - Just add `[GenerateDebugCapture]`  
-✅ **100% AOT compatible** - No reflection at runtime  
-✅ **Type safe** - Compile-time code generation  
-✅ **Maintainable** - Automatically updates with your types  
-✅ **Production ready** - Zero overhead, smart defaults  
+✅ **Zero boilerplate** - Just add `[GenerateDebugCapture]`
+✅ **100% AOT compatible** - No reflection at runtime
+✅ **Type safe** - Compile-time code generation
+✅ **Maintainable** - Automatically updates with your types
+✅ **Production ready** - Zero overhead, smart defaults
 
 **Recommendation**: Use `[GenerateDebugCapture]` on all messages for production AOT deployments.
 

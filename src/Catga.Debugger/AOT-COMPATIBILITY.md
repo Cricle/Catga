@@ -32,7 +32,7 @@ public partial record CreateOrderCommand : IRequest<OrderCreatedResult>, IDebugC
 {
     public required string CustomerId { get; init; }
     public required List<OrderItem> Items { get; init; }
-    
+
     // AOT-friendly variable capture
     public Dictionary<string, object?> CaptureVariables()
     {
@@ -72,12 +72,12 @@ services.AddCatgaDebugger(options =>
     // Mode
     options.Mode = DebuggerMode.ProductionOptimized;
     options.SamplingRate = 0.001; // 0.1%
-    
+
     // Disable reflection-based features
     options.CaptureVariables = false;    // Use IDebugCapture instead
     options.CaptureCallStacks = false;   // Not AOT-compatible
     options.CaptureMemoryState = false;  // Optional, not needed
-    
+
     // Zero-allocation features
     options.UseRingBuffer = true;
     options.EnableZeroCopy = true;
@@ -185,7 +185,7 @@ public partial record MyCommand : IRequest<MyResult>
 public partial record MyCommand : IRequest<MyResult>, IDebugCapture
 {
     public string Property { get; init; }
-    
+
     public Dictionary<string, object?> CaptureVariables()
     {
         return new() { [nameof(Property)] = Property };
@@ -212,8 +212,8 @@ For AOT-related issues, please:
 
 ## Summary
 
-✅ **Fully AOT-compatible** when using `IDebugCapture`  
-⚠️ **Partial AOT** with reflection fallback (development only)  
+✅ **Fully AOT-compatible** when using `IDebugCapture`
+⚠️ **Partial AOT** with reflection fallback (development only)
 ❌ **Not AOT** if call stack capture is enabled (disable in production)
 
 **Recommendation**: Use `AddCatgaDebuggerForProduction()` for production AOT deployments.

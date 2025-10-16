@@ -28,10 +28,10 @@ public sealed class GenerateDebugCaptureAttribute : System.Attribute
 {
     /// <summary>Include private properties</summary>
     public bool IncludePrivate { get; set; }
-    
+
     /// <summary>Max collection count to capture (prevents large data dumps)</summary>
     public int MaxCollectionCount { get; set; } = 10;
-    
+
     /// <summary>Properties to exclude (comma-separated)</summary>
     public string? Exclude { get; set; }
 }
@@ -67,7 +67,7 @@ public sealed class GenerateDebugCaptureAttribute : System.Attribute
     private static TypeDeclarationSyntax? GetSemanticTarget(GeneratorSyntaxContext context)
     {
         var typeDecl = (TypeDeclarationSyntax)context.Node;
-        
+
         foreach (var attributeList in typeDecl.AttributeLists)
         {
             foreach (var attribute in attributeList.Attributes)

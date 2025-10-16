@@ -26,9 +26,38 @@ Catga 是一个专为 .NET 9 和 Native AOT 设计的高性能 CQRS/中介者框
 - 🛡️ **Compile-Time Safety**: Roslyn analyzers detect configuration errors
 - 🌐 **Distributed Ready**: NATS, Redis transport & persistence
 - 🎯 **Minimal Config**: 2 lines to start, auto-DI for everything
-- 🔍 **Full Observability**: OpenTelemetry, Health Checks, Time-Travel Debugging
-- 🚀 **Production Ready**: Graceful shutdown, auto-recovery, Vue 3 debug UI
-- ⏪ **Time-Travel Replay**: Rewind & replay any flow with zero overhead
+- 🔍 **Full Observability**: OpenTelemetry, Health Checks, .NET Aspire
+- 🚀 **Production Ready**: Graceful shutdown, auto-recovery, graceful lifecycle
+- ⏪ **Time-Travel Debugging**: 🌟 **业界首创** - 完整的流程回放和调试（零开销）
+
+---
+
+## 🌟 创新特性：Time-Travel Debugging
+
+Catga 包含**业界首创**的 CQRS 时间旅行调试系统：
+
+```csharp
+// 1. 启用调试器（一行代码）
+builder.Services.AddCatgaDebuggerWithAspNetCore();
+
+// 2. 消息自动捕获（使用 Source Generator）
+[MemoryPackable]
+[GenerateDebugCapture]  // 自动生成 AOT 兼容的变量捕获
+public partial record CreateOrderCommand(...) : IRequest<Result>;
+
+// 3. 访问调试界面
+// http://localhost:5000/debug - Vue 3 现代化 UI
+```
+
+**功能亮点**：
+- ✅ **时间旅行回放** - 回到任意时刻，查看完整执行过程
+- ✅ **宏观/微观视图** - 系统级 + 单流程级双重视角
+- ✅ **零开销设计** - 生产环境 <0.01% 性能影响
+- ✅ **AOT 兼容** - Source Generator 自动生成，无反射
+- ✅ **Vue 3 UI** - 现代化、实时更新的调试界面
+- ✅ **智能采样** - 自适应采样率，感知 CPU/内存
+
+详见：[Debugger 文档](./docs/DEBUGGER.md) | [OrderSystem 示例](./examples/README-ORDERSYSTEM.md)
 
 ---
 
@@ -326,27 +355,35 @@ app.MapCatgaDebugger("/debug");
 
 ### 快速入门
 - [30 秒快速开始](#-快速开始)
-- [基础使用示例](./docs/examples/basic-usage.md)
-- [API 速查](./QUICK-REFERENCE.md)
+- [文档总索引](./docs/INDEX.md) 📚
+- [OrderSystem 完整示例](./examples/README-ORDERSYSTEM.md) 🌟
+- [API 速查](./docs/QUICK-REFERENCE.md)
 
 ### 核心概念
 - [CQRS 模式](./docs/architecture/cqrs.md)
 - [架构概览](./docs/architecture/ARCHITECTURE.md)
 - [消息类型](./docs/api/messages.md)
+- [Source Generator](./docs/guides/source-generator.md)
+
+### 🌟 创新特性
+- **[Time-Travel Debugger](./docs/DEBUGGER.md)** - 完整调试指南
+- **[Debugger 架构设计](./CATGA-DEBUGGER-PLAN.md)** - 详细技术方案
+- **[Source Generator 调试捕获](./docs/SOURCE-GENERATOR-DEBUG-CAPTURE.md)** - AOT 兼容
 
 ### 高级主题
 - [序列化指南](./docs/guides/serialization.md)
 - [分布式 ID](./docs/guides/distributed-id.md)
-- [Source Generator](./docs/guides/source-generator.md)
 - [Roslyn 分析器](./docs/guides/analyzers.md)
+- [Graceful Lifecycle](./docs/guides/graceful-lifecycle.md)
 
-### 部署
+### 部署与运维
 - [Native AOT 发布](./docs/deployment/native-aot-publishing.md)
 - [Kubernetes 部署](./docs/deployment/kubernetes.md)
+- [生产环境配置](./docs/deployment/production-config.md)
 
-### Examples
-- [Complete Example: OrderSystem](./examples/OrderSystem.Api/README.md) - CQRS + Events + Graceful Lifecycle
-- [AppHost Orchestration](./examples/OrderSystem.AppHost/README.md) - Aspire cluster setup
+### 示例项目
+- 🌟 **[OrderSystem 完整演示](./examples/README-ORDERSYSTEM.md)** - CQRS + 多 Handlers + Debugger
+- [AppHost Orchestration](./examples/OrderSystem.AppHost/README.md) - Aspire 集群
 
 ---
 

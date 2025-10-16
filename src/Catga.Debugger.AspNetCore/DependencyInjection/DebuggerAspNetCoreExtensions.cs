@@ -2,6 +2,7 @@ using Catga.Debugger.AspNetCore.Endpoints;
 using Catga.Debugger.AspNetCore.Hubs;
 using Catga.Debugger.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -60,12 +61,42 @@ public static class DebuggerAspNetCoreExtensions
         this IEndpointRouteBuilder endpoints,
         string basePath = "/debug")
     {
+        var app = endpoints as IApplicationBuilder 
+            ?? throw new InvalidOperationException("endpoints must be IApplicationBuilder");
+
         // Map API endpoints
         endpoints.MapCatgaDebuggerApi();
 
         // Map SignalR hub
         endpoints.MapHub<DebuggerHub>($"{basePath}/hub")
             .WithMetadata(new Microsoft.AspNetCore.Cors.EnableCorsAttribute());
+
+        // Serve static files for Vue 3 UI
+        var staticFilesPath = Path.Combine(AppContext.BaseDirectory, "wwwroot", "debugger");
+        if (Directory.Exists(staticFilesPath))
+        {
+            app.UseStaticFiles(new Microsoft.AspNetCore.Builder.StaticFileOptions
+            {
+                FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(staticFilesPath),
+                RequestPath = basePath
+            });
+        }
+
+        // SPA fallback for Vue Router
+        endpoints.MapFallback($"{basePath}/{{**path}}", async context =>
+        {
+            var indexPath = Path.Combine(staticFilesPath, "index.html");
+            if (File.Exists(indexPath))
+            {
+                context.Response.ContentType = "text/html";
+                await context.Response.SendFileAsync(indexPath);
+            }
+            else
+            {
+                context.Response.StatusCode = 404;
+                await context.Response.WriteAsync("Debugger UI not found. Please build the Vue 3 UI first.");
+            }
+        });
 
         return endpoints;
     }

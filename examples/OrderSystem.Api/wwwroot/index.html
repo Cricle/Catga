@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OrderSystem - 订单管理系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@7.0.14/dist/browser/signalr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .fade-in { animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .pulse-dot { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div x-data="orderSystemApp()" x-init="init()" class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <h1 class="text-2xl font-bold text-gray-900">🛒 OrderSystem</h1>
+                        <span class="text-sm text-gray-500">订单管理系统</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button @click="openDebugger()" 
+                                class="px-3 py-2 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition">
+                            🐱 调试器
+                        </button>
+                        <button @click="refreshData()" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            🔄 刷新
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tabs -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8">
+                    <button @click="currentTab = 'dashboard'" 
+                            :class="currentTab === 'dashboard' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
+                        📊 仪表盘
+                    </button>
+                    <button @click="currentTab = 'orders'" 
+                            :class="currentTab === 'orders' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
+                        📦 订单列表
+                    </button>
+                    <button @click="currentTab = 'create'" 
+                            :class="currentTab === 'create' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
+                        ➕ 创建订单
+                    </button>
+                    <button @click="currentTab = 'demo'" 
+                            :class="currentTab === 'demo' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
+                        🎬 Demo演示
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Dashboard Tab -->
+            <div x-show="currentTab === 'dashboard'" x-cloak class="fade-in space-y-6">
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                </svg>
+                            </div>
+                            <div class="ml-5">
+                                <p class="text-sm font-medium text-gray-500">今日订单</p>
+                                <p class="text-2xl font-semibold text-gray-900" x-text="stats.todayOrders || 0"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div class="ml-5">
+                                <p class="text-sm font-medium text-gray-500">总金额</p>
+                                <p class="text-2xl font-semibold text-gray-900">¥<span x-text="(stats.totalAmount || 0).toLocaleString()"></span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div class="ml-5">
+                                <p class="text-sm font-medium text-gray-500">待处理</p>
+                                <p class="text-2xl font-semibold text-gray-900" x-text="stats.pendingOrders || 0"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div class="ml-5">
+                                <p class="text-sm font-medium text-gray-500">已完成</p>
+                                <p class="text-2xl font-semibold text-gray-900" x-text="stats.completedOrders || 0"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Orders -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-900">最近订单</h2>
+                    </div>
+                    <div class="divide-y divide-gray-200">
+                        <template x-if="recentOrders.length === 0">
+                            <div class="px-6 py-12 text-center text-gray-500">
+                                <p>暂无订单数据</p>
+                                <button @click="currentTab = 'create'" class="mt-4 text-blue-600 hover:text-blue-700">
+                                    创建第一个订单 →
+                                </button>
+                            </div>
+                        </template>
+                        <template x-for="order in recentOrders.slice(0, 5)" :key="order.orderId">
+                            <div class="px-6 py-4 hover:bg-gray-50 cursor-pointer transition"
+                                 @click="viewOrderDetail(order)">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center space-x-3">
+                                            <span class="text-sm font-medium text-gray-900" x-text="order.orderId"></span>
+                                            <span class="px-2 py-1 text-xs font-medium rounded"
+                                                  :class="getStatusClass(order.status)"
+                                                  x-text="getStatusText(order.status)"></span>
+                                        </div>
+                                        <div class="mt-1 flex items-center space-x-4 text-xs text-gray-500">
+                                            <span>👤 <span x-text="order.customerId"></span></span>
+                                            <span>💰 ¥<span x-text="order.totalAmount.toLocaleString()"></span></span>
+                                            <span>📅 <span x-text="new Date(order.createdAt).toLocaleString()"></span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders List Tab -->
+            <div x-show="currentTab === 'orders'" x-cloak class="fade-in">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900">订单列表</h2>
+                            <p class="text-sm text-gray-500 mt-1">管理所有订单</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <select x-model="filterStatus" @change="loadOrders()" 
+                                    class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <option value="">全部状态</option>
+                                <option value="Pending">待处理</option>
+                                <option value="Confirmed">已确认</option>
+                                <option value="Paid">已支付</option>
+                                <option value="Shipped">已发货</option>
+                                <option value="Cancelled">已取消</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="divide-y divide-gray-200">
+                        <template x-if="orders.length === 0">
+                            <div class="px-6 py-12 text-center text-gray-500">
+                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                </svg>
+                                <p class="mt-2">暂无订单</p>
+                            </div>
+                        </template>
+                        <template x-for="order in orders" :key="order.orderId">
+                            <div class="px-6 py-4 hover:bg-gray-50 transition">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center space-x-3">
+                                            <span class="text-sm font-medium text-gray-900" x-text="order.orderId"></span>
+                                            <span class="px-2 py-1 text-xs font-medium rounded"
+                                                  :class="getStatusClass(order.status)"
+                                                  x-text="getStatusText(order.status)"></span>
+                                        </div>
+                                        <div class="mt-2 text-sm text-gray-600">
+                                            <p>客户: <span x-text="order.customerId"></span></p>
+                                            <p>金额: ¥<span x-text="order.totalAmount.toLocaleString()"></span></p>
+                                            <p class="text-xs text-gray-500 mt-1" x-text="new Date(order.createdAt).toLocaleString()"></p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <button @click="viewOrderDetail(order)" 
+                                                class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                                            查看
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create Order Tab -->
+            <div x-show="currentTab === 'create'" x-cloak class="fade-in">
+                <div class="bg-white rounded-lg shadow p-6 max-w-2xl mx-auto">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-6">创建新订单</h2>
+                    <form @submit.prevent="createOrder()" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">客户ID</label>
+                            <input x-model="newOrder.customerId" type="text" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="CUST-001">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">商品</label>
+                            <div class="space-y-2">
+                                <template x-for="(item, index) in newOrder.items" :key="index">
+                                    <div class="flex items-center space-x-2">
+                                        <input x-model="item.productId" type="text" placeholder="商品ID" required
+                                               class="flex-1 px-3 py-2 border border-gray-300 rounded-lg">
+                                        <input x-model="item.productName" type="text" placeholder="商品名称" required
+                                               class="flex-1 px-3 py-2 border border-gray-300 rounded-lg">
+                                        <input x-model.number="item.quantity" type="number" min="1" placeholder="数量" required
+                                               class="w-20 px-3 py-2 border border-gray-300 rounded-lg">
+                                        <input x-model.number="item.unitPrice" type="number" step="0.01" min="0" placeholder="单价" required
+                                               class="w-24 px-3 py-2 border border-gray-300 rounded-lg">
+                                        <button type="button" @click="newOrder.items.splice(index, 1)"
+                                                class="px-2 py-2 text-red-600 hover:bg-red-50 rounded">
+                                            ✕
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                            <button type="button" @click="newOrder.items.push({productId:'',productName:'',quantity:1,unitPrice:0})"
+                                    class="mt-2 text-sm text-blue-600 hover:text-blue-700">
+                                + 添加商品
+                            </button>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">收货地址</label>
+                            <textarea x-model="newOrder.shippingAddress" required rows="2"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                      placeholder="请输入收货地址"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">支付方式</label>
+                            <select x-model="newOrder.paymentMethod" required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                <option value="Alipay">支付宝</option>
+                                <option value="WeChat">微信支付</option>
+                                <option value="CreditCard">信用卡</option>
+                            </select>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-4">
+                            <div class="text-lg font-semibold">
+                                总计: ¥<span x-text="calculateTotal()"></span>
+                            </div>
+                            <button type="submit" 
+                                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                                创建订单
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Demo Tab -->
+            <div x-show="currentTab === 'demo'" x-cloak class="fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Success Demo -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">✅ 成功流程</h3>
+                            <button @click="runSuccessDemo()" 
+                                    :disabled="demoRunning"
+                                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50">
+                                <span x-show="!demoRunning">▶️ 运行</span>
+                                <span x-show="demoRunning" class="flex items-center">
+                                    <span class="pulse-dot inline-block w-2 h-2 bg-white rounded-full mr-2"></span>
+                                    运行中...
+                                </span>
+                            </button>
+                        </div>
+                        <div class="space-y-2 text-sm">
+                            <p class="text-gray-600">演示完整的订单创建流程：</p>
+                            <ul class="space-y-1 text-gray-700">
+                                <li>1. ✅ 检查库存</li>
+                                <li>2. ✅ 计算总额</li>
+                                <li>3. ✅ 保存订单</li>
+                                <li>4. ✅ 预留库存</li>
+                                <li>5. ✅ 验证支付</li>
+                                <li>6. ✅ 发布事件</li>
+                            </ul>
+                        </div>
+                        <div x-show="successResult" x-cloak class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <p class="text-sm text-green-800" x-text="successResult"></p>
+                        </div>
+                    </div>
+
+                    <!-- Failure Demo -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">❌ 失败回滚</h3>
+                            <button @click="runFailureDemo()" 
+                                    :disabled="demoRunning"
+                                    class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50">
+                                <span x-show="!demoRunning">▶️ 运行</span>
+                                <span x-show="demoRunning" class="flex items-center">
+                                    <span class="pulse-dot inline-block w-2 h-2 bg-white rounded-full mr-2"></span>
+                                    运行中...
+                                </span>
+                            </button>
+                        </div>
+                        <div class="space-y-2 text-sm">
+                            <p class="text-gray-600">演示失败场景的自动回滚：</p>
+                            <ul class="space-y-1 text-gray-700">
+                                <li>1-4. ✅ 正常执行</li>
+                                <li>5. ❌ 支付验证失败</li>
+                                <li>6. 🔄 释放库存</li>
+                                <li>7. 🔄 删除订单</li>
+                                <li>8. 📢 发布失败事件</li>
+                            </ul>
+                        </div>
+                        <div x-show="failureResult" x-cloak class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <p class="text-sm text-red-800" x-text="failureResult"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Features -->
+                <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
+                    <h4 class="font-semibold text-blue-900 mb-3">✨ 演示特性</h4>
+                    <ul class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-blue-800">
+                        <li>✓ 自动错误处理 (SafeRequestHandler)</li>
+                        <li>✓ 自定义回滚逻辑 (OnBusinessErrorAsync)</li>
+                        <li>✓ 事件驱动架构</li>
+                        <li>✓ 丰富的错误元数据</li>
+                        <li>✓ 零手动 try-catch</li>
+                        <li>✓ 完整的审计日志</li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+
+        <!-- Order Detail Modal -->
+        <div x-show="selectedOrder" 
+             x-cloak
+             @click.self="selectedOrder = null"
+             class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-900">订单详情</h3>
+                    <button @click="selectedOrder = null" class="text-gray-400 hover:text-gray-600">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+                    <template x-if="selectedOrder">
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="text-sm font-medium text-gray-500">订单ID</label>
+                                    <p class="mt-1 text-sm text-gray-900 font-mono" x-text="selectedOrder.orderId"></p>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-500">状态</label>
+                                    <p class="mt-1">
+                                        <span class="px-2 py-1 text-xs font-medium rounded"
+                                              :class="getStatusClass(selectedOrder.status)"
+                                              x-text="getStatusText(selectedOrder.status)"></span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">客户ID</label>
+                                <p class="mt-1 text-sm text-gray-900" x-text="selectedOrder.customerId"></p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">订单商品</label>
+                                <div class="mt-2 space-y-2">
+                                    <template x-for="item in selectedOrder.items" :key="item.productId">
+                                        <div class="flex justify-between text-sm bg-gray-50 p-3 rounded">
+                                            <span x-text="item.productName"></span>
+                                            <span class="text-gray-600">
+                                                <span x-text="item.quantity"></span> × ¥<span x-text="item.unitPrice"></span>
+                                            </span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">总金额</label>
+                                <p class="mt-1 text-2xl font-semibold text-gray-900">¥<span x-text="selectedOrder.totalAmount.toLocaleString()"></span></p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">收货地址</label>
+                                <p class="mt-1 text-sm text-gray-900" x-text="selectedOrder.shippingAddress"></p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">支付方式</label>
+                                <p class="mt-1 text-sm text-gray-900" x-text="selectedOrder.paymentMethod"></p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">创建时间</label>
+                                <p class="mt-1 text-sm text-gray-900" x-text="new Date(selectedOrder.createdAt).toLocaleString()"></p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div x-show="toast.show" 
+             x-cloak
+             x-transition
+             class="fixed bottom-4 right-4 z-50">
+            <div class="bg-white rounded-lg shadow-lg p-4 max-w-sm"
+                 :class="toast.type === 'success' ? 'border-l-4 border-green-500' : 'border-l-4 border-red-500'">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg x-show="toast.type === 'success'" class="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <svg x-show="toast.type === 'error'" class="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium text-gray-900" x-text="toast.message"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function orderSystemApp() {
+            return {
+                currentTab: 'dashboard',
+                orders: [],
+                recentOrders: [],
+                stats: {},
+                selectedOrder: null,
+                filterStatus: '',
+                demoRunning: false,
+                successResult: '',
+                failureResult: '',
+                toast: { show: false, type: 'success', message: '' },
+                newOrder: {
+                    customerId: '',
+                    items: [{ productId: '', productName: '', quantity: 1, unitPrice: 0 }],
+                    shippingAddress: '',
+                    paymentMethod: 'Alipay'
+                },
+
+                async init() {
+                    await this.loadStats();
+                    await this.loadOrders();
+                },
+
+                async loadStats() {
+                    // Mock stats - 在实际应用中，这应该从 API 获取
+                    this.stats = {
+                        todayOrders: this.orders.length,
+                        totalAmount: this.orders.reduce((sum, o) => sum + o.totalAmount, 0),
+                        pendingOrders: this.orders.filter(o => o.status === 'Pending').length,
+                        completedOrders: this.orders.filter(o => o.status === 'Shipped').length
+                    };
+                },
+
+                async loadOrders() {
+                    // Mock data - 在实际应用中，这应该从 API 获取
+                    // 这里我们使用本地存储来模拟持久化
+                    const stored = localStorage.getItem('orders');
+                    this.orders = stored ? JSON.parse(stored) : [];
+                    this.recentOrders = [...this.orders].sort((a, b) => 
+                        new Date(b.createdAt) - new Date(a.createdAt)
+                    );
+                    await this.loadStats();
+                },
+
+                async createOrder() {
+                    try {
+                        const order = {
+                            orderId: 'ORD-' + Date.now(),
+                            customerId: this.newOrder.customerId,
+                            items: this.newOrder.items.map(item => ({
+                                productId: item.productId,
+                                productName: item.productName,
+                                quantity: parseInt(item.quantity),
+                                unitPrice: parseFloat(item.unitPrice)
+                            })),
+                            totalAmount: this.calculateTotal(),
+                            shippingAddress: this.newOrder.shippingAddress,
+                            paymentMethod: this.newOrder.paymentMethod,
+                            status: 'Pending',
+                            createdAt: new Date().toISOString()
+                        };
+
+                        // 调用实际 API
+                        const response = await fetch('/api/orders', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                customerId: order.customerId,
+                                items: order.items,
+                                shippingAddress: order.shippingAddress,
+                                paymentMethod: order.paymentMethod
+                            })
+                        });
+
+                        if (response.ok) {
+                            // 保存到本地存储
+                            this.orders.push(order);
+                            localStorage.setItem('orders', JSON.stringify(this.orders));
+                            
+                            this.showToast('success', '订单创建成功！');
+                            this.resetNewOrder();
+                            this.currentTab = 'orders';
+                            await this.loadOrders();
+                        } else {
+                            throw new Error('创建订单失败');
+                        }
+                    } catch (error) {
+                        this.showToast('error', error.message);
+                    }
+                },
+
+                async runSuccessDemo() {
+                    this.demoRunning = true;
+                    this.successResult = '';
+                    try {
+                        const response = await fetch('/demo/order-success', { method: 'POST' });
+                        const data = await response.json();
+                        this.successResult = data.message || '✅ 订单创建成功！';
+                        await this.loadOrders();
+                    } catch (error) {
+                        this.successResult = '❌ Demo 运行失败: ' + error.message;
+                    } finally {
+                        this.demoRunning = false;
+                    }
+                },
+
+                async runFailureDemo() {
+                    this.demoRunning = true;
+                    this.failureResult = '';
+                    try {
+                        const response = await fetch('/demo/order-failure', { method: 'POST' });
+                        const data = await response.json();
+                        this.failureResult = data.message || '❌ 订单失败，已回滚！';
+                    } catch (error) {
+                        this.failureResult = '❌ Demo 运行失败: ' + error.message;
+                    } finally {
+                        this.demoRunning = false;
+                    }
+                },
+
+                calculateTotal() {
+                    return this.newOrder.items.reduce((sum, item) => 
+                        sum + (item.quantity * item.unitPrice), 0
+                    ).toFixed(2);
+                },
+
+                resetNewOrder() {
+                    this.newOrder = {
+                        customerId: '',
+                        items: [{ productId: '', productName: '', quantity: 1, unitPrice: 0 }],
+                        shippingAddress: '',
+                        paymentMethod: 'Alipay'
+                    };
+                },
+
+                viewOrderDetail(order) {
+                    this.selectedOrder = order;
+                },
+
+                getStatusClass(status) {
+                    const classes = {
+                        'Pending': 'bg-yellow-100 text-yellow-800',
+                        'Confirmed': 'bg-blue-100 text-blue-800',
+                        'Paid': 'bg-green-100 text-green-800',
+                        'Shipped': 'bg-purple-100 text-purple-800',
+                        'Cancelled': 'bg-red-100 text-red-800'
+                    };
+                    return classes[status] || 'bg-gray-100 text-gray-800';
+                },
+
+                getStatusText(status) {
+                    const texts = {
+                        'Pending': '待处理',
+                        'Confirmed': '已确认',
+                        'Paid': '已支付',
+                        'Shipped': '已发货',
+                        'Cancelled': '已取消'
+                    };
+                    return texts[status] || status;
+                },
+
+                showToast(type, message) {
+                    this.toast = { show: true, type, message };
+                    setTimeout(() => {
+                        this.toast.show = false;
+                    }, 3000);
+                },
+
+                openDebugger() {
+                    window.open('/debug', '_blank');
+                },
+
+                async refreshData() {
+                    await this.loadOrders();
+                    this.showToast('success', '数据已刷新');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+

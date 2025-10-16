@@ -14,7 +14,7 @@ public class IntegrationTestFixture : IDisposable
 {
     public IServiceProvider ServiceProvider { get; private set; }
     public ICatgaMediator Mediator { get; private set; }
-    
+
     private ServiceCollection? _services;
     private bool _disposed;
 

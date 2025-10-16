@@ -157,7 +157,7 @@
 # .github/workflows/test.yml
 - name: Run Integration Tests
   run: dotnet test --filter Category=Integration --verbosity normal
-  
+
 - name: Run All Tests with Coverage
   run: dotnet test --collect:"XPlat Code Coverage" --results-directory ./coverage
 ```

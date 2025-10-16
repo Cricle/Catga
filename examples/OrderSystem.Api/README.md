@@ -169,10 +169,20 @@ var orderApi = builder.AddProject<Projects.OrderSystem_Api>("order-api")
 | `/api/orders/{orderId}` | GET | 查询订单 |
 | `/api/customers/{customerId}/orders` | GET | 查询客户订单列表 |
 
+### 🌐 Web UI
+
+访问 **http://localhost:5000** 打开订单管理界面：
+
+- **仪表盘** - 实时统计和最近订单
+- **订单列表** - 查看和管理所有订单
+- **创建订单** - 快速创建新订单
+- **Demo 演示** - 一键运行成功/失败场景
+
 ### 系统端点
 
 | 端点 | 方法 | 描述 |
 |------|------|------|
+| `/` | GET | 📱 **订单管理 UI**（主界面） |
 | `/health` | GET | 健康检查 |
 | `/swagger` | GET | API 文档 |
 
@@ -183,7 +193,7 @@ var orderApi = builder.AddProject<Projects.OrderSystem_Api>("order-api")
 | `/demo/order-success` | POST | 演示：成功创建订单（完整流程） |
 | `/demo/order-failure` | POST | 演示：创建失败 + 自动回滚 |
 | `/demo/compare` | GET | 对比成功和失败流程 |
-| `/debug` | GET | 调试器 UI（Vue 3 + 时间旅行） |
+| `/debug` | GET | 🐱 **Catga 调试器 UI**（时间旅行） |
 | `/debug-api/flows` | GET | 查看所有消息流 |
 | `/debug-api/stats` | GET | 查看调试统计 |
 

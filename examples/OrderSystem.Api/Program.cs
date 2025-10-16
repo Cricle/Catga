@@ -61,6 +61,10 @@ if (app.Environment.IsDevelopment())
     // API: http://localhost:5000/debug-api/* (REST endpoints)
 }
 
+// ===== Static Files for OrderSystem UI =====
+app.UseStaticFiles(); // Serve wwwroot/index.html
+app.UseDefaultFiles(); // Enable default file mapping (index.html)
+
 // ===== API Endpoints =====
 var mediator = app.Services.GetRequiredService<ICatgaMediator>();
 

@@ -134,11 +134,11 @@ public class SerializationIntegrationTests
 
         // Assert - Different formats
         memoryPackBytes.Length.Should().NotBe(jsonBytes.Length);
-        
+
         // But both should deserialize correctly
         var fromMemoryPack = await memoryPackSerializer.DeserializeAsync<ComplexMessage>(memoryPackBytes);
         var fromJson = await jsonSerializer.DeserializeAsync<ComplexMessage>(jsonBytes);
-        
+
         fromMemoryPack.Id.Should().Be(message.Id);
         fromJson.Id.Should().Be(message.Id);
     }

@@ -79,7 +79,7 @@ public class RedisOutboxPersistence : IOutboxStore
     }
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    public async Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
+    public async ValueTask<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
         int maxCount = 100,
         CancellationToken cancellationToken = default)
     {
@@ -125,7 +125,7 @@ public class RedisOutboxPersistence : IOutboxStore
     }
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    public async Task MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)
+    public async ValueTask MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)
     {
         var db = _redis.GetDatabase();
         var key = GetMessageKey(messageId);
@@ -161,7 +161,7 @@ public class RedisOutboxPersistence : IOutboxStore
     }
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    public async Task MarkAsFailedAsync(
+    public async ValueTask MarkAsFailedAsync(
         string messageId,
         string errorMessage,
         CancellationToken cancellationToken = default)
@@ -205,7 +205,7 @@ public class RedisOutboxPersistence : IOutboxStore
                 messageId, message.RetryCount, message.MaxRetries, errorMessage);
         }
     }
-    public async Task DeletePublishedMessagesAsync(
+    public async ValueTask DeletePublishedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)
     {

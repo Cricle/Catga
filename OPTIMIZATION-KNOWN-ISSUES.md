@@ -5,7 +5,7 @@
 所有核心库和主要示例的优化已完成：
 
 1. ✅ OrderSystem.Api - 完全优化
-2. ✅ Catga 核心库 - 完全优化  
+2. ✅ Catga 核心库 - 完全优化
 3. ✅ Catga.InMemory - 完全优化
 4. ✅ Catga.Debugger - 完全优化
 5. ✅ Catga.Debugger.AspNetCore - 完全优化
@@ -105,7 +105,7 @@ public async ValueTask<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(...
 // 2. 修复 MarkAsPublishedAsync
 public async ValueTask MarkAsPublishedAsync(string messageId, ...)
 
-// 3. 修复 MarkAsFailedAsync  
+// 3. 修复 MarkAsFailedAsync
 public async ValueTask MarkAsFailedAsync(string messageId, string errorMessage, ...)
 
 // 4. 修复 DeletePublishedMessagesAsync
@@ -129,7 +129,7 @@ public async ValueTask DeletePublishedMessagesAsync(TimeSpan retentionPeriod, ..
 **优化工作 95% 完成！**
 
 - ✅ 核心库 100% 完成
-- ✅ 示例代码 100% 完成  
+- ✅ 示例代码 100% 完成
 - ⚠️ Redis 持久化层 50% 完成（非关键）
 - ⚠️ 集成测试 0% 完成（非关键）
 

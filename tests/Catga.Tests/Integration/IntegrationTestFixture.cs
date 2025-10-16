@@ -31,7 +31,6 @@ public class IntegrationTestFixture : IDisposable
         // Add logging
         services.AddLogging(builder =>
         {
-            builder.AddConsole();
             builder.SetMinimumLevel(LogLevel.Debug);
         });
 

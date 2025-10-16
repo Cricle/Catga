@@ -47,7 +47,7 @@ public class RedisInboxPersistence : IInboxStore
 
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    public async Task<bool> TryLockMessageAsync(
+    public async ValueTask<bool> TryLockMessageAsync(
         string messageId,
         TimeSpan lockDuration,
         CancellationToken cancellationToken = default)
@@ -94,7 +94,7 @@ public class RedisInboxPersistence : IInboxStore
 
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    public async Task MarkAsProcessedAsync(
+    public async ValueTask MarkAsProcessedAsync(
         InboxMessage message,
         CancellationToken cancellationToken = default)
     {
@@ -113,7 +113,7 @@ public class RedisInboxPersistence : IInboxStore
         _logger.LogDebug("Marked message {MessageId} as processed", message.MessageId);
     }
 
-    public async Task<bool> HasBeenProcessedAsync(
+    public async ValueTask<bool> HasBeenProcessedAsync(
         string messageId,
         CancellationToken cancellationToken = default)
     {
@@ -125,7 +125,7 @@ public class RedisInboxPersistence : IInboxStore
 
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    public async Task<string?> GetProcessedResultAsync(
+    public async ValueTask<string?> GetProcessedResultAsync(
         string messageId,
         CancellationToken cancellationToken = default)
     {
@@ -140,7 +140,7 @@ public class RedisInboxPersistence : IInboxStore
         return message?.ProcessingResult;
     }
 
-    public async Task ReleaseLockAsync(
+    public async ValueTask ReleaseLockAsync(
         string messageId,
         CancellationToken cancellationToken = default)
     {
@@ -153,13 +153,13 @@ public class RedisInboxPersistence : IInboxStore
         _logger.LogDebug("Released lock on message {MessageId}", messageId);
     }
 
-    public async Task DeleteProcessedMessagesAsync(
+    public ValueTask DeleteProcessedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)
     {
         // Redis 使用 TTL 自动清理，这里不需要额外操作
         _logger.LogDebug("Redis inbox uses TTL for cleanup");
-        await Task.CompletedTask;
+        return default;
     }
 
     private string GetMessageKey(string messageId) => $"{_keyPrefix}:msg:{messageId}";

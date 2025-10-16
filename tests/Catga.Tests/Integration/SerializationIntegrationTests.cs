@@ -13,7 +13,7 @@ namespace Catga.Tests.Integration;
 public class SerializationIntegrationTests
 {
     [Fact]
-    public async Task MemoryPack_Should_Serialize_And_Deserialize_Complex_Message()
+    public void MemoryPack_Should_Serialize_And_Deserialize_Complex_Message()
     {
         // Arrange
         var serializer = new MemoryPackMessageSerializer();
@@ -26,8 +26,8 @@ public class SerializationIntegrationTests
         );
 
         // Act
-        var serialized = await serializer.SerializeAsync(message);
-        var deserialized = await serializer.DeserializeAsync<ComplexMessage>(serialized);
+        var serialized = serializer.Serialize(message);
+        var deserialized = serializer.Deserialize<ComplexMessage>(serialized);
 
         // Assert
         deserialized.Should().NotBeNull();
@@ -41,7 +41,7 @@ public class SerializationIntegrationTests
     }
 
     [Fact]
-    public async Task Json_Should_Serialize_And_Deserialize_Complex_Message()
+    public void Json_Should_Serialize_And_Deserialize_Complex_Message()
     {
         // Arrange
         var serializer = new JsonMessageSerializer();
@@ -54,8 +54,8 @@ public class SerializationIntegrationTests
         );
 
         // Act
-        var serialized = await serializer.SerializeAsync(message);
-        var deserialized = await serializer.DeserializeAsync<ComplexMessage>(serialized);
+        var serialized = serializer.Serialize(message);
+        var deserialized = serializer.Deserialize<ComplexMessage>(serialized);
 
         // Assert
         deserialized.Should().NotBeNull();
@@ -69,7 +69,7 @@ public class SerializationIntegrationTests
     }
 
     [Fact]
-    public async Task MemoryPack_Should_Handle_Empty_Collections()
+    public void MemoryPack_Should_Handle_Empty_Collections()
     {
         // Arrange
         var serializer = new MemoryPackMessageSerializer();
@@ -82,8 +82,8 @@ public class SerializationIntegrationTests
         );
 
         // Act
-        var serialized = await serializer.SerializeAsync(message);
-        var deserialized = await serializer.DeserializeAsync<ComplexMessage>(serialized);
+        var serialized = serializer.Serialize(message);
+        var deserialized = serializer.Deserialize<ComplexMessage>(serialized);
 
         // Assert
         deserialized.Should().NotBeNull();
@@ -91,7 +91,7 @@ public class SerializationIntegrationTests
     }
 
     [Fact]
-    public async Task MemoryPack_Should_Handle_Large_Messages()
+    public void MemoryPack_Should_Handle_Large_Messages()
     {
         // Arrange
         var serializer = new MemoryPackMessageSerializer();
@@ -105,8 +105,8 @@ public class SerializationIntegrationTests
         );
 
         // Act
-        var serialized = await serializer.SerializeAsync(message);
-        var deserialized = await serializer.DeserializeAsync<ComplexMessage>(serialized);
+        var serialized = serializer.Serialize(message);
+        var deserialized = serializer.Deserialize<ComplexMessage>(serialized);
 
         // Assert
         deserialized.Should().NotBeNull();
@@ -115,7 +115,7 @@ public class SerializationIntegrationTests
     }
 
     [Fact]
-    public async Task Integration_MemoryPack_And_Json_Should_Produce_Different_Formats()
+    public void Integration_MemoryPack_And_Json_Should_Produce_Different_Formats()
     {
         // Arrange
         var memoryPackSerializer = new MemoryPackMessageSerializer();
@@ -129,22 +129,22 @@ public class SerializationIntegrationTests
         );
 
         // Act
-        var memoryPackBytes = await memoryPackSerializer.SerializeAsync(message);
-        var jsonBytes = await jsonSerializer.SerializeAsync(message);
+        var memoryPackBytes = memoryPackSerializer.Serialize(message);
+        var jsonBytes = jsonSerializer.Serialize(message);
 
         // Assert - Different formats
         memoryPackBytes.Length.Should().NotBe(jsonBytes.Length);
 
         // But both should deserialize correctly
-        var fromMemoryPack = await memoryPackSerializer.DeserializeAsync<ComplexMessage>(memoryPackBytes);
-        var fromJson = await jsonSerializer.DeserializeAsync<ComplexMessage>(jsonBytes);
+        var fromMemoryPack = memoryPackSerializer.Deserialize<ComplexMessage>(memoryPackBytes);
+        var fromJson = jsonSerializer.Deserialize<ComplexMessage>(jsonBytes);
 
         fromMemoryPack.Id.Should().Be(message.Id);
         fromJson.Id.Should().Be(message.Id);
     }
 
     [Fact]
-    public async Task MemoryPack_Should_Be_More_Compact_Than_Json()
+    public void MemoryPack_Should_Be_More_Compact_Than_Json()
     {
         // Arrange
         var memoryPackSerializer = new MemoryPackMessageSerializer();
@@ -158,8 +158,8 @@ public class SerializationIntegrationTests
         );
 
         // Act
-        var memoryPackBytes = await memoryPackSerializer.SerializeAsync(message);
-        var jsonBytes = await jsonSerializer.SerializeAsync(message);
+        var memoryPackBytes = memoryPackSerializer.Serialize(message);
+        var jsonBytes = jsonSerializer.Serialize(message);
 
         // Assert - MemoryPack should be more compact
         memoryPackBytes.Length.Should().BeLessThan(jsonBytes.Length);

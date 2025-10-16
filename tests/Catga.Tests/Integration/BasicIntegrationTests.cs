@@ -5,6 +5,7 @@ using Catga.Messages;
 using Catga.Results;
 using FluentAssertions;
 using MemoryPack;
+using Microsoft.Extensions.Logging;
 
 namespace Catga.Tests.Integration;
 
@@ -30,13 +31,13 @@ public class BasicIntegrationTests : IDisposable
         var command = new SimpleCommand("test-data");
 
         // Act
-        var result = await _mediator.SendAsync(command);
+        var result = await _mediator.SendAsync<SimpleCommand, SimpleResponse>(command);
 
         // Assert
         result.Should().NotBeNull();
         result.IsSuccess.Should().BeTrue();
-        result.Data.Should().NotBeNull();
-        result.Data!.ProcessedData.Should().Be("PROCESSED:test-data");
+        result.Value.Should().NotBeNull();
+        result.Value!.ProcessedData.Should().Be("PROCESSED:test-data");
     }
 
     [Fact]
@@ -65,7 +66,7 @@ public class BasicIntegrationTests : IDisposable
             .ToArray();
 
         // Act
-        var tasks = commands.Select(cmd => _mediator.SendAsync(cmd)).ToArray();
+        var tasks = commands.Select(cmd => _mediator.SendAsync<SimpleCommand, SimpleResponse>(cmd).AsTask()).ToArray();
         var results = await Task.WhenAll(tasks);
 
         // Assert
@@ -73,7 +74,7 @@ public class BasicIntegrationTests : IDisposable
         results.Should().AllSatisfy(r =>
         {
             r.IsSuccess.Should().BeTrue();
-            r.Data.Should().NotBeNull();
+            r.Value.Should().NotBeNull();
         });
     }
 
@@ -84,11 +85,11 @@ public class BasicIntegrationTests : IDisposable
         var command = new SafeCommand("valid-data");
 
         // Act
-        var result = await _mediator.SendAsync(command);
+        var result = await _mediator.SendAsync<SafeCommand, SafeResponse>(command);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        result.Data.Should().NotBeNull();
+        result.Value.Should().NotBeNull();
     }
 
     [Fact]
@@ -98,7 +99,7 @@ public class BasicIntegrationTests : IDisposable
         var command = new SafeCommand("error");
 
         // Act
-        var result = await _mediator.SendAsync(command);
+        var result = await _mediator.SendAsync<SafeCommand, SafeResponse>(command);
 
         // Assert
         result.IsSuccess.Should().BeFalse();
@@ -145,28 +146,42 @@ public class SimpleCommandHandler : IRequestHandler<SimpleCommand, SimpleRespons
 
 public class SimpleEventHandler1 : IEventHandler<SimpleEvent>
 {
-    public static int ReceivedCount { get; set; }
+    private static int _receivedCount;
+    public static int ReceivedCount
+    {
+        get => _receivedCount;
+        set => _receivedCount = value;
+    }
 
     public Task HandleAsync(SimpleEvent @event, CancellationToken cancellationToken = default)
     {
-        Interlocked.Increment(ref ReceivedCount);
+        Interlocked.Increment(ref _receivedCount);
         return Task.CompletedTask;
     }
 }
 
 public class SimpleEventHandler2 : IEventHandler<SimpleEvent>
 {
-    public static int ReceivedCount { get; set; }
+    private static int _receivedCount;
+    public static int ReceivedCount
+    {
+        get => _receivedCount;
+        set => _receivedCount = value;
+    }
 
     public Task HandleAsync(SimpleEvent @event, CancellationToken cancellationToken = default)
     {
-        Interlocked.Increment(ref ReceivedCount);
+        Interlocked.Increment(ref _receivedCount);
         return Task.CompletedTask;
     }
 }
 
 public class SafeCommandHandler : SafeRequestHandler<SafeCommand, SafeResponse>
 {
+    public SafeCommandHandler(ILogger<SafeCommandHandler> logger) : base(logger)
+    {
+    }
+
     protected override Task<SafeResponse> HandleCoreAsync(
         SafeCommand request,
         CancellationToken cancellationToken)

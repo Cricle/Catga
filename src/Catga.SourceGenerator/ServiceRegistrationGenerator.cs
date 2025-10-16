@@ -128,7 +128,7 @@ public sealed class ServiceRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("    /// Auto-generated service registrations");
         sb.AppendLine($"    /// Found {services.Count} service(s)");
         sb.AppendLine("    /// </summary>");
-        sb.AppendLine("    public static class CatgaGeneratedServiceRegistrations");
+        sb.AppendLine("    public static partial class CatgaGeneratedServiceRegistrations");
         sb.AppendLine("    {");
         sb.AppendLine("        /// <summary>");
         sb.AppendLine("        /// Registers all auto-discovered services");

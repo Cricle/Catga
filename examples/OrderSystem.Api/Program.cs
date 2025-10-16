@@ -8,6 +8,7 @@ using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Handlers;
 using OrderSystem.Api.Services;
+using OrderSystem.Api.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,15 +20,8 @@ if (builder.Environment.IsDevelopment())
     builder.Services.AddCatgaDebuggerWithAspNetCore();
 
 // Register handlers and services
-builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderHandler>();
-builder.Services.AddScoped<IRequestHandler<CancelOrderCommand>, CancelOrderHandler>();
-builder.Services.AddScoped<IRequestHandler<GetOrderQuery, Order?>, GetOrderHandler>();
-builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedNotificationHandler>();
-builder.Services.AddScoped<IEventHandler<OrderCancelledEvent>, OrderCancelledHandler>();
-builder.Services.AddScoped<IEventHandler<OrderFailedEvent>, OrderFailedHandler>();
-builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
-builder.Services.AddSingleton<IInventoryService, MockInventoryService>();
-builder.Services.AddSingleton<IPaymentService, MockPaymentService>();
+builder.Services.AddOrderSystemHandlers();
+builder.Services.AddOrderSystemServices();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

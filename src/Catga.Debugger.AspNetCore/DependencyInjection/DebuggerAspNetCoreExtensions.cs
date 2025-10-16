@@ -20,7 +20,7 @@ public static class DebuggerAspNetCoreExtensions
     {
         // Add core debugger services
         services.AddCatgaDebugger(configureOptions);
-        
+
         // Add SignalR
         services.AddSignalR(options =>
         {
@@ -35,14 +35,14 @@ public static class DebuggerAspNetCoreExtensions
             options.PayloadSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
             options.PayloadSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
             options.PayloadSerializerOptions.WriteIndented = false;
-            
+
             // Add source-generated context if available
             // options.PayloadSerializerOptions.TypeInfoResolverChain.Insert(0, DebuggerJsonContext.Default);
         });
-        
+
         // Add notification service
         services.AddHostedService<DebuggerNotificationService>();
-        
+
         // Configure JSON options for minimal APIs
         services.Configure<JsonOptions>(options =>
         {
@@ -51,10 +51,10 @@ public static class DebuggerAspNetCoreExtensions
             options.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
             options.SerializerOptions.WriteIndented = false;
         });
-        
+
         return services;
     }
-    
+
     /// <summary>Map Catga debugger endpoints and hub</summary>
     public static IEndpointRouteBuilder MapCatgaDebugger(
         this IEndpointRouteBuilder endpoints,
@@ -62,11 +62,11 @@ public static class DebuggerAspNetCoreExtensions
     {
         // Map API endpoints
         endpoints.MapCatgaDebuggerApi();
-        
+
         // Map SignalR hub
         endpoints.MapHub<DebuggerHub>($"{basePath}/hub")
             .WithMetadata(new Microsoft.AspNetCore.Cors.EnableCorsAttribute());
-        
+
         return endpoints;
     }
 }

@@ -11,7 +11,7 @@ public sealed class DebuggerHub : Hub<IDebuggerClient>
     private readonly IEventStore _eventStore;
     private readonly IReplayEngine _replayEngine;
     private readonly ILogger<DebuggerHub> _logger;
-    
+
     public DebuggerHub(
         IEventStore eventStore,
         IReplayEngine replayEngine,
@@ -21,44 +21,44 @@ public sealed class DebuggerHub : Hub<IDebuggerClient>
         _replayEngine = replayEngine;
         _logger = logger;
     }
-    
+
     /// <summary>Subscribe to flow updates</summary>
     public async Task SubscribeToFlow(string correlationId)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, $"flow-{correlationId}");
-        _logger.LogInformation("Client {ConnectionId} subscribed to flow {CorrelationId}", 
+        _logger.LogInformation("Client {ConnectionId} subscribed to flow {CorrelationId}",
             Context.ConnectionId, correlationId);
     }
-    
+
     /// <summary>Unsubscribe from flow updates</summary>
     public async Task UnsubscribeFromFlow(string correlationId)
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"flow-{correlationId}");
-        _logger.LogInformation("Client {ConnectionId} unsubscribed from flow {CorrelationId}", 
+        _logger.LogInformation("Client {ConnectionId} unsubscribed from flow {CorrelationId}",
             Context.ConnectionId, correlationId);
     }
-    
+
     /// <summary>Subscribe to system-wide updates</summary>
     public async Task SubscribeToSystem()
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, "system");
-        _logger.LogInformation("Client {ConnectionId} subscribed to system updates", 
+        _logger.LogInformation("Client {ConnectionId} subscribed to system updates",
             Context.ConnectionId);
     }
-    
+
     /// <summary>Unsubscribe from system-wide updates</summary>
     public async Task UnsubscribeFromSystem()
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, "system");
-        _logger.LogInformation("Client {ConnectionId} unsubscribed from system updates", 
+        _logger.LogInformation("Client {ConnectionId} unsubscribed from system updates",
             Context.ConnectionId);
     }
-    
+
     /// <summary>Get current stats</summary>
     public async Task<StatsUpdate> GetStats()
     {
         var stats = await _eventStore.GetStatsAsync(Context.ConnectionAborted);
-        
+
         return new StatsUpdate
         {
             TotalEvents = stats.TotalEvents,
@@ -67,16 +67,16 @@ public sealed class DebuggerHub : Hub<IDebuggerClient>
             Timestamp = DateTime.UtcNow
         };
     }
-    
+
     public override async Task OnConnectedAsync()
     {
         _logger.LogInformation("Client {ConnectionId} connected", Context.ConnectionId);
         await base.OnConnectedAsync();
     }
-    
+
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        _logger.LogInformation("Client {ConnectionId} disconnected. Exception: {Exception}", 
+        _logger.LogInformation("Client {ConnectionId} disconnected. Exception: {Exception}",
             Context.ConnectionId, exception?.Message);
         await base.OnDisconnectedAsync(exception);
     }
@@ -87,10 +87,10 @@ public interface IDebuggerClient
 {
     /// <summary>Receive new flow event</summary>
     Task FlowEventReceived(FlowEventUpdate update);
-    
+
     /// <summary>Receive stats update</summary>
     Task StatsUpdated(StatsUpdate stats);
-    
+
     /// <summary>Receive replay progress</summary>
     Task ReplayProgress(ReplayProgressUpdate progress);
 }

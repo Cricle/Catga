@@ -213,21 +213,21 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
     private Dictionary<string, object?> CaptureVariables(object data)
     {
         var variables = new Dictionary<string, object?>();
-        
+
         // Check if type implements custom capture interface
         if (data is IDebugCapture debugCapture)
         {
             // AOT-friendly: use custom capture
             return debugCapture.CaptureVariables();
         }
-        
+
         // Fallback to reflection (not AOT-compatible)
         try
         {
             var type = data.GetType();
-            var properties = type.GetProperties(System.Reflection.BindingFlags.Public | 
+            var properties = type.GetProperties(System.Reflection.BindingFlags.Public |
                                                System.Reflection.BindingFlags.Instance);
-            
+
             foreach (var prop in properties)
             {
                 try
@@ -245,7 +245,7 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
         {
             _logger.LogWarning(ex, "Failed to capture variables for {Type}", data.GetType().Name);
         }
-        
+
         return variables;
     }
 

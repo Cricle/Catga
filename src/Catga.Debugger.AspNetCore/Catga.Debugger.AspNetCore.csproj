@@ -9,11 +9,11 @@
     <IsAotCompatible>false</IsAotCompatible>
     <NoWarn>$(NoWarn);CS1591;IL3050</NoWarn>
   </PropertyGroup>
-  
+
   <PropertyGroup>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
-  
+
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>

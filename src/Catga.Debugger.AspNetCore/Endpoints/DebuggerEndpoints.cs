@@ -15,56 +15,56 @@ public static class DebuggerEndpoints
     {
         var group = endpoints.MapGroup("/debug-api")
             .WithTags("Catga Debugger");
-        
+
         // Get all flows
         group.MapGet("/flows", GetFlowsAsync)
             .WithName("GetFlows")
             .WithSummary("Get all active flows")
             .Produces<FlowsResponse>();
-        
+
         // Get specific flow
         group.MapGet("/flows/{correlationId}", GetFlowAsync)
             .WithName("GetFlow")
             .WithSummary("Get specific flow by correlation ID")
             .Produces<FlowResponse>()
             .Produces(404);
-        
+
         // Get event store stats
         group.MapGet("/stats", GetStatsAsync)
             .WithName("GetStats")
             .WithSummary("Get event store statistics")
             .Produces<StatsResponse>();
-        
+
         // Get system replay
         group.MapPost("/replay/system", ReplaySystemAsync)
             .WithName("ReplaySystem")
             .WithSummary("Start system-wide replay")
             .Produces<SystemReplayResponse>();
-        
+
         // Get flow replay
         group.MapPost("/replay/flow", ReplayFlowAsync)
             .WithName("ReplayFlow")
             .WithSummary("Start flow-level replay")
             .Produces<FlowReplayResponse>();
-        
+
         return group;
     }
-    
+
     // AOT-compatible typed handlers
-    
+
     private static async Task<Ok<FlowsResponse>> GetFlowsAsync(
         IEventStore eventStore,
         CancellationToken ct)
     {
         var stats = await eventStore.GetStatsAsync(ct);
         var flows = new List<FlowInfo>();
-        
+
         // Get recent flows (last hour)
         var events = await eventStore.GetEventsAsync(
             DateTime.UtcNow.AddHours(-1),
             DateTime.UtcNow,
             ct);
-        
+
         var groupedFlows = events
             .GroupBy(e => e.CorrelationId)
             .Select(g => new FlowInfo
@@ -78,7 +78,7 @@ public static class DebuggerEndpoints
             .OrderByDescending(f => f.StartTime)
             .Take(100)
             .ToList();
-        
+
         return TypedResults.Ok(new FlowsResponse
         {
             Flows = groupedFlows,
@@ -86,7 +86,7 @@ public static class DebuggerEndpoints
             Timestamp = DateTime.UtcNow
         });
     }
-    
+
     private static async Task<Results<Ok<FlowResponse>, NotFound>> GetFlowAsync(
         string correlationId,
         IEventStore eventStore,
@@ -94,10 +94,10 @@ public static class DebuggerEndpoints
     {
         var events = await eventStore.GetEventsByCorrelationAsync(correlationId, ct);
         var eventList = events.ToList();
-        
+
         if (eventList.Count == 0)
             return TypedResults.NotFound();
-        
+
         return TypedResults.Ok(new FlowResponse
         {
             CorrelationId = correlationId,
@@ -113,13 +113,13 @@ public static class DebuggerEndpoints
             }).ToList()
         });
     }
-    
+
     private static async Task<Ok<StatsResponse>> GetStatsAsync(
         IEventStore eventStore,
         CancellationToken ct)
     {
         var stats = await eventStore.GetStatsAsync(ct);
-        
+
         return TypedResults.Ok(new StatsResponse
         {
             TotalEvents = stats.TotalEvents,
@@ -130,7 +130,7 @@ public static class DebuggerEndpoints
             Timestamp = DateTime.UtcNow
         });
     }
-    
+
     private static async Task<Ok<SystemReplayResponse>> ReplaySystemAsync(
         SystemReplayRequest request,
         IReplayEngine replayEngine,
@@ -141,7 +141,7 @@ public static class DebuggerEndpoints
             request.EndTime,
             request.Speed,
             ct);
-        
+
         return TypedResults.Ok(new SystemReplayResponse
         {
             EventCount = replay.Timeline.Count,
@@ -150,14 +150,14 @@ public static class DebuggerEndpoints
             Speed = replay.Speed
         });
     }
-    
+
     private static async Task<Ok<FlowReplayResponse>> ReplayFlowAsync(
         FlowReplayRequest request,
         IReplayEngine replayEngine,
         CancellationToken ct)
     {
         var replay = await replayEngine.ReplayFlowAsync(request.CorrelationId, ct);
-        
+
         return TypedResults.Ok(new FlowReplayResponse
         {
             CorrelationId = request.CorrelationId,

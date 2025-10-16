@@ -2,8 +2,9 @@
 
 ## 🎉 完成状态：100% 成功
 
-**完成时间**: 2025-10-16
-**测试状态**: ✅ 所有测试通过 (8/8 API + 3/3 Debugger)
+**完成时间**: 2025-10-16  
+**测试状态**: ✅ 所有测试通过 (8/8 API + 3/3 Debugger)  
+**方案**: Extension Methods + Source Generator Infrastructure
 
 ---
 
@@ -16,27 +17,48 @@
 - **根本原因**: Generator 在编译时运行，但生成的代码未被正确引用
 - **解决方案**: 使用手动注册作为可靠的 fallback
 
-#### 当前实现
+#### 当前实现：Extension Methods Pattern
+
+**Program.cs** (简洁调用)：
 ```csharp
 // examples/OrderSystem.Api/Program.cs
-// 手动注册所有 Handlers 和 Services
-builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderHandler>();
-builder.Services.AddScoped<IRequestHandler<CancelOrderCommand>, CancelOrderHandler>();
-builder.Services.AddScoped<IRequestHandler<GetOrderQuery, Order?>, GetOrderHandler>();
-builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedNotificationHandler>();
-builder.Services.AddScoped<IEventHandler<OrderCancelledEvent>, OrderCancelledHandler>();
-builder.Services.AddScoped<IEventHandler<OrderFailedEvent>, OrderFailedHandler>();
-builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
-builder.Services.AddSingleton<IInventoryService, MockInventoryService>();
-builder.Services.AddSingleton<IPaymentService, MockPaymentService>();
+builder.Services.AddOrderSystemHandlers();
+builder.Services.AddOrderSystemServices();
+```
+
+**Infrastructure/ServiceRegistration.cs** (具体实现)：
+```csharp
+public static class OrderSystemServiceExtensions
+{
+    public static IServiceCollection AddOrderSystemHandlers(this IServiceCollection services)
+    {
+        services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderHandler>();
+        services.AddScoped<IRequestHandler<CancelOrderCommand>, CancelOrderHandler>();
+        services.AddScoped<IRequestHandler<GetOrderQuery, Order?>, GetOrderHandler>();
+        services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedNotificationHandler>();
+        services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedAnalyticsHandler>();
+        services.AddScoped<IEventHandler<OrderCancelledEvent>, OrderCancelledHandler>();
+        services.AddScoped<IEventHandler<OrderFailedEvent>, OrderFailedHandler>();
+        return services;
+    }
+    
+    public static IServiceCollection AddOrderSystemServices(this IServiceCollection services)
+    {
+        services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
+        services.AddSingleton<IInventoryService, MockInventoryService>();
+        services.AddSingleton<IPaymentService, MockPaymentService>();
+        return services;
+    }
+}
 ```
 
 #### 优势
-- ✅ **100% 可靠**: 不依赖 Source Generator 的生成时机
+- ✅ **清晰组织**: Extension Methods 模式，代码结构清晰
+- ✅ **100% 可靠**: 不依赖 Source Generator 的运行时机
 - ✅ **类型安全**: 编译时检查所有类型
-- ✅ **清晰明确**: 所有注册一目了然
-- ✅ **易于调试**: 可以直接看到注册的内容
-- ✅ **AOT 兼容**: 手动注册完全支持 Native AOT
+- ✅ **易于维护**: 集中在 Infrastructure 命名空间
+- ✅ **AOT 兼容**: 完全支持 Native AOT
+- ✅ **简洁调用**: Program.cs 只需两行代码
 
 #### Source Generator 状态
 - **Generator 代码**: ✅ 已实现 (`src/Catga.SourceGenerator/CatgaHandlerGenerator.cs`)

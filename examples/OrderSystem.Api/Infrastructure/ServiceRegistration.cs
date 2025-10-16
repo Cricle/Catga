@@ -14,7 +14,7 @@ namespace OrderSystem.Api.Infrastructure;
 public static class OrderSystemServiceExtensions
 {
     /// <summary>
-    /// Registers all OrderSystem handlers  
+    /// Registers all OrderSystem handlers
     /// </summary>
     public static IServiceCollection AddOrderSystemHandlers(this IServiceCollection services)
     {
@@ -22,16 +22,16 @@ public static class OrderSystemServiceExtensions
         services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderHandler>();
         services.AddScoped<IRequestHandler<CancelOrderCommand>, CancelOrderHandler>();
         services.AddScoped<IRequestHandler<GetOrderQuery, Order?>, GetOrderHandler>();
-        
+
         // Event Handlers - Scoped
         services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedNotificationHandler>();
         services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedAnalyticsHandler>();
         services.AddScoped<IEventHandler<OrderCancelledEvent>, OrderCancelledHandler>();
         services.AddScoped<IEventHandler<OrderFailedEvent>, OrderFailedHandler>();
-        
+
         return services;
     }
-    
+
     /// <summary>
     /// Registers all OrderSystem services
     /// </summary>
@@ -41,7 +41,7 @@ public static class OrderSystemServiceExtensions
         services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
         services.AddSingleton<IInventoryService, MockInventoryService>();
         services.AddSingleton<IPaymentService, MockPaymentService>();
-        
+
         return services;
     }
 }

@@ -17,6 +17,7 @@ var nats = builder.AddNats("nats")
 // ===== Microservices Configuration =====
 
 // OrderSystem API - Order service (single instance for demo)
+
 var orderApi = builder.AddProject<Projects.OrderSystem_Api>("order-api")
     .WithReference(redis)
     .WithReference(nats)

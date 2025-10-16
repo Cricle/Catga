@@ -18,11 +18,7 @@ builder.Services.AddInMemoryTransport();
 if (builder.Environment.IsDevelopment())
     builder.Services.AddCatgaDebuggerWithAspNetCore();
 
-// Register generated handlers and services
-builder.Services.AddGeneratedHandlers();
-builder.Services.AddGeneratedServices();
-
-// Manual registration for debugging
+// Register handlers and services
 builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderHandler>();
 builder.Services.AddScoped<IRequestHandler<CancelOrderCommand>, CancelOrderHandler>();
 builder.Services.AddScoped<IRequestHandler<GetOrderQuery, Order?>, GetOrderHandler>();

@@ -56,7 +56,7 @@ public class CatgaMediator : ICatgaMediator
         {
             using var scope = _serviceProvider.CreateScope();
             var scopedProvider = scope.ServiceProvider;
-            
+
             var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(scopedProvider);
             if (handler == null)
             {
@@ -120,7 +120,7 @@ public class CatgaMediator : ICatgaMediator
 
         using var scope = _serviceProvider.CreateScope();
         var scopedProvider = scope.ServiceProvider;
-        
+
         // Fast-path: use generated router if available
         var generatedRouter = scopedProvider.GetService<Catga.Handlers.IGeneratedEventRouter>();
         if (generatedRouter != null && generatedRouter.TryRoute(scopedProvider, @event, cancellationToken, out var dispatchedTask))

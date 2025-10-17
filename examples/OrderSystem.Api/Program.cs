@@ -1,8 +1,6 @@
 using Catga;
 using Catga.AspNetCore;
 using Catga.AspNetCore.Extensions;
-using Catga.Debugger.AspNetCore.DependencyInjection;
-using Catga.Debugger.DependencyInjection;
 using Catga.DependencyInjection;
 using Catga.Handlers;
 using OrderSystem.Api.Domain;
@@ -17,29 +15,12 @@ builder.AddServiceDefaults();
 builder.Services.AddCatga().UseMemoryPack().WithDebug().ForDevelopment();
 builder.Services.AddInMemoryTransport();
 
-if (builder.Environment.IsDevelopment())
-    builder.Services.AddCatgaDebuggerWithAspNetCore();
-
 // Register handlers and services
 builder.Services.AddOrderSystemHandlers();
 builder.Services.AddOrderSystemServices();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-// Add CORS for SignalR in development
-if (builder.Environment.IsDevelopment())
-{
-    builder.Services.AddCors(options =>
-    {
-        options.AddDefaultPolicy(policy =>
-        {
-            policy.AllowAnyOrigin()
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
-        });
-    });
-}
 
 var app = builder.Build();
 
@@ -48,17 +29,10 @@ app.MapDefaultEndpoints();
 // Use CorrelationId middleware (must be before routing)
 app.UseCorrelationId();
 
-// Use CORS before endpoints
-if (app.Environment.IsDevelopment())
-{
-    app.UseCors();
-}
-
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-    app.MapCatgaDebugger("/debug");
 }
 
 app.UseDefaultFiles();
@@ -136,7 +110,7 @@ app.MapGet("/demo/compare", () => Results.Ok(new
                        "✨ Rich metadata", "✨ Event-driven architecture" }
 })).WithName("DemoComparison").WithTags("Demo");
 
-app.Logger.LogInformation("🚀 OrderSystem started | UI: http://localhost:5000 | Swagger: /swagger | Debug: /debug");
+app.Logger.LogInformation("🚀 OrderSystem started | UI: http://localhost:5000 | Swagger: /swagger | Jaeger: http://localhost:16686");
 
 app.Run();
 

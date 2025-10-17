@@ -11,7 +11,6 @@
     <ProjectReference Include="..\..\src\Catga.InMemory\Catga.InMemory.csproj" />
     <ProjectReference Include="..\..\src\Catga.AspNetCore\Catga.AspNetCore.csproj" />
     <ProjectReference Include="..\..\src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj" />
-    <ProjectReference Include="..\..\src\Catga.Debugger.AspNetCore\Catga.Debugger.AspNetCore.csproj" />
     <ProjectReference Include="..\OrderSystem.ServiceDefaults\OrderSystem.ServiceDefaults.csproj" />
 
     <!-- Source Generator for auto handler registration -->

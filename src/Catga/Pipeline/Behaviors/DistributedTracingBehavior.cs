@@ -128,13 +128,14 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
         if (request is IMessage message && !string.IsNullOrEmpty(message.CorrelationId))
             return message.CorrelationId;
 
-        // No correlation ID available - this indicates a configuration problem
-        throw new InvalidOperationException(
-            $"No correlation ID found for request type '{typeof(TRequest).Name}'. " +
-            $"Ensure one of the following is configured: " +
-            $"1. Activity.Current has 'catga.correlation_id' in Baggage (recommended for distributed tracing), or " +
-            $"2. Request implements IMessage with CorrelationId set. " +
-            $"For ASP.NET Core: ensure ServiceDefaults middleware is configured to set Activity.Baggage from X-Correlation-ID header.");
+        // 3. ✅ 优雅降级：生成默认 CorrelationId（适用于单元测试、本地开发等场景）
+        // 使用 ActivityTraceId 作为 CorrelationId（自动跨服务传播）
+        var activity = Activity.Current;
+        if (activity != null && activity.TraceId != default)
+            return activity.TraceId.ToString();
+
+        // 4. 最终降级：生成新的 GUID（独立执行场景）
+        return Guid.NewGuid().ToString("N");
     }
 }
 

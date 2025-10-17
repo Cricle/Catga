@@ -96,41 +96,65 @@ public sealed partial class GracefulRecoveryManager
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            await Task.Delay(checkInterval, cancellationToken);
-
-            // ✅ 优化：直接遍历 ConcurrentBag，避免 ToArray() 分配
-            var needsRecovery = false;
-
-            foreach (var component in _components)
+            try
             {
-                if (!component.IsHealthy)
-                {
-                    needsRecovery = true;
-                    LogUnhealthyComponentDetected(component.GetType().Name);
-                    break;
-                }
-            }
+                await Task.Delay(checkInterval, cancellationToken);
 
-            if (needsRecovery)
-            {
-                var retries = 0;
-                while (retries < maxRetries && !cancellationToken.IsCancellationRequested)
+                // ✅ 优化：直接遍历 ConcurrentBag，避免 ToArray() 分配
+                var needsRecovery = false;
+
+                foreach (var component in _components)
                 {
-                    var result = await RecoverAsync(cancellationToken);
-                    if (result.Failed == 0)
+                    try
                     {
-                        LogAutoRecoverySucceeded();
+                        if (!component.IsHealthy)
+                        {
+                            needsRecovery = true;
+                            LogUnhealthyComponentDetected(component.GetType().Name);
+                            break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // ✅ 修复：IsHealthy 抛异常时不应让整个循环退出
+                        LogComponentHealthCheckFailed(component.GetType().Name, ex.Message);
+                        needsRecovery = true;
                         break;
                     }
+                }
 
-                    retries++;
-                    if (retries < maxRetries)
+                if (needsRecovery)
+                {
+                    var retries = 0;
+                    while (retries < maxRetries && !cancellationToken.IsCancellationRequested)
                     {
-                        var delay = TimeSpan.FromSeconds(Math.Pow(2, retries)); // Exponential backoff
-                        LogRecoveryIncomplete(delay.TotalSeconds, retries, maxRetries);
-                        await Task.Delay(delay, cancellationToken);
+                        var result = await RecoverAsync(cancellationToken);
+                        if (result.Failed == 0)
+                        {
+                            LogAutoRecoverySucceeded();
+                            break;
+                        }
+
+                        retries++;
+                        if (retries < maxRetries)
+                        {
+                            var delay = TimeSpan.FromSeconds(Math.Pow(2, retries)); // Exponential backoff
+                            LogRecoveryIncomplete(delay.TotalSeconds, retries, maxRetries);
+                            await Task.Delay(delay, cancellationToken);
+                        }
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // ✅ 正常的取消，退出循环
+                break;
+            }
+            catch (Exception ex)
+            {
+                // ✅ 修复：其他异常不应让自动恢复循环退出
+                LogAutoRecoveryLoopException(ex.Message, ex);
+                // 继续循环，等待下次检查
             }
         }
     }
@@ -164,6 +188,12 @@ public sealed partial class GracefulRecoveryManager
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Recovery incomplete, retry in {Delay}s ({Retry}/{MaxRetries})")]
     partial void LogRecoveryIncomplete(double delay, int retry, int maxRetries);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Component health check failed: {ComponentType}, Error: {ErrorMessage}")]
+    partial void LogComponentHealthCheckFailed(string componentType, string errorMessage);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Auto-recovery loop exception: {ErrorMessage}")]
+    partial void LogAutoRecoveryLoopException(string errorMessage, Exception ex);
 }
 
 /// <summary>

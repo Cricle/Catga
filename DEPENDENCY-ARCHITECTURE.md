@@ -166,7 +166,7 @@ dotnet list src/Catga.InMemory/Catga.InMemory.csproj reference
 </ItemGroup>
 ```
 
-**用途**: 
+**用途**:
 - 自定义基础设施
 - 不需要内存实现
 - 最小化依赖

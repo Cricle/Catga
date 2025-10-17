@@ -3,24 +3,25 @@ using System.Runtime.CompilerServices;
 
 namespace Catga.Core;
 
-/// <summary>Zero-allocation type name cache (no reflection after first access)</summary>
+/// <summary>Zero-allocation type name cache (no reflection after first access, thread-safe)</summary>
 public static class TypeNameCache<T>
 {
-    private static string? _name;
-    private static string? _fullName;
+    // ✅ 线程安全：Lazy<T> 使用双检锁模式，保证线程安全和内存可见性
+    private static readonly Lazy<string> _name = new(() => typeof(T).Name, LazyThreadSafetyMode.PublicationOnly);
+    private static readonly Lazy<string> _fullName = new(() => typeof(T).FullName ?? typeof(T).Name, LazyThreadSafetyMode.PublicationOnly);
 
-    /// <summary>Gets the type name (cached, no reflection after first call)</summary>
+    /// <summary>Gets the type name (cached, thread-safe, no reflection after first call)</summary>
     public static string Name
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => _name ??= typeof(T).Name;
+        get => _name.Value;
     }
 
-    /// <summary>Gets the full type name (cached, no reflection after first call)</summary>
+    /// <summary>Gets the full type name (cached, thread-safe, no reflection after first call)</summary>
     public static string FullName
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => _fullName ??= typeof(T).FullName ?? typeof(T).Name;
+        get => _fullName.Value;
     }
 }
 

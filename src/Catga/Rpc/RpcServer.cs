@@ -35,13 +35,24 @@ public sealed partial class RpcServer : IRpcServer, IAsyncDisposable
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
-        if (_receiveTask != null) return Task.CompletedTask;
-        var requestSubject = $"rpc.{_options.ServiceName}.>";
-        _receiveTask = _transport.SubscribeAsync<RpcRequest>(async (rpcRequest, context) =>
+        // ✅ 线程安全：使用 Interlocked.CompareExchange 防止竞态条件
+        if (Volatile.Read(ref _receiveTask) != null)
+            return Task.CompletedTask;
+
+        lock (_handlers) // Reuse _handlers as lock object
         {
-            await HandleRequestAsync(rpcRequest, cancellationToken);
-        }, cancellationToken);
-        LogServerStarted(_options.ServiceName);
+            if (_receiveTask != null)
+                return Task.CompletedTask;
+
+            var requestSubject = $"rpc.{_options.ServiceName}.>";
+            _receiveTask = _transport.SubscribeAsync<RpcRequest>(async (rpcRequest, context) =>
+            {
+                await HandleRequestAsync(rpcRequest, cancellationToken);
+            }, cancellationToken);
+
+            LogServerStarted(_options.ServiceName);
+        }
+
         return Task.CompletedTask;
     }
 

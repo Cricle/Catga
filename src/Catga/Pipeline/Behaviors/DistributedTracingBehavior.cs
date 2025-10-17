@@ -110,7 +110,7 @@ public sealed class DistributedTracingBehavior<TRequest, TResponse> : IPipelineB
                     ("Duration", $"{durationMs:F2}ms"));
 
                 activity.SetTag(CatgaActivitySource.Tags.Error, result.Error);
-                
+
                 if (result.Exception != null)
                 {
                     activity.SetError(result.Exception);

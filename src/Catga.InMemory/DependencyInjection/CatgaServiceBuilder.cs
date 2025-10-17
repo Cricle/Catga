@@ -103,13 +103,13 @@ public class CatgaServiceBuilder
     public CatgaServiceBuilder WithTracing(bool enabled = true)
     {
         _options.EnableTracing = enabled;
-        
+
         if (enabled)
         {
             // Register distributed tracing behavior for rich trace data in Jaeger
             _services.AddSingleton(typeof(Catga.Pipeline.Behaviors.DistributedTracingBehavior<,>));
         }
-        
+
         return this;
     }
 

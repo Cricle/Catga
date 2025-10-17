@@ -347,7 +347,7 @@ builder.Services.AddOpenTelemetry()
 ```csharp
 // 自定义 DistributedTracingBehavior 过滤敏感字段
 var requestJson = JsonSerializer.Serialize(request);
-requestJson = Regex.Replace(requestJson, @"""password""\s*:\s*""[^""]*""", 
+requestJson = Regex.Replace(requestJson, @"""password""\s*:\s*""[^""]*""",
     @"""password"":""***""");
 ```
 

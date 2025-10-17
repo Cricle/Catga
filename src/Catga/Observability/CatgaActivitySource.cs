@@ -24,24 +24,24 @@ public static class CatgaActivitySource
         public const string MessageId = "catga.message.id";
         public const string MessageType = "catga.message.type";
         public const string CorrelationId = "catga.correlation_id";
-        
+
         // Request/Response tags
         public const string RequestType = "catga.request.type";
         public const string ResponseType = "catga.response.type";
         public const string Success = "catga.success";
         public const string Error = "catga.error";
         public const string ErrorType = "catga.error.type";
-        
+
         // Event tags
         public const string EventType = "catga.event.type";
         public const string EventId = "catga.event.id";
         public const string HandlerType = "catga.handler.type";
         public const string HandlerCount = "catga.handler.count";
-        
+
         // Performance tags
         public const string Duration = "catga.duration.ms";
         public const string QueueTime = "catga.queue_time.ms";
-        
+
         // Business tags
         public const string AggregateId = "catga.aggregate.id";
         public const string AggregateType = "catga.aggregate.type";
@@ -68,10 +68,10 @@ public static class CatgaActivitySource
         if (activity == null) return null;
 
         var requestType = typeof(TRequest).Name;
-        
+
         activity.SetTag(Tags.RequestType, requestType);
         activity.SetTag(Tags.MessageType, requestType);
-        
+
         if (!string.IsNullOrEmpty(correlationId))
         {
             activity.SetTag(Tags.CorrelationId, correlationId);
@@ -88,10 +88,10 @@ public static class CatgaActivitySource
         if (activity == null) return null;
 
         var eventType = typeof(TEvent).Name;
-        
+
         activity.SetTag(Tags.EventType, eventType);
         activity.SetTag(Tags.MessageType, eventType);
-        
+
         if (!string.IsNullOrEmpty(correlationId))
         {
             activity.SetTag(Tags.CorrelationId, correlationId);
@@ -108,10 +108,10 @@ public static class CatgaActivitySource
         if (activity == null) return null;
 
         var eventType = typeof(TEvent).Name;
-        
+
         activity.SetTag(Tags.EventType, eventType);
         activity.SetTag(Tags.HandlerType, handlerType);
-        
+
         if (!string.IsNullOrEmpty(correlationId))
         {
             activity.SetTag(Tags.CorrelationId, correlationId);
@@ -125,7 +125,7 @@ public static class CatgaActivitySource
     public static void SetSuccess(this Activity activity, bool success, object? result = null)
     {
         activity.SetTag(Tags.Success, success);
-        
+
         if (result != null)
         {
             activity.SetTag(Tags.CommandResult, result.ToString());

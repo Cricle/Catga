@@ -44,9 +44,9 @@ public class CatgaMediator : ICatgaMediator
         using var operationScope = _shutdownManager?.BeginOperation();
 
         using var activity = CatgaActivitySource.Source.StartActivity(
-            $"Command: {TypeNameCache<TRequest>.Name}", 
+            $"Command: {TypeNameCache<TRequest>.Name}",
             ActivityKind.Internal);
-        
+
         var sw = Stopwatch.StartNew();
         var reqType = TypeNameCache<TRequest>.Name;
         var message = request as IMessage;
@@ -55,7 +55,7 @@ public class CatgaMediator : ICatgaMediator
         activity?.SetTag(CatgaActivitySource.Tags.CatgaType, "command");
         activity?.SetTag(CatgaActivitySource.Tags.RequestType, reqType);
         activity?.SetTag(CatgaActivitySource.Tags.MessageType, reqType);
-        
+
         if (message != null)
         {
             activity?.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);
@@ -95,7 +95,7 @@ public class CatgaMediator : ICatgaMediator
             // Set result and duration tags
             activity?.SetTag(CatgaActivitySource.Tags.Success, result.IsSuccess);
             activity?.SetTag(CatgaActivitySource.Tags.Duration, duration);
-            
+
             if (result.IsSuccess)
             {
                 activity?.SetStatus(ActivityStatusCode.Ok);
@@ -135,9 +135,9 @@ public class CatgaMediator : ICatgaMediator
 
         var eventType = TypeNameCache<TEvent>.Name;
         var message = @event as IMessage;
-        
+
         using var activity = CatgaActivitySource.Source.StartActivity(
-            $"Event: {eventType}", 
+            $"Event: {eventType}",
             ActivityKind.Producer);
 
         // Set Catga-specific tags for Jaeger
@@ -145,7 +145,7 @@ public class CatgaMediator : ICatgaMediator
         activity?.SetTag(CatgaActivitySource.Tags.EventType, eventType);
         activity?.SetTag(CatgaActivitySource.Tags.EventName, eventType);
         activity?.SetTag(CatgaActivitySource.Tags.MessageType, eventType);
-        
+
         if (message != null)
         {
             activity?.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);

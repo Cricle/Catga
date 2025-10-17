@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Catga.Performance;
+namespace Catga;
 
 /// <summary>3-tier handler cache (ThreadLocal → Shared → Global)</summary>
 public sealed class HandlerCache {

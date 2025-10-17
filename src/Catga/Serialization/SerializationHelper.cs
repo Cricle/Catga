@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Catga.Serialization;
 
-namespace Catga.Common;
+namespace Catga;
 
 /// <summary>Serialization helper - requires explicit serializer for type safety and AOT compatibility</summary>
 public static class SerializationHelper

@@ -54,7 +54,7 @@ else
 
 **推荐**: **Option C** - 平衡性能和易用性
 
-**预期收益**: 
+**预期收益**:
 - ✅ 减少 1 次数组分配（批量 >16）
 - ✅ 减少 1 次内存拷贝
 - ✅ ~10-20% 性能提升
@@ -104,7 +104,7 @@ public void NextIds(Span<long> destination)  // ✅ 已存在
 public long[] NextIdsArray(int count)  // 仅在必要时使用
 ```
 
-**预期收益**: 
+**预期收益**:
 - ✅ 减少 1 次数组分配（大批量 >100K）
 - ✅ 减少 1 次内存拷贝
 - ✅ ~15-30% 性能提升（大批量场景）
@@ -128,9 +128,9 @@ var events = uncommittedEvents.ToArray();  // ❌ 总是分配新数组
 **优化方案**:
 ```csharp
 // Option A: 检查类型，避免不必要的拷贝
-var events = uncommittedEvents is IEvent[] arr 
-    ? arr 
-    : uncommittedEvents is List<IEvent> list 
+var events = uncommittedEvents is IEvent[] arr
+    ? arr
+    : uncommittedEvents is List<IEvent> list
         ? CollectionsMarshal.AsSpan(list).ToArray()  // .NET 5+
         : uncommittedEvents.ToArray();
 
@@ -166,7 +166,7 @@ finally
 
 **推荐**: **Option C** - 修改 `IEventStore.AppendAsync` 签名
 
-**预期收益**: 
+**预期收益**:
 - ✅ 减少每次聚合保存的数组分配
 - ✅ ~5-15% 性能提升
 
@@ -220,7 +220,7 @@ foreach (var component in _components)
 
 **推荐**: **Option B** - 直接遍历（Recovery 通常顺序执行）
 
-**预期收益**: 
+**预期收益**:
 - ✅ 减少 Recovery 时的数组分配
 - ✅ ~5-10% 性能提升（Recovery 路径）
 
@@ -247,7 +247,7 @@ return handlers.ToArray();  // ❌ 如果不是 IReadOnlyList，分配数组
 var handlers = provider.GetServices<THandler>();
 
 // Option A: 缓存结果（推荐）
-if (handlers is IReadOnlyList<THandler> list) 
+if (handlers is IReadOnlyList<THandler> list)
     return list;
 
 // 使用 TryGetNonEnumeratedCount（.NET 6+）
@@ -255,13 +255,13 @@ if (handlers is IReadOnlyList<THandler> list)
 if (handlers.TryGetNonEnumeratedCount(out var count))
 {
     if (count == 0) return Array.Empty<THandler>();
-    
+
     // 使用 ArrayPool
     var pooled = ArrayPool<THandler>.Shared.Rent(count);
     var index = 0;
     foreach (var h in handlers)
         pooled[index++] = h;
-    
+
     // 拷贝到精确大小数组（可选）
     var result = new THandler[count];
     Array.Copy(pooled, result, count);
@@ -278,7 +278,7 @@ return handlers.ToArray();
 
 **推荐**: **保持现状** - 因为结果会被 factory 缓存，只分配一次
 
-**预期收益**: 
+**预期收益**:
 - ⚠️ 低（已有缓存机制）
 
 ---
@@ -332,8 +332,8 @@ else
 ```csharp
 [MethodImpl(MethodImplOptions.AggressiveInlining)]
 public static async ValueTask<IReadOnlyList<TResult>> ExecuteBatchWithResultsAsync<TSource, TResult>(
-    this IReadOnlyList<TSource> items, 
-    Func<TSource, ValueTask<TResult>> action, 
+    this IReadOnlyList<TSource> items,
+    Func<TSource, ValueTask<TResult>> action,
     int arrayPoolThreshold = DefaultArrayPoolThreshold)
 {
     if (items == null || items.Count == 0) return Array.Empty<TResult>();
@@ -430,7 +430,7 @@ public async Task<RecoveryResult> RecoverAllAsync(CancellationToken cancellation
     // ... validation ...
 
     _isRecovering = true;
-    
+
     // ✅ 优化：直接遍历，无需 ToArray()
     var componentCount = _components.Count;
     LogRecoveryStarted(componentCount);

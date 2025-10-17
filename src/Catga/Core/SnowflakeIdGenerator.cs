@@ -310,13 +310,23 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
             throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than 0");
 
         // Use ArrayPoolHelper for consistent pooling behavior (>100K threshold)
-        using var rented = ArrayPoolHelper.RentOrAllocate<long>(count, threshold: 100_000);
+        var rented = ArrayPoolHelper.RentOrAllocate<long>(count, threshold: 100_000);
         NextIds(rented.AsSpan());
 
-        // Return exact-sized array
-        var result = new long[count];
-        rented.AsSpan().CopyTo(result);
-        return result;
+        // ✅ 优化：避免不必要的拷贝
+        if (rented.Array.Length == count)
+        {
+            // 完美匹配，从 pool 中分离并直接返回
+            return rented.Detach();
+        }
+        else
+        {
+            // 需要精确大小（租赁的数组更大）
+            var result = new long[count];
+            rented.AsSpan().CopyTo(result);
+            rented.Dispose();
+            return result;
+        }
     }
 
     /// <summary>

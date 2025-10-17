@@ -35,12 +35,12 @@ public sealed class NatsEventStore : IEventStore, IAsyncDisposable
 
     public async ValueTask AppendAsync(
         string streamId,
-        IEvent[] events,
+        IReadOnlyList<IEvent> events,
         long expectedVersion = -1,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(streamId)) throw new ArgumentException("Stream ID cannot be empty", nameof(streamId));
-        if (events == null || events.Length == 0) throw new ArgumentException("Events cannot be null or empty", nameof(events));
+        if (events == null || events.Count == 0) throw new ArgumentException("Events cannot be null or empty", nameof(events));
 
         await EnsureStreamCreatedAsync(cancellationToken);
 

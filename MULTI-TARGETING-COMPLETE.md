@@ -75,7 +75,7 @@ internal sealed class RequiresDynamicCodeAttribute : Attribute { ... }
     }
 ```
 
-**功能**: 
+**功能**:
 - .NET 7+: 使用 AVX2/Vector256 SIMD 加速（2-3x 性能提升）
 - .NET 6: 使用标量回退（仍然高性能）
 
@@ -110,10 +110,10 @@ public interface IMessageMetadata<TSelf>
 ```xml
 <PropertyGroup>
     <TargetFrameworks>net9.0;net8.0;net6.0</TargetFrameworks>
-    
+
     <!-- AOT only for net7.0+ -->
     <IsAotCompatible Condition="...net7.0...">true</IsAotCompatible>
-    
+
     <!-- Suppress TFM warnings for net6.0 -->
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
 </PropertyGroup>

@@ -12,7 +12,7 @@ public interface IEventStore
     /// </summary>
     public ValueTask AppendAsync(
         string streamId,
-        IEvent[] events,
+        IReadOnlyList<IEvent> events,
         long expectedVersion = -1,
         CancellationToken cancellationToken = default);
 

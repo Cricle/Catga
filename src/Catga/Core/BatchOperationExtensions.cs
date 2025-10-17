@@ -46,7 +46,7 @@ public static class BatchOperationExtensions
             return new[] { result };
         }
 
-        using var rentedResults = ArrayPoolHelper.RentOrAllocate<TResult>(items.Count, arrayPoolThreshold);
+        var rentedResults = ArrayPoolHelper.RentOrAllocate<TResult>(items.Count, arrayPoolThreshold);
         using var rentedTasks = ArrayPoolHelper.RentOrAllocate<ValueTask<TResult>>(items.Count, arrayPoolThreshold);
 
         var results = rentedResults.Array;
@@ -58,9 +58,20 @@ public static class BatchOperationExtensions
         for (int i = 0; i < items.Count; i++)
             results[i] = await tasks[i].ConfigureAwait(false);
 
-        var finalResults = new TResult[items.Count];
-        Array.Copy(results, finalResults, items.Count);
-        return finalResults;
+        // ✅ 优化：避免不必要的拷贝
+        if (results.Length == items.Count)
+        {
+            // 完美匹配，从 pool 中分离并直接返回
+            return rentedResults.Detach();
+        }
+        else
+        {
+            // 需要精确大小（租赁的数组更大）
+            var finalResults = new TResult[items.Count];
+            Array.Copy(results, finalResults, items.Count);
+            rentedResults.Dispose();
+            return finalResults;
+        }
     }
 }
 

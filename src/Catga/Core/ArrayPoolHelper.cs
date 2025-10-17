@@ -18,17 +18,19 @@ public static class ArrayPoolHelper
 }
 
 /// <summary>Wrapper for rented arrays with auto-cleanup (IDisposable)</summary>
-public readonly struct RentedArray<T> : IDisposable
+public struct RentedArray<T> : IDisposable
 {
     private readonly T[] _array;
     private readonly int _count;
     private readonly bool _isRented;
+    private bool _detached;
 
     internal RentedArray(T[] array, int count, bool isRented)
     {
         _array = array;
         _count = count;
         _isRented = isRented;
+        _detached = false;
     }
 
     public T[] Array => _array;
@@ -40,9 +42,20 @@ public readonly struct RentedArray<T> : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Memory<T> AsMemory() => _array.AsMemory(0, _count);
 
+    /// <summary>
+    /// Detach array from pool management, preventing return on Dispose.
+    /// Caller takes ownership of the array.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public T[] Detach()
+    {
+        _detached = true;
+        return _array;
+    }
+
     public void Dispose()
     {
-        if (_isRented && _array != null)
+        if (_isRented && !_detached && _array != null)
         {
             System.Array.Clear(_array, 0, _count);
             ArrayPool<T>.Shared.Return(_array);

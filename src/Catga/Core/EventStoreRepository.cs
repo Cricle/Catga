@@ -125,11 +125,8 @@ public sealed class EventStoreRepository<TId, TState> : IEventStoreRepository<TI
 
         try
         {
-            // Convert to array for efficient iteration
-            var events = uncommittedEvents.ToArray();
-
-            // Append to event store with optimistic concurrency check
-            await _eventStore.AppendAsync(streamId, events, aggregate.Version, ct);
+            // ✅ 优化：直接传递 IReadOnlyList，避免 ToArray() 分配
+            await _eventStore.AppendAsync(streamId, uncommittedEvents, aggregate.Version, ct);
 
             // Mark events as committed
             aggregate.MarkEventsAsCommitted();
@@ -143,7 +140,7 @@ public sealed class EventStoreRepository<TId, TState> : IEventStoreRepository<TI
                 typeof(TAggregate).Name,
                 aggregate.Id.ToString()!,
                 aggregate.Version,
-                events.Length,
+                uncommittedEvents.Count,
                 stopwatch.ElapsedMilliseconds);
         }
         catch (ConcurrencyException ex)

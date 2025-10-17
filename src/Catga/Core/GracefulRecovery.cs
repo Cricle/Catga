@@ -49,14 +49,16 @@ public sealed partial class GracefulRecoveryManager
             }
 
             _isRecovering = true;
-            var components = _components.ToArray();  // Lock-free read
-            LogRecoveryStarted(components.Length);
+            
+            // ✅ 优化：直接遍历 ConcurrentBag，避免 ToArray() 分配
+            var componentCount = _components.Count;
+            LogRecoveryStarted(componentCount);
 
             var sw = Stopwatch.StartNew();
             var succeeded = 0;
             var failed = 0;
 
-            foreach (var component in components)
+            foreach (var component in _components)
             {
                 try
                 {
@@ -96,11 +98,10 @@ public sealed partial class GracefulRecoveryManager
         {
             await Task.Delay(checkInterval, cancellationToken);
 
-            // Check if any component needs recovery
+            // ✅ 优化：直接遍历 ConcurrentBag，避免 ToArray() 分配
             var needsRecovery = false;
-            var components = _components.ToArray();  // Lock-free read
 
-            foreach (var component in components)
+            foreach (var component in _components)
             {
                 if (!component.IsHealthy)
                 {

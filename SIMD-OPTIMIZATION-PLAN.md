@@ -34,7 +34,7 @@ for (int i = 0; i < handlerList.Count; i++)
 // 然后并行启动所有 handlers
 ```
 
-**预期收益**: 
+**预期收益**:
 - ✅ 10-20% 提升（大批量事件 >10 handlers）
 - ✅ 改善 CPU 缓存局部性
 

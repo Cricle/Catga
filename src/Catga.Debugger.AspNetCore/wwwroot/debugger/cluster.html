@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catga 集群监控</title>
+    <script src="/lib/tailwind.js"></script>
+    <script defer src="/lib/alpine.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div x-data="clusterApp()" x-init="init()" class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <h1 class="text-2xl font-bold text-gray-900">🌐 集群监控</h1>
+                        <a href="/debugger/" class="text-sm text-blue-600 hover:text-blue-800">← 返回主页</a>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-sm text-gray-600">
+                            自动刷新: <span x-text="autoRefresh ? '开启' : '关闭'"></span>
+                        </span>
+                        <button @click="autoRefresh = !autoRefresh" 
+                                :class="autoRefresh ? 'bg-green-500' : 'bg-gray-400'"
+                                class="px-3 py-1 text-white rounded hover:opacity-80">
+                            <span x-show="autoRefresh">✓</span>
+                            <span x-show="!autoRefresh">✗</span>
+                        </button>
+                        <button @click="loadData()" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">
+                            🔄 刷新
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Cluster Stats -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+            <!-- Overview Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Total Nodes -->
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-medium text-blue-800">总节点数</div>
+                            <div class="text-3xl font-bold text-blue-900 mt-1" x-text="stats.totalNodes || 0"></div>
+                        </div>
+                        <div class="text-4xl">🖥️</div>
+                    </div>
+                    <div class="mt-2 text-xs text-blue-700">
+                        健康: <span x-text="stats.healthyNodes || 0"></span> | 
+                        降级: <span x-text="stats.degradedNodes || 0"></span> | 
+                        故障: <span x-text="stats.unhealthyNodes || 0"></span>
+                    </div>
+                </div>
+
+                <!-- Total Messages -->
+                <div class="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-medium text-green-800">总消息数</div>
+                            <div class="text-3xl font-bold text-green-900 mt-1" x-text="formatNumber(stats.totalMessages || 0)"></div>
+                        </div>
+                        <div class="text-4xl">📨</div>
+                    </div>
+                    <div class="mt-2 text-xs text-green-700">
+                        活跃流: <span x-text="stats.totalActiveFlows || 0"></span>
+                    </div>
+                </div>
+
+                <!-- Avg Success Rate -->
+                <div class="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-medium text-purple-800">平均成功率</div>
+                            <div class="text-3xl font-bold text-purple-900 mt-1">
+                                <span x-text="((stats.avgSuccessRate || 0) * 100).toFixed(1)"></span>%
+                            </div>
+                        </div>
+                        <div class="text-4xl">✅</div>
+                    </div>
+                    <div class="mt-2 text-xs text-purple-700">
+                        平均响应: <span x-text="Math.round(stats.avgResponseTimeMs || 0)"></span>ms
+                    </div>
+                </div>
+
+                <!-- Total Memory -->
+                <div class="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-medium text-orange-800">总内存使用</div>
+                            <div class="text-3xl font-bold text-orange-900 mt-1" x-text="formatBytes(stats.totalMemoryUsage || 0)"></div>
+                        </div>
+                        <div class="text-4xl">💾</div>
+                    </div>
+                    <div class="mt-2 text-xs text-orange-700">
+                        平均CPU: <span x-text="(stats.avgCpuUsage || 0).toFixed(1)"></span>%
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nodes Table -->
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <h2 class="text-lg font-semibold text-gray-900">节点列表</h2>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-600">过滤:</span>
+                        <select x-model="filterStatus" @change="loadData()"
+                                class="px-2 py-1 border border-gray-300 rounded text-sm">
+                            <option value="all">全部</option>
+                            <option value="healthy">健康</option>
+                            <option value="degraded">降级</option>
+                            <option value="unhealthy">故障</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">服务名</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">节点ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">运行时长</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CPU</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">内存</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">活跃流</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">总消息</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">成功率</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">调试模式</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <template x-if="filteredNodes.length === 0">
+                                <tr>
+                                    <td colspan="10" class="px-6 py-8 text-center text-gray-500">
+                                        暂无节点数据
+                                    </td>
+                                </tr>
+                            </template>
+                            <template x-for="node in filteredNodes" :key="node.nodeId">
+                                <tr class="hover:bg-gray-50 transition">
+                                    <!-- Status -->
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="getStatusClass(node.status)" 
+                                              class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
+                                            <span class="mr-1" x-text="getStatusIcon(node.status)"></span>
+                                            <span x-text="getStatusText(node.status)"></span>
+                                        </span>
+                                    </td>
+
+                                    <!-- Service Name -->
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900" x-text="node.serviceName"></div>
+                                        <div class="text-xs text-gray-500" x-text="node.hostName"></div>
+                                    </td>
+
+                                    <!-- Node ID -->
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <code class="text-xs bg-gray-100 px-2 py-1 rounded" 
+                                              x-text="node.nodeId.substring(0, 20) + (node.nodeId.length > 20 ? '...' : '')"></code>
+                                    </td>
+
+                                    <!-- Uptime -->
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <span x-text="formatUptime(node.startTime)"></span>
+                                    </td>
+
+                                    <!-- CPU -->
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                                <div :style="`width: ${Math.min(node.cpuUsage, 100)}%`"
+                                                     :class="node.cpuUsage > 80 ? 'bg-red-500' : node.cpuUsage > 50 ? 'bg-yellow-500' : 'bg-green-500'"
+                                                     class="h-2 rounded-full transition-all"></div>
+                                            </div>
+                                            <span class="text-xs text-gray-600" x-text="node.cpuUsage.toFixed(1) + '%'"></span>
+                                        </div>
+                                    </td>
+
+                                    <!-- Memory -->
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <span x-text="formatBytes(node.memoryUsage)"></span>
+                                    </td>
+
+                                    <!-- Active Flows -->
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800" 
+                                              x-text="node.activeFlows"></span>
+                                    </td>
+
+                                    <!-- Total Messages -->
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <span x-text="formatNumber(node.totalMessages)"></span>
+                                    </td>
+
+                                    <!-- Success Rate -->
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="node.successRate > 0.95 ? 'text-green-600' : node.successRate > 0.8 ? 'text-yellow-600' : 'text-red-600'"
+                                              class="text-sm font-medium">
+                                            <span x-text="(node.successRate * 100).toFixed(1) + '%'"></span>
+                                        </span>
+                                    </td>
+
+                                    <!-- Debugger Mode -->
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="node.debuggerMode === 'Development' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'"
+                                              class="px-2 py-1 text-xs font-medium rounded">
+                                            <span x-text="node.debuggerMode"></span>
+                                        </span>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Health Alerts -->
+            <div x-show="unhealthyNodes.length > 0" class="bg-red-50 border-l-4 border-red-400 p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-800">⚠️ 节点健康警告</h3>
+                        <div class="mt-2 text-sm text-red-700">
+                            <ul class="list-disc list-inside space-y-1">
+                                <template x-for="node in unhealthyNodes" :key="node.nodeId">
+                                    <li>
+                                        <strong x-text="node.serviceName"></strong> 
+                                        (<span x-text="node.nodeId.substring(0, 12) + '...'"></span>) - 
+                                        <span x-text="getStatusText(node.status)"></span>
+                                    </li>
+                                </template>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function clusterApp() {
+            return {
+                nodes: [],
+                stats: {},
+                autoRefresh: true,
+                filterStatus: 'all',
+                refreshInterval: null,
+
+                async init() {
+                    await this.loadData();
+                    
+                    // Auto-refresh every 5 seconds
+                    this.refreshInterval = setInterval(() => {
+                        if (this.autoRefresh) {
+                            this.loadData();
+                        }
+                    }, 5000);
+                },
+
+                async loadData() {
+                    try {
+                        const [nodesResponse, statsResponse] = await Promise.all([
+                            fetch('/debug-api/cluster/nodes'),
+                            fetch('/debug-api/cluster/stats')
+                        ]);
+
+                        if (nodesResponse.ok) {
+                            this.nodes = await nodesResponse.json();
+                        }
+
+                        if (statsResponse.ok) {
+                            this.stats = await statsResponse.json();
+                        }
+                    } catch (error) {
+                        console.error('Failed to load cluster data:', error);
+                    }
+                },
+
+                get filteredNodes() {
+                    if (this.filterStatus === 'all') {
+                        return this.nodes;
+                    }
+                    
+                    const statusMap = {
+                        'healthy': 1,
+                        'degraded': 2,
+                        'unhealthy': 3
+                    };
+                    
+                    const targetStatus = statusMap[this.filterStatus];
+                    return this.nodes.filter(n => n.status === targetStatus);
+                },
+
+                get unhealthyNodes() {
+                    return this.nodes.filter(n => n.status === 3 || n.status === 2);
+                },
+
+                getStatusClass(status) {
+                    const classes = {
+                        1: 'bg-green-100 text-green-800',    // Healthy
+                        2: 'bg-yellow-100 text-yellow-800',  // Degraded
+                        3: 'bg-red-100 text-red-800',        // Unhealthy
+                        4: 'bg-gray-100 text-gray-800'       // Offline
+                    };
+                    return classes[status] || 'bg-gray-100 text-gray-800';
+                },
+
+                getStatusIcon(status) {
+                    const icons = {
+                        1: '✓',  // Healthy
+                        2: '⚠️',  // Degraded
+                        3: '✗',  // Unhealthy
+                        4: '○'   // Offline
+                    };
+                    return icons[status] || '?';
+                },
+
+                getStatusText(status) {
+                    const texts = {
+                        1: '健康',
+                        2: '降级',
+                        3: '故障',
+                        4: '离线'
+                    };
+                    return texts[status] || '未知';
+                },
+
+                formatBytes(bytes) {
+                    if (bytes === 0) return '0 B';
+                    const k = 1024;
+                    const sizes = ['B', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+                },
+
+                formatNumber(num) {
+                    if (num >= 1000000) {
+                        return (num / 1000000).toFixed(1) + 'M';
+                    } else if (num >= 1000) {
+                        return (num / 1000).toFixed(1) + 'K';
+                    }
+                    return num.toString();
+                },
+
+                formatUptime(startTime) {
+                    const ms = Date.now() - new Date(startTime).getTime();
+                    const seconds = Math.floor(ms / 1000);
+                    const minutes = Math.floor(seconds / 60);
+                    const hours = Math.floor(minutes / 60);
+                    const days = Math.floor(hours / 24);
+
+                    if (days > 0) return `${days}天${hours % 24}小时`;
+                    if (hours > 0) return `${hours}小时${minutes % 60}分`;
+                    if (minutes > 0) return `${minutes}分${seconds % 60}秒`;
+                    return `${seconds}秒`;
+                }
+            };
+        }
+    </script>
+</body>
+</html>
+

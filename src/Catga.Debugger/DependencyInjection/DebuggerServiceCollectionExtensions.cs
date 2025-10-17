@@ -2,6 +2,7 @@ using Catga.Debugger.Breakpoints;
 using Catga.Debugger.CallStack;
 using Catga.Debugger.Core;
 using Catga.Debugger.Models;
+using Catga.Debugger.Monitoring;
 using Catga.Debugger.Pipeline;
 using Catga.Debugger.Profiling;
 using Catga.Debugger.Replay;
@@ -79,6 +80,14 @@ public static class DebuggerServiceCollectionExtensions
         // Performance profiling
         services.AddSingleton<FlameGraphBuilder>();
         services.AddSingleton<PerformanceAnalyzer>();
+
+        // Cluster monitoring
+        services.AddSingleton<NodeRegistry>(sp => 
+            new NodeRegistry(
+                sp.GetRequiredService<ILogger<NodeRegistry>>(),
+                serviceName: System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name
+            )
+        );
     }
 
     /// <summary>Add Catga debugger with production-optimized settings</summary>

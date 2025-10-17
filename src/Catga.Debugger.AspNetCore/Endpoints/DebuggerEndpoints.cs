@@ -63,6 +63,9 @@ public static class DebuggerEndpoints
         // Performance profiling endpoints
         group.MapProfilingEndpoints();
 
+        // Cluster monitoring endpoints
+        group.MapClusterEndpoints();
+
         return group;
     }
 

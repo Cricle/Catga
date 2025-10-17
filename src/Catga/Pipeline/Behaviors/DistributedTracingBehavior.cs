@@ -117,34 +117,21 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
         return elapsed * 1000.0 / Stopwatch.Frequency;
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access", Justification = "Fallback mechanism, AOT-safe path exists")]
-    [UnconditionalSuppressMessage("Trimming", "IL2075:Unrecognized value passed to the parameter of method", Justification = "Fallback mechanism with try-catch")]
     private static string GetCorrelationId(TRequest request)
     {
-        // Try to get from Activity.Current baggage first (AOT-safe)
+        // 1. Try Activity.Current baggage (AOT-safe, distributed tracing standard)
         var baggageId = Activity.Current?.GetBaggageItem("catga.correlation_id");
         if (!string.IsNullOrEmpty(baggageId))
             return baggageId;
 
-        // Try to get from message
+        // 2. Try IMessage interface (AOT-safe, type-safe contract)
         if (request is IMessage message && !string.IsNullOrEmpty(message.CorrelationId))
             return message.CorrelationId;
 
-        // Fallback: try reflection for middleware (graceful degradation on AOT)
-        try
-        {
-            var middlewareType = Type.GetType("Catga.AspNetCore.Middleware.CorrelationIdMiddleware, Catga.AspNetCore");
-            if (middlewareType != null)
-            {
-                var currentProperty = middlewareType.GetProperty("Current", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                var globalId = currentProperty?.GetValue(null) as string;
-                if (!string.IsNullOrEmpty(globalId))
-                    return globalId;
-            }
-        }
-        catch { }
-
-        // Generate new
+        // 3. Generate new correlation ID
+        // Note: If you need HTTP-level correlation propagation, ensure:
+        // - CorrelationIdDelegatingHandler is registered (for outgoing requests)
+        // - ASP.NET Core middleware sets Activity.Baggage (for incoming requests)
         return Guid.NewGuid().ToString("N");
     }
 }

@@ -12,14 +12,15 @@ public static class ActivityPayloadCapture
     private const int MaxPayloadLength = 4096;
 
     /// <summary>
-    /// Optional custom serializer for AOT scenarios.
-    /// If not set, falls back to System.Text.Json (requires unreferenced code).
+    /// Optional custom serializer for rich payload capture.
+    /// If not set, falls back to ToString() (always AOT-safe).
+    /// Set this to a custom serializer for better debugging experience.
     /// </summary>
     public static Func<object, string>? CustomSerializer { get; set; }
 
     /// <summary>
     /// Captures a payload in an Activity tag.
-    /// Uses CustomSerializer if available (AOT-safe), otherwise falls back to System.Text.Json.
+    /// Uses CustomSerializer if available, otherwise uses ToString() (always AOT-safe).
     /// </summary>
     /// <typeparam name="T">Type of payload to serialize</typeparam>
     /// <param name="activity">Activity to attach the tag to</param>
@@ -31,7 +32,7 @@ public static class ActivityPayloadCapture
 
         string? json = null;
 
-        // Try custom serializer first (AOT-safe)
+        // Try custom serializer first (AOT-safe, user-provided)
         if (CustomSerializer != null)
         {
             try
@@ -47,8 +48,9 @@ public static class ActivityPayloadCapture
         }
         else
         {
-            // Fallback to System.Text.Json (requires reflection)
-            json = TryJsonSerialize(payload);
+            // Fallback to ToString() (always AOT-safe, no reflection needed)
+            // Users should set CustomSerializer for better serialization
+            json = payload.ToString();
         }
 
         if (json != null)
@@ -62,28 +64,6 @@ public static class ActivityPayloadCapture
                 // Payload too large - just indicate the size
                 activity.SetTag(tagName, $"<too large: {json.Length} bytes>");
             }
-        }
-        else
-        {
-            // Serialization not available (expected in AOT without custom serializer)
-            activity.SetTag(tagName, "<not available in AOT>");
-        }
-    }
-
-    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access",
-        Justification = "Only called when CustomSerializer is null. Returns null in AOT if serialization unavailable.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling",
-        Justification = "Only called when CustomSerializer is null. Returns null in AOT if serialization unavailable.")]
-    private static string? TryJsonSerialize<T>(T payload)
-    {
-        try
-        {
-            return System.Text.Json.JsonSerializer.Serialize(payload);
-        }
-        catch
-        {
-            // Serialization failed or not available
-            return null;
         }
     }
 

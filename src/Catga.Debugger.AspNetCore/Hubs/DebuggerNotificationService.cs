@@ -83,7 +83,7 @@ public sealed partial class DebuggerNotificationService : BackgroundService
         {
             try
             {
-                // Broadcast to specific flow group
+                // Broadcast individual event to specific flow group
                 var flowGroup = $"flow-{evt.CorrelationId}";
                 await _hubContext.Clients.Group(flowGroup).FlowEventReceived(new FlowEventUpdate
                 {
@@ -94,15 +94,31 @@ public sealed partial class DebuggerNotificationService : BackgroundService
                     ServiceName = evt.ServiceName
                 });
 
-                // Also broadcast to system group
-                await _hubContext.Clients.Group("system").FlowEventReceived(new FlowEventUpdate
+                // Get all events for this flow and broadcast complete FlowInfo to all clients
+                var flowEvents = await _eventStore.GetEventsByCorrelationAsync(evt.CorrelationId, ct);
+                var eventsList = flowEvents.ToList();
+
+                if (eventsList.Count > 0)
                 {
-                    CorrelationId = evt.CorrelationId,
-                    EventId = evt.Id,
-                    EventType = evt.Type.ToString(),
-                    Timestamp = evt.Timestamp,
-                    ServiceName = evt.ServiceName
-                });
+                    var firstEvent = eventsList.OrderBy(e => e.Timestamp).First();
+                    var lastEvent = eventsList.OrderByDescending(e => e.Timestamp).First();
+                    var duration = (lastEvent.Timestamp - firstEvent.Timestamp).TotalMilliseconds;
+
+                    var flowInfo = new
+                    {
+                        correlationId = evt.CorrelationId,
+                        messageType = firstEvent.MessageType ?? "Unknown",
+                        startTime = firstEvent.Timestamp,
+                        endTime = lastEvent.Timestamp,
+                        duration = duration,
+                        eventCount = eventsList.Count,
+                        status = eventsList.Any(e => e.Type == Models.EventType.ExceptionThrown) ? "Error" : "Success",
+                        hasErrors = eventsList.Any(e => e.Type == Models.EventType.ExceptionThrown)
+                    };
+
+                    // Broadcast complete flow info to all clients (matches frontend expectation)
+                    await _hubContext.Clients.All.FlowUpdate(flowInfo);
+                }
             }
             catch (Exception ex)
             {
@@ -127,8 +143,8 @@ public sealed partial class DebuggerNotificationService : BackgroundService
                     Timestamp = DateTime.UtcNow
                 };
 
-                // Broadcast to all connected clients
-                await _hubContext.Clients.All.StatsUpdated(statsUpdate);
+                // Broadcast to all connected clients (use StatsUpdate to match frontend)
+                await _hubContext.Clients.All.StatsUpdate(statsUpdate);
             }
             catch (Exception ex)
             {

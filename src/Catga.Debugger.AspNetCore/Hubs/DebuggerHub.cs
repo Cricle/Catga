@@ -101,8 +101,14 @@ public interface IDebuggerClient
     /// <summary>Receive new flow event</summary>
     Task FlowEventReceived(FlowEventUpdate update);
 
-    /// <summary>Receive stats update</summary>
+    /// <summary>Receive complete flow info (for UI real-time updates)</summary>
+    Task FlowUpdate(object flowInfo);
+
+    /// <summary>Receive stats update (legacy name)</summary>
     Task StatsUpdated(StatsUpdate stats);
+
+    /// <summary>Receive stats update (for UI real-time updates)</summary>
+    Task StatsUpdate(StatsUpdate stats);
 
     /// <summary>Receive replay progress</summary>
     Task ReplayProgress(ReplayProgressUpdate progress);

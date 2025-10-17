@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using Catga.Messages;
 using Catga.Observability;
 using Catga.Results;
@@ -9,7 +10,7 @@ namespace Catga.Pipeline.Behaviors;
 /// Pipeline behavior that creates rich distributed traces for Jaeger/Zipkin
 /// Shows complete message flow, events, and execution details
 /// </summary>
-public sealed class DistributedTracingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : class, IRequest<TResponse>
 {
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(
@@ -48,23 +49,30 @@ public sealed class DistributedTracingBehavior<TRequest, TResponse> : IPipelineB
                 ("CorrelationId", message.CorrelationId));
         }
 
-        // Capture request payload (serialized)
-        try
+        // Capture request payload (serialized) - only for debugging, not critical
+        [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access", Justification = "Debug-only feature, graceful degradation on AOT")]
+        [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling", Justification = "Debug-only feature, graceful degradation on AOT")]
+        static void CaptureRequestPayload(Activity activity, TRequest request)
         {
-            var requestJson = System.Text.Json.JsonSerializer.Serialize(request);
-            if (requestJson.Length < 4096) // Limit size
+            try
             {
-                activity.SetTag("catga.request.payload", requestJson);
+                var requestJson = System.Text.Json.JsonSerializer.Serialize(request);
+                if (requestJson.Length < 4096) // Limit size
+                {
+                    activity.SetTag("catga.request.payload", requestJson);
+                }
+                else
+                {
+                    activity.SetTag("catga.request.payload", $"<too large: {requestJson.Length} bytes>");
+                }
             }
-            else
+            catch
             {
-                activity.SetTag("catga.request.payload", $"<too large: {requestJson.Length} bytes>");
+                // Ignore serialization errors - this is debug-only feature
             }
         }
-        catch
-        {
-            // Ignore serialization errors
-        }
+
+        CaptureRequestPayload(activity, request);
 
         var stopwatch = Stopwatch.StartNew();
 
@@ -86,21 +94,28 @@ public sealed class DistributedTracingBehavior<TRequest, TResponse> : IPipelineB
                 activity.AddActivityEvent("Command.Succeeded",
                     ("Duration", $"{durationMs:F2}ms"));
 
-                // Capture response payload
+                // Capture response payload - only for debugging, not critical
                 if (result.Value != null)
                 {
-                    try
+                    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access", Justification = "Debug-only feature, graceful degradation on AOT")]
+                    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling", Justification = "Debug-only feature, graceful degradation on AOT")]
+                    static void CaptureResponsePayload(Activity activity, TResponse response)
                     {
-                        var responseJson = System.Text.Json.JsonSerializer.Serialize(result.Value);
-                        if (responseJson.Length < 4096)
+                        try
                         {
-                            activity.SetTag("catga.response.payload", responseJson);
+                            var responseJson = System.Text.Json.JsonSerializer.Serialize(response);
+                            if (responseJson.Length < 4096)
+                            {
+                                activity.SetTag("catga.response.payload", responseJson);
+                            }
+                        }
+                        catch
+                        {
+                            // Ignore serialization errors - this is debug-only feature
                         }
                     }
-                    catch
-                    {
-                        // Ignore serialization errors
-                    }
+
+                    CaptureResponsePayload(activity, result.Value);
                 }
             }
             else
@@ -140,9 +155,20 @@ public sealed class DistributedTracingBehavior<TRequest, TResponse> : IPipelineB
         }
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access", Justification = "Fallback mechanism, AOT-safe path exists")]
+    [UnconditionalSuppressMessage("Trimming", "IL2075:Unrecognized value passed to the parameter of method", Justification = "Fallback mechanism with try-catch")]
     private static string GetCorrelationId(TRequest request)
     {
-        // Try to get from global middleware
+        // Try to get from Activity.Current baggage first (AOT-safe)
+        var baggageId = Activity.Current?.GetBaggageItem("catga.correlation_id");
+        if (!string.IsNullOrEmpty(baggageId))
+            return baggageId;
+
+        // Try to get from message
+        if (request is IMessage message && !string.IsNullOrEmpty(message.CorrelationId))
+            return message.CorrelationId;
+
+        // Fallback: try reflection for middleware (graceful degradation on AOT)
         try
         {
             var middlewareType = Type.GetType("Catga.AspNetCore.Middleware.CorrelationIdMiddleware, Catga.AspNetCore");
@@ -155,10 +181,6 @@ public sealed class DistributedTracingBehavior<TRequest, TResponse> : IPipelineB
             }
         }
         catch { }
-
-        // Try to get from message
-        if (request is IMessage message && !string.IsNullOrEmpty(message.CorrelationId))
-            return message.CorrelationId;
 
         // Generate new
         return Guid.NewGuid().ToString("N");

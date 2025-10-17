@@ -280,10 +280,12 @@ public sealed class CatgaMediator : ICatgaMediator
     /// Capture event payload for debugging (only for small payloads)
     /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access", Justification = "Debug-only feature, graceful degradation on AOT")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling", Justification = "Debug-only feature, graceful degradation on AOT")]
     private static void CaptureEventPayload<TEvent>(Activity? activity, TEvent @event) where TEvent : IEvent
     {
         if (activity == null) return;
-
+        
         try
         {
             var eventJson = System.Text.Json.JsonSerializer.Serialize(@event);
@@ -294,7 +296,7 @@ public sealed class CatgaMediator : ICatgaMediator
         }
         catch
         {
-            // Ignore serialization errors
+            // Ignore serialization errors - this is debug-only feature
         }
     }
 

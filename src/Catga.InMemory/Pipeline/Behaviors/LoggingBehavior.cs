@@ -13,7 +13,7 @@ public partial class LoggingBehavior<[System.Diagnostics.CodeAnalysis.Dynamicall
 
     public override async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
-        var sw = Stopwatch.StartNew();
+        var startTimestamp = Stopwatch.GetTimestamp();
         var reqName = GetRequestName();
         var msgId = TryGetMessageId(request) ?? "N/A";
         var corrId = TryGetCorrelationId(request) ?? string.Empty;
@@ -22,8 +22,7 @@ public partial class LoggingBehavior<[System.Diagnostics.CodeAnalysis.Dynamicall
         try
         {
             var result = await next();
-            sw.Stop();
-            var duration = sw.ElapsedMilliseconds;
+            var duration = (long)GetElapsedMilliseconds(startTimestamp);
             if (result.IsSuccess)
                 LogRequestSucceeded(reqName, msgId, duration, corrId);
             else
@@ -33,10 +32,16 @@ public partial class LoggingBehavior<[System.Diagnostics.CodeAnalysis.Dynamicall
         }
         catch (Exception ex)
         {
-            sw.Stop();
-            LogRequestException(ex, reqName, msgId, sw.ElapsedMilliseconds, corrId);
+            LogRequestException(ex, reqName, msgId, (long)GetElapsedMilliseconds(startTimestamp), corrId);
             throw;
         }
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static double GetElapsedMilliseconds(long startTimestamp)
+    {
+        var elapsed = Stopwatch.GetTimestamp() - startTimestamp;
+        return elapsed * 1000.0 / Stopwatch.Frequency;
     }
 
     [LoggerMessage(EventId = 1001, Level = LogLevel.Information, Message = "Request started {RequestType} [MessageId={MessageId}, CorrelationId={CorrelationId}]")]

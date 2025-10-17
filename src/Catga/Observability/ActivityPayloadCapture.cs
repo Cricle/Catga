@@ -70,9 +70,9 @@ public static class ActivityPayloadCapture
         }
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access", 
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access",
         Justification = "Only called when CustomSerializer is null. Returns null in AOT if serialization unavailable.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling", 
+    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling",
         Justification = "Only called when CustomSerializer is null. Returns null in AOT if serialization unavailable.")]
     private static string? TryJsonSerialize<T>(T payload)
     {
@@ -117,7 +117,7 @@ public static class ActivityPayloadCapture
 
 /// <summary>
 /// Example: Set custom serializer for AOT compatibility
-/// 
+///
 /// <code>
 /// // In Program.cs (for MemoryPack users)
 /// ActivityPayloadCapture.CustomSerializer = obj =>

@@ -52,15 +52,14 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
         // Capture request payload for Jaeger UI (debug-only, graceful degradation on AOT)
         ActivityPayloadCapture.CaptureRequest(activity, request);
 
-        var stopwatch = Stopwatch.StartNew();
+        var startTimestamp = Stopwatch.GetTimestamp();
 
         try
         {
             // Execute pipeline
             var result = await next();
 
-            stopwatch.Stop();
-            var durationMs = stopwatch.Elapsed.TotalMilliseconds;
+            var durationMs = GetElapsedMilliseconds(startTimestamp);
 
             // Set success tags
             activity.SetSuccess(result.IsSuccess);
@@ -97,8 +96,7 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
         }
         catch (Exception ex)
         {
-            stopwatch.Stop();
-            var durationMs = stopwatch.Elapsed.TotalMilliseconds;
+            var durationMs = GetElapsedMilliseconds(startTimestamp);
 
             // Record exception
             activity.SetError(ex);
@@ -110,6 +108,13 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
 
             throw;
         }
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static double GetElapsedMilliseconds(long startTimestamp)
+    {
+        var elapsed = Stopwatch.GetTimestamp() - startTimestamp;
+        return elapsed * 1000.0 / Stopwatch.Frequency;
     }
 
     [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access", Justification = "Fallback mechanism, AOT-safe path exists")]

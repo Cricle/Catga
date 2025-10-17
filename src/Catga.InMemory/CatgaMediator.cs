@@ -74,14 +74,14 @@ public class CatgaMediator : ICatgaMediator
             var scopedProvider = scope.ServiceProvider;
 
             var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(scopedProvider);
-            if (handler == null)
-            {
+        if (handler == null)
+        {
                 CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", "false"));
                 return CatgaResult<TResponse>.Failure($"No handler for {reqType}", new HandlerNotFoundException(reqType));
-            }
+        }
 
             var behaviors = scopedProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-            var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToList();
+        var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToList();
             var result = FastPath.CanUseFastPath(behaviorsList.Count)
                 ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
                 : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
@@ -226,8 +226,8 @@ public class CatgaMediator : ICatgaMediator
 
             // Record event reception
             activity.AddActivityEvent(
-                CatgaActivitySource.Events.EventReceived, 
-                ("event.type", eventType), 
+                CatgaActivitySource.Events.EventReceived,
+                ("event.type", eventType),
                 ("handler", handlerType));
 
             if (@event is IMessage message)

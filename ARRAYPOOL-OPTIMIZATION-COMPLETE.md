@@ -111,7 +111,7 @@ else
 
 ### Phase 4: IEventStore.AppendAsync 签名优化 ✅
 
-**文件**: 
+**文件**:
 - `src/Catga/Abstractions/IEventStore.cs`
 - `src/Catga/Core/EventStoreRepository.cs`
 - `src/Catga.InMemory/Stores/InMemoryEventStore.cs`

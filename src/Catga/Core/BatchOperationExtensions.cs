@@ -68,7 +68,7 @@ public static class BatchOperationExtensions
         {
             // 需要精确大小（租赁的数组更大）
             var finalResults = new TResult[items.Count];
-            Array.Copy(results, finalResults, items.Count);
+            results.AsSpan(0, items.Count).CopyTo(finalResults);  // ✅ 使用 Span.CopyTo（更快，可能触发 SIMD）
             rentedResults.Dispose();
             return finalResults;
         }

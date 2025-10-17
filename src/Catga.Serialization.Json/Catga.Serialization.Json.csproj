@@ -10,7 +10,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Catga\Catga.csproj" />
-    <ProjectReference Include="..\Catga.InMemory\Catga.InMemory.csproj" />
   </ItemGroup>
 
 </Project>

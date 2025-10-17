@@ -49,7 +49,7 @@ public sealed partial class GracefulRecoveryManager
             }
 
             _isRecovering = true;
-            
+
             // ✅ 优化：直接遍历 ConcurrentBag，避免 ToArray() 分配
             var componentCount = _components.Count;
             LogRecoveryStarted(componentCount);

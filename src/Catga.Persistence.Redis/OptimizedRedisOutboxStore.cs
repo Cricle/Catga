@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Catga.Common;
 using Catga.Outbox;
 using Catga.Serialization;
 using Microsoft.Extensions.Logging;
@@ -74,11 +75,40 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         var values = await _batchOps.BatchGetAsync(keys, cancellationToken);
 
         var messages = new List<OutboxMessage>();
+        
+        // ✅ Span 优化：预分配栈缓冲区（避免循环中 stackalloc）
+        Span<byte> stackBuffer = stackalloc byte[4096];  // 预分配 4KB 栈缓冲（避免 CA2014 警告）
+        
         foreach (var value in values.Values)
         {
             if (value != null)
             {
-                var message = _serializer.Deserialize<OutboxMessage>(System.Text.Encoding.UTF8.GetBytes(value));
+                OutboxMessage? message;
+                if (_serializer is IBufferedMessageSerializer bufferedSerializer)
+                {
+                    // 零拷贝路径：使用预分配的栈缓冲或 ArrayPool
+                    var estimatedSize = value.Length * 3;  // UTF-8 最多 3 字节/字符
+                    
+                    if (estimatedSize <= stackBuffer.Length)
+                    {
+                        // ✅ 使用栈缓冲（零分配）
+                        var bytesWritten = System.Text.Encoding.UTF8.GetBytes(value.AsSpan(), stackBuffer);
+                        message = bufferedSerializer.Deserialize<OutboxMessage>(stackBuffer.Slice(0, bytesWritten));
+                    }
+                    else
+                    {
+                        // 大字符串：使用 ArrayPool（减少分配）
+                        using var rented = ArrayPoolHelper.RentOrAllocate<byte>(estimatedSize);
+                        var bytesWritten = System.Text.Encoding.UTF8.GetBytes(value.AsSpan(), rented.AsSpan());
+                        message = bufferedSerializer.Deserialize<OutboxMessage>(rented.AsSpan().Slice(0, bytesWritten));
+                    }
+                }
+                else
+                {
+                    // Fallback: 传统路径
+                    message = _serializer.Deserialize<OutboxMessage>(System.Text.Encoding.UTF8.GetBytes(value));
+                }
+
                 if (message != null &&
                     message.Status == OutboxStatus.Pending &&
                     message.RetryCount < message.MaxRetries)

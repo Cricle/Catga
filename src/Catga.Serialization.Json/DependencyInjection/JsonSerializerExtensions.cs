@@ -1,4 +1,6 @@
+using System;
 using System.Text.Json;
+using Catga.Configuration;
 using Catga.Serialization;
 using Catga.Serialization.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -90,31 +92,7 @@ public static class JsonSerializerExtensions
         return services;
     }
 
-    /// <summary>
-    /// Use JSON serializer with fluent builder (default options - not AOT compatible)
-    /// </summary>
-    public static CatgaServiceBuilder UseJson(this CatgaServiceBuilder builder)
-    {
-        builder.Services.UseJsonSerializer();
-        return builder;
-    }
-
-    /// <summary>
-    /// Use JSON serializer with fluent builder and custom options
-    /// </summary>
-    public static CatgaServiceBuilder UseJson(this CatgaServiceBuilder builder, JsonSerializerOptions options)
-    {
-        builder.Services.UseJsonSerializer(options);
-        return builder;
-    }
-
-    /// <summary>
-    /// Use JSON serializer with fluent builder and configuration action
-    /// </summary>
-    public static CatgaServiceBuilder UseJson(this CatgaServiceBuilder builder, Action<JsonSerializerOptions> configure)
-    {
-        builder.Services.UseJsonSerializer(configure);
-        return builder;
-    }
+    // Note: CatgaServiceBuilder fluent extensions removed due to circular dependency.
+    // Use IServiceCollection extensions directly: services.UseJsonSerializer()
 }
 

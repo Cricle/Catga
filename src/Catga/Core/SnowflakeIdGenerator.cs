@@ -282,12 +282,13 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
                 else
 #endif
                 {
-                    // Fallback: scalar generation
-                    for (int i = 0; i < batchSize; i++)
+                    // Fallback: scalar generation with Span slice optimization
+                    var destSpan = destination.Slice(generated, (int)batchSize);
+                    for (int i = 0; i < destSpan.Length; i++)
                     {
-                        var seq = startSequence + i;
-                        destination[generated++] = baseId | seq;
+                        destSpan[i] = baseId | (startSequence + i);
                     }
+                    generated += (int)batchSize;
                 }
             }
             else

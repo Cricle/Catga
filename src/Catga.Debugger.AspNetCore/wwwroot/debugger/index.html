@@ -318,16 +318,18 @@
 
             <!-- Advanced Debugger Tools -->
             <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- Cluster Monitor -->
+                <!-- Aspire Dashboard -->
                 <div class="p-4 bg-gradient-to-br from-cyan-50 to-blue-50 border border-cyan-200 rounded-lg hover:shadow-md transition">
                     <div class="flex items-start">
                         <div class="flex-shrink-0">
-                            <span class="text-2xl">🌐</span>
+                            <svg class="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
                         </div>
                         <div class="ml-3 flex-1">
-                            <h3 class="text-sm font-medium text-cyan-900">🌐 集群监控</h3>
-                            <p class="mt-1 text-xs text-cyan-700">所有节点状态、性能、健康检查</p>
-                            <a href="/debugger/cluster.html" 
+                            <h3 class="text-sm font-medium text-cyan-900">🌐 Aspire Dashboard</h3>
+                            <p class="mt-1 text-xs text-cyan-700">所有服务、资源监控、分布式追踪</p>
+                            <a href="http://localhost:15888" 
                                target="_blank"
                                class="mt-2 inline-flex items-center px-3 py-1 text-xs font-medium rounded text-white bg-cyan-600 hover:bg-cyan-700">
                                 打开
@@ -347,7 +349,7 @@
                         <div class="ml-3 flex-1">
                             <h3 class="text-sm font-medium text-purple-900">⏮️ 时间旅行调试器</h3>
                             <p class="mt-1 text-xs text-purple-700">逐步回放、变量监视、调用堆栈</p>
-                            <a href="/debugger/replay-player.html" 
+                            <a href="/debugger/replay-player.html"
                                target="_blank"
                                class="mt-2 inline-flex items-center px-3 py-1 text-xs font-medium rounded text-white bg-purple-600 hover:bg-purple-700">
                                 打开
@@ -365,7 +367,7 @@
                         <div class="ml-3 flex-1">
                             <h3 class="text-sm font-medium text-red-900">🔴 断点调试</h3>
                             <p class="mt-1 text-xs text-red-700">设置断点、单步执行、变量监视</p>
-                            <a href="/debugger/breakpoints.html" 
+                            <a href="/debugger/breakpoints.html"
                                target="_blank"
                                class="mt-2 inline-flex items-center px-3 py-1 text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700">
                                 打开
@@ -383,7 +385,7 @@
                         <div class="ml-3 flex-1">
                             <h3 class="text-sm font-medium text-green-900">🔥 性能分析</h3>
                             <p class="mt-1 text-xs text-green-700">火焰图、慢查询、热点分析、GC</p>
-                            <a href="/debugger/profiling.html" 
+                            <a href="/debugger/profiling.html"
                                target="_blank"
                                class="mt-2 inline-flex items-center px-3 py-1 text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700">
                                 打开

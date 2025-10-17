@@ -43,6 +43,18 @@ public sealed class ReplayableEvent
     /// <summary>Execution duration in milliseconds</summary>
     public double Duration { get; init; }
 
+    /// <summary>Completion timestamp (UTC) - for calculating duration</summary>
+    public DateTime? CompletedAt { get; init; }
+
+    /// <summary>Memory allocated during execution (bytes)</summary>
+    public long? MemoryAllocated { get; init; }
+
+    /// <summary>Thread ID where event was captured</summary>
+    public int? ThreadId { get; init; }
+
+    /// <summary>CPU time consumed (milliseconds)</summary>
+    public double? CpuTime { get; init; }
+
     /// <summary>Exception message if error occurred</summary>
     public string? Exception { get; init; }
 

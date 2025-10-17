@@ -122,5 +122,11 @@ public sealed class ReplayOptions
 
     /// <summary>Snapshot retention duration</summary>
     public TimeSpan SnapshotRetention { get; set; } = TimeSpan.FromHours(6);
+
+    /// <summary>Service/component name for identification</summary>
+    public string? ServiceName { get; set; }
+
+    /// <summary>Slow query threshold in milliseconds</summary>
+    public double SlowQueryThresholdMs { get; set; } = 1000.0;
 }
 

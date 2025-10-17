@@ -41,6 +41,12 @@ public static class DebuggerServiceCollectionExtensions
             services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ReplayableEventCapturer<,>));
         }
 
+        // Register performance capture behavior (only if performance tracking enabled)
+        if (options.TrackPerformance)
+        {
+            services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(PerformanceCaptureBehavior<,>));
+        }
+
         // Advanced debugging features (conditionally registered)
         RegisterDebugFeatures(services, options);
 

@@ -58,7 +58,7 @@ public sealed class FlameGraphBuilder
     }
 
     /// <summary>
-    /// Builds a memory allocation flame graph
+    /// Builds a memory allocation flame graph using real MemoryAllocated data
     /// </summary>
     public async ValueTask<FlameGraph> BuildMemoryFlameGraphAsync(string correlationId)
     {
@@ -71,20 +71,23 @@ public sealed class FlameGraphBuilder
             CorrelationId = correlationId
         };
 
-        // TODO: Extract memory allocation data from events
-        // For now, use duration as a proxy
+        // Extract call stacks with memory allocation data
         var callStacks = ExtractCallStacks(events);
         long totalAllocations = 0;
 
         foreach (var stack in callStacks)
         {
-            totalAllocations += stack.Duration / 10; // Simplified
+            totalAllocations += stack.MemoryAllocated;
             AddStackToGraph(root, stack, useMemory: true);
         }
 
         graph.TotalSamples = totalAllocations;
-        graph.TotalTimeMs = totalAllocations;
+        graph.TotalTimeMs = totalAllocations; // For memory, this represents total bytes
         graph.CalculatePercentages();
+
+        _logger.LogInformation(
+            "Built memory flame graph with {TotalBytes} bytes allocated for {CorrelationId}",
+            totalAllocations, correlationId);
 
         return graph;
     }
@@ -95,14 +98,42 @@ public sealed class FlameGraphBuilder
 
         foreach (var evt in events)
         {
-            // Extract call stack from event data
-            // For now, create a simple sample from event type
+            var frames = new List<string>();
+            long duration = (long)evt.Duration;
+            long memory = evt.MemoryAllocated ?? 0;
+
+            // Try to extract call stack from StateSnapshot data
+            if (evt.Data is Models.StateSnapshot snapshot && snapshot.CallStack != null && snapshot.CallStack.Any())
+            {
+                // Build frame list from call stack (bottom to top for flame graph)
+                foreach (var frame in snapshot.CallStack)
+                {
+                    var frameName = frame.MethodName;
+                    if (!string.IsNullOrEmpty(frame.FileName))
+                    {
+                        frameName = $"{frame.MethodName} ({frame.FileName}:{frame.LineNumber})";
+                    }
+                    frames.Add(frameName);
+                }
+            }
+            else
+            {
+                // Fallback: use message type as single frame
+                var messageType = evt.MessageType ?? evt.Type.ToString();
+                frames.Add(messageType);
+            }
+
             samples.Add(new CallStackSample
             {
-                Frames = new List<string> { evt.Type.ToString() },
-                Duration = 100 // Simplified
+                Frames = frames,
+                Duration = duration,
+                MemoryAllocated = memory
             });
         }
+
+        _logger.LogInformation("Extracted {Count} call stack samples from {EventCount} events", 
+            samples.Count, 
+            events.Count());
 
         return samples;
     }
@@ -110,6 +141,7 @@ public sealed class FlameGraphBuilder
     private void AddStackToGraph(FlameGraphNode root, CallStackSample stack, bool useMemory = false)
     {
         var currentNode = root;
+        var value = useMemory ? stack.MemoryAllocated : stack.Duration;
 
         foreach (var frame in stack.Frames)
         {
@@ -122,19 +154,20 @@ public sealed class FlameGraphBuilder
             }
 
             childNode.SampleCount++;
-            childNode.TotalTime += stack.Duration;
+            childNode.TotalTime += value;
 
             currentNode = childNode;
         }
 
-        // Add duration to self time of leaf node
-        currentNode.SelfTime += stack.Duration;
+        // Add value to self time of leaf node
+        currentNode.SelfTime += value;
     }
 
     private sealed class CallStackSample
     {
         public List<string> Frames { get; set; } = new();
         public long Duration { get; set; }
+        public long MemoryAllocated { get; set; }
     }
 }
 

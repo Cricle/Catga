@@ -35,9 +35,9 @@ try {
         shippingAddress = "Test Address"
         paymentMethod = "CreditCard"
     }
-    
+
     $response = Invoke-RestMethod -Uri "$baseUrl/api/orders" -Method POST -Body ($order | ConvertTo-Json) -ContentType "application/json" -TimeoutSec 10
-    
+
     if ($response.orderId) {
         Write-Host " ✅" -ForegroundColor Green
         $orderId = $response.orderId

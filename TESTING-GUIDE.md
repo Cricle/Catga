@@ -302,15 +302,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '9.0.x'
-      
+
       - name: Build
         run: dotnet build
-      
+
       - name: Run Tests
         run: .\run-and-test.ps1
         shell: pwsh

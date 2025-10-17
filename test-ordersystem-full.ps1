@@ -14,9 +14,9 @@ Write-Host ""
 # 等待服务启动
 function Wait-ForService {
     param([string]$Url, [int]$MaxRetries = 30)
-    
+
     Write-Host "⏳ 等待服务启动: $Url" -ForegroundColor Yellow
-    
+
     for ($i = 1; $i -le $MaxRetries; $i++) {
         try {
             $response = Invoke-WebRequest -Uri "$Url/health" -Method GET -TimeoutSec 2 -ErrorAction Stop
@@ -30,7 +30,7 @@ function Wait-ForService {
             Start-Sleep -Seconds 2
         }
     }
-    
+
     Write-Host "❌ 服务启动超时" -ForegroundColor Red
     return $false
 }
@@ -50,9 +50,9 @@ function Test-Endpoint {
         [int]$ExpectedStatus = 200,
         [string]$ContentType = "application/json"
     )
-    
+
     $script:totalTests++
-    
+
     try {
         $params = @{
             Uri = $Url
@@ -60,14 +60,14 @@ function Test-Endpoint {
             TimeoutSec = 10
             ErrorAction = "Stop"
         }
-        
+
         if ($Body) {
             $params.Body = ($Body | ConvertTo-Json -Depth 10)
             $params.ContentType = $ContentType
         }
-        
+
         $response = Invoke-WebRequest @params
-        
+
         if ($response.StatusCode -eq $ExpectedStatus) {
             Write-Host "  ✅ $Name" -ForegroundColor Green
             $script:passedTests++
@@ -93,12 +93,12 @@ function Test-PageAccessible {
         [string]$Name,
         [string]$Url
     )
-    
+
     $script:totalTests++
-    
+
     try {
         $response = Invoke-WebRequest -Uri $Url -Method GET -TimeoutSec 10 -ErrorAction Stop
-        
+
         if ($response.StatusCode -eq 200 -and $response.Content.Length -gt 0) {
             Write-Host "  ✅ $Name (大小: $($response.Content.Length) bytes)" -ForegroundColor Green
             $script:passedTests++
@@ -208,7 +208,7 @@ Test-Endpoint -Name "获取统计信息 (/debug-api/stats)" -Url "$baseUrl/debug
 try {
     $flowsResponse = Invoke-WebRequest -Uri "$baseUrl/debug-api/flows" -Method GET -TimeoutSec 10
     $flows = ($flowsResponse.Content | ConvertFrom-Json).flows
-    
+
     if ($flows -and $flows.Count -gt 0) {
         $firstFlow = $flows[0]
         Test-Endpoint -Name "获取消息流详情 (ID: $($firstFlow.correlationId.Substring(0,8))...)" -Url "$baseUrl/debug-api/flows/$($firstFlow.correlationId)"

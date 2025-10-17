@@ -78,7 +78,7 @@ while ($waited -lt $maxWait) {
     catch {
         # 服务未就绪，继续等待
     }
-    
+
     Write-Host "   等待中... ($waited/$maxWait 秒)" -ForegroundColor Gray
     Start-Sleep -Seconds 2
     $waited += 2
@@ -121,14 +121,14 @@ if ($keepRunning -ne 'y' -and $keepRunning -ne 'Y') {
     Write-Host "🛑 停止服务..." -ForegroundColor Yellow
     Stop-Job -Job $job
     Remove-Job -Job $job
-    
+
     # 确保进程完全停止
     Start-Sleep -Seconds 2
     $processes = Get-Process -Name "dotnet","OrderSystem.AppHost","OrderSystem.Api" -ErrorAction SilentlyContinue
     if ($processes) {
         $processes | Stop-Process -Force -ErrorAction SilentlyContinue
     }
-    
+
     Write-Host "✅ 服务已停止" -ForegroundColor Green
 }
 else {

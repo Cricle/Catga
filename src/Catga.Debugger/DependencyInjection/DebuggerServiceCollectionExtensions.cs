@@ -81,12 +81,8 @@ public static class DebuggerServiceCollectionExtensions
         services.AddSingleton<FlameGraphBuilder>();
         services.AddSingleton<PerformanceAnalyzer>();
 
-        // Health checks for Aspire Dashboard integration
-        services.AddHealthChecks()
-            .AddCheck<DebuggerHealthCheck>(
-                "catga-debugger",
-                tags: new[] { "ready", "catga" }
-            );
+        // Note: Health check registration is done externally to avoid conflicts with Aspire
+        // See: examples/OrderSystem.ServiceDefaults/Extensions.cs
     }
 
     /// <summary>Add Catga debugger with production-optimized settings</summary>

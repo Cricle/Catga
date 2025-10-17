@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
@@ -48,6 +49,13 @@ public static class Extensions
         // Comprehensive health checks
         builder.Services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live", "ready" });
+        
+        // Register Catga Debugger health check if DebuggerHealthCheck is available
+        builder.Services.TryAddSingleton<Catga.Debugger.HealthChecks.DebuggerHealthCheck>();
+        builder.Services.AddHealthChecks()
+            .AddCheck<Catga.Debugger.HealthChecks.DebuggerHealthCheck>(
+                "catga-debugger",
+                tags: new[] { "ready", "catga" });
 
         // Default logging
         builder.Services.AddLogging(logging =>

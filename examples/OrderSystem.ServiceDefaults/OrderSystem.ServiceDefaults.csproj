@@ -13,6 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Catga.Debugger\Catga.Debugger.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Service Discovery & Resilience -->
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />

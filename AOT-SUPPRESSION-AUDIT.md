@@ -49,7 +49,7 @@
 - ✅ **有接口抽象**：`IMessageSerializer` 接口让用户选择 AOT 兼容的实现（如 MemoryPack）
 - ✅ **职责清晰**：序列化警告应该在序列化器实现上处理，不是持久化层
 
-**行动：** 
+**行动：**
 - 保留抑制
 - 确保 `IMessageSerializer` 接口有明确的 AOT 文档
 - 用户使用 MemoryPack 时完全 AOT 兼容
@@ -68,7 +68,7 @@
 - ✅ **有明确文档**：说明这是仅用于调试，生产环境使用 MemoryPack
 - ✅ **可选功能**：用户可以不使用 JSON 序列化器
 
-**行动：** 
+**行动：**
 - 保留抑制
 - 文档清晰说明这是调试功能
 
@@ -85,7 +85,7 @@
 - ✅ **有 Requires 标记**：`SerializeJson` 方法有 `RequiresUnreferencedCode` 和 `RequiresDynamicCode`
 - ✅ **明确警告**：调用者会看到警告，知道不能在 AOT 中使用
 
-**行动：** 
+**行动：**
 - 保留抑制
 - 确保有 AOT 替代方案文档（使用 `Serialize` 方法 + MemoryPack）
 

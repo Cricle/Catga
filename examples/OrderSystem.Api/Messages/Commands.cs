@@ -1,4 +1,3 @@
-using Catga.Debugger.Core;
 using Catga.Messages;
 using Catga.Results;
 using MemoryPack;
@@ -11,7 +10,6 @@ namespace OrderSystem.Api.Messages;
 /// Demonstrates: CQRS pattern, automatic error handling, rollback mechanism
 /// </summary>
 [MemoryPackable]
-[GenerateDebugCapture] // Source Generator automatically implements IDebugCapture
 public partial record CreateOrderCommand(
     string CustomerId,
     List<OrderItem> Items,

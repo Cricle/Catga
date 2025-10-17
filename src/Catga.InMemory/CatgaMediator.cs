@@ -157,12 +157,7 @@ public class CatgaMediator : ICatgaMediator
         }
 
         // Record event publication timeline event
-        activity?.AddActivityEvent(
-            new ActivityEvent(CatgaActivitySource.Events.EventPublished,
-                tags: new ActivityTagsCollection
-                {
-                    { "event.type", eventType }
-                }));
+        activity?.AddActivityEvent(CatgaActivitySource.Events.EventPublished, ("event.type", eventType));
 
         CatgaLog.EventPublishing(_logger, eventType, message?.MessageId);
 
@@ -231,12 +226,9 @@ public class CatgaMediator : ICatgaMediator
 
             // Record event reception
             activity.AddActivityEvent(
-                new ActivityEvent(CatgaActivitySource.Events.EventReceived,
-                    tags: new ActivityTagsCollection
-                    {
-                        { "event.type", eventType },
-                        { "handler", handlerType }
-                    }));
+                CatgaActivitySource.Events.EventReceived, 
+                ("event.type", eventType), 
+                ("handler", handlerType));
 
             if (@event is IMessage message)
             {

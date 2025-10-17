@@ -217,7 +217,7 @@ public record CreateOrderCommand : IRequest<OrderCreatedResult>, IMessage
 {
     public string MessageId { get; init; } = Guid.NewGuid().ToString();
     public string CorrelationId { get; init; } = Guid.NewGuid().ToString();
-    
+
     // ... 其他属性
 }
 ```
@@ -287,7 +287,7 @@ builder.Services.AddOpenTelemetry()
 .AddAspNetCoreInstrumentation(options =>
 {
     options.RecordException = true;
-    
+
     // 限制 Span 数量，防止内存溢出
     options.Filter = (httpContext) =>
     {

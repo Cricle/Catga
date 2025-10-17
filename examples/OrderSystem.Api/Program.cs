@@ -12,7 +12,7 @@ using OrderSystem.Api.Infrastructure;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
-builder.Services.AddCatga().UseMemoryPack().WithDebug().ForDevelopment();
+builder.Services.AddCatga().UseMemoryPack().ForDevelopment();
 builder.Services.AddInMemoryTransport();
 
 // Register handlers and services

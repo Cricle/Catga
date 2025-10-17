@@ -70,12 +70,18 @@
                     </div>
                     <div class="divide-y divide-gray-200">
                         <template x-if="flows.length === 0">
-                            <div class="px-6 py-12 text-center text-gray-500">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div class="px-6 py-12 text-center">
+                                <svg class="mx-auto h-16 w-16 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                                 </svg>
-                                <p class="mt-2">暂无消息流</p>
-                                <p class="text-xs mt-1">发送一些请求后，消息流将显示在这里</p>
+                                <p class="mt-4 text-lg font-medium text-gray-900">还没有消息流数据</p>
+                                <p class="mt-2 text-sm text-gray-600">通过 API 发送一些请求来生成消息流</p>
+                                <div class="mt-6 space-y-2 text-left bg-gray-50 p-4 rounded-lg max-w-md mx-auto">
+                                    <p class="text-sm font-medium text-gray-700">快速开始：</p>
+                                    <code class="block text-xs bg-white p-2 rounded border">POST /api/orders</code>
+                                    <code class="block text-xs bg-white p-2 rounded border">POST /demo/order-success</code>
+                                    <code class="block text-xs bg-white p-2 rounded border">POST /demo/order-failure</code>
+                                </div>
                             </div>
                         </template>
                         <template x-for="flow in flows" :key="flow.correlationId">
@@ -159,14 +165,18 @@
 
                 <div class="mt-6 bg-white rounded-lg shadow p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">详细统计</h3>
-                    <dl class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <dl class="grid grid-cols-1 gap-5 sm:grid-cols-3">
                         <div class="px-4 py-5 bg-gray-50 rounded-lg">
-                            <dt class="text-sm font-medium text-gray-500">存储大小</dt>
-                            <dd class="mt-1 text-3xl font-semibold text-gray-900" x-text="formatBytes(stats.storageSize || 0)"></dd>
+                            <dt class="text-sm font-medium text-gray-500">总消息流</dt>
+                            <dd class="mt-1 text-3xl font-semibold text-gray-900" x-text="stats.totalFlows || 0"></dd>
                         </div>
                         <div class="px-4 py-5 bg-gray-50 rounded-lg">
-                            <dt class="text-sm font-medium text-gray-500">活跃流数</dt>
-                            <dd class="mt-1 text-3xl font-semibold text-gray-900" x-text="stats.activeFlows || 0"></dd>
+                            <dt class="text-sm font-medium text-gray-500">存储大小</dt>
+                            <dd class="mt-1 text-3xl font-semibold text-gray-900" x-text="formatBytes(stats.storageSizeBytes || 0)"></dd>
+                        </div>
+                        <div class="px-4 py-5 bg-gray-50 rounded-lg">
+                            <dt class="text-sm font-medium text-gray-500">最早事件</dt>
+                            <dd class="mt-1 text-sm font-semibold text-gray-900" x-text="stats.oldestEvent ? new Date(stats.oldestEvent).toLocaleString() : '无'"></dd>
                         </div>
                     </dl>
                 </div>
@@ -174,38 +184,81 @@
 
             <!-- Replay Tab -->
             <div x-show="currentTab === 'replay'" x-cloak class="fade-in">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold text-gray-900 mb-4">⏮️ 时间旅行回放</h2>
-                    <p class="text-sm text-gray-600 mb-6">回放历史事件流，观察系统行为</p>
-
-                    <div class="space-y-4">
+                <!-- Coming Soon Banner -->
+                <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-lg p-8 text-white mb-6">
+                    <div class="flex items-center justify-between">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">回放模式</label>
-                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                                <option>系统级回放（所有事件）</option>
-                                <option>单流回放（特定消息流）</option>
-                            </select>
+                            <h2 class="text-2xl font-bold mb-2">⏮️ 时间旅行回放</h2>
+                            <p class="text-blue-100">强大的调试功能 - 回放任意时间点的系统状态</p>
                         </div>
+                        <div class="bg-white bg-opacity-20 px-4 py-2 rounded-lg">
+                            <span class="text-sm font-semibold">即将推出</span>
+                        </div>
+                    </div>
+                </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">回放速度</label>
-                            <input type="range" min="0.1" max="10" step="0.1" value="1" class="w-full">
-                            <div class="flex justify-between text-xs text-gray-500 mt-1">
-                                <span>0.1x</span>
-                                <span>1x</span>
-                                <span>10x</span>
+                <!-- Feature Preview -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center mb-4">
+                            <div class="bg-blue-100 p-3 rounded-lg">
+                                <svg class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
                             </div>
+                            <h3 class="ml-3 text-lg font-semibold text-gray-900">系统级回放</h3>
                         </div>
-
-                        <button class="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
-                            ▶️ 开始回放
-                        </button>
+                        <p class="text-sm text-gray-600">回放整个系统在特定时间段的所有事件，观察系统级行为和流程</p>
+                        <ul class="mt-4 space-y-2 text-sm text-gray-600">
+                            <li class="flex items-center"><span class="text-green-500 mr-2">✓</span>可调速度（0.1x - 10x）</li>
+                            <li class="flex items-center"><span class="text-green-500 mr-2">✓</span>时间范围选择</li>
+                            <li class="flex items-center"><span class="text-green-500 mr-2">✓</span>实时指标展示</li>
+                        </ul>
                     </div>
 
-                    <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p class="text-sm text-yellow-800">
-                            💡 <strong>提示：</strong>时间旅行功能允许您回放历史事件，观察系统在特定时间点的状态和行为。
-                        </p>
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center mb-4">
+                            <div class="bg-purple-100 p-3 rounded-lg">
+                                <svg class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                            </div>
+                            <h3 class="ml-3 text-lg font-semibold text-gray-900">单流回放</h3>
+                        </div>
+                        <p class="text-sm text-gray-600">针对特定消息流进行逐步回放，深入分析单个流程的执行细节</p>
+                        <ul class="mt-4 space-y-2 text-sm text-gray-600">
+                            <li class="flex items-center"><span class="text-green-500 mr-2">✓</span>逐事件步进</li>
+                            <li class="flex items-center"><span class="text-green-500 mr-2">✓</span>状态快照查看</li>
+                            <li class="flex items-center"><span class="text-green-500 mr-2">✓</span>变量值追踪</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Current Usage Guide -->
+                <div class="mt-6 bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">💡 当前可用功能</h3>
+                    <div class="space-y-4 text-sm text-gray-600">
+                        <div class="flex items-start">
+                            <span class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3">1</span>
+                            <div>
+                                <p class="font-semibold text-gray-900">查看消息流</p>
+                                <p>在"消息流"标签页查看所有流的实时数据，包括消息类型、状态、执行时间</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <span class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3">2</span>
+                            <div>
+                                <p class="font-semibold text-gray-900">点击查看详情</p>
+                                <p>点击任意消息流可查看完整的流信息，包括关联ID、时间戳、执行状态</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <span class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3">3</span>
+                            <div>
+                                <p class="font-semibold text-gray-900">监控统计信息</p>
+                                <p>在"统计信息"标签页实时查看系统性能指标：总事件数、成功率、平均延迟</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -246,7 +299,7 @@
                             </div>
                             <div>
                                 <label class="text-sm font-medium text-gray-500">执行时间</label>
-                                <p class="mt-1 text-sm text-gray-900" x-text="selectedFlow.duration + 'ms'"></p>
+                                <p class="mt-1 text-sm text-gray-900" x-text="selectedFlow.duration.toFixed(2) + 'ms'"></p>
                             </div>
                             <div>
                                 <label class="text-sm font-medium text-gray-500">开始时间</label>
@@ -343,4 +396,5 @@
     </script>
 </body>
 </html>
+
 

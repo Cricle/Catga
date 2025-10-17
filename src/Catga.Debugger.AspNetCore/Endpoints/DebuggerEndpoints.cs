@@ -171,6 +171,23 @@ public static class DebuggerEndpoints
     {
         var stats = await eventStore.GetStatsAsync(ct);
 
+        // Calculate success rate and average latency
+        var recentEvents = await eventStore.GetEventsAsync(
+            DateTime.UtcNow.AddHours(-1),
+            DateTime.UtcNow,
+            ct);
+        
+        var eventsList = recentEvents.ToList();
+        var performanceEvents = eventsList.Where(e => e.Type == EventType.PerformanceMetric).ToList();
+        
+        var successCount = eventsList.Count(e => e.Exception == null);
+        var totalCount = eventsList.Count > 0 ? eventsList.Count : 1;
+        var successRate = (double)successCount / totalCount * 100;
+        
+        var averageLatency = performanceEvents.Any() 
+            ? performanceEvents.Average(e => e.Duration) 
+            : 0;
+
         return TypedResults.Ok(new StatsResponse
         {
             TotalEvents = stats.TotalEvents,
@@ -178,6 +195,8 @@ public static class DebuggerEndpoints
             StorageSizeBytes = stats.StorageSizeBytes,
             OldestEvent = stats.OldestEvent,
             NewestEvent = stats.NewestEvent,
+            SuccessRate = Math.Round(successRate, 2),
+            AverageLatency = Math.Round(averageLatency, 2),
             Timestamp = DateTime.UtcNow
         });
     }
@@ -282,6 +301,8 @@ public sealed record StatsResponse
     public required long StorageSizeBytes { get; init; }
     public required DateTime OldestEvent { get; init; }
     public required DateTime NewestEvent { get; init; }
+    public required double SuccessRate { get; init; }
+    public required double AverageLatency { get; init; }
     public required DateTime Timestamp { get; init; }
 }
 

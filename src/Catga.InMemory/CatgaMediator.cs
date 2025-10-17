@@ -16,7 +16,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga;
 
 /// <summary>High-performance Catga Mediator (AOT-compatible, lock-free)</summary>
-public class CatgaMediator : ICatgaMediator
+public sealed class CatgaMediator : ICatgaMediator
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CatgaMediator> _logger;
@@ -47,7 +47,7 @@ public class CatgaMediator : ICatgaMediator
             $"Command: {TypeNameCache<TRequest>.Name}",
             ActivityKind.Internal);
 
-        var sw = Stopwatch.StartNew();
+        var startTimestamp = Stopwatch.GetTimestamp();
         var reqType = TypeNameCache<TRequest>.Name;
         var message = request as IMessage;
 
@@ -86,8 +86,7 @@ public class CatgaMediator : ICatgaMediator
                 ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
                 : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
 
-            sw.Stop();
-            var duration = sw.Elapsed.TotalMilliseconds;
+            var duration = GetElapsedMilliseconds(startTimestamp);
             CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", result.IsSuccess.ToString()));
             CatgaDiagnostics.CommandDuration.Record(duration, new KeyValuePair<string, object?>("request_type", reqType));
             CatgaLog.CommandExecuted(_logger, reqType, message?.MessageId, duration, result.IsSuccess);
@@ -111,12 +110,21 @@ public class CatgaMediator : ICatgaMediator
         }
         catch (Exception ex)
         {
-            sw.Stop();
             CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", "false"));
             RecordException(activity, ex);
             CatgaLog.CommandFailed(_logger, ex, reqType, message?.MessageId, ex.Message);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Get elapsed time in milliseconds from a Stopwatch timestamp
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static double GetElapsedMilliseconds(long startTimestamp)
+    {
+        var elapsed = Stopwatch.GetTimestamp() - startTimestamp;
+        return elapsed * 1000.0 / Stopwatch.Frequency;
     }
 
     public async Task<CatgaResult> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest
@@ -236,33 +244,23 @@ public class CatgaMediator : ICatgaMediator
                 activity.SetTag("catga.correlation_id", message.CorrelationId);
             }
 
-            // Capture event payload
-            try
-            {
-                var eventJson = System.Text.Json.JsonSerializer.Serialize(@event);
-                if (eventJson.Length < 4096)
-                {
-                    activity.SetTag("catga.event.payload", eventJson);
-                }
-            }
-            catch { }
+            // Capture event payload (only for small payloads to avoid overhead)
+            CaptureEventPayload(activity, @event);
         }
 
-        var sw = Stopwatch.StartNew();
+        var startTimestamp = Stopwatch.GetTimestamp();
         try
         {
             await handler.HandleAsync(@event, cancellationToken).ConfigureAwait(false);
-            sw.Stop();
 
             if (activity != null)
             {
                 activity.SetTag("catga.success", true);
-                activity.SetTag("catga.duration.ms", sw.Elapsed.TotalMilliseconds);
+                activity.SetTag("catga.duration.ms", GetElapsedMilliseconds(startTimestamp));
             }
         }
         catch (Exception ex)
         {
-            sw.Stop();
             _logger.LogError(ex, "Event handler failed: {HandlerType}", handlerType);
 
             if (activity != null)
@@ -275,6 +273,28 @@ public class CatgaMediator : ICatgaMediator
                 activity.SetTag("exception.stacktrace", ex.StackTrace);
                 activity.SetStatus(ActivityStatusCode.Error, ex.Message);
             }
+        }
+    }
+
+    /// <summary>
+    /// Capture event payload for debugging (only for small payloads)
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static void CaptureEventPayload<TEvent>(Activity? activity, TEvent @event) where TEvent : IEvent
+    {
+        if (activity == null) return;
+        
+        try
+        {
+            var eventJson = System.Text.Json.JsonSerializer.Serialize(@event);
+            if (eventJson.Length < 4096)
+            {
+                activity.SetTag("catga.event.payload", eventJson);
+            }
+        }
+        catch
+        {
+            // Ignore serialization errors
         }
     }
 

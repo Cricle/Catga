@@ -1,3 +1,4 @@
+using Catga.Http;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,7 +42,7 @@ public static class Extensions
                             activity.SetTag("http.request.id", request.HttpContext.TraceIdentifier);
                             activity.SetTag("http.request.method", request.Method);
                             activity.SetTag("http.request.path", request.Path);
-                            
+
                             // Propagate correlation ID from header if present
                             if (request.HttpContext.Request.Headers.TryGetValue("X-Correlation-ID", out var correlationId))
                             {
@@ -84,12 +85,19 @@ public static class Extensions
                     .AddMeter("Catga.*");
             });
 
-        // Service discovery with resilience
+        // Service discovery with resilience + CorrelationId propagation
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
+            // ✅ Critical: Add CorrelationId propagation handler FIRST
+            // This ensures X-Correlation-ID is injected before the request is sent
+            http.AddHttpMessageHandler<CorrelationIdDelegatingHandler>();
+            
             http.AddStandardResilienceHandler();  // Retry, circuit breaker, timeout
             http.AddServiceDiscovery();            // Service discovery
         });
+        
+        // Register the handler as a transient service
+        builder.Services.AddTransient<CorrelationIdDelegatingHandler>();
 
         // Comprehensive health checks
         builder.Services.AddHealthChecks()

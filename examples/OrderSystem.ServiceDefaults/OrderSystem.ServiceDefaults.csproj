@@ -28,5 +28,10 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Catga reference for CorrelationIdDelegatingHandler -->
+    <ProjectReference Include="..\..\src\Catga\Catga.csproj" />
+  </ItemGroup>
+
 </Project>
 

@@ -169,13 +169,62 @@ public class CatgaMediator : ICatgaMediator
 
     private async Task HandleEventSafelyAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(IEventHandler<TEvent> handler, TEvent @event, CancellationToken cancellationToken) where TEvent : IEvent
     {
+        var handlerType = handler.GetType().Name;
+        var eventType = typeof(TEvent).Name;
+        var activityName = $"Catga.HandleEvent.{handlerType}";
+
+        using var activity = CatgaDiagnostics.ActivitySource.StartActivity(activityName, ActivityKind.Consumer);
+
+        if (activity != null)
+        {
+            activity.SetTag("catga.event.type", eventType);
+            activity.SetTag("catga.handler.type", handlerType);
+
+            if (@event is IMessage message)
+            {
+                activity.SetTag("catga.event.id", message.MessageId);
+                activity.SetTag("catga.correlation_id", message.CorrelationId);
+            }
+
+            // Capture event payload
+            try
+            {
+                var eventJson = System.Text.Json.JsonSerializer.Serialize(@event);
+                if (eventJson.Length < 4096)
+                {
+                    activity.SetTag("catga.event.payload", eventJson);
+                }
+            }
+            catch { }
+        }
+
+        var sw = Stopwatch.StartNew();
         try
         {
             await handler.HandleAsync(@event, cancellationToken).ConfigureAwait(false);
+            sw.Stop();
+
+            if (activity != null)
+            {
+                activity.SetTag("catga.success", true);
+                activity.SetTag("catga.duration.ms", sw.Elapsed.TotalMilliseconds);
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Event handler failed: {HandlerType}", handler.GetType().Name);
+            sw.Stop();
+            _logger.LogError(ex, "Event handler failed: {HandlerType}", handlerType);
+
+            if (activity != null)
+            {
+                activity.SetTag("catga.success", false);
+                activity.SetTag("catga.error", ex.Message);
+                activity.SetTag("catga.error.type", ex.GetType().Name);
+                activity.SetTag("exception.message", ex.Message);
+                activity.SetTag("exception.type", ex.GetType().FullName);
+                activity.SetTag("exception.stacktrace", ex.StackTrace);
+                activity.SetStatus(ActivityStatusCode.Error, ex.Message);
+            }
         }
     }
 

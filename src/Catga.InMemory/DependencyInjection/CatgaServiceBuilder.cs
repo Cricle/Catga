@@ -98,11 +98,18 @@ public class CatgaServiceBuilder
     }
 
     /// <summary>
-    /// Enable distributed tracing
+    /// Enable distributed tracing (OpenTelemetry for Jaeger/Zipkin with rich message details)
     /// </summary>
     public CatgaServiceBuilder WithTracing(bool enabled = true)
     {
         _options.EnableTracing = enabled;
+        
+        if (enabled)
+        {
+            // Register distributed tracing behavior for rich trace data in Jaeger
+            _services.AddSingleton(typeof(Catga.Pipeline.Behaviors.DistributedTracingBehavior<,>));
+        }
+        
         return this;
     }
 

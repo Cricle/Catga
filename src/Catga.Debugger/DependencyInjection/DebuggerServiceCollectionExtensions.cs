@@ -49,19 +49,19 @@ public static class DebuggerServiceCollectionExtensions
         return services.AddCatgaDebugger(options =>
         {
             options.Mode = DebuggerMode.ProductionOptimized;
-            
+
             // Disable time-travel debugging (use only for development)
             options.EnableReplay = false;
             options.TrackStateSnapshots = false;
             options.CaptureVariables = false;
             options.CaptureCallStacks = false;
             options.CaptureMemoryState = false;
-            
+
             // Enable lightweight monitoring only
             options.TrackMessageFlows = false; // Use OpenTelemetry traces instead
             options.TrackPerformance = false;  // Use OpenTelemetry metrics instead
             options.TrackExceptions = true;    // Keep exception tracking
-            
+
             // Performance optimizations
             options.SamplingRate = 0.01; // 1% sampling for exceptions
             options.EnableAdaptiveSampling = true;
@@ -69,7 +69,7 @@ public static class DebuggerServiceCollectionExtensions
             options.MaxMemoryMB = 50;
             options.EnableZeroCopy = true;
             options.EnableObjectPooling = true;
-            
+
             // Auto-disable after period
             options.AutoDisableAfter = TimeSpan.FromHours(2);
         });

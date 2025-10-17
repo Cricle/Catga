@@ -94,7 +94,7 @@ public sealed class WatchExpression
     private void AddToHistory(WatchValue value)
     {
         _history.Add(value);
-        
+
         // Keep history size limited
         while (_history.Count > MaxHistorySize)
         {

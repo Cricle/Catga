@@ -113,7 +113,7 @@ public sealed class BreakpointManager : IDisposable
             if (breakpoint.ShouldTrigger(message))
             {
                 breakpoint.RecordHit(correlationId);
-                
+
                 _logger.LogInformation(
                     "Breakpoint hit: {BreakpointId} - {BreakpointName} (Correlation: {CorrelationId})",
                     breakpoint.Id, breakpoint.Name, correlationId);
@@ -197,13 +197,13 @@ public enum DebugAction
 {
     /// <summary>Continue normal execution</summary>
     Continue,
-    
+
     /// <summary>Step to the next message/event</summary>
     StepOver,
-    
+
     /// <summary>Step into event handlers</summary>
     StepInto,
-    
+
     /// <summary>Step out of current handler</summary>
     StepOut
 }

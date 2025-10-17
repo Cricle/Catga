@@ -1,6 +1,6 @@
 # Catga Debugger 实施状态
 
-**更新时间**: 2025-10-17  
+**更新时间**: 2025-10-17
 **状态**: 核心框架已完成，UI 和高级功能待实施
 
 ---
@@ -25,7 +25,7 @@
 **使用示例**:
 ```csharp
 // 注册服务
-services.AddSingleton<BreakpointManager>(sp => 
+services.AddSingleton<BreakpointManager>(sp =>
     new BreakpointManager(
         sp.GetRequiredService<ILogger<BreakpointManager>>(),
         enabled: isDevelopment // 仅开发环境启用
@@ -79,7 +79,7 @@ var values = watchManager.EvaluateAll(captureContext);
 ## 🚧 待实施（按优先级）
 
 ### 阶段 1.3: 完整调用栈追踪 ⏳
-**优先级**: P0  
+**优先级**: P0
 **预计时间**: 3-4天
 
 **需要实现**:
@@ -91,7 +91,7 @@ var values = watchManager.EvaluateAll(captureContext);
 ---
 
 ### 阶段 2.1: 火焰图生成器 ⏳
-**优先级**: P0  
+**优先级**: P0
 **预计时间**: 5-6天
 
 **需要实现**:
@@ -103,7 +103,7 @@ var values = watchManager.EvaluateAll(captureContext);
 ---
 
 ### 阶段 2.2: 性能瓶颈分析 ⏳
-**优先级**: P0  
+**优先级**: P0
 **预计时间**: 3-4天
 
 **需要实现**:
@@ -115,7 +115,7 @@ var values = watchManager.EvaluateAll(captureContext);
 ---
 
 ### 阶段 3.1: 结构化日志查看器 ⏳
-**优先级**: P1  
+**优先级**: P1
 **预计时间**: 3-4天
 
 **需要实现**:
@@ -127,7 +127,7 @@ var values = watchManager.EvaluateAll(captureContext);
 ---
 
 ### 阶段 3.2: 分布式追踪可视化 ⏳
-**优先级**: P1  
+**优先级**: P1
 **预计时间**: 4-5天
 
 **需要实现**:
@@ -139,7 +139,7 @@ var values = watchManager.EvaluateAll(captureContext);
 ---
 
 ### 阶段 4: 错误诊断 ⏳
-**优先级**: P1  
+**优先级**: P1
 **预计时间**: 3-4天
 
 **需要实现**:
@@ -151,7 +151,7 @@ var values = watchManager.EvaluateAll(captureContext);
 ---
 
 ### 阶段 5: 数据探查 ⏳
-**优先级**: P2  
+**优先级**: P2
 **预计时间**: 5-7天
 
 **需要实现**:
@@ -163,7 +163,7 @@ var values = watchManager.EvaluateAll(captureContext);
 ---
 
 ### 阶段 6: 测试验证 ⏳
-**优先级**: P2  
+**优先级**: P2
 **预计时间**: 7-9天
 
 **需要实现**:
@@ -309,14 +309,14 @@ group.MapLoggingEndpoints();
 public class ReplayOptions
 {
     // 现有...
-    
+
     // 调试功能开关
     public bool EnableBreakpoints { get; set; } = false;
     public bool EnableWatch { get; set; } = false;
     public bool EnableCallStack { get; set; } = false;
     public bool EnableProfiling { get; set; } = false;
     public bool EnableLogging { get; set; } = false;
-    
+
     // 生产安全模式
     public bool ReadOnlyMode { get; set; } = false;
 }

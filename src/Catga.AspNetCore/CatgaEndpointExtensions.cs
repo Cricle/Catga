@@ -7,11 +7,18 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
-/// <summary>Catga endpoint extensions for Minimal APIs (CAP-like)</summary>
-[UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
-[UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
+/// <summary>
+/// Catga endpoint extensions for Minimal APIs.
+/// These methods use ASP.NET Core Minimal APIs which require reflection for route parameter binding.
+/// For full AOT compatibility, consider using controller-based endpoints instead.
+/// </summary>
 public static class CatgaEndpointExtensions
 {
+    /// <summary>
+    /// Maps a POST endpoint for a Catga command/request.
+    /// </summary>
+    [RequiresUnreferencedCode("ASP.NET Core Minimal APIs use reflection for parameter binding. Use controllers for AOT.")]
+    [RequiresDynamicCode("ASP.NET Core Minimal APIs may generate code at runtime. Use controllers for AOT.")]
     public static RouteHandlerBuilder MapCatgaRequest<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]TResponse>(this IEndpointRouteBuilder endpoints, string pattern) where TRequest : IRequest<TResponse>
     {
         return endpoints.MapPost(pattern, async (TRequest request, ICatgaMediator mediator, CancellationToken cancellationToken) =>
@@ -22,6 +29,11 @@ public static class CatgaEndpointExtensions
         .WithCatgaCommandMetadata<TRequest, TResponse>();
     }
 
+    /// <summary>
+    /// Maps a GET endpoint for a Catga query.
+    /// </summary>
+    [RequiresUnreferencedCode("ASP.NET Core Minimal APIs use reflection for parameter binding. Use controllers for AOT.")]
+    [RequiresDynamicCode("ASP.NET Core Minimal APIs may generate code at runtime. Use controllers for AOT.")]
     public static RouteHandlerBuilder MapCatgaQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TQuery, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(this IEndpointRouteBuilder endpoints, string pattern) where TQuery : IRequest<TResponse>
     {
         return endpoints.MapGet(pattern, async ([AsParameters] TQuery query, ICatgaMediator mediator, CancellationToken cancellationToken) =>
@@ -32,6 +44,11 @@ public static class CatgaEndpointExtensions
         .WithCatgaQueryMetadata<TQuery, TResponse>();
     }
 
+    /// <summary>
+    /// Maps a POST endpoint for publishing a Catga event.
+    /// </summary>
+    [RequiresUnreferencedCode("ASP.NET Core Minimal APIs use reflection for parameter binding. Use controllers for AOT.")]
+    [RequiresDynamicCode("ASP.NET Core Minimal APIs may generate code at runtime. Use controllers for AOT.")]
     public static RouteHandlerBuilder MapCatgaEvent<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(this IEndpointRouteBuilder endpoints, string pattern) where TEvent : IEvent
     {
         return endpoints.MapPost(pattern, async (TEvent @event, ICatgaMediator mediator, CancellationToken cancellationToken) =>

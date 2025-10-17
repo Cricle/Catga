@@ -3,16 +3,35 @@ using Catga.AspNetCore;
 using Catga.AspNetCore.Extensions;
 using Catga.DependencyInjection;
 using Catga.Handlers;
+using Catga.Observability;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Handlers;
 using OrderSystem.Api.Services;
 using OrderSystem.Api.Infrastructure;
+using MemoryPack;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 builder.Services.AddCatga().UseMemoryPack().ForDevelopment();
+
+// Configure ActivityPayloadCapture for Jaeger tracing (Required for AOT compatibility)
+// This serializer will be used to capture request/response/event payloads in Activity tags
+ActivityPayloadCapture.CustomSerializer = obj =>
+{
+    try
+    {
+        // Try MemoryPack serialization (AOT-safe for types with [MemoryPackable])
+        var bytes = MemoryPackSerializer.Serialize(obj.GetType(), obj);
+        return Convert.ToBase64String(bytes);
+    }
+    catch
+    {
+        // Fallback to ToString for non-MemoryPackable types
+        return obj.ToString() ?? $"<{obj.GetType().Name}>";
+    }
+};
 builder.Services.AddInMemoryTransport();
 
 // Register handlers and services

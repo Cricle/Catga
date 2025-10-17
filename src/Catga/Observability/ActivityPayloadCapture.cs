@@ -12,58 +12,50 @@ public static class ActivityPayloadCapture
     private const int MaxPayloadLength = 4096;
 
     /// <summary>
-    /// Optional custom serializer for rich payload capture.
-    /// If not set, falls back to ToString() (always AOT-safe).
-    /// Set this to a custom serializer for better debugging experience.
+    /// Custom serializer for payload capture (REQUIRED for payload capture to work).
+    /// Must be set before using CaptureRequest/CaptureResponse/CaptureEvent.
+    /// If not set, methods will throw InvalidOperationException.
     /// </summary>
+    /// <example>
+    /// // For MemoryPack users:
+    /// ActivityPayloadCapture.CustomSerializer = obj => obj is IMemoryPackFormatterRegister mp
+    ///     ? Convert.ToBase64String(MemoryPackSerializer.Serialize(mp.GetType(), mp))
+    ///     : obj.ToString() ?? string.Empty;
+    /// </example>
     public static Func<object, string>? CustomSerializer { get; set; }
 
     /// <summary>
-    /// Captures a payload in an Activity tag.
-    /// Uses CustomSerializer if available, otherwise uses ToString() (always AOT-safe).
+    /// Captures a payload in an Activity tag using CustomSerializer.
     /// </summary>
     /// <typeparam name="T">Type of payload to serialize</typeparam>
     /// <param name="activity">Activity to attach the tag to</param>
     /// <param name="tagName">Name of the tag</param>
     /// <param name="payload">Payload to serialize</param>
+    /// <exception cref="InvalidOperationException">Thrown when CustomSerializer is not set</exception>
     public static void CapturePayload<T>(Activity? activity, string tagName, T payload)
     {
         if (activity == null || payload == null) return;
 
-        string? json = null;
-
-        // Try custom serializer first (AOT-safe, user-provided)
-        if (CustomSerializer != null)
+        // Require CustomSerializer to be set - no fallback
+        if (CustomSerializer == null)
         {
-            try
-            {
-                json = CustomSerializer(payload);
-            }
-            catch
-            {
-                // Custom serializer failed, set error indicator
-                activity.SetTag(tagName, "<serialization error>");
-                return;
-            }
+            throw new InvalidOperationException(
+                $"ActivityPayloadCapture.CustomSerializer must be set before capturing payloads. " +
+                $"This is required for AOT compatibility. " +
+                $"Set it in your application startup (e.g., Program.cs).");
+        }
+
+        // Use custom serializer (user is responsible for AOT compatibility)
+        var json = CustomSerializer(payload);
+
+        if (json.Length <= MaxPayloadLength)
+        {
+            activity.SetTag(tagName, json);
         }
         else
         {
-            // Fallback to ToString() (always AOT-safe, no reflection needed)
-            // Users should set CustomSerializer for better serialization
-            json = payload.ToString();
-        }
-
-        if (json != null)
-        {
-            if (json.Length <= MaxPayloadLength)
-            {
-                activity.SetTag(tagName, json);
-            }
-            else
-            {
-                // Payload too large - just indicate the size
-                activity.SetTag(tagName, $"<too large: {json.Length} bytes>");
-            }
+            // Payload too large - indicate the size
+            activity.SetTag(tagName, $"<too large: {json.Length} bytes>");
         }
     }
 

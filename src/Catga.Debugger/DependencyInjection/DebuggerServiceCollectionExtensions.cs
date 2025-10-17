@@ -1,11 +1,16 @@
+using Catga.Debugger.Breakpoints;
+using Catga.Debugger.CallStack;
 using Catga.Debugger.Core;
 using Catga.Debugger.Models;
 using Catga.Debugger.Pipeline;
+using Catga.Debugger.Profiling;
 using Catga.Debugger.Replay;
 using Catga.Debugger.Storage;
+using Catga.Debugger.Watch;
 using Catga.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace Catga.Debugger.DependencyInjection;
 
@@ -35,7 +40,45 @@ public static class DebuggerServiceCollectionExtensions
             services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ReplayableEventCapturer<,>));
         }
 
+        // Advanced debugging features (conditionally registered)
+        RegisterDebugFeatures(services, options);
+
         return services;
+    }
+
+    private static void RegisterDebugFeatures(IServiceCollection services, ReplayOptions options)
+    {
+        // Breakpoint system
+        services.AddSingleton(sp => new BreakpointManager(
+            sp.GetRequiredService<ILogger<BreakpointManager>>(),
+            enabled: options.Mode == DebuggerMode.Development
+        ));
+
+        if (options.Mode == DebuggerMode.Development)
+        {
+            services.AddSingleton(typeof(BreakpointBehavior<,>));
+        }
+
+        // Watch system
+        services.AddSingleton(sp => new WatchManager(
+            sp.GetRequiredService<ILogger<WatchManager>>(),
+            enabled: options.Mode == DebuggerMode.Development
+        ));
+
+        // Call stack tracking
+        services.AddSingleton(sp => new CallStackTracker(
+            enabled: options.CaptureCallStacks,
+            captureVariables: options.CaptureVariables
+        ));
+
+        if (options.CaptureCallStacks)
+        {
+            services.AddSingleton(typeof(CallStackBehavior<,>));
+        }
+
+        // Performance profiling
+        services.AddSingleton<FlameGraphBuilder>();
+        services.AddSingleton<PerformanceAnalyzer>();
     }
 
     /// <summary>Add Catga debugger with production-optimized settings</summary>

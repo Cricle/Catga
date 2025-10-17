@@ -82,13 +82,13 @@ public enum FlameGraphType
 {
     /// <summary>CPU time</summary>
     Cpu,
-    
+
     /// <summary>Memory allocations</summary>
     Memory,
-    
+
     /// <summary>Wall clock time</summary>
     WallClock,
-    
+
     /// <summary>Async operations</summary>
     Async
 }

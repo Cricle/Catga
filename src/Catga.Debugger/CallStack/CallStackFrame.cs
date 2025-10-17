@@ -41,8 +41,8 @@ public sealed class CallStackFrame
     /// <summary>
     /// Duration of this frame execution
     /// </summary>
-    public TimeSpan Duration => ExitedAt.HasValue 
-        ? ExitedAt.Value - EnteredAt 
+    public TimeSpan Duration => ExitedAt.HasValue
+        ? ExitedAt.Value - EnteredAt
         : DateTime.UtcNow - EnteredAt;
 
     /// <summary>

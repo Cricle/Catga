@@ -57,6 +57,12 @@ public static class DebuggerEndpoints
         // Advanced replay control endpoints
         group.MapReplayControlEndpoints();
 
+        // Breakpoint endpoints
+        group.MapBreakpointEndpoints();
+
+        // Performance profiling endpoints
+        group.MapProfilingEndpoints();
+
         return group;
     }
 

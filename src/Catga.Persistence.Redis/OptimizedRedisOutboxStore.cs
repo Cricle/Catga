@@ -75,10 +75,10 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         var values = await _batchOps.BatchGetAsync(keys, cancellationToken);
 
         var messages = new List<OutboxMessage>();
-        
+
         // ✅ Span 优化：预分配栈缓冲区（避免循环中 stackalloc）
         Span<byte> stackBuffer = stackalloc byte[4096];  // 预分配 4KB 栈缓冲（避免 CA2014 警告）
-        
+
         foreach (var value in values.Values)
         {
             if (value != null)
@@ -88,7 +88,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
                 {
                     // 零拷贝路径：使用预分配的栈缓冲或 ArrayPool
                     var estimatedSize = value.Length * 3;  // UTF-8 最多 3 字节/字符
-                    
+
                     if (estimatedSize <= stackBuffer.Length)
                     {
                         // ✅ 使用栈缓冲（零分配）

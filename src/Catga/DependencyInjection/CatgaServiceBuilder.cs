@@ -1,3 +1,4 @@
+using System;
 using Catga.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,8 +32,13 @@ public class CatgaServiceBuilder
     /// </summary>
     public CatgaOptions Options => _options;
 
-    internal CatgaServiceBuilder(IServiceCollection services, CatgaOptions options)
+    /// <summary>
+    /// Create a new Catga service builder
+    /// </summary>
+    public CatgaServiceBuilder(IServiceCollection services, CatgaOptions options)
     {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(options);
         _services = services;
         _options = options;
     }

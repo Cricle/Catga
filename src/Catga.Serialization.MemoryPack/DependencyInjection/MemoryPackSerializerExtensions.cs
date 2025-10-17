@@ -1,3 +1,4 @@
+using Catga.Configuration;
 using Catga.Serialization;
 using Catga.Serialization.MemoryPack;
 using Microsoft.Extensions.DependencyInjection;

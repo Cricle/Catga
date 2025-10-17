@@ -65,9 +65,10 @@ public class SafeRequestHandlerCustomErrorTests
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Contain("Custom business error handling");
         result.Error.Should().Contain("test-id");
-        result.Metadata.ContainsKey("CustomErrorType").Should().BeTrue();
+        result.Metadata.Should().NotBeNull();
+        result.Metadata!.ContainsKey("CustomErrorType").Should().BeTrue();
         result.Metadata.TryGetValue("CustomErrorType", out var errorType).Should().BeTrue();
-        errorType.Should().Be("Business");
+        errorType!.Should().Be("Business");
     }
 
     [Fact]
@@ -84,9 +85,10 @@ public class SafeRequestHandlerCustomErrorTests
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Contain("Custom unexpected error handling");
         result.Error.Should().Contain("test-id");
-        result.Metadata.ContainsKey("CustomErrorType").Should().BeTrue();
+        result.Metadata.Should().NotBeNull();
+        result.Metadata!.ContainsKey("CustomErrorType").Should().BeTrue();
         result.Metadata.TryGetValue("CustomErrorType", out var errorType).Should().BeTrue();
-        errorType.Should().Be("Unexpected");
+        errorType!.Should().Be("Unexpected");
         result.Metadata.ContainsKey("OriginalException").Should().BeTrue();
     }
 
@@ -102,9 +104,10 @@ public class SafeRequestHandlerCustomErrorTests
 
         // Assert
         result.IsSuccess.Should().BeFalse();
-        result.Metadata.ContainsKey("RequestId").Should().BeTrue();
+        result.Metadata.Should().NotBeNull();
+        result.Metadata!.ContainsKey("RequestId").Should().BeTrue();
         result.Metadata.TryGetValue("RequestId", out var requestId).Should().BeTrue();
-        requestId.Should().Be("order-123");
+        requestId!.Should().Be("order-123");
         result.Metadata.ContainsKey("Timestamp").Should().BeTrue();
         result.Metadata.ContainsKey("ErrorCategory").Should().BeTrue();
     }
@@ -153,9 +156,10 @@ public class SafeRequestHandlerCustomErrorTests
         // Assert
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Contain("important-data");
-        result.Metadata.ContainsKey("RequestData").Should().BeTrue();
+        result.Metadata.Should().NotBeNull();
+        result.Metadata!.ContainsKey("RequestData").Should().BeTrue();
         result.Metadata.TryGetValue("RequestData", out var requestData).Should().BeTrue();
-        requestData.Should().Be("important-data");
+        requestData!.Should().Be("important-data");
     }
 
     // Test Messages

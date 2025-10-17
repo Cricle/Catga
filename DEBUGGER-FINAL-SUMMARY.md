@@ -1,7 +1,7 @@
 # Catga Debugger - 完整实施总结
 
-**版本**: 1.0.0  
-**日期**: 2025-10-17  
+**版本**: 1.0.0
+**日期**: 2025-10-17
 **状态**: 核心功能已完成 (60%) ✅
 
 ---
@@ -307,7 +307,7 @@ breakpointManager.AddBreakpoint(breakpoint);
 breakpointManager.BreakpointHit += (args) => {
     Console.WriteLine($"Breakpoint hit: {args.Breakpoint.Name}");
     Console.WriteLine($"Message: {args.Message}");
-    
+
     // 自动继续（或等待UI操作）
     breakpointManager.Continue(args.CorrelationId);
 };

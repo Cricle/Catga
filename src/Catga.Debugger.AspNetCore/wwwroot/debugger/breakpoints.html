@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catga 断点调试器</title>
+    <script src="/lib/tailwind.js"></script>
+    <script defer src="/lib/alpine.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div x-data="breakpointsApp()" x-init="init()" class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <h1 class="text-2xl font-bold text-gray-900">🔴 断点调试器</h1>
+                        <a href="/debugger/" class="text-sm text-blue-600 hover:text-blue-800">← 返回主页</a>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button @click="loadBreakpoints()" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">
+                            🔄 刷新
+                        </button>
+                        <button @click="showAddDialog = true" class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">
+                            ➕ 添加断点
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <!-- Breakpoints Table -->
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">名称</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">条件</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">命中次数</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">最后命中</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <template x-if="breakpoints.length === 0">
+                            <tr>
+                                <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                                    暂无断点。点击"添加断点"创建第一个断点。
+                                </td>
+                            </tr>
+                        </template>
+                        <template x-for="bp in breakpoints" :key="bp.id">
+                            <tr :class="bp.enabled ? '' : 'opacity-50'">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <button @click="toggleBreakpoint(bp)" 
+                                            :class="bp.enabled ? 'text-green-600' : 'text-gray-400'"
+                                            class="text-2xl">
+                                        <span x-show="bp.enabled">●</span>
+                                        <span x-show="!bp.enabled">○</span>
+                                    </button>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="text-sm font-medium text-gray-900" x-text="bp.name"></div>
+                                    <div class="text-xs text-gray-500" x-text="bp.id"></div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <code class="text-xs bg-gray-100 px-2 py-1 rounded" x-text="bp.conditionExpression"></code>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800" x-text="bp.hitCount"></span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <span x-text="bp.lastHitAt ? new Date(bp.lastHitAt).toLocaleString() : '-'"></span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                    <button @click="deleteBreakpoint(bp.id)" class="text-red-600 hover:text-red-900">
+                                        🗑️ 删除
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pending Breaks Section -->
+            <div x-show="pendingBreaks.length > 0" class="mt-6 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <h3 class="text-sm font-medium text-yellow-800">断点已命中，等待操作</h3>
+                        <div class="mt-2 space-y-2">
+                            <template x-for="pb in pendingBreaks" :key="pb.correlationId">
+                                <div class="flex items-center justify-between bg-white p-3 rounded shadow-sm">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-900" x-text="pb.breakpointName"></p>
+                                        <p class="text-xs text-gray-500">Correlation: <code x-text="pb.correlationId"></code></p>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button @click="continueExecution(pb.correlationId, 'continue')" 
+                                                class="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
+                                            ▶️ 继续
+                                        </button>
+                                        <button @click="continueExecution(pb.correlationId, 'stepover')" 
+                                                class="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600">
+                                            ⏭️ 单步
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Add Breakpoint Dialog -->
+        <div x-show="showAddDialog" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center" style="display: none;">
+            <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">添加新断点</h3>
+                </div>
+                <div class="px-6 py-4 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">断点名称</label>
+                        <input x-model="newBreakpoint.name" type="text" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="例如: Order Creation">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">条件类型</label>
+                        <select x-model="newBreakpoint.conditionType" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="always">总是中断</option>
+                            <option value="messagetype">消息类型</option>
+                        </select>
+                    </div>
+                    <div x-show="newBreakpoint.conditionType === 'messagetype'">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">消息类型</label>
+                        <input x-model="newBreakpoint.messageType" type="text" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="例如: CreateOrderCommand">
+                    </div>
+                </div>
+                <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                    <button @click="showAddDialog = false" 
+                            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button @click="addBreakpoint()" 
+                            class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">
+                        添加
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function breakpointsApp() {
+            return {
+                breakpoints: [],
+                pendingBreaks: [],
+                showAddDialog: false,
+                newBreakpoint: {
+                    name: '',
+                    conditionType: 'always',
+                    messageType: ''
+                },
+
+                async init() {
+                    await this.loadBreakpoints();
+                    // Poll for pending breaks every 2 seconds
+                    setInterval(() => this.checkPendingBreaks(), 2000);
+                },
+
+                async loadBreakpoints() {
+                    try {
+                        const response = await fetch('/debug-api/breakpoints');
+                        if (response.ok) {
+                            this.breakpoints = await response.json();
+                        }
+                    } catch (error) {
+                        console.error('Failed to load breakpoints:', error);
+                    }
+                },
+
+                async addBreakpoint() {
+                    if (!this.newBreakpoint.name) {
+                        alert('请输入断点名称');
+                        return;
+                    }
+
+                    const breakpoint = {
+                        id: 'bp_' + Date.now(),
+                        name: this.newBreakpoint.name,
+                        conditionType: this.newBreakpoint.conditionType,
+                        messageType: this.newBreakpoint.messageType,
+                        enabled: true
+                    };
+
+                    try {
+                        const response = await fetch('/debug-api/breakpoints', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(breakpoint)
+                        });
+
+                        if (response.ok) {
+                            this.showAddDialog = false;
+                            this.newBreakpoint = { name: '', conditionType: 'always', messageType: '' };
+                            await this.loadBreakpoints();
+                        } else {
+                            alert('添加断点失败');
+                        }
+                    } catch (error) {
+                        console.error('Failed to add breakpoint:', error);
+                        alert('添加断点失败: ' + error.message);
+                    }
+                },
+
+                async toggleBreakpoint(bp) {
+                    try {
+                        const response = await fetch(`/debug-api/breakpoints/${bp.id}/toggle`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ enabled: !bp.enabled })
+                        });
+
+                        if (response.ok) {
+                            await this.loadBreakpoints();
+                        }
+                    } catch (error) {
+                        console.error('Failed to toggle breakpoint:', error);
+                    }
+                },
+
+                async deleteBreakpoint(id) {
+                    if (!confirm('确定要删除此断点吗？')) return;
+
+                    try {
+                        const response = await fetch(`/debug-api/breakpoints/${id}`, {
+                            method: 'DELETE'
+                        });
+
+                        if (response.ok) {
+                            await this.loadBreakpoints();
+                        }
+                    } catch (error) {
+                        console.error('Failed to delete breakpoint:', error);
+                    }
+                },
+
+                async continueExecution(correlationId, action) {
+                    try {
+                        const response = await fetch(`/debug-api/breakpoints/continue/${correlationId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action })
+                        });
+
+                        if (response.ok) {
+                            this.pendingBreaks = this.pendingBreaks.filter(pb => pb.correlationId !== correlationId);
+                        }
+                    } catch (error) {
+                        console.error('Failed to continue execution:', error);
+                    }
+                },
+
+                async checkPendingBreaks() {
+                    // Note: This would require a SignalR connection in a real implementation
+                    // For now, we'll just clear it periodically
+                }
+            };
+        }
+    </script>
+</body>
+</html>
+

@@ -50,11 +50,6 @@
                             class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
                         📈 统计信息
                     </button>
-                    <button @click="currentTab = 'replay'"
-                            :class="currentTab === 'replay' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
-                        ⏮️ 时间旅行
-                    </button>
                 </nav>
             </div>
         </div>
@@ -179,87 +174,6 @@
                             <dd class="mt-1 text-sm font-semibold text-gray-900" x-text="stats.oldestEvent ? new Date(stats.oldestEvent).toLocaleString() : '无'"></dd>
                         </div>
                     </dl>
-                </div>
-            </div>
-
-            <!-- Replay Tab -->
-            <div x-show="currentTab === 'replay'" x-cloak class="fade-in">
-                <!-- Coming Soon Banner -->
-                <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-lg p-8 text-white mb-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="text-2xl font-bold mb-2">⏮️ 时间旅行回放</h2>
-                            <p class="text-blue-100">强大的调试功能 - 回放任意时间点的系统状态</p>
-                        </div>
-                        <div class="bg-white bg-opacity-20 px-4 py-2 rounded-lg">
-                            <span class="text-sm font-semibold">即将推出</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Feature Preview -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <div class="flex items-center mb-4">
-                            <div class="bg-blue-100 p-3 rounded-lg">
-                                <svg class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-                            <h3 class="ml-3 text-lg font-semibold text-gray-900">系统级回放</h3>
-                        </div>
-                        <p class="text-sm text-gray-600">回放整个系统在特定时间段的所有事件，观察系统级行为和流程</p>
-                        <ul class="mt-4 space-y-2 text-sm text-gray-600">
-                            <li class="flex items-center"><span class="text-green-500 mr-2">✓</span>可调速度（0.1x - 10x）</li>
-                            <li class="flex items-center"><span class="text-green-500 mr-2">✓</span>时间范围选择</li>
-                            <li class="flex items-center"><span class="text-green-500 mr-2">✓</span>实时指标展示</li>
-                        </ul>
-                    </div>
-
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <div class="flex items-center mb-4">
-                            <div class="bg-purple-100 p-3 rounded-lg">
-                                <svg class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
-                            </div>
-                            <h3 class="ml-3 text-lg font-semibold text-gray-900">单流回放</h3>
-                        </div>
-                        <p class="text-sm text-gray-600">针对特定消息流进行逐步回放，深入分析单个流程的执行细节</p>
-                        <ul class="mt-4 space-y-2 text-sm text-gray-600">
-                            <li class="flex items-center"><span class="text-green-500 mr-2">✓</span>逐事件步进</li>
-                            <li class="flex items-center"><span class="text-green-500 mr-2">✓</span>状态快照查看</li>
-                            <li class="flex items-center"><span class="text-green-500 mr-2">✓</span>变量值追踪</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- Current Usage Guide -->
-                <div class="mt-6 bg-white rounded-lg shadow p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">💡 当前可用功能</h3>
-                    <div class="space-y-4 text-sm text-gray-600">
-                        <div class="flex items-start">
-                            <span class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3">1</span>
-                            <div>
-                                <p class="font-semibold text-gray-900">查看消息流</p>
-                                <p>在"消息流"标签页查看所有流的实时数据，包括消息类型、状态、执行时间</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start">
-                            <span class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3">2</span>
-                            <div>
-                                <p class="font-semibold text-gray-900">点击查看详情</p>
-                                <p>点击任意消息流可查看完整的流信息，包括关联ID、时间戳、执行状态</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start">
-                            <span class="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold mr-3">3</span>
-                            <div>
-                                <p class="font-semibold text-gray-900">监控统计信息</p>
-                                <p>在"统计信息"标签页实时查看系统性能指标：总事件数、成功率、平均延迟</p>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </main>

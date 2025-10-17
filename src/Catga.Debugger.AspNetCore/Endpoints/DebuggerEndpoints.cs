@@ -171,21 +171,28 @@ public static class DebuggerEndpoints
     {
         var stats = await eventStore.GetStatsAsync(ct);
 
-        // Calculate success rate and average latency
+        // Calculate success rate and average latency based on FLOWS, not individual events
         var recentEvents = await eventStore.GetEventsAsync(
             DateTime.UtcNow.AddHours(-1),
             DateTime.UtcNow,
             ct);
-        
+
         var eventsList = recentEvents.ToList();
+        
+        // Group by correlation ID to get flows
+        var flows = eventsList
+            .GroupBy(e => e.CorrelationId)
+            .ToList();
+
+        // Calculate success rate: flows without exceptions
+        var successfulFlows = flows.Count(g => !g.Any(e => e.Type == EventType.ExceptionThrown));
+        var totalFlows = flows.Count > 0 ? flows.Count : 1;
+        var successRate = (double)successfulFlows / totalFlows * 100;
+
+        // Calculate average latency: only from PerformanceMetric events
         var performanceEvents = eventsList.Where(e => e.Type == EventType.PerformanceMetric).ToList();
-        
-        var successCount = eventsList.Count(e => e.Exception == null);
-        var totalCount = eventsList.Count > 0 ? eventsList.Count : 1;
-        var successRate = (double)successCount / totalCount * 100;
-        
-        var averageLatency = performanceEvents.Any() 
-            ? performanceEvents.Average(e => e.Duration) 
+        var averageLatency = performanceEvents.Any()
+            ? performanceEvents.Average(e => e.Duration)
             : 0;
 
         return TypedResults.Ok(new StatsResponse

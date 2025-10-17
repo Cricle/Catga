@@ -1,7 +1,7 @@
 # AOT 兼容性验证报告
 
-> 完成时间：2025-10-17  
-> 验证范围：所有运行时库  
+> 完成时间：2025-10-17
+> 验证范围：所有运行时库
 > 结果：✅ 100% AOT 兼容
 
 ---
@@ -60,7 +60,7 @@ var eventJson = System.Text.Json.JsonSerializer.Serialize(@event); // IL3050
 
 **修复前**：
 ```csharp
-public sealed class DistributedTracingBehavior<TRequest, TResponse> 
+public sealed class DistributedTracingBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : class, IRequest<TResponse>
 ```
@@ -80,9 +80,9 @@ public sealed class DistributedTracingBehavior<
 
 **Request Payload 序列化**：
 ```csharp
-[UnconditionalSuppressMessage("Trimming", "IL2026:...", 
+[UnconditionalSuppressMessage("Trimming", "IL2026:...",
     Justification = "Debug-only feature, graceful degradation on AOT")]
-[UnconditionalSuppressMessage("AOT", "IL3050:...", 
+[UnconditionalSuppressMessage("AOT", "IL3050:...",
     Justification = "Debug-only feature, graceful degradation on AOT")]
 static void CaptureRequestPayload(Activity activity, TRequest request)
 {
@@ -105,9 +105,9 @@ CaptureRequestPayload(activity, request);
 
 **Response Payload 序列化**：
 ```csharp
-[UnconditionalSuppressMessage("Trimming", "IL2026:...", 
+[UnconditionalSuppressMessage("Trimming", "IL2026:...",
     Justification = "Debug-only feature, graceful degradation on AOT")]
-[UnconditionalSuppressMessage("AOT", "IL3050:...", 
+[UnconditionalSuppressMessage("AOT", "IL3050:...",
     Justification = "Debug-only feature, graceful degradation on AOT")]
 static void CaptureResponsePayload(Activity activity, TResponse response)
 {
@@ -148,9 +148,9 @@ private static string GetCorrelationId(TRequest request)
 
 **修复后**：
 ```csharp
-[UnconditionalSuppressMessage("Trimming", "IL2026:...", 
+[UnconditionalSuppressMessage("Trimming", "IL2026:...",
     Justification = "Fallback mechanism, AOT-safe path exists")]
-[UnconditionalSuppressMessage("Trimming", "IL2075:...", 
+[UnconditionalSuppressMessage("Trimming", "IL2075:...",
     Justification = "Fallback mechanism with try-catch")]
 private static string GetCorrelationId(TRequest request)
 {
@@ -184,15 +184,15 @@ private static string GetCorrelationId(TRequest request)
 ### 4. 抑制事件序列化警告（CatgaMediator.cs）
 
 ```csharp
-[UnconditionalSuppressMessage("Trimming", "IL2026:...", 
+[UnconditionalSuppressMessage("Trimming", "IL2026:...",
     Justification = "Debug-only feature, graceful degradation on AOT")]
-[UnconditionalSuppressMessage("AOT", "IL3050:...", 
+[UnconditionalSuppressMessage("AOT", "IL3050:...",
     Justification = "Debug-only feature, graceful degradation on AOT")]
-private static void CaptureEventPayload<TEvent>(Activity? activity, TEvent @event) 
+private static void CaptureEventPayload<TEvent>(Activity? activity, TEvent @event)
     where TEvent : IEvent
 {
     if (activity == null) return;
-    
+
     try
     {
         var eventJson = System.Text.Json.JsonSerializer.Serialize(@event);
@@ -277,7 +277,7 @@ dotnet publish -c Release -r win-x64 /p:PublishAot=true
 
 ```csharp
 [MemoryPackable]
-public partial record CreateOrder(string OrderId, decimal Amount) 
+public partial record CreateOrder(string OrderId, decimal Amount)
     : IRequest<OrderResult>;
 ```
 

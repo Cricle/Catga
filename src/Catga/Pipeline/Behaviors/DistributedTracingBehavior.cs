@@ -49,30 +49,8 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
                 ("CorrelationId", message.CorrelationId));
         }
 
-        // Capture request payload (serialized) - only for debugging, not critical
-        [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access", Justification = "Debug-only feature, graceful degradation on AOT")]
-        [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling", Justification = "Debug-only feature, graceful degradation on AOT")]
-        static void CaptureRequestPayload(Activity activity, TRequest request)
-        {
-            try
-            {
-                var requestJson = System.Text.Json.JsonSerializer.Serialize(request);
-                if (requestJson.Length < 4096) // Limit size
-                {
-                    activity.SetTag("catga.request.payload", requestJson);
-                }
-                else
-                {
-                    activity.SetTag("catga.request.payload", $"<too large: {requestJson.Length} bytes>");
-                }
-            }
-            catch
-            {
-                // Ignore serialization errors - this is debug-only feature
-            }
-        }
-
-        CaptureRequestPayload(activity, request);
+        // Capture request payload for Jaeger UI (debug-only, graceful degradation on AOT)
+        ActivityPayloadCapture.CaptureRequest(activity, request);
 
         var stopwatch = Stopwatch.StartNew();
 
@@ -94,29 +72,8 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
                 activity.AddActivityEvent("Command.Succeeded",
                     ("Duration", $"{durationMs:F2}ms"));
 
-                // Capture response payload - only for debugging, not critical
-                if (result.Value != null)
-                {
-                    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access", Justification = "Debug-only feature, graceful degradation on AOT")]
-                    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling", Justification = "Debug-only feature, graceful degradation on AOT")]
-                    static void CaptureResponsePayload(Activity activity, TResponse response)
-                    {
-                        try
-                        {
-                            var responseJson = System.Text.Json.JsonSerializer.Serialize(response);
-                            if (responseJson.Length < 4096)
-                            {
-                                activity.SetTag("catga.response.payload", responseJson);
-                            }
-                        }
-                        catch
-                        {
-                            // Ignore serialization errors - this is debug-only feature
-                        }
-                    }
-
-                    CaptureResponsePayload(activity, result.Value);
-                }
+                // Capture response payload for Jaeger UI (debug-only, graceful degradation on AOT)
+                ActivityPayloadCapture.CaptureResponse(activity, result.Value);
             }
             else
             {

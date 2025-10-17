@@ -244,8 +244,8 @@ public sealed class CatgaMediator : ICatgaMediator
                 activity.SetTag("catga.correlation_id", message.CorrelationId);
             }
 
-            // Capture event payload (only for small payloads to avoid overhead)
-            CaptureEventPayload(activity, @event);
+            // Capture event payload for Jaeger UI (debug-only, graceful degradation on AOT)
+            ActivityPayloadCapture.CaptureEvent(activity, @event);
         }
 
         var startTimestamp = Stopwatch.GetTimestamp();
@@ -276,29 +276,6 @@ public sealed class CatgaMediator : ICatgaMediator
         }
     }
 
-    /// <summary>
-    /// Capture event payload for debugging (only for small payloads)
-    /// </summary>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access", Justification = "Debug-only feature, graceful degradation on AOT")]
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling", Justification = "Debug-only feature, graceful degradation on AOT")]
-    private static void CaptureEventPayload<TEvent>(Activity? activity, TEvent @event) where TEvent : IEvent
-    {
-        if (activity == null) return;
-        
-        try
-        {
-            var eventJson = System.Text.Json.JsonSerializer.Serialize(@event);
-            if (eventJson.Length < 4096)
-            {
-                activity.SetTag("catga.event.payload", eventJson);
-            }
-        }
-        catch
-        {
-            // Ignore serialization errors - this is debug-only feature
-        }
-    }
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public async ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(IReadOnlyList<TRequest> requests, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>

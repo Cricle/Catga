@@ -1,5 +1,6 @@
 using Catga;
 using Catga.AspNetCore;
+using Catga.AspNetCore.Extensions;
 using Catga.Debugger.AspNetCore.DependencyInjection;
 using Catga.Debugger.DependencyInjection;
 using Catga.DependencyInjection;
@@ -43,6 +44,9 @@ if (builder.Environment.IsDevelopment())
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
+
+// Use CorrelationId middleware (must be before routing)
+app.UseCorrelationId();
 
 // Use CORS before endpoints
 if (app.Environment.IsDevelopment())

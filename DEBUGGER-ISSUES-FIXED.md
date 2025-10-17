@@ -61,7 +61,7 @@
    {
        if (request is IMessage message && !string.IsNullOrEmpty(message.CorrelationId))
            return message.CorrelationId;
-       
+
        // 问题：每次都生成新的 Guid
        return Guid.NewGuid().ToString("N");
    }

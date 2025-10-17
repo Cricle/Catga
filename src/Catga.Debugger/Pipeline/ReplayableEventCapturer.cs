@@ -115,12 +115,38 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private string GetCorrelationId(TRequest request)
     {
-        // Try to get correlation ID from IMessage
+        // 1. Try to get from global AsyncLocal (set by CorrelationIdMiddleware)
+        var globalCorrelationId = GetGlobalCorrelationId();
+        if (!string.IsNullOrEmpty(globalCorrelationId))
+            return globalCorrelationId;
+
+        // 2. Try to get correlation ID from IMessage
         if (request is IMessage message && !string.IsNullOrEmpty(message.CorrelationId))
             return message.CorrelationId;
 
-        // Generate new correlation ID
+        // 3. Generate new correlation ID (fallback)
         return Guid.NewGuid().ToString("N");
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string? GetGlobalCorrelationId()
+    {
+        // Use reflection to access CorrelationIdMiddleware.Current
+        // This avoids hard dependency on Catga.AspNetCore
+        try
+        {
+            var middlewareType = Type.GetType("Catga.AspNetCore.Middleware.CorrelationIdMiddleware, Catga.AspNetCore");
+            if (middlewareType != null)
+            {
+                var currentProperty = middlewareType.GetProperty("Current", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                return currentProperty?.GetValue(null) as string;
+            }
+        }
+        catch
+        {
+            // Ignore if Catga.AspNetCore is not available
+        }
+        return null;
     }
 
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "CaptureVariables is marked with RequiresUnreferencedCode. Callers are aware of AOT limitations.")]

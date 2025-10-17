@@ -178,7 +178,7 @@ public static class DebuggerEndpoints
             ct);
 
         var eventsList = recentEvents.ToList();
-        
+
         // Group by correlation ID to get flows
         var flows = eventsList
             .GroupBy(e => e.CorrelationId)

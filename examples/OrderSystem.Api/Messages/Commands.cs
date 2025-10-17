@@ -15,7 +15,10 @@ public partial record CreateOrderCommand(
     List<OrderItem> Items,
     string ShippingAddress,
     string PaymentMethod
-) : IRequest<OrderCreatedResult>;
+) : IRequest<OrderCreatedResult>
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 [MemoryPackable]
 public partial record OrderCreatedResult(
@@ -32,7 +35,10 @@ public partial record OrderCreatedResult(
 public partial record CancelOrderCommand(
     string OrderId,
     string Reason
-) : IRequest;
+) : IRequest
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 /// <summary>
 /// Get order query
@@ -41,7 +47,10 @@ public partial record CancelOrderCommand(
 [MemoryPackable]
 public partial record GetOrderQuery(
     string OrderId
-) : IRequest<Order?>;
+) : IRequest<Order?>
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 // ===== 扩展指南 =====
 // 💡 如何添加新命令？

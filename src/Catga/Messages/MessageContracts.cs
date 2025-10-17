@@ -15,18 +15,18 @@ public interface IMessage
     /// Use IDistributedIdGenerator to generate IDs for performance and uniqueness.
     /// </summary>
     public string MessageId { get; }
-    
+
     /// <summary>
     /// Creation timestamp. Default implementation is provided for convenience.
     /// </summary>
     public DateTime CreatedAt => DateTime.UtcNow;
-    
+
     /// <summary>
     /// Correlation ID for distributed tracing. Should be propagated from Activity.Baggage or parent message.
     /// Null if this is the originating message.
     /// </summary>
     public string? CorrelationId => null;
-    
+
     public QualityOfService QoS => QualityOfService.AtLeastOnce;
     public DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
 }

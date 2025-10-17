@@ -102,13 +102,19 @@ public class ConcurrencyPerformanceBenchmarks
 }
 
 [MemoryPackable]
-public partial record ConcurrentCommand(int Id) : IRequest<ConcurrentResult>;
+public partial record ConcurrentCommand(int Id) : IRequest<ConcurrentResult>
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 [MemoryPackable]
 public partial record ConcurrentResult(int Id, long Timestamp);
 
 [MemoryPackable]
-public partial record ConcurrentEvent(int Id) : IEvent;
+public partial record ConcurrentEvent(int Id) : IEvent
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 public class ConcurrentCommandHandler : IRequestHandler<ConcurrentCommand, ConcurrentResult>
 {

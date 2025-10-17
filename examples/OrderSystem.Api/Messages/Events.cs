@@ -16,7 +16,10 @@ public partial record OrderCreatedEvent(
     List<OrderItem> Items,
     decimal TotalAmount,
     DateTime CreatedAt
-) : IEvent;
+) : IEvent
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 /// <summary>
 /// Order cancelled event
@@ -27,7 +30,10 @@ public partial record OrderCancelledEvent(
     string OrderId,
     string Reason,
     DateTime CancelledAt
-) : IEvent;
+) : IEvent
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 /// <summary>
 /// Order failed event (for rollback scenarios)
@@ -40,7 +46,10 @@ public partial record OrderFailedEvent(
     string CustomerId,
     string Reason,
     DateTime FailedAt
-) : IEvent;
+) : IEvent
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 // ===== 扩展指南 =====
 // 💡 如何添加新事件？

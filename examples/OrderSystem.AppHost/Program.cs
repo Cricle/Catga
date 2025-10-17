@@ -29,9 +29,10 @@ var nats = builder.AddNats("nats")
 var orderApi = builder.AddProject<Projects.OrderSystem_Api>("order-api")
     .WithReference(redis)
     .WithReference(nats)
-    .WithReference(jaeger)  // ✅ Reference Jaeger for OTLP export
+    // Jaeger OTLP endpoint configuration
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
-    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")  // Export to Jaeger
+    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+    .WithEnvironment("OTEL_SERVICE_NAME", "order-api")
     .WithHttpEndpoint(port: 5000, name: "http");        // HTTP endpoint on port 5000
 
 // ===== Aspire Features =====

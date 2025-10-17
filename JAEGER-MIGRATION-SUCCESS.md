@@ -2,8 +2,8 @@
 
 ## ✅ 项目状态：**全部完成**
 
-**日期**: 2025-10-17  
-**任务**: 删除 Catga.Debugger，拥抱 Jaeger + OpenTelemetry 标准生态  
+**日期**: 2025-10-17
+**任务**: 删除 Catga.Debugger，拥抱 Jaeger + OpenTelemetry 标准生态
 **状态**: ✅ **SUCCESS** - 所有11个阶段全部完成
 
 ---
@@ -34,7 +34,7 @@
   - Profiling: PerformanceAnalyzer, FlameGraphBuilder
   - Pipeline: ReplayableEventCapturer, PerformanceCaptureBehavior, BreakpointBehavior, CallStackBehavior
   - Breakpoints: BreakpointManager, WatchManager
-  
+
 - ❌ `src/Catga.Debugger.AspNetCore/` (整个项目)
   - Hubs: DebuggerHub, DebuggerNotificationService
   - Endpoints: DebuggerEndpoints, ReplayControlEndpoints, ProfilingEndpoints, BreakpointEndpoints
@@ -108,11 +108,11 @@ catga.compensation.failed      // 补偿失败
   - 设置 `catga.type=command`
   - Correlation ID 添加到 Baggage (自动跨服务传播)
   - 成功/失败自动设置 ActivityStatusCode
-  
+
 - ✅ 事件发布：`Event: {EventName}` activity (Producer)
   - 设置 `catga.type=event`
   - 记录 `EventPublished` timeline event
-  
+
 - ✅ 事件处理：`Handle: {EventName}` activity (Consumer)
   - 记录 `EventReceived` timeline event
   - 自动继承 Correlation ID
@@ -358,7 +358,7 @@ curl -X POST http://localhost:5000/demo/order-failure
 
 ---
 
-**迁移完成日期**: 2025-10-17  
-**状态**: ✅ **SUCCESS**  
+**迁移完成日期**: 2025-10-17
+**状态**: ✅ **SUCCESS**
 **下一步**: 用户可以立即开始使用 Jaeger 进行分布式追踪！
 

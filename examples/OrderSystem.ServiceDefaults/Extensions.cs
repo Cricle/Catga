@@ -22,22 +22,50 @@ public static class Extensions
         // Configure OpenTelemetry
         builder.AddOpenTelemetryExporters();
 
-        // Add tracing with Catga support
+        // Add tracing with complete Catga support for distributed systems
         builder.Services.AddOpenTelemetry()
             .WithTracing(tracing =>
             {
                 tracing
+                    // ASP.NET Core instrumentation with full context
                     .AddAspNetCoreInstrumentation(options =>
                     {
                         options.RecordException = true;
+                        options.Filter = httpContext =>
+                        {
+                            // Don't trace health checks
+                            return !httpContext.Request.Path.StartsWithSegments("/health");
+                        };
                         options.EnrichWithHttpRequest = (activity, request) =>
                         {
                             activity.SetTag("http.request.id", request.HttpContext.TraceIdentifier);
+                            activity.SetTag("http.request.method", request.Method);
+                            activity.SetTag("http.request.path", request.Path);
+                            
+                            // Propagate correlation ID from header if present
+                            if (request.HttpContext.Request.Headers.TryGetValue("X-Correlation-ID", out var correlationId))
+                            {
+                                activity.SetTag("catga.correlation_id", correlationId.ToString());
+                                activity.SetBaggage("catga.correlation_id", correlationId.ToString());
+                            }
+                        };
+                        options.EnrichWithHttpResponse = (activity, response) =>
+                        {
+                            activity.SetTag("http.response.status_code", response.StatusCode);
                         };
                     })
+                    // HTTP Client instrumentation for outgoing requests
                     .AddHttpClientInstrumentation(options =>
                     {
                         options.RecordException = true;
+                        options.EnrichWithHttpRequestMessage = (activity, request) =>
+                        {
+                            activity.SetTag("http.request.url", request.RequestUri?.ToString());
+                        };
+                        options.EnrichWithHttpResponseMessage = (activity, response) =>
+                        {
+                            activity.SetTag("http.response.status_code", (int)response.StatusCode);
+                        };
                     })
                     // ✅ Critical: Add Catga's ActivitySource for distributed tracing
                     .AddSource("Catga.Framework")  // Catga main source
@@ -46,10 +74,14 @@ public static class Extensions
             .WithMetrics(metrics =>
             {
                 metrics
+                    // ASP.NET Core metrics
                     .AddAspNetCoreInstrumentation()
+                    // HTTP Client metrics
                     .AddHttpClientInstrumentation()
+                    // Runtime metrics (GC, ThreadPool, etc.)
                     .AddRuntimeInstrumentation()
-                    .AddMeter("Catga.*");  // Catga metrics
+                    // ✅ Catga metrics
+                    .AddMeter("Catga.*");
             });
 
         // Service discovery with resilience

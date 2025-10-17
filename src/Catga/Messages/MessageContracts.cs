@@ -2,13 +2,31 @@ using System.ComponentModel;
 
 namespace Catga.Messages;
 
-/// <summary>Base message interface (framework use only)</summary>
+/// <summary>
+/// Base message interface (framework use only).
+/// Users must provide MessageId and CorrelationId - no default implementation.
+/// This ensures proper ID generation and distributed tracing.
+/// </summary>
 [EditorBrowsable(EditorBrowsableState.Never)]
 public interface IMessage
 {
-    public string MessageId => Guid.NewGuid().ToString();
+    /// <summary>
+    /// Unique message identifier. Must be provided by the caller.
+    /// Use IDistributedIdGenerator to generate IDs for performance and uniqueness.
+    /// </summary>
+    public string MessageId { get; }
+    
+    /// <summary>
+    /// Creation timestamp. Default implementation is provided for convenience.
+    /// </summary>
     public DateTime CreatedAt => DateTime.UtcNow;
+    
+    /// <summary>
+    /// Correlation ID for distributed tracing. Should be propagated from Activity.Baggage or parent message.
+    /// Null if this is the originating message.
+    /// </summary>
     public string? CorrelationId => null;
+    
     public QualityOfService QoS => QualityOfService.AtLeastOnce;
     public DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
 }

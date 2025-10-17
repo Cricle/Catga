@@ -89,19 +89,28 @@ public class CqrsPerformanceBenchmarks
 
 // Benchmark message types
 [MemoryPackable]
-public partial record BenchCommand(int Id, string Data) : IRequest<BenchCommandResult>;
+public partial record BenchCommand(int Id, string Data) : IRequest<BenchCommandResult>
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 [MemoryPackable]
 public partial record BenchCommandResult(int Id, string ProcessedData);
 
 [MemoryPackable]
-public partial record BenchQuery(int Id) : IRequest<BenchQueryResult>;
+public partial record BenchQuery(int Id) : IRequest<BenchQueryResult>
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 [MemoryPackable]
 public partial record BenchQueryResult(int Id, string Data);
 
 [MemoryPackable]
-public partial record BenchEvent(int Id, string Data) : IEvent;
+public partial record BenchEvent(int Id, string Data) : IEvent
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 // Benchmark handlers - minimal logic for pure framework overhead measurement
 public class BenchCommandHandler : IRequestHandler<BenchCommand, BenchCommandResult>

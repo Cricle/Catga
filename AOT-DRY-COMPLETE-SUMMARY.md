@@ -20,7 +20,7 @@
 if (CustomSerializer == null)
     json = payload.ToString(); // 静默fallback
 
-// ❌ GetCorrelationId  
+// ❌ GetCorrelationId
 return Guid.NewGuid().ToString("N"); // 破坏分布式追踪
 ```
 
@@ -246,7 +246,7 @@ builder.Services.AddCatga()
 ## ✅ 验证清单
 
 - [x] Phase 1: 移除 ActivityPayloadCapture fallback
-- [x] Phase 2: 移除 GetCorrelationId fallback  
+- [x] Phase 2: 移除 GetCorrelationId fallback
 - [x] Phase 3: 审查所有抑制消息
 - [x] Phase 4: 编译验证 0 AOT 警告
 - [x] Phase 5: AOT 策略确认
@@ -259,11 +259,11 @@ builder.Services.AddCatga()
 ## 🎉 最终结论
 
 ### 成果
-✅ **真正的 AOT 兼容** - 不是隐藏警告  
-✅ **Fail Fast** - 配置错误立即发现  
-✅ **DRY 原则** - 消除代码重复  
-✅ **清晰文档** - 每个抑制都有理由  
-✅ **用户友好** - 明确的错误消息  
+✅ **真正的 AOT 兼容** - 不是隐藏警告
+✅ **Fail Fast** - 配置错误立即发现
+✅ **DRY 原则** - 消除代码重复
+✅ **清晰文档** - 每个抑制都有理由
+✅ **用户友好** - 明确的错误消息
 
 ### 原则
 > "Make it work, make it right, make it fast."

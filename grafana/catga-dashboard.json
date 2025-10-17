@@ -1,0 +1,239 @@
+{
+  "dashboard": {
+    "title": "Catga CQRS Framework - Production Monitoring",
+    "tags": ["catga", "cqrs", "performance"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Command Execution Rate",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(catga_commands_executed_total[5m])",
+            "legendFormat": "{{request_type}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth"
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Command Success Rate",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 0, "w": 6, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(catga_commands_executed_total{success=\"true\"}[5m])) / sum(rate(catga_commands_executed_total[5m])) * 100"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 95, "color": "yellow" },
+                { "value": 99, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Event Publishing Rate",
+        "type": "stat",
+        "gridPos": { "x": 18, "y": 0, "w": 6, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(catga_events_published_total[5m])"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "evtps"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Command Duration (p50, p95, p99)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(catga_command_duration_seconds_bucket[5m]))",
+            "legendFormat": "p50 - {{request_type}}"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(catga_command_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95 - {{request_type}}"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(catga_command_duration_seconds_bucket[5m]))",
+            "legendFormat": "p99 - {{request_type}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Error Rate by Type",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(catga_commands_executed_total{success=\"false\"}[5m])",
+            "legendFormat": "{{request_type}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": {
+              "drawStyle": "bars"
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Active Message Flows",
+        "type": "gauge",
+        "gridPos": { "x": 0, "y": 16, "w": 6, "h": 6 },
+        "targets": [
+          {
+            "expr": "catga_active_flows"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 100, "color": "yellow" },
+                { "value": 500, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Event Store Size",
+        "type": "gauge",
+        "gridPos": { "x": 6, "y": 16, "w": 6, "h": 6 },
+        "targets": [
+          {
+            "expr": "catga_event_store_size_bytes / 1024 / 1024"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "mbytes"
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Handler Execution Count (Top 10)",
+        "type": "table",
+        "gridPos": { "x": 12, "y": 16, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "topk(10, sum by (request_type) (catga_commands_executed_total))",
+            "format": "table"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Circuit Breaker Status",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 22, "w": 8, "h": 4 },
+        "targets": [
+          {
+            "expr": "catga_circuit_breaker_open"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              { "type": "value", "value": 0, "text": "Closed" },
+              { "type": "value", "value": 1, "text": "Open" }
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 1, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Replay Sessions Active",
+        "type": "stat",
+        "gridPos": { "x": 8, "y": 22, "w": 8, "h": 4 },
+        "targets": [
+          {
+            "expr": "catga_replay_sessions_active"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Memory Usage (Event Store)",
+        "type": "timeseries",
+        "gridPos": { "x": 16, "y": 22, "w": 8, "h": 4 },
+        "targets": [
+          {
+            "expr": "catga_event_store_size_bytes"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes"
+          }
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "datasource",
+          "type": "datasource",
+          "query": "prometheus"
+        },
+        {
+          "name": "namespace",
+          "type": "query",
+          "query": "label_values(catga_commands_executed_total, namespace)",
+          "datasource": "${datasource}"
+        }
+      ]
+    }
+  }
+}
+

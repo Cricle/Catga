@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Catga.Debugger.Core;
 using Catga.Debugger.Models;
+using Catga.Debugger.Observability;
 using Catga.Debugger.Storage;
 using Catga.Messages;
 using Catga.Pipeline;
@@ -57,6 +58,10 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
         };
 
         var stopwatch = Stopwatch.StartNew();
+        var requestType = typeof(TRequest).Name;
+
+        // Record active command (OpenTelemetry metric)
+        CatgaMetrics.IncrementActiveCommands();
 
         try
         {
@@ -73,6 +78,7 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
             var result = await next();
 
             stopwatch.Stop();
+            var durationSeconds = stopwatch.Elapsed.TotalSeconds;
 
             // Capture output state
             await CaptureSnapshotAsync("AfterExecution", captureContext, result);
@@ -86,17 +92,26 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
             // Save events to store
             await _eventStore.SaveAsync(captureContext.Events, cancellationToken);
 
+            // Record OpenTelemetry metrics
+            CatgaMetrics.RecordCommandExecuted(requestType, result.IsSuccess);
+            CatgaMetrics.RecordCommandDuration(requestType, durationSeconds);
+
             return result;
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
+            var durationSeconds = stopwatch.Elapsed.TotalSeconds;
 
             // Capture exception
             if (_options.TrackExceptions)
             {
                 CaptureException(captureContext, ex, stopwatch.Elapsed);
             }
+
+            // Record failure metrics
+            CatgaMetrics.RecordCommandExecuted(requestType, false);
+            CatgaMetrics.RecordCommandDuration(requestType, durationSeconds);
 
             // Save events even on failure
             try
@@ -109,6 +124,11 @@ public sealed class ReplayableEventCapturer<TRequest, TResponse> : IPipelineBeha
             }
 
             throw;
+        }
+        finally
+        {
+            // Always decrement active commands
+            CatgaMetrics.DecrementActiveCommands();
         }
     }
 

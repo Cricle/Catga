@@ -65,8 +65,8 @@ public static class ReplayControlEndpoints
         await replay.StepAsync(steps);
 
         var machine = replay.StateMachine;
-        var currentEvent = machine.CurrentIndex < machine.TotalSteps 
-            ? GetEventAtIndex(machine, machine.CurrentIndex) 
+        var currentEvent = machine.CurrentIndex < machine.TotalSteps
+            ? GetEventAtIndex(machine, machine.CurrentIndex)
             : null;
 
         return TypedResults.Ok(new FlowStepResponse
@@ -142,7 +142,7 @@ public static class ReplayControlEndpoints
             {
                 MethodName = f.MethodName,
                 FileName = f.FileName,
-                LineNumber = f.LineNumber
+                LineNumber = f.LineNumber ?? 0
             }).ToList(),
             CurrentState = machine.CurrentState?.ToString()
         });
@@ -194,7 +194,7 @@ public static class ReplayControlEndpoints
         // In production, FlowStateMachine should expose GetEventAtIndex method
         try
         {
-            var field = typeof(FlowStateMachine).GetField("_events", 
+            var field = typeof(FlowStateMachine).GetField("_events",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             if (field?.GetValue(machine) is List<ReplayableEvent> events && index < events.Count)
             {

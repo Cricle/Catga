@@ -308,7 +308,7 @@
                                 <button @click="flowReplayId = flow.correlationId"
                                         class="w-full px-4 py-2 text-left bg-gray-50 hover:bg-gray-100 rounded-lg transition text-sm flex justify-between items-center">
                                     <span class="font-mono text-xs" x-text="flow.correlationId.substring(0, 24) + '...'"></span>
-                                    <span class="text-xs" 
+                                    <span class="text-xs"
                                           :class="flow.status === 'Success' ? 'text-green-600' : 'text-red-600'"
                                           x-text="flow.messageType + ' - ' + flow.status"></span>
                                 </button>
@@ -327,7 +327,7 @@
                             <div class="ml-3 flex-1">
                                 <h3 class="text-sm font-medium text-purple-900">高级时间旅行调试器</h3>
                                 <p class="mt-1 text-xs text-purple-700">逐步回放、变量监视、调用堆栈、时间轴可视化</p>
-                                <a href="/debugger/replay-player.html" 
+                                <a href="/debugger/replay-player.html"
                                    target="_blank"
                                    class="mt-2 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-purple-600 hover:bg-purple-700">
                                     🚀 打开调试器

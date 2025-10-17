@@ -29,29 +29,49 @@ public static class DebuggerServiceCollectionExtensions
         services.AddSingleton<StateReconstructor>();
         services.AddSingleton<ReplaySessionManager>();
 
-        // Register pipeline behavior for event capture
-        services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ReplayableEventCapturer<,>));
+        // Register pipeline behavior for event capture (only if replay enabled)
+        if (options.EnableReplay)
+        {
+            services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ReplayableEventCapturer<,>));
+        }
 
         return services;
     }
 
     /// <summary>Add Catga debugger with production-optimized settings</summary>
+    /// <remarks>
+    /// Production mode focuses on metrics and tracing only, disables expensive features.
+    /// Safe for production use with minimal overhead.
+    /// </remarks>
     public static IServiceCollection AddCatgaDebuggerForProduction(
         this IServiceCollection services)
     {
         return services.AddCatgaDebugger(options =>
         {
             options.Mode = DebuggerMode.ProductionOptimized;
-            options.SamplingRate = 0.001; // 0.1%
+            
+            // Disable time-travel debugging (use only for development)
+            options.EnableReplay = false;
+            options.TrackStateSnapshots = false;
+            options.CaptureVariables = false;
+            options.CaptureCallStacks = false;
+            options.CaptureMemoryState = false;
+            
+            // Enable lightweight monitoring only
+            options.TrackMessageFlows = false; // Use OpenTelemetry traces instead
+            options.TrackPerformance = false;  // Use OpenTelemetry metrics instead
+            options.TrackExceptions = true;    // Keep exception tracking
+            
+            // Performance optimizations
+            options.SamplingRate = 0.01; // 1% sampling for exceptions
             options.EnableAdaptiveSampling = true;
             options.UseRingBuffer = true;
             options.MaxMemoryMB = 50;
             options.EnableZeroCopy = true;
             options.EnableObjectPooling = true;
-            options.TrackStateSnapshots = false; // Disable snapshots in production
-            options.CaptureMemoryState = false;
-            options.CaptureCallStacks = false;
-            options.AutoDisableAfter = TimeSpan.FromMinutes(30);
+            
+            // Auto-disable after period
+            options.AutoDisableAfter = TimeSpan.FromHours(2);
         });
     }
 

@@ -1,276 +1,310 @@
-# Catga 文档中心
+# Catga 完整文档索引
 
-<div align="center">
-
-**完整的 CQRS 框架文档，助你快速上手并精通 Catga**
-
-[快速开始](#快速入门) · [核心概念](#核心概念) · [功能指南](#功能指南) · [部署](#部署)
-
-</div>
+> 欢迎来到 Catga 文档中心！这里包含框架的完整使用指南和API参考。
 
 ---
 
-## 📚 文档导航
+## 🚀 新手入门
 
-### 快速入门
+如果你是第一次接触 Catga，从这里开始：
 
-| 文档 | 描述 | 预计时间 |
-|------|------|---------|
-| [快速开始](./QUICK-START.md) | 5 分钟构建第一个应用 | ⏱️ 5 min |
-| [Quick Reference](./QUICK-REFERENCE.md) | API 速查表 | ⏱️ 2 min |
-| [OrderSystem 示例](../examples/OrderSystem.Api/) | 完整的订单系统示例 | ⏱️ 15 min |
-
-### 核心概念
-
-| 文档 | 描述 |
-|------|------|
-| [消息定义](./api/messages.md) | IRequest, IEvent, INotification |
-| [Handler 实现](./api/handlers.md) | SafeRequestHandler, IEventHandler |
-| [错误处理](./guides/error-handling.md) | CatgaException, CatgaResult |
-| [依赖注入](./guides/dependency-injection.md) | 自动注册, Source Generator |
-
-### 功能指南
-
-| 文档 | 描述 | 特性 |
-|------|------|------|
-| [自定义错误处理](./guides/custom-error-handling.md) | 虚函数重写，自动回滚 | 🆕 |
-| [时间旅行调试](./DEBUGGER.md) | 完整流程回放 | ⭐ |
-| [Source Generator](./SOURCE-GENERATOR.md) | 零反射，自动注册 | 🔥 |
-| [分布式事务](./patterns/DISTRIBUTED-TRANSACTION-V2.md) | Catga Pattern | 💡 |
-| [事件驱动](./patterns/event-driven.md) | 发布/订阅模式 | 📢 |
-| [.NET Aspire 集成](./guides/debugger-aspire-integration.md) | 云原生开发 | ☁️ |
-
-### 序列化与传输
-
-| 文档 | 描述 | AOT |
-|------|------|-----|
-| [MemoryPack 序列化](./serialization/memorypack.md) | AOT 兼容，高性能 | ✅ |
-| [JSON 序列化](./serialization/json.md) | 开发友好 | ⚠️ |
-| [NATS 传输](./transport/nats.md) | 分布式消息传输 | ✅ |
-| [Redis 持久化](./persistence/redis.md) | 事件存储 | ✅ |
-
-### 高级主题
-
-| 文档 | 描述 |
-|------|------|
-| [性能优化](./PERFORMANCE-REPORT.md) | 性能基准和优化技巧 |
-| [AOT 兼容性](../src/Catga.Debugger/AOT-COMPATIBILITY.md) | Native AOT 完整指南 |
-| [Benchmark 结果](./BENCHMARK-RESULTS.md) | 详细的性能测试数据 |
-| [测试覆盖率](../TEST-COVERAGE-SUMMARY.md) | 测试策略和覆盖率分析 |
-
-### 部署
-
-| 文档 | 描述 |
-|------|------|
-| [生产配置](./deployment/production.md) | 生产环境最佳实践 |
-| [Docker 部署](./deployment/docker.md) | 容器化部署 |
-| [Kubernetes](./deployment/kubernetes.md) | K8s 部署指南 |
-| [监控和告警](./deployment/monitoring.md) | OpenTelemetry 集成 |
+1. **[快速开始](./QUICK-START.md)** - 5 分钟上手 Catga
+2. **[Quick Reference](./QUICK-REFERENCE.md)** - API 速查表
+3. **[OrderSystem 示例](../examples/OrderSystem.Api/README.md)** - 完整的订单系统示例
 
 ---
 
-## 🚀 快速开始路径
+## 📚 核心文档
 
-### 路径 1: 新手入门（推荐）
+### API 参考
 
-1. **5 分钟** - 阅读 [快速开始](./QUICK-START.md)
-2. **10 分钟** - 运行 [OrderSystem 示例](../examples/OrderSystem.Api/)
-3. **15 分钟** - 学习 [消息定义](./api/messages.md) 和 [Handler 实现](./api/handlers.md)
-4. **开始编码** - 构建你的第一个应用！
+- **[ICatgaMediator API](./api/mediator.md)** - 核心 Mediator 接口
+  - `SendAsync` - 发送命令
+  - `PublishAsync` - 发布事件
+  - 批量操作和流处理
 
-### 路径 2: 有 MediatR 经验
+- **[消息契约](./api/messages.md)** - 消息定义规范
+  - `IRequest<TResponse>` - 命令/查询
+  - `IEvent` - 事件
+  - MemoryPack 序列化
 
-1. **2 分钟** - 查看 [Quick Reference](./QUICK-REFERENCE.md)
-2. **5 分钟** - 了解 [SafeRequestHandler](./api/handlers.md#saferequesthandler)
-3. **10 分钟** - 学习 [Source Generator](./SOURCE-GENERATOR.md)
-4. **开始迁移** - 从 MediatR 迁移到 Catga
+- **[API 总览](./api/README.md)** - 完整 API 列表
 
-### 路径 3: 关注性能
+### 使用指南
 
-1. **5 分钟** - 阅读 [性能报告](./PERFORMANCE-REPORT.md)
-2. **10 分钟** - 查看 [Benchmark 结果](./BENCHMARK-RESULTS.md)
-3. **15 分钟** - 学习 [MemoryPack 序列化](./serialization/memorypack.md)
-4. **开始优化** - 应用零分配设计模式
+#### 基础功能
 
-### 路径 4: 分布式系统
+- **[自定义错误处理](./guides/custom-error-handling.md)** ⭐ 推荐
+  - SafeRequestHandler 使用
+  - 自动回滚实现
+  - 虚函数重写
 
-1. **10 分钟** - 学习 [NATS 传输](./transport/nats.md)
-2. **10 分钟** - 学习 [Redis 持久化](./persistence/redis.md)
-3. **20 分钟** - 了解 [分布式事务](./patterns/DISTRIBUTED-TRANSACTION-V2.md)
-4. **开始构建** - 分布式 CQRS 应用
+- **[序列化配置](./guides/serialization.md)**
+  - MemoryPack（AOT 推荐）
+  - JSON 序列化
+  - 性能对比
 
----
+- **[分布式 ID 生成](./guides/distributed-id.md)**
+  - Snowflake 算法
+  - 配置选项
+  - 性能优化
 
-## 📖 核心概念速览
+#### 高级功能
 
-### 1. SafeRequestHandler
+- **[Source Generator](./guides/source-generator.md)** - 零反射，自动注册
+  - `AddGeneratedHandlers()`
+  - `AddGeneratedServices()`
+  - 编译时代码生成
 
-**零异常处理的 Handler 基类**：
+- **[自动依赖注入](./guides/auto-di-registration.md)**
+  - `[CatgaService]` 属性
+  - 服务生命周期
+  - 接口绑定
 
-```csharp
-public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
-{
-    // 只需编写业务逻辑，无需 try-catch！
-    protected override async Task<OrderResult> HandleCoreAsync(
-        CreateOrder request,
-        CancellationToken ct)
-    {
-        if (request.Amount <= 0)
-            throw new CatgaException("Amount must be positive");  // 自动转换为失败结果
-
-        // 业务逻辑
-        return new OrderResult(orderId, DateTime.UtcNow);
-    }
-
-    // 可选：自定义错误处理和回滚
-    protected override async Task<CatgaResult<OrderResult>> OnBusinessErrorAsync(...)
-    {
-        // 自动回滚逻辑
-        await RollbackChangesAsync();
-        return CatgaResult.Failure("Operation rolled back");
-    }
-}
-```
-
-### 2. Source Generator
-
-**零配置，自动注册**：
-
-```csharp
-// 自动发现并注册所有 Handler
-builder.Services.AddGeneratedHandlers();
-
-// 自动发现并注册所有服务
-builder.Services.AddGeneratedServices();
-
-// 服务定义
-[CatgaService(ServiceLifetime.Scoped, ServiceType = typeof(IRepository))]
-public class Repository : IRepository { }
-```
-
-### 3. 事件驱动
-
-**一个事件，多个 Handler**：
-
-```csharp
-// 定义事件
-[MemoryPackable]
-public partial record OrderCreated(string OrderId) : IEvent;
-
-// 多个 Handler 自动并行执行
-public class SendEmailHandler : IEventHandler<OrderCreated> { }
-public class UpdateStatsHandler : IEventHandler<OrderCreated> { }
-public class NotifyWarehouseHandler : IEventHandler<OrderCreated> { }
-
-// 发布事件
-await mediator.PublishAsync(new OrderCreated(orderId));
-```
-
-### 4. 消息定义
-
-**简洁的消息契约**：
-
-```csharp
-// 命令（有返回值）
-[MemoryPackable]
-public partial record CreateOrder(string Id, decimal Amount) : IRequest<OrderResult>;
-
-// 命令结果
-[MemoryPackable]
-public partial record OrderResult(string OrderId, DateTime CreatedAt);
-
-// 事件（通知）
-[MemoryPackable]
-public partial record OrderCreated(string OrderId) : IEvent;
-```
+- **[Roslyn 分析器](./guides/analyzers.md)**
+  - 编译时检测
+  - 配置错误预警
+  - 最佳实践建议
 
 ---
 
-## 🎯 特性矩阵
+## 🏗️ 架构设计
 
-| 特性 | Catga | MediatR | MassTransit |
-|------|-------|---------|-------------|
-| 零反射 | ✅ Source Generator | ❌ | ❌ |
-| AOT 兼容 | ✅ 100% | ⚠️ 部分 | ❌ |
-| 零分配 | ✅ | ⚠️ 部分 | ❌ |
-| 自动注册 | ✅ Source Generator | ❌ 手动 | ✅ |
-| 错误处理 | ✅ SafeRequestHandler | ❌ 手动 | ⚠️ 部分 |
-| 自动回滚 | ✅ 虚函数 | ❌ | ⚠️ 部分 |
-| 分布式 | ✅ NATS/Redis | ❌ | ✅ |
-| 时间旅行调试 | ✅ 独创 | ❌ | ❌ |
-| .NET Aspire | ✅ 原生支持 | ❌ | ⚠️ 部分 |
+### 核心架构
 
----
+- **[架构概览](./architecture/overview.md)** - Catga 整体架构
+- **[CQRS 模式](./architecture/cqrs.md)** - 命令查询责任分离
+- **[详细架构](./architecture/ARCHITECTURE.md)** - 深入设计细节
+- **[职责边界](./architecture/RESPONSIBILITY-BOUNDARY.md)** - 模块职责划分
 
-## 💡 常见问题
+### 设计模式
 
-### Catga vs MediatR？
-
-**Catga** 是为 .NET 9 和 Native AOT 设计的，提供：
-- ✅ **更好的性能** - 零反射，零分配
-- ✅ **更少的代码** - SafeRequestHandler，自动注册
-- ✅ **更强的功能** - 自动回滚，时间旅行调试
-- ✅ **AOT 优先** - 100% AOT 兼容
-
-**MediatR** 是经典的中介者模式实现，适合不需要 AOT 的场景。
-
-### 什么时候选择 Catga？
-
-选择 Catga 如果你：
-- ✅ 使用 .NET 9
-- ✅ 关注性能（微服务、高并发）
-- ✅ 需要 Native AOT
-- ✅ 构建分布式系统
-- ✅ 需要时间旅行调试
-
-### Catga 生产就绪了吗？
-
-**是的！** Catga 包含：
-- ✅ 194 个单元测试（100% 通过）
-- ✅ 完整的性能基准
-- ✅ 生产级错误处理
-- ✅ 优雅关闭和恢复
-- ✅ OpenTelemetry 集成
-- ✅ 完整的文档
+- **[分布式事务（Catga Pattern）](./patterns/DISTRIBUTED-TRANSACTION-V2.md)** ⭐ 创新
+  - 改进的 Saga 模式
+  - 自动补偿
+  - 跨服务协调
 
 ---
 
-## 🔗 快速链接
+## 🔍 可观测性
 
-### 开始使用
+### 分布式追踪
+
+- **[分布式追踪指南](./observability/DISTRIBUTED-TRACING-GUIDE.md)** ⭐ 必读
+  - W3C Trace Context 传播
+  - Correlation ID 管理
+  - 跨服务链路追踪
+  - 最佳实践
+
+- **[Jaeger 完整指南](./observability/JAEGER-COMPLETE-GUIDE.md)**
+  - Jaeger 安装配置
+  - UI 搜索技巧
+  - 与 Grafana 集成
+  - 生产环境部署
+
+### 监控和指标
+
+- **[监控指南](./production/MONITORING-GUIDE.md)**
+  - Prometheus 集成
+  - Grafana 仪表板
+  - 关键指标说明
+  - 告警配置
+
+---
+
+## 🚀 部署和生产
+
+### Native AOT
+
+- **[Native AOT 发布指南](./deployment/native-aot-publishing.md)**
+  - 配置步骤
+  - 发布命令
+  - 优化技巧
+  - 常见问题
+
+- **[AOT 序列化指南](./aot/serialization-aot-guide.md)**
+  - MemoryPack 配置
+  - 避免反射
+  - Source Generator 使用
+
+### 容器化部署
+
+- **[Kubernetes 部署](./deployment/kubernetes.md)**
+  - Helm Charts
+  - ConfigMap 配置
+  - 健康检查
+  - 自动扩展
+
+- **[分布式架构](./distributed/ARCHITECTURE.md)**
+  - 微服务拆分
+  - 服务发现
+  - 负载均衡
+
+---
+
+## 🎨 示例项目
+
+### OrderSystem - 完整订单系统
+
+**主要演示**：
+- ✅ 订单创建成功流程
+- ❌ 失败自动回滚
+- 📢 事件驱动架构
+- 🔍 OpenTelemetry 追踪
+- 🎯 自定义错误处理
+
+**相关文档**：
+- **[OrderSystem API 文档](../examples/OrderSystem.Api/README.md)**
+- **[Aspire AppHost 文档](../examples/OrderSystem.AppHost/README.md)**
+- **[优雅关闭说明](../examples/OrderSystem.AppHost/README-GRACEFUL.md)**
+
+### 基础示例
+
+- **[基础用法示例](./examples/basic-usage.md)**
+  - Hello World
+  - 简单命令处理
+  - 事件发布
+
+---
+
+## 📊 性能和基准
+
+### 性能文档
+
+- **[性能报告](./PERFORMANCE-REPORT.md)** - 与其他框架对比
+- **[基准测试结果](./BENCHMARK-RESULTS.md)** - 详细测试数据
+
+### 关键指标
+
+| 操作 | 平均耗时 | 内存分配 | 吞吐量 |
+|------|---------|---------|--------|
+| 命令处理 | 17.6 μs | 408 B | 56K QPS |
+| 事件发布 | 428 ns | 0 B | 2.3M QPS |
+| MemoryPack 序列化 | 48 ns | 0 B | 20M/s |
+
+---
+
+## 📖 参考资料
+
+### 项目信息
+
+- **[项目结构](./PROJECT_STRUCTURE.md)** - 代码组织
+- **[项目总结](./PROJECT_SUMMARY.md)** - 功能概览
+- **[变更日志](./CHANGELOG.md)** - 版本历史
+- **[框架路线图](./FRAMEWORK-ROADMAP.md)** - 未来计划
+
+### 发布管理
+
+- **[发布就绪检查清单](./RELEASE-READINESS-CHECKLIST.md)**
+  - 功能完成度
+  - 测试覆盖率
+  - 文档完整性
+  - 性能验证
+
+---
+
+## 🔗 外部资源
+
+### .NET 官方文档
+
+- [.NET 9 新特性](https://learn.microsoft.com/dotnet/core/whats-new/dotnet-9)
+- [Native AOT 官方指南](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
+- [Source Generators 文档](https://learn.microsoft.com/dotnet/csharp/roslyn-sdk/source-generators-overview)
+- [OpenTelemetry .NET SDK](https://opentelemetry.io/docs/languages/net/)
+
+### 可观测性工具
+
+- [Jaeger 官方文档](https://www.jaegertracing.io/docs/)
+- [Prometheus 文档](https://prometheus.io/docs/)
+- [Grafana 文档](https://grafana.com/docs/)
+- [OpenTelemetry 规范](https://opentelemetry.io/docs/specs/otel/)
+
+### 相关项目
+
+- [MediatR](https://github.com/jbogard/MediatR) - CQRS 灵感来源
+- [MassTransit](https://github.com/MassTransit/MassTransit) - 分布式消息
+- [MemoryPack](https://github.com/Cysharp/MemoryPack) - 高性能序列化
+- [NATS](https://nats.io/) - 消息系统
+
+---
+
+## 🤝 贡献和支持
+
+### 参与贡献
+
+- **[贡献指南](../CONTRIBUTING.md)** - 如何为 Catga 做贡献
+- **[文档结构说明](../DOCUMENTATION-STRUCTURE.md)** - 文档组织规范
+
+### 获取帮助
+
+- **GitHub Issues** - 提交 Bug 或功能请求
+- **GitHub Discussions** - 社区讨论
+- **示例项目** - 查看完整的可运行示例
+
+---
+
+## 📑 文档导航
+
+### 按角色导航
+
+#### 🆕 新用户
+
+1. 阅读 [README.md](../README.md)
+2. 跟随 [快速开始](./QUICK-START.md)
+3. 运行 [OrderSystem 示例](../examples/OrderSystem.Api/README.md)
+
+#### 💻 开发者
+
+1. 查看 [API 参考](./api/README.md)
+2. 学习 [自定义错误处理](./guides/custom-error-handling.md)
+3. 了解 [Source Generator](./guides/source-generator.md)
+
+#### 🏗️ 架构师
+
+1. 阅读 [架构概览](./architecture/overview.md)
+2. 理解 [分布式事务](./patterns/DISTRIBUTED-TRANSACTION-V2.md)
+3. 研究 [性能报告](./PERFORMANCE-REPORT.md)
+
+#### 🚀 运维工程师
+
+1. 学习 [Native AOT 发布](./deployment/native-aot-publishing.md)
+2. 配置 [Kubernetes 部署](./deployment/kubernetes.md)
+3. 设置 [监控系统](./production/MONITORING-GUIDE.md)
+
+### 按场景导航
+
+#### 🎯 快速开发
+
 - [快速开始](./QUICK-START.md)
-- [OrderSystem 示例](../examples/OrderSystem.Api/)
-- [API 速查](./QUICK-REFERENCE.md)
+- [Quick Reference](./QUICK-REFERENCE.md)
+- [基础用法](./examples/basic-usage.md)
 
-### 核心文档
-- [SafeRequestHandler](./api/handlers.md#saferequesthandler)
-- [Source Generator](./SOURCE-GENERATOR.md)
-- [错误处理](./guides/error-handling.md)
+#### 🔍 调试和追踪
 
-### 高级特性
-- [时间旅行调试](./DEBUGGER.md)
-- [自定义错误处理](./guides/custom-error-handling.md)
+- [分布式追踪指南](./observability/DISTRIBUTED-TRACING-GUIDE.md)
+- [Jaeger 完整指南](./observability/JAEGER-COMPLETE-GUIDE.md)
+- [监控指南](./production/MONITORING-GUIDE.md)
+
+#### 🚀 生产部署
+
+- [Native AOT 发布](./deployment/native-aot-publishing.md)
+- [Kubernetes 部署](./deployment/kubernetes.md)
+- [性能优化](./PERFORMANCE-REPORT.md)
+
+#### 🏗️ 架构设计
+
+- [CQRS 模式](./architecture/cqrs.md)
 - [分布式事务](./patterns/DISTRIBUTED-TRANSACTION-V2.md)
-
-### 性能
-- [性能报告](./PERFORMANCE-REPORT.md)
-- [Benchmark 结果](./BENCHMARK-RESULTS.md)
-
----
-
-## 📞 获取帮助
-
-- 🐛 **Bug 报告**: [GitHub Issues](https://github.com/catga/catga/issues)
-- 💬 **问题讨论**: [GitHub Discussions](https://github.com/catga/catga/discussions)
-- 📖 **文档问题**: 直接提交 PR
-- ⭐ **给我们 Star**: [GitHub](https://github.com/catga/catga)
+- [分布式架构](./distributed/ARCHITECTURE.md)
 
 ---
 
 <div align="center">
 
-**开始你的 Catga 之旅！**
+**📚 文档持续完善中**
 
-[快速开始](./QUICK-START.md) · [查看示例](../examples/OrderSystem.Api/) · [阅读文档](./api/messages.md)
+如有任何疑问或建议，欢迎提交 [Issue](https://github.com/your-org/Catga/issues)
+
+[返回首页](../README.md) · [查看示例](../examples/README.md) · [贡献指南](../CONTRIBUTING.md)
 
 </div>

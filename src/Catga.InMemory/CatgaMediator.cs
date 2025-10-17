@@ -283,7 +283,7 @@ public sealed class CatgaMediator : ICatgaMediator
     private static void CaptureEventPayload<TEvent>(Activity? activity, TEvent @event) where TEvent : IEvent
     {
         if (activity == null) return;
-        
+
         try
         {
             var eventJson = System.Text.Json.JsonSerializer.Serialize(@event);

@@ -19,24 +19,24 @@
 
 ## 📖 简介
 
-Catga 是专为 .NET 9 和 Native AOT 设计的现代化 CQRS 框架，通过 **Source Generator** 和创新设计实现：
+Catga 是专为 .NET 9 和 Native AOT 设计的现代化 CQRS 框架，通过 **Source Generator** 和创新设计实现极致性能和开发体验。
 
 ### 🎯 核心价值
 
-- ⚡ **极致性能** - < 1μs 命令处理，零内存分配设计
+- ⚡ **极致性能** - <20μs 命令处理，零内存分配设计
 - 🔥 **100% AOT 兼容** - MemoryPack 序列化，Source Generator 自动注册
 - 🛡️ **编译时安全** - Roslyn 分析器检测配置错误
 - 🌐 **分布式就绪** - NATS/Redis 传输与持久化
 - 🎨 **最小配置** - 2 行代码启动，自动依赖注入
-- 🔍 **完整可观测** - OpenTelemetry、健康检查、.NET Aspire
+- 🔍 **完整可观测** - OpenTelemetry + Jaeger 原生集成
 - 🚀 **生产级** - 优雅关闭、自动恢复、错误回滚
 
 ### 🌟 创新特性
 
 1. **SafeRequestHandler** - 零 try-catch，自动错误处理和回滚
-2. **Source Generator** - 零反射，编译时代码生成
-3. **Time-Travel Debugger** - 时间旅行调试，完整流程回放（业界首创）
-4. **Graceful Lifecycle** - 优雅的生命周期管理
+2. **Source Generator** - 零反射，编译时代码生成，AOT 优先
+3. **OpenTelemetry Native** - 与 Jaeger 深度集成的分布式追踪
+4. **Graceful Lifecycle** - 优雅的生命周期管理（关闭/恢复）
 5. **.NET Aspire 集成** - 原生支持云原生开发
 
 ---
@@ -88,11 +88,9 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
         CancellationToken ct)
     {
         if (request.Amount <= 0)
-            throw new CatgaException("Amount must be positive");  // 自动转换为 CatgaResult.Failure
+            throw new CatgaException("Amount must be positive");
 
-        // 业务逻辑
         await SaveOrderAsync(request.OrderId, request.Amount, ct);
-
         return new OrderResult(request.OrderId, DateTime.UtcNow);
     }
 }
@@ -138,7 +136,6 @@ public async Task<IActionResult> CreateOrder(CreateOrderRequest request)
 {
     try
     {
-        // 业务逻辑
         var order = await _orderService.CreateAsync(request);
         return Ok(order);
     }
@@ -169,16 +166,15 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
         if (!await _inventory.CheckStockAsync(request.Items, ct))
             throw new CatgaException("Insufficient stock");
 
-        // 业务逻辑
         var order = await _repository.SaveAsync(...);
         return new OrderResult(order.Id, order.CreatedAt);
     }
 }
 ```
 
-### 2. 自定义错误处理和回滚
+### 2. 自定义错误处理和自动回滚
 
-**新功能**：可以 override 虚方法实现自定义错误处理和自动回滚：
+可以 override 虚方法实现自定义错误处理和自动回滚：
 
 ```csharp
 public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
@@ -216,17 +212,9 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
         if (_orderId != null)
             await _repository.DeleteAsync(_orderId, ...);
 
-        // 返回详细错误信息
-        var metadata = new ResultMetadata();
-        metadata.Add("OrderId", _orderId ?? "N/A");
-        metadata.Add("RollbackCompleted", "true");
-
-        return new CatgaResult<OrderResult>
-        {
-            IsSuccess = false,
-            Error = $"Order creation failed: {exception.Message}. All changes rolled back.",
-            Metadata = metadata
-        };
+        return CatgaResult<OrderResult>.Failure(
+            $"Order creation failed: {exception.Message}. All changes rolled back.",
+            exception);
     }
 }
 ```
@@ -280,37 +268,32 @@ public class UpdateInventoryHandler : IEventHandler<OrderCreatedEvent>
 await _mediator.PublishAsync(new OrderCreatedEvent(orderId, amount));
 ```
 
-### 5. 时间旅行调试器（业界首创）
+### 5. OpenTelemetry + Jaeger 原生集成
 
-完整的 CQRS 流程回放和调试系统：
+Catga 深度集成 OpenTelemetry 和 Jaeger，提供完整的分布式追踪：
 
 ```csharp
-// 1. 启用调试器
-builder.Services.AddCatgaDebuggerWithAspNetCore(options =>
-{
-    options.Mode = DebuggerMode.Development;
-    options.SamplingRate = 1.0;  // 100% 采样
-    options.CaptureVariables = true;
-    options.CaptureCallStacks = true;
-});
+// ServiceDefaults（自动配置）
+builder.AddServiceDefaults();  // 自动启用 OpenTelemetry
 
-// 2. 消息自动捕获（Source Generator）
-[MemoryPackable]
-[GenerateDebugCapture]  // 自动生成 AOT 兼容的变量捕获
-public partial record CreateOrderCommand(...) : IRequest<Result>;
+// 所有 Command/Event 自动追踪
+await _mediator.SendAsync<CreateOrder, OrderResult>(cmd);
+// ↓ 自动创建 Activity Span
+// ↓ 设置 catga.type, catga.request.type, catga.correlation_id
+// ↓ 记录成功/失败和执行时间
 
-// 3. 映射调试界面
-app.MapCatgaDebugger("/debug");  // http://localhost:5000/debug
+// 在 Jaeger UI 中搜索
+// Tags: catga.type = command
+// Tags: catga.correlation_id = {your-id}
 ```
 
 **功能**：
-- ⏪ 时间旅行回放 - 回到任意时刻，查看完整执行
-- 🔍 宏观/微观视图 - 系统级 + 单流程级
-- 📊 实时监控 - Vue 3 + SignalR 实时更新
-- 🎯 零开销 - 生产环境 <0.01% 影响
-- 🔧 AOT 兼容 - Source Generator 自动生成
+- 🔗 **跨服务链路传播** - A → HTTP → B 自动接续
+- 🏷️ **丰富的 Tags** - catga.type, catga.request.type, catga.correlation_id
+- 📊 **Metrics 集成** - Prometheus/Grafana 直接可用
+- 🎯 **零配置** - ServiceDefaults 一行搞定
 
-详见：[Debugger 文档](./docs/DEBUGGER.md)
+详见：[分布式追踪指南](./docs/observability/DISTRIBUTED-TRACING-GUIDE.md) | [Jaeger 完整指南](./docs/observability/JAEGER-COMPLETE-GUIDE.md)
 
 ### 6. .NET Aspire 集成
 
@@ -346,8 +329,6 @@ app.MapDefaultEndpoints();     // /health, /alive, /ready
 | `Catga.Transport.Nats` | NATS 传输 | ✅ |
 | `Catga.Persistence.Redis` | Redis 持久化 | ✅ |
 | `Catga.AspNetCore` | ASP.NET Core 集成 | ✅ |
-| `Catga.Debugger` | 时间旅行调试器 | ⚠️ |
-| `Catga.Debugger.AspNetCore` | 调试器 Web UI | ⚠️ |
 
 ---
 
@@ -363,25 +344,26 @@ app.MapDefaultEndpoints();     // /health, /alive, /ready
 - 📢 事件驱动（多个 Handler）
 - 🔍 查询分离（Read Models）
 - 🎯 自定义错误处理
-- 📊 OpenTelemetry 追踪
+- 📊 OpenTelemetry 追踪（Jaeger）
 
 **运行示例**：
 
 ```bash
-cd examples/OrderSystem.Api
+cd examples/OrderSystem.AppHost
 dotnet run
 
-# 成功场景
+# 访问 UI
+http://localhost:5000              # OrderSystem UI
+http://localhost:16686             # Jaeger UI
+http://localhost:18888             # Aspire Dashboard
+
+# 测试 API
 curl -X POST http://localhost:5000/demo/order-success
-
-# 失败场景（自动回滚）
 curl -X POST http://localhost:5000/demo/order-failure
-
-# 查看对比
 curl http://localhost:5000/demo/compare
 ```
 
-**关键代码**：
+**关键流程**：
 
 ```csharp
 // 成功流程
@@ -389,7 +371,7 @@ POST /demo/order-success
 → 检查库存 → 保存订单 → 预留库存 → 验证支付 → 发布事件
 → ✅ 订单创建成功
 
-// 失败流程
+// 失败流程（自动回滚）
 POST /demo/order-failure (PaymentMethod = "FAIL-CreditCard")
 → 检查库存 → 保存订单 → 预留库存 → 验证支付失败！
 → 触发 OnBusinessErrorAsync
@@ -430,24 +412,27 @@ POST /demo/order-failure (PaymentMethod = "FAIL-CreditCard")
 ### 快速入门
 - [快速开始](./docs/QUICK-START.md) - 5 分钟上手
 - [Quick Reference](./docs/QUICK-REFERENCE.md) - API 速查
+- [完整文档索引](./docs/INDEX.md)
 
 ### 核心概念
 - [消息定义](./docs/api/messages.md) - IRequest, IEvent
-- [Handler 实现](./docs/api/handlers.md) - SafeRequestHandler
-- [错误处理](./docs/guides/error-handling.md) - CatgaException
-- [Source Generator](./docs/SOURCE-GENERATOR.md) - 自动注册
+- [Mediator API](./docs/api/mediator.md) - ICatgaMediator
+- [自定义错误处理](./docs/guides/custom-error-handling.md) - SafeRequestHandler
+- [Source Generator](./docs/guides/source-generator.md) - 自动注册
+
+### 可观测性
+- [分布式追踪指南](./docs/observability/DISTRIBUTED-TRACING-GUIDE.md) - 跨服务链路
+- [Jaeger 完整指南](./docs/observability/JAEGER-COMPLETE-GUIDE.md) - 搜索技巧
+- [监控指南](./docs/production/MONITORING-GUIDE.md) - Prometheus/Grafana
 
 ### 高级功能
-- [时间旅行调试](./docs/DEBUGGER.md) - 完整的流程回放
-- [自定义错误处理](./docs/guides/custom-error-handling.md) - 虚函数重写
 - [分布式事务](./docs/patterns/DISTRIBUTED-TRANSACTION-V2.md) - Catga Pattern
 - [.NET Aspire 集成](./docs/guides/debugger-aspire-integration.md)
+- [AOT 序列化指南](./docs/aot/serialization-aot-guide.md)
 
 ### 部署
-- [AOT 兼容性](./src/Catga.Debugger/AOT-COMPATIBILITY.md) - 完整指南
-- [生产配置](./docs/deployment/production.md) - 最佳实践
-
-完整文档：[docs/INDEX.md](./docs/INDEX.md)
+- [Native AOT 发布](./docs/deployment/native-aot-publishing.md)
+- [Kubernetes 部署](./docs/deployment/kubernetes.md)
 
 ---
 
@@ -469,6 +454,7 @@ MIT License - 详见 [LICENSE](./LICENSE)
 - [MassTransit](https://github.com/MassTransit/MassTransit) - 分布式模式
 - [MemoryPack](https://github.com/Cysharp/MemoryPack) - 序列化
 - [NATS](https://nats.io/) - 消息传输
+- [OpenTelemetry](https://opentelemetry.io/) - 可观测性
 
 ---
 

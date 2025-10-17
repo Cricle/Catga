@@ -8,10 +8,10 @@ namespace Catga.Http;
 /// <remarks>
 /// This handler ensures that the CorrelationId from Activity.Current.Baggage is automatically
 /// injected into outgoing HTTP requests as the X-Correlation-ID header.
-/// 
+///
 /// This enables full distributed tracing across services:
 /// Service A (HTTP Request) → Command → Event → Service B (HTTP Request) → Command → Event
-/// 
+///
 /// The entire chain will share the same CorrelationId for end-to-end tracing in Jaeger.
 /// </remarks>
 public sealed class CorrelationIdDelegatingHandler : DelegatingHandler

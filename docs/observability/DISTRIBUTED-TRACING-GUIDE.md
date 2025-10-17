@@ -109,11 +109,11 @@ public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBu
     {
         // 自动从 Baggage 注入 X-Correlation-ID 到下游请求
         http.AddHttpMessageHandler<CorrelationIdDelegatingHandler>();
-        
+
         http.AddStandardResilienceHandler();
         http.AddServiceDiscovery();
     });
-    
+
     // 注册 Handler
     builder.Services.AddTransient<CorrelationIdDelegatingHandler>();
 
@@ -134,12 +134,12 @@ public class OrderCommandHandler : IRequestHandler<CreateOrderCommand, CreateOrd
     }
 
     public async Task<CatgaResult<CreateOrderResponse>> HandleAsync(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken cancellationToken)
     {
         // ✅ HttpClient 会自动传播 traceparent 和 X-Correlation-ID
         var httpClient = _httpClientFactory.CreateClient();
-        
+
         var response = await httpClient.PostAsJsonAsync(
             "http://payment-service/api/payments",
             new { Amount = request.TotalAmount },

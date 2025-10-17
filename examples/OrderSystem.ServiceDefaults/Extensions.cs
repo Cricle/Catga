@@ -91,11 +91,11 @@ public static class Extensions
             // ✅ Critical: Add CorrelationId propagation handler FIRST
             // This ensures X-Correlation-ID is injected before the request is sent
             http.AddHttpMessageHandler<CorrelationIdDelegatingHandler>();
-            
+
             http.AddStandardResilienceHandler();  // Retry, circuit breaker, timeout
             http.AddServiceDiscovery();            // Service discovery
         });
-        
+
         // Register the handler as a transient service
         builder.Services.AddTransient<CorrelationIdDelegatingHandler>();
 

@@ -115,16 +115,25 @@ public class BasicIntegrationTests : IDisposable
 #region Test Messages
 
 [MemoryPackable]
-public partial record SimpleCommand(string Data) : IRequest<SimpleResponse>;
+public partial record SimpleCommand(string Data) : IRequest<SimpleResponse>
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 [MemoryPackable]
 public partial record SimpleResponse(string ProcessedData);
 
 [MemoryPackable]
-public partial record SimpleEvent(string Data) : IEvent;
+public partial record SimpleEvent(string Data) : IEvent
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 [MemoryPackable]
-public partial record SafeCommand(string Data) : IRequest<SafeResponse>;
+public partial record SafeCommand(string Data) : IRequest<SafeResponse>
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
 [MemoryPackable]
 public partial record SafeResponse(string Result);

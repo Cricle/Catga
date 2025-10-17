@@ -151,20 +151,38 @@ public class CatgaMediatorExtendedTests
 }
 
 // Test message types
-public record MetadataCommand(string Data) : IRequest<MetadataResponse>;
+public record MetadataCommand(string Data) : IRequest<MetadataResponse>
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 public record MetadataResponse(string Data);
 
-public record ExceptionCommand : IRequest<ExceptionResponse>;
+public record ExceptionCommand : IRequest<ExceptionResponse>
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 public record ExceptionResponse(string Message);
 
-public record ExceptionEvent : IEvent;
+public record ExceptionEvent : IEvent
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
-public record PerformanceCommand(int Id) : IRequest<PerformanceResponse>;
+public record PerformanceCommand(int Id) : IRequest<PerformanceResponse>
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 public record PerformanceResponse(int Id);
 
-public record PerformanceEvent(int Id) : IEvent;
+public record PerformanceEvent(int Id) : IEvent
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 
-public record ScopedCommand : IRequest<ScopedResponse>;
+public record ScopedCommand : IRequest<ScopedResponse>
+{
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+}
 public record ScopedResponse(Guid InstanceId);
 
 // Test handlers

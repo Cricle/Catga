@@ -40,6 +40,7 @@ public class QosVerificationTests
     /// </summary>
     public record TestEvent(string Id, string Data) : IEvent
     {
+        public string MessageId { get; init; } = MessageExtensions.NewMessageId();
         public QualityOfService QoS => QualityOfService.AtMostOnce;
     }
 
@@ -48,6 +49,7 @@ public class QosVerificationTests
     /// </summary>
     public record ReliableTestEvent(string Id, string Data) : IReliableEvent
     {
+        public string MessageId { get; init; } = MessageExtensions.NewMessageId();
         QualityOfService IMessage.QoS => QualityOfService.AtLeastOnce;
     }
 
@@ -56,6 +58,7 @@ public class QosVerificationTests
     /// </summary>
     public record ExactlyOnceEvent(string Id, string Data) : IEvent
     {
+        public string MessageId { get; init; } = MessageExtensions.NewMessageId();
         public QualityOfService QoS => QualityOfService.ExactlyOnce;
     }
 

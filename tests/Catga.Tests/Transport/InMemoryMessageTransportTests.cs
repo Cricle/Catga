@@ -437,6 +437,7 @@ public class InMemoryMessageTransportTests
 [MemoryPackable]
 public partial record TestTransportMessage(int Id, string Name) : IMessage
 {
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
     public QualityOfService QoS => QualityOfService.AtLeastOnce;
     public DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
 }
@@ -444,6 +445,7 @@ public partial record TestTransportMessage(int Id, string Name) : IMessage
 [MemoryPackable]
 public partial record QoS0Message(int Id, string Name) : IMessage
 {
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
     public QualityOfService QoS => QualityOfService.AtMostOnce;
     public DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
 }
@@ -451,6 +453,7 @@ public partial record QoS0Message(int Id, string Name) : IMessage
 [MemoryPackable]
 public partial record QoS1WaitMessage(int Id, string Name) : IMessage
 {
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
     public QualityOfService QoS => QualityOfService.AtLeastOnce;
     public DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
 }
@@ -458,6 +461,7 @@ public partial record QoS1WaitMessage(int Id, string Name) : IMessage
 [MemoryPackable]
 public partial record QoS1RetryMessage(int Id, string Name) : IMessage
 {
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
     public QualityOfService QoS => QualityOfService.AtLeastOnce;
     public DeliveryMode DeliveryMode => DeliveryMode.AsyncRetry;
 }
@@ -465,6 +469,7 @@ public partial record QoS1RetryMessage(int Id, string Name) : IMessage
 [MemoryPackable]
 public partial record QoS2Message(int Id, string Name) : IMessage
 {
+    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
     public QualityOfService QoS => QualityOfService.ExactlyOnce;
     public DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
 }

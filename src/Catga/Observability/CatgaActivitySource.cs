@@ -82,16 +82,16 @@ public static class CatgaActivitySource
         public const string StateChanged = "catga.state.changed";
         public const string AggregateLoaded = "catga.aggregate.loaded";
         public const string AggregateCreated = "catga.aggregate.created";
-        
+
         // Event lifecycle
         public const string EventPublished = "catga.event.published";
         public const string EventReceived = "catga.event.received";
-        
+
         // Catga step events
         public const string StepStarted = "catga.step.started";
         public const string StepCompleted = "catga.step.completed";
         public const string StepFailed = "catga.step.failed";
-        
+
         // Compensation events
         public const string CompensationStarted = "catga.compensation.started";
         public const string CompensationCompleted = "catga.compensation.completed";

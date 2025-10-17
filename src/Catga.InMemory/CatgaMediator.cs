@@ -43,13 +43,29 @@ public class CatgaMediator : ICatgaMediator
         // 优雅停机：自动跟踪操作
         using var operationScope = _shutdownManager?.BeginOperation();
 
-        using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Command.Execute", ActivityKind.Internal);
+        using var activity = CatgaActivitySource.Source.StartActivity(
+            $"Command: {TypeNameCache<TRequest>.Name}", 
+            ActivityKind.Internal);
+        
         var sw = Stopwatch.StartNew();
         var reqType = TypeNameCache<TRequest>.Name;
         var message = request as IMessage;
 
-        activity?.SetTag("catga.request.type", reqType);
-        activity?.SetTag("catga.message.id", message?.MessageId);
+        // Set Catga-specific tags for Jaeger
+        activity?.SetTag(CatgaActivitySource.Tags.CatgaType, "command");
+        activity?.SetTag(CatgaActivitySource.Tags.RequestType, reqType);
+        activity?.SetTag(CatgaActivitySource.Tags.MessageType, reqType);
+        
+        if (message != null)
+        {
+            activity?.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);
+            if (!string.IsNullOrEmpty(message.CorrelationId))
+            {
+                activity?.SetTag(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
+                activity?.SetBaggage(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
+            }
+        }
+
         CatgaLog.CommandExecuting(_logger, reqType, message?.MessageId, message?.CorrelationId);
 
         try
@@ -76,10 +92,17 @@ public class CatgaMediator : ICatgaMediator
             CatgaDiagnostics.CommandDuration.Record(duration, new KeyValuePair<string, object?>("request_type", reqType));
             CatgaLog.CommandExecuted(_logger, reqType, message?.MessageId, duration, result.IsSuccess);
 
-            activity?.SetTag("catga.success", result.IsSuccess);
-            activity?.SetTag("catga.duration_ms", duration);
-            if (!result.IsSuccess)
+            // Set result and duration tags
+            activity?.SetTag(CatgaActivitySource.Tags.Success, result.IsSuccess);
+            activity?.SetTag(CatgaActivitySource.Tags.Duration, duration);
+            
+            if (result.IsSuccess)
             {
+                activity?.SetStatus(ActivityStatusCode.Ok);
+            }
+            else
+            {
+                activity?.SetTag(CatgaActivitySource.Tags.Error, result.Error ?? "Unknown error");
                 activity?.SetStatus(ActivityStatusCode.Error, result.Error);
                 CatgaLog.CommandFailed(_logger, result.Exception, reqType, message?.MessageId, result.Error ?? "Unknown");
             }
@@ -110,12 +133,37 @@ public class CatgaMediator : ICatgaMediator
         // 优雅停机：自动跟踪操作
         using var operationScope = _shutdownManager?.BeginOperation();
 
-        using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Event.Publish", ActivityKind.Producer);
         var eventType = TypeNameCache<TEvent>.Name;
         var message = @event as IMessage;
+        
+        using var activity = CatgaActivitySource.Source.StartActivity(
+            $"Event: {eventType}", 
+            ActivityKind.Producer);
 
-        activity?.SetTag("catga.event.type", eventType);
-        activity?.SetTag("catga.message.id", message?.MessageId);
+        // Set Catga-specific tags for Jaeger
+        activity?.SetTag(CatgaActivitySource.Tags.CatgaType, "event");
+        activity?.SetTag(CatgaActivitySource.Tags.EventType, eventType);
+        activity?.SetTag(CatgaActivitySource.Tags.EventName, eventType);
+        activity?.SetTag(CatgaActivitySource.Tags.MessageType, eventType);
+        
+        if (message != null)
+        {
+            activity?.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);
+            if (!string.IsNullOrEmpty(message.CorrelationId))
+            {
+                activity?.SetTag(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
+                activity?.SetBaggage(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
+            }
+        }
+
+        // Record event publication timeline event
+        activity?.AddActivityEvent(
+            new ActivityEvent(CatgaActivitySource.Events.EventPublished,
+                tags: new ActivityTagsCollection
+                {
+                    { "event.type", eventType }
+                }));
+
         CatgaLog.EventPublishing(_logger, eventType, message?.MessageId);
 
         using var scope = _serviceProvider.CreateScope();
@@ -171,14 +219,24 @@ public class CatgaMediator : ICatgaMediator
     {
         var handlerType = handler.GetType().Name;
         var eventType = typeof(TEvent).Name;
-        var activityName = $"Catga.HandleEvent.{handlerType}";
+        var activityName = $"Handle: {eventType}";
 
-        using var activity = CatgaDiagnostics.ActivitySource.StartActivity(activityName, ActivityKind.Consumer);
+        using var activity = CatgaActivitySource.Source.StartActivity(activityName, ActivityKind.Consumer);
 
         if (activity != null)
         {
-            activity.SetTag("catga.event.type", eventType);
-            activity.SetTag("catga.handler.type", handlerType);
+            activity.SetTag(CatgaActivitySource.Tags.CatgaType, "event");
+            activity.SetTag(CatgaActivitySource.Tags.EventType, eventType);
+            activity.SetTag(CatgaActivitySource.Tags.HandlerType, handlerType);
+
+            // Record event reception
+            activity.AddActivityEvent(
+                new ActivityEvent(CatgaActivitySource.Events.EventReceived,
+                    tags: new ActivityTagsCollection
+                    {
+                        { "event.type", eventType },
+                        { "handler", handlerType }
+                    }));
 
             if (@event is IMessage message)
             {

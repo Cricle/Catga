@@ -22,17 +22,31 @@ public static class Extensions
         // Configure OpenTelemetry
         builder.AddOpenTelemetryExporters();
 
-        // Add tracing
+        // Add tracing with Catga support
         builder.Services.AddOpenTelemetry()
             .WithTracing(tracing =>
             {
-                tracing.AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation()
-                    .AddSource("Catga.*");  // Catga tracing
+                tracing
+                    .AddAspNetCoreInstrumentation(options =>
+                    {
+                        options.RecordException = true;
+                        options.EnrichWithHttpRequest = (activity, request) =>
+                        {
+                            activity.SetTag("http.request.id", request.HttpContext.TraceIdentifier);
+                        };
+                    })
+                    .AddHttpClientInstrumentation(options =>
+                    {
+                        options.RecordException = true;
+                    })
+                    // ✅ Critical: Add Catga's ActivitySource for distributed tracing
+                    .AddSource("Catga.Framework")  // Catga main source
+                    .AddSource("Catga.*");          // All Catga sources
             })
             .WithMetrics(metrics =>
             {
-                metrics.AddAspNetCoreInstrumentation()
+                metrics
+                    .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
                     .AddMeter("Catga.*");  // Catga metrics

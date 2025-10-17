@@ -176,7 +176,7 @@ var cmd = new MyCommand("data", MessageExtensions.NewMessageId());
 
 ### ⚠️ 集成测试
 - **Deleted**: 3 个文件（需要重写以适配新的 MessageId 要求）
-- **Reason**: 
+- **Reason**:
   - MessageId 增加了序列化大小（SerializationIntegrationTests 失败）
   - Handler 注册问题（BasicIntegrationTests 失败）
 
@@ -233,8 +233,8 @@ var cmd = new MyCommand("data", MessageExtensions.NewMessageId());
 
 ---
 
-**Generated**: 2025-01-17  
-**Commits**: 
+**Generated**: 2025-01-17
+**Commits**:
 - `6aa81f2` - refactor(WIP): Remove IMessage default MessageId - Phase 1
 - `309bfd1` - refactor(WIP): Add MessageId to examples
 - `9351b9f` - refactor: Complete ID optimization - Remove IMessage default MessageId

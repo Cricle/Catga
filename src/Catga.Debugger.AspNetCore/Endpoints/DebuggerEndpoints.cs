@@ -54,6 +54,9 @@ public static class DebuggerEndpoints
             .WithSummary("Start flow-level replay")
             .Produces<FlowReplayResponse>();
 
+        // Advanced replay control endpoints
+        group.MapReplayControlEndpoints();
+
         return group;
     }
 

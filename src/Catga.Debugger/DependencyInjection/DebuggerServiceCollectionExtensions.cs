@@ -27,6 +27,7 @@ public static class DebuggerServiceCollectionExtensions
         services.TryAddSingleton<IEventStore, InMemoryEventStore>();
         services.AddSingleton<IReplayEngine, TimeTravelReplayEngine>();
         services.AddSingleton<StateReconstructor>();
+        services.AddSingleton<ReplaySessionManager>();
 
         // Register pipeline behavior for event capture
         services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ReplayableEventCapturer<,>));

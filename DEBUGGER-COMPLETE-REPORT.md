@@ -165,25 +165,25 @@ $stats.averageLatency  # 应该 > 0
 
 ### 数据流
 
-1. **HTTP Request** 
-   → `CorrelationIdMiddleware` 
+1. **HTTP Request**
+   → `CorrelationIdMiddleware`
    → Sets `AsyncLocal<string>`
 
-2. **Command Execution** 
-   → `ReplayableEventCapturer` 
+2. **Command Execution**
+   → `ReplayableEventCapturer`
    → Gets CorrelationId from `AsyncLocal`
    → Captures events with CorrelationId
 
-3. **Event Storage** 
-   → `InMemoryEventStore` 
+3. **Event Storage**
+   → `InMemoryEventStore`
    → Triggers `EventSaved` event
 
-4. **SignalR Push** 
-   → `DebuggerNotificationService` 
+4. **SignalR Push**
+   → `DebuggerNotificationService`
    → Aggregates flow data
    → Pushes `FlowUpdate` to UI
 
-5. **UI Update** 
+5. **UI Update**
    → Alpine.js reactive data
    → Real-time display
 

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时间旅行调试器 - Catga Debugger</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .timeline-point { cursor: pointer; transition: all 0.2s; }
+        .timeline-point:hover { transform: scale(1.2); }
+        .timeline-point.active { stroke-width: 3; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div x-data="replayPlayer()" x-init="init()" class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div class="flex items-center justify-between">
+                    <h1 class="text-2xl font-bold text-gray-900">⏮️ 时间旅行调试器</h1>
+                    <a href="/debug" class="text-blue-600 hover:text-blue-800">← 返回主界面</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Flow Selection -->
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">选择要调试的消息流</h2>
+                <div class="flex gap-4">
+                    <select x-model="selectedCorrelationId" 
+                            @change="loadFlow()"
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- 选择消息流 --</option>
+                        <template x-for="flow in availableFlows" :key="flow.correlationId">
+                            <option :value="flow.correlationId" 
+                                    x-text="`${flow.correlationId.substring(0, 16)}... - ${flow.messageType} (${flow.status})`"></option>
+                        </template>
+                    </select>
+                    <button @click="refreshFlows()" 
+                            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        🔄 刷新
+                    </button>
+                </div>
+            </div>
+
+            <template x-if="flowLoaded">
+                <!-- Timeline Visualization -->
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">事件时间轴</h2>
+                    <div class="relative h-24 bg-gray-50 rounded-lg p-4 overflow-x-auto">
+                        <svg class="w-full h-full" viewBox="0 0 1000 60" preserveAspectRatio="xMidYMid meet">
+                            <!-- Timeline Line -->
+                            <line x1="0" y1="30" x2="1000" y2="30" stroke="#CBD5E0" stroke-width="2"/>
+                            
+                            <!-- Timeline Points -->
+                            <template x-for="(point, index) in timeline" :key="point.index">
+                                <g>
+                                    <circle 
+                                        :cx="(index / (timeline.length || 1)) * 1000" 
+                                        :cy="30"
+                                        :r="point.hasError ? 8 : 6"
+                                        :fill="point.hasError ? '#EF4444' : (point.index === currentStep ? '#3B82F6' : '#10B981')"
+                                        :class="{'timeline-point': true, 'active': point.index === currentStep}"
+                                        @click="jumpToStep(point.index)"/>
+                                    <title x-text="`${point.type} - ${new Date(point.timestamp).toLocaleTimeString()}`"></title>
+                                </g>
+                            </template>
+                        </svg>
+                    </div>
+                    <div class="mt-2 flex justify-between text-xs text-gray-600">
+                        <span x-text="timeline[0]?.timestamp ? new Date(timeline[0].timestamp).toLocaleString() : ''"></span>
+                        <span x-text="timeline[timeline.length-1]?.timestamp ? new Date(timeline[timeline.length-1].timestamp).toLocaleString() : ''"></span>
+                    </div>
+                </div>
+
+                <!-- Playback Controls -->
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">播放控制</h2>
+                    <div class="flex items-center justify-center gap-4">
+                        <button @click="stepBackward()" 
+                                :disabled="!hasPrevious || playing"
+                                class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                            ⏮️ 上一步
+                        </button>
+                        <button @click="togglePlay()" 
+                                :class="playing ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'"
+                                class="px-6 py-3 text-white rounded-lg font-medium">
+                            <span x-show="!playing">▶️ 播放</span>
+                            <span x-show="playing">⏸️ 暂停</span>
+                        </button>
+                        <button @click="stepForward()" 
+                                :disabled="!hasNext || playing"
+                                class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                            ⏭️ 下一步
+                        </button>
+                    </div>
+                    <div class="mt-4 text-center">
+                        <span class="text-sm font-medium text-gray-700">
+                            步骤: <span x-text="currentStep + 1"></span> / <span x-text="totalSteps"></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Current State Display -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Current Event -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">当前事件</h3>
+                        <template x-if="currentEvent">
+                            <div class="space-y-2 text-sm">
+                                <div>
+                                    <span class="font-medium text-gray-700">类型:</span>
+                                    <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs" x-text="currentEvent.type"></span>
+                                </div>
+                                <div>
+                                    <span class="font-medium text-gray-700">时间:</span>
+                                    <span class="ml-2 text-gray-600" x-text="new Date(currentEvent.timestamp).toLocaleString()"></span>
+                                </div>
+                                <div x-show="currentEvent.data">
+                                    <span class="font-medium text-gray-700">数据:</span>
+                                    <pre class="mt-2 p-2 bg-gray-50 rounded text-xs overflow-auto" x-text="currentEvent.data"></pre>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="!currentEvent">
+                            <p class="text-gray-500 text-sm">无事件数据</p>
+                        </template>
+                    </div>
+
+                    <!-- Variables Watch -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">变量监视</h3>
+                        <template x-if="Object.keys(variables).length > 0">
+                            <div class="space-y-2">
+                                <template x-for="(value, key) in variables" :key="key">
+                                    <div class="flex justify-between items-start text-sm border-b border-gray-200 pb-2">
+                                        <span class="font-mono text-gray-700" x-text="key"></span>
+                                        <span class="text-gray-600 ml-4 break-all" x-text="JSON.stringify(value)"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <template x-if="Object.keys(variables).length === 0">
+                            <p class="text-gray-500 text-sm">当前步骤无变量数据</p>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Call Stack -->
+                <div class="mt-6 bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">调用堆栈</h3>
+                    <template x-if="callStack.length > 0">
+                        <div class="space-y-2">
+                            <template x-for="(frame, index) in callStack" :key="index">
+                                <div class="flex items-center text-sm p-2 bg-gray-50 rounded">
+                                    <span class="text-gray-500 w-6" x-text="`${index}:`"></span>
+                                    <span class="font-mono text-gray-800 ml-2" x-text="frame.methodName"></span>
+                                    <span class="text-gray-500 ml-auto" x-text="frame.fileName ? `${frame.fileName}:${frame.lineNumber}` : ''"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template x-if="callStack.length === 0">
+                        <p class="text-gray-500 text-sm">无调用堆栈信息</p>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Empty State -->
+            <template x-if="!flowLoaded">
+                <div class="bg-white rounded-lg shadow p-12 text-center">
+                    <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">选择一个消息流开始调试</h3>
+                    <p class="text-sm text-gray-600">从上方下拉菜单选择要回放的消息流</p>
+                </div>
+            </template>
+        </main>
+    </div>
+
+    <script>
+        function replayPlayer() {
+            return {
+                availableFlows: [],
+                selectedCorrelationId: '',
+                flowLoaded: false,
+                timeline: [],
+                currentStep: 0,
+                totalSteps: 0,
+                currentEvent: null,
+                variables: {},
+                callStack: [],
+                hasNext: false,
+                hasPrevious: false,
+                playing: false,
+                playInterval: null,
+
+                async init() {
+                    await this.refreshFlows();
+                },
+
+                async refreshFlows() {
+                    try {
+                        const response = await fetch('/debug-api/flows');
+                        const data = await response.json();
+                        this.availableFlows = data.flows || [];
+                    } catch (err) {
+                        console.error('Failed to load flows:', err);
+                    }
+                },
+
+                async loadFlow() {
+                    if (!this.selectedCorrelationId) return;
+
+                    try {
+                        // Start replay session
+                        await fetch('/debug-api/replay/flow', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ correlationId: this.selectedCorrelationId })
+                        });
+
+                        // Load timeline
+                        const timelineRes = await fetch(`/debug-api/replay/flow/${this.selectedCorrelationId}/timeline`);
+                        const timelineData = await timelineRes.json();
+                        this.timeline = timelineData.timeline || [];
+
+                        // Load initial state
+                        await this.updateState();
+
+                        this.flowLoaded = true;
+                    } catch (err) {
+                        console.error('Failed to load flow:', err);
+                        alert('加载失败: ' + err.message);
+                    }
+                },
+
+                async updateState() {
+                    try {
+                        const stateRes = await fetch(`/debug-api/replay/flow/${this.selectedCorrelationId}/state`);
+                        const stateData = await stateRes.json();
+                        
+                        this.currentStep = stateData.currentStep;
+                        this.totalSteps = stateData.totalSteps;
+                        this.variables = stateData.variables || {};
+                        this.callStack = stateData.callStack || [];
+
+                        // Get current event info from step API
+                        const stepRes = await fetch(`/debug-api/replay/flow/${this.selectedCorrelationId}/step`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ steps: 0 }) // Step 0 to just get current state
+                        });
+                        const stepData = await stepRes.json();
+                        
+                        this.currentEvent = stepData.currentEvent;
+                        this.hasNext = stepData.hasNext;
+                        this.hasPrevious = stepData.hasPrevious;
+                    } catch (err) {
+                        console.error('Failed to update state:', err);
+                    }
+                },
+
+                async stepForward() {
+                    if (!this.hasNext) return;
+
+                    try {
+                        const response = await fetch(`/debug-api/replay/flow/${this.selectedCorrelationId}/step`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ steps: 1 })
+                        });
+                        const data = await response.json();
+                        
+                        this.currentStep = data.currentStep;
+                        this.currentEvent = data.currentEvent;
+                        this.variables = data.variables;
+                        this.hasNext = data.hasNext;
+                        this.hasPrevious = data.hasPrevious;
+                    } catch (err) {
+                        console.error('Step forward failed:', err);
+                    }
+                },
+
+                async stepBackward() {
+                    if (!this.hasPrevious) return;
+
+                    try {
+                        const response = await fetch(`/debug-api/replay/flow/${this.selectedCorrelationId}/step`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ steps: -1 })
+                        });
+                        const data = await response.json();
+                        
+                        this.currentStep = data.currentStep;
+                        this.currentEvent = data.currentEvent;
+                        this.variables = data.variables;
+                        this.hasNext = data.hasNext;
+                        this.hasPrevious = data.hasPrevious;
+                    } catch (err) {
+                        console.error('Step backward failed:', err);
+                    }
+                },
+
+                async jumpToStep(stepIndex) {
+                    if (!this.timeline[stepIndex]) return;
+
+                    try {
+                        const timestamp = this.timeline[stepIndex].timestamp;
+                        const response = await fetch(`/debug-api/replay/flow/${this.selectedCorrelationId}/jump`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ timestamp: timestamp })
+                        });
+                        const data = await response.json();
+                        
+                        this.currentStep = data.currentStep;
+                        this.currentEvent = data.currentEvent;
+                        this.variables = data.variables;
+                        this.hasNext = data.hasNext;
+                        this.hasPrevious = data.hasPrevious;
+                    } catch (err) {
+                        console.error('Jump failed:', err);
+                    }
+                },
+
+                togglePlay() {
+                    if (this.playing) {
+                        this.stopPlay();
+                    } else {
+                        this.startPlay();
+                    }
+                },
+
+                startPlay() {
+                    this.playing = true;
+                    this.playInterval = setInterval(async () => {
+                        if (this.hasNext) {
+                            await this.stepForward();
+                        } else {
+                            this.stopPlay();
+                        }
+                    }, 500); // 500ms per step
+                },
+
+                stopPlay() {
+                    this.playing = false;
+                    if (this.playInterval) {
+                        clearInterval(this.playInterval);
+                        this.playInterval = null;
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+

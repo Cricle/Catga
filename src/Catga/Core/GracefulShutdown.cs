@@ -67,7 +67,12 @@ public sealed partial class GracefulShutdownManager : IAsyncDisposable
         LogShutdownStarted(ActiveOperations);
 
         // Notify all components to start shutdown
+#if NET8_0_OR_GREATER
         await _shutdownCts.CancelAsync();
+#else
+        _shutdownCts.Cancel();
+        await Task.CompletedTask;
+#endif
 
         var sw = Stopwatch.StartNew();
 

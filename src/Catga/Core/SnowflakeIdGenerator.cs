@@ -1,9 +1,7 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
-#if NET7_0_OR_GREATER
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
-#endif
 using System.Threading;
 using Catga.Common;
 
@@ -275,12 +273,14 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
                 var baseId = (epochOffset << _layout.TimestampShift) | (_workerId << _layout.WorkerIdShift);
 
                 // SIMD Optimization: Use Vector256 for batch generation when possible
+#if NET7_0_OR_GREATER
                 if (Avx2.IsSupported && batchSize >= 4)
                 {
                     GenerateIdsWithSIMD(destination.Slice(generated, (int)batchSize), baseId, startSequence);
                     generated += (int)batchSize;
                 }
                 else
+#endif
                 {
                     // Fallback: scalar generation
                     for (int i = 0; i < batchSize; i++)
@@ -392,10 +392,12 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     /// <summary>
     /// SIMD-accelerated ID generation using AVX2 (Vector256)
     /// Processes 4 IDs at once for ~2-3x performance boost
+    /// Only available on .NET 7+
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void GenerateIdsWithSIMD(Span<long> destination, long baseId, long startSequence)
     {
+#if NET7_0_OR_GREATER
         var remaining = destination.Length;
         var offset = 0;
 
@@ -431,6 +433,13 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
         {
             destination[offset + i] = baseId | (startSequence + offset + i);
         }
+#else
+        // NET6: Scalar fallback only
+        for (int i = 0; i < destination.Length; i++)
+        {
+            destination[i] = baseId | (startSequence + i);
+        }
+#endif
     }
 }
 

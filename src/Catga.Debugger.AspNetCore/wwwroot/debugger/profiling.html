@@ -32,22 +32,22 @@
             <div class="bg-white shadow-sm rounded-lg">
                 <div class="border-b border-gray-200">
                     <nav class="flex -mb-px">
-                        <button @click="activeTab = 'slow-queries'" 
+                        <button @click="activeTab = 'slow-queries'"
                                 :class="activeTab === 'slow-queries' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                                 class="px-6 py-3 border-b-2 font-medium text-sm">
                             🐌 慢查询
                         </button>
-                        <button @click="activeTab = 'hot-spots'" 
+                        <button @click="activeTab = 'hot-spots'"
                                 :class="activeTab === 'hot-spots' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                                 class="px-6 py-3 border-b-2 font-medium text-sm">
                             🔥 热点分析
                         </button>
-                        <button @click="activeTab = 'gc-analysis'" 
+                        <button @click="activeTab = 'gc-analysis'"
                                 :class="activeTab === 'gc-analysis' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                                 class="px-6 py-3 border-b-2 font-medium text-sm">
                             ♻️ GC 分析
                         </button>
-                        <button @click="activeTab = 'flame-graph'" 
+                        <button @click="activeTab = 'flame-graph'"
                                 :class="activeTab === 'flame-graph' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                                 class="px-6 py-3 border-b-2 font-medium text-sm">
                             📊 火焰图
@@ -95,7 +95,7 @@
                                         <div class="text-xs text-gray-500">
                                             检测时间: <span x-text="new Date(query.detectedAt).toLocaleString()"></span>
                                         </div>
-                                        <a :href="'/debugger/replay-player.html?correlationId=' + query.correlationId" 
+                                        <a :href="'/debugger/replay-player.html?correlationId=' + query.correlationId"
                                            class="text-xs text-blue-600 hover:text-blue-800">
                                             🎬 查看回放
                                         </a>
@@ -200,7 +200,7 @@
                                     class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
                                 <option value="">-- 选择一个流 --</option>
                                 <template x-for="query in slowQueries" :key="query.correlationId">
-                                    <option :value="query.correlationId" 
+                                    <option :value="query.correlationId"
                                             x-text="`${query.requestType} (${query.correlationId.substring(0,8)}...)`">
                                     </option>
                                 </template>

@@ -1,6 +1,6 @@
 # API 测试修复完成报告
 
-**日期**: 2025-10-17  
+**日期**: 2025-10-17
 **状态**: ✅ 已修复并测试通过
 
 ---
@@ -9,7 +9,7 @@
 
 ### 错误信息
 ```
-Unhandled exception. System.ArgumentException: 
+Unhandled exception. System.ArgumentException:
 Duplicate health checks were registered with the name(s): catga-debugger
 (Parameter 'registrations')
 ```
@@ -201,7 +201,7 @@ public static IHostApplicationBuilder AddServiceDefaults(
     builder.Services.AddHealthChecks()
         .AddCheck("self", () => HealthCheckResult.Healthy())
         .AddCheck<DebuggerHealthCheck>("catga-debugger");
-    
+
     return builder;
 }
 ```
@@ -279,10 +279,10 @@ builder.Services.TryAddSingleton<DebuggerHealthCheck>();
 
 ## ✨ 总结
 
-**问题**: 健康检查重复注册导致服务无法启动  
-**原因**: Aspire 和 Catga Debugger 都注册了 `catga-debugger` 健康检查  
-**解决**: 移除 Debugger 中的注册，在 ServiceDefaults 中统一管理  
-**结果**: ✅ 所有测试通过，服务正常运行  
+**问题**: 健康检查重复注册导致服务无法启动
+**原因**: Aspire 和 Catga Debugger 都注册了 `catga-debugger` 健康检查
+**解决**: 移除 Debugger 中的注册，在 ServiceDefaults 中统一管理
+**结果**: ✅ 所有测试通过，服务正常运行
 
 **关键改进**:
 - ✅ 遵循 Aspire 最佳实践

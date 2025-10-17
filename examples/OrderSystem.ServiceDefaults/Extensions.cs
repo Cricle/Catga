@@ -49,7 +49,7 @@ public static class Extensions
         // Comprehensive health checks
         builder.Services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live", "ready" });
-        
+
         // Register Catga Debugger health check if DebuggerHealthCheck is available
         builder.Services.TryAddSingleton<Catga.Debugger.HealthChecks.DebuggerHealthCheck>();
         builder.Services.AddHealthChecks()

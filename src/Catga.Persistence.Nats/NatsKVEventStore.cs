@@ -3,29 +3,30 @@ using Catga.Messages;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using NATS.Client.KeyValueStore;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 namespace Catga.Persistence;
 
 /// <summary>
-/// NATS JetStream KV-based event store for persistent event sourcing
+/// NATS JetStream-based event store for persistent event sourcing
+/// Uses JetStream streams instead of KV for better compatibility
 /// </summary>
-public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
+public sealed class NatsJSEventStore : IEventStore, IAsyncDisposable
 {
     private readonly INatsConnection _connection;
-    private readonly string _bucketName;
-    private NatsKVContext? _kvContext;
-    private bool _initialized;
+    private readonly INatsJSContext _jetStream;
+    private readonly string _streamName;
     private readonly SemaphoreSlim _initLock = new(1, 1);
+    private bool _initialized;
 
-    public NatsKVEventStore(
+    public NatsJSEventStore(
         INatsConnection connection,
-        string? bucketName = null)
+        string? streamName = null)
     {
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
-        _bucketName = bucketName ?? "catga-events";
+        _streamName = streamName ?? "CATGA_EVENTS";
+        _jetStream = new NatsJSContext(_connection);
     }
 
     private async Task EnsureInitializedAsync(CancellationToken cancellationToken = default)
@@ -37,25 +38,26 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
         {
             if (_initialized) return;
 
-            // Create KV context from JetStream
-            var jsContext = new NatsJSContext(_connection);
-
-            // Create or get KV store
-            var config = new NatsKVConfig(_bucketName)
+            // Create stream for events
+            var config = new StreamConfig(
+                _streamName,
+                new[] { $"{_streamName}.>" }
+            )
             {
-                History = 64 // Keep version history
+                Storage = StreamConfigStorage.File,
+                Retention = StreamConfigRetention.Limits,
+                MaxAge = TimeSpan.FromDays(365) // Keep events for 1 year
             };
 
             try
             {
-                await jsContext.CreateKeyValue(config, cancellationToken);
+                await _jetStream.CreateStreamAsync(config, cancellationToken);
             }
             catch (NatsJSApiException ex) when (ex.Error.Code == 400)
             {
-                // Bucket already exists, ignore
+                // Stream already exists, ignore
             }
 
-            _kvContext = new NatsKVContext(jsContext, _bucketName);
             _initialized = true;
         }
         finally
@@ -77,38 +79,26 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
 
         if (events.Count == 0) return;
 
-        // Get current version
-        var currentVersion = await GetVersionAsyncInternal(streamId, cancellationToken);
+        // Get current version for optimistic concurrency
+        var currentVersion = await GetVersionAsync(streamId, cancellationToken);
 
-        // Optimistic concurrency check
         if (expectedVersion != -1 && currentVersion != expectedVersion)
         {
             throw new ConcurrencyException(streamId, expectedVersion, currentVersion);
         }
 
-        // Append events
-        var version = currentVersion;
+        // Publish events to JetStream
+        var subject = $"{_streamName}.{streamId}";
         foreach (var @event in events)
         {
-            version++;
-            var key = GetEventKey(streamId, version);
             var data = SerializeEvent(@event);
+            var ack = await _jetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
 
-            await _kvContext!.PutAsync(key, data, cancellationToken: cancellationToken);
+            if (ack.Error != null)
+            {
+                throw new InvalidOperationException($"Failed to publish event: {ack.Error.Description}");
+            }
         }
-
-        // Update stream metadata
-        var metadata = new StreamMetadata
-        {
-            StreamId = streamId,
-            Version = version,
-            EventCount = version,
-            LastUpdated = DateTimeOffset.UtcNow
-        };
-        await _kvContext!.PutAsync(
-            GetMetadataKey(streamId),
-            JsonSerializer.SerializeToUtf8Bytes(metadata),
-            cancellationToken: cancellationToken);
     }
 
     public async ValueTask<EventStream> ReadAsync(
@@ -121,11 +111,52 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
 
         await EnsureInitializedAsync(cancellationToken);
 
+        var subject = $"{_streamName}.{streamId}";
         var storedEvents = new List<StoredEvent>();
-        var version = await GetVersionAsyncInternal(streamId, cancellationToken);
 
-        if (version < 0)
+        try
         {
+            // Create temporary consumer
+            var consumerName = $"temp-{streamId}-{Guid.NewGuid():N}";
+            var consumer = await _jetStream.CreateOrUpdateConsumerAsync(
+                _streamName,
+                new ConsumerConfig
+                {
+                    Name = consumerName,
+                    FilterSubject = subject,
+                    AckPolicy = ConsumerConfigAckPolicy.None,
+                    DeliverPolicy = ConsumerConfigDeliverPolicy.All
+                },
+                cancellationToken);
+
+            // Fetch events
+            await foreach (var msg in consumer.FetchAsync<byte[]>(
+                new NatsJSFetchOpts { MaxMsgs = maxCount },
+                cancellationToken: cancellationToken))
+            {
+                if (msg.Data != null && msg.Data.Length > 0)
+                {
+                    var @event = DeserializeEvent(msg.Data);
+                    var version = (long)(msg.Metadata?.Sequence.Stream ?? 0UL) - 1; // Convert to 0-based
+
+                    if (version >= fromVersion)
+                    {
+                        storedEvents.Add(new StoredEvent
+                        {
+                            Version = version,
+                            Event = @event,
+                            Timestamp = msg.Metadata?.Timestamp.UtcDateTime ?? DateTime.UtcNow,
+                            EventType = @event.GetType().Name
+                        });
+                    }
+
+                    if (storedEvents.Count >= maxCount) break;
+                }
+            }
+        }
+        catch (NatsJSApiException ex) when (ex.Error.Code == 404)
+        {
+            // Stream doesn't exist yet
             return new EventStream
             {
                 StreamId = streamId,
@@ -134,37 +165,12 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
             };
         }
 
-        var start = Math.Max(0, fromVersion);
-        var end = Math.Min(version, start + maxCount - 1);
-
-        for (var i = start; i <= end && storedEvents.Count < maxCount; i++)
-        {
-            var key = GetEventKey(streamId, i);
-            try
-            {
-                var entry = await _kvContext!.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
-                if (entry?.Value != null)
-                {
-                    var @event = DeserializeEvent(entry.Value);
-                    storedEvents.Add(new StoredEvent
-                    {
-                        Version = i,
-                        Event = @event,
-                        Timestamp = entry.Created,
-                        EventType = @event.GetType().Name
-                    });
-                }
-            }
-            catch (NatsKVKeyNotFoundException)
-            {
-                // Event not found, skip
-            }
-        }
+        var finalVersion = storedEvents.Count > 0 ? storedEvents[^1].Version : -1;
 
         return new EventStream
         {
             StreamId = streamId,
-            Version = version,
+            Version = finalVersion,
             Events = storedEvents
         };
     }
@@ -174,40 +180,42 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
-        await EnsureInitializedAsync(cancellationToken);
-        return await GetVersionAsyncInternal(streamId, cancellationToken);
-    }
 
-    private async Task<long> GetVersionAsyncInternal(string streamId, CancellationToken cancellationToken)
-    {
+        await EnsureInitializedAsync(cancellationToken);
+
+        var subject = $"{_streamName}.{streamId}";
+
         try
         {
-            var entry = await _kvContext!.GetEntryAsync<byte[]>(
-                GetMetadataKey(streamId),
-                cancellationToken: cancellationToken);
+            // Create temporary consumer to get last message
+            var consumerName = $"ver-{streamId}-{Guid.NewGuid():N}";
+            var consumer = await _jetStream.CreateOrUpdateConsumerAsync(
+                _streamName,
+                new ConsumerConfig
+                {
+                    Name = consumerName,
+                    FilterSubject = subject,
+                    AckPolicy = ConsumerConfigAckPolicy.None,
+                    DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject
+                },
+                cancellationToken);
 
-            if (entry?.Value != null)
+            await foreach (var msg in consumer.FetchAsync<byte[]>(
+                new NatsJSFetchOpts { MaxMsgs = 1 },
+                cancellationToken: cancellationToken))
             {
-                var metadata = JsonSerializer.Deserialize<StreamMetadata>(entry.Value);
-                return metadata?.Version ?? -1;
+                return (long)(msg.Metadata?.Sequence.Stream ?? 0UL) - 1; // Convert to 0-based
             }
-        }
-        catch (NatsKVKeyNotFoundException)
-        {
-            // Stream doesn't exist
-        }
 
-        return -1;
+            return -1; // No messages found
+        }
+        catch (NatsJSApiException ex) when (ex.Error.Code == 404)
+        {
+            return -1; // Stream doesn't exist
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string GetEventKey(string streamId, long version)
-        => $"event:{streamId}:{version:D19}";
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string GetMetadataKey(string streamId)
-        => $"meta:{streamId}";
-
     private static byte[] SerializeEvent(IEvent @event)
     {
         var envelope = new EventEnvelope
@@ -218,6 +226,7 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
         return JsonSerializer.SerializeToUtf8Bytes(envelope);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static IEvent DeserializeEvent(byte[] data)
     {
         var envelope = JsonSerializer.Deserialize<EventEnvelope>(data);
@@ -239,17 +248,10 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
         public string Data { get; set; } = string.Empty;
     }
 
-    private sealed class StreamMetadata
-    {
-        public string StreamId { get; set; } = string.Empty;
-        public long Version { get; set; }
-        public long EventCount { get; set; }
-        public DateTimeOffset LastUpdated { get; set; }
-    }
-
     public ValueTask DisposeAsync()
     {
         _initLock.Dispose();
         return ValueTask.CompletedTask;
     }
 }
+

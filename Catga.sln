@@ -41,6 +41,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catga.Persistence.InMemory"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catga.Transport.Redis", "src\Catga.Transport.Redis\Catga.Transport.Redis.csproj", "{1C57CAA9-B47A-4B04-982C-380C43CDC360}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catga.Persistence.Nats", "src\Catga.Persistence.Nats\Catga.Persistence.Nats.csproj", "{36ACD296-7E96-4771-B406-253CA8EDD9AA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -231,6 +233,18 @@ Global
 		{1C57CAA9-B47A-4B04-982C-380C43CDC360}.Release|x64.Build.0 = Release|Any CPU
 		{1C57CAA9-B47A-4B04-982C-380C43CDC360}.Release|x86.ActiveCfg = Release|Any CPU
 		{1C57CAA9-B47A-4B04-982C-380C43CDC360}.Release|x86.Build.0 = Release|Any CPU
+		{36ACD296-7E96-4771-B406-253CA8EDD9AA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{36ACD296-7E96-4771-B406-253CA8EDD9AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{36ACD296-7E96-4771-B406-253CA8EDD9AA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{36ACD296-7E96-4771-B406-253CA8EDD9AA}.Debug|x64.Build.0 = Debug|Any CPU
+		{36ACD296-7E96-4771-B406-253CA8EDD9AA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{36ACD296-7E96-4771-B406-253CA8EDD9AA}.Debug|x86.Build.0 = Debug|Any CPU
+		{36ACD296-7E96-4771-B406-253CA8EDD9AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{36ACD296-7E96-4771-B406-253CA8EDD9AA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{36ACD296-7E96-4771-B406-253CA8EDD9AA}.Release|x64.ActiveCfg = Release|Any CPU
+		{36ACD296-7E96-4771-B406-253CA8EDD9AA}.Release|x64.Build.0 = Release|Any CPU
+		{36ACD296-7E96-4771-B406-253CA8EDD9AA}.Release|x86.ActiveCfg = Release|Any CPU
+		{36ACD296-7E96-4771-B406-253CA8EDD9AA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -251,6 +265,7 @@ Global
 		{9C59F123-E2AC-45E6-85C1-E846982A4337} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{8B979797-F89D-4FDB-86C0-9FC91F35243B} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{1C57CAA9-B47A-4B04-982C-380C43CDC360} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{36ACD296-7E96-4771-B406-253CA8EDD9AA} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {FE4B4C78-FA31-44CA-83FA-52FC7FAFF911}

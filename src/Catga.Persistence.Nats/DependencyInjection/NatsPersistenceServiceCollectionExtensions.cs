@@ -5,72 +5,71 @@ using Catga.Persistence;
 using Catga.Persistence.Stores;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using NATS.Client.JetStream;
+using NATS.Client.Core;
 
 namespace Catga;
 
 /// <summary>
-/// DI extensions for NATS Persistence
+/// Extension methods for setting up NATS JetStream persistence services in an <see cref="IServiceCollection" />.
 /// </summary>
 public static class NatsPersistenceServiceCollectionExtensions
 {
     /// <summary>
-    /// 注册 NATS KV Event Store (使用 JetStream KV)
+    /// Adds NATS JetStream-based event store to the service collection.
     /// </summary>
-    public static IServiceCollection AddNatsKVEventStore(
+    public static IServiceCollection AddNatsEventStore(
         this IServiceCollection services,
-        string? bucketName = null)
+        string? streamName = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddSingleton<IEventStore>(sp =>
         {
-            var jetStream = sp.GetRequiredService<INatsJSContext>();
-            return new NatsKVEventStore(jetStream, bucketName);
+            var connection = sp.GetRequiredService<INatsConnection>();
+            return new NatsJSEventStore(connection, streamName);
         });
 
         return services;
     }
 
     /// <summary>
-    /// 注册 NATS KV Outbox Store (使用 JetStream KV)
+    /// Adds NATS JetStream-based outbox store to the service collection.
     /// </summary>
-    public static IServiceCollection AddNatsKVOutbox(
+    public static IServiceCollection AddNatsOutboxStore(
         this IServiceCollection services,
-        string? bucketName = null)
+        string? streamName = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddSingleton<IOutboxStore>(sp =>
         {
-            var jetStream = sp.GetRequiredService<INatsJSContext>();
-            return new NatsKVOutboxStore(jetStream, bucketName);
+            var connection = sp.GetRequiredService<INatsConnection>();
+            return new NatsJSOutboxStore(connection, streamName);
         });
 
         return services;
     }
 
     /// <summary>
-    /// 注册 NATS KV Inbox Store (使用 JetStream KV)
+    /// Adds NATS JetStream-based inbox store to the service collection.
     /// </summary>
-    public static IServiceCollection AddNatsKVInbox(
+    public static IServiceCollection AddNatsInboxStore(
         this IServiceCollection services,
-        string? bucketName = null,
-        TimeSpan? ttl = null)
+        string? streamName = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddSingleton<IInboxStore>(sp =>
         {
-            var jetStream = sp.GetRequiredService<INatsJSContext>();
-            return new NatsKVInboxStore(jetStream, bucketName, ttl);
+            var connection = sp.GetRequiredService<INatsConnection>();
+            return new NatsJSInboxStore(connection, streamName);
         });
 
         return services;
     }
 
     /// <summary>
-    /// 注册所有 NATS Persistence 组件 (EventStore + Outbox + Inbox)
+    /// Adds complete NATS JetStream persistence (EventStore + Outbox + Inbox) to the service collection.
     /// </summary>
     public static IServiceCollection AddNatsPersistence(
         this IServiceCollection services,
@@ -81,22 +80,31 @@ public static class NatsPersistenceServiceCollectionExtensions
         var options = new NatsPersistenceOptions();
         configure?.Invoke(options);
 
-        services.AddNatsKVEventStore(options.EventStoreBucket);
-        services.AddNatsKVOutbox(options.OutboxBucket);
-        services.AddNatsKVInbox(options.InboxBucket, options.InboxTTL);
+        services.AddNatsEventStore(options.EventStreamName);
+        services.AddNatsOutboxStore(options.OutboxStreamName);
+        services.AddNatsInboxStore(options.InboxStreamName);
 
         return services;
     }
 }
 
 /// <summary>
-/// Configuration options for NATS Persistence
+/// Configuration options for NATS JetStream Persistence
 /// </summary>
 public sealed class NatsPersistenceOptions
 {
-    public string? EventStoreBucket { get; set; }
-    public string? OutboxBucket { get; set; }
-    public string? InboxBucket { get; set; }
-    public TimeSpan? InboxTTL { get; set; }
-}
+    /// <summary>
+    /// JetStream stream name for Event Store (default: "CATGA_EVENTS")
+    /// </summary>
+    public string? EventStreamName { get; set; }
 
+    /// <summary>
+    /// JetStream stream name for Outbox Store (default: "CATGA_OUTBOX")
+    /// </summary>
+    public string? OutboxStreamName { get; set; }
+
+    /// <summary>
+    /// JetStream stream name for Inbox Store (default: "CATGA_INBOX")
+    /// </summary>
+    public string? InboxStreamName { get; set; }
+}

@@ -18,7 +18,7 @@ public sealed class NatsJSEventStore : IEventStore, IAsyncDisposable
     private readonly INatsJSContext _jetStream;
     private readonly string _streamName;
     private readonly SemaphoreSlim _initLock = new(1, 1);
-    private bool _initialized;
+    private volatile bool _initialized; // volatile 确保可见性
 
     public NatsJSEventStore(
         INatsConnection connection,
@@ -29,13 +29,27 @@ public sealed class NatsJSEventStore : IEventStore, IAsyncDisposable
         _jetStream = new NatsJSContext(_connection);
     }
 
-    private async Task EnsureInitializedAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Ensures the JetStream is initialized using double-checked locking pattern.
+    /// Fast path (already initialized) has zero lock overhead.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private async ValueTask EnsureInitializedAsync(CancellationToken cancellationToken = default)
     {
+        // Fast path: 已初始化则直接返回（零锁开销）
+        // volatile read 确保可见性
         if (_initialized) return;
 
+        // Slow path: 需要初始化
+        await InitializeSlowPathAsync(cancellationToken);
+    }
+
+    private async ValueTask InitializeSlowPathAsync(CancellationToken cancellationToken)
+    {
         await _initLock.WaitAsync(cancellationToken);
         try
         {
+            // 双重检查：防止多次初始化
             if (_initialized) return;
 
             // Create stream for events
@@ -58,6 +72,7 @@ public sealed class NatsJSEventStore : IEventStore, IAsyncDisposable
                 // Stream already exists, ignore
             }
 
+            // volatile write 确保初始化完成对其他线程可见
             _initialized = true;
         }
         finally

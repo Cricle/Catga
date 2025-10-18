@@ -36,10 +36,10 @@ public static class FusionCacheServiceCollectionExtensions
                 {
                     Duration = TimeSpan.FromHours(24),
                     Priority = CacheItemPriority.Normal,
-                    
+
                     // Disable fail-safe for in-memory (no distributed cache fallback)
                     IsFailSafeEnabled = false,
-                    
+
                     // No factory timeouts for in-memory operations
                     FactoryHardTimeout = Timeout.InfiniteTimeSpan,
                     FactorySoftTimeout = Timeout.InfiniteTimeSpan

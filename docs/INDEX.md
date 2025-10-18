@@ -188,7 +188,6 @@
 
 ### 项目信息
 
-- **[项目结构](./PROJECT_STRUCTURE.md)** - 代码组织
 - **[项目总结](./PROJECT_SUMMARY.md)** - 功能概览
 - **[变更日志](./CHANGELOG.md)** - 版本历史
 - **[框架路线图](./FRAMEWORK-ROADMAP.md)** - 未来计划
@@ -233,7 +232,6 @@
 ### 参与贡献
 
 - **[贡献指南](../CONTRIBUTING.md)** - 如何为 Catga 做贡献
-- **[文档结构说明](../DOCUMENTATION-STRUCTURE.md)** - 文档组织规范
 
 ### 获取帮助
 

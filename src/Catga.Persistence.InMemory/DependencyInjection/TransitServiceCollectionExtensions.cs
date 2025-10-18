@@ -8,6 +8,7 @@ using Catga.Messages;
 using Catga.Outbox;
 using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
+using Catga.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -43,10 +44,16 @@ public static class CatgaServiceCollectionExtensions
 
         services.AddSingleton(options);
         services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
-        services.TryAddSingleton<IIdempotencyStore>(new ShardedIdempotencyStore(options.IdempotencyShardCount, TimeSpan.FromHours(options.IdempotencyRetentionHours)));
+        services.TryAddSingleton<IIdempotencyStore>(sp => new ShardedIdempotencyStore(
+            sp.GetRequiredService<IMessageSerializer>(), 
+            options.IdempotencyShardCount, 
+            TimeSpan.FromHours(options.IdempotencyRetentionHours)));
 
         if (options.EnableDeadLetterQueue)
-            services.TryAddSingleton<IDeadLetterQueue>(sp => new InMemoryDeadLetterQueue(sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InMemoryDeadLetterQueue>>(), options.DeadLetterQueueMaxSize));
+            services.TryAddSingleton<IDeadLetterQueue>(sp => new InMemoryDeadLetterQueue(
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InMemoryDeadLetterQueue>>(), 
+                sp.GetRequiredService<IMessageSerializer>(),
+                options.DeadLetterQueueMaxSize));
 
         if (options.EnableLogging) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
         if (options.EnableTracing) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TracingBehavior<,>));
@@ -64,12 +71,18 @@ public static class CatgaServiceCollectionExtensions
 
         services.AddSingleton(options);
         services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
-        services.TryAddSingleton<IIdempotencyStore>(new ShardedIdempotencyStore(options.IdempotencyShardCount, TimeSpan.FromHours(options.IdempotencyRetentionHours)));
+        services.TryAddSingleton<IIdempotencyStore>(sp => new ShardedIdempotencyStore(
+            sp.GetRequiredService<IMessageSerializer>(), 
+            options.IdempotencyShardCount, 
+            TimeSpan.FromHours(options.IdempotencyRetentionHours)));
 
         configure?.Invoke(builder);
 
         if (options.EnableDeadLetterQueue)
-            services.TryAddSingleton<IDeadLetterQueue>(sp => new InMemoryDeadLetterQueue(sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InMemoryDeadLetterQueue>>(), options.DeadLetterQueueMaxSize));
+            services.TryAddSingleton<IDeadLetterQueue>(sp => new InMemoryDeadLetterQueue(
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InMemoryDeadLetterQueue>>(), 
+                sp.GetRequiredService<IMessageSerializer>(),
+                options.DeadLetterQueueMaxSize));
 
         if (options.EnableLogging) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
         if (options.EnableTracing) services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TracingBehavior<,>));

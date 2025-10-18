@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
+using System.Text;
 using Catga.Common;
 using Catga.Core;
 using Catga.Messages;
+using Catga.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.DeadLetter;
@@ -11,23 +13,29 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
 {
     private readonly ConcurrentQueue<DeadLetterMessage> _deadLetters = new();
     private readonly ILogger<InMemoryDeadLetterQueue> _logger;
+    private readonly IMessageSerializer _serializer;
     private readonly int _maxSize;
 
-    public InMemoryDeadLetterQueue(ILogger<InMemoryDeadLetterQueue> logger, int maxSize = 1000)
+    public InMemoryDeadLetterQueue(
+        ILogger<InMemoryDeadLetterQueue> logger, 
+        IMessageSerializer serializer,
+        int maxSize = 1000)
     {
         _logger = logger;
+        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         _maxSize = maxSize;
     }
 
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "InMemory store is for development/testing. Use Redis for production AOT.")]
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050", Justification = "InMemory store is for development/testing. Use Redis for production AOT.")]
     public Task SendAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, Exception exception, int retryCount, CancellationToken cancellationToken = default) where TMessage : IMessage
     {
+        var messageBytes = _serializer.Serialize(message);
+        var messageJson = Encoding.UTF8.GetString(messageBytes); // Convert to string for DeadLetterMessage
+        
         var deadLetter = new DeadLetterMessage
         {
             MessageId = message.MessageId,
             MessageType = TypeNameCache<TMessage>.Name,
-            MessageJson = SerializationHelper.SerializeJson(message),
+            MessageJson = messageJson,
             ExceptionType = ExceptionTypeCache.GetTypeName(exception),
             ExceptionMessage = exception.Message,
             StackTrace = exception.StackTrace ?? string.Empty,

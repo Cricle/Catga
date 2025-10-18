@@ -1,4 +1,5 @@
 using Catga.Idempotency;
+using Catga.Serialization.Json;
 using FluentAssertions;
 
 namespace Catga.Tests.Core;
@@ -8,11 +9,12 @@ namespace Catga.Tests.Core;
 /// </summary>
 public class ShardedIdempotencyStoreTests
 {
+    private readonly JsonMessageSerializer _serializer = new();
     [Fact]
     public async Task HasBeenProcessedAsync_NewMessage_ShouldReturnFalse()
     {
         // Arrange
-        var store = new ShardedIdempotencyStore(shardCount: 4);
+        var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
         var messageId = Guid.NewGuid().ToString();
 
         // Act
@@ -26,7 +28,7 @@ public class ShardedIdempotencyStoreTests
     public async Task MarkAsProcessedAsync_ShouldMarkMessageAsProcessed()
     {
         // Arrange
-        var store = new ShardedIdempotencyStore(shardCount: 4);
+        var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
         var messageId = Guid.NewGuid().ToString();
         var resultValue = "test result";
 
@@ -42,7 +44,7 @@ public class ShardedIdempotencyStoreTests
     public async Task GetCachedResultAsync_AfterMarkAsProcessed_ShouldReturnResult()
     {
         // Arrange
-        var store = new ShardedIdempotencyStore(shardCount: 4);
+        var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
         var messageId = Guid.NewGuid().ToString();
         var resultValue = "test result";
 
@@ -58,7 +60,7 @@ public class ShardedIdempotencyStoreTests
     public async Task GetCachedResultAsync_WithoutMarkAsProcessed_ShouldReturnDefault()
     {
         // Arrange
-        var store = new ShardedIdempotencyStore(shardCount: 4);
+        var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
         var messageId = Guid.NewGuid().ToString();
 
         // Act
@@ -72,7 +74,7 @@ public class ShardedIdempotencyStoreTests
     public async Task MarkAsProcessedAsync_WithNullResult_ShouldStoreExplicitly()
     {
         // Arrange
-        var store = new ShardedIdempotencyStore(shardCount: 4);
+        var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
         var messageId = Guid.NewGuid().ToString();
 
         // Act
@@ -90,7 +92,7 @@ public class ShardedIdempotencyStoreTests
     {
         // Arrange
         var retentionPeriod = TimeSpan.FromMilliseconds(100);
-        var store = new ShardedIdempotencyStore(shardCount: 4, retentionPeriod: retentionPeriod);
+        var store = new ShardedIdempotencyStore(_serializer, shardCount: 4, retentionPeriod: retentionPeriod);
         var messageId = Guid.NewGuid().ToString();
 
         // Act
@@ -107,7 +109,7 @@ public class ShardedIdempotencyStoreTests
     {
         // Arrange
         var retentionPeriod = TimeSpan.FromMilliseconds(100);
-        var store = new ShardedIdempotencyStore(shardCount: 4, retentionPeriod: retentionPeriod);
+        var store = new ShardedIdempotencyStore(_serializer, shardCount: 4, retentionPeriod: retentionPeriod);
         var messageId = Guid.NewGuid().ToString();
 
         // Act
@@ -123,7 +125,7 @@ public class ShardedIdempotencyStoreTests
     public async Task MultipleMessages_ShouldBeDistributedAcrossShards()
     {
         // Arrange
-        var store = new ShardedIdempotencyStore(shardCount: 8);
+        var store = new ShardedIdempotencyStore(_serializer, shardCount: 8);
         var messageIds = Enumerable.Range(0, 100).Select(_ => Guid.NewGuid().ToString()).ToArray();
 
         // Act
@@ -144,7 +146,7 @@ public class ShardedIdempotencyStoreTests
     public async Task ConcurrentAccess_ShouldBeSafe()
     {
         // Arrange
-        var store = new ShardedIdempotencyStore(shardCount: 16);
+        var store = new ShardedIdempotencyStore(_serializer, shardCount: 16);
         var messageIds = Enumerable.Range(0, 1000).Select(_ => Guid.NewGuid().ToString()).ToArray();
 
         // Act - Concurrent writes
@@ -165,7 +167,7 @@ public class ShardedIdempotencyStoreTests
     public async Task DifferentResultTypes_ShouldBeStoredSeparately()
     {
         // Arrange
-        var store = new ShardedIdempotencyStore(shardCount: 4);
+        var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
         var messageId = Guid.NewGuid().ToString();
 
         // Act
@@ -184,7 +186,7 @@ public class ShardedIdempotencyStoreTests
     public void Constructor_WithNonPowerOfTwo_ShouldThrow()
     {
         // Act
-        Action act = () => new ShardedIdempotencyStore(shardCount: 7);
+        Action act = () => new ShardedIdempotencyStore(_serializer, shardCount: 7);
 
         // Assert
         act.Should().Throw<ArgumentException>()
@@ -195,7 +197,7 @@ public class ShardedIdempotencyStoreTests
     public void Constructor_WithZeroShards_ShouldThrow()
     {
         // Act
-        Action act = () => new ShardedIdempotencyStore(shardCount: 0);
+        Action act = () => new ShardedIdempotencyStore(_serializer, shardCount: 0);
 
         // Assert
         act.Should().Throw<ArgumentException>();
@@ -205,7 +207,7 @@ public class ShardedIdempotencyStoreTests
     public async Task ComplexObject_ShouldBeStoredAndRetrieved()
     {
         // Arrange
-        var store = new ShardedIdempotencyStore(shardCount: 4);
+        var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
         var messageId = Guid.NewGuid().ToString();
         var complexObject = new TestComplexObject
         {

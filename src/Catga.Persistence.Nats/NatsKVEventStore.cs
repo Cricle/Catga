@@ -66,7 +66,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
             {
                 ["EventType"] = @event.GetType().AssemblyQualifiedName!
             };
-            
+
             var ack = await JetStream.PublishAsync(subject, data, headers: headers, cancellationToken: cancellationToken);
 
             if (ack.Error != null)

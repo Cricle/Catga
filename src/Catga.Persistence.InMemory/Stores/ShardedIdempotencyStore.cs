@@ -1,30 +1,37 @@
 using System.Collections.Concurrent;
+using System.Text;
 using Catga.Common;
+using Catga.Serialization;
 
 namespace Catga.Idempotency;
 
-/// <summary>High-performance sharded idempotency store (AOT-compatible, lock-free)</summary>
+/// <summary>High-performance sharded idempotency store (lock-free)</summary>
 public class ShardedIdempotencyStore : IIdempotencyStore
 {
-    private readonly ConcurrentDictionary<string, (DateTime ProcessedAt, Type? ResultType, string? ResultJson)>[] _shards;
+    private readonly ConcurrentDictionary<string, (DateTime ProcessedAt, Type? ResultType, byte[]? ResultData)>[] _shards;
+    private readonly IMessageSerializer _serializer;
     private readonly TimeSpan _retentionPeriod;
     private readonly int _shardCount;
     private long _lastCleanupTicks;
 
-    public ShardedIdempotencyStore(int shardCount = 32, TimeSpan? retentionPeriod = null)
+    public ShardedIdempotencyStore(
+        IMessageSerializer serializer,
+        int shardCount = 32, 
+        TimeSpan? retentionPeriod = null)
     {
         if (shardCount <= 0 || (shardCount & (shardCount - 1)) != 0)
             throw new ArgumentException("Shard count must be a power of 2", nameof(shardCount));
 
+        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         _shardCount = shardCount;
         _retentionPeriod = retentionPeriod ?? TimeSpan.FromHours(24);
-        _shards = new ConcurrentDictionary<string, (DateTime, Type?, string?)>[_shardCount];
+        _shards = new ConcurrentDictionary<string, (DateTime, Type?, byte[]?)>[_shardCount];
         for (int i = 0; i < _shardCount; i++)
-            _shards[i] = new ConcurrentDictionary<string, (DateTime, Type?, string?)>();
+            _shards[i] = new ConcurrentDictionary<string, (DateTime, Type?, byte[]?)>();
         _lastCleanupTicks = DateTime.UtcNow.Ticks;
     }
 
-    private ConcurrentDictionary<string, (DateTime, Type?, string?)> GetShard(string messageId)
+    private ConcurrentDictionary<string, (DateTime, Type?, byte[]?)> GetShard(string messageId)
         => _shards[messageId.GetHashCode() & (_shardCount - 1)];
 
     public Task<bool> HasBeenProcessedAsync(string messageId, CancellationToken cancellationToken = default)
@@ -38,22 +45,18 @@ public class ShardedIdempotencyStore : IIdempotencyStore
         return Task.FromResult(false);
     }
 
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "InMemory store is for development/testing. Use Redis for production AOT.")]
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050", Justification = "InMemory store is for development/testing. Use Redis for production AOT.")]
     public Task MarkAsProcessedAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
         GetShard(messageId)[messageId] = (now, typeof(TResult), null);
 
-        // Store typed result (null stored as empty string to differentiate from "not found")
-        var resultJson = result != null ? SerializationHelper.SerializeJson(result) : string.Empty;
-        TypedIdempotencyCache<TResult>.Cache[messageId] = (now, resultJson);
+        // Store typed result (null stored as empty byte array to differentiate from "not found")
+        var resultData = result != null ? _serializer.Serialize(result) : Array.Empty<byte>();
+        TypedIdempotencyCache<TResult>.Cache[messageId] = (now, resultData);
 
         return Task.CompletedTask;
     }
 
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "InMemory store is for development/testing. Use Redis for production AOT.")]
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050", Justification = "InMemory store is for development/testing. Use Redis for production AOT.")]
     public Task<TResult?> GetCachedResultAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, CancellationToken cancellationToken = default)
     {
         if (TypedIdempotencyCache<TResult>.Cache.TryGetValue(messageId, out var entry))
@@ -65,11 +68,11 @@ public class ShardedIdempotencyStore : IIdempotencyStore
                 return Task.FromResult<TResult?>(default);
             }
 
-            // Empty string means null result was explicitly stored
-            if (string.IsNullOrEmpty(entry.Json))
+            // Empty byte array means null result was explicitly stored
+            if (entry.Data == null || entry.Data.Length == 0)
                 return Task.FromResult<TResult?>(default);
 
-            return Task.FromResult(SerializationHelper.DeserializeJson<TResult>(entry.Json));
+            return Task.FromResult(_serializer.Deserialize<TResult>(entry.Data));
         }
         return Task.FromResult<TResult?>(default);
     }

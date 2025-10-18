@@ -66,7 +66,7 @@ public class InboxMessage
     public required string MessageType { get; set; }
 
     /// <summary>
-    /// Serialized message payload (JSON)
+    /// Serialized message payload (Base64-encoded, format depends on registered IMessageSerializer)
     /// </summary>
     public required string Payload { get; set; }
 

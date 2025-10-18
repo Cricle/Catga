@@ -111,15 +111,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
             {
                 if (msg.Data != null && msg.Data.Length > 0)
                 {
-                    // 从 headers 获取事件类型
-                    var eventTypeName = msg.Headers?["EventType"];
-                    if (string.IsNullOrEmpty(eventTypeName))
-                        throw new InvalidOperationException("Event type not found in message headers");
-
-                    var eventType = Type.GetType(eventTypeName)
-                        ?? throw new InvalidOperationException($"Event type not found: {eventTypeName}");
-
-                    var @event = DeserializeEvent(msg.Data, eventType);
+                    var @event = DeserializeEventFromMessage(msg);
                     var version = (long)(msg.Metadata?.Sequence.Stream ?? 0UL) - 1; // Convert to 0-based
 
                     if (version >= fromVersion)
@@ -200,7 +192,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
 
     /// <summary>
     /// 直接序列化事件对象，不使用 Envelope 包装
-    /// 注意：事件类型信息通过 JetStream 的 subject 传递（例如：CATGA_EVENTS.OrderCreatedEvent）
+    /// 注意：事件类型信息通过 JetStream headers 传递
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private byte[] SerializeEvent(IEvent @event)
@@ -209,12 +201,31 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
     }
 
     /// <summary>
+    /// 从 NATS 消息反序列化事件（从 headers 读取类型信息）
+    /// </summary>
+    [UnconditionalSuppressMessage("Trimming", "IL2057:Unrecognized value passed to parameter.", Justification = "Event type is stored in NATS headers at runtime. For AOT scenarios, use strongly-typed queries.")]
+    private IEvent DeserializeEventFromMessage(NatsJSMsg<byte[]> msg)
+    {
+        // 从 headers 获取事件类型
+        var eventTypeName = msg.Headers?["EventType"];
+        if (string.IsNullOrEmpty(eventTypeName))
+            throw new InvalidOperationException("Event type not found in message headers");
+
+        var eventType = Type.GetType(eventTypeName!)
+            ?? throw new InvalidOperationException($"Event type not found: {eventTypeName}");
+
+        return DeserializeEvent(msg.Data!, eventType);
+    }
+
+    /// <summary>
     /// 反序列化事件对象
     /// 警告：由于需要动态类型反序列化，此方法不完全 AOT 兼容
     /// 建议：使用强类型的 GetEventsAsync&lt;TEvent&gt; 方法以获得完全 AOT 支持
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [UnconditionalSuppressMessage("Trimming", "IL2087:Target parameter argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The return value of the source method does not have matching annotations.", Justification = "Event deserialization requires dynamic type loading. Use strongly-typed GetEventsAsync<TEvent> for AOT scenarios.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2057:Unrecognized value passed to parameter. It's not possible to guarantee the availability of the target.", Justification = "Event deserialization requires dynamic type loading from message headers. Use strongly-typed queries for AOT scenarios.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2071:Target parameter argument does not satisfy 'DynamicallyAccessedMembersAttribute'.", Justification = "Event deserialization requires dynamic type loading. Use strongly-typed GetEventsAsync<TEvent> for AOT scenarios.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2087:Target parameter argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method.", Justification = "Event deserialization requires dynamic type loading. Use strongly-typed GetEventsAsync<TEvent> for AOT scenarios.")]
     [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "Event deserialization requires dynamic type loading. Use strongly-typed GetEventsAsync<TEvent> for AOT scenarios.")]
     private IEvent DeserializeEvent(byte[] data, Type eventType)
     {

@@ -31,23 +31,18 @@ public static class FusionCacheServiceCollectionExtensions
         services.AddFusionCache()
             .WithOptions(options =>
             {
-                // Optimized defaults for Catga
+                // Optimized defaults for Catga InMemory (no fail-safe needed)
                 options.DefaultEntryOptions = new FusionCacheEntryOptions
                 {
                     Duration = TimeSpan.FromHours(24),
                     Priority = CacheItemPriority.Normal,
-
-                    // Enable fail-safe mechanisms
-                    IsFailSafeEnabled = true,
-                    FailSafeMaxDuration = TimeSpan.FromDays(1),
-                    FailSafeThrottleDuration = TimeSpan.FromSeconds(30),
-
-                    // Factory timeouts
-                    FactoryHardTimeout = TimeSpan.FromSeconds(10),
-                    FactorySoftTimeout = TimeSpan.FromSeconds(5),
-
-                    // Enable eager refresh for hot data
-                    EagerRefreshThreshold = 0.8f
+                    
+                    // Disable fail-safe for in-memory (no distributed cache fallback)
+                    IsFailSafeEnabled = false,
+                    
+                    // No factory timeouts for in-memory operations
+                    FactoryHardTimeout = Timeout.InfiniteTimeSpan,
+                    FactorySoftTimeout = Timeout.InfiniteTimeSpan
                 };
 
                 // Allow custom configuration

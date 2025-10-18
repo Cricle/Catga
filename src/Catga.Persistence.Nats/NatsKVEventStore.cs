@@ -3,6 +3,7 @@ using Catga.Messages;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
+using NATS.Client.KeyValueStore;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 
@@ -15,7 +16,7 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
 {
     private readonly INatsJSContext _jetStream;
     private readonly string _bucketName;
-    private INatsKVStore? _kvStore;
+    private INatsKVContext? _kvStore;
     private bool _initialized;
     private readonly SemaphoreSlim _initLock = new(1, 1);
 
@@ -43,13 +44,13 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
                 MaxBucketSize = -1 // No size limit
             };
 
-            _kvStore = await _jetStream.CreateKeyValueStoreAsync(config, cancellationToken);
+            _kvStore = await _jetStream.CreateKeyValueAsync(config, cancellationToken);
             _initialized = true;
         }
-        catch (NatsJSApiException ex) when (ex.Error.Code == 400 && ex.Error.Description.Contains("already"))
+        catch (NatsJSApiException ex) when (ex.Error.Code == 400)
         {
             // Bucket already exists, get it
-            _kvStore = await _jetStream.GetKeyValueStoreAsync(_bucketName, cancellationToken);
+            _kvStore = await _jetStream.GetKeyValueAsync(_bucketName, cancellationToken);
             _initialized = true;
         }
         finally
@@ -58,10 +59,10 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
         }
     }
 
-    public async Task AppendAsync(
+    public async ValueTask AppendAsync(
         string streamId,
-        IEnumerable<IEvent> events,
-        long expectedVersion,
+        IReadOnlyList<IEvent> events,
+        long expectedVersion = -1,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
@@ -69,22 +70,20 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
 
         await EnsureInitializedAsync(cancellationToken);
 
-        var eventList = events.ToList();
-        if (eventList.Count == 0) return;
+        if (events.Count == 0) return;
 
         // Get current version
-        var currentVersion = await GetStreamVersionAsync(streamId, cancellationToken);
+        var currentVersion = await GetVersionAsyncInternal(streamId, cancellationToken);
 
         // Optimistic concurrency check
         if (expectedVersion != -1 && currentVersion != expectedVersion)
         {
-            throw new ConcurrencyException(
-                $"Stream '{streamId}' version mismatch. Expected: {expectedVersion}, Actual: {currentVersion}");
+            throw new ConcurrencyException(streamId, expectedVersion, currentVersion);
         }
 
         // Append events
         var version = currentVersion;
-        foreach (var @event in eventList)
+        foreach (var @event in events)
         {
             version++;
             var key = GetEventKey(streamId, version);
@@ -107,25 +106,33 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
             cancellationToken: cancellationToken);
     }
 
-    public async Task<List<IEvent>> ReadAsync(
+    public async ValueTask<EventStream> ReadAsync(
         string streamId,
         long fromVersion = 0,
-        long toVersion = long.MaxValue,
+        int maxCount = int.MaxValue,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
 
         await EnsureInitializedAsync(cancellationToken);
 
-        var events = new List<IEvent>();
-        var version = await GetStreamVersionAsync(streamId, cancellationToken);
+        var storedEvents = new List<StoredEvent>();
+        var version = await GetVersionAsyncInternal(streamId, cancellationToken);
 
-        if (version == 0) return events;
+        if (version < 0)
+        {
+            return new EventStream
+            {
+                StreamId = streamId,
+                Version = -1,
+                Events = Array.Empty<StoredEvent>()
+            };
+        }
 
-        var start = Math.Max(1, fromVersion);
-        var end = Math.Min(version, toVersion);
+        var start = Math.Max(0, fromVersion);
+        var end = Math.Min(version, start + maxCount - 1);
 
-        for (var i = start; i <= end; i++)
+        for (var i = start; i <= end && storedEvents.Count < maxCount; i++)
         {
             var key = GetEventKey(streamId, i);
             try
@@ -134,7 +141,13 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
                 if (entry?.Value != null)
                 {
                     var @event = DeserializeEvent(entry.Value);
-                    events.Add(@event);
+                    storedEvents.Add(new StoredEvent
+                    {
+                        Version = i,
+                        Event = @event,
+                        Timestamp = entry.Created,
+                        EventType = @event.GetType().Name
+                    });
                 }
             }
             catch (NatsKVKeyNotFoundException)
@@ -143,61 +156,24 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
             }
         }
 
-        return events;
+        return new EventStream
+        {
+            StreamId = streamId,
+            Version = version,
+            Events = storedEvents
+        };
     }
 
-    public async Task<bool> ExistsAsync(string streamId, CancellationToken cancellationToken = default)
+    public async ValueTask<long> GetVersionAsync(
+        string streamId,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
-
         await EnsureInitializedAsync(cancellationToken);
-
-        try
-        {
-            var metadata = await _kvStore!.GetEntryAsync<byte[]>(
-                GetMetadataKey(streamId),
-                cancellationToken: cancellationToken);
-            return metadata != null;
-        }
-        catch (NatsKVKeyNotFoundException)
-        {
-            return false;
-        }
+        return await GetVersionAsyncInternal(streamId, cancellationToken);
     }
 
-    public async Task DeleteAsync(string streamId, CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
-
-        await EnsureInitializedAsync(cancellationToken);
-
-        var version = await GetStreamVersionAsync(streamId, cancellationToken);
-
-        // Delete all events
-        for (var i = 1L; i <= version; i++)
-        {
-            try
-            {
-                await _kvStore!.DeleteAsync(GetEventKey(streamId, i), cancellationToken: cancellationToken);
-            }
-            catch (NatsKVKeyNotFoundException)
-            {
-                // Already deleted
-            }
-        }
-
-        // Delete metadata
-        try
-        {
-            await _kvStore!.DeleteAsync(GetMetadataKey(streamId), cancellationToken: cancellationToken);
-        }
-        catch (NatsKVKeyNotFoundException)
-        {
-            // Already deleted
-        }
-    }
-
-    private async Task<long> GetStreamVersionAsync(string streamId, CancellationToken cancellationToken)
+    private async Task<long> GetVersionAsyncInternal(string streamId, CancellationToken cancellationToken)
     {
         try
         {
@@ -208,7 +184,7 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
             if (entry?.Value != null)
             {
                 var metadata = JsonSerializer.Deserialize<StreamMetadata>(entry.Value);
-                return metadata?.Version ?? 0;
+                return metadata?.Version ?? -1;
             }
         }
         catch (NatsKVKeyNotFoundException)
@@ -216,7 +192,7 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
             // Stream doesn't exist
         }
 
-        return 0;
+        return -1;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -278,4 +254,3 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
         return ValueTask.CompletedTask;
     }
 }
-

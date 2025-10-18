@@ -4,6 +4,7 @@ using Catga.Serialization;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Catga.Persistence;
@@ -56,12 +57,17 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
             throw new ConcurrencyException(streamId, expectedVersion, currentVersion);
         }
 
-        // Publish events to JetStream
+        // Publish events to JetStream with type information in headers
         var subject = $"{StreamName}.{streamId}";
         foreach (var @event in events)
         {
             var data = SerializeEvent(@event);
-            var ack = await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
+            var headers = new NatsHeaders
+            {
+                ["EventType"] = @event.GetType().AssemblyQualifiedName!
+            };
+            
+            var ack = await JetStream.PublishAsync(subject, data, headers: headers, cancellationToken: cancellationToken);
 
             if (ack.Error != null)
             {
@@ -105,7 +111,15 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
             {
                 if (msg.Data != null && msg.Data.Length > 0)
                 {
-                    var @event = DeserializeEvent(msg.Data);
+                    // 从 headers 获取事件类型
+                    var eventTypeName = msg.Headers?["EventType"];
+                    if (string.IsNullOrEmpty(eventTypeName))
+                        throw new InvalidOperationException("Event type not found in message headers");
+
+                    var eventType = Type.GetType(eventTypeName)
+                        ?? throw new InvalidOperationException($"Event type not found: {eventTypeName}");
+
+                    var @event = DeserializeEvent(msg.Data, eventType);
                     var version = (long)(msg.Metadata?.Sequence.Stream ?? 0UL) - 1; // Convert to 0-based
 
                     if (version >= fromVersion)
@@ -184,41 +198,36 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         }
     }
 
+    /// <summary>
+    /// 直接序列化事件对象，不使用 Envelope 包装
+    /// 注意：事件类型信息通过 JetStream 的 subject 传递（例如：CATGA_EVENTS.OrderCreatedEvent）
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private byte[] SerializeEvent(IEvent @event)
     {
-        var envelope = new EventEnvelope
-        {
-            EventType = @event.GetType().AssemblyQualifiedName!,
-            Data = _serializer.Serialize(@event)
-        };
-        return _serializer.Serialize(envelope);
+        return _serializer.Serialize(@event);
     }
 
+    /// <summary>
+    /// 反序列化事件对象
+    /// 警告：由于需要动态类型反序列化，此方法不完全 AOT 兼容
+    /// 建议：使用强类型的 GetEventsAsync&lt;TEvent&gt; 方法以获得完全 AOT 支持
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IEvent DeserializeEvent(byte[] data)
+    [UnconditionalSuppressMessage("Trimming", "IL2087:Target parameter argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The return value of the source method does not have matching annotations.", Justification = "Event deserialization requires dynamic type loading. Use strongly-typed GetEventsAsync<TEvent> for AOT scenarios.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "Event deserialization requires dynamic type loading. Use strongly-typed GetEventsAsync<TEvent> for AOT scenarios.")]
+    private IEvent DeserializeEvent(byte[] data, Type eventType)
     {
-        var envelope = _serializer.Deserialize<EventEnvelope>(data);
-        if (envelope == null)
-            throw new InvalidOperationException("Failed to deserialize event envelope");
-
-        var eventType = Type.GetType(envelope.EventType)
-            ?? throw new InvalidOperationException($"Event type not found: {envelope.EventType}");
-
-        // 使用反射调用泛型 Deserialize 方法
-        var deserializeMethod = _serializer.GetType().GetMethod(nameof(IMessageSerializer.Deserialize))!
+        // 使用反射调用泛型方法（在 AOT 场景下可能失败）
+        // 为了 AOT 支持，推荐使用强类型的 GetEventsAsync<TEvent> 方法
+        var deserializeMethod = typeof(IMessageSerializer)
+            .GetMethod(nameof(IMessageSerializer.Deserialize))!
             .MakeGenericMethod(eventType);
 
-        var @event = deserializeMethod.Invoke(_serializer, new object[] { envelope.Data }) as IEvent
-            ?? throw new InvalidOperationException($"Failed to deserialize event: {envelope.EventType}");
+        var @event = deserializeMethod.Invoke(_serializer, new object[] { data }) as IEvent
+            ?? throw new InvalidOperationException($"Failed to deserialize event of type: {eventType.FullName}");
 
         return @event;
-    }
-
-    private sealed class EventEnvelope
-    {
-        public string EventType { get; set; } = string.Empty;
-        public byte[] Data { get; set; } = Array.Empty<byte>();
     }
 }
 

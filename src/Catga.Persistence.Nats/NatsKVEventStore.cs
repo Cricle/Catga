@@ -12,74 +12,22 @@ namespace Catga.Persistence;
 /// NATS JetStream-based event store for persistent event sourcing
 /// Uses JetStream streams instead of KV for better compatibility
 /// </summary>
-public sealed class NatsJSEventStore : IEventStore, IAsyncDisposable
+public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
 {
-    private readonly INatsConnection _connection;
-    private readonly INatsJSContext _jetStream;
-    private readonly string _streamName;
-    private readonly SemaphoreSlim _initLock = new(1, 1);
-    private volatile bool _initialized; // volatile 确保可见性
-
-    public NatsJSEventStore(
-        INatsConnection connection,
-        string? streamName = null)
+    public NatsJSEventStore(INatsConnection connection, string? streamName = null)
+        : base(connection, streamName ?? "CATGA_EVENTS")
     {
-        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
-        _streamName = streamName ?? "CATGA_EVENTS";
-        _jetStream = new NatsJSContext(_connection);
     }
 
-    /// <summary>
-    /// Ensures the JetStream is initialized using double-checked locking pattern.
-    /// Fast path (already initialized) has zero lock overhead.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private async ValueTask EnsureInitializedAsync(CancellationToken cancellationToken = default)
+    protected override StreamConfig CreateStreamConfig() => new(
+        StreamName,
+        new[] { $"{StreamName}.>" }
+    )
     {
-        // Fast path: 已初始化则直接返回（零锁开销）
-        // volatile read 确保可见性
-        if (_initialized) return;
-
-        // Slow path: 需要初始化
-        await InitializeSlowPathAsync(cancellationToken);
-    }
-
-    private async ValueTask InitializeSlowPathAsync(CancellationToken cancellationToken)
-    {
-        await _initLock.WaitAsync(cancellationToken);
-        try
-        {
-            // 双重检查：防止多次初始化
-            if (_initialized) return;
-
-            // Create stream for events
-            var config = new StreamConfig(
-                _streamName,
-                new[] { $"{_streamName}.>" }
-            )
-            {
-                Storage = StreamConfigStorage.File,
-                Retention = StreamConfigRetention.Limits,
-                MaxAge = TimeSpan.FromDays(365) // Keep events for 1 year
-            };
-
-            try
-            {
-                await _jetStream.CreateStreamAsync(config, cancellationToken);
-            }
-            catch (NatsJSApiException ex) when (ex.Error.Code == 400)
-            {
-                // Stream already exists, ignore
-            }
-
-            // volatile write 确保初始化完成对其他线程可见
-            _initialized = true;
-        }
-        finally
-        {
-            _initLock.Release();
-        }
-    }
+        Storage = StreamConfigStorage.File,
+        Retention = StreamConfigRetention.Limits,
+        MaxAge = TimeSpan.FromDays(365) // Keep events for 1 year
+    };
 
     public async ValueTask AppendAsync(
         string streamId,
@@ -103,11 +51,11 @@ public sealed class NatsJSEventStore : IEventStore, IAsyncDisposable
         }
 
         // Publish events to JetStream
-        var subject = $"{_streamName}.{streamId}";
+        var subject = $"{StreamName}.{streamId}";
         foreach (var @event in events)
         {
             var data = SerializeEvent(@event);
-            var ack = await _jetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
+            var ack = await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
 
             if (ack.Error != null)
             {
@@ -126,15 +74,15 @@ public sealed class NatsJSEventStore : IEventStore, IAsyncDisposable
 
         await EnsureInitializedAsync(cancellationToken);
 
-        var subject = $"{_streamName}.{streamId}";
+        var subject = $"{StreamName}.{streamId}";
         var storedEvents = new List<StoredEvent>();
 
         try
         {
             // Create temporary consumer
             var consumerName = $"temp-{streamId}-{Guid.NewGuid():N}";
-            var consumer = await _jetStream.CreateOrUpdateConsumerAsync(
-                _streamName,
+            var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                StreamName,
                 new ConsumerConfig
                 {
                     Name = consumerName,
@@ -198,14 +146,14 @@ public sealed class NatsJSEventStore : IEventStore, IAsyncDisposable
 
         await EnsureInitializedAsync(cancellationToken);
 
-        var subject = $"{_streamName}.{streamId}";
+        var subject = $"{StreamName}.{streamId}";
 
         try
         {
             // Create temporary consumer to get last message
             var consumerName = $"ver-{streamId}-{Guid.NewGuid():N}";
-            var consumer = await _jetStream.CreateOrUpdateConsumerAsync(
-                _streamName,
+            var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                StreamName,
                 new ConsumerConfig
                 {
                     Name = consumerName,
@@ -261,12 +209,6 @@ public sealed class NatsJSEventStore : IEventStore, IAsyncDisposable
     {
         public string EventType { get; set; } = string.Empty;
         public string Data { get; set; } = string.Empty;
-    }
-
-    public ValueTask DisposeAsync()
-    {
-        _initLock.Dispose();
-        return ValueTask.CompletedTask;
     }
 }
 

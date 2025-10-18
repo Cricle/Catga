@@ -1,4 +1,5 @@
 using Catga.Inbox;
+using Catga.Persistence;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
@@ -9,70 +10,22 @@ namespace Catga.Persistence.Stores;
 /// <summary>
 /// NATS JetStream-based inbox store for idempotent message processing
 /// </summary>
-public sealed class NatsJSInboxStore : IInboxStore, IAsyncDisposable
+public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
 {
-    private readonly INatsConnection _connection;
-    private readonly INatsJSContext _jetStream;
-    private readonly string _streamName;
-    private readonly SemaphoreSlim _initLock = new(1, 1);
-    private volatile bool _initialized; // volatile 确保可见性
-
     public NatsJSInboxStore(INatsConnection connection, string? streamName = null)
+        : base(connection, streamName ?? "CATGA_INBOX")
     {
-        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
-        _streamName = streamName ?? "CATGA_INBOX";
-        _jetStream = new NatsJSContext(_connection);
     }
 
-    /// <summary>
-    /// Ensures the JetStream is initialized using double-checked locking pattern.
-    /// Fast path (already initialized) has zero lock overhead.
-    /// </summary>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    private async ValueTask EnsureInitializedAsync(CancellationToken cancellationToken = default)
+    protected override StreamConfig CreateStreamConfig() => new(
+        StreamName,
+        new[] { $"{StreamName}.>" }
+    )
     {
-        // Fast path: 已初始化则直接返回（零锁开销）
-        if (_initialized) return;
-
-        // Slow path: 需要初始化
-        await InitializeSlowPathAsync(cancellationToken);
-    }
-
-    private async ValueTask InitializeSlowPathAsync(CancellationToken cancellationToken)
-    {
-        await _initLock.WaitAsync(cancellationToken);
-        try
-        {
-            // 双重检查：防止多次初始化
-            if (_initialized) return;
-
-            var config = new StreamConfig(
-                _streamName,
-                new[] { $"{_streamName}.>" }
-            )
-            {
-                Storage = StreamConfigStorage.File,
-                Retention = StreamConfigRetention.Limits,
-                MaxAge = TimeSpan.FromDays(7) // Keep processed messages for 7 days
-            };
-
-            try
-            {
-                await _jetStream.CreateStreamAsync(config, cancellationToken);
-            }
-            catch (NatsJSApiException ex) when (ex.Error.Code == 400)
-            {
-                // Stream already exists
-            }
-
-            // volatile write 确保初始化完成对其他线程可见
-            _initialized = true;
-        }
-        finally
-        {
-            _initLock.Release();
-        }
-    }
+        Storage = StreamConfigStorage.File,
+        Retention = StreamConfigRetention.Limits,
+        MaxAge = TimeSpan.FromDays(7) // Keep processed messages for 7 days
+    };
 
     public async ValueTask<bool> TryLockMessageAsync(
         string messageId,
@@ -83,7 +36,7 @@ public sealed class NatsJSInboxStore : IInboxStore, IAsyncDisposable
 
         await EnsureInitializedAsync(cancellationToken);
 
-        var subject = $"{_streamName}.{messageId}";
+        var subject = $"{StreamName}.{messageId}";
 
         // Check if message already exists and is processed
         var existing = await GetMessageAsync(messageId, cancellationToken);
@@ -108,7 +61,7 @@ public sealed class NatsJSInboxStore : IInboxStore, IAsyncDisposable
         message.LockExpiresAt = DateTime.UtcNow.Add(lockDuration);
 
         var data = JsonSerializer.SerializeToUtf8Bytes(message);
-        var ack = await _jetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
+        var ack = await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
 
         return ack.Error == null;
     }
@@ -125,10 +78,10 @@ public sealed class NatsJSInboxStore : IInboxStore, IAsyncDisposable
         message.Status = InboxStatus.Processed;
         message.LockExpiresAt = null;
 
-        var subject = $"{_streamName}.{message.MessageId}";
+        var subject = $"{StreamName}.{message.MessageId}";
         var data = JsonSerializer.SerializeToUtf8Bytes(message);
 
-        await _jetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
+        await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
     }
 
     public async ValueTask<bool> HasBeenProcessedAsync(
@@ -169,10 +122,10 @@ public sealed class NatsJSInboxStore : IInboxStore, IAsyncDisposable
             message.Status = InboxStatus.Pending;
             message.LockExpiresAt = null;
 
-            var subject = $"{_streamName}.{messageId}";
+            var subject = $"{StreamName}.{messageId}";
             var data = JsonSerializer.SerializeToUtf8Bytes(message);
 
-            await _jetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
+            await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
         }
     }
 
@@ -188,9 +141,9 @@ public sealed class NatsJSInboxStore : IInboxStore, IAsyncDisposable
     {
         try
         {
-            var subject = $"{_streamName}.{messageId}";
-            var consumer = await _jetStream.CreateOrUpdateConsumerAsync(
-                _streamName,
+            var subject = $"{StreamName}.{messageId}";
+            var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                StreamName,
                 new ConsumerConfig
                 {
                     Name = $"inbox-get-{Guid.NewGuid():N}",
@@ -218,10 +171,5 @@ public sealed class NatsJSInboxStore : IInboxStore, IAsyncDisposable
         return null;
     }
 
-    public ValueTask DisposeAsync()
-    {
-        _initLock.Dispose();
-        return ValueTask.CompletedTask;
-    }
 }
 

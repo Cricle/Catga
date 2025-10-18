@@ -1,4 +1,5 @@
 using Catga.Outbox;
+using Catga.Persistence;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
@@ -9,69 +10,21 @@ namespace Catga.Persistence.Stores;
 /// <summary>
 /// NATS JetStream-based outbox store for reliable message publishing
 /// </summary>
-public sealed class NatsJSOutboxStore : IOutboxStore, IAsyncDisposable
+public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
 {
-    private readonly INatsConnection _connection;
-    private readonly INatsJSContext _jetStream;
-    private readonly string _streamName;
-    private readonly SemaphoreSlim _initLock = new(1, 1);
-    private volatile bool _initialized; // volatile 确保可见性
-
     public NatsJSOutboxStore(INatsConnection connection, string? streamName = null)
+        : base(connection, streamName ?? "CATGA_OUTBOX")
     {
-        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
-        _streamName = streamName ?? "CATGA_OUTBOX";
-        _jetStream = new NatsJSContext(_connection);
     }
 
-    /// <summary>
-    /// Ensures the JetStream is initialized using double-checked locking pattern.
-    /// Fast path (already initialized) has zero lock overhead.
-    /// </summary>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    private async ValueTask EnsureInitializedAsync(CancellationToken cancellationToken = default)
+    protected override StreamConfig CreateStreamConfig() => new(
+        StreamName,
+        new[] { $"{StreamName}.>" }
+    )
     {
-        // Fast path: 已初始化则直接返回（零锁开销）
-        if (_initialized) return;
-
-        // Slow path: 需要初始化
-        await InitializeSlowPathAsync(cancellationToken);
-    }
-
-    private async ValueTask InitializeSlowPathAsync(CancellationToken cancellationToken)
-    {
-        await _initLock.WaitAsync(cancellationToken);
-        try
-        {
-            // 双重检查：防止多次初始化
-            if (_initialized) return;
-
-            var config = new StreamConfig(
-                _streamName,
-                new[] { $"{_streamName}.>" }
-            )
-            {
-                Storage = StreamConfigStorage.File,
-                Retention = StreamConfigRetention.Limits
-            };
-
-            try
-            {
-                await _jetStream.CreateStreamAsync(config, cancellationToken);
-            }
-            catch (NatsJSApiException ex) when (ex.Error.Code == 400)
-            {
-                // Stream already exists
-            }
-
-            // volatile write 确保初始化完成对其他线程可见
-            _initialized = true;
-        }
-        finally
-        {
-            _initLock.Release();
-        }
-    }
+        Storage = StreamConfigStorage.File,
+        Retention = StreamConfigRetention.Limits
+    };
 
     public async ValueTask AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
     {
@@ -79,10 +32,10 @@ public sealed class NatsJSOutboxStore : IOutboxStore, IAsyncDisposable
 
         await EnsureInitializedAsync(cancellationToken);
 
-        var subject = $"{_streamName}.{message.MessageId}";
+        var subject = $"{StreamName}.{message.MessageId}";
         var data = JsonSerializer.SerializeToUtf8Bytes(message);
 
-        var ack = await _jetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
+        var ack = await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
 
         if (ack.Error != null)
         {
@@ -100,8 +53,8 @@ public sealed class NatsJSOutboxStore : IOutboxStore, IAsyncDisposable
 
         try
         {
-            var consumer = await _jetStream.CreateOrUpdateConsumerAsync(
-                _streamName,
+            var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                StreamName,
                 new ConsumerConfig
                 {
                     Name = $"outbox-reader-{Guid.NewGuid():N}",
@@ -117,8 +70,8 @@ public sealed class NatsJSOutboxStore : IOutboxStore, IAsyncDisposable
                 if (msg.Data != null && msg.Data.Length > 0)
                 {
                     var outboxMsg = JsonSerializer.Deserialize<OutboxMessage>(msg.Data);
-                    if (outboxMsg != null && 
-                        outboxMsg.Status == OutboxStatus.Pending && 
+                    if (outboxMsg != null &&
+                        outboxMsg.Status == OutboxStatus.Pending &&
                         outboxMsg.RetryCount < outboxMsg.MaxRetries)
                     {
                         messages.Add(outboxMsg);
@@ -150,8 +103,8 @@ public sealed class NatsJSOutboxStore : IOutboxStore, IAsyncDisposable
         await EnsureInitializedAsync(cancellationToken);
 
         // Re-publish with updated retry count
-        var subject = $"{_streamName}.{messageId}";
-        
+        var subject = $"{StreamName}.{messageId}";
+
         // Note: In a real implementation, you'd need to fetch the existing message,
         // update it, and re-publish. For simplicity, this is left as a TODO.
         await Task.CompletedTask;
@@ -165,10 +118,5 @@ public sealed class NatsJSOutboxStore : IOutboxStore, IAsyncDisposable
         await Task.CompletedTask;
     }
 
-    public ValueTask DisposeAsync()
-    {
-        _initLock.Dispose();
-        return ValueTask.CompletedTask;
-    }
 }
 

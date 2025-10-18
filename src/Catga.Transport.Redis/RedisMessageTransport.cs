@@ -19,10 +19,10 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
     private readonly ISubscriber _subscriber;
     private readonly string _consumerGroup;
     private readonly string _consumerName;
-    
+
     // Pub/Sub subscriptions (QoS 0)
     private readonly ConcurrentDictionary<string, ChannelMessageQueue> _pubSubSubscriptions = new();
-    
+
     // Stream subscriptions (QoS 1)
     private readonly ConcurrentDictionary<string, Task> _streamTasks = new();
     private readonly CancellationTokenSource _cts = new();
@@ -106,27 +106,31 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
         });
     }
 
-    public Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+    public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
         IEnumerable<TMessage> messages,
         TransportContext? context = null,
         CancellationToken cancellationToken = default)
         where TMessage : class
     {
-        // Simple implementation - publish one by one
-        var tasks = messages.Select(m => PublishAsync(m, context, cancellationToken));
-        return Task.WhenAll(tasks);
+        ArgumentNullException.ThrowIfNull(messages);
+
+        // Materialize the tasks immediately to avoid deferred execution issues
+        var tasks = messages.Select(m => PublishAsync(m, context, cancellationToken)).ToArray();
+        await Task.WhenAll(tasks);
     }
 
-    public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+    public async Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
         IEnumerable<TMessage> messages,
         string destination,
         TransportContext? context = null,
         CancellationToken cancellationToken = default)
         where TMessage : class
     {
-        // Simple implementation - send one by one
-        var tasks = messages.Select(m => SendAsync(m, destination, context, cancellationToken));
-        return Task.WhenAll(tasks);
+        ArgumentNullException.ThrowIfNull(messages);
+
+        // Materialize the tasks immediately to avoid deferred execution issues
+        var tasks = messages.Select(m => SendAsync(m, destination, context, cancellationToken)).ToArray();
+        await Task.WhenAll(tasks);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

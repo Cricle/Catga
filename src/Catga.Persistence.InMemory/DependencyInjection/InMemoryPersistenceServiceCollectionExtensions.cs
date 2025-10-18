@@ -16,7 +16,7 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     /// - AddDistributedMemoryCache() - 分布式缓存
     /// - AddInMemoryOutboxPublisher() - Outbox 模式
     /// - AddInMemoryInboxProcessor() - Inbox 模式
-    /// 
+    ///
     /// 这些扩展在各自的 ServiceCollectionExtensions 文件中定义。
     /// </remarks>
     public static IServiceCollection AddInMemoryPersistence(this IServiceCollection services)
@@ -25,7 +25,7 @@ public static class InMemoryPersistenceServiceCollectionExtensions
 
         // TODO: 聚合所有 Persistence 相关的注册
         // 目前，用户需要单独调用各自的扩展方法
-        
+
         return services;
     }
 }

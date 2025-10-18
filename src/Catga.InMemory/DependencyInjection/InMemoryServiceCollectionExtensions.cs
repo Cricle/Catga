@@ -16,7 +16,7 @@ public static class InMemoryServiceCollectionExtensions
     /// services.AddInMemoryTransport();
     /// services.AddInMemoryPersistence();
     /// </code>
-    /// 
+    ///
     /// 对于生产环境，建议分别注册所需的组件。
     /// </remarks>
     public static IServiceCollection AddCatgaInMemory(this IServiceCollection services)

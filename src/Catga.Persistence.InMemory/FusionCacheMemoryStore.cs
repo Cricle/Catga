@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Caching.Memory;
 using ZiggyCreatures.Caching.Fusion;
 
 namespace Catga.Persistence;
@@ -43,15 +44,15 @@ public abstract class FusionCacheMemoryStore<TMessage> where TMessage : class
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected ValueTask<TMessage?> GetAsync(string messageId, CancellationToken cancellationToken = default)
     {
-        var value = Cache.TryGet<TMessage>(GetKey(messageId), out var result) ? result : null;
-        return ValueTask.FromResult(value);
+        var result = Cache.TryGet<TMessage>(GetKey(messageId));
+        return ValueTask.FromResult(result.HasValue ? result.Value : null);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected ValueTask<bool> ExistsAsync(string messageId, CancellationToken cancellationToken = default)
     {
-        var exists = Cache.TryGet<TMessage>(GetKey(messageId), out _);
-        return ValueTask.FromResult(exists);
+        var result = Cache.TryGet<TMessage>(GetKey(messageId));
+        return ValueTask.FromResult(result.HasValue);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

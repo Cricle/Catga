@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Caching.Memory;
 using ZiggyCreatures.Caching.Fusion;
 
 namespace Catga.Idempotency;
@@ -28,7 +29,10 @@ internal sealed class FusionCacheIdempotencyStore
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsProcessed(string messageId)
-        => _cache.TryGet<bool>(GetKey(messageId), out _);
+    {
+        var result = _cache.TryGet<bool>(GetKey(messageId));
+        return result.HasValue && result.Value;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void MarkAsProcessed(string messageId)

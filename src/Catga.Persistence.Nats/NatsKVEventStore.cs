@@ -39,7 +39,7 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
 
             // Create KV context from JetStream
             var jsContext = new NatsJSContext(_connection);
-            
+
             // Create or get KV store
             var config = new NatsKVConfig(_bucketName)
             {

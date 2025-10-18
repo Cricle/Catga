@@ -1,4 +1,5 @@
 using Catga.Inbox;
+using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 using NATS.Client.KeyValueStore;
@@ -11,15 +12,15 @@ namespace Catga.Persistence.Stores;
 /// </summary>
 public sealed class NatsKVInboxStore : IInboxStore, IAsyncDisposable
 {
-    private readonly INatsJSContext _jetStream;
+    private readonly INatsConnection _connection;
     private readonly string _bucketName;
-    private INatsKVContext? _kvStore;
+    private NatsKVContext? _kvContext;
     private bool _initialized;
     private readonly SemaphoreSlim _initLock = new(1, 1);
 
-    public NatsKVInboxStore(INatsJSContext jetStream, string? bucketName = null)
+    public NatsKVInboxStore(INatsConnection connection, string? bucketName = null)
     {
-        _jetStream = jetStream ?? throw new ArgumentNullException(nameof(jetStream));
+        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         _bucketName = bucketName ?? "catga-inbox";
     }
 
@@ -32,18 +33,19 @@ public sealed class NatsKVInboxStore : IInboxStore, IAsyncDisposable
         {
             if (_initialized) return;
 
-            var config = new NatsKVConfig(_bucketName)
-            {
-                History = 1,
-                MaxBucketSize = -1
-            };
+            var jsContext = new NatsJSContext(_connection);
+            var config = new NatsKVConfig(_bucketName) { History = 1 };
 
-            _kvStore = await _jetStream.CreateKeyValueAsync(config, cancellationToken);
-            _initialized = true;
-        }
-        catch (NatsJSApiException ex) when (ex.Error.Code == 400)
-        {
-            _kvStore = await _jetStream.GetKeyValueAsync(_bucketName, cancellationToken);
+            try
+            {
+                await jsContext.CreateKeyValue(config, cancellationToken);
+            }
+            catch (NatsJSApiException ex) when (ex.Error.Code == 400)
+            {
+                // Bucket already exists
+            }
+
+            _kvContext = new NatsKVContext(jsContext, _bucketName);
             _initialized = true;
         }
         finally
@@ -65,7 +67,7 @@ public sealed class NatsKVInboxStore : IInboxStore, IAsyncDisposable
 
         try
         {
-            var entry = await _kvStore!.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
+            var entry = await _kvContext!.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
             if (entry?.Value != null)
             {
                 var existingMessage = JsonSerializer.Deserialize<InboxMessage>(entry.Value);
@@ -85,7 +87,7 @@ public sealed class NatsKVInboxStore : IInboxStore, IAsyncDisposable
                     existingMessage.LockExpiresAt = DateTime.UtcNow.Add(lockDuration);
 
                     var data = JsonSerializer.SerializeToUtf8Bytes(existingMessage);
-                    await _kvStore.PutAsync(key, data, cancellationToken: cancellationToken);
+                    await _kvContext.PutAsync(key, data, cancellationToken: cancellationToken);
                     return true;
                 }
             }
@@ -106,7 +108,7 @@ public sealed class NatsKVInboxStore : IInboxStore, IAsyncDisposable
         };
 
         var newData = JsonSerializer.SerializeToUtf8Bytes(newMessage);
-        await _kvStore!.PutAsync(key, newData, cancellationToken: cancellationToken);
+        await _kvContext!.PutAsync(key, newData, cancellationToken: cancellationToken);
         return true;
     }
 
@@ -125,7 +127,7 @@ public sealed class NatsKVInboxStore : IInboxStore, IAsyncDisposable
         var key = $"inbox:{message.MessageId}";
         var data = JsonSerializer.SerializeToUtf8Bytes(message);
 
-        await _kvStore!.PutAsync(key, data, cancellationToken: cancellationToken);
+        await _kvContext!.PutAsync(key, data, cancellationToken: cancellationToken);
     }
 
     public async ValueTask<bool> HasBeenProcessedAsync(
@@ -140,7 +142,7 @@ public sealed class NatsKVInboxStore : IInboxStore, IAsyncDisposable
 
         try
         {
-            var entry = await _kvStore!.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
+            var entry = await _kvContext!.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
             if (entry?.Value != null)
             {
                 var message = JsonSerializer.Deserialize<InboxMessage>(entry.Value);
@@ -167,7 +169,7 @@ public sealed class NatsKVInboxStore : IInboxStore, IAsyncDisposable
 
         try
         {
-            var entry = await _kvStore!.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
+            var entry = await _kvContext!.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
             if (entry?.Value != null)
             {
                 var message = JsonSerializer.Deserialize<InboxMessage>(entry.Value);
@@ -197,7 +199,7 @@ public sealed class NatsKVInboxStore : IInboxStore, IAsyncDisposable
 
         try
         {
-            var entry = await _kvStore!.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
+            var entry = await _kvContext!.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
             if (entry?.Value != null)
             {
                 var message = JsonSerializer.Deserialize<InboxMessage>(entry.Value);
@@ -207,7 +209,7 @@ public sealed class NatsKVInboxStore : IInboxStore, IAsyncDisposable
                     message.LockExpiresAt = null;
 
                     var data = JsonSerializer.SerializeToUtf8Bytes(message);
-                    await _kvStore.PutAsync(key, data, cancellationToken: cancellationToken);
+                    await _kvContext.PutAsync(key, data, cancellationToken: cancellationToken);
                 }
             }
         }
@@ -226,13 +228,13 @@ public sealed class NatsKVInboxStore : IInboxStore, IAsyncDisposable
         var cutoff = DateTime.UtcNow - retentionPeriod;
         var keysToDelete = new List<string>();
 
-        await foreach (var key in _kvStore!.GetKeysAsync(cancellationToken: cancellationToken))
+        await foreach (var key in _kvContext!.GetKeysAsync(cancellationToken: cancellationToken))
         {
             if (!key.StartsWith("inbox:")) continue;
 
             try
             {
-                var entry = await _kvStore.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
+                var entry = await _kvContext.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
                 if (entry?.Value != null)
                 {
                     var message = JsonSerializer.Deserialize<InboxMessage>(entry.Value);
@@ -254,7 +256,7 @@ public sealed class NatsKVInboxStore : IInboxStore, IAsyncDisposable
         {
             try
             {
-                await _kvStore.DeleteAsync(key, cancellationToken: cancellationToken);
+                await _kvContext.DeleteAsync(key, cancellationToken: cancellationToken);
             }
             catch (NatsKVKeyNotFoundException)
             {

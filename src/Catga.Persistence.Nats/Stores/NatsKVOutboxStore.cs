@@ -1,4 +1,5 @@
 using Catga.Outbox;
+using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 using NATS.Client.KeyValueStore;
@@ -11,15 +12,15 @@ namespace Catga.Persistence.Stores;
 /// </summary>
 public sealed class NatsKVOutboxStore : IOutboxStore, IAsyncDisposable
 {
-    private readonly INatsJSContext _jetStream;
+    private readonly INatsConnection _connection;
     private readonly string _bucketName;
-    private INatsKVContext? _kvStore;
+    private NatsKVContext? _kvContext;
     private bool _initialized;
     private readonly SemaphoreSlim _initLock = new(1, 1);
 
-    public NatsKVOutboxStore(INatsJSContext jetStream, string? bucketName = null)
+    public NatsKVOutboxStore(INatsConnection connection, string? bucketName = null)
     {
-        _jetStream = jetStream ?? throw new ArgumentNullException(nameof(jetStream));
+        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         _bucketName = bucketName ?? "catga-outbox";
     }
 
@@ -32,18 +33,19 @@ public sealed class NatsKVOutboxStore : IOutboxStore, IAsyncDisposable
         {
             if (_initialized) return;
 
-            var config = new NatsKVConfig(_bucketName)
-            {
-                History = 1,
-                MaxBucketSize = -1
-            };
+            var jsContext = new NatsJSContext(_connection);
+            var config = new NatsKVConfig(_bucketName) { History = 1 };
 
-            _kvStore = await _jetStream.CreateKeyValueAsync(config, cancellationToken);
-            _initialized = true;
-        }
-        catch (NatsJSApiException ex) when (ex.Error.Code == 400)
-        {
-            _kvStore = await _jetStream.GetKeyValueAsync(_bucketName, cancellationToken);
+            try
+            {
+                await jsContext.CreateKeyValue(config, cancellationToken);
+            }
+            catch (NatsJSApiException ex) when (ex.Error.Code == 400)
+            {
+                // Bucket already exists
+            }
+
+            _kvContext = new NatsKVContext(jsContext, _bucketName);
             _initialized = true;
         }
         finally
@@ -61,7 +63,7 @@ public sealed class NatsKVOutboxStore : IOutboxStore, IAsyncDisposable
         var key = $"outbox:{message.MessageId}";
         var data = JsonSerializer.SerializeToUtf8Bytes(message);
 
-        await _kvStore!.PutAsync(key, data, cancellationToken: cancellationToken);
+        await _kvContext!.PutAsync(key, data, cancellationToken: cancellationToken);
     }
 
     public async ValueTask<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
@@ -73,14 +75,14 @@ public sealed class NatsKVOutboxStore : IOutboxStore, IAsyncDisposable
         var messages = new List<OutboxMessage>();
         
         // Get all keys with outbox prefix
-        await foreach (var key in _kvStore!.GetKeysAsync(cancellationToken: cancellationToken))
+        await foreach (var key in _kvContext!.GetKeysAsync(cancellationToken: cancellationToken))
         {
             if (messages.Count >= maxCount) break;
             if (!key.StartsWith("outbox:")) continue;
 
             try
             {
-                var entry = await _kvStore.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
+                var entry = await _kvContext.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
                 if (entry?.Value != null)
                 {
                     var message = JsonSerializer.Deserialize<OutboxMessage>(entry.Value);
@@ -110,7 +112,7 @@ public sealed class NatsKVOutboxStore : IOutboxStore, IAsyncDisposable
         try
         {
             // Delete the message from outbox (it's been published)
-            await _kvStore!.DeleteAsync(key, cancellationToken: cancellationToken);
+            await _kvContext!.DeleteAsync(key, cancellationToken: cancellationToken);
         }
         catch (NatsKVKeyNotFoundException)
         {
@@ -129,7 +131,7 @@ public sealed class NatsKVOutboxStore : IOutboxStore, IAsyncDisposable
 
         try
         {
-            var entry = await _kvStore!.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
+            var entry = await _kvContext!.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
             if (entry?.Value != null)
             {
                 var message = JsonSerializer.Deserialize<OutboxMessage>(entry.Value);
@@ -142,7 +144,7 @@ public sealed class NatsKVOutboxStore : IOutboxStore, IAsyncDisposable
                         : OutboxStatus.Pending;
 
                     var data = JsonSerializer.SerializeToUtf8Bytes(message);
-                    await _kvStore.PutAsync(key, data, cancellationToken: cancellationToken);
+                    await _kvContext.PutAsync(key, data, cancellationToken: cancellationToken);
                 }
             }
         }
@@ -161,13 +163,13 @@ public sealed class NatsKVOutboxStore : IOutboxStore, IAsyncDisposable
         var cutoff = DateTime.UtcNow - retentionPeriod;
         var keysToDelete = new List<string>();
 
-        await foreach (var key in _kvStore!.GetKeysAsync(cancellationToken: cancellationToken))
+        await foreach (var key in _kvContext!.GetKeysAsync(cancellationToken: cancellationToken))
         {
             if (!key.StartsWith("outbox:")) continue;
 
             try
             {
-                var entry = await _kvStore.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
+                var entry = await _kvContext.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
                 if (entry?.Value != null)
                 {
                     var message = JsonSerializer.Deserialize<OutboxMessage>(entry.Value);
@@ -189,7 +191,7 @@ public sealed class NatsKVOutboxStore : IOutboxStore, IAsyncDisposable
         {
             try
             {
-                await _kvStore.DeleteAsync(key, cancellationToken: cancellationToken);
+                await _kvContext.DeleteAsync(key, cancellationToken: cancellationToken);
             }
             catch (NatsKVKeyNotFoundException)
             {

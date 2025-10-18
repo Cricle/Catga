@@ -14,17 +14,17 @@ namespace Catga.Persistence;
 /// </summary>
 public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
 {
-    private readonly INatsJSContext _jetStream;
+    private readonly INatsConnection _connection;
     private readonly string _bucketName;
-    private INatsKVContext? _kvStore;
+    private NatsKVContext? _kvContext;
     private bool _initialized;
     private readonly SemaphoreSlim _initLock = new(1, 1);
 
     public NatsKVEventStore(
-        INatsJSContext jetStream,
+        INatsConnection connection,
         string? bucketName = null)
     {
-        _jetStream = jetStream ?? throw new ArgumentNullException(nameof(jetStream));
+        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         _bucketName = bucketName ?? "catga-events";
     }
 
@@ -37,20 +37,25 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
         {
             if (_initialized) return;
 
-            // Create or get KV bucket
+            // Create KV context from JetStream
+            var jsContext = new NatsJSContext(_connection);
+            
+            // Create or get KV store
             var config = new NatsKVConfig(_bucketName)
             {
-                History = 64, // Keep version history
-                MaxBucketSize = -1 // No size limit
+                History = 64 // Keep version history
             };
 
-            _kvStore = await _jetStream.CreateKeyValueAsync(config, cancellationToken);
-            _initialized = true;
-        }
-        catch (NatsJSApiException ex) when (ex.Error.Code == 400)
-        {
-            // Bucket already exists, get it
-            _kvStore = await _jetStream.GetKeyValueAsync(_bucketName, cancellationToken);
+            try
+            {
+                await jsContext.CreateKeyValue(config, cancellationToken);
+            }
+            catch (NatsJSApiException ex) when (ex.Error.Code == 400)
+            {
+                // Bucket already exists, ignore
+            }
+
+            _kvContext = new NatsKVContext(jsContext, _bucketName);
             _initialized = true;
         }
         finally
@@ -89,7 +94,7 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
             var key = GetEventKey(streamId, version);
             var data = SerializeEvent(@event);
 
-            await _kvStore!.PutAsync(key, data, cancellationToken: cancellationToken);
+            await _kvContext!.PutAsync(key, data, cancellationToken: cancellationToken);
         }
 
         // Update stream metadata
@@ -100,7 +105,7 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
             EventCount = version,
             LastUpdated = DateTimeOffset.UtcNow
         };
-        await _kvStore!.PutAsync(
+        await _kvContext!.PutAsync(
             GetMetadataKey(streamId),
             JsonSerializer.SerializeToUtf8Bytes(metadata),
             cancellationToken: cancellationToken);
@@ -137,7 +142,7 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
             var key = GetEventKey(streamId, i);
             try
             {
-                var entry = await _kvStore!.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
+                var entry = await _kvContext!.GetEntryAsync<byte[]>(key, cancellationToken: cancellationToken);
                 if (entry?.Value != null)
                 {
                     var @event = DeserializeEvent(entry.Value);
@@ -177,7 +182,7 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
     {
         try
         {
-            var entry = await _kvStore!.GetEntryAsync<byte[]>(
+            var entry = await _kvContext!.GetEntryAsync<byte[]>(
                 GetMetadataKey(streamId),
                 cancellationToken: cancellationToken);
 
@@ -208,9 +213,6 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
         var envelope = new EventEnvelope
         {
             EventType = @event.GetType().AssemblyQualifiedName!,
-            EventId = @event.EventId,
-            AggregateId = @event.AggregateId,
-            OccurredAt = @event.OccurredAt,
             Data = JsonSerializer.Serialize(@event, @event.GetType())
         };
         return JsonSerializer.SerializeToUtf8Bytes(envelope);
@@ -234,9 +236,6 @@ public sealed class NatsKVEventStore : IEventStore, IAsyncDisposable
     private sealed class EventEnvelope
     {
         public string EventType { get; set; } = string.Empty;
-        public Guid EventId { get; set; }
-        public string AggregateId { get; set; } = string.Empty;
-        public DateTimeOffset OccurredAt { get; set; }
         public string Data { get; set; } = string.Empty;
     }
 

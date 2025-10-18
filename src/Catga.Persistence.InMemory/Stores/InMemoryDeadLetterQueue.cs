@@ -16,7 +16,7 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
     private readonly int _maxSize;
 
     public InMemoryDeadLetterQueue(
-        ILogger<InMemoryDeadLetterQueue> logger, 
+        ILogger<InMemoryDeadLetterQueue> logger,
         IMessageSerializer serializer,
         int maxSize = 1000)
     {

@@ -1,9 +1,9 @@
+using Catga.Serialization;
 using Catga.Transport;
 using StackExchange.Redis;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 
 namespace Catga.Transport;
 
@@ -17,6 +17,7 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
     private readonly IConnectionMultiplexer _redis;
     private readonly IDatabase _db;
     private readonly ISubscriber _subscriber;
+    private readonly IMessageSerializer _serializer;
     private readonly string _consumerGroup;
     private readonly string _consumerName;
 
@@ -33,10 +34,12 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
 
     public RedisMessageTransport(
         IConnectionMultiplexer redis,
+        IMessageSerializer serializer,
         string? consumerGroup = null,
         string? consumerName = null)
     {
         _redis = redis ?? throw new ArgumentNullException(nameof(redis));
+        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         _db = _redis.GetDatabase();
         _subscriber = _redis.GetSubscriber();
         _consumerGroup = consumerGroup ?? $"catga-group-{Environment.MachineName}";
@@ -139,7 +142,7 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
         return typeof(TMessage).Name;
     }
 
-    private static string SerializeMessage<TMessage>(TMessage message, TransportContext? context)
+    private string SerializeMessage<TMessage>(TMessage message, TransportContext? context)
         where TMessage : class
     {
         var envelope = new MessageEnvelope<TMessage>
@@ -147,13 +150,15 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
             Message = message,
             Context = context
         };
-        return JsonSerializer.Serialize(envelope);
+        var bytes = _serializer.Serialize(envelope);
+        return Convert.ToBase64String(bytes);
     }
 
-    private static (TMessage Message, TransportContext? Context) DeserializeMessage<TMessage>(RedisValue data)
+    private (TMessage Message, TransportContext? Context) DeserializeMessage<TMessage>(RedisValue data)
         where TMessage : class
     {
-        var envelope = JsonSerializer.Deserialize<MessageEnvelope<TMessage>>(data.ToString());
+        var bytes = Convert.FromBase64String(data.ToString());
+        var envelope = _serializer.Deserialize<MessageEnvelope<TMessage>>(bytes);
         return (envelope!.Message, envelope.Context);
     }
 

@@ -1,3 +1,4 @@
+using Catga.Serialization;
 using Catga.Transport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -33,8 +34,10 @@ public static class RedisTransportServiceCollectionExtensions
         services.TryAddSingleton<IMessageTransport>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
             return new RedisMessageTransport(
                 redis,
+                serializer,
                 options.ConsumerGroup,
                 options.ConsumerName);
         });
@@ -58,8 +61,10 @@ public static class RedisTransportServiceCollectionExtensions
 
         services.TryAddSingleton<IMessageTransport>(sp =>
         {
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
             return new RedisMessageTransport(
                 connectionMultiplexer,
+                serializer,
                 consumerGroup,
                 consumerName);
         });

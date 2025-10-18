@@ -92,21 +92,21 @@ public class OptimizedRedisOutboxStore : IOutboxStore
                     if (estimatedSize <= stackBuffer.Length)
                     {
                         // ✅ 使用栈缓冲（零分配）
-                        var bytesWritten = System.Text.Encoding.UTF8.GetBytes(value.AsSpan(), stackBuffer);
+                        var bytesWritten = ArrayPoolHelper.GetBytes(value, stackBuffer);
                         message = bufferedSerializer.Deserialize<OutboxMessage>(stackBuffer.Slice(0, bytesWritten));
                     }
                     else
                     {
                         // 大字符串：使用 ArrayPool（减少分配）
                         using var rented = ArrayPoolHelper.RentOrAllocate<byte>(estimatedSize);
-                        var bytesWritten = System.Text.Encoding.UTF8.GetBytes(value.AsSpan(), rented.AsSpan());
+                        var bytesWritten = ArrayPoolHelper.GetBytes(value, rented.AsSpan());
                         message = bufferedSerializer.Deserialize<OutboxMessage>(rented.AsSpan().Slice(0, bytesWritten));
                     }
                 }
                 else
                 {
-                    // Fallback: 传统路径
-                    message = _serializer.Deserialize<OutboxMessage>(System.Text.Encoding.UTF8.GetBytes(value));
+                    // Fallback: 传统路径 (使用 ArrayPoolHelper 统一编码)
+                    message = _serializer.Deserialize<OutboxMessage>(ArrayPoolHelper.GetBytes(value));
                 }
 
                 if (message != null &&

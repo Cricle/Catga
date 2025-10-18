@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Catga.Serialization;
 
 namespace Catga.Idempotency;
 
@@ -28,16 +29,20 @@ public interface IIdempotencyStore
 /// </summary>
 /// <remarks>
 /// ⚠️ This is a basic implementation for testing purposes.
-/// For production use with Native AOT, use ShardedIdempotencyStore from Catga.InMemory package.
+/// For production use, use ShardedIdempotencyStore or FusionCacheIdempotencyStore from Catga.Transport.InMemory package.
 /// </remarks>
-[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses reflection-based JSON serialization. For AOT, use ShardedIdempotencyStore.")]
-[System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Uses reflection-based JSON serialization. For AOT, use ShardedIdempotencyStore.")]
 public class MemoryIdempotencyStore : IIdempotencyStore
 {
-    private readonly Dictionary<string, (DateTime ProcessedAt, Type? ResultType, string? ResultJson)> _processedMessages = new();
-    private readonly Dictionary<string, Dictionary<Type, string>> _typedResults = new();
+    private readonly IMessageSerializer _serializer;
+    private readonly Dictionary<string, (DateTime ProcessedAt, Type? ResultType, byte[]? ResultData)> _processedMessages = new();
+    private readonly Dictionary<string, Dictionary<Type, byte[]>> _typedResults = new();
     private readonly TimeSpan _retentionPeriod = TimeSpan.FromHours(24);
     private readonly SemaphoreSlim _lock = new(1, 1);
+
+    public MemoryIdempotencyStore(IMessageSerializer serializer)
+    {
+        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
+    }
 
     public async Task<bool> HasBeenProcessedAsync(string messageId, CancellationToken cancellationToken = default)
     {
@@ -62,13 +67,13 @@ public class MemoryIdempotencyStore : IIdempotencyStore
 
             if (result != null)
             {
-                var resultJson = System.Text.Json.JsonSerializer.Serialize(result);
+                var resultData = _serializer.Serialize(result);
                 if (!_typedResults.TryGetValue(messageId, out var dict))
                 {
-                    dict = new Dictionary<Type, string>();
+                    dict = new Dictionary<Type, byte[]>();
                     _typedResults[messageId] = dict;
                 }
-                dict[typeof(TResult)] = resultJson;
+                dict[typeof(TResult)] = resultData;
             }
         }
         finally
@@ -81,8 +86,8 @@ public class MemoryIdempotencyStore : IIdempotencyStore
         await _lock.WaitAsync(cancellationToken);
         try
         {
-            if (_typedResults.TryGetValue(messageId, out var dict) && dict.TryGetValue(typeof(TResult), out var resultJson))
-                return System.Text.Json.JsonSerializer.Deserialize<TResult>(resultJson);
+            if (_typedResults.TryGetValue(messageId, out var dict) && dict.TryGetValue(typeof(TResult), out var resultData))
+                return _serializer.Deserialize<TResult>(resultData);
             return default;
         }
         finally

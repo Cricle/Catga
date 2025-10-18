@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Catga;
 using Catga.Common;
 using Catga.Core;
 using Catga.Idempotency;
@@ -17,6 +18,7 @@ public class InMemoryMessageTransport : IMessageTransport
     public string Name => "InMemory";
     public BatchTransportOptions? BatchOptions => null;
     public CompressionTransportOptions? CompressionOptions => null;
+
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
     {
         using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Message.Publish", ActivityKind.Producer);
@@ -120,6 +122,7 @@ public class InMemoryMessageTransport : IMessageTransport
             catch { }
         }
     }
+
     public Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
         => PublishAsync(message, context, cancellationToken);
 

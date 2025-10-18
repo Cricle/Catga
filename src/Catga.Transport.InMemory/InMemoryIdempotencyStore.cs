@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using Catga.Common;
 
 namespace Catga.Idempotency;
 
@@ -21,6 +20,15 @@ internal sealed class InMemoryIdempotencyStore
     public void MarkAsProcessed(string messageId) => _processedMessages.TryAdd(messageId, DateTime.UtcNow);
 
     private void CleanupExpired()
-        => ExpirationHelper.CleanupExpired(_processedMessages, timestamp => timestamp, _retentionPeriod);
+    {
+        var cutoff = DateTime.UtcNow - _retentionPeriod;
+        var expiredKeys = _processedMessages
+            .Where(kvp => kvp.Value < cutoff)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        foreach (var key in expiredKeys)
+            _processedMessages.TryRemove(key, out _);
+    }
 }
 

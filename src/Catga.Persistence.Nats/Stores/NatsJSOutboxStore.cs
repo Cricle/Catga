@@ -1,9 +1,9 @@
 using Catga.Outbox;
 using Catga.Persistence;
+using Catga.Serialization;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using System.Text.Json;
 
 namespace Catga.Persistence.Stores;
 
@@ -12,9 +12,15 @@ namespace Catga.Persistence.Stores;
 /// </summary>
 public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
 {
-    public NatsJSOutboxStore(INatsConnection connection, string? streamName = null)
+    private readonly IMessageSerializer _serializer;
+
+    public NatsJSOutboxStore(
+        INatsConnection connection,
+        IMessageSerializer serializer,
+        string? streamName = null)
         : base(connection, streamName ?? "CATGA_OUTBOX")
     {
+        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
     }
 
     protected override StreamConfig CreateStreamConfig() => new(
@@ -33,7 +39,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
         await EnsureInitializedAsync(cancellationToken);
 
         var subject = $"{StreamName}.{message.MessageId}";
-        var data = JsonSerializer.SerializeToUtf8Bytes(message);
+        var data = _serializer.Serialize(message);
 
         var ack = await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
 
@@ -69,7 +75,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
             {
                 if (msg.Data != null && msg.Data.Length > 0)
                 {
-                    var outboxMsg = JsonSerializer.Deserialize<OutboxMessage>(msg.Data);
+                    var outboxMsg = _serializer.Deserialize<OutboxMessage>(msg.Data);
                     if (outboxMsg != null &&
                         outboxMsg.Status == OutboxStatus.Pending &&
                         outboxMsg.RetryCount < outboxMsg.MaxRetries)

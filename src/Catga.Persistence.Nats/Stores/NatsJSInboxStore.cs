@@ -1,9 +1,9 @@
 using Catga.Inbox;
 using Catga.Persistence;
+using Catga.Serialization;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using System.Text.Json;
 
 namespace Catga.Persistence.Stores;
 
@@ -12,9 +12,15 @@ namespace Catga.Persistence.Stores;
 /// </summary>
 public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
 {
-    public NatsJSInboxStore(INatsConnection connection, string? streamName = null)
+    private readonly IMessageSerializer _serializer;
+
+    public NatsJSInboxStore(
+        INatsConnection connection,
+        IMessageSerializer serializer,
+        string? streamName = null)
         : base(connection, streamName ?? "CATGA_INBOX")
     {
+        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
     }
 
     protected override StreamConfig CreateStreamConfig() => new(
@@ -60,7 +66,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         message.Status = InboxStatus.Processing;
         message.LockExpiresAt = DateTime.UtcNow.Add(lockDuration);
 
-        var data = JsonSerializer.SerializeToUtf8Bytes(message);
+        var data = _serializer.Serialize(message);
         var ack = await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
 
         return ack.Error == null;
@@ -79,7 +85,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         message.LockExpiresAt = null;
 
         var subject = $"{StreamName}.{message.MessageId}";
-        var data = JsonSerializer.SerializeToUtf8Bytes(message);
+        var data = _serializer.Serialize(message);
 
         await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
     }
@@ -123,7 +129,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
             message.LockExpiresAt = null;
 
             var subject = $"{StreamName}.{messageId}";
-            var data = JsonSerializer.SerializeToUtf8Bytes(message);
+            var data = _serializer.Serialize(message);
 
             await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
         }
@@ -159,7 +165,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
             {
                 if (msg.Data != null && msg.Data.Length > 0)
                 {
-                    return JsonSerializer.Deserialize<InboxMessage>(msg.Data);
+                    return _serializer.Deserialize<InboxMessage>(msg.Data);
                 }
             }
         }

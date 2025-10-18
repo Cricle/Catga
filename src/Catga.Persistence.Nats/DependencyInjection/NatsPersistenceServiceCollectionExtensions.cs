@@ -3,6 +3,7 @@ using Catga.Inbox;
 using Catga.Outbox;
 using Catga.Persistence;
 using Catga.Persistence.Stores;
+using Catga.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NATS.Client.Core;
@@ -26,7 +27,8 @@ public static class NatsPersistenceServiceCollectionExtensions
         services.TryAddSingleton<IEventStore>(sp =>
         {
             var connection = sp.GetRequiredService<INatsConnection>();
-            return new NatsJSEventStore(connection, streamName);
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            return new NatsJSEventStore(connection, serializer, streamName);
         });
 
         return services;
@@ -44,7 +46,8 @@ public static class NatsPersistenceServiceCollectionExtensions
         services.TryAddSingleton<IOutboxStore>(sp =>
         {
             var connection = sp.GetRequiredService<INatsConnection>();
-            return new NatsJSOutboxStore(connection, streamName);
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            return new NatsJSOutboxStore(connection, serializer, streamName);
         });
 
         return services;
@@ -62,7 +65,8 @@ public static class NatsPersistenceServiceCollectionExtensions
         services.TryAddSingleton<IInboxStore>(sp =>
         {
             var connection = sp.GetRequiredService<INatsConnection>();
-            return new NatsJSInboxStore(connection, streamName);
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            return new NatsJSInboxStore(connection, serializer, streamName);
         });
 
         return services;

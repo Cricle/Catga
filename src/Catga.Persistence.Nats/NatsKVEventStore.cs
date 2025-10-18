@@ -1,10 +1,10 @@
 using Catga.EventSourcing;
 using Catga.Messages;
+using Catga.Serialization;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 
 namespace Catga.Persistence;
 
@@ -14,9 +14,15 @@ namespace Catga.Persistence;
 /// </summary>
 public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
 {
-    public NatsJSEventStore(INatsConnection connection, string? streamName = null)
+    private readonly IMessageSerializer _serializer;
+
+    public NatsJSEventStore(
+        INatsConnection connection,
+        IMessageSerializer serializer,
+        string? streamName = null)
         : base(connection, streamName ?? "CATGA_EVENTS")
     {
+        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
     }
 
     protected override StreamConfig CreateStreamConfig() => new(
@@ -179,27 +185,31 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static byte[] SerializeEvent(IEvent @event)
+    private byte[] SerializeEvent(IEvent @event)
     {
         var envelope = new EventEnvelope
         {
             EventType = @event.GetType().AssemblyQualifiedName!,
-            Data = JsonSerializer.Serialize(@event, @event.GetType())
+            Data = _serializer.Serialize(@event)
         };
-        return JsonSerializer.SerializeToUtf8Bytes(envelope);
+        return _serializer.Serialize(envelope);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static IEvent DeserializeEvent(byte[] data)
+    private IEvent DeserializeEvent(byte[] data)
     {
-        var envelope = JsonSerializer.Deserialize<EventEnvelope>(data);
+        var envelope = _serializer.Deserialize<EventEnvelope>(data);
         if (envelope == null)
             throw new InvalidOperationException("Failed to deserialize event envelope");
 
         var eventType = Type.GetType(envelope.EventType)
             ?? throw new InvalidOperationException($"Event type not found: {envelope.EventType}");
 
-        var @event = JsonSerializer.Deserialize(envelope.Data, eventType) as IEvent
+        // 使用反射调用泛型 Deserialize 方法
+        var deserializeMethod = _serializer.GetType().GetMethod(nameof(IMessageSerializer.Deserialize))!
+            .MakeGenericMethod(eventType);
+
+        var @event = deserializeMethod.Invoke(_serializer, new object[] { envelope.Data }) as IEvent
             ?? throw new InvalidOperationException($"Failed to deserialize event: {envelope.EventType}");
 
         return @event;
@@ -208,7 +218,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
     private sealed class EventEnvelope
     {
         public string EventType { get; set; } = string.Empty;
-        public string Data { get; set; } = string.Empty;
+        public byte[] Data { get; set; } = Array.Empty<byte>();
     }
 }
 

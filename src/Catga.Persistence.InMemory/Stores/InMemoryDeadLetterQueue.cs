@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Text;
 using Catga.Common;
 using Catga.Core;
 using Catga.Messages;
@@ -8,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Catga.DeadLetter;
 
-/// <summary>In-memory dead letter queue (lock-free)</summary>
+/// <summary>In-memory dead letter queue (lock-free, ArrayPool optimized)</summary>
 public class InMemoryDeadLetterQueue : IDeadLetterQueue
 {
     private readonly ConcurrentQueue<DeadLetterMessage> _deadLetters = new();
@@ -29,8 +28,8 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
     public Task SendAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, Exception exception, int retryCount, CancellationToken cancellationToken = default) where TMessage : IMessage
     {
         var messageBytes = _serializer.Serialize(message);
-        var messageJson = Encoding.UTF8.GetString(messageBytes); // Convert to string for DeadLetterMessage
-        
+        var messageJson = ArrayPoolHelper.GetString(messageBytes); // Zero-allocation conversion
+
         var deadLetter = new DeadLetterMessage
         {
             MessageId = message.MessageId,

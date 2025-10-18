@@ -1,3 +1,4 @@
+using Catga.Common;
 using Catga.Serialization;
 using Catga.Transport;
 using StackExchange.Redis;
@@ -151,13 +152,13 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
             Context = context
         };
         var bytes = _serializer.Serialize(envelope);
-        return Convert.ToBase64String(bytes);
+        return ArrayPoolHelper.ToBase64String(bytes); // ArrayPool optimized
     }
 
     private (TMessage Message, TransportContext? Context) DeserializeMessage<TMessage>(RedisValue data)
         where TMessage : class
     {
-        var bytes = Convert.FromBase64String(data.ToString());
+        var bytes = ArrayPoolHelper.FromBase64String(data.ToString()!); // ArrayPool optimized
         var envelope = _serializer.Deserialize<MessageEnvelope<TMessage>>(bytes);
         return (envelope!.Message, envelope.Context);
     }

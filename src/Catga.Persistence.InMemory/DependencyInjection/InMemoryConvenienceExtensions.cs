@@ -1,11 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Catga.DependencyInjection;
+namespace Catga;
 
 /// <summary>
 /// Convenience extensions for Catga InMemory (aggregates Transport + Persistence)
 /// </summary>
-public static class InMemoryServiceCollectionExtensions
+public static class InMemoryConvenienceExtensions
 {
     /// <summary>
     /// 注册所有 InMemory 实现（Transport + Persistence）- 开发/测试用便利方法
@@ -18,6 +18,8 @@ public static class InMemoryServiceCollectionExtensions
     /// </code>
     ///
     /// 对于生产环境，建议分别注册所需的组件。
+    /// 
+    /// 注意：要使用此方法，需要同时引用 Catga.Transport.InMemory 和 Catga.Persistence.InMemory
     /// </remarks>
     public static IServiceCollection AddCatgaInMemory(this IServiceCollection services)
     {
@@ -26,7 +28,7 @@ public static class InMemoryServiceCollectionExtensions
         // 注册 Transport
         services.AddInMemoryTransport();
 
-        // 注册 Persistence (需要添加对应的扩展方法)
+        // 注册 Persistence
         services.AddInMemoryPersistence();
 
         return services;

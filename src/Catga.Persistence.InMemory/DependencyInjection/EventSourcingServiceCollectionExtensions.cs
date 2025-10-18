@@ -1,9 +1,9 @@
 using Catga.EventSourcing;
-using Catga.InMemory.Stores;
+using Catga.Persistence.Stores;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace Catga.InMemory.DependencyInjection;
+namespace Catga.Persistence.DependencyInjection;
 
 /// <summary>
 /// Service collection extensions for event sourcing

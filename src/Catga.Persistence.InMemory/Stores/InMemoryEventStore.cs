@@ -3,7 +3,7 @@ using Catga.Messages;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
-namespace Catga.InMemory.Stores;
+namespace Catga.Persistence.Stores;
 
 /// <summary>
 /// High-performance in-memory event store for testing and single-node scenarios.

@@ -13,8 +13,18 @@ public class MemoryPackMessageSerializer : IBufferedMessageSerializer
     public byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value)
         => MemoryPackSerializer.Serialize(value);
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Non-generic serialize uses reflection. For AOT, use generic Serialize<T> method instead.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Non-generic serialize uses reflection. For AOT, use generic Serialize<T> method instead.")]
+    public byte[] Serialize(object? value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
+        => MemoryPackSerializer.Serialize(type, value);
+
     public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(byte[] data)
         => Deserialize<T>(data.AsSpan());
+
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Non-generic deserialize uses reflection. For AOT, use generic Deserialize<T> method instead.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Non-generic deserialize uses reflection. For AOT, use generic Deserialize<T> method instead.")]
+    public object? Deserialize(byte[] data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
+        => MemoryPackSerializer.Deserialize(type, data);
 
     public void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value, IBufferWriter<byte> bufferWriter)
         => MemoryPackSerializer.Serialize(bufferWriter, value);

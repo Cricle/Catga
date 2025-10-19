@@ -35,8 +35,26 @@ public class JsonMessageSerializer : IBufferedMessageSerializer
         return bufferWriter.WrittenSpan.ToArray();
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Non-generic serialize is marked as non-AOT via DynamicallyAccessedMembers. Users should use generic version or provide JsonSerializerContext for AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Non-generic serialize is marked as non-AOT via DynamicallyAccessedMembers. Users should use generic version or provide JsonSerializerContext for AOT.")]
+    public byte[] Serialize(object? value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
+    {
+        var bufferWriter = new ArrayBufferWriter<byte>(256);
+        using var writer = new Utf8JsonWriter(bufferWriter);
+        JsonSerializer.Serialize(writer, value, type, _options);
+        return bufferWriter.WrittenSpan.ToArray();
+    }
+
     public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(byte[] data)
         => Deserialize<T>(data.AsSpan());
+
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Non-generic deserialize is marked as non-AOT via DynamicallyAccessedMembers. Users should use generic version or provide JsonSerializerContext for AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Non-generic deserialize is marked as non-AOT via DynamicallyAccessedMembers. Users should use generic version or provide JsonSerializerContext for AOT.")]
+    public object? Deserialize(byte[] data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
+    {
+        var reader = new Utf8JsonReader(data);
+        return JsonSerializer.Deserialize(ref reader, type, _options);
+    }
 
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "JSON serializer is marked as non-AOT via DynamicallyAccessedMembers. Users should provide JsonSerializerContext for AOT.")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "JSON serializer is marked as non-AOT via DynamicallyAccessedMembers. Users should provide JsonSerializerContext for AOT.")]

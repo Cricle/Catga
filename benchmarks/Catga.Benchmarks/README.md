@@ -2,7 +2,7 @@
 
 ## 📊 概述
 
-使用 BenchmarkDotNet 对 Catga 进行全面的性能基准测试，包括：
+使用 BenchmarkDotNet 对 Catga **核心功能**进行性能基准测试，包括：
 
 - **分布式 ID 生成器** ⭐ - SIMD 向量化、缓存预热、自适应策略、零 GC
 - **CQRS 性能测试** - 命令、查询、事件的吞吐量和延迟
@@ -10,9 +10,8 @@
 - **并发控制测试** - 无锁设计、限流器、熔断器、并发控制
 - **序列化对比** - MemoryPack vs System.Text.Json
 - **Pipeline 性能** - 行为链开销测试
-- **🆕 Transport 层** - InMemory 消息传输性能
-- **🆕 Persistence 层** - Outbox、Inbox、EventStore 持久化性能
-- **🆕 Memory Pool** - 内存池、PooledBufferWriter 性能
+
+> **注意**: Benchmark专注于**核心业务功能性能**，不测试基础设施层（Transport/Persistence/MemoryPool等），这些通过集成测试和单元测试覆盖。
 
 ## 🚀 快速开始
 

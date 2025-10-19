@@ -115,13 +115,13 @@ public sealed class PooledBufferWriter<T> : IPooledBufferWriter<T>
     public void Clear()
     {
         ThrowIfDisposed();
-        
+
         // Clear sensitive data if T is not a value type
         if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
         {
             _buffer.AsSpan(0, _index).Clear();
         }
-        
+
         _index = 0;
     }
 
@@ -166,7 +166,7 @@ public sealed class PooledBufferWriter<T> : IPooledBufferWriter<T>
         {
             // Need more space
             int newSize = Math.Max(_buffer.Length * 2, _index + sizeHint);
-            
+
             // Check for overflow
             if ((uint)newSize > MaxArrayLength)
             {
@@ -176,7 +176,7 @@ public sealed class PooledBufferWriter<T> : IPooledBufferWriter<T>
                     throw new OutOfMemoryException("Buffer size would exceed maximum array length");
                 }
             }
-            
+
             ResizeBuffer(newSize);
         }
     }

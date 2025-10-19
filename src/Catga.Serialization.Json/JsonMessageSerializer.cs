@@ -92,7 +92,7 @@ public class JsonMessageSerializer : IPooledMessageSerializer
     {
         using var writer = _poolManager.RentBufferWriter();
         Serialize(value, writer);
-        
+
         var owner = _poolManager.RentMemory(writer.WrittenCount);
         writer.WrittenSpan.CopyTo(owner.Memory.Span);
         return owner;
@@ -139,13 +139,13 @@ public class JsonMessageSerializer : IPooledMessageSerializer
             // Use ArrayBufferWriter for small allocations
             using var pooledWriter = _poolManager.RentBufferWriter(destination.Length);
             Serialize(value, pooledWriter);
-            
+
             if (pooledWriter.WrittenCount > destination.Length)
             {
                 bytesWritten = 0;
                 return false;
             }
-            
+
             pooledWriter.WrittenSpan.CopyTo(destination);
             bytesWritten = pooledWriter.WrittenCount;
             return true;
@@ -162,10 +162,10 @@ public class JsonMessageSerializer : IPooledMessageSerializer
     {
         using var pooledWriter = _poolManager.RentBufferWriter(destination.Length);
         Serialize(value, pooledWriter);
-        
+
         if (pooledWriter.WrittenCount > destination.Length)
             throw new InvalidOperationException($"Destination buffer too small. Required: {pooledWriter.WrittenCount}, Available: {destination.Length}");
-        
+
         pooledWriter.WrittenSpan.CopyTo(destination.Span);
         bytesWritten = pooledWriter.WrittenCount;
     }
@@ -174,7 +174,7 @@ public class JsonMessageSerializer : IPooledMessageSerializer
     public int SerializeBatch<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(IEnumerable<T> values, IBufferWriter<byte> bufferWriter)
     {
         using var writer = new Utf8JsonWriter(bufferWriter);
-        
+
         writer.WriteStartArray();
         foreach (var value in values)
         {
@@ -182,7 +182,7 @@ public class JsonMessageSerializer : IPooledMessageSerializer
         }
         writer.WriteEndArray();
         writer.Flush();
-        
+
         return (int)writer.BytesCommitted;
     }
 

@@ -25,18 +25,18 @@ namespace Catga.Pooling;
 public sealed class MemoryPoolManager : IDisposable
 {
     private static readonly Lazy<MemoryPoolManager> _shared = new(() => new MemoryPoolManager());
-    
+
     private readonly ArrayPool<byte> _smallBytePool;   // < 4KB
-    private readonly ArrayPool<byte> _mediumBytePool;  // 4KB - 64KB  
+    private readonly ArrayPool<byte> _mediumBytePool;  // 4KB - 64KB
     private readonly ArrayPool<byte> _largeBytePool;   // > 64KB
     private readonly MemoryPool<byte> _memoryPool;
-    
+
     private bool _disposed;
 
     // Size thresholds
     private const int SmallSizeThreshold = 4 * 1024;        // 4KB
     private const int MediumSizeThreshold = 64 * 1024;      // 64KB
-    
+
     // Pool configurations
     private const int SmallPoolMaxArrayLength = 16 * 1024;     // 16KB max for small pool
     private const int MediumPoolMaxArrayLength = 128 * 1024;   // 128KB max for medium pool
@@ -110,7 +110,7 @@ public sealed class MemoryPoolManager : IDisposable
     public IMemoryOwner<byte> RentMemory(int minimumLength)
     {
         ThrowIfDisposed();
-        
+
         if (minimumLength <= 0)
             throw new ArgumentOutOfRangeException(nameof(minimumLength), "Minimum length must be positive");
 
@@ -127,7 +127,7 @@ public sealed class MemoryPoolManager : IDisposable
     public byte[] RentArray(int minimumLength)
     {
         ThrowIfDisposed();
-        
+
         if (minimumLength <= 0)
             throw new ArgumentOutOfRangeException(nameof(minimumLength), "Minimum length must be positive");
 
@@ -159,7 +159,7 @@ public sealed class MemoryPoolManager : IDisposable
     public MemoryPoolStatistics GetStatistics()
     {
         ThrowIfDisposed();
-        
+
         // Note: ArrayPool doesn't expose detailed statistics
         // This is a placeholder for future enhancement
         return new MemoryPoolStatistics

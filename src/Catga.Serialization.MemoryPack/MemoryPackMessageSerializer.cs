@@ -29,7 +29,7 @@ namespace Catga.Serialization.MemoryPack;
 /// {
 ///     public string Name { get; set; }
 /// }
-/// 
+///
 /// services.AddCatga().UseMemoryPackSerializer();
 /// </code>
 /// </para>
@@ -78,7 +78,7 @@ public class MemoryPackMessageSerializer : IPooledMessageSerializer
         // MemoryPack can serialize directly to pooled memory
         using var writer = _poolManager.RentBufferWriter();
         MemoryPackSerializer.Serialize(writer, value);
-        
+
         var owner = _poolManager.RentMemory(writer.WrittenCount);
         writer.WrittenSpan.CopyTo(owner.Memory.Span);
         return owner;
@@ -124,13 +124,13 @@ public class MemoryPackMessageSerializer : IPooledMessageSerializer
             // Use pooled writer
             using var pooledWriter = _poolManager.RentBufferWriter(destination.Length);
             MemoryPackSerializer.Serialize(pooledWriter, value);
-            
+
             if (pooledWriter.WrittenCount > destination.Length)
             {
                 bytesWritten = 0;
                 return false;
             }
-            
+
             pooledWriter.WrittenSpan.CopyTo(destination);
             bytesWritten = pooledWriter.WrittenCount;
             return true;
@@ -148,10 +148,10 @@ public class MemoryPackMessageSerializer : IPooledMessageSerializer
     {
         using var pooledWriter = _poolManager.RentBufferWriter(destination.Length);
         MemoryPackSerializer.Serialize(pooledWriter, value);
-        
+
         if (pooledWriter.WrittenCount > destination.Length)
             throw new InvalidOperationException($"Destination buffer too small. Required: {pooledWriter.WrittenCount}, Available: {destination.Length}");
-        
+
         pooledWriter.WrittenSpan.CopyTo(destination.Span);
         bytesWritten = pooledWriter.WrittenCount;
     }
@@ -161,29 +161,29 @@ public class MemoryPackMessageSerializer : IPooledMessageSerializer
     {
         int totalBytes = 0;
         Span<byte> lengthBuffer = stackalloc byte[4]; // Reuse buffer for all length writes
-        
+
         // Write count prefix (4 bytes)
         var count = values is ICollection<T> collection ? collection.Count : values.Count();
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(lengthBuffer, count);
         bufferWriter.Write(lengthBuffer);
         totalBytes += 4;
-        
+
         // Serialize each item with length prefix
         foreach (var value in values)
         {
             using var itemWriter = _poolManager.RentBufferWriter();
             MemoryPackSerializer.Serialize(itemWriter, value);
-            
+
             // Write item length (4 bytes)
             System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(lengthBuffer, itemWriter.WrittenCount);
             bufferWriter.Write(lengthBuffer);
             totalBytes += 4;
-            
+
             // Write item data
             bufferWriter.Write(itemWriter.WrittenSpan);
             totalBytes += itemWriter.WrittenCount;
         }
-        
+
         return totalBytes;
     }
 

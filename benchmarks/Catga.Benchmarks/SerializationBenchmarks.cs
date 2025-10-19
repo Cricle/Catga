@@ -59,9 +59,9 @@ public class SerializationBenchmarks
     [Benchmark(Description = "JSON Serialize (buffered)")]
     public byte[] JsonSerialize_Buffered()
     {
-        using var bufferWriter = new PooledBufferWriter(256);
+        using var bufferWriter = new Catga.Pooling.PooledBufferWriter<byte>(256);
         _jsonSerializer.Serialize(_message, bufferWriter);
-        return bufferWriter.ToArray();
+        return bufferWriter.WrittenSpan.ToArray();
     }
 
     #endregion
@@ -83,9 +83,9 @@ public class SerializationBenchmarks
     [Benchmark(Description = "MemoryPack Serialize (buffered)")]
     public byte[] MemoryPackSerialize_Buffered()
     {
-        using var bufferWriter = new PooledBufferWriter(128);
+        using var bufferWriter = new Catga.Pooling.PooledBufferWriter<byte>(128);
         _memoryPackSerializer.Serialize(_message, bufferWriter);
-        return bufferWriter.ToArray();
+        return bufferWriter.WrittenSpan.ToArray();
     }
 
     #endregion

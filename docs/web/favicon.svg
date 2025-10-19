@@ -1,46 +1,66 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#512BD4;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#6C63FF;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#a29bfe;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6c5ce7;stop-opacity:1" />
     </linearGradient>
   </defs>
 
   <!-- 圆角背景 -->
   <rect width="64" height="64" fill="url(#bg)" rx="14"/>
   
-  <g fill="#FFFFFF">
-    <!-- 猫头 -->
-    <circle cx="32" cy="24" r="8"/>
-    
-    <!-- 左耳（带动态感） -->
-    <path d="M 26 18 L 22 10 L 28 16 Z"/>
-    
-    <!-- 右耳（带动态感） -->
-    <path d="M 38 18 L 42 10 L 36 16 Z"/>
-    
-    <!-- 眼睛（锐利） -->
-    <ellipse cx="29" cy="23" rx="1.2" ry="1.8" fill="#512BD4"/>
-    <ellipse cx="35" cy="23" rx="1.2" ry="1.8" fill="#512BD4"/>
-    
-    <!-- 猫身体（流线型，跳跃姿态） -->
-    <path d="M 24 30 Q 20 35, 22 42 Q 25 48, 32 46 Q 39 44, 42 38 Q 44 32, 40 28 Z"/>
-    
-    <!-- 尾巴（S形曲线） -->
-    <path d="M 40 38 Q 46 40, 52 34" 
+  <!-- 超可爱猫咪 favicon -->
+  <g>
+    <!-- 身体 -->
+    <ellipse cx="32" cy="38" rx="14" ry="16" fill="#FFFFFF"/>
+
+    <!-- 尾巴 -->
+    <path d="M 44 38 Q 52 35, 56 40" 
           fill="none" 
           stroke="#FFFFFF" 
-          stroke-width="3.5" 
+          stroke-width="5.5" 
           stroke-linecap="round"/>
+
+    <!-- 头 -->
+    <circle cx="32" cy="24" r="13" fill="#FFFFFF"/>
+
+    <!-- 左耳 -->
+    <path d="M 22 16 Q 18 8, 25 14 Z" fill="#FFFFFF"/>
+    <ellipse cx="23" cy="14" rx="2.5" ry="4" fill="#FFB6C1"/>
     
-    <!-- 速度线条（表示迅速） -->
-    <g opacity="0.7">
-      <path d="M 8 22 L 16 22" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
-      <path d="M 6 28 L 18 28" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
-      <path d="M 10 34 L 20 34" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"/>
-    </g>
-    
-    <!-- 闪电符号（表示高性能） -->
-    <path d="M 48 26 L 45 30 L 48 30 L 44 36 L 49 32 L 46 32 Z" opacity="0.95"/>
+    <!-- 右耳 -->
+    <path d="M 42 16 Q 46 8, 39 14 Z" fill="#FFFFFF"/>
+    <ellipse cx="41" cy="14" rx="2.5" ry="4" fill="#FFB6C1"/>
+
+    <!-- 超大萌眼（左） -->
+    <circle cx="28" cy="23" r="4" fill="#2d3436"/>
+    <circle cx="29" cy="22" r="1.5" fill="#FFFFFF"/>
+
+    <!-- 超大萌眼（右） -->
+    <circle cx="36" cy="23" r="4" fill="#2d3436"/>
+    <circle cx="37" cy="22" r="1.5" fill="#FFFFFF"/>
+
+    <!-- 小鼻子 -->
+    <ellipse cx="32" cy="27" rx="2" ry="1.5" fill="#FF6B9D"/>
+
+    <!-- W型可爱嘴巴 -->
+    <path d="M 29 29 Q 30.5 31, 32 30 Q 33.5 31, 35 29" 
+          fill="none" 
+          stroke="#FF6B9D" 
+          stroke-width="1.5" 
+          stroke-linecap="round"/>
+
+    <!-- 腮红 -->
+    <ellipse cx="23" cy="27" rx="3" ry="2" fill="#FF6B9D" opacity="0.3"/>
+    <ellipse cx="41" cy="27" rx="3" ry="2" fill="#FF6B9D" opacity="0.3"/>
+
+    <!-- 小肉垫 -->
+    <ellipse cx="26" cy="50" rx="3" ry="4" fill="#FFB6C1" opacity="0.8"/>
+    <ellipse cx="38" cy="50" rx="3" ry="4" fill="#FFB6C1" opacity="0.8"/>
+
+    <!-- 闪电 -->
+    <path d="M 48 24 L 45 28 L 48 28 L 44 34 L 50 30 L 47 30 Z" 
+          fill="#FFD700" 
+          opacity="0.95"/>
   </g>
 </svg>

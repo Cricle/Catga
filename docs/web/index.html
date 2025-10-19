@@ -932,34 +932,534 @@
             text-decoration: underline;
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
+        /* Mobile Navigation */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            color: var(--text-color);
+        }
+
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 9999;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .mobile-nav.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mobile-nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .mobile-nav-close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: white;
+            cursor: pointer;
+        }
+
+        .mobile-nav-links {
+            list-style: none;
+            padding: 0;
+        }
+
+        .mobile-nav-links li {
+            margin-bottom: 1.5rem;
+        }
+
+        .mobile-nav-links a {
+            color: white;
+            text-decoration: none;
+            font-size: 1.5rem;
+            font-weight: 600;
+            display: block;
+            padding: 1rem;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+
+        .mobile-nav-links a:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 1024px) {
+            .container {
+                padding: 0 1.5rem;
+            }
+
+            .section {
+                padding: 3rem 1.5rem;
+            }
+
             .hero h1 {
-                font-size: 2.5rem;
+                font-size: 3rem;
+            }
+
+            .hero p {
+                font-size: 1.1rem;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .demo-container {
+                padding: 2rem;
+            }
+
+            .animation-canvas {
+                height: 350px;
+            }
+
+            .node {
+                width: 100px;
+                padding: 0.75rem;
+                font-size: 0.85rem;
+            }
+
+            .message {
+                width: 50px;
+                height: 50px;
+                font-size: 1.2rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            /* Typography */
+            body {
+                font-size: 14px;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+                line-height: 1.2;
+            }
+
+            .hero p {
+                font-size: 1rem;
+                padding: 0 1rem;
+            }
+
+            .hero-stats {
+                gap: 1.5rem;
+            }
+
+            .hero-stat-value {
+                font-size: 2rem;
+            }
+
+            .hero-stat-label {
+                font-size: 0.9rem;
+            }
+
+            .section-title {
+                font-size: 1.75rem;
+            }
+
+            .section-subtitle {
+                font-size: 1rem;
+                padding: 0 1rem;
+            }
+
+            /* Header & Navigation */
+            nav {
+                padding: 1rem;
+            }
+
+            .logo {
+                font-size: 1.5rem;
             }
 
             .nav-links {
                 display: none;
             }
 
-            .features-grid {
-                grid-template-columns: 1fr;
+            .mobile-menu-btn {
+                display: block;
             }
 
-            .use-case-grid {
-                grid-template-columns: 1fr;
+            /* Buttons */
+            .btn {
+                padding: 0.75rem 1.5rem;
+                font-size: 0.9rem;
             }
 
-            .evolution-features {
-                grid-template-columns: 1fr;
+            .cta-buttons {
+                flex-direction: column;
+                padding: 0 1rem;
+                width: 100%;
             }
 
+            .cta-buttons .btn {
+                width: 100%;
+                max-width: 300px;
+            }
+
+            /* Demo Section */
+            .demo-tabs {
+                gap: 0.5rem;
+                padding: 0 0.5rem;
+            }
+
+            .demo-tab {
+                padding: 0.6rem 1rem;
+                font-size: 0.85rem;
+            }
+
+            .demo-container {
+                padding: 1.5rem 1rem;
+                min-height: 400px;
+            }
+
+            .demo-controls {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .demo-btn {
+                width: 100%;
+                max-width: 200px;
+            }
+
+            .animation-canvas {
+                height: 300px;
+            }
+
+            .node {
+                width: 80px;
+                padding: 0.5rem;
+                font-size: 0.75rem;
+                border-width: 2px;
+            }
+
+            .node-label {
+                font-size: 0.7rem;
+            }
+
+            .message {
+                width: 40px;
+                height: 40px;
+                font-size: 1rem;
+            }
+
+            .demo-timeline {
+                max-height: 150px;
+                padding: 1rem;
+            }
+
+            .timeline-item {
+                padding: 0.5rem;
+                font-size: 0.85rem;
+            }
+
+            /* Learning Path */
             .path-step {
                 flex-direction: column;
+                padding: 1.5rem;
+                gap: 1rem;
             }
 
             .step-number {
                 align-self: flex-start;
+                width: 50px;
+                height: 50px;
+                font-size: 1.25rem;
+            }
+
+            .step-title {
+                font-size: 1.25rem;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+
+            .step-description {
+                font-size: 0.9rem;
+            }
+
+            .step-meta {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .step-topics {
+                gap: 0.35rem;
+            }
+
+            .topic-tag {
+                font-size: 0.75rem;
+                padding: 0.2rem 0.6rem;
+            }
+
+            .step-action {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .step-action .btn {
+                width: 100%;
+            }
+
+            /* Features */
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .feature-card {
+                padding: 1.5rem;
+            }
+
+            .feature-icon {
+                font-size: 2.5rem;
+            }
+
+            .feature-card h3 {
+                font-size: 1.25rem;
+            }
+
+            /* Use Cases */
+            .use-case-tabs {
+                gap: 0.5rem;
+                padding: 0 0.5rem;
+            }
+
+            .use-case-tab {
+                padding: 0.6rem 1rem;
+                font-size: 0.85rem;
+                flex: 1;
+                min-width: 0;
+            }
+
+            .use-case-grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            .use-case-description h3 {
+                font-size: 1.5rem;
+            }
+
+            .use-case-description p {
+                font-size: 0.9rem;
+            }
+
+            .use-case-code {
+                padding: 1rem;
+                overflow-x: auto;
+            }
+
+            .use-case-code pre {
+                font-size: 0.75rem;
+            }
+
+            /* Architecture Evolution */
+            .evolution-timeline:before {
+                left: 20px;
+            }
+
+            .evolution-step {
+                padding-left: 60px;
+                margin-bottom: 2rem;
+            }
+
+            .evolution-marker {
+                left: 9px;
+                width: 24px;
+                height: 24px;
+                border-width: 3px;
+            }
+
+            .evolution-content {
+                padding: 1.5rem;
+            }
+
+            .evolution-title {
+                font-size: 1.25rem;
+            }
+
+            .evolution-subtitle {
+                font-size: 0.9rem;
+            }
+
+            .evolution-features {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+
+            .evolution-feature {
+                font-size: 0.85rem;
+            }
+
+            /* Code Examples */
+            .code-tabs {
+                gap: 0.35rem;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .code-tab {
+                padding: 0.6rem 1rem;
+                font-size: 0.85rem;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+
+            .code-panel {
+                padding: 1rem;
+                border-radius: 8px;
+            }
+
+            .code-panel pre {
+                font-size: 0.75rem;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Comparison Table */
+            .comparison-table {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 0.75rem 0.5rem;
+                white-space: nowrap;
+            }
+
+            /* Stats */
+            .stats {
+                padding: 3rem 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 2rem;
+            }
+
+            .stat-item h3 {
+                font-size: 2rem;
+            }
+
+            .stat-item p {
+                font-size: 0.9rem;
+            }
+
+            /* Footer */
+            footer {
+                padding: 2rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero h1 {
+                font-size: 1.75rem;
+            }
+
+            .hero p {
+                font-size: 0.9rem;
+            }
+
+            .hero-stats {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+
+            .section-title {
+                font-size: 1.5rem;
+            }
+
+            .demo-tab {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.75rem;
+            }
+
+            .animation-canvas {
+                height: 250px;
+            }
+
+            .node {
+                width: 70px;
+                padding: 0.4rem;
+                font-size: 0.7rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .use-case-tab {
+                font-size: 0.75rem;
+                padding: 0.5rem 0.75rem;
+            }
+        }
+
+        /* Touch Improvements */
+        @media (hover: none) and (pointer: coarse) {
+            /* Larger touch targets */
+            .btn,
+            .demo-btn,
+            .demo-tab,
+            .use-case-tab,
+            .code-tab {
+                min-height: 44px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* Remove hover effects on touch devices */
+            .btn:hover,
+            .demo-btn:hover,
+            .feature-card:hover,
+            .path-step:hover {
+                transform: none;
+            }
+
+            /* Better tap highlighting */
+            * {
+                -webkit-tap-highlight-color: rgba(81, 43, 212, 0.2);
+            }
+        }
+
+        /* Landscape Mobile */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .hero {
+                padding: 3rem 2rem;
+            }
+
+            .animation-canvas {
+                height: 250px;
+            }
+
+            .demo-container {
+                min-height: 300px;
             }
         }
     </style>
@@ -976,8 +1476,25 @@
                 <li><a href="#examples">示例</a></li>
                 <li><a href="https://github.com/Cricle/Catga" target="_blank">GitHub</a></li>
             </ul>
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
         </nav>
     </header>
+
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobileNav">
+        <div class="mobile-nav-header">
+            <div class="logo">⚡ Catga</div>
+            <button class="mobile-nav-close" onclick="toggleMobileMenu()">✕</button>
+        </div>
+        <ul class="mobile-nav-links">
+            <li><a href="#demo" onclick="toggleMobileMenu()">🎬 动画演示</a></li>
+            <li><a href="#learning" onclick="toggleMobileMenu()">🎓 学习路径</a></li>
+            <li><a href="#use-cases" onclick="toggleMobileMenu()">💼 使用场景</a></li>
+            <li><a href="#examples" onclick="toggleMobileMenu()">💻 代码示例</a></li>
+            <li><a href="https://github.com/Cricle/Catga" target="_blank">💻 GitHub</a></li>
+            <li><a href="../articles/getting-started.html">📚 完整文档</a></li>
+        </ul>
+    </div>
 
     <!-- Hero Section -->
     <section class="hero">
@@ -2080,6 +2597,19 @@ docker run -d --name nats <span class="code-keyword">\</span>
             });
         });
 
+        // Toggle mobile menu
+        function toggleMobileMenu() {
+            const mobileNav = document.getElementById('mobileNav');
+            mobileNav.classList.toggle('active');
+            
+            // Prevent body scroll when menu is open
+            if (mobileNav.classList.contains('active')) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
+        }
+
         // Switch demo tabs
         function switchDemo(index) {
             const tabs = document.querySelectorAll('.demo-tab');
@@ -2190,14 +2720,14 @@ docker run -d --name nats <span class="code-keyword">\</span>
             await new Promise(r => setTimeout(r, 500));
             activateNode('cqrs-client');
             addTimelineItem('cqrs-timeline', '客户端发送命令: CreateOrderCommand');
-            
+
             await animateMessage(canvas, 110, 190, 270, 190, '📝');
             deactivateNode('cqrs-client');
 
             // Step 2: Mediator routes to handler
             activateNode('cqrs-mediator');
             addTimelineItem('cqrs-timeline', 'Mediator 路由到 Handler');
-            
+
             await animateMessage(canvas, 310, 180, 470, 130, '➡️');
             deactivateNode('cqrs-mediator');
 
@@ -2219,11 +2749,11 @@ docker run -d --name nats <span class="code-keyword">\</span>
             activateNode('cqrs-event');
             addTimelineItem('cqrs-timeline', '发布事件: OrderCreatedEvent');
             await new Promise(r => setTimeout(r, 800));
-            
+
             successNode('cqrs-handler');
             successNode('cqrs-event');
             addTimelineItem('cqrs-timeline', '✅ CQRS 流程完成', 'success');
-            
+
             cqrsRunning = false;
         }
 
@@ -2255,7 +2785,7 @@ docker run -d --name nats <span class="code-keyword">\</span>
             await new Promise(r => setTimeout(r, 500));
             activateNode('event-publisher');
             addTimelineItem('event-timeline', '发布事件: OrderCreatedEvent');
-            
+
             await animateMessage(canvas, 110, 190, 320, 190, '📢');
             deactivateNode('event-publisher');
             successNode('event-publisher');
@@ -2267,13 +2797,13 @@ docker run -d --name nats <span class="code-keyword">\</span>
 
             // Step 3: Broadcast to all handlers (parallel)
             addTimelineItem('event-timeline', '广播到所有订阅者');
-            
+
             const promises = [
                 animateMessage(canvas, 360, 180, 570, 70, '📨'),
                 animateMessage(canvas, 360, 190, 570, 190, '📨'),
                 animateMessage(canvas, 360, 200, 570, 310, '📨')
             ];
-            
+
             await Promise.all(promises);
             deactivateNode('event-bus');
 
@@ -2281,7 +2811,7 @@ docker run -d --name nats <span class="code-keyword">\</span>
             activateNode('event-handler1');
             activateNode('event-handler2');
             activateNode('event-handler3');
-            
+
             addTimelineItem('event-timeline', 'Handler 1: 发送邮件通知');
             await new Promise(r => setTimeout(r, 800));
             successNode('event-handler1');
@@ -2295,7 +2825,7 @@ docker run -d --name nats <span class="code-keyword">\</span>
             successNode('event-handler3');
 
             addTimelineItem('event-timeline', '✅ 事件处理完成', 'success');
-            
+
             eventRunning = false;
         }
 
@@ -2363,10 +2893,10 @@ docker run -d --name nats <span class="code-keyword">\</span>
             successNode('outbox-publisher');
             activateNode('outbox-mq');
             await new Promise(r => setTimeout(r, 800));
-            
+
             successNode('outbox-mq');
             addTimelineItem('outbox-timeline', '✅ 消息可靠发送（确保一致性）', 'success');
-            
+
             outboxRunning = false;
         }
 
@@ -2435,7 +2965,7 @@ docker run -d --name nats <span class="code-keyword">\</span>
             await new Promise(r => setTimeout(r, 1000));
             successNode('trace-notify');
             deactivateNode('trace-notify');
-            
+
             successNode('trace-api');
             deactivateNode('trace-api');
 
@@ -2444,9 +2974,9 @@ docker run -d --name nats <span class="code-keyword">\</span>
             activateNode('trace-otel');
             await new Promise(r => setTimeout(r, 800));
             successNode('trace-otel');
-            
+
             addTimelineItem('tracing-timeline', '✅ 分布式追踪完成（全链路可视化）', 'success');
-            
+
             tracingRunning = false;
         }
 

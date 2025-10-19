@@ -70,7 +70,10 @@ public readonly struct PooledBuffer : IDisposable
     private readonly IMemoryOwner<byte>? _owner;
     private readonly int _length;
 
-    internal PooledBuffer(IMemoryOwner<byte> owner, int length)
+    /// <summary>
+    /// Create pooled buffer from memory owner
+    /// </summary>
+    public PooledBuffer(IMemoryOwner<byte> owner, int length)
     {
         _owner = owner;
         _length = length;

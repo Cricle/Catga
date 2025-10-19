@@ -1,9 +1,9 @@
 using Catga.Configuration;
+using Catga.Core;
 using Catga.Exceptions;
 using Catga.Messages;
 using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
-using Catga.Results;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;

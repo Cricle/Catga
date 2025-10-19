@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
+using Catga.Abstractions;
 using Catga.Caching;
-using Catga.Serialization;
 using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis;
@@ -18,8 +18,7 @@ public sealed class RedisDistributedCache : IDistributedCache
         _redis = redis ?? throw new ArgumentNullException(nameof(redis));
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
     }
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
+
     public async ValueTask<T?> GetAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         string key,
         CancellationToken cancellationToken = default)
@@ -43,8 +42,6 @@ public sealed class RedisDistributedCache : IDistributedCache
             return default;
         }
     }
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     public async ValueTask SetAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         string key,
         T value,

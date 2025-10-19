@@ -1,8 +1,8 @@
+using Catga.Core;
 using Catga.Idempotency;
 using Catga.Messages;
 using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
-using Catga.Results;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;

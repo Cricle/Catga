@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Catga.Observability;
 
@@ -86,22 +85,3 @@ public static class ActivityPayloadCapture
         CapturePayload(activity, "catga.event.payload", @event);
     }
 }
-
-/// <summary>
-/// Example: Set custom serializer for AOT compatibility
-///
-/// <code>
-/// // In Program.cs (for MemoryPack users)
-/// ActivityPayloadCapture.CustomSerializer = obj =>
-/// {
-///     if (obj is IMemoryPackable memoryPackable)
-///         return Convert.ToBase64String(MemoryPackSerializer.Serialize(memoryPackable));
-///     return obj.ToString() ?? string.Empty;
-/// };
-/// </code>
-/// </summary>
-internal static class ActivityPayloadCaptureExample
-{
-    // This class is just for documentation, not actual code
-}
-

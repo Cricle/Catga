@@ -1,7 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using Catga.Abstractions;
 using Catga.Core;
 using Catga.Messages;
-using Catga.Serialization;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
@@ -42,8 +43,6 @@ public class NatsMessageTransport : IMessageTransport
         _jsContext = new NatsJSContext(_connection);
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on interface layer")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on interface layer")]
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
     {
         var subject = GetSubjectCached<TMessage>();
@@ -132,10 +131,8 @@ public class NatsMessageTransport : IMessageTransport
     public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
         => PublishBatchAsync(messages, context, cancellationToken);
 
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    private string GetSubjectCached<TMessage>() => SubjectCache<TMessage>.Subject ??= $"{_subjectPrefix}.{TypeNameCache<TMessage>.Name}";
-
-    private string GetSubject(Type messageType) => $"{_subjectPrefix}.{messageType.Name}";
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private string GetSubjectCached<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]TMessage>() => SubjectCache<TMessage>.Subject ??= $"{_subjectPrefix}.{TypeNameCache<TMessage>.Name}";
 }
 
 /// <summary>Zero-allocation subject cache per message type</summary>

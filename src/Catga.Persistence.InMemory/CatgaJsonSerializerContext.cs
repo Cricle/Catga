@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Catga.Results;
+using Catga.Core;
 
 namespace Catga.Serialization;
 

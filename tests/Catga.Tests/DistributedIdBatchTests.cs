@@ -52,7 +52,7 @@ public class DistributedIdBatchTests
         // Assert
         ids.Length.Should().Be(10000);
         ids.Distinct().Count().Should().Be(10000, "all batch IDs should be unique");
-        
+
         // Verify IDs are increasing
         for (int i = 1; i < ids.Length; i++)
         {
@@ -147,7 +147,7 @@ public class DistributedIdBatchTests
         // Assert
         ids1.Distinct().Count().Should().Be(count);
         ids2.Distinct().Count().Should().Be(count);
-        
+
         // Batch should be faster (less CAS contention)
         // Note: This is a performance hint, not a strict requirement
         // sw2.ElapsedMilliseconds.Should().BeLessThan(sw1.ElapsedMilliseconds);
@@ -165,7 +165,7 @@ public class DistributedIdBatchTests
 
         // Assert
         count.Should().Be(50);
-        
+
         // Verify all IDs are valid
         foreach (var id in ids)
         {

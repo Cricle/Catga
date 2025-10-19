@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Catga.Core;
 using Catga.Messages;
 using Catga.Observability;
-using Catga.Results;
 
 namespace Catga.Pipeline.Behaviors;
 

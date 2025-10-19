@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
+using Catga.Abstractions;
 using Catga.Outbox;
-using Catga.Serialization;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
@@ -43,8 +43,7 @@ public class RedisOutboxPersistence : IOutboxStore
         _keyPrefix = options?.KeyPrefix ?? "outbox";
         _pendingSetKey = $"{_keyPrefix}:pending";
     }
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
+
     public async ValueTask AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
     {
         if (message == null) throw new ArgumentNullException(nameof(message));
@@ -77,8 +76,7 @@ public class RedisOutboxPersistence : IOutboxStore
             _logger.LogWarning("Failed to add message {MessageId} to outbox (transaction failed)", message.MessageId);
         }
     }
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
+
     public async ValueTask<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(
         int maxCount = 100,
         CancellationToken cancellationToken = default)
@@ -123,8 +121,7 @@ public class RedisOutboxPersistence : IOutboxStore
 
         return messages;
     }
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
+
     public async ValueTask MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)
     {
         var db = _redis.GetDatabase();
@@ -159,8 +156,7 @@ public class RedisOutboxPersistence : IOutboxStore
 
         _logger.LogDebug("Marked message {MessageId} as published", messageId);
     }
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
+
     public async ValueTask MarkAsFailedAsync(
         string messageId,
         string errorMessage,

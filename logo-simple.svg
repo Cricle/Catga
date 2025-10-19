@@ -15,10 +15,10 @@
     <ellipse cx="50" cy="55" rx="18" ry="22" fill="url(#grad)"/>
 
     <!-- 小尾巴 -->
-    <path d="M 65 55 Q 75 52, 80 58" 
-          fill="none" 
-          stroke="url(#grad)" 
-          stroke-width="7" 
+    <path d="M 65 55 Q 75 52, 80 58"
+          fill="none"
+          stroke="url(#grad)"
+          stroke-width="7"
           stroke-linecap="round"/>
 
     <!-- 头 -->
@@ -46,10 +46,10 @@
     <ellipse cx="50" cy="42" rx="2" ry="1.5" fill="#FF6B9D"/>
 
     <!-- W型嘴巴 -->
-    <path d="M 46 44 Q 48 46, 50 45 Q 52 46, 54 44" 
-          fill="none" 
-          stroke="#FF6B9D" 
-          stroke-width="1.5" 
+    <path d="M 46 44 Q 48 46, 50 45 Q 52 46, 54 44"
+          fill="none"
+          stroke="#FF6B9D"
+          stroke-width="1.5"
           stroke-linecap="round"/>
 
     <!-- 腮红 -->
@@ -62,8 +62,8 @@
   </g>
 
   <!-- 闪电 -->
-  <path d="M 72 36 L 69 42 L 72 42 L 67 50 L 74 44 L 71 44 Z" 
-        fill="#FFD700" 
+  <path d="M 72 36 L 69 42 L 72 42 L 67 50 L 74 44 L 71 44 Z"
+        fill="#FFD700"
         opacity="0.9"/>
 
   <!-- 小星星 -->

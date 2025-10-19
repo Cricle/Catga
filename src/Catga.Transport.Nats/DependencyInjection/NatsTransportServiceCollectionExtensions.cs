@@ -14,6 +14,8 @@ public static class NatsTransportServiceCollectionExtensions
     public static IServiceCollection AddNatsTransport(this IServiceCollection services, Action<NatsTransportOptions>? configure = null)
     {
         var options = new NatsTransportOptions();
+
+
         configure?.Invoke(options);
         services.TryAddSingleton(options);
         services.TryAddSingleton<IMessageTransport, NatsMessageTransport>();

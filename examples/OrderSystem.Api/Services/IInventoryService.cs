@@ -1,4 +1,4 @@
-using Catga.Results;
+using Catga.Core;
 using OrderSystem.Api.Domain;
 
 namespace OrderSystem.Api.Services;

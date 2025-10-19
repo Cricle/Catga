@@ -1,4 +1,3 @@
-using System;
 using Catga.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

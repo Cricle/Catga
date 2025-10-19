@@ -1,4 +1,4 @@
-using Catga.Common;
+using Catga.Core;
 using FluentAssertions;
 
 namespace Catga.Tests.Core;

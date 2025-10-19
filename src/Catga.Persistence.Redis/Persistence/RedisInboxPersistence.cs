@@ -1,6 +1,5 @@
-using System.Diagnostics.CodeAnalysis;
+using Catga.Abstractions;
 using Catga.Inbox;
-using Catga.Serialization;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
@@ -45,8 +44,6 @@ public class RedisInboxPersistence : IInboxStore
         _keyPrefix = options?.KeyPrefix ?? "inbox";
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public async ValueTask<bool> TryLockMessageAsync(
         string messageId,
         TimeSpan lockDuration,
@@ -92,8 +89,6 @@ public class RedisInboxPersistence : IInboxStore
         return locked;
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public async ValueTask MarkAsProcessedAsync(
         InboxMessage message,
         CancellationToken cancellationToken = default)
@@ -123,8 +118,6 @@ public class RedisInboxPersistence : IInboxStore
         return await db.KeyExistsAsync(key);
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "序列化警告已在 IMessageSerializer 接口上标记")]
     public async ValueTask<string?> GetProcessedResultAsync(
         string messageId,
         CancellationToken cancellationToken = default)

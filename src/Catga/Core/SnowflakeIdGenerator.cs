@@ -1,9 +1,11 @@
-using System.Buffers;
 using System.Runtime.CompilerServices;
+using Catga.Core;
+
+#if !NET6_0
+using System.Buffers;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
-using System.Threading;
-using Catga.Common;
+#endif
 
 namespace Catga.DistributedId;
 
@@ -75,40 +77,27 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     /// Uses layout-specific sequence bits
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private long PackState(long timestamp, long sequence)
-    {
-        return (timestamp << _layout.SequenceBits) | sequence;
-    }
+    private long PackState(long timestamp, long sequence) => (timestamp << _layout.SequenceBits) | sequence;
 
     /// <summary>
     /// Unpack timestamp from packed state
     /// Uses layout-specific sequence bits
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private long UnpackTimestamp(long state)
-    {
-        return state >> _layout.SequenceBits;
-    }
+    private long UnpackTimestamp(long state) => state >> _layout.SequenceBits;
 
     /// <summary>
     /// Unpack sequence from packed state
     /// Uses layout-specific sequence mask
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private long UnpackSequence(long state)
-    {
-        return state & _layout.SequenceMask;
-    }
+    private long UnpackSequence(long state) => state & _layout.SequenceMask;
 
     /// <summary>
     /// Generate next ID as string (zero-allocation path available)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public string NextIdString()
-    {
-        var id = NextId();
-        return id.ToString();
-    }
+    public string NextIdString() => NextId().ToString();
 
     /// <summary>
     /// Try to generate next ID without throwing exceptions (P2 optimization)
@@ -284,7 +273,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
                 {
                     // Fallback: scalar generation with Span slice optimization
                     var destSpan = destination.Slice(generated, (int)batchSize);
-                    for (int i = 0; i < destSpan.Length; i++)
+                    for (var i = 0; i < destSpan.Length; i++)
                     {
                         destSpan[i] = baseId | (startSequence + i);
                     }
@@ -384,10 +373,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static long GetCurrentTimestamp()
-    {
-        return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-    }
+    private static long GetCurrentTimestamp() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static long WaitNextMillisecond(long lastTimestamp)
@@ -440,13 +426,13 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
         }
 
         // Handle remaining IDs (scalar fallback)
-        for (int i = 0; i < remaining; i++)
+        for (var i = 0; i < remaining; i++)
         {
             destination[offset + i] = baseId | (startSequence + offset + i);
         }
 #else
         // NET6: Scalar fallback only
-        for (int i = 0; i < destination.Length; i++)
+        for (var i = 0; i < destination.Length; i++)
         {
             destination[i] = baseId | (startSequence + i);
         }

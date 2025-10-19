@@ -1,10 +1,11 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Catga.Core;
 
 /// <summary>Zero-allocation type name cache (no reflection after first access, thread-safe)</summary>
-public static class TypeNameCache<T>
+public static class TypeNameCache<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>
 {
     // ✅ 线程安全：Lazy<T> 使用双检锁模式，保证线程安全和内存可见性
     private static readonly Lazy<string> _name = new(() => typeof(T).Name, LazyThreadSafetyMode.PublicationOnly);

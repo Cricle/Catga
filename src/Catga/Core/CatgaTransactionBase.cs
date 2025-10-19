@@ -1,7 +1,6 @@
-using Catga.Messages;
-using Catga.Results;
-using Microsoft.Extensions.Logging;
 using System.Diagnostics;
+using Catga.Core;
+using Microsoft.Extensions.Logging;
 
 namespace Catga.DistributedTransaction;
 
@@ -34,7 +33,7 @@ public abstract class CatgaTransactionBase<TData> where TData : class
     /// <summary>Framework method: Execute transaction with automatic tracing and error handling</summary>
     public async ValueTask<CatgaResult<TData>> ExecuteAsync(TData data, CancellationToken ct = default)
     {
-        if (data == null) throw new ArgumentNullException(nameof(data));
+        ArgumentNullException.ThrowIfNull(data, nameof(data));
 
         var transactionId = GetTransactionId(data);
         using var activity = Activity.Current?.Source.StartActivity($"CatgaTransaction.{GetType().Name}");

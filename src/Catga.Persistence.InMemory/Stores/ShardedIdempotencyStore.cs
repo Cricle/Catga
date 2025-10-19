@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text;
+using Catga.Abstractions;
 using Catga.Common;
-using Catga.Serialization;
 
 namespace Catga.Idempotency;
 

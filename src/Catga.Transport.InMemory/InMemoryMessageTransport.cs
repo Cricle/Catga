@@ -1,9 +1,8 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using Catga;
-using Catga.Common;
 using Catga.Core;
+using Catga.Handlers;
 using Catga.Idempotency;
 using Catga.Messages;
 using Catga.Observability;

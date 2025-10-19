@@ -2,7 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using Catga.Exceptions;
 using Catga.Handlers;
 using Catga.Messages;
-using Catga.Results;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.Core;
@@ -15,10 +14,7 @@ public abstract class SafeRequestHandler<[DynamicallyAccessedMembers(Dynamically
 {
     protected ILogger Logger { get; }
 
-    protected SafeRequestHandler(ILogger logger)
-    {
-        Logger = logger;
-    }
+    protected SafeRequestHandler(ILogger logger) => Logger = logger;
 
     /// <summary>
     /// Framework handles exceptions automatically - users only implement business logic
@@ -80,10 +76,7 @@ public abstract class SafeRequestHandler<[DynamicallyAccessedMembers(Dynamically
 {
     protected ILogger Logger { get; }
 
-    protected SafeRequestHandler(ILogger logger)
-    {
-        Logger = logger;
-    }
+    protected SafeRequestHandler(ILogger logger) => Logger = logger;
 
     public async Task<CatgaResult> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {

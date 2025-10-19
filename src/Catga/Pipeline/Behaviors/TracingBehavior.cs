@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using Catga.Core;
 using Catga.Messages;
-using Catga.Results;
 
 namespace Catga.Pipeline.Behaviors;
 

@@ -4,7 +4,6 @@ using Catga.Serialization;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using System.Buffers;
 using System.Runtime.CompilerServices;
 
 namespace Catga.Transport.Nats;

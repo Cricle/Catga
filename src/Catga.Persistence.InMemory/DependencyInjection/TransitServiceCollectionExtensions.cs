@@ -1,14 +1,15 @@
 using System.Diagnostics.CodeAnalysis;
+using Catga.Abstractions;
 using Catga.Configuration;
 using Catga.DeadLetter;
 using Catga.Handlers;
 using Catga.Idempotency;
 using Catga.Inbox;
+using Catga.Mediator;
 using Catga.Messages;
 using Catga.Outbox;
 using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
-using Catga.Serialization;
 using Catga.Serialization.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -45,18 +46,18 @@ public static class CatgaServiceCollectionExtensions
 
         services.AddSingleton(options);
         services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
-        
+
         // 如果没有注册序列化器，使用默认的 JSON 序列化器
         services.TryAddSingleton<IMessageSerializer, JsonMessageSerializer>();
-        
+
         services.TryAddSingleton<IIdempotencyStore>(sp => new ShardedIdempotencyStore(
-            sp.GetRequiredService<IMessageSerializer>(), 
-            options.IdempotencyShardCount, 
+            sp.GetRequiredService<IMessageSerializer>(),
+            options.IdempotencyShardCount,
             TimeSpan.FromHours(options.IdempotencyRetentionHours)));
 
         if (options.EnableDeadLetterQueue)
             services.TryAddSingleton<IDeadLetterQueue>(sp => new InMemoryDeadLetterQueue(
-                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InMemoryDeadLetterQueue>>(), 
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InMemoryDeadLetterQueue>>(),
                 sp.GetRequiredService<IMessageSerializer>(),
                 options.DeadLetterQueueMaxSize));
 
@@ -77,15 +78,15 @@ public static class CatgaServiceCollectionExtensions
         services.AddSingleton(options);
         services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
         services.TryAddSingleton<IIdempotencyStore>(sp => new ShardedIdempotencyStore(
-            sp.GetRequiredService<IMessageSerializer>(), 
-            options.IdempotencyShardCount, 
+            sp.GetRequiredService<IMessageSerializer>(),
+            options.IdempotencyShardCount,
             TimeSpan.FromHours(options.IdempotencyRetentionHours)));
 
         configure?.Invoke(builder);
 
         if (options.EnableDeadLetterQueue)
             services.TryAddSingleton<IDeadLetterQueue>(sp => new InMemoryDeadLetterQueue(
-                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InMemoryDeadLetterQueue>>(), 
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<InMemoryDeadLetterQueue>>(),
                 sp.GetRequiredService<IMessageSerializer>(),
                 options.DeadLetterQueueMaxSize));
 
@@ -98,30 +99,6 @@ public static class CatgaServiceCollectionExtensions
         return builder;
     }
 
-    [RequiresUnreferencedCode("Uses assembly scanning, not compatible with NativeAOT")]
-    [RequiresDynamicCode("Type scanning may require dynamic code generation")]
-    public static IServiceCollection AddCatgaDevelopment(this IServiceCollection services)
-        => services.AddCatgaBuilder(builder => builder
-            .ScanCurrentAssembly()
-            .Configure(opt =>
-            {
-                opt.EnableLogging = true;
-                opt.EnableTracing = true;
-                opt.EnableValidation = true;
-                opt.EnableIdempotency = true;
-                opt.EnableRetry = true;
-                opt.EnableDeadLetterQueue = true;
-            })).ServiceCollection();
-
-    [RequiresUnreferencedCode("Uses assembly scanning, not compatible with NativeAOT")]
-    [RequiresDynamicCode("Type scanning may require dynamic code generation")]
-    public static IServiceCollection AddCatgaProduction(this IServiceCollection services)
-        => services.AddCatgaBuilder(builder => builder
-            .ScanCurrentAssembly()
-            .WithPerformanceOptimization()
-            .WithReliability()).ServiceCollection();
-
-    private static IServiceCollection ServiceCollection(this CatgaBuilder builder) => builder.Services;
 
     public static IServiceCollection AddRequestHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>(this IServiceCollection services) where TRequest : IRequest<TResponse> where THandler : class, IRequestHandler<TRequest, TResponse>
     {

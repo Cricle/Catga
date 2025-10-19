@@ -1,9 +1,8 @@
-using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
-using Catga.Messages;
-using Catga.Serialization;
+using Catga.Abstractions;
 using Catga.Transport;
 using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Catga.Rpc;
 
@@ -35,7 +34,6 @@ public sealed partial class RpcServer : IRpcServer, IAsyncDisposable
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
-        // ✅ 线程安全：使用 Interlocked.CompareExchange 防止竞态条件
         if (Volatile.Read(ref _receiveTask) != null)
             return Task.CompletedTask;
 

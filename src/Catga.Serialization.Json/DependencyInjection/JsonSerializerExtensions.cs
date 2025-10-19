@@ -1,7 +1,7 @@
 using System;
 using System.Text.Json;
+using Catga.Abstractions;
 using Catga.Configuration;
-using Catga.Serialization;
 using Catga.Serialization.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

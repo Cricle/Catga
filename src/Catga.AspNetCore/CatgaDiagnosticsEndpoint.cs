@@ -223,7 +223,7 @@ public static class CatgaDiagnosticsEndpoint
         }
 
         function renderHealth(data) {
-            const statusClass = data.status === 'Healthy' ? 'healthy' : 
+            const statusClass = data.status === 'Healthy' ? 'healthy' :
                                data.status === 'Degraded' ? 'warning' : 'error';
             return `
                 <div class=""metric"">

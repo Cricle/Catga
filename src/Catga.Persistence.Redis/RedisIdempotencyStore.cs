@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
+using Catga.Abstractions;
 using Catga.Idempotency;
-using Catga.Serialization;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
@@ -39,9 +39,7 @@ public class RedisIdempotencyStore : IIdempotencyStore
     }
 
     /// <inheritdoc/>
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
-    public async Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]TResult>(
+    public async Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
         string messageId,
         TResult? result = default,
         CancellationToken cancellationToken = default)
@@ -64,8 +62,6 @@ public class RedisIdempotencyStore : IIdempotencyStore
     }
 
     /// <inheritdoc/>
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IMessageSerializer interface")]
     public async Task<TResult?> GetCachedResultAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(
         string messageId,
         CancellationToken cancellationToken = default)

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Catga.Core;
 
 namespace Catga.Messages;
 

@@ -8,8 +8,7 @@ namespace Catga.Serialization;
 /// Custom JSON converter for Exception types to avoid AOT trimming warnings.
 /// Avoids accessing Exception.TargetSite which requires reflection.
 /// </summary>
-[UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Exception serialization is for debugging only. Use MemoryPack for production AOT.")]
-[UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Exception serialization is for debugging only. Use MemoryPack for production AOT.")]
+[UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
 public class CatgaExceptionJsonConverter : JsonConverter<Exception>
 {
     public override Exception? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)

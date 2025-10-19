@@ -4,9 +4,9 @@ using NSubstitute;
 using Microsoft.Extensions.Logging;
 using Catga.Messages;
 using Catga.Transport;
-using Catga.Serialization;
 using Catga.Serialization.Json;
 using System.Collections.Concurrent;
+using Catga.Abstractions;
 
 namespace Catga.Tests.Transport;
 

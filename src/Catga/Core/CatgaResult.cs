@@ -1,6 +1,7 @@
+using System.Runtime.CompilerServices;
 using Catga.Exceptions;
 
-namespace Catga.Results;
+namespace Catga.Core;
 
 /// <summary>Result metadata (lightweight, pooled for performance)</summary>
 public sealed class ResultMetadata
@@ -9,13 +10,13 @@ public sealed class ResultMetadata
 
     public ResultMetadata() => _data = new Dictionary<string, string>(4);
 
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public void Add(string key, string value) => _data[key] = value;
 
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetValue(string key, out string? value) => _data.TryGetValue(key, out value);
 
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool ContainsKey(string key) => _data.ContainsKey(key);
 
     public IReadOnlyDictionary<string, string> GetAll() => _data;
@@ -24,7 +25,7 @@ public sealed class ResultMetadata
 }
 
 /// <summary>Catga operation result with value (zero-allocation struct for performance)</summary>
-public readonly struct CatgaResult<T>
+public readonly record struct CatgaResult<T>
 {
     public bool IsSuccess { get; init; }
     public T? Value { get; init; }
@@ -40,7 +41,7 @@ public readonly struct CatgaResult<T>
 }
 
 /// <summary>Catga operation result without value (zero-allocation struct for performance)</summary>
-public readonly struct CatgaResult
+public readonly record struct CatgaResult
 {
     public bool IsSuccess { get; init; }
     public string? Error { get; init; }

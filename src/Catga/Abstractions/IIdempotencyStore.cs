@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using Catga.Serialization;
+using Catga.Abstractions;
 
 namespace Catga.Idempotency;
 

@@ -1,43 +1,37 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using Catga.Common;
-using Catga.Configuration;
+using System.Runtime.CompilerServices;
 using Catga.Core;
 using Catga.Exceptions;
 using Catga.Handlers;
 using Catga.Messages;
 using Catga.Observability;
-using Catga.Performance;
 using Catga.Pipeline;
-using Catga.Results;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace Catga;
+namespace Catga.Mediator;
 
 /// <summary>High-performance Catga Mediator (AOT-compatible, lock-free)</summary>
 public sealed class CatgaMediator : ICatgaMediator
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CatgaMediator> _logger;
-    private readonly CatgaOptions _options;
     private readonly HandlerCache _handlerCache;
     private readonly GracefulShutdownManager? _shutdownManager;
 
     public CatgaMediator(
         IServiceProvider serviceProvider,
         ILogger<CatgaMediator> logger,
-        CatgaOptions options,
         GracefulShutdownManager? shutdownManager = null)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
-        _options = options;
-        _handlerCache = new HandlerCache(serviceProvider);
+        _handlerCache = new HandlerCache();
         _shutdownManager = shutdownManager;
     }
 
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public async ValueTask<CatgaResult<TResponse>> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
     {
         // 优雅停机：自动跟踪操作
@@ -74,14 +68,14 @@ public sealed class CatgaMediator : ICatgaMediator
             var scopedProvider = scope.ServiceProvider;
 
             var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(scopedProvider);
-        if (handler == null)
-        {
+            if (handler == null)
+            {
                 CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", "false"));
                 return CatgaResult<TResponse>.Failure($"No handler for {reqType}", new HandlerNotFoundException(reqType));
-        }
+            }
 
             var behaviors = scopedProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-        var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToList();
+            var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToList();
             var result = FastPath.CanUseFastPath(behaviorsList.Count)
                 ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
                 : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
@@ -96,9 +90,7 @@ public sealed class CatgaMediator : ICatgaMediator
             activity?.SetTag(CatgaActivitySource.Tags.Duration, duration);
 
             if (result.IsSuccess)
-            {
                 activity?.SetStatus(ActivityStatusCode.Ok);
-            }
             else
             {
                 activity?.SetTag(CatgaActivitySource.Tags.Error, result.Error ?? "Unknown error");
@@ -120,7 +112,7 @@ public sealed class CatgaMediator : ICatgaMediator
     /// <summary>
     /// Get elapsed time in milliseconds from a Stopwatch timestamp
     /// </summary>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static double GetElapsedMilliseconds(long startTimestamp)
     {
         var elapsed = Stopwatch.GetTimestamp() - startTimestamp;
@@ -173,7 +165,7 @@ public sealed class CatgaMediator : ICatgaMediator
         var scopedProvider = scope.ServiceProvider;
 
         // Fast-path: use generated router if available
-        var generatedRouter = scopedProvider.GetService<Catga.Handlers.IGeneratedEventRouter>();
+        var generatedRouter = scopedProvider.GetService<IGeneratedEventRouter>();
         if (generatedRouter != null && generatedRouter.TryRoute(scopedProvider, @event, cancellationToken, out var dispatchedTask))
         {
             if (dispatchedTask != null)
@@ -199,22 +191,16 @@ public sealed class CatgaMediator : ICatgaMediator
             return;
         }
 
-        using var rentedTasks = Common.ArrayPoolHelper.RentOrAllocate<Task>(handlerList.Count);
+        using var rentedTasks = ArrayPoolHelper.RentOrAllocate<Task>(handlerList.Count);
         var tasks = rentedTasks.Array;
-        for (int i = 0; i < handlerList.Count; i++)
+        for (var i = 0; i < handlerList.Count; i++)
             tasks[i] = HandleEventSafelyAsync(handlerList[i], @event, cancellationToken);
 
         // Zero-allocation: use exact-sized array or ArraySegment
         if (tasks.Length == handlerList.Count)
-        {
-            // Perfect size match - zero allocation
             await Task.WhenAll((IEnumerable<Task>)tasks).ConfigureAwait(false);
-        }
         else
-        {
-            // Use ArraySegment to avoid copying entire array
-            await Task.WhenAll((IEnumerable<Task>)new ArraySegment<Task>(tasks, 0, handlerList.Count)).ConfigureAwait(false);
-        }
+            await Task.WhenAll(tasks.Take(handlerList.Count)).ConfigureAwait(false);
         CatgaLog.EventPublished(_logger, eventType, message?.MessageId, handlerList.Count);
     }
 
@@ -277,13 +263,14 @@ public sealed class CatgaMediator : ICatgaMediator
     }
 
 
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public async ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(IReadOnlyList<TRequest> requests, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
         => await requests.ExecuteBatchWithResultsAsync(request => SendAsync<TRequest, TResponse>(request, cancellationToken));
 
     public async IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(IAsyncEnumerable<TRequest> requests, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
     {
-        if (requests == null) yield break;
+        if (requests == null)
+            yield break;
         await foreach (var request in requests.WithCancellation(cancellationToken).ConfigureAwait(false))
             yield return await SendAsync<TRequest, TResponse>(request, cancellationToken).ConfigureAwait(false);
     }
@@ -291,7 +278,7 @@ public sealed class CatgaMediator : ICatgaMediator
     public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(IReadOnlyList<TEvent> events, CancellationToken cancellationToken = default) where TEvent : IEvent
         => await events.ExecuteBatchAsync(@event => PublishAsync(@event, cancellationToken));
 
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void RecordException(Activity? activity, Exception ex)
     {
         activity?.SetStatus(ActivityStatusCode.Error, ex.Message);

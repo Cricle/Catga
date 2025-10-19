@@ -17,19 +17,19 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     /// services.AddInMemoryEventStore();
     /// services.AddEventStoreRepository();
     /// </code>
-    /// 
+    ///
     /// <para>
     /// 包含的组件：
     /// - IEventStore - 内存事件存储
     /// - IEventStoreRepository - 聚合存储库
     /// </para>
-    /// 
+    ///
     /// <para>
     /// 对于生产环境，建议使用：
     /// - Catga.Persistence.Nats - NATS JetStream 持久化
     /// - Catga.Persistence.Redis - Redis Streams 持久化
     /// </para>
-    /// 
+    ///
     /// <para>
     /// 注意：InMemory 实现不提供跨进程共享，仅适用于：
     /// - 单元测试
@@ -43,7 +43,7 @@ public static class InMemoryPersistenceServiceCollectionExtensions
 
         // 注册 Event Store
         services.AddInMemoryEventStore();
-        
+
         // 注册 Event Store Repository
         services.AddEventStoreRepository();
 

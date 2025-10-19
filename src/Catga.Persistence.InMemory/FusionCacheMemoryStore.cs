@@ -29,7 +29,7 @@ public abstract class FusionCacheMemoryStore<TMessage> where TMessage : class
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected ValueTask SetAsync(string messageId, TMessage message, CancellationToken cancellationToken = default)
     {
-        Cache.Set(GetKey(messageId), message, DefaultOptions);
+        Cache.Set(GetKey(messageId), message, DefaultOptions, cancellationToken);
         return ValueTask.CompletedTask;
     }
 
@@ -37,28 +37,28 @@ public abstract class FusionCacheMemoryStore<TMessage> where TMessage : class
     protected ValueTask SetAsync(string messageId, TMessage message, TimeSpan expiration, CancellationToken cancellationToken = default)
     {
         var options = new FusionCacheEntryOptions { Duration = expiration };
-        Cache.Set(GetKey(messageId), message, options);
+        Cache.Set(GetKey(messageId), message, options, cancellationToken);
         return ValueTask.CompletedTask;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected ValueTask<TMessage?> GetAsync(string messageId, CancellationToken cancellationToken = default)
     {
-        var result = Cache.TryGet<TMessage>(GetKey(messageId));
+        var result = Cache.TryGet<TMessage>(GetKey(messageId), token: cancellationToken);
         return ValueTask.FromResult(result.HasValue ? result.Value : null);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected ValueTask<bool> ExistsAsync(string messageId, CancellationToken cancellationToken = default)
     {
-        var result = Cache.TryGet<TMessage>(GetKey(messageId));
+        var result = Cache.TryGet<TMessage>(GetKey(messageId), token: cancellationToken);
         return ValueTask.FromResult(result.HasValue);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected ValueTask RemoveAsync(string messageId, CancellationToken cancellationToken = default)
     {
-        Cache.Remove(GetKey(messageId));
+        Cache.Remove(GetKey(messageId), token: cancellationToken);
         return ValueTask.CompletedTask;
     }
 
@@ -71,7 +71,7 @@ public abstract class FusionCacheMemoryStore<TMessage> where TMessage : class
         Func<CancellationToken, TMessage> factory,
         CancellationToken cancellationToken = default)
     {
-        var value = Cache.GetOrSet(GetKey(messageId), _ => factory(cancellationToken), DefaultOptions);
+        var value = Cache.GetOrSet(GetKey(messageId), _ => factory(cancellationToken), DefaultOptions, token: cancellationToken);
         return ValueTask.FromResult(value);
     }
 }

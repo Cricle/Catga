@@ -1,11 +1,10 @@
 using System.Diagnostics.CodeAnalysis;
-using Catga.Core;
 using Catga.DistributedId;
 using Catga.Messages;
-using Catga.Results;
+using Catga.Pipeline;
 using Microsoft.Extensions.Logging;
 
-namespace Catga.Pipeline.Behaviors;
+namespace Catga.Core;
 
 /// <summary>Base class for pipeline behaviors (AOT-compatible)</summary>
 public abstract class BaseBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>

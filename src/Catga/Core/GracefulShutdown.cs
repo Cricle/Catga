@@ -41,7 +41,7 @@ public sealed partial class GracefulShutdownManager : IAsyncDisposable
     public OperationScope BeginOperation()
     {
         // Atomically increment then check to avoid race condition
-        var count = Interlocked.Increment(ref _activeOperations);
+        Interlocked.Increment(ref _activeOperations);
 
         if (_isShuttingDown)
         {
@@ -98,10 +98,7 @@ public sealed partial class GracefulShutdownManager : IAsyncDisposable
     /// <summary>
     /// Wait for shutdown to complete
     /// </summary>
-    public async Task WaitForShutdownAsync(CancellationToken cancellationToken = default)
-    {
-        await _shutdownSignal.WaitAsync(cancellationToken);
-    }
+    public async Task WaitForShutdownAsync(CancellationToken cancellationToken = default) => await _shutdownSignal.WaitAsync(cancellationToken);
 
     internal void EndOperation()
     {
@@ -143,15 +140,9 @@ public sealed partial class GracefulShutdownManager : IAsyncDisposable
     {
         private readonly GracefulShutdownManager _manager;
 
-        internal OperationScope(GracefulShutdownManager manager)
-        {
-            _manager = manager;
-        }
+        internal OperationScope(GracefulShutdownManager manager) => _manager = manager;
 
-        public void Dispose()
-        {
-            _manager.EndOperation();
-        }
+        public void Dispose() => _manager.EndOperation();
     }
 }
 

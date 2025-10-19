@@ -16,6 +16,8 @@ namespace Catga.Serialization.Json;
 /// </code>
 /// <para>📖 See docs/aot/serialization-aot-guide.md for complete AOT setup guide.</para>
 /// </remarks>
+[UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
+[UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
 public class JsonMessageSerializer : IBufferedMessageSerializer
 {
     private readonly JsonSerializerOptions _options;
@@ -35,8 +37,6 @@ public class JsonMessageSerializer : IBufferedMessageSerializer
         return bufferWriter.WrittenSpan.ToArray();
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Non-generic serialize is marked as non-AOT via DynamicallyAccessedMembers. Users should use generic version or provide JsonSerializerContext for AOT.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Non-generic serialize is marked as non-AOT via DynamicallyAccessedMembers. Users should use generic version or provide JsonSerializerContext for AOT.")]
     public byte[] Serialize(object? value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
     {
         var bufferWriter = new ArrayBufferWriter<byte>(256);
@@ -48,24 +48,18 @@ public class JsonMessageSerializer : IBufferedMessageSerializer
     public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(byte[] data)
         => Deserialize<T>(data.AsSpan());
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Non-generic deserialize is marked as non-AOT via DynamicallyAccessedMembers. Users should use generic version or provide JsonSerializerContext for AOT.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Non-generic deserialize is marked as non-AOT via DynamicallyAccessedMembers. Users should use generic version or provide JsonSerializerContext for AOT.")]
     public object? Deserialize(byte[] data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
     {
         var reader = new Utf8JsonReader(data);
         return JsonSerializer.Deserialize(ref reader, type, _options);
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "JSON serializer is marked as non-AOT via DynamicallyAccessedMembers. Users should provide JsonSerializerContext for AOT.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "JSON serializer is marked as non-AOT via DynamicallyAccessedMembers. Users should provide JsonSerializerContext for AOT.")]
     public void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value, IBufferWriter<byte> bufferWriter)
     {
         using var writer = new Utf8JsonWriter(bufferWriter);
         JsonSerializer.Serialize(writer, value, _options);
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "JSON serializer is marked as non-AOT via DynamicallyAccessedMembers. Users should provide JsonSerializerContext for AOT.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "JSON serializer is marked as non-AOT via DynamicallyAccessedMembers. Users should provide JsonSerializerContext for AOT.")]
     public T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(ReadOnlySpan<byte> data)
     {
         var reader = new Utf8JsonReader(data);

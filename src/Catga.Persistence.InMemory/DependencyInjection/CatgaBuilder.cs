@@ -1,11 +1,5 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 using Catga.Configuration;
-using Catga.Handlers;
-using Catga.Messages;
 using Microsoft.Extensions.DependencyInjection;
-using Catga.DependencyInjection;
-using Catga.Serialization;
 
 namespace Catga.DependencyInjection;
 
@@ -23,36 +17,6 @@ public class CatgaBuilder
         _options = options;
     }
 
-    [RequiresUnreferencedCode("Assembly scanning uses reflection, not compatible with NativeAOT")]
-    [RequiresDynamicCode("Type scanning may require dynamic code generation")]
-    public CatgaBuilder ScanHandlers(Assembly assembly)
-    {
-        var handlerTypes = assembly.GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract)
-            .Where(t => t.GetInterfaces().Any(i =>
-                i.IsGenericType && (
-                    i.GetGenericTypeDefinition() == typeof(IRequestHandler<,>) ||
-                    i.GetGenericTypeDefinition() == typeof(IRequestHandler<>) ||
-                    i.GetGenericTypeDefinition() == typeof(IEventHandler<>))));
-
-        foreach (var handlerType in handlerTypes)
-        {
-            var interfaces = handlerType.GetInterfaces()
-                .Where(i => i.IsGenericType && (
-                    i.GetGenericTypeDefinition() == typeof(IRequestHandler<,>) ||
-                    i.GetGenericTypeDefinition() == typeof(IRequestHandler<>) ||
-                    i.GetGenericTypeDefinition() == typeof(IEventHandler<>)));
-
-            foreach (var @interface in interfaces)
-                _services.AddTransient(@interface, handlerType);
-        }
-        return this;
-    }
-
-    [RequiresUnreferencedCode("Assembly scanning uses reflection, not compatible with NativeAOT")]
-    [RequiresDynamicCode("Type scanning may require dynamic code generation")]
-    public CatgaBuilder ScanCurrentAssembly() => ScanHandlers(Assembly.GetCallingAssembly());
-
     public CatgaBuilder WithOutbox(Action<OutboxOptions>? configure = null)
     {
         _services.AddOutbox(configure);
@@ -64,10 +28,6 @@ public class CatgaBuilder
         _services.AddInbox(configure);
         return this;
     }
-
-    public CatgaBuilder WithNats(string connectionString) => this;
-
-    public CatgaBuilder WithRedis(string connectionString) => this;
 
     public CatgaBuilder WithPerformanceOptimization()
     {
@@ -87,30 +47,6 @@ public class CatgaBuilder
     public CatgaBuilder Configure(Action<CatgaOptions> configure)
     {
         configure(_options);
-        return this;
-    }
-
-    public CatgaBuilder UseMemoryPackSerializer()
-    {
-        // Avoid hard reference to MemoryPack package here to keep assembly boundaries clean.
-        // If MemoryPack extension is referenced, app should call it directly. Provide no-op fallback.
-        return this;
-    }
-
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Generated event router is for runtime reflection fallback. Use Source Generator [GenerateEventRouter] for AOT.")]
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Generated event router is for runtime reflection fallback. Use Source Generator [GenerateEventRouter] for AOT.")]
-    public CatgaBuilder AddGeneratedEventRouterIfAvailable()
-    {
-        // The generated type is internal; register via its interface when present
-        var routerInterface = typeof(Catga.Handlers.IGeneratedEventRouter);
-        var generatedType = AppDomain.CurrentDomain
-            .GetAssemblies()
-            .SelectMany(a => a.GetTypes())
-            .FirstOrDefault(t => t.FullName == "Catga.Generated.GeneratedEventRouter");
-        if (generatedType != null && routerInterface.IsAssignableFrom(generatedType))
-        {
-            Services.AddSingleton(routerInterface, generatedType);
-        }
         return this;
     }
 }

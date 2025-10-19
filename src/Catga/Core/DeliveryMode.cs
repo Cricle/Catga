@@ -1,4 +1,4 @@
-namespace Catga;
+namespace Catga.Core;
 
 /// <summary>Message delivery mode</summary>
 public enum DeliveryMode

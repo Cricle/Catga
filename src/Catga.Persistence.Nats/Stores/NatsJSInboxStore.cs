@@ -1,6 +1,5 @@
+using Catga.Abstractions;
 using Catga.Inbox;
-using Catga.Persistence;
-using Catga.Serialization;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
@@ -24,7 +23,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
     }
 
-    protected override string[] GetSubjects() => new[] { $"{StreamName}.>" };
+    protected override string[] GetSubjects() => [$"{StreamName}.>"];
 
     public async ValueTask<bool> TryLockMessageAsync(
         string messageId,

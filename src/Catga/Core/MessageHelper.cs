@@ -1,10 +1,9 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Catga.Core;
 using Catga.DistributedId;
 using Catga.Messages;
 
-namespace Catga.Common;
+namespace Catga.Core;
 
 /// <summary>Message helper methods (AOT-friendly)</summary>
 public static class MessageHelper

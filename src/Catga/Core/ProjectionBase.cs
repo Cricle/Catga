@@ -23,10 +23,7 @@ public abstract class ProjectionBase<TReadModel> : IProjection where TReadModel 
 {
     protected readonly ILogger Logger;
 
-    protected ProjectionBase(ILogger logger)
-    {
-        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
+    protected ProjectionBase(ILogger logger) => Logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     public abstract string Name { get; }
 

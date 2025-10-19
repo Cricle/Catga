@@ -105,7 +105,7 @@ public class DistributedIdLayoutBenchmark
         // Default layout now provides 500+ years, no need for separate LongLifespan
         _longLifespanGenerator = new SnowflakeIdGenerator(1, SnowflakeBitLayout.Default);
         _highConcurrencyGenerator = new SnowflakeIdGenerator(1, SnowflakeBitLayout.HighConcurrency);
-        
+
         var customEpoch = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         _customEpochGenerator = new SnowflakeIdGenerator(1, SnowflakeBitLayout.WithEpoch(customEpoch));
     }

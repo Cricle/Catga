@@ -1,5 +1,5 @@
-using Catga.Common;
-using Catga.Serialization;
+using Catga.Abstractions;
+using Catga.Core;
 using Catga.Transport;
 using StackExchange.Redis;
 using System.Collections.Concurrent;

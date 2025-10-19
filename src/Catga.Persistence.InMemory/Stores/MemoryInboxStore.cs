@@ -1,4 +1,5 @@
 using Catga.Common;
+using Catga.Core;
 
 namespace Catga.Inbox;
 

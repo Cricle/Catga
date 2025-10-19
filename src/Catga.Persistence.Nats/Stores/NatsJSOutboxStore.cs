@@ -1,6 +1,6 @@
+using Catga.Abstractions;
 using Catga.Outbox;
 using Catga.Persistence;
-using Catga.Serialization;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;

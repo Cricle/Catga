@@ -1,3 +1,4 @@
+using Catga.Abstractions;
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 

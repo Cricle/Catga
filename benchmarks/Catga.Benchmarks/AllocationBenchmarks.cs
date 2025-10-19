@@ -1,7 +1,7 @@
 using System.Buffers;
 using BenchmarkDotNet.Attributes;
+using Catga.Core;
 using Catga.DistributedId;
-using Catga.Results;
 
 namespace Catga.Benchmarks;
 

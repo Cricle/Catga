@@ -1,5 +1,5 @@
+using Catga.Core;
 using Catga.Exceptions;
-using Catga.Results;
 using FluentAssertions;
 
 namespace Catga.Tests;

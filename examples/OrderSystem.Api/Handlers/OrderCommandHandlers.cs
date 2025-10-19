@@ -2,7 +2,6 @@ using Catga;
 using Catga.Core;
 using Catga.Exceptions;
 using Catga.Handlers;
-using Catga.Results;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Services;

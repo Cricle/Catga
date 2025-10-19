@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Caching;
+using Catga.Core;
 using Catga.Messages;
-using Catga.Results;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.Pipeline.Behaviors;

@@ -1,25 +1,28 @@
+using Catga.Core;
 using Catga.Exceptions;
 using Catga.Messages;
-using Catga.Results;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.Pipeline.Behaviors;
 
 /// <summary>Validation behavior</summary>
-public class ValidationBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TRequest, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResponse> : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse> {
+public class ValidationBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TRequest, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResponse> : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
+{
     private readonly IEnumerable<IValidator<TRequest>> _validators;
 
     public ValidationBehavior(IEnumerable<IValidator<TRequest>> validators, ILogger<ValidationBehavior<TRequest, TResponse>> logger)
         : base(logger) => _validators = validators;
 
-    public override async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default) {
+    public override async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
+    {
         if (!_validators.Any()) return await next();
 
         var errors = new List<string>();
         foreach (var validator in _validators)
             errors.AddRange(await validator.ValidateAsync(request, cancellationToken));
 
-        if (errors.Count > 0) {
+        if (errors.Count > 0)
+        {
             var messageId = TryGetMessageId(request) ?? "N/A";
             LogWarning("Validation failed for {RequestType}, MessageId: {MessageId}, Errors: {Errors}",
                 GetRequestName(), messageId, string.Join("; ", errors));
@@ -29,7 +32,8 @@ public class ValidationBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAcce
     }
 }
 
-public interface IValidator<in T> {
+public interface IValidator<in T>
+{
     Task<List<string>> ValidateAsync(T request, CancellationToken cancellationToken = default);
 }
 

@@ -1,6 +1,6 @@
-using Catga.EventSourcing;
-using Microsoft.Extensions.Logging;
 using System.Diagnostics;
+using Catga.Core;
+using Microsoft.Extensions.Logging;
 
 namespace Catga.EventSourcing;
 
@@ -104,7 +104,7 @@ public sealed class EventStoreRepository<TId, TState> : IEventStoreRepository<TI
         CancellationToken ct = default)
         where TAggregate : AggregateRoot<TId, TState>
     {
-        if (aggregate == null) throw new ArgumentNullException(nameof(aggregate));
+        ArgumentNullException.ThrowIfNull(aggregate, nameof(aggregate));
         if (aggregate.Id == null) throw new InvalidOperationException("Aggregate ID cannot be null");
 
         var uncommittedEvents = aggregate.UncommittedEvents;
@@ -172,11 +172,9 @@ public sealed class EventStoreRepository<TId, TState> : IEventStoreRepository<TI
     }
 
     private static string GetStreamId<TAggregate>(TId id)
-        where TAggregate : AggregateRoot<TId, TState>
-    {
+        where TAggregate : AggregateRoot<TId, TState> =>
         // Use type name + ID for stream naming (avoid reflection)
-        return $"{typeof(TAggregate).Name}-{id}";
-    }
+        $"{typeof(TAggregate).Name}-{id}";
 }
 
 /// <summary>

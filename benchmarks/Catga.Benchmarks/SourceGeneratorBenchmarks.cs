@@ -1,9 +1,6 @@
 using BenchmarkDotNet.Attributes;
-using Catga;
 using Catga.DependencyInjection;
-using Catga.Handlers;
 using Catga.Messages;
-using Catga.Results;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Catga.Benchmarks;

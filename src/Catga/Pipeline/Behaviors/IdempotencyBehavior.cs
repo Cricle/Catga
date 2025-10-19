@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
+using Catga.Core;
 using Catga.Idempotency;
 using Catga.Messages;
-using Catga.Results;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.Pipeline.Behaviors;
@@ -14,8 +14,6 @@ public class IdempotencyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessed
     public IdempotencyBehavior(IIdempotencyStore store, ILogger<IdempotencyBehavior<TRequest, TResponse>> logger) : base(logger)
         => _store = store;
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Serialization warnings are marked on IIdempotencyStore interface")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Serialization warnings are marked on IIdempotencyStore interface")]
     public override async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
         var messageId = TryGetMessageId(request);

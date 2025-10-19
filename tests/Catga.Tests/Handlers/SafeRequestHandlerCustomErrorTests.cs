@@ -2,7 +2,6 @@ using Catga;
 using Catga.Core;
 using Catga.Exceptions;
 using Catga.Messages;
-using Catga.Results;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

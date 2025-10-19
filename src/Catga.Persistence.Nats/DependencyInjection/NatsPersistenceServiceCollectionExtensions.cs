@@ -1,9 +1,9 @@
+using Catga.Abstractions;
 using Catga.EventSourcing;
 using Catga.Inbox;
 using Catga.Outbox;
 using Catga.Persistence;
 using Catga.Persistence.Stores;
-using Catga.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NATS.Client.Core;

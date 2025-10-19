@@ -1,10 +1,9 @@
+using Catga.Abstractions;
 using Catga.EventSourcing;
 using Catga.Messages;
-using Catga.Serialization;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Catga.Persistence;
@@ -196,7 +195,6 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
     /// <summary>
     /// 从 NATS 消息反序列化事件（从 headers 读取类型信息）
     /// </summary>
-    [UnconditionalSuppressMessage("Trimming", "IL2057:Unrecognized value passed to parameter.", Justification = "Event type is stored in NATS headers at runtime. For AOT scenarios, use strongly-typed queries.")]
     private IEvent DeserializeEventFromMessage(NatsJSMsg<byte[]> msg)
     {
         // 从 headers 获取事件类型
@@ -207,31 +205,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         var eventType = Type.GetType(eventTypeName!)
             ?? throw new InvalidOperationException($"Event type not found: {eventTypeName}");
 
-        return DeserializeEvent(msg.Data!, eventType);
-    }
-
-    /// <summary>
-    /// 反序列化事件对象
-    /// 警告：由于需要动态类型反序列化，此方法不完全 AOT 兼容
-    /// 建议：使用强类型的 GetEventsAsync&lt;TEvent&gt; 方法以获得完全 AOT 支持
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [UnconditionalSuppressMessage("Trimming", "IL2057:Unrecognized value passed to parameter. It's not possible to guarantee the availability of the target.", Justification = "Event deserialization requires dynamic type loading from message headers. Use strongly-typed queries for AOT scenarios.")]
-    [UnconditionalSuppressMessage("Trimming", "IL2071:Target parameter argument does not satisfy 'DynamicallyAccessedMembersAttribute'.", Justification = "Event deserialization requires dynamic type loading. Use strongly-typed GetEventsAsync<TEvent> for AOT scenarios.")]
-    [UnconditionalSuppressMessage("Trimming", "IL2087:Target parameter argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method.", Justification = "Event deserialization requires dynamic type loading. Use strongly-typed GetEventsAsync<TEvent> for AOT scenarios.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "Event deserialization requires dynamic type loading. Use strongly-typed GetEventsAsync<TEvent> for AOT scenarios.")]
-    private IEvent DeserializeEvent(byte[] data, Type eventType)
-    {
-        // 使用反射调用泛型方法（在 AOT 场景下可能失败）
-        // 为了 AOT 支持，推荐使用强类型的 GetEventsAsync<TEvent> 方法
-        var deserializeMethod = typeof(IMessageSerializer)
-            .GetMethod(nameof(IMessageSerializer.Deserialize))!
-            .MakeGenericMethod(eventType);
-
-        var @event = deserializeMethod.Invoke(_serializer, new object[] { data }) as IEvent
-            ?? throw new InvalidOperationException($"Failed to deserialize event of type: {eventType.FullName}");
-
-        return @event;
+        return (IEvent)(_serializer.Deserialize(msg.Data!, eventType) ?? throw new InvalidOperationException("Fail to deserialize msg"));
     }
 }
 

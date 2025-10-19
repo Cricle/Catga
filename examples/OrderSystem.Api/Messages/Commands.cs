@@ -1,5 +1,4 @@
 using Catga.Messages;
-using Catga.Results;
 using MemoryPack;
 using OrderSystem.Api.Domain;
 

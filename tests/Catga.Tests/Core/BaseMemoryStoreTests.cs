@@ -227,7 +227,7 @@ public class BaseMemoryStoreTests
     {
         // Arrange
         var store = new TestMemoryStore();
-        var messages = Enumerable.Range(0, 1000).Select(i => 
+        var messages = Enumerable.Range(0, 1000).Select(i =>
             new TestMessage { Id = $"msg-{i}", Data = $"data-{i}" }).ToArray();
 
         // Act - Concurrent writes

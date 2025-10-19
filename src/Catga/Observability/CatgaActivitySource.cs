@@ -67,19 +67,6 @@ public static class CatgaActivitySource
         public const string EventCount = "catga.event_count";
     }
 
-    /// <summary>Activity names</summary>
-    public static class Activities
-    {
-        public const string SendCommand = "Catga.SendCommand";
-        public const string SendQuery = "Catga.SendQuery";
-        public const string PublishEvent = "Catga.PublishEvent";
-        public const string HandleCommand = "Catga.HandleCommand";
-        public const string HandleQuery = "Catga.HandleQuery";
-        public const string HandleEvent = "Catga.HandleEvent";
-        public const string Pipeline = "Catga.Pipeline";
-        public const string Behavior = "Catga.Behavior";
-    }
-
     /// <summary>Activity event names for timeline markers</summary>
     public static class Events
     {

@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Catga.Common;
+namespace Catga.Core;
 
 /// <summary>Batch operation extensions with ArrayPool optimization</summary>
 public static class BatchOperationExtensions
@@ -21,14 +21,12 @@ public static class BatchOperationExtensions
         using var rentedTasks = ArrayPoolHelper.RentOrAllocate<Task>(items.Count, arrayPoolThreshold);
         var tasks = rentedTasks.Array;
 
-        for (int i = 0; i < items.Count; i++)
+        for (var i = 0; i < items.Count; i++)
             tasks[i] = action(items[i]);
 
         // Zero-allocation: use exact-sized array or ArraySegment
         if (tasks.Length == items.Count)
-        {
             await Task.WhenAll((IEnumerable<Task>)tasks).ConfigureAwait(false);
-        }
         else
         {
             await Task.WhenAll((IEnumerable<Task>)new ArraySegment<Task>(tasks, 0, items.Count)).ConfigureAwait(false);
@@ -43,7 +41,7 @@ public static class BatchOperationExtensions
         if (items.Count == 1)
         {
             var result = await action(items[0]).ConfigureAwait(false);
-            return new[] { result };
+            return [result];
         }
 
         var rentedResults = ArrayPoolHelper.RentOrAllocate<TResult>(items.Count, arrayPoolThreshold);
@@ -52,18 +50,16 @@ public static class BatchOperationExtensions
         var results = rentedResults.Array;
         var tasks = rentedTasks.Array;
 
-        for (int i = 0; i < items.Count; i++)
+        for (var i = 0; i < items.Count; i++)
             tasks[i] = action(items[i]);
 
-        for (int i = 0; i < items.Count; i++)
+        for (var i = 0; i < items.Count; i++)
             results[i] = await tasks[i].ConfigureAwait(false);
 
         // ✅ 优化：避免不必要的拷贝
         if (results.Length == items.Count)
-        {
             // 完美匹配，从 pool 中分离并直接返回
             return rentedResults.Detach();
-        }
         else
         {
             // 需要精确大小（租赁的数组更大）

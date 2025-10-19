@@ -1,9 +1,8 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using Catga.Abstractions;
 using Catga.Core;
 using Catga.Messages;
-using Catga.Results;
-using Catga.Serialization;
 using Catga.Transport;
 using Microsoft.Extensions.Logging;
 
@@ -43,7 +42,7 @@ public sealed partial class RpcClient : IRpcClient, IAsyncDisposable
 
     public async Task<CatgaResult<TResponse>> CallAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(string serviceName, string methodName, TRequest request, TimeSpan? timeout = null, CancellationToken cancellationToken = default) where TRequest : class
     {
-        if (_receiveTask == null) _receiveTask = StartReceiving(_cts.Token);
+        _receiveTask ??= StartReceiving(_cts.Token);
         var requestId = Guid.NewGuid().ToString("N");
         var tcs = new TaskCompletionSource<RpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingCalls[requestId] = tcs;

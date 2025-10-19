@@ -6,13 +6,13 @@
       <stop offset="50%" style="stop-color:#C44569;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#FFA07A;stop-opacity:1" />
     </linearGradient>
-    
+
     <!-- 紫色渐变 -->
     <linearGradient id="purpleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#a29bfe;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#6c5ce7;stop-opacity:1" />
     </linearGradient>
-    
+
     <!-- 粉色光晕 -->
     <radialGradient id="glowGradient">
       <stop offset="0%" style="stop-color:#FFB6C1;stop-opacity:0.6" />
@@ -43,13 +43,13 @@
       <animate attributeName="opacity" values="0.5;1;0.5" dur="1.8s" begin="1s" repeatCount="indefinite"/>
       <animateTransform attributeName="transform" type="rotate" values="0 160 150; 360 160 150" dur="3.5s" repeatCount="indefinite"/>
     </circle>
-    
+
     <!-- 小星星✨ -->
-    <path d="M 35 150 L 36 152 L 38 152 L 36.5 153.5 L 37 155.5 L 35 154 L 33 155.5 L 33.5 153.5 L 32 152 L 34 152 Z" 
+    <path d="M 35 150 L 36 152 L 38 152 L 36.5 153.5 L 37 155.5 L 35 154 L 33 155.5 L 33.5 153.5 L 32 152 L 34 152 Z"
           fill="#FFD700" opacity="0.7">
       <animate attributeName="opacity" values="0.3;1;0.3" dur="2.2s" repeatCount="indefinite"/>
     </path>
-    <path d="M 165 130 L 166 132 L 168 132 L 166.5 133.5 L 167 135.5 L 165 134 L 163 135.5 L 163.5 133.5 L 162 132 L 164 132 Z" 
+    <path d="M 165 130 L 166 132 L 168 132 L 166.5 133.5 L 167 135.5 L 165 134 L 163 135.5 L 163.5 133.5 L 162 132 L 164 132 Z"
           fill="#FFD700" opacity="0.7">
       <animate attributeName="opacity" values="0.4;1;0.4" dur="2.8s" begin="0.8s" repeatCount="indefinite"/>
     </path>
@@ -69,18 +69,18 @@
     </ellipse>
 
     <!-- 小尾巴 - Q弹 -->
-    <path d="M 125 105 Q 140 100, 150 110 Q 155 115, 152 122" 
-          fill="none" 
-          stroke="url(#purpleGradient)" 
-          stroke-width="12" 
+    <path d="M 125 105 Q 140 100, 150 110 Q 155 115, 152 122"
+          fill="none"
+          stroke="url(#purpleGradient)"
+          stroke-width="12"
           stroke-linecap="round"
           opacity="0.95">
       <!-- 尾巴摇摆 -->
-      <animate attributeName="d" 
+      <animate attributeName="d"
                values="M 125 105 Q 140 100, 150 110 Q 155 115, 152 122;
                        M 125 105 Q 140 95, 150 105 Q 158 112, 155 120;
                        M 125 105 Q 140 100, 150 110 Q 155 115, 152 122"
-               dur="1.5s" 
+               dur="1.5s"
                repeatCount="indefinite"/>
     </path>
 
@@ -97,10 +97,10 @@
     <!-- 超大可爱圆头 -->
     <circle cx="100" cy="75" r="35" fill="url(#purpleGradient)">
       <!-- 轻微晃动 -->
-      <animateTransform attributeName="transform" 
-                        type="rotate" 
-                        values="0 100 75; 2 100 75; -2 100 75; 0 100 75" 
-                        dur="4s" 
+      <animateTransform attributeName="transform"
+                        type="rotate"
+                        values="0 100 75; 2 100 75; -2 100 75; 0 100 75"
+                        dur="4s"
                         repeatCount="indefinite"/>
     </circle>
 
@@ -112,7 +112,7 @@
                         dur="3s"
                         repeatCount="indefinite"/>
     </path>
-    
+
     <!-- 耳朵内侧（左）- 粉色 -->
     <ellipse cx="72" cy="50" rx="5" ry="8" fill="#FFB6C1" opacity="0.8"/>
 
@@ -125,7 +125,7 @@
                         begin="0.5s"
                         repeatCount="indefinite"/>
     </path>
-    
+
     <!-- 耳朵内侧（右）- 粉色 -->
     <ellipse cx="128" cy="50" rx="5" ry="8" fill="#FFB6C1" opacity="0.8"/>
 
@@ -165,12 +165,12 @@
     </ellipse>
 
     <!-- 超级可爱的W型嘴巴 - 微笑 -->
-    <path d="M 92 86 Q 95 90, 100 88 Q 105 90, 108 86" 
-          fill="none" 
-          stroke="#FF6B9D" 
-          stroke-width="2" 
+    <path d="M 92 86 Q 95 90, 100 88 Q 105 90, 108 86"
+          fill="none"
+          stroke="#FF6B9D"
+          stroke-width="2"
           stroke-linecap="round"/>
-    
+
     <!-- 小胡须（左） -->
     <g stroke="#6c5ce7" stroke-width="1.5" stroke-linecap="round" opacity="0.6">
       <line x1="65" y1="78" x2="50" y2="76">
@@ -181,7 +181,7 @@
         <animateTransform attributeName="transform" type="rotate" values="0 65 86; 5 65 86; 0 65 86" dur="3s" repeatCount="indefinite"/>
       </line>
     </g>
-    
+
     <!-- 小胡须（右） -->
     <g stroke="#6c5ce7" stroke-width="1.5" stroke-linecap="round" opacity="0.6">
       <line x1="135" y1="78" x2="150" y2="76">
@@ -207,7 +207,7 @@
     <ellipse cx="75" cy="130" rx="7" ry="9" fill="url(#purpleGradient)" opacity="0.95">
       <animate attributeName="ry" values="9;10;9" dur="2s" begin="0.2s" repeatCount="indefinite"/>
     </ellipse>
-    
+
     <!-- 小前爪（右） -->
     <ellipse cx="125" cy="130" rx="7" ry="9" fill="url(#purpleGradient)" opacity="0.95">
       <animate attributeName="ry" values="9;10;9" dur="2s" begin="0.5s" repeatCount="indefinite"/>
@@ -216,9 +216,9 @@
 
   <!-- 可爱的闪电符号 ⚡ -->
   <g id="cute-lightning">
-    <path d="M 145 75 L 140 85 L 145 85 L 138 100 L 150 88 L 145 88 Z" 
-          fill="#FFD700" 
-          stroke="#FFA500" 
+    <path d="M 145 75 L 140 85 L 145 85 L 138 100 L 150 88 L 145 88 Z"
+          fill="#FFD700"
+          stroke="#FFA500"
           stroke-width="1.5">
       <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite"/>
     </path>
@@ -231,21 +231,21 @@
 
   <!-- 飘浮的小爱心 💕 -->
   <g id="hearts">
-    <path d="M 45 100 Q 45 95, 48 95 Q 51 95, 51 100 Q 51 105, 48 108 Q 45 105, 45 100 Z" 
+    <path d="M 45 100 Q 45 95, 48 95 Q 51 95, 51 100 Q 51 105, 48 108 Q 45 105, 45 100 Z"
           fill="#FF6B9D" opacity="0.6">
-      <animateTransform attributeName="transform" 
-                        type="translate" 
-                        values="0 0; -5 -20; -8 -35" 
-                        dur="3s" 
+      <animateTransform attributeName="transform"
+                        type="translate"
+                        values="0 0; -5 -20; -8 -35"
+                        dur="3s"
                         repeatCount="indefinite"/>
       <animate attributeName="opacity" values="0;0.8;0" dur="3s" repeatCount="indefinite"/>
     </path>
-    <path d="M 155 110 Q 155 107, 157 107 Q 159 107, 159 110 Q 159 113, 157 115 Q 155 113, 155 110 Z" 
+    <path d="M 155 110 Q 155 107, 157 107 Q 159 107, 159 110 Q 159 113, 157 115 Q 155 113, 155 110 Z"
           fill="#FF6B9D" opacity="0.6">
-      <animateTransform attributeName="transform" 
-                        type="translate" 
-                        values="0 0; 3 -25; 5 -40" 
-                        dur="3.5s" 
+      <animateTransform attributeName="transform"
+                        type="translate"
+                        values="0 0; 3 -25; 5 -40"
+                        dur="3.5s"
                         begin="1s"
                         repeatCount="indefinite"/>
       <animate attributeName="opacity" values="0;0.8;0" dur="3.5s" begin="1s" repeatCount="indefinite"/>
@@ -253,21 +253,21 @@
   </g>
 
   <!-- 底部可爱文字 -->
-  <text x="100" y="170" 
-        font-family="'Comic Sans MS', 'Chalkboard SE', 'Bradley Hand', cursive" 
-        font-size="28" 
-        font-weight="bold" 
-        fill="url(#purpleGradient)" 
+  <text x="100" y="170"
+        font-family="'Comic Sans MS', 'Chalkboard SE', 'Bradley Hand', cursive"
+        font-size="28"
+        font-weight="bold"
+        fill="url(#purpleGradient)"
         text-anchor="middle">
     Catga
   </text>
-  
+
   <!-- 副标题 - 可爱风格 -->
-  <text x="100" y="185" 
-        font-family="'Comic Sans MS', 'Chalkboard SE', cursive" 
-        font-size="11" 
-        fill="#C44569" 
-        text-anchor="middle" 
+  <text x="100" y="185"
+        font-family="'Comic Sans MS', 'Chalkboard SE', cursive"
+        font-size="11"
+        fill="#C44569"
+        text-anchor="middle"
         opacity="0.8">
     ⚡ Fast & Cute ⚡
   </text>

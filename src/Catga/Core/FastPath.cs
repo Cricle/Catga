@@ -2,9 +2,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Catga.Handlers;
 using Catga.Messages;
-using Catga.Results;
 
-namespace Catga.Performance;
+namespace Catga.Core;
 
 /// <summary>Zero-allocation fast paths (no pipeline behaviors)</summary>
 public static class FastPath
@@ -16,7 +15,7 @@ public static class FastPath
         {
             return await handler.HandleAsync(request, cancellationToken).ConfigureAwait(false);
         }
-        catch (Catga.Exceptions.CatgaException ex)
+        catch (Exceptions.CatgaException ex)
         {
             return CatgaResult<TResponse>.Failure($"Handler failed: {ex.Message}", ex);
         }

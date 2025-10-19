@@ -2,7 +2,7 @@ using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace Catga.Common;
+namespace Catga.Core;
 
 /// <summary>ArrayPool helper with automatic cleanup and encoding utilities</summary>
 public static class ArrayPoolHelper
@@ -27,18 +27,6 @@ public static class ArrayPoolHelper
     public static string GetString(byte[] bytes)
     {
         if (bytes == null || bytes.Length == 0)
-            return string.Empty;
-
-        return Utf8Encoding.GetString(bytes);
-    }
-
-    /// <summary>
-    /// Convert byte[] to string using Span (zero-allocation)
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string GetString(ReadOnlySpan<byte> bytes)
-    {
-        if (bytes.IsEmpty)
             return string.Empty;
 
         return Utf8Encoding.GetString(bytes);
@@ -83,18 +71,6 @@ public static class ArrayPoolHelper
     }
 
     /// <summary>
-    /// Convert byte[] to Base64 string using Span (zero-allocation)
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string ToBase64String(ReadOnlySpan<byte> bytes)
-    {
-        if (bytes.IsEmpty)
-            return string.Empty;
-
-        return Convert.ToBase64String(bytes);
-    }
-
-    /// <summary>
     /// Convert Base64 string to byte[] (allocates new array)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -104,22 +80,6 @@ public static class ArrayPoolHelper
             return Array.Empty<byte>();
 
         return Convert.FromBase64String(base64);
-    }
-
-    /// <summary>
-    /// Try convert Base64 string to byte[] using provided buffer
-    /// Returns true if successful and sets bytesWritten
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryFromBase64String(string base64, Span<byte> destination, out int bytesWritten)
-    {
-        if (string.IsNullOrEmpty(base64))
-        {
-            bytesWritten = 0;
-            return true;
-        }
-
-        return Convert.TryFromBase64String(base64, destination, out bytesWritten);
     }
 
     #endregion
@@ -141,14 +101,14 @@ public struct RentedArray<T> : IDisposable
         _detached = false;
     }
 
-    public T[] Array => _array;
-    public int Count => _count;
+    public readonly T[] Array => _array;
+    public readonly int Count => _count;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Span<T> AsSpan() => _array.AsSpan(0, _count);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Memory<T> AsMemory() => _array.AsMemory(0, _count);
+    public readonly Memory<T> AsMemory() => _array.AsMemory(0, _count);
 
     /// <summary>
     /// Detach array from pool management, preventing return on Dispose.
@@ -164,10 +124,7 @@ public struct RentedArray<T> : IDisposable
     public void Dispose()
     {
         if (_isRented && !_detached && _array != null)
-        {
-            System.Array.Clear(_array, 0, _count);
             ArrayPool<T>.Shared.Return(_array);
-        }
     }
 }
 

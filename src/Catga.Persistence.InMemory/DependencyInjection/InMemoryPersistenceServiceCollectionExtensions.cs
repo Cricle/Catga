@@ -1,3 +1,4 @@
+using Catga.Persistence.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Catga;
@@ -8,23 +9,43 @@ namespace Catga;
 public static class InMemoryPersistenceServiceCollectionExtensions
 {
     /// <summary>
-    /// Placeholder for future aggregated InMemory Persistence registration
+    /// 注册所有 InMemory Persistence 相关组件（Event Store + Repository）
     /// </summary>
     /// <remarks>
-    /// 当前，请使用具体的注册扩展：
-    /// - AddInMemoryEventSourcing() - Event Store
-    /// - AddDistributedMemoryCache() - 分布式缓存
-    /// - AddInMemoryOutboxPublisher() - Outbox 模式
-    /// - AddInMemoryInboxProcessor() - Inbox 模式
-    ///
-    /// 这些扩展在各自的 ServiceCollectionExtensions 文件中定义。
+    /// 这是一个便利扩展，等同于：
+    /// <code>
+    /// services.AddInMemoryEventStore();
+    /// services.AddEventStoreRepository();
+    /// </code>
+    /// 
+    /// <para>
+    /// 包含的组件：
+    /// - IEventStore - 内存事件存储
+    /// - IEventStoreRepository - 聚合存储库
+    /// </para>
+    /// 
+    /// <para>
+    /// 对于生产环境，建议使用：
+    /// - Catga.Persistence.Nats - NATS JetStream 持久化
+    /// - Catga.Persistence.Redis - Redis Streams 持久化
+    /// </para>
+    /// 
+    /// <para>
+    /// 注意：InMemory 实现不提供跨进程共享，仅适用于：
+    /// - 单元测试
+    /// - 集成测试
+    /// - 单节点开发环境
+    /// </para>
     /// </remarks>
     public static IServiceCollection AddInMemoryPersistence(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        // TODO: 聚合所有 Persistence 相关的注册
-        // 目前，用户需要单独调用各自的扩展方法
+        // 注册 Event Store
+        services.AddInMemoryEventStore();
+        
+        // 注册 Event Store Repository
+        services.AddEventStoreRepository();
 
         return services;
     }

@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using Catga;
+using Catga.Observability;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Aspire.Hosting;
@@ -9,6 +11,7 @@ namespace Aspire.Hosting;
 public sealed class CatgaHealthCheck : IHealthCheck
 {
     private readonly ICatgaMediator _mediator;
+    private static readonly DateTime _startTime = DateTime.UtcNow;
 
     public CatgaHealthCheck(ICatgaMediator mediator)
     {
@@ -21,23 +24,45 @@ public sealed class CatgaHealthCheck : IHealthCheck
     {
         try
         {
-            // Simple health check: verify mediator is available
-            // In a real scenario, you might want to send a ping message
+            // 基础检查：验证 Mediator 是否可用
             if (_mediator == null)
             {
                 return Task.FromResult(HealthCheckResult.Unhealthy("Catga mediator is not initialized"));
             }
 
-            // TODO: Add more sophisticated checks
-            // - Check transport connectivity
-            // - Check persistence availability
-            // - Check message processing stats
+            var data = new Dictionary<string, object>
+            {
+                ["mediator_type"] = _mediator.GetType().Name,
+                ["uptime_seconds"] = (DateTime.UtcNow - _startTime).TotalSeconds,
+                ["framework_version"] = typeof(ICatgaMediator).Assembly.GetName().Version?.ToString() ?? "Unknown"
+            };
 
-            return Task.FromResult(HealthCheckResult.Healthy("Catga is operational"));
+            // 检查 ActivitySource 是否活跃
+            var activitySourceName = CatgaActivitySource.Instance.Name;
+            data["activity_source"] = activitySourceName;
+
+            // 检查运行时信息
+            var process = Process.GetCurrentProcess();
+            data["working_set_mb"] = process.WorkingSet64 / 1024.0 / 1024.0;
+            data["thread_count"] = process.Threads.Count;
+
+            // 所有检查通过
+            return Task.FromResult(HealthCheckResult.Healthy(
+                "Catga is operational",
+                data));
         }
         catch (Exception ex)
         {
-            return Task.FromResult(HealthCheckResult.Unhealthy("Catga health check failed", ex));
+            var data = new Dictionary<string, object>
+            {
+                ["exception_type"] = ex.GetType().Name,
+                ["exception_message"] = ex.Message
+            };
+
+            return Task.FromResult(HealthCheckResult.Unhealthy(
+                "Catga health check failed",
+                ex,
+                data));
         }
     }
 }

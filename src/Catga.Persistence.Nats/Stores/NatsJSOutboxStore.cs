@@ -17,20 +17,14 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
     public NatsJSOutboxStore(
         INatsConnection connection,
         IMessageSerializer serializer,
-        string? streamName = null)
-        : base(connection, streamName ?? "CATGA_OUTBOX")
+        string? streamName = null,
+        NatsJSStoreOptions? options = null)
+        : base(connection, streamName ?? "CATGA_OUTBOX", options)
     {
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
     }
 
-    protected override StreamConfig CreateStreamConfig() => new(
-        StreamName,
-        new[] { $"{StreamName}.>" }
-    )
-    {
-        Storage = StreamConfigStorage.File,
-        Retention = StreamConfigRetention.Limits
-    };
+    protected override string[] GetSubjects() => new[] { $"{StreamName}.>" };
 
     public async ValueTask AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
     {
@@ -96,9 +90,63 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
 
     public async ValueTask MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)
     {
-        // In JetStream work queue mode, we can just not re-fetch the message
-        // Or update it with Published status
-        await Task.CompletedTask;
+        ArgumentNullException.ThrowIfNull(messageId);
+
+        await EnsureInitializedAsync(cancellationToken);
+
+        var subject = $"{StreamName}.{messageId}";
+
+        try
+        {
+            // 1. Fetch the existing message
+            var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                StreamName,
+                new ConsumerConfig
+                {
+                    Name = $"outbox-publisher-{Guid.NewGuid():N}",
+                    AckPolicy = ConsumerConfigAckPolicy.Explicit,
+                    FilterSubjects = new[] { subject }
+                },
+                cancellationToken);
+
+            await foreach (var msg in consumer.FetchAsync<byte[]>(
+                new NatsJSFetchOpts { MaxMsgs = 1 },
+                cancellationToken: cancellationToken))
+            {
+                if (msg.Data != null && msg.Data.Length > 0)
+                {
+                    // 2. Deserialize existing message
+                    var outboxMsg = _serializer.Deserialize<OutboxMessage>(msg.Data);
+                    if (outboxMsg != null && outboxMsg.MessageId == messageId)
+                    {
+                        // 3. Update status and timestamp
+                        outboxMsg.Status = OutboxStatus.Published;
+                        outboxMsg.PublishedAt = DateTime.UtcNow;
+
+                        // 4. Re-publish with updated data
+                        var updatedData = _serializer.Serialize(outboxMsg);
+                        var ack = await JetStream.PublishAsync(subject, updatedData, cancellationToken: cancellationToken);
+
+                        if (ack.Error != null)
+                        {
+                            throw new InvalidOperationException($"Failed to mark outbox message as published: {ack.Error.Description}");
+                        }
+
+                        // 5. Acknowledge the old message
+                        await msg.AckAsync(cancellationToken: cancellationToken);
+                        break;
+                    }
+                }
+            }
+
+            // Clean up temporary consumer
+            await JetStream.DeleteConsumerAsync(StreamName, consumer.Info.Name, cancellationToken);
+        }
+        catch (NatsJSApiException ex) when (ex.Error.Code == 404)
+        {
+            // Message not found - it may have been already processed or deleted
+            // This is not an error condition for idempotency
+        }
     }
 
     public async ValueTask MarkAsFailedAsync(
@@ -106,14 +154,67 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
         string errorMessage,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(messageId);
+        ArgumentNullException.ThrowIfNull(errorMessage);
+
         await EnsureInitializedAsync(cancellationToken);
 
-        // Re-publish with updated retry count
         var subject = $"{StreamName}.{messageId}";
 
-        // Note: In a real implementation, you'd need to fetch the existing message,
-        // update it, and re-publish. For simplicity, this is left as a TODO.
-        await Task.CompletedTask;
+        try
+        {
+            // 1. Fetch the existing message
+            var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                StreamName,
+                new ConsumerConfig
+                {
+                    Name = $"outbox-updater-{Guid.NewGuid():N}",
+                    AckPolicy = ConsumerConfigAckPolicy.Explicit,
+                    FilterSubjects = new[] { subject }
+                },
+                cancellationToken);
+
+            await foreach (var msg in consumer.FetchAsync<byte[]>(
+                new NatsJSFetchOpts { MaxMsgs = 1 },
+                cancellationToken: cancellationToken))
+            {
+                if (msg.Data != null && msg.Data.Length > 0)
+                {
+                    // 2. Deserialize existing message
+                    var outboxMsg = _serializer.Deserialize<OutboxMessage>(msg.Data);
+                    if (outboxMsg != null && outboxMsg.MessageId == messageId)
+                    {
+                        // 3. Update fields
+                        outboxMsg.RetryCount++;
+                        outboxMsg.LastError = errorMessage;
+                        outboxMsg.Status = outboxMsg.RetryCount >= outboxMsg.MaxRetries
+                            ? OutboxStatus.Failed
+                            : OutboxStatus.Pending;
+
+                        // 4. Re-publish with updated data
+                        var updatedData = _serializer.Serialize(outboxMsg);
+                        var ack = await JetStream.PublishAsync(subject, updatedData, cancellationToken: cancellationToken);
+
+                        if (ack.Error != null)
+                        {
+                            throw new InvalidOperationException($"Failed to update outbox message: {ack.Error.Description}");
+                        }
+
+                        // 5. Acknowledge the old message (removes it from stream with Limits retention)
+                        await msg.AckAsync(cancellationToken: cancellationToken);
+                        break;
+                    }
+                }
+            }
+
+            // Clean up temporary consumer
+            await JetStream.DeleteConsumerAsync(StreamName, consumer.Info.Name, cancellationToken);
+        }
+        catch (NatsJSApiException ex) when (ex.Error.Code == 404)
+        {
+            // Message not found - it may have been already processed or deleted
+            // This is not an error condition for idempotency
+        }
     }
 
     public async ValueTask DeletePublishedMessagesAsync(

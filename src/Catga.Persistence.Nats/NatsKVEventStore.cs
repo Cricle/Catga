@@ -20,21 +20,14 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
     public NatsJSEventStore(
         INatsConnection connection,
         IMessageSerializer serializer,
-        string? streamName = null)
-        : base(connection, streamName ?? "CATGA_EVENTS")
+        string? streamName = null,
+        NatsJSStoreOptions? options = null)
+        : base(connection, streamName ?? "CATGA_EVENTS", options)
     {
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
     }
 
-    protected override StreamConfig CreateStreamConfig() => new(
-        StreamName,
-        new[] { $"{StreamName}.>" }
-    )
-    {
-        Storage = StreamConfigStorage.File,
-        Retention = StreamConfigRetention.Limits,
-        MaxAge = TimeSpan.FromDays(365) // Keep events for 1 year
-    };
+    protected override string[] GetSubjects() => new[] { $"{StreamName}.>" };
 
     public async ValueTask AppendAsync(
         string streamId,

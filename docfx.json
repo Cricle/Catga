@@ -1,0 +1,68 @@
+{
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "src",
+          "files": [
+            "Catga/Catga.csproj",
+            "Catga.AspNetCore/Catga.AspNetCore.csproj",
+            "Catga.Transport.InMemory/Catga.Transport.InMemory.csproj",
+            "Catga.Transport.Nats/Catga.Transport.Nats.csproj",
+            "Catga.Transport.Redis/Catga.Transport.Redis.csproj",
+            "Catga.Persistence.InMemory/Catga.Persistence.InMemory.csproj",
+            "Catga.Persistence.Nats/Catga.Persistence.Nats.csproj",
+            "Catga.Persistence.Redis/Catga.Persistence.Redis.csproj",
+            "Catga.Serialization.Json/Catga.Serialization.Json.csproj",
+            "Catga.Serialization.MemoryPack/Catga.Serialization.MemoryPack.csproj"
+          ]
+        }
+      ],
+      "dest": "api",
+      "properties": {
+        "TargetFramework": "net9.0"
+      }
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": [
+          "api/**.yml",
+          "api/index.md"
+        ]
+      },
+      {
+        "files": [
+          "docs/articles/**.md",
+          "docs/toc.yml",
+          "toc.yml",
+          "*.md"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": [
+          "images/**",
+          "docs/images/**"
+        ]
+      }
+    ],
+    "output": "_site",
+    "globalMetadata": {
+      "_appTitle": "Catga Documentation",
+      "_appName": "Catga",
+      "_appFooter": "© 2025 Catga Framework",
+      "_enableSearch": true
+    },
+    "template": [
+      "default",
+      "modern"
+    ],
+    "postProcessors": [],
+    "keepFileLink": false,
+    "disableGitFeatures": false
+  }
+}
+

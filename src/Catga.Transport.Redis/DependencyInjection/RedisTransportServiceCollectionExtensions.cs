@@ -24,10 +24,13 @@ public static class RedisTransportServiceCollectionExtensions
         var options = new RedisTransportOptions();
         configure?.Invoke(options);
 
+        // Build ConfigurationOptions from RedisTransportOptions
+        var configOptions = CreateRedisConfiguration(options);
+
         // Register ConnectionMultiplexer as singleton
         services.TryAddSingleton<IConnectionMultiplexer>(sp =>
         {
-            return ConnectionMultiplexer.Connect(options.ConnectionString);
+            return ConnectionMultiplexer.Connect(configOptions);
         });
 
         // Register Transport
@@ -43,6 +46,48 @@ public static class RedisTransportServiceCollectionExtensions
         });
 
         return services;
+    }
+
+    /// <summary>
+    /// Create Redis ConfigurationOptions from RedisTransportOptions
+    /// </summary>
+    private static ConfigurationOptions CreateRedisConfiguration(RedisTransportOptions options)
+    {
+        var config = ConfigurationOptions.Parse(options.ConnectionString);
+
+        // Connection settings
+        config.ConnectTimeout = options.ConnectTimeout;
+        config.SyncTimeout = options.SyncTimeout;
+        config.AsyncTimeout = options.AsyncTimeout;
+        config.AbortOnConnectFail = options.AbortOnConnectFail;
+        config.ClientName = options.ClientName;
+        config.AllowAdmin = options.AllowAdmin;
+
+        // Performance settings
+        config.KeepAlive = options.KeepAlive;
+        config.ConnectRetry = options.ConnectRetry;
+        // Note: RespectAsyncTimeout is a typo in some versions, using the correct property name
+
+        // Database
+        config.DefaultDatabase = options.DefaultDatabase;
+
+        // SSL/TLS
+        if (options.UseSsl)
+        {
+            config.Ssl = true;
+            if (!string.IsNullOrEmpty(options.SslHost))
+            {
+                config.SslHost = options.SslHost;
+            }
+        }
+
+        // Sentinel mode
+        if (options.Mode == RedisMode.Sentinel && !string.IsNullOrEmpty(options.SentinelServiceName))
+        {
+            config.ServiceName = options.SentinelServiceName;
+        }
+
+        return config;
     }
 
     /// <summary>

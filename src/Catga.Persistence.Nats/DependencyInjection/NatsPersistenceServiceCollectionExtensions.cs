@@ -20,7 +20,8 @@ public static class NatsPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddNatsEventStore(
         this IServiceCollection services,
-        string? streamName = null)
+        string? streamName = null,
+        Action<NatsJSStoreOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
@@ -28,7 +29,11 @@ public static class NatsPersistenceServiceCollectionExtensions
         {
             var connection = sp.GetRequiredService<INatsConnection>();
             var serializer = sp.GetRequiredService<IMessageSerializer>();
-            return new NatsJSEventStore(connection, serializer, streamName);
+
+            var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_EVENTS" };
+            configure?.Invoke(options);
+
+            return new NatsJSEventStore(connection, serializer, streamName, options);
         });
 
         return services;
@@ -39,7 +44,8 @@ public static class NatsPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddNatsOutboxStore(
         this IServiceCollection services,
-        string? streamName = null)
+        string? streamName = null,
+        Action<NatsJSStoreOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
@@ -47,7 +53,11 @@ public static class NatsPersistenceServiceCollectionExtensions
         {
             var connection = sp.GetRequiredService<INatsConnection>();
             var serializer = sp.GetRequiredService<IMessageSerializer>();
-            return new NatsJSOutboxStore(connection, serializer, streamName);
+
+            var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_OUTBOX" };
+            configure?.Invoke(options);
+
+            return new NatsJSOutboxStore(connection, serializer, streamName, options);
         });
 
         return services;
@@ -58,7 +68,8 @@ public static class NatsPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddNatsInboxStore(
         this IServiceCollection services,
-        string? streamName = null)
+        string? streamName = null,
+        Action<NatsJSStoreOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
@@ -66,7 +77,11 @@ public static class NatsPersistenceServiceCollectionExtensions
         {
             var connection = sp.GetRequiredService<INatsConnection>();
             var serializer = sp.GetRequiredService<IMessageSerializer>();
-            return new NatsJSInboxStore(connection, serializer, streamName);
+
+            var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_INBOX" };
+            configure?.Invoke(options);
+
+            return new NatsJSInboxStore(connection, serializer, streamName, options);
         });
 
         return services;
@@ -111,4 +126,19 @@ public sealed class NatsPersistenceOptions
     /// JetStream stream name for Inbox Store (default: "CATGA_INBOX")
     /// </summary>
     public string? InboxStreamName { get; set; }
+
+    /// <summary>
+    /// Store options for Event Store
+    /// </summary>
+    public NatsJSStoreOptions? EventStoreOptions { get; set; }
+
+    /// <summary>
+    /// Store options for Outbox Store
+    /// </summary>
+    public NatsJSStoreOptions? OutboxStoreOptions { get; set; }
+
+    /// <summary>
+    /// Store options for Inbox Store
+    /// </summary>
+    public NatsJSStoreOptions? InboxStoreOptions { get; set; }
 }

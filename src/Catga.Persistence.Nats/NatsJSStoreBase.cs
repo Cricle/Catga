@@ -13,21 +13,34 @@ public abstract class NatsJSStoreBase : IAsyncDisposable
     protected readonly INatsConnection Connection;
     protected readonly INatsJSContext JetStream;
     protected readonly string StreamName;
+    protected readonly NatsJSStoreOptions Options;
 
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private volatile bool _initialized;
 
-    protected NatsJSStoreBase(INatsConnection connection, string streamName)
+    protected NatsJSStoreBase(
+        INatsConnection connection,
+        string streamName,
+        NatsJSStoreOptions? options = null)
     {
         Connection = connection ?? throw new ArgumentNullException(nameof(connection));
         StreamName = streamName;
+        Options = options ?? new NatsJSStoreOptions { StreamName = streamName };
         JetStream = new NatsJSContext(connection);
     }
 
     /// <summary>
-    /// Create the JetStream configuration for this store
+    /// Get the subjects pattern for this store
     /// </summary>
-    protected abstract StreamConfig CreateStreamConfig();
+    protected abstract string[] GetSubjects();
+
+    /// <summary>
+    /// Create the JetStream configuration for this store using options
+    /// </summary>
+    protected virtual StreamConfig CreateStreamConfig()
+    {
+        return Options.CreateStreamConfig(StreamName, GetSubjects());
+    }
 
     /// <summary>
     /// Ensures the JetStream is initialized using double-checked locking pattern.

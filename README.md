@@ -10,7 +10,7 @@
 
 **零反射 · 源生成器 · 完全抽象 · 生产就绪**
 
-[快速开始](#-快速开始) · [核心特性](#-核心特性) · [文档](./docs/INDEX.md) · [示例](./examples/OrderSystem.Api/)
+[快速开始](#-快速开始) · [核心特性](#-核心特性) · [文档](./docs/articles/getting-started.md) · [示例](./examples/MinimalApi/)
 
 </div>
 
@@ -141,14 +141,14 @@ using Catga.Handlers;
 public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
 {
     private readonly ILogger<CreateOrderHandler> _logger;
-    
-    public CreateOrderHandler(ILogger<CreateOrderHandler> logger) : base(logger) 
+
+    public CreateOrderHandler(ILogger<CreateOrderHandler> logger) : base(logger)
     {
         _logger = logger;
     }
 
     protected override async Task<OrderResult> HandleCoreAsync(
-        CreateOrder request, 
+        CreateOrder request,
         CancellationToken ct)
     {
         // 业务逻辑，框架自动捕获异常并转换为 CatgaResult
@@ -156,10 +156,10 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
             throw new CatgaException("Amount must be positive");
 
         _logger.LogInformation("Creating order {OrderId}", request.OrderId);
-        
+
         // 保存订单...
         await Task.Delay(10, ct); // 模拟数据库操作
-        
+
         return new OrderResult(request.OrderId, DateTime.UtcNow);
     }
 }
@@ -168,12 +168,12 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
 public class SendEmailHandler : IEventHandler<OrderCreatedEvent>
 {
     private readonly ILogger<SendEmailHandler> _logger;
-    
+
     public SendEmailHandler(ILogger<SendEmailHandler> logger)
     {
         _logger = logger;
     }
-    
+
     public async Task HandleAsync(OrderCreatedEvent @event, CancellationToken ct)
     {
         _logger.LogInformation("Sending email for order {@event.OrderId}");
@@ -211,8 +211,8 @@ var app = builder.Build();
 app.MapPost("/orders", async (CreateOrder cmd, ICatgaMediator mediator) =>
 {
     var result = await mediator.SendAsync<CreateOrder, OrderResult>(cmd);
-    return result.IsSuccess 
-        ? Results.Ok(result.Value) 
+    return result.IsSuccess
+        ? Results.Ok(result.Value)
         : Results.BadRequest(result.Error);
 });
 
@@ -241,15 +241,15 @@ services.AddCatga()
 ```csharp
 services.AddCatga()
     .AddMessageSerializer<MemoryPackMessageSerializer>()  // 100% AOT
-    .AddNatsTransport(options => 
-    {
-        options.Url = "nats://localhost:4222";
+    .AddNatsTransport(options =>
+{
+    options.Url = "nats://localhost:4222";
     })
     .AddNatsPersistence()
-    .AddRedisPersistence(options => 
+    .AddRedisPersistence(options =>
     {
         options.Configuration = "localhost:6379";
-    });
+});
 ```
 
 **只需修改配置，无需改动业务代码！**
@@ -314,7 +314,7 @@ public async Task<IActionResult> CreateOrder(CreateOrderRequest request)
 public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
 {
     protected override async Task<OrderResult> HandleCoreAsync(
-        CreateOrder request, 
+        CreateOrder request,
         CancellationToken ct)
     {
         // 直接抛出异常，框架自动转换为 CatgaResult.Failure
@@ -324,7 +324,7 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
         var order = await _repository.SaveAsync(...);
         return new OrderResult(order.Id, order.CreatedAt);
     }
-    
+
     // 可选：自定义错误处理和自动回滚
     protected override async Task<CatgaResult<OrderResult>> OnBusinessErrorAsync(
         CreateOrder request,
@@ -332,10 +332,10 @@ public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
         CancellationToken ct)
     {
         _logger.LogWarning("Order creation failed, rolling back...");
-        
+
         // 自动回滚逻辑
         await RollbackChangesAsync();
-        
+
         return CatgaResult<OrderResult>.Failure(
             $"Order creation failed: {exception.Message}. All changes rolled back.",
             exception);
@@ -499,14 +499,19 @@ curl -X POST http://localhost:5000/demo/order-failure
 ## 📚 文档
 
 ### 快速入门
-- [快速开始](./docs/QUICK-START.md) - 5 分钟上手
-- [API 速查](./docs/QUICK-REFERENCE.md) - API 速查表
-- [完整文档索引](./docs/INDEX.md)
+- **[Getting Started](./docs/articles/getting-started.md)** - 5 分钟快速上手
+- **[Architecture](./docs/articles/architecture.md)** - 架构设计详解
+- **[Configuration Guide](./docs/articles/configuration.md)** - 完整配置选项
+- **[Native AOT Deployment](./docs/articles/aot-deployment.md)** - AOT 部署指南
 
 ### 核心概念
 - [消息定义](./docs/api/messages.md) - IRequest, IEvent
 - [Mediator API](./docs/api/mediator.md) - ICatgaMediator
-- [自定义错误处理](./docs/guides/custom-error-handling.md) - SafeRequestHandler
+- [完整文档索引](./docs/INDEX.md)
+
+### 示例项目
+- **[MinimalApi](./examples/MinimalApi/)** - 最简单的示例
+- **[OrderSystem](./examples/OrderSystem.Api/)** - 完整的订单系统
 - [序列化配置](./docs/guides/serialization.md) - IMessageSerializer
 
 ### 可观测性

@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Catga - 高性能 .NET CQRS/Event Sourcing 框架，支持 Native AOT">
+    <meta name="keywords" content="Catga, CQRS, Event Sourcing, .NET, C#, Mediator, Native AOT, High Performance">
+    <meta name="author" content="Catga Team">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <title>Catga - 现代化 .NET CQRS 框架</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #512BD4;
+            --secondary-color: #6C63FF;
+            --accent-color: #00D9FF;
+            --text-color: #2D3748;
+            --text-light: #718096;
+            --bg-light: #F7FAFC;
+            --bg-white: #FFFFFF;
+            --border-color: #E2E8F0;
+            --success-color: #48BB78;
+            --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background: var(--bg-light);
+        }
+
+        /* Header */
+        header {
+            background: var(--bg-white);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        /* Hero Section */
+        .hero {
+            background: var(--gradient);
+            color: white;
+            padding: 6rem 2rem;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1.5rem;
+            font-weight: 800;
+        }
+
+        .hero p {
+            font-size: 1.3rem;
+            margin-bottom: 2rem;
+            opacity: 0.95;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.9rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-block;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background: white;
+            color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Features Section */
+        .features {
+            max-width: 1200px;
+            margin: 4rem auto;
+            padding: 2rem;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 3rem;
+            color: var(--text-color);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: var(--bg-white);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+
+        .feature-card p {
+            color: var(--text-light);
+            line-height: 1.7;
+        }
+
+        /* Code Example Section */
+        .code-example {
+            background: var(--bg-white);
+            padding: 4rem 2rem;
+        }
+
+        .code-example .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        pre {
+            background: #1E293B;
+            color: #E2E8F0;
+            padding: 2rem;
+            border-radius: 12px;
+            overflow-x: auto;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .code-comment {
+            color: #94A3B8;
+        }
+
+        .code-keyword {
+            color: #C792EA;
+        }
+
+        .code-string {
+            color: #C3E88D;
+        }
+
+        .code-type {
+            color: #82AAFF;
+        }
+
+        /* Stats Section */
+        .stats {
+            background: var(--gradient);
+            color: white;
+            padding: 4rem 2rem;
+        }
+
+        .stats-grid {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 3rem;
+            text-align: center;
+        }
+
+        .stat-item h3 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-item p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--text-color);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        footer a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav>
+            <div class="logo">⚡ Catga</div>
+            <ul class="nav-links">
+                <li><a href="#features">特性</a></li>
+                <li><a href="#docs">文档</a></li>
+                <li><a href="#examples">示例</a></li>
+                <li><a href="https://github.com/your-org/Catga" target="_blank">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <h1>⚡ Catga</h1>
+        <p>现代化、高性能的 .NET CQRS/Event Sourcing 框架<br>支持 Native AOT，零反射，生产就绪</p>
+        <div class="cta-buttons">
+            <a href="#docs" class="btn btn-primary">快速开始 →</a>
+            <a href="https://github.com/your-org/Catga" class="btn btn-secondary">查看源码</a>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <h2 class="section-title">🎯 核心特性</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🚀</div>
+                <h3>极致性能</h3>
+                <p>零反射、零分配、Native AOT 支持。命令处理 < 1μs，吞吐量 > 1M ops/s。</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔌</div>
+                <h3>可插拔架构</h3>
+                <p>支持 Redis、NATS、InMemory 传输层。轻松切换持久化和传输实现。</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📦</div>
+                <h3>Outbox/Inbox</h3>
+                <p>内置 Outbox 和 Inbox 模式，确保消息可靠传递和幂等性处理。</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎨</div>
+                <h3>OpenTelemetry</h3>
+                <p>完整的分布式追踪和指标监控。支持 Jaeger、Prometheus、Grafana。</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⚙️</div>
+                <h3>Source Generator</h3>
+                <p>编译时自动生成 Handler 注册代码。零配置，零运行时开销。</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🌐</div>
+                <h3>.NET Aspire</h3>
+                <p>深度集成 .NET Aspire。统一资源管理，Aspire Dashboard 可视化。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Code Example -->
+    <section class="code-example" id="examples">
+        <div class="container">
+            <h2 class="section-title">💻 简洁优雅的 API</h2>
+            <pre><code><span class="code-comment">// 1. 定义命令和事件</span>
+<span class="code-keyword">public record</span> <span class="code-type">CreateOrderCommand</span>(
+    <span class="code-type">string</span> ProductId,
+    <span class="code-type">int</span> Quantity
+) : <span class="code-type">IRequest</span>&lt;<span class="code-type">Order</span>&gt;;
+
+<span class="code-comment">// 2. 实现 Handler（自动注册）</span>
+<span class="code-keyword">public class</span> <span class="code-type">CreateOrderHandler</span> : <span class="code-type">IRequestHandler</span>&lt;<span class="code-type">CreateOrderCommand</span>, <span class="code-type">Order</span>&gt;
+{
+    <span class="code-keyword">public async</span> <span class="code-type">Task</span>&lt;<span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;&gt; HandleAsync(
+        <span class="code-type">CreateOrderCommand</span> request,
+        <span class="code-type">CancellationToken</span> cancellationToken)
+    {
+        <span class="code-keyword">var</span> order = <span class="code-keyword">new</span> <span class="code-type">Order</span>(request.ProductId, request.Quantity);
+        <span class="code-keyword">return</span> <span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;.Success(order);
+    }
+}
+
+<span class="code-comment">// 3. 配置和使用</span>
+<span class="code-keyword">var</span> builder = <span class="code-type">WebApplication</span>.CreateBuilder(args);
+
+<span class="code-comment">// 添加 Catga（一行代码）</span>
+builder.Services
+    .AddCatga()
+    .AddGeneratedHandlers()  <span class="code-comment">// Source Generator 自动注册</span>
+    .AddRedisTransport(...)
+    .AddRedisOutbox(...);
+
+<span class="code-comment">// 4. 发送命令</span>
+<span class="code-keyword">var</span> result = <span class="code-keyword">await</span> mediator.SendAsync&lt;<span class="code-type">CreateOrderCommand</span>, <span class="code-type">Order</span>&gt;(
+    <span class="code-keyword">new</span> <span class="code-type">CreateOrderCommand</span>(<span class="code-string">"product-123"</span>, <span class="code-number">5</span>)
+);
+
+<span class="code-keyword">if</span> (result.IsSuccess)
+    Console.WriteLine(<span class="code-string">$"订单已创建: {result.Value.Id}"</span>);
+</code></pre>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <h3>&lt; 1μs</h3>
+                <p>命令处理延迟</p>
+            </div>
+            <div class="stat-item">
+                <h3>1M+</h3>
+                <p>每秒吞吐量</p>
+            </div>
+            <div class="stat-item">
+                <h3>100%</h3>
+                <p>AOT 兼容</p>
+            </div>
+            <div class="stat-item">
+                <h3>99.5%</h3>
+                <p>生产就绪度</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Documentation Section -->
+    <section class="features" id="docs">
+        <h2 class="section-title">📚 文档资源</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <h3>📖 快速开始</h3>
+                <p>5 分钟快速上手 Catga，从安装到运行第一个示例。</p>
+                <a href="../articles/getting-started.html" class="btn btn-primary" style="margin-top: 1rem;">查看文档 →</a>
+            </div>
+
+            <div class="feature-card">
+                <h3>🏗️ 架构设计</h3>
+                <p>深入了解 Catga 的可插拔架构和设计原则。</p>
+                <a href="../articles/architecture.html" class="btn btn-primary" style="margin-top: 1rem;">查看文档 →</a>
+            </div>
+
+            <div class="feature-card">
+                <h3>⚙️ 配置指南</h3>
+                <p>完整的配置参考，包括 Redis、NATS、Outbox/Inbox。</p>
+                <a href="../articles/configuration.html" class="btn btn-primary" style="margin-top: 1rem;">查看文档 →</a>
+            </div>
+
+            <div class="feature-card">
+                <h3>📊 OpenTelemetry</h3>
+                <p>集成 OpenTelemetry，实现生产级监控和追踪。</p>
+                <a href="../articles/opentelemetry-integration.html" class="btn btn-primary" style="margin-top: 1rem;">查看文档 →</a>
+            </div>
+
+            <div class="feature-card">
+                <h3>🚀 Native AOT</h3>
+                <p>部署到 Native AOT，获得极致的启动速度和内存占用。</p>
+                <a href="../articles/aot-deployment.html" class="btn btn-primary" style="margin-top: 1rem;">查看文档 →</a>
+            </div>
+
+            <div class="feature-card">
+                <h3>💡 示例项目</h3>
+                <p>实战示例，包括电商、订单管理、事件溯源等场景。</p>
+                <a href="https://github.com/your-org/Catga/tree/master/examples" class="btn btn-primary" style="margin-top: 1rem;">查看示例 →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2025 Catga Framework. 开源协议: MIT</p>
+        <p>
+            <a href="https://github.com/your-org/Catga">GitHub</a> ·
+            <a href="https://www.nuget.org/packages/Catga">NuGet</a> ·
+            <a href="../api/index.html">API 文档</a>
+        </p>
+    </footer>
+</body>
+</html>
+

@@ -444,6 +444,7 @@ public class RedisEventStoreTests : IAsyncLifetime
 
     private record OrderCreatedEvent : IEvent
     {
+        public string MessageId { get; init; } = Guid.NewGuid().ToString();
         public required string OrderId { get; init; }
         public required decimal Amount { get; init; }
         public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
@@ -451,6 +452,7 @@ public class RedisEventStoreTests : IAsyncLifetime
 
     private record OrderItemAddedEvent : IEvent
     {
+        public string MessageId { get; init; } = Guid.NewGuid().ToString();
         public required string OrderId { get; init; }
         public required string ItemName { get; init; }
         public DateTime OccurredAt { get; init; } = DateTime.UtcNow;

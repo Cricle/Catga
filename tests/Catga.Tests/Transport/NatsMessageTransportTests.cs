@@ -404,6 +404,7 @@ public class NatsMessageTransportTests : IAsyncLifetime
 
     private record TestEvent : IEvent
     {
+        public string MessageId { get; init; } = Guid.NewGuid().ToString();
         public required string Id { get; init; }
         public required string Data { get; init; }
         public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
@@ -411,11 +412,12 @@ public class NatsMessageTransportTests : IAsyncLifetime
 
     private record TestRequest : IRequest<TestResponse>
     {
+        public string MessageId { get; init; } = Guid.NewGuid().ToString();
         public required string RequestId { get; init; }
         public required string Data { get; init; }
     }
 
-    private record TestResponse : IResponse
+    private record TestResponse
     {
         public required string RequestId { get; init; }
         public required string Result { get; init; }

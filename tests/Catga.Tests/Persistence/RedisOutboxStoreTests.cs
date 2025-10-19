@@ -516,6 +516,7 @@ public class RedisOutboxStoreTests : IAsyncLifetime
 
     private record OrderCreatedEvent : IEvent
     {
+        public string MessageId { get; init; } = Guid.NewGuid().ToString();
         public required string OrderId { get; init; }
         public required decimal Amount { get; init; }
         public DateTime OccurredAt { get; init; } = DateTime.UtcNow;

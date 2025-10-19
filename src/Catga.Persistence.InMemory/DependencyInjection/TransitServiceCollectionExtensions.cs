@@ -9,6 +9,7 @@ using Catga.Outbox;
 using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
 using Catga.Serialization;
+using Catga.Serialization.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -44,6 +45,10 @@ public static class CatgaServiceCollectionExtensions
 
         services.AddSingleton(options);
         services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
+        
+        // 如果没有注册序列化器，使用默认的 JSON 序列化器
+        services.TryAddSingleton<IMessageSerializer, JsonMessageSerializer>();
+        
         services.TryAddSingleton<IIdempotencyStore>(sp => new ShardedIdempotencyStore(
             sp.GetRequiredService<IMessageSerializer>(), 
             options.IdempotencyShardCount, 

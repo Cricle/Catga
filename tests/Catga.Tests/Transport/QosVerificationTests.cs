@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Catga.Messages;
 using Catga.Transport;
 using Catga.Serialization;
+using Catga.Serialization.Json;
 using System.Collections.Concurrent;
 
 namespace Catga.Tests.Transport;
@@ -21,16 +22,9 @@ public class QosVerificationTests
     public QosVerificationTests()
     {
         _logger = Substitute.For<ILogger<MockTransport>>();
-        _serializer = Substitute.For<IMessageSerializer>();
-
-        // Setup serializer to return simple JSON
-        _serializer.Serialize(Arg.Any<object>())
-            .Returns(callInfo =>
-                System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(callInfo.Arg<object>()));
-
-        _serializer.Deserialize<TestEvent>(Arg.Any<byte[]>())
-            .Returns(callInfo =>
-                System.Text.Json.JsonSerializer.Deserialize<TestEvent>(callInfo.Arg<byte[]>()));
+        
+        // 使用真实的 JsonMessageSerializer 而非 Mock，确保测试真实性
+        _serializer = new JsonMessageSerializer();
     }
 
     #region Test Messages

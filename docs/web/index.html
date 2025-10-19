@@ -353,42 +353,296 @@
     <!-- Code Example -->
     <section class="code-example" id="examples">
         <div class="container">
-            <h2 class="section-title">💻 简洁优雅的 API</h2>
-            <pre><code><span class="code-comment">// 1. 定义命令和事件</span>
+            <h2 class="section-title">💻 完整使用示例</h2>
+            
+            <!-- Example 1: Basic Command -->
+            <h3 style="color: var(--primary-color); margin: 2rem 0 1rem;">1️⃣ 基础命令处理</h3>
+            <pre><code><span class="code-comment">// 定义命令</span>
 <span class="code-keyword">public record</span> <span class="code-type">CreateOrderCommand</span>(
     <span class="code-type">string</span> ProductId,
     <span class="code-type">int</span> Quantity
 ) : <span class="code-type">IRequest</span>&lt;<span class="code-type">Order</span>&gt;;
 
-<span class="code-comment">// 2. 实现 Handler（自动注册）</span>
+<span class="code-comment">// 实现 Handler（自动注册，无需配置）</span>
 <span class="code-keyword">public class</span> <span class="code-type">CreateOrderHandler</span> : <span class="code-type">IRequestHandler</span>&lt;<span class="code-type">CreateOrderCommand</span>, <span class="code-type">Order</span>&gt;
 {
+    <span class="code-keyword">private readonly</span> <span class="code-type">IOrderRepository</span> _repository;
+
+    <span class="code-keyword">public</span> CreateOrderHandler(<span class="code-type">IOrderRepository</span> repository)
+    {
+        _repository = repository;
+    }
+
     <span class="code-keyword">public async</span> <span class="code-type">Task</span>&lt;<span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;&gt; HandleAsync(
         <span class="code-type">CreateOrderCommand</span> request,
         <span class="code-type">CancellationToken</span> cancellationToken)
     {
         <span class="code-keyword">var</span> order = <span class="code-keyword">new</span> <span class="code-type">Order</span>(request.ProductId, request.Quantity);
+        <span class="code-keyword">await</span> _repository.SaveAsync(order, cancellationToken);
         <span class="code-keyword">return</span> <span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;.Success(order);
     }
 }
 
-<span class="code-comment">// 3. 配置和使用</span>
-<span class="code-keyword">var</span> builder = <span class="code-type">WebApplication</span>.CreateBuilder(args);
-
-<span class="code-comment">// 添加 Catga（一行代码）</span>
-builder.Services
-    .AddCatga()
-    .AddGeneratedHandlers()  <span class="code-comment">// Source Generator 自动注册</span>
-    .AddRedisTransport(...)
-    .AddRedisOutbox(...);
-
-<span class="code-comment">// 4. 发送命令</span>
+<span class="code-comment">// 使用</span>
 <span class="code-keyword">var</span> result = <span class="code-keyword">await</span> mediator.SendAsync&lt;<span class="code-type">CreateOrderCommand</span>, <span class="code-type">Order</span>&gt;(
-    <span class="code-keyword">new</span> <span class="code-type">CreateOrderCommand</span>(<span class="code-string">"product-123"</span>, <span class="code-number">5</span>)
+    <span class="code-keyword">new</span> <span class="code-type">CreateOrderCommand</span>(<span class="code-string">"product-123"</span>, 5)
 );
 
 <span class="code-keyword">if</span> (result.IsSuccess)
-    Console.WriteLine(<span class="code-string">$"订单已创建: {result.Value.Id}"</span>);
+{
+    Console.WriteLine(<span class="code-string">$"✅ 订单已创建: {result.Value.Id}"</span>);
+}
+</code></pre>
+
+            <!-- Example 2: Error Handling -->
+            <h3 style="color: var(--primary-color); margin: 3rem 0 1rem;">2️⃣ 完整的异常处理</h3>
+            <pre><code><span class="code-comment">// Handler 中的异常处理</span>
+<span class="code-keyword">public async</span> <span class="code-type">Task</span>&lt;<span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;&gt; HandleAsync(
+    <span class="code-type">CreateOrderCommand</span> request,
+    <span class="code-type">CancellationToken</span> cancellationToken)
+{
+    <span class="code-comment">// 参数验证</span>
+    <span class="code-keyword">if</span> (<span class="code-keyword">string</span>.IsNullOrEmpty(request.ProductId))
+        <span class="code-keyword">return</span> <span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;.Failure(<span class="code-string">"产品ID不能为空"</span>);
+
+    <span class="code-keyword">if</span> (request.Quantity &lt;= 0)
+        <span class="code-keyword">return</span> <span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;.Failure(<span class="code-string">"数量必须大于0"</span>);
+
+    <span class="code-keyword">try</span>
+    {
+        <span class="code-comment">// 检查产品是否存在</span>
+        <span class="code-keyword">var</span> product = <span class="code-keyword">await</span> _productRepo.GetByIdAsync(request.ProductId, cancellationToken);
+        <span class="code-keyword">if</span> (product == <span class="code-keyword">null</span>)
+            <span class="code-keyword">return</span> <span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;.Failure(<span class="code-string">$"产品不存在: {request.ProductId}"</span>);
+
+        <span class="code-comment">// 检查库存</span>
+        <span class="code-keyword">if</span> (product.Stock &lt; request.Quantity)
+            <span class="code-keyword">return</span> <span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;.Failure(<span class="code-string">$"库存不足，剩余: {product.Stock}"</span>);
+
+        <span class="code-comment">// 创建订单</span>
+        <span class="code-keyword">var</span> order = <span class="code-keyword">new</span> <span class="code-type">Order</span>(request.ProductId, request.Quantity);
+        <span class="code-keyword">await</span> _orderRepo.SaveAsync(order, cancellationToken);
+
+        <span class="code-keyword">return</span> <span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;.Success(order);
+    }
+    <span class="code-keyword">catch</span> (<span class="code-type">DbUpdateException</span> ex)
+    {
+        <span class="code-keyword">return</span> <span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;.Failure(<span class="code-string">$"数据库错误: {ex.Message}"</span>);
+    }
+    <span class="code-keyword">catch</span> (<span class="code-type">OperationCanceledException</span>)
+    {
+        <span class="code-keyword">return</span> <span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;.Failure(<span class="code-string">"操作已取消"</span>);
+    }
+    <span class="code-keyword">catch</span> (<span class="code-type">Exception</span> ex)
+    {
+        <span class="code-comment">// 记录日志</span>
+        _logger.LogError(ex, <span class="code-string">"创建订单失败"</span>);
+        <span class="code-keyword">return</span> <span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;.Failure(<span class="code-string">$"未知错误: {ex.Message}"</span>);
+    }
+}
+
+<span class="code-comment">// 调用端完整异常处理</span>
+<span class="code-keyword">try</span>
+{
+    <span class="code-keyword">var</span> result = <span class="code-keyword">await</span> mediator.SendAsync&lt;<span class="code-type">CreateOrderCommand</span>, <span class="code-type">Order</span>&gt;(
+        <span class="code-keyword">new</span> <span class="code-type">CreateOrderCommand</span>(<span class="code-string">"product-123"</span>, 5),
+        cancellationToken
+    );
+
+    <span class="code-keyword">if</span> (result.IsSuccess)
+    {
+        <span class="code-comment">// 成功处理</span>
+        Console.WriteLine(<span class="code-string">$"✅ 订单创建成功: {result.Value.Id}"</span>);
+        <span class="code-keyword">return</span> Results.Ok(result.Value);
+    }
+    <span class="code-keyword">else</span>
+    {
+        <span class="code-comment">// 业务失败</span>
+        Console.WriteLine(<span class="code-string">$"❌ 失败: {result.Error}"</span>);
+        <span class="code-keyword">return</span> Results.BadRequest(<span class="code-keyword">new</span> { error = result.Error });
+    }
+}
+<span class="code-keyword">catch</span> (<span class="code-type">TimeoutException</span> ex)
+{
+    <span class="code-comment">// 超时异常</span>
+    _logger.LogWarning(ex, <span class="code-string">"命令执行超时"</span>);
+    <span class="code-keyword">return</span> Results.StatusCode(504);
+}
+<span class="code-keyword">catch</span> (<span class="code-type">OperationCanceledException</span>)
+{
+    <span class="code-comment">// 取消异常</span>
+    _logger.LogInformation(<span class="code-string">"用户取消操作"</span>);
+    <span class="code-keyword">return</span> Results.StatusCode(499);
+}
+<span class="code-keyword">catch</span> (<span class="code-type">Exception</span> ex)
+{
+    <span class="code-comment">// 未预期异常</span>
+    _logger.LogError(ex, <span class="code-string">"命令执行失败"</span>);
+    <span class="code-keyword">return</span> Results.StatusCode(500);
+}
+</code></pre>
+
+            <!-- Example 3: Event Publishing -->
+            <h3 style="color: var(--primary-color); margin: 3rem 0 1rem;">3️⃣ 事件发布与订阅（带异常处理）</h3>
+            <pre><code><span class="code-comment">// 定义事件</span>
+<span class="code-keyword">public record</span> <span class="code-type">OrderCreatedEvent</span>(
+    <span class="code-type">string</span> OrderId,
+    <span class="code-type">string</span> ProductId,
+    <span class="code-type">int</span> Quantity,
+    <span class="code-type">DateTime</span> CreatedAt
+) : <span class="code-type">IEvent</span>;
+
+<span class="code-comment">// 发布事件（Handler 内）</span>
+<span class="code-keyword">var</span> order = <span class="code-keyword">new</span> <span class="code-type">Order</span>(request.ProductId, request.Quantity);
+<span class="code-keyword">await</span> _orderRepo.SaveAsync(order, cancellationToken);
+
+<span class="code-comment">// 发布事件到消息总线</span>
+<span class="code-keyword">var</span> @event = <span class="code-keyword">new</span> <span class="code-type">OrderCreatedEvent</span>(
+    order.Id, order.ProductId, order.Quantity, DateTime.UtcNow
+);
+<span class="code-keyword">await</span> mediator.PublishAsync(@event, cancellationToken);
+
+<span class="code-comment">// 事件 Handler 1: 发送通知（自动注册）</span>
+<span class="code-keyword">public class</span> <span class="code-type">SendEmailHandler</span> : <span class="code-type">IEventHandler</span>&lt;<span class="code-type">OrderCreatedEvent</span>&gt;
+{
+    <span class="code-keyword">private readonly</span> <span class="code-type">IEmailService</span> _emailService;
+
+    <span class="code-keyword">public async</span> <span class="code-type">Task</span> HandleAsync(
+        <span class="code-type">OrderCreatedEvent</span> @event,
+        <span class="code-type">CancellationToken</span> cancellationToken)
+    {
+        <span class="code-keyword">try</span>
+        {
+            <span class="code-keyword">await</span> _emailService.SendAsync(
+                <span class="code-string">"order-confirmation.html"</span>,
+                <span class="code-keyword">new</span> { @event.OrderId, @event.ProductId },
+                cancellationToken
+            );
+        }
+        <span class="code-keyword">catch</span> (<span class="code-type">Exception</span> ex)
+        {
+            <span class="code-comment">// 记录日志但不抛出（避免影响其他 Handler）</span>
+            _logger.LogError(ex, <span class="code-string">"发送邮件失败: {OrderId}"</span>, @event.OrderId);
+        }
+    }
+}
+
+<span class="code-comment">// 事件 Handler 2: 更新库存（自动注册）</span>
+<span class="code-keyword">public class</span> <span class="code-type">UpdateInventoryHandler</span> : <span class="code-type">IEventHandler</span>&lt;<span class="code-type">OrderCreatedEvent</span>&gt;
+{
+    <span class="code-keyword">private readonly</span> <span class="code-type">IInventoryService</span> _inventoryService;
+
+    <span class="code-keyword">public async</span> <span class="code-type">Task</span> HandleAsync(
+        <span class="code-type">OrderCreatedEvent</span> @event,
+        <span class="code-type">CancellationToken</span> cancellationToken)
+    {
+        <span class="code-keyword">await</span> _inventoryService.DecreaseStockAsync(
+            @event.ProductId,
+            @event.Quantity,
+            cancellationToken
+        );
+    }
+}
+</code></pre>
+
+            <!-- Example 4: Configuration -->
+            <h3 style="color: var(--primary-color); margin: 3rem 0 1rem;">4️⃣ 完整配置示例</h3>
+            <pre><code><span class="code-comment">// Program.cs - 生产环境完整配置</span>
+<span class="code-keyword">var</span> builder = <span class="code-type">WebApplication</span>.CreateBuilder(args);
+
+<span class="code-comment">// 添加 Catga 核心</span>
+builder.Services
+    .AddCatga()
+    .AddGeneratedHandlers();  <span class="code-comment">// Source Generator 自动注册所有 Handler</span>
+
+<span class="code-comment">// 添加 Redis 传输层（支持 QoS 0 Pub/Sub 和 QoS 1 Streams）</span>
+builder.Services.AddRedisTransport(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString(<span class="code-string">"Redis"</span>);
+    options.DefaultQoS = QoS.AtLeastOnce;  <span class="code-comment">// QoS 0 或 QoS 1</span>
+    options.StreamMaxLength = 10000;       <span class="code-comment">// Stream 最大长度</span>
+});
+
+<span class="code-comment">// 添加 Redis 持久化（Outbox/Inbox）</span>
+builder.Services.AddRedisOutbox(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString(<span class="code-string">"Redis"</span>);
+    options.BatchSize = 100;               <span class="code-comment">// 批量发送</span>
+    options.PollingInterval = TimeSpan.FromSeconds(5);
+});
+
+builder.Services.AddRedisInbox(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString(<span class="code-string">"Redis"</span>);
+    options.RetentionPeriod = TimeSpan.FromDays(7);  <span class="code-comment">// 保留 7 天</span>
+});
+
+<span class="code-comment">// 添加 OpenTelemetry 监控（可选）</span>
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing
+        .AddSource(<span class="code-string">"Catga.Framework"</span>)  <span class="code-comment">// Catga 追踪</span>
+        .AddAspNetCoreInstrumentation()
+        .AddConsoleExporter())
+    .WithMetrics(metrics => metrics
+        .AddMeter(<span class="code-string">"Catga.Framework"</span>)   <span class="code-comment">// Catga 指标</span>
+        .AddAspNetCoreInstrumentation()
+        .AddConsoleExporter());
+
+<span class="code-comment">// 或使用 NATS（替代 Redis）</span>
+<span class="code-comment">// builder.Services.AddNatsTransport(options => ...</span>
+<span class="code-comment">// builder.Services.AddNatsOutbox(options => ...</span>
+
+<span class="code-comment">// 或使用内存（开发环境）</span>
+<span class="code-comment">// builder.Services.AddInMemoryTransport();</span>
+<span class="code-comment">// builder.Services.AddInMemoryOutbox();</span>
+
+<span class="code-keyword">var</span> app = builder.Build();
+app.Run();
+</code></pre>
+
+            <!-- Example 5: API Integration -->
+            <h3 style="color: var(--primary-color); margin: 3rem 0 1rem;">5️⃣ Minimal API 集成</h3>
+            <pre><code><span class="code-comment">// 完整的 API 端点（含异常处理）</span>
+app.MapPost(<span class="code-string">"/orders"</span>, <span class="code-keyword">async</span> (
+    <span class="code-type">CreateOrderRequest</span> request,
+    <span class="code-type">ICatgaMediator</span> mediator,
+    <span class="code-type">ILogger</span>&lt;<span class="code-type">Program</span>&gt; logger,
+    <span class="code-type">CancellationToken</span> cancellationToken) =>
+{
+    <span class="code-keyword">try</span>
+    {
+        <span class="code-comment">// 发送命令</span>
+        <span class="code-keyword">var</span> command = <span class="code-keyword">new</span> <span class="code-type">CreateOrderCommand</span>(request.ProductId, request.Quantity);
+        <span class="code-keyword">var</span> result = <span class="code-keyword">await</span> mediator.SendAsync&lt;<span class="code-type">CreateOrderCommand</span>, <span class="code-type">Order</span>&gt;(
+            command,
+            cancellationToken
+        );
+
+        <span class="code-comment">// 检查结果</span>
+        <span class="code-keyword">if</span> (result.IsSuccess)
+        {
+            logger.LogInformation(<span class="code-string">"订单创建成功: {OrderId}"</span>, result.Value.Id);
+            <span class="code-keyword">return</span> Results.Created(<span class="code-string">$"/orders/{result.Value.Id}"</span>, result.Value);
+        }
+        <span class="code-keyword">else</span>
+        {
+            logger.LogWarning(<span class="code-string">"订单创建失败: {Error}"</span>, result.Error);
+            <span class="code-keyword">return</span> Results.BadRequest(<span class="code-keyword">new</span> { error = result.Error });
+        }
+    }
+    <span class="code-keyword">catch</span> (<span class="code-type">OperationCanceledException</span>)
+    {
+        logger.LogInformation(<span class="code-string">"请求已取消"</span>);
+        <span class="code-keyword">return</span> Results.StatusCode(499);
+    }
+    <span class="code-keyword">catch</span> (<span class="code-type">Exception</span> ex)
+    {
+        logger.LogError(ex, <span class="code-string">"处理订单请求时发生错误"</span>);
+        <span class="code-keyword">return</span> Results.Problem(<span class="code-string">"服务器内部错误"</span>);
+    }
+})
+.WithName(<span class="code-string">"CreateOrder"</span>)
+.WithOpenApi();
 </code></pre>
         </div>
     </section>
@@ -415,44 +669,73 @@ builder.Services
         </div>
     </section>
 
-    <!-- Documentation Section -->
+    <!-- Quick Start Section -->
     <section class="features" id="docs">
-        <h2 class="section-title">📚 文档资源</h2>
-        <div class="features-grid">
-            <div class="feature-card">
-                <h3>📖 快速开始</h3>
-                <p>5 分钟快速上手 Catga，从安装到运行第一个示例。</p>
-                <a href="../articles/getting-started.html" class="btn btn-primary" style="margin-top: 1rem;">查看文档 →</a>
-            </div>
+        <h2 class="section-title">🚀 快速开始</h2>
+        <div class="container" style="max-width: 800px; margin: 0 auto;">
+            <div style="background: var(--bg-white); padding: 3rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
+                <h3 style="color: var(--primary-color); margin-bottom: 2rem;">安装 Catga（3 步上手）</h3>
+                
+                <div style="margin-bottom: 2rem;">
+                    <h4 style="color: var(--text-color); margin-bottom: 1rem;">1️⃣ 安装 NuGet 包</h4>
+                    <pre style="background: #1E293B; color: #E2E8F0; padding: 1rem; border-radius: 8px; font-size: 0.9rem;"><code><span class="code-comment"># 核心包（必需）</span>
+dotnet add package Catga
 
-            <div class="feature-card">
-                <h3>🏗️ 架构设计</h3>
-                <p>深入了解 Catga 的可插拔架构和设计原则。</p>
-                <a href="../articles/architecture.html" class="btn btn-primary" style="margin-top: 1rem;">查看文档 →</a>
-            </div>
+<span class="code-comment"># 传输层（三选一）</span>
+dotnet add package Catga.Transport.InMemory   <span class="code-comment"># 开发环境</span>
+dotnet add package Catga.Transport.Redis      <span class="code-comment"># 生产环境</span>
+dotnet add package Catga.Transport.Nats       <span class="code-comment"># 生产环境</span>
 
-            <div class="feature-card">
-                <h3>⚙️ 配置指南</h3>
-                <p>完整的配置参考，包括 Redis、NATS、Outbox/Inbox。</p>
-                <a href="../articles/configuration.html" class="btn btn-primary" style="margin-top: 1rem;">查看文档 →</a>
-            </div>
+<span class="code-comment"># 持久化（可选，选一个）</span>
+dotnet add package Catga.Persistence.Redis    <span class="code-comment"># Outbox/Inbox</span>
+dotnet add package Catga.Persistence.Nats     <span class="code-comment"># Outbox/Inbox</span>
 
-            <div class="feature-card">
-                <h3>📊 OpenTelemetry</h3>
-                <p>集成 OpenTelemetry，实现生产级监控和追踪。</p>
-                <a href="../articles/opentelemetry-integration.html" class="btn btn-primary" style="margin-top: 1rem;">查看文档 →</a>
-            </div>
+<span class="code-comment"># Source Generator（推荐，自动注册 Handler）</span>
+dotnet add package Catga.SourceGenerator
+</code></pre>
+                </div>
 
-            <div class="feature-card">
-                <h3>🚀 Native AOT</h3>
-                <p>部署到 Native AOT，获得极致的启动速度和内存占用。</p>
-                <a href="../articles/aot-deployment.html" class="btn btn-primary" style="margin-top: 1rem;">查看文档 →</a>
-            </div>
+                <div style="margin-bottom: 2rem;">
+                    <h4 style="color: var(--text-color); margin-bottom: 1rem;">2️⃣ 配置服务（Program.cs）</h4>
+                    <pre style="background: #1E293B; color: #E2E8F0; padding: 1rem; border-radius: 8px; font-size: 0.9rem;"><code><span class="code-keyword">var</span> builder = <span class="code-type">WebApplication</span>.CreateBuilder(args);
 
-            <div class="feature-card">
-                <h3>💡 示例项目</h3>
-                <p>实战示例，包括电商、订单管理、事件溯源等场景。</p>
-                <a href="https://github.com/your-org/Catga/tree/master/examples" class="btn btn-primary" style="margin-top: 1rem;">查看示例 →</a>
+<span class="code-comment">// 添加 Catga（一行代码）</span>
+builder.Services
+    .AddCatga()
+    .AddGeneratedHandlers()      <span class="code-comment">// 自动注册</span>
+    .AddInMemoryTransport();     <span class="code-comment">// 或 AddRedisTransport()</span>
+
+<span class="code-keyword">var</span> app = builder.Build();
+app.Run();
+</code></pre>
+                </div>
+
+                <div>
+                    <h4 style="color: var(--text-color); margin-bottom: 1rem;">3️⃣ 使用（发送命令）</h4>
+                    <pre style="background: #1E293B; color: #E2E8F0; padding: 1rem; border-radius: 8px; font-size: 0.9rem;"><code><span class="code-comment">// 注入 Mediator</span>
+<span class="code-keyword">var</span> mediator = app.Services.GetRequiredService&lt;<span class="code-type">ICatgaMediator</span>&gt;();
+
+<span class="code-comment">// 发送命令</span>
+<span class="code-keyword">var</span> result = <span class="code-keyword">await</span> mediator.SendAsync&lt;<span class="code-type">MyCommand</span>, <span class="code-type">MyResult</span>&gt;(
+    <span class="code-keyword">new</span> <span class="code-type">MyCommand</span>()
+);
+
+<span class="code-comment">// 检查结果</span>
+<span class="code-keyword">if</span> (result.IsSuccess)
+    Console.WriteLine(<span class="code-string">"成功！"</span>);
+<span class="code-keyword">else</span>
+    Console.WriteLine(<span class="code-string">$"失败: {result.Error}"</span>);
+</code></pre>
+                </div>
+
+                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid var(--border-color);">
+                    <h4 style="color: var(--text-color); margin-bottom: 1rem;">📚 更多资源</h4>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <a href="../articles/getting-started.html" class="btn btn-primary">完整文档</a>
+                        <a href="../api/index.html" class="btn btn-secondary" style="background: var(--bg-light); color: var(--primary-color); border: 2px solid var(--primary-color);">API 参考</a>
+                        <a href="https://github.com/your-org/Catga/tree/master/examples" class="btn btn-secondary" style="background: var(--bg-light); color: var(--primary-color); border: 2px solid var(--primary-color);">示例项目</a>
+                    </div>
+                </div>
             </div>
         </div>
     </section>

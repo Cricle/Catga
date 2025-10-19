@@ -1,7 +1,7 @@
 using Catga.Abstractions;
 using Catga.Messages;
 using Catga.Outbox;
-using Catga.Persistence;
+using Catga.Persistence.Redis.Persistence;
 using Moq;
 using StackExchange.Redis;
 using Xunit;
@@ -17,7 +17,7 @@ public class RedisOutboxStoreTests : IAsyncLifetime
     private readonly Mock<IConnectionMultiplexer> _mockConnection;
     private readonly Mock<IDatabase> _mockDatabase;
     private readonly Mock<IMessageSerializer> _mockSerializer;
-    private RedisOutboxStore _outboxStore = null!;
+    private RedisOutboxPersistence _outboxStore = null!;
 
     public RedisOutboxStoreTests()
     {
@@ -31,7 +31,7 @@ public class RedisOutboxStoreTests : IAsyncLifetime
 
     public Task InitializeAsync()
     {
-        _outboxStore = new RedisOutboxStore(_mockConnection.Object, _mockSerializer.Object);
+        _outboxStore = new RedisOutboxPersistence(_mockConnection.Object, _mockSerializer.Object);
         return Task.CompletedTask;
     }
 

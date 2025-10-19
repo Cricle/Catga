@@ -649,6 +649,246 @@
             font-size: 1.2rem;
         }
 
+        /* Animation Demo */
+        .animation-demo {
+            background: var(--bg-white);
+        }
+
+        .demo-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .demo-tab {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            background: var(--bg-light);
+            color: var(--text-color);
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .demo-tab:hover {
+            border-color: var(--primary-color);
+        }
+
+        .demo-tab.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .demo-content {
+            display: none;
+        }
+
+        .demo-content.active {
+            display: block;
+        }
+
+        .demo-container {
+            background: var(--bg-light);
+            border-radius: 12px;
+            padding: 3rem;
+            min-height: 500px;
+        }
+
+        .demo-controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .demo-btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            background: var(--primary-color);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .demo-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(81, 43, 212, 0.3);
+        }
+
+        .demo-btn:disabled {
+            background: var(--text-light);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .demo-btn.secondary {
+            background: var(--bg-white);
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+        }
+
+        /* Animation Canvas */
+        .animation-canvas {
+            position: relative;
+            height: 400px;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+
+        /* Nodes */
+        .node {
+            position: absolute;
+            width: 120px;
+            padding: 1rem;
+            background: white;
+            border: 3px solid var(--primary-color);
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 600;
+            transition: all 0.3s;
+            z-index: 10;
+        }
+
+        .node.active {
+            background: var(--primary-color);
+            color: white;
+            transform: scale(1.1);
+            box-shadow: 0 8px 20px rgba(81, 43, 212, 0.4);
+        }
+
+        .node.success {
+            background: var(--success-color);
+            border-color: var(--success-color);
+            color: white;
+        }
+
+        .node-label {
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            opacity: 0.8;
+        }
+
+        /* Messages */
+        .message {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            opacity: 0;
+            z-index: 20;
+        }
+
+        .message.animating {
+            animation: moveMessage 2s ease-in-out;
+        }
+
+        @keyframes moveMessage {
+            0% {
+                opacity: 0;
+                transform: scale(0);
+            }
+            20% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            80% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(0);
+            }
+        }
+
+        /* Connection Lines */
+        .connection {
+            position: absolute;
+            height: 3px;
+            background: var(--border-color);
+            transform-origin: left center;
+            z-index: 1;
+        }
+
+        .connection.active {
+            background: var(--accent-color);
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        /* Flow Arrows */
+        .arrow {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 12px solid var(--border-color);
+            z-index: 2;
+        }
+
+        .arrow.active {
+            border-bottom-color: var(--accent-color);
+        }
+
+        /* Timeline */
+        .demo-timeline {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: white;
+            border-radius: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .timeline-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-light);
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color);
+            opacity: 0;
+            transform: translateX(-20px);
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        @keyframes slideIn {
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .timeline-item .time {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline-item .action {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .timeline-item.success {
+            border-left-color: var(--success-color);
+        }
+
+        .timeline-item.error {
+            border-left-color: #EF4444;
+        }
+
         /* Stats Section */
         .stats {
             background: var(--gradient);
@@ -730,8 +970,8 @@
         <nav>
             <div class="logo">⚡ Catga</div>
             <ul class="nav-links">
+                <li><a href="#demo">动画演示</a></li>
                 <li><a href="#learning">学习路径</a></li>
-                <li><a href="#features">特性</a></li>
                 <li><a href="#use-cases">使用场景</a></li>
                 <li><a href="#examples">示例</a></li>
                 <li><a href="https://github.com/Cricle/Catga" target="_blank">GitHub</a></li>
@@ -743,7 +983,7 @@
     <section class="hero">
         <h1>⚡ Catga</h1>
         <p>现代化、高性能的 .NET CQRS/Event Sourcing 框架<br>支持 Native AOT，零反射，生产就绪</p>
-        
+
         <div class="hero-stats">
             <div class="hero-stat">
                 <span class="hero-stat-value">&lt; 1μs</span>
@@ -767,6 +1007,69 @@
             <a href="#learning" class="btn btn-primary">开始学习 →</a>
             <a href="https://github.com/Cricle/Catga" class="btn btn-secondary">查看源码</a>
             <a href="../articles/getting-started.html" class="btn btn-secondary">完整文档</a>
+        </div>
+    </section>
+
+    <!-- Animation Demo Section -->
+    <section id="demo" class="section animation-demo">
+        <div class="container">
+            <h2 class="section-title">🎬 动画演示</h2>
+            <p class="section-subtitle">直观了解 Catga 核心流程如何运转</p>
+
+            <div class="demo-tabs">
+                <div class="demo-tab active" onclick="switchDemo(0)">CQRS 流程</div>
+                <div class="demo-tab" onclick="switchDemo(1)">事件驱动</div>
+                <div class="demo-tab" onclick="switchDemo(2)">Outbox 模式</div>
+                <div class="demo-tab" onclick="switchDemo(3)">分布式追踪</div>
+            </div>
+
+            <!-- Demo 1: CQRS Flow -->
+            <div class="demo-content active">
+                <div class="demo-container">
+                    <div class="demo-controls">
+                        <button class="demo-btn" onclick="startCQRSDemo()">▶️ 播放</button>
+                        <button class="demo-btn secondary" onclick="resetCQRSDemo()">🔄 重置</button>
+                    </div>
+                    <div id="cqrs-canvas" class="animation-canvas"></div>
+                    <div id="cqrs-timeline" class="demo-timeline"></div>
+                </div>
+            </div>
+
+            <!-- Demo 2: Event-Driven -->
+            <div class="demo-content">
+                <div class="demo-container">
+                    <div class="demo-controls">
+                        <button class="demo-btn" onclick="startEventDemo()">▶️ 播放</button>
+                        <button class="demo-btn secondary" onclick="resetEventDemo()">🔄 重置</button>
+                    </div>
+                    <div id="event-canvas" class="animation-canvas"></div>
+                    <div id="event-timeline" class="demo-timeline"></div>
+                </div>
+            </div>
+
+            <!-- Demo 3: Outbox Pattern -->
+            <div class="demo-content">
+                <div class="demo-container">
+                    <div class="demo-controls">
+                        <button class="demo-btn" onclick="startOutboxDemo()">▶️ 播放</button>
+                        <button class="demo-btn secondary" onclick="resetOutboxDemo()">🔄 重置</button>
+                    </div>
+                    <div id="outbox-canvas" class="animation-canvas"></div>
+                    <div id="outbox-timeline" class="demo-timeline"></div>
+                </div>
+            </div>
+
+            <!-- Demo 4: Distributed Tracing -->
+            <div class="demo-content">
+                <div class="demo-container">
+                    <div class="demo-controls">
+                        <button class="demo-btn" onclick="startTracingDemo()">▶️ 播放</button>
+                        <button class="demo-btn secondary" onclick="resetTracingDemo()">🔄 重置</button>
+                    </div>
+                    <div id="tracing-canvas" class="animation-canvas"></div>
+                    <div id="tracing-timeline" class="demo-timeline"></div>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -1027,7 +1330,7 @@
         <div class="container">
             <h2 class="section-title">🎯 核心特性</h2>
             <p class="section-subtitle">强大的功能，优雅的 API，生产就绪的框架</p>
-            
+
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-icon">🚀</div>
@@ -1123,7 +1426,7 @@
 
 <span class="code-comment">// 发送命令到订单服务</span>
 <span class="code-keyword">var</span> result = <span class="code-keyword">await</span> mediator.SendAsync&lt;
-    <span class="code-type">CreateOrderCommand</span>, 
+    <span class="code-type">CreateOrderCommand</span>,
     <span class="code-type">Order</span>
 &gt;(command);
 
@@ -1168,7 +1471,7 @@
 <span class="code-comment">// 4. 增加目标账户</span>
 <span class="code-comment">// 5. 发送通知</span>
 <span class="code-keyword">var</span> result = <span class="code-keyword">await</span> mediator.SendAsync&lt;
-    <span class="code-type">TransferMoneyCommand</span>, 
+    <span class="code-type">TransferMoneyCommand</span>,
     <span class="code-type">Transaction</span>
 &gt;(command);</code></pre>
                     </div>
@@ -1234,7 +1537,7 @@
 
 <span class="code-comment">// 战斗服务处理 (< 1μs)</span>
 <span class="code-keyword">var</span> result = <span class="code-keyword">await</span> mediator.SendAsync&lt;
-    <span class="code-type">PlayerAttackCommand</span>, 
+    <span class="code-type">PlayerAttackCommand</span>,
     <span class="code-type">AttackResult</span>
 &gt;(command);
 
@@ -1369,7 +1672,7 @@ app.Run();
 ) : <span class="code-type">IRequest</span>&lt;<span class="code-type">User</span>&gt;;
 
 <span class="code-comment">// 4. 实现 Handler (自动注册)</span>
-<span class="code-keyword">public class</span> <span class="code-type">CreateUserHandler</span> 
+<span class="code-keyword">public class</span> <span class="code-type">CreateUserHandler</span>
     : <span class="code-type">IRequestHandler</span>&lt;<span class="code-type">CreateUserCommand</span>, <span class="code-type">User</span>&gt;
 {
     <span class="code-keyword">public async</span> <span class="code-type">Task</span>&lt;<span class="code-type">CatgaResult</span>&lt;<span class="code-type">User</span>&gt;&gt; HandleAsync(
@@ -1408,10 +1711,10 @@ app.Run();
     {
         <span class="code-comment">// 2. 业务逻辑</span>
         <span class="code-keyword">var</span> product = <span class="code-keyword">await</span> _productRepo.GetByIdAsync(
-            request.ProductId, 
+            request.ProductId,
             cancellationToken
         );
-        
+
         <span class="code-keyword">if</span> (product == <span class="code-keyword">null</span>)
             <span class="code-keyword">return</span> <span class="code-type">CatgaResult</span>&lt;<span class="code-type">Order</span>&gt;.Failure(<span class="code-string">$"产品不存在: {request.ProductId}"</span>);
 
@@ -1719,13 +2022,13 @@ docker run -d --name nats <span class="code-keyword">\</span>
         function toggleStep(element) {
             const details = element.querySelector('.step-details');
             const wasActive = element.classList.contains('active');
-            
+
             // Close all steps
             document.querySelectorAll('.path-step').forEach(step => {
                 step.classList.remove('active');
                 step.querySelector('.step-details').classList.remove('show');
             });
-            
+
             // Toggle current step
             if (!wasActive) {
                 element.classList.add('active');
@@ -1740,7 +2043,7 @@ docker run -d --name nats <span class="code-keyword">\</span>
             tabs.forEach((tab, i) => {
                 tab.classList.toggle('active', i === index);
             });
-            
+
             // Update content
             const contents = document.querySelectorAll('.use-case-content');
             contents.forEach((content, i) => {
@@ -1755,7 +2058,7 @@ docker run -d --name nats <span class="code-keyword">\</span>
             tabs.forEach((tab, i) => {
                 tab.classList.toggle('active', i === index);
             });
-            
+
             // Update panels
             const panels = document.querySelectorAll('.code-panel');
             panels.forEach((panel, i) => {
@@ -1775,6 +2078,384 @@ docker run -d --name nats <span class="code-keyword">\</span>
                     });
                 }
             });
+        });
+
+        // Switch demo tabs
+        function switchDemo(index) {
+            const tabs = document.querySelectorAll('.demo-tab');
+            tabs.forEach((tab, i) => {
+                tab.classList.toggle('active', i === index);
+            });
+            
+            const contents = document.querySelectorAll('.demo-content');
+            contents.forEach((content, i) => {
+                content.classList.toggle('active', i === index);
+            });
+        }
+
+        // Animation utilities
+        function addTimelineItem(timelineId, action, type = 'success') {
+            const timeline = document.getElementById(timelineId);
+            const item = document.createElement('div');
+            item.className = `timeline-item ${type}`;
+            item.innerHTML = `
+                <div class="time">${new Date().toLocaleTimeString()}</div>
+                <div class="action">${action}</div>
+            `;
+            timeline.appendChild(item);
+            timeline.scrollTop = timeline.scrollHeight;
+        }
+
+        function createNode(canvas, id, text, x, y) {
+            const node = document.createElement('div');
+            node.className = 'node';
+            node.id = id;
+            node.style.left = `${x}px`;
+            node.style.top = `${y}px`;
+            node.innerHTML = `<div>${text}</div>`;
+            canvas.appendChild(node);
+            return node;
+        }
+
+        function activateNode(nodeId) {
+            document.getElementById(nodeId)?.classList.add('active');
+        }
+
+        function deactivateNode(nodeId) {
+            document.getElementById(nodeId)?.classList.remove('active');
+        }
+
+        function successNode(nodeId) {
+            const node = document.getElementById(nodeId);
+            if (node) {
+                node.classList.remove('active');
+                node.classList.add('success');
+            }
+        }
+
+        async function animateMessage(canvas, startX, startY, endX, endY, icon = '📨') {
+            const message = document.createElement('div');
+            message.className = 'message';
+            message.textContent = icon;
+            message.style.left = `${startX}px`;
+            message.style.top = `${startY}px`;
+            canvas.appendChild(message);
+
+            await new Promise(resolve => setTimeout(resolve, 50));
+            message.classList.add('animating');
+
+            // Calculate movement
+            const duration = 2000;
+            const steps = 60;
+            const stepDuration = duration / steps;
+            const deltaX = (endX - startX) / steps;
+            const deltaY = (endY - startY) / steps;
+
+            for (let i = 0; i < steps; i++) {
+                await new Promise(resolve => setTimeout(resolve, stepDuration));
+                message.style.left = `${startX + deltaX * i}px`;
+                message.style.top = `${startY + deltaY * i}px`;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+            canvas.removeChild(message);
+        }
+
+        // Demo 1: CQRS Flow
+        let cqrsRunning = false;
+
+        function resetCQRSDemo() {
+            const canvas = document.getElementById('cqrs-canvas');
+            const timeline = document.getElementById('cqrs-timeline');
+            canvas.innerHTML = '';
+            timeline.innerHTML = '';
+            cqrsRunning = false;
+
+            // Create nodes
+            createNode(canvas, 'cqrs-client', '客户端', 50, 170);
+            createNode(canvas, 'cqrs-mediator', 'Mediator', 250, 170);
+            createNode(canvas, 'cqrs-handler', 'Handler', 450, 100);
+            createNode(canvas, 'cqrs-db', '数据库', 650, 170);
+            createNode(canvas, 'cqrs-event', '事件总线', 450, 240);
+        }
+
+        async function startCQRSDemo() {
+            if (cqrsRunning) return;
+            cqrsRunning = true;
+            resetCQRSDemo();
+
+            const canvas = document.getElementById('cqrs-canvas');
+
+            // Step 1: Client sends command
+            await new Promise(r => setTimeout(r, 500));
+            activateNode('cqrs-client');
+            addTimelineItem('cqrs-timeline', '客户端发送命令: CreateOrderCommand');
+            
+            await animateMessage(canvas, 110, 190, 270, 190, '📝');
+            deactivateNode('cqrs-client');
+
+            // Step 2: Mediator routes to handler
+            activateNode('cqrs-mediator');
+            addTimelineItem('cqrs-timeline', 'Mediator 路由到 Handler');
+            
+            await animateMessage(canvas, 310, 180, 470, 130, '➡️');
+            deactivateNode('cqrs-mediator');
+
+            // Step 3: Handler processes
+            activateNode('cqrs-handler');
+            addTimelineItem('cqrs-timeline', 'Handler 处理业务逻辑');
+            await new Promise(r => setTimeout(r, 1000));
+
+            // Step 4: Save to database
+            await animateMessage(canvas, 510, 120, 670, 180, '💾');
+            activateNode('cqrs-db');
+            addTimelineItem('cqrs-timeline', '保存数据到数据库');
+            await new Promise(r => setTimeout(r, 800));
+            successNode('cqrs-db');
+
+            // Step 5: Publish event
+            await animateMessage(canvas, 490, 140, 490, 260, '📢');
+            deactivateNode('cqrs-handler');
+            activateNode('cqrs-event');
+            addTimelineItem('cqrs-timeline', '发布事件: OrderCreatedEvent');
+            await new Promise(r => setTimeout(r, 800));
+            
+            successNode('cqrs-handler');
+            successNode('cqrs-event');
+            addTimelineItem('cqrs-timeline', '✅ CQRS 流程完成', 'success');
+            
+            cqrsRunning = false;
+        }
+
+        // Demo 2: Event-Driven
+        let eventRunning = false;
+
+        function resetEventDemo() {
+            const canvas = document.getElementById('event-canvas');
+            const timeline = document.getElementById('event-timeline');
+            canvas.innerHTML = '';
+            timeline.innerHTML = '';
+            eventRunning = false;
+
+            createNode(canvas, 'event-publisher', '发布者', 50, 170);
+            createNode(canvas, 'event-bus', '事件总线', 300, 170);
+            createNode(canvas, 'event-handler1', 'Handler 1', 550, 50);
+            createNode(canvas, 'event-handler2', 'Handler 2', 550, 170);
+            createNode(canvas, 'event-handler3', 'Handler 3', 550, 290);
+        }
+
+        async function startEventDemo() {
+            if (eventRunning) return;
+            eventRunning = true;
+            resetEventDemo();
+
+            const canvas = document.getElementById('event-canvas');
+
+            // Step 1: Publish event
+            await new Promise(r => setTimeout(r, 500));
+            activateNode('event-publisher');
+            addTimelineItem('event-timeline', '发布事件: OrderCreatedEvent');
+            
+            await animateMessage(canvas, 110, 190, 320, 190, '📢');
+            deactivateNode('event-publisher');
+            successNode('event-publisher');
+
+            // Step 2: Event bus receives
+            activateNode('event-bus');
+            addTimelineItem('event-timeline', '事件总线接收事件');
+            await new Promise(r => setTimeout(r, 500));
+
+            // Step 3: Broadcast to all handlers (parallel)
+            addTimelineItem('event-timeline', '广播到所有订阅者');
+            
+            const promises = [
+                animateMessage(canvas, 360, 180, 570, 70, '📨'),
+                animateMessage(canvas, 360, 190, 570, 190, '📨'),
+                animateMessage(canvas, 360, 200, 570, 310, '📨')
+            ];
+            
+            await Promise.all(promises);
+            deactivateNode('event-bus');
+
+            // Step 4: Handlers process in parallel
+            activateNode('event-handler1');
+            activateNode('event-handler2');
+            activateNode('event-handler3');
+            
+            addTimelineItem('event-timeline', 'Handler 1: 发送邮件通知');
+            await new Promise(r => setTimeout(r, 800));
+            successNode('event-handler1');
+
+            addTimelineItem('event-timeline', 'Handler 2: 更新库存');
+            await new Promise(r => setTimeout(r, 800));
+            successNode('event-handler2');
+
+            addTimelineItem('event-timeline', 'Handler 3: 创建发货单');
+            await new Promise(r => setTimeout(r, 800));
+            successNode('event-handler3');
+
+            addTimelineItem('event-timeline', '✅ 事件处理完成', 'success');
+            
+            eventRunning = false;
+        }
+
+        // Demo 3: Outbox Pattern
+        let outboxRunning = false;
+
+        function resetOutboxDemo() {
+            const canvas = document.getElementById('outbox-canvas');
+            const timeline = document.getElementById('outbox-timeline');
+            canvas.innerHTML = '';
+            timeline.innerHTML = '';
+            outboxRunning = false;
+
+            createNode(canvas, 'outbox-service', '服务', 50, 100);
+            createNode(canvas, 'outbox-db', '数据库', 250, 100);
+            createNode(canvas, 'outbox-table', 'Outbox 表', 250, 240);
+            createNode(canvas, 'outbox-publisher', 'Publisher', 500, 170);
+            createNode(canvas, 'outbox-mq', '消息队列', 700, 170);
+        }
+
+        async function startOutboxDemo() {
+            if (outboxRunning) return;
+            outboxRunning = true;
+            resetOutboxDemo();
+
+            const canvas = document.getElementById('outbox-canvas');
+
+            // Step 1: Service handles command
+            await new Promise(r => setTimeout(r, 500));
+            activateNode('outbox-service');
+            addTimelineItem('outbox-timeline', '服务处理命令');
+            await new Promise(r => setTimeout(r, 800));
+
+            // Step 2: Save business data (Transaction start)
+            addTimelineItem('outbox-timeline', '⚡ 开始数据库事务');
+            await animateMessage(canvas, 110, 120, 270, 120, '💾');
+            activateNode('outbox-db');
+            addTimelineItem('outbox-timeline', '保存业务数据');
+            await new Promise(r => setTimeout(r, 800));
+
+            // Step 3: Save to outbox (Same transaction)
+            await animateMessage(canvas, 290, 140, 290, 260, '📝');
+            activateNode('outbox-table');
+            addTimelineItem('outbox-timeline', '写入 Outbox 表（同一事务）');
+            await new Promise(r => setTimeout(r, 800));
+
+            // Step 4: Commit transaction
+            successNode('outbox-db');
+            successNode('outbox-table');
+            addTimelineItem('outbox-timeline', '✅ 提交事务（原子操作）', 'success');
+            deactivateNode('outbox-service');
+            successNode('outbox-service');
+            await new Promise(r => setTimeout(r, 1000));
+
+            // Step 5: Outbox publisher reads
+            activateNode('outbox-publisher');
+            addTimelineItem('outbox-timeline', 'Outbox Publisher 轮询');
+            await animateMessage(canvas, 310, 260, 520, 190, '🔍');
+            await new Promise(r => setTimeout(r, 800));
+
+            // Step 6: Publish to message queue
+            addTimelineItem('outbox-timeline', '发布消息到队列');
+            await animateMessage(canvas, 560, 190, 720, 190, '📨');
+            deactivateNode('outbox-publisher');
+            successNode('outbox-publisher');
+            activateNode('outbox-mq');
+            await new Promise(r => setTimeout(r, 800));
+            
+            successNode('outbox-mq');
+            addTimelineItem('outbox-timeline', '✅ 消息可靠发送（确保一致性）', 'success');
+            
+            outboxRunning = false;
+        }
+
+        // Demo 4: Distributed Tracing
+        let tracingRunning = false;
+
+        function resetTracingDemo() {
+            const canvas = document.getElementById('tracing-canvas');
+            const timeline = document.getElementById('tracing-timeline');
+            canvas.innerHTML = '';
+            timeline.innerHTML = '';
+            tracingRunning = false;
+
+            createNode(canvas, 'trace-api', 'API Gateway', 50, 170);
+            createNode(canvas, 'trace-order', '订单服务', 250, 100);
+            createNode(canvas, 'trace-payment', '支付服务', 450, 100);
+            createNode(canvas, 'trace-inventory', '库存服务', 250, 240);
+            createNode(canvas, 'trace-notify', '通知服务', 450, 240);
+            createNode(canvas, 'trace-otel', 'OpenTelemetry', 650, 170);
+        }
+
+        async function startTracingDemo() {
+            if (tracingRunning) return;
+            tracingRunning = true;
+            resetTracingDemo();
+
+            const canvas = document.getElementById('tracing-canvas');
+
+            // Step 1: API receives request
+            await new Promise(r => setTimeout(r, 500));
+            activateNode('trace-api');
+            addTimelineItem('tracing-timeline', '🔗 创建 Trace: trace-id-123');
+            addTimelineItem('tracing-timeline', 'API Gateway 接收请求');
+            await new Promise(r => setTimeout(r, 800));
+
+            // Step 2: Call order service
+            await animateMessage(canvas, 110, 180, 270, 120, '📞');
+            activateNode('trace-order');
+            addTimelineItem('tracing-timeline', 'Span 1: 调用订单服务（传递 TraceContext）');
+            await new Promise(r => setTimeout(r, 1000));
+
+            // Step 3: Order calls payment
+            await animateMessage(canvas, 310, 110, 470, 110, '💳');
+            activateNode('trace-payment');
+            addTimelineItem('tracing-timeline', 'Span 1.1: 调用支付服务');
+            await new Promise(r => setTimeout(r, 1000));
+            successNode('trace-payment');
+            deactivateNode('trace-payment');
+
+            // Step 4: Order calls inventory
+            await animateMessage(canvas, 290, 140, 290, 260, '📦');
+            activateNode('trace-inventory');
+            addTimelineItem('tracing-timeline', 'Span 1.2: 调用库存服务');
+            await new Promise(r => setTimeout(r, 1000));
+            successNode('trace-inventory');
+            deactivateNode('trace-inventory');
+
+            // Step 5: Order complete
+            successNode('trace-order');
+            deactivateNode('trace-order');
+
+            // Step 6: Call notification service
+            await animateMessage(canvas, 90, 200, 470, 260, '📧');
+            activateNode('trace-notify');
+            addTimelineItem('tracing-timeline', 'Span 2: 调用通知服务');
+            await new Promise(r => setTimeout(r, 1000));
+            successNode('trace-notify');
+            deactivateNode('trace-notify');
+            
+            successNode('trace-api');
+            deactivateNode('trace-api');
+
+            // Step 7: Send to OpenTelemetry
+            addTimelineItem('tracing-timeline', '📊 发送追踪数据到 OpenTelemetry');
+            activateNode('trace-otel');
+            await new Promise(r => setTimeout(r, 800));
+            successNode('trace-otel');
+            
+            addTimelineItem('tracing-timeline', '✅ 分布式追踪完成（全链路可视化）', 'success');
+            
+            tracingRunning = false;
+        }
+
+        // Initialize first demo on page load
+        window.addEventListener('load', () => {
+            resetCQRSDemo();
+            resetEventDemo();
+            resetOutboxDemo();
+            resetTracingDemo();
         });
     </script>
 </body>

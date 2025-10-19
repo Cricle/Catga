@@ -81,7 +81,7 @@ public class InboxMessage
     public DateTime? ProcessedAt { get; set; }
 
     /// <summary>
-    /// Processing result (JSON, if any)
+    /// Processing result (Base64-encoded, format depends on registered IMessageSerializer)
     /// </summary>
     public string? ProcessingResult { get; set; }
 

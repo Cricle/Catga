@@ -2,405 +2,260 @@
 
 <div align="center">
 
-**🚀 高性能、100% AOT 兼容的 .NET 9 CQRS 框架**
+<img src="docs/web/favicon.svg" width="120" height="120" alt="Catga Logo"/>
+
+**⚡ 现代化、高性能的 .NET CQRS/Event Sourcing 框架**
 
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![Native AOT](https://img.shields.io/badge/Native-AOT-success?logo=dotnet)](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**零反射 · 源生成器 · 完全抽象 · 生产就绪**
+**零反射 · 源生成 · 可插拔 · 生产就绪**
 
-[快速开始](#-快速开始) · [核心特性](#-核心特性) · [文档](./docs/articles/getting-started.md) · [示例](./examples/MinimalApi/)
+[快速开始](#-快速开始) · [核心特性](#-核心特性) · [架构设计](#-架构设计) · [文档](https://cricle.github.io/Catga/) · [示例](./examples/)
 
 </div>
 
 ---
 
-## 📖 简介
+## ✨ 核心特性
 
-Catga 是专为 .NET 9 和 Native AOT 设计的现代化 CQRS 框架，通过**可插拔架构**和**源生成器**实现极致性能和灵活性。
+### 🚀 高性能
 
-### 🎯 核心价值
+- **零反射**：所有代码生成均在编译时完成
+- **零分配**：使用 `ArrayPool<T>` 和 `Span<T>` 优化内存
+- **AOT 友好**：100% 支持 Native AOT 编译
+- **高吞吐**：命令处理 56K QPS，事件发布 2.3M QPS
 
-- ⚡ **极致性能** - 零反射、ArrayPool 优化、Span<T> 零拷贝
-- 🔥 **100% AOT 兼容** - 所有组件支持 Native AOT 编译
-- 🔌 **完全可插拔** - 传输层、持久化层、序列化层均可替换
-- 🌐 **分布式就绪** - 支持 NATS、Redis 传输与持久化
-- 🎨 **最小配置** - 2 行代码启动，自动依赖注入
-- 🔍 **完整可观测** - OpenTelemetry + Jaeger 原生集成
+### 🔌 可插拔架构
 
-### 🌟 创新特性
+- **传输层可选**：InMemory / Redis / NATS
+- **持久化层可选**：InMemory / Redis / NATS JetStream
+- **序列化器可选**：JSON / MemoryPack / 自定义
+- **独立演化**：每个组件独立发布，按需选择
 
-1. **可插拔架构** - 传输、持久化、序列化完全抽象，随时切换实现
-2. **Source Generator** - 零反射，编译时代码生成，AOT 优先
-3. **SafeRequestHandler** - 零 try-catch，自动错误处理和回滚
-4. **ArrayPool 优化** - 统一的内存管理和编码/解码优化
-5. **.NET Aspire 集成** - 原生支持云原生开发
+### 🎯 开发体验
 
----
+- **最小配置**：2 行代码启动
+- **Source Generator**：自动注册 Handler，零配置
+- **类型安全**：强类型消息定义
+- **异常处理**：自动错误处理和回滚
 
-## 🏗️ 架构设计
+### 🌐 分布式就绪
 
-### 可插拔分层架构
-
-```
-┌─────────────────────────────────────┐
-│         Application Layer            │  你的业务代码
-│    (Commands, Events, Handlers)      │
-└─────────────────────────────────────┘
-                 ↓
-┌─────────────────────────────────────┐
-│       Serialization Layer            │  可选择
-│  • Catga.Serialization.Json          │  ├─ JSON (AOT 部分支持)
-│  • Catga.Serialization.MemoryPack    │  └─ MemoryPack (100% AOT)
-└─────────────────────────────────────┘
-                 ↓
-┌─────────────────────────────────────┐
-│      Infrastructure Layer            │  可选择
-│  传输层:                              │
-│  • Catga.Transport.InMemory          │  ├─ 内存（开发/测试）
-│  • Catga.Transport.Nats              │  ├─ NATS (Pub/Sub + JetStream)
-│  • Catga.Transport.Redis             │  └─ Redis (Pub/Sub + Streams)
-│                                      │
-│  持久化层:                            │
-│  • Catga.Persistence.InMemory        │  ├─ 内存（开发/测试）
-│  • Catga.Persistence.Nats            │  ├─ NATS (JetStream Streams)
-│  • Catga.Persistence.Redis           │  └─ Redis (优化 Outbox/Inbox)
-└─────────────────────────────────────┘
-                 ↓
-┌─────────────────────────────────────┐
-│           Core Library               │  抽象接口
-│              Catga                   │  • IMessageSerializer
-│                                      │  • IMessageTransport
-│                                      │  • IEventStore
-│                                      │  • IOutboxStore / IInboxStore
-└─────────────────────────────────────┘
-```
-
-### 核心设计原则
-
-1. **依赖倒置** - 依赖抽象而非具体实现
-2. **单一职责** - 每个库只负责一个领域
-3. **开放封闭** - 对扩展开放，对修改封闭
-4. **接口隔离** - 最小化接口依赖
+- **Outbox/Inbox 模式**：保证消息可靠性
+- **Event Sourcing**：完整的事件溯源支持
+- **分布式追踪**：内置 OpenTelemetry 集成
+- **.NET Aspire**：原生云原生开发支持
 
 ---
 
-## 🚀 快速开始
+## 📋 快速开始
 
-### 1. 安装核心包
+### 1. 安装包
 
 ```bash
 # 核心框架
 dotnet add package Catga
 
-# 选择序列化器（二选一）
-dotnet add package Catga.Serialization.Json           # JSON (兼容性好)
-dotnet add package Catga.Serialization.MemoryPack     # MemoryPack (100% AOT)
-
-# 选择传输层（开发环境推荐内存，生产环境推荐 NATS/Redis）
-dotnet add package Catga.Transport.InMemory           # 内存传输
-# dotnet add package Catga.Transport.Nats             # NATS 传输
-# dotnet add package Catga.Transport.Redis            # Redis 传输
+# 选择传输层（开发推荐 InMemory，生产推荐 NATS/Redis）
+dotnet add package Catga.Transport.InMemory
 
 # 选择持久化层（可选）
-dotnet add package Catga.Persistence.InMemory         # 内存持久化
-# dotnet add package Catga.Persistence.Nats           # NATS 持久化
-# dotnet add package Catga.Persistence.Redis          # Redis 持久化
+dotnet add package Catga.Persistence.InMemory
 
 # Source Generator（自动注册）
 dotnet add package Catga.SourceGenerator
-
-# ASP.NET Core 集成（可选）
-dotnet add package Catga.AspNetCore
 ```
 
-### 2. 定义消息
-
-```csharp
-using Catga.Messages;
-using MemoryPack;
-
-// 使用 MemoryPack 实现 AOT 友好序列化
-[MemoryPackable]
-public partial record CreateOrder(string OrderId, decimal Amount) : IRequest<OrderResult>;
-
-[MemoryPackable]
-public partial record OrderResult(string OrderId, DateTime CreatedAt);
-
-[MemoryPackable]
-public partial record OrderCreatedEvent(string OrderId, decimal Amount) : IEvent;
-```
-
-### 3. 实现 Handler
-
-```csharp
-using Catga.Handlers;
-
-// 命令 Handler - 使用 SafeRequestHandler 自动处理异常
-public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
-{
-    private readonly ILogger<CreateOrderHandler> _logger;
-
-    public CreateOrderHandler(ILogger<CreateOrderHandler> logger) : base(logger)
-    {
-        _logger = logger;
-    }
-
-    protected override async Task<OrderResult> HandleCoreAsync(
-        CreateOrder request,
-        CancellationToken ct)
-    {
-        // 业务逻辑，框架自动捕获异常并转换为 CatgaResult
-        if (request.Amount <= 0)
-            throw new CatgaException("Amount must be positive");
-
-        _logger.LogInformation("Creating order {OrderId}", request.OrderId);
-
-        // 保存订单...
-        await Task.Delay(10, ct); // 模拟数据库操作
-
-        return new OrderResult(request.OrderId, DateTime.UtcNow);
-    }
-}
-
-// 事件 Handler - 处理 OrderCreatedEvent
-public class SendEmailHandler : IEventHandler<OrderCreatedEvent>
-{
-    private readonly ILogger<SendEmailHandler> _logger;
-
-    public SendEmailHandler(ILogger<SendEmailHandler> logger)
-    {
-        _logger = logger;
-    }
-
-    public async Task HandleAsync(OrderCreatedEvent @event, CancellationToken ct)
-    {
-        _logger.LogInformation("Sending email for order {@event.OrderId}");
-        await Task.Delay(5, ct); // 模拟发送邮件
-    }
-}
-```
-
-### 4. 配置服务
+### 2. 配置服务
 
 ```csharp
 using Catga;
-using Catga.Serialization.MemoryPack;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. 添加 Catga 核心
-builder.Services.AddCatga();
-
-// 2. 选择序列化器
-builder.Services.AddMessageSerializer<MemoryPackMessageSerializer>();
-
-// 3. 选择传输层
-builder.Services.AddInMemoryTransport();
-
-// 4. 选择持久化层（可选）
-builder.Services.AddInMemoryPersistence();
-
-// 5. 自动注册所有 Handler（Source Generator）
-builder.Services.AddGeneratedHandlers();
+// 添加 Catga 核心 + 传输层 + 持久化层
+builder.Services
+    .AddCatga()
+    .AddInMemoryTransport()
+    .AddInMemoryPersistence();
 
 var app = builder.Build();
-
-// 6. 使用 Catga
-app.MapPost("/orders", async (CreateOrder cmd, ICatgaMediator mediator) =>
-{
-    var result = await mediator.SendAsync<CreateOrder, OrderResult>(cmd);
-    return result.IsSuccess
-        ? Results.Ok(result.Value)
-        : Results.BadRequest(result.Error);
-});
-
 app.Run();
 ```
 
-**就这么简单！** 无需手动注册 Handler，无需 try-catch，框架自动处理一切。
-
----
-
-## 🎯 核心特性
-
-### 1. 可插拔架构 - 随时切换实现
-
-#### 开发环境（内存实现）
+### 3. 定义消息
 
 ```csharp
-services.AddCatga()
-    .AddMessageSerializer<JsonMessageSerializer>()
-    .AddInMemoryTransport()
-    .AddInMemoryPersistence();
+using Catga;
+
+// 命令（用于修改状态）
+public record CreateOrderCommand(string ProductName, decimal Amount) 
+    : IRequest<OrderResult>;
+
+// 响应
+public record OrderResult(Guid OrderId, DateTime CreatedAt);
+
+// 事件（表示已发生的事实）
+public record OrderCreatedEvent(Guid OrderId, string ProductName, decimal Amount) 
+    : INotification;
 ```
 
-#### 生产环境（NATS + Redis）
+### 4. 实现处理器
 
 ```csharp
-services.AddCatga()
-    .AddMessageSerializer<MemoryPackMessageSerializer>()  // 100% AOT
-    .AddNatsTransport(options =>
+using Catga;
+
+// 命令处理器
+public class CreateOrderCommandHandler 
+    : IRequestHandler<CreateOrderCommand, OrderResult>
 {
-    options.Url = "nats://localhost:4222";
-    })
-    .AddNatsPersistence()
-    .AddRedisPersistence(options =>
+    private readonly ICatgaMediator _mediator;
+    private readonly ILogger<CreateOrderCommandHandler> _logger;
+
+    public CreateOrderCommandHandler(
+        ICatgaMediator mediator,
+        ILogger<CreateOrderCommandHandler> logger)
     {
-        options.Configuration = "localhost:6379";
+        _mediator = mediator;
+        _logger = logger;
+    }
+
+    public async Task<OrderResult> HandleAsync(
+        CreateOrderCommand request,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Creating order for {ProductName}", request.ProductName);
+
+        // 业务逻辑
+        var orderId = Guid.NewGuid();
+        var createdAt = DateTime.UtcNow;
+
+        // 发布事件
+        await _mediator.PublishAsync(
+            new OrderCreatedEvent(orderId, request.ProductName, request.Amount),
+            cancellationToken);
+
+        return new OrderResult(orderId, createdAt);
+    }
+}
+
+// 事件处理器（可以有多个）
+public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent>
+{
+    private readonly ILogger<OrderCreatedEventHandler> _logger;
+
+    public OrderCreatedEventHandler(ILogger<OrderCreatedEventHandler> logger)
+    {
+        _logger = logger;
+    }
+
+    public async Task HandleAsync(
+        OrderCreatedEvent @event,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Order {@OrderId} created", @event.OrderId);
+        // 发送邮件、更新库存等...
+    }
+}
+```
+
+### 5. 使用 Mediator
+
+```csharp
+app.MapPost("/orders", async (
+    CreateOrderCommand command,
+    ICatgaMediator mediator,
+    CancellationToken ct) =>
+{
+    var result = await mediator.SendAsync<CreateOrderCommand, OrderResult>(command, ct);
+    return Results.Ok(result);
 });
 ```
 
-**只需修改配置，无需改动业务代码！**
+**就这么简单！** 🎉
 
-### 2. 序列化抽象 - AOT 友好
+---
 
-所有传输和持久化组件都使用 `IMessageSerializer` 抽象：
+## 🏗️ 架构设计
 
-```csharp
-public interface IMessageSerializer
-{
-    byte[] Serialize<T>(T obj);
-    T? Deserialize<T>(byte[] data);
-}
+### 分层架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Application Layer                       │
+│                (Your Business Logic)                         │
+│        Commands, Queries, Events, Handlers                  │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    Infrastructure Layer                      │
+│                                                              │
+│  Transport:                  Persistence:                   │
+│  • InMemory (Dev/Test)       • InMemory (Dev/Test)          │
+│  • Redis (Pub/Sub/Streams)   • Redis (Hash/ZSet)            │
+│  • NATS (Core/JetStream)     • NATS (JetStream)             │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                        Core Library                          │
+│                          (Catga)                             │
+│                                                              │
+│  Abstractions:                                              │
+│  • ICatgaMediator        • IMessageTransport                │
+│  • IRequest<T>           • IEventStore                      │
+│  • INotification         • IOutboxStore / IInboxStore       │
+│  • IMessageSerializer                                       │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**实现**：
-- ✅ `JsonMessageSerializer` - 使用 `System.Text.Json`（部分 AOT 支持）
-- ✅ `MemoryPackMessageSerializer` - 使用 `MemoryPack`（100% AOT 支持）
-- ✅ 自定义实现 - 实现 `IMessageSerializer` 接口即可
+### 核心概念
 
-**切换序列化器**：
+#### CQRS (Command Query Responsibility Segregation)
 
 ```csharp
-// 开发环境：使用 JSON（可读性好）
-services.AddMessageSerializer<JsonMessageSerializer>();
+// Command - 修改状态（一对一）
+public record CreateOrderCommand(...) : IRequest<OrderResult>;
+public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, OrderResult> { }
 
-// 生产环境：使用 MemoryPack（性能最优）
-services.AddMessageSerializer<MemoryPackMessageSerializer>();
+// Query - 读取数据（一对一）
+public record GetOrderQuery(...) : IRequest<OrderDto>;
+public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, OrderDto> { }
+
+// Event - 已发生的事实（一对多）
+public record OrderCreatedEvent(...) : INotification;
+public class EmailHandler : IEventHandler<OrderCreatedEvent> { }
+public class InventoryHandler : IEventHandler<OrderCreatedEvent> { }
 ```
 
-### 3. SafeRequestHandler - 零异常处理
-
-**传统方式**：充满 try-catch
+#### 消息传输
 
 ```csharp
-// ❌ 传统方式
-public async Task<IActionResult> CreateOrder(CreateOrderRequest request)
-{
-    try
-    {
-        var order = await _orderService.CreateAsync(request);
-        return Ok(order);
-    }
-    catch (ValidationException ex)
-    {
-        _logger.LogWarning(ex, "Validation failed");
-        return BadRequest(ex.Message);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Unexpected error");
-        return StatusCode(500, "Internal error");
-    }
-}
+// 发送命令/查询（等待响应）
+var result = await mediator.SendAsync<CreateOrderCommand, OrderResult>(command);
+
+// 发布事件（异步通知）
+await mediator.PublishAsync(new OrderCreatedEvent(...));
+
+// 批量发布事件
+await mediator.PublishBatchAsync(events);
 ```
 
-**Catga 方式**：框架自动处理
+#### Outbox/Inbox 模式
 
-```csharp
-// ✅ Catga 方式
-public class CreateOrderHandler : SafeRequestHandler<CreateOrder, OrderResult>
-{
-    protected override async Task<OrderResult> HandleCoreAsync(
-        CreateOrder request,
-        CancellationToken ct)
-    {
-        // 直接抛出异常，框架自动转换为 CatgaResult.Failure
-        if (request.Amount <= 0)
-            throw new CatgaException("Amount must be positive");
-
-        var order = await _repository.SaveAsync(...);
-        return new OrderResult(order.Id, order.CreatedAt);
-    }
-
-    // 可选：自定义错误处理和自动回滚
-    protected override async Task<CatgaResult<OrderResult>> OnBusinessErrorAsync(
-        CreateOrder request,
-        CatgaException exception,
-        CancellationToken ct)
-    {
-        _logger.LogWarning("Order creation failed, rolling back...");
-
-        // 自动回滚逻辑
-        await RollbackChangesAsync();
-
-        return CatgaResult<OrderResult>.Failure(
-            $"Order creation failed: {exception.Message}. All changes rolled back.",
-            exception);
-    }
-}
+**Outbox 模式**（保证消息至少发送一次）:
+```
+1. 业务逻辑 + Outbox 消息 → 同一事务
+2. 后台轮询 Outbox → 发送到消息队列
+3. 标记为已发送
 ```
 
-详见：[自定义错误处理指南](./docs/guides/custom-error-handling.md)
-
-### 4. ArrayPool 优化 - 零分配
-
-Catga 提供统一的 `ArrayPoolHelper` 工具类，用于所有编码/解码操作：
-
-```csharp
-// UTF8 编码/解码（零分配）
-var bytes = ArrayPoolHelper.GetBytes("Hello");
-var str = ArrayPoolHelper.GetString(bytes);
-
-// Base64 编码/解码（零分配）
-var base64 = ArrayPoolHelper.ToBase64String(bytes);
-var decoded = ArrayPoolHelper.FromBase64String(base64);
+**Inbox 模式**（保证消息至多处理一次）:
 ```
-
-**内部实现**：使用 `ArrayPool<byte>` 和 `Span<T>` 实现零拷贝操作。
-
-### 5. Source Generator - 零配置
-
-```csharp
-// 自动注册所有 Handler
-builder.Services.AddGeneratedHandlers();   // 发现所有 IRequestHandler, IEventHandler
-
-// 自动注册所有服务
-builder.Services.AddGeneratedServices();   // 发现所有 [CatgaService] 标记的服务
-```
-
-**生成的代码**在编译时创建，零运行时开销，100% AOT 兼容。
-
-详见：[Source Generator 使用指南](./docs/guides/source-generator.md)
-
-### 6. 事件驱动架构
-
-```csharp
-// 定义事件
-[MemoryPackable]
-public partial record OrderCreatedEvent(string OrderId, decimal Amount) : IEvent;
-
-// 多个 Handler 可以处理同一个事件
-public class SendEmailHandler : IEventHandler<OrderCreatedEvent>
-{
-    public async Task HandleAsync(OrderCreatedEvent @event, CancellationToken ct)
-    {
-        await _emailService.SendAsync($"Order {@event.OrderId} created");
-    }
-}
-
-public class UpdateInventoryHandler : IEventHandler<OrderCreatedEvent>
-{
-    public async Task HandleAsync(OrderCreatedEvent @event, CancellationToken ct)
-    {
-        await _inventory.ReserveAsync(@event.OrderId, ...);
-    }
-}
-
-// 发布事件（自动调用所有 Handler）
-await _mediator.PublishAsync(new OrderCreatedEvent(orderId, amount));
+1. 接收消息 → 检查 Inbox（幂等性）
+2. 如果已处理 → 跳过
+3. 如果未处理 → 处理 + Inbox 记录 → 同一事务
 ```
 
 ---
@@ -409,52 +264,201 @@ await _mediator.PublishAsync(new OrderCreatedEvent(orderId, amount));
 
 ### 核心包
 
-| 包名 | 用途 | AOT |
-|------|------|-----|
-| `Catga` | 核心框架（抽象接口） | ✅ |
-| `Catga.SourceGenerator` | 源生成器 | ✅ |
-| `Catga.AspNetCore` | ASP.NET Core 集成 | ✅ |
-
-### 序列化层
-
-| 包名 | 用途 | AOT |
-|------|------|-----|
-| `Catga.Serialization.Json` | JSON 序列化 | ⚠️ 部分 |
-| `Catga.Serialization.MemoryPack` | MemoryPack 序列化 | ✅ 100% |
+| 包名 | 描述 | 版本 |
+|------|------|------|
+| [Catga](https://www.nuget.org/packages/Catga) | 核心框架（抽象接口） | ![NuGet](https://img.shields.io/nuget/v/Catga.svg) |
+| [Catga.SourceGenerator](https://www.nuget.org/packages/Catga.SourceGenerator) | 源代码生成器 | ![NuGet](https://img.shields.io/nuget/v/Catga.SourceGenerator.svg) |
+| [Catga.AspNetCore](https://www.nuget.org/packages/Catga.AspNetCore) | ASP.NET Core 集成 | ![NuGet](https://img.shields.io/nuget/v/Catga.AspNetCore.svg) |
 
 ### 传输层
 
-| 包名 | 用途 | AOT |
-|------|------|-----|
-| `Catga.Transport.InMemory` | 内存传输（开发/测试） | ✅ |
-| `Catga.Transport.Nats` | NATS 传输 | ✅ |
-| `Catga.Transport.Redis` | Redis 传输 | ✅ |
+| 包名 | 描述 | 特性 |
+|------|------|------|
+| [Catga.Transport.InMemory](https://www.nuget.org/packages/Catga.Transport.InMemory) | 内存传输 | 开发/测试 |
+| [Catga.Transport.Redis](https://www.nuget.org/packages/Catga.Transport.Redis) | Redis 传输 | QoS 0 (Pub/Sub)<br>QoS 1 (Streams) |
+| [Catga.Transport.Nats](https://www.nuget.org/packages/Catga.Transport.Nats) | NATS 传输 | Core / JetStream |
 
 ### 持久化层
 
-| 包名 | 用途 | AOT |
+| 包名 | 描述 | 特性 |
+|------|------|------|
+| [Catga.Persistence.InMemory](https://www.nuget.org/packages/Catga.Persistence.InMemory) | 内存持久化 | FusionCache |
+| [Catga.Persistence.Redis](https://www.nuget.org/packages/Catga.Persistence.Redis) | Redis 持久化 | Hash / Sorted Set |
+| [Catga.Persistence.Nats](https://www.nuget.org/packages/Catga.Persistence.Nats) | NATS 持久化 | JetStream Streams |
+
+### 序列化层
+
+| 包名 | 描述 | AOT |
 |------|------|-----|
-| `Catga.Persistence.InMemory` | 内存持久化（开发/测试） | ✅ |
-| `Catga.Persistence.Nats` | NATS JetStream 持久化 | ✅ |
-| `Catga.Persistence.Redis` | Redis 持久化 | ✅ |
+| [Catga.Serialization.Json](https://www.nuget.org/packages/Catga.Serialization.Json) | JSON 序列化 | ⚠️ 部分支持 |
+| [Catga.Serialization.MemoryPack](https://www.nuget.org/packages/Catga.Serialization.MemoryPack) | MemoryPack 序列化 | ✅ 100% 支持 |
+
+### 可选包
+
+| 包名 | 描述 |
+|------|------|
+| [Catga.Hosting.Aspire](https://www.nuget.org/packages/Catga.Hosting.Aspire) | .NET Aspire 集成 |
 
 ---
 
-## 🎨 完整示例
+## 🎯 配置示例
 
-### OrderSystem - 订单系统
+### 开发环境（内存实现）
 
-完整的电商订单系统，展示所有 Catga 功能：
+```csharp
+builder.Services
+    .AddCatga()
+    .AddInMemoryTransport()
+    .AddInMemoryPersistence();
+```
 
-**功能演示**：
+### 生产环境（Redis）
+
+```csharp
+builder.Services
+    .AddCatga()
+    .AddRedisTransport(options =>
+    {
+        options.Configuration = "localhost:6379";
+        options.DefaultQoS = QoSLevel.QoS1; // 使用 Streams（可靠）
+    })
+    .AddRedisPersistence(options =>
+    {
+        options.Configuration = "localhost:6379";
+    });
+```
+
+### 生产环境（NATS）
+
+```csharp
+builder.Services
+    .AddCatga()
+    .AddNatsTransport(options =>
+    {
+        options.Url = "nats://localhost:4222";
+    })
+    .AddNatsPersistence(options =>
+    {
+        options.Url = "nats://localhost:4222";
+        options.StreamName = "CATGA_EVENTS";
+    });
+```
+
+### 混合环境（Redis 传输 + NATS 持久化）
+
+```csharp
+builder.Services
+    .AddCatga()
+    .AddRedisTransport(options =>
+    {
+        options.Configuration = "localhost:6379";
+    })
+    .AddNatsPersistence(options =>
+    {
+        options.Url = "nats://localhost:4222";
+    });
+```
+
+---
+
+## 📊 性能基准
+
+基于 BenchmarkDotNet 的真实测试结果：
+
+| 操作 | 平均耗时 | 分配内存 | 吞吐量 |
+|------|---------|---------|--------|
+| **命令处理** | 17.6 μs | 408 B | **56K QPS** |
+| **查询处理** | 16.1 μs | 408 B | **62K QPS** |
+| **事件发布** | 428 ns | 0 B | **2.3M QPS** |
+| **序列化 (MemoryPack)** | 48 ns | 0 B | **20M/s** |
+| **分布式 ID 生成** | 485 ns | 0 B | **2M/s** |
+
+**关键优势**:
+- ⚡ 命令处理 < 20μs
+- 🔥 事件发布接近零分配
+- 📦 MemoryPack 比 JSON 快 4-8x
+- 🎯 并发场景线性扩展
+
+完整报告: [性能基准文档](./docs/PERFORMANCE-REPORT.md)
+
+---
+
+## 📚 文档
+
+### 快速入门
+
+- [**Getting Started**](./docs/articles/getting-started.md) - 5 分钟快速上手
+- [**架构设计**](./docs/articles/architecture.md) - 深入理解架构
+- [**配置指南**](./docs/articles/configuration.md) - 完整配置选项
+- [**AOT 部署**](./docs/articles/aot-deployment.md) - Native AOT 发布
+
+### 核心概念
+
+- [**CQRS 模式**](./docs/architecture/cqrs.md) - Command/Query 分离
+- [**架构概览**](./docs/architecture/overview.md) - 系统架构设计
+- [**职责边界**](./docs/architecture/RESPONSIBILITY-BOUNDARY.md) - 组件职责划分
+
+### 使用指南
+
+- [**序列化配置**](./docs/guides/serialization.md) - JSON/MemoryPack 配置
+- [**Source Generator**](./docs/guides/source-generator.md) - 自动代码生成
+- [**错误处理**](./docs/guides/custom-error-handling.md) - 异常处理最佳实践
+- [**自动注册**](./docs/guides/auto-di-registration.md) - 依赖注入自动注册
+
+### 可观测性
+
+- [**OpenTelemetry 集成**](./docs/articles/opentelemetry-integration.md) - 分布式追踪
+- [**分布式追踪指南**](./docs/observability/DISTRIBUTED-TRACING-GUIDE.md) - 跨服务链路
+- [**Jaeger 完整指南**](./docs/observability/JAEGER-COMPLETE-GUIDE.md) - 链路搜索技巧
+- [**监控指南**](./docs/production/MONITORING-GUIDE.md) - Prometheus/Grafana
+
+### 高级主题
+
+- [**分布式事务**](./docs/patterns/DISTRIBUTED-TRANSACTION-V2.md) - Catga 事务模式
+- [**AOT 序列化**](./docs/aot/serialization-aot-guide.md) - AOT 兼容序列化
+- [**分布式部署**](./docs/distributed/README.md) - 分布式系统架构
+
+### 部署
+
+- [**Native AOT 发布**](./docs/deployment/native-aot-publishing.md) - AOT 编译发布
+- [**Kubernetes 部署**](./docs/deployment/kubernetes.md) - K8s 部署指南
+- [**Kubernetes 架构**](./docs/distributed/KUBERNETES.md) - K8s 架构设计
+
+### API 参考
+
+- [**Mediator API**](./docs/api/mediator.md) - ICatgaMediator 接口
+- [**消息定义**](./docs/api/messages.md) - IRequest/INotification
+- [**完整文档索引**](./docs/INDEX.md) - 所有文档列表
+
+---
+
+## 💡 示例项目
+
+### MinimalApi - 最简示例
+
+最简单的 Catga 应用，展示核心功能：
+
+```bash
+cd examples/MinimalApi
+dotnet run
+```
+
+[查看代码](./examples/MinimalApi/) | [阅读文档](./examples/MinimalApi/README.md)
+
+### OrderSystem - 完整订单系统
+
+生产级电商订单系统，展示所有 Catga 功能：
+
+**功能演示**:
 - ✅ 订单创建成功流程
 - ❌ 订单创建失败 + 自动回滚
 - 📢 事件驱动（多个 Handler）
 - 🔍 查询分离（Read Models）
 - 🎯 自定义错误处理
 - 📊 OpenTelemetry 追踪（Jaeger）
+- 🚀 .NET Aspire 集成
 
-**运行示例**：
+**运行示例**:
 
 ```bash
 cd examples/OrderSystem.AppHost
@@ -470,92 +474,102 @@ curl -X POST http://localhost:5000/demo/order-success
 curl -X POST http://localhost:5000/demo/order-failure
 ```
 
-详见：[OrderSystem 文档](./examples/OrderSystem.Api/README.md)
+[查看代码](./examples/OrderSystem.Api/) | [阅读文档](./examples/OrderSystem.Api/README.md)
 
 ---
 
-## 📊 性能
+## 🔍 为什么选择 Catga？
 
-基于 BenchmarkDotNet 的真实测试结果：
+### vs MediatR
 
-| 操作 | 平均耗时 | 分配内存 | 吞吐量 |
-|------|---------|---------|--------|
-| 命令处理 | 17.6 μs | 408 B | 56K QPS |
-| 查询处理 | 16.1 μs | 408 B | 62K QPS |
-| 事件发布 | 428 ns | 0 B | 2.3M QPS |
-| MemoryPack 序列化 | 48 ns | 0 B | 20M/s |
-| 分布式 ID 生成 | 485 ns | 0 B | 2M/s |
+| 特性 | Catga | MediatR |
+|------|-------|---------|
+| **性能** | 56K QPS | ~40K QPS |
+| **AOT 支持** | ✅ 100% | ❌ 部分 |
+| **分布式** | ✅ 内置 NATS/Redis | ❌ 需要扩展 |
+| **Outbox/Inbox** | ✅ 内置 | ❌ 需要自己实现 |
+| **Event Sourcing** | ✅ 完整支持 | ❌ 不支持 |
+| **Source Generator** | ✅ 自动注册 | ⚠️ 手动注册 |
 
-**关键优势**：
-- ⚡ 命令处理 < 20μs
-- 🔥 事件发布接近零分配
-- 📦 MemoryPack 比 JSON 快 4-8x
-- 🎯 并发场景线性扩展
+### vs MassTransit
 
-完整报告：[性能基准文档](./docs/PERFORMANCE-REPORT.md)
+| 特性 | Catga | MassTransit |
+|------|-------|-------------|
+| **学习曲线** | ✅ 简单 | ⚠️ 复杂 |
+| **配置复杂度** | ✅ 最小 | ⚠️ 较高 |
+| **AOT 支持** | ✅ 100% | ❌ 不支持 |
+| **内存占用** | ✅ 极低 | ⚠️ 较高 |
+| **适用场景** | CQRS/ES | 企业服务总线 |
 
----
+### vs CAP
 
-## 📚 文档
-
-### 快速入门
-- **[Getting Started](./docs/articles/getting-started.md)** - 5 分钟快速上手
-- **[Architecture](./docs/articles/architecture.md)** - 架构设计详解
-- **[Configuration Guide](./docs/articles/configuration.md)** - 完整配置选项
-- **[Native AOT Deployment](./docs/articles/aot-deployment.md)** - AOT 部署指南
-
-### 核心概念
-- [消息定义](./docs/api/messages.md) - IRequest, IEvent
-- [Mediator API](./docs/api/mediator.md) - ICatgaMediator
-- [完整文档索引](./docs/INDEX.md)
-
-### 示例项目
-- **[MinimalApi](./examples/MinimalApi/)** - 最简单的示例
-- **[OrderSystem](./examples/OrderSystem.Api/)** - 完整的订单系统
-- [序列化配置](./docs/guides/serialization.md) - IMessageSerializer
-
-### 可观测性
-- [分布式追踪指南](./docs/observability/DISTRIBUTED-TRACING-GUIDE.md) - 跨服务链路
-- [Jaeger 完整指南](./docs/observability/JAEGER-COMPLETE-GUIDE.md) - 搜索技巧
-- [监控指南](./docs/production/MONITORING-GUIDE.md) - Prometheus/Grafana
-
-### 高级功能
-- [分布式事务](./docs/patterns/DISTRIBUTED-TRANSACTION-V2.md) - Catga Pattern
-- [AOT 序列化指南](./docs/aot/serialization-aot-guide.md)
-- [Source Generator](./docs/guides/source-generator.md)
-
-### 部署
-- [Native AOT 发布](./docs/deployment/native-aot-publishing.md)
-- [Kubernetes 部署](./docs/deployment/kubernetes.md)
+| 特性 | Catga | CAP |
+|------|-------|-----|
+| **CQRS** | ✅ 原生支持 | ❌ 不支持 |
+| **Event Sourcing** | ✅ 完整支持 | ❌ 不支持 |
+| **AOT 支持** | ✅ 100% | ❌ 不支持 |
+| **传输层** | NATS/Redis/InMemory | RabbitMQ/Kafka/等 |
+| **适用场景** | CQRS/ES 应用 | 最终一致性事务 |
 
 ---
 
 ## 🤝 贡献
 
-欢迎贡献！请查看 [CONTRIBUTING.md](./CONTRIBUTING.md)
+欢迎贡献！我们欢迎：
+
+- 🐛 Bug 报告
+- ✨ 功能请求
+- 📖 文档改进
+- 💻 代码贡献
+
+请查看 [CONTRIBUTING.md](./CONTRIBUTING.md) 了解详情。
 
 ---
 
-## 📄 许可证
+## 📝 更新日志
 
-MIT License - 详见 [LICENSE](./LICENSE)
+查看 [CHANGELOG.md](./docs/CHANGELOG.md) 了解每个版本的变更。
 
 ---
 
 ## 🙏 致谢
 
-- [MediatR](https://github.com/jbogard/MediatR) - 灵感来源
-- [MassTransit](https://github.com/MassTransit/MassTransit) - 分布式模式
-- [MemoryPack](https://github.com/Cysharp/MemoryPack) - 序列化
-- [NATS](https://nats.io/) - 消息传输
-- [OpenTelemetry](https://opentelemetry.io/) - 可观测性
+Catga 受以下优秀项目启发：
+
+- [**MediatR**](https://github.com/jbogard/MediatR) - CQRS 模式实现
+- [**MassTransit**](https://github.com/MassTransit/MassTransit) - 分布式消息模式
+- [**MemoryPack**](https://github.com/Cysharp/MemoryPack) - 高性能序列化
+- [**NATS**](https://nats.io/) - 云原生消息系统
+- [**OpenTelemetry**](https://opentelemetry.io/) - 可观测性标准
+
+---
+
+## 📄 许可证
+
+本项目采用 [MIT License](./LICENSE) 开源。
+
+---
+
+## 🌟 Star History
+
+如果这个项目对你有帮助，请给我们一个 Star！⭐
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Cricle/Catga&type=Date)](https://star-history.com/#Cricle/Catga&Date)
+
+---
+
+## 📞 联系我们
+
+- **GitHub Issues**: [提交问题](https://github.com/Cricle/Catga/issues)
+- **GitHub Discussions**: [参与讨论](https://github.com/Cricle/Catga/discussions)
+- **官方文档**: [https://cricle.github.io/Catga/](https://cricle.github.io/Catga/)
 
 ---
 
 <div align="center">
 
-**⭐ 如果这个项目对你有帮助，请给我们一个 Star！**
+**Made with ❤️ by Catga Contributors**
 
-Made with ❤️ by Catga Contributors
+[⬆ 回到顶部](#catga)
 
 </div>

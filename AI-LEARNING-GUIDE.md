@@ -113,13 +113,13 @@ public interface IMessageTransport
 {
     // 发布事件（一对多）
     Task PublishAsync<TMessage>(TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default);
-    
+
     // 发送命令/查询（一对一）
     Task<TResponse> SendAsync<TRequest, TResponse>(TRequest request, TransportContext? context = null, CancellationToken cancellationToken = default);
-    
+
     // 订阅事件
     Task SubscribeAsync<TMessage>(Func<TMessage, TransportContext, CancellationToken, Task> handler, CancellationToken cancellationToken = default);
-    
+
     // 批量发布
     Task PublishBatchAsync<TMessage>(IEnumerable<TMessage> messages, TransportContext? context = null, CancellationToken cancellationToken = default);
 }
@@ -260,23 +260,23 @@ builder.Services.AddCatga()
 
 // 或者使用 Redis
 builder.Services.AddCatga()
-    .AddRedisTransport(options => 
+    .AddRedisTransport(options =>
     {
         options.Configuration = "localhost:6379";
         options.DefaultQoS = QoSLevel.QoS1; // QoS0: Pub/Sub, QoS1: Streams
     })
-    .AddRedisPersistence(options => 
+    .AddRedisPersistence(options =>
     {
         options.Configuration = "localhost:6379";
     });
 
 // 或者使用 NATS
 builder.Services.AddCatga()
-    .AddNatsTransport(options => 
+    .AddNatsTransport(options =>
     {
         options.Url = "nats://localhost:4222";
     })
-    .AddNatsPersistence(options => 
+    .AddNatsPersistence(options =>
     {
         options.Url = "nats://localhost:4222";
         options.StreamName = "CATGA_EVENTS";
@@ -290,22 +290,22 @@ app.Run();
 
 ```csharp
 // 命令（修改状态）
-public record CreateOrderCommand(Guid OrderId, string ProductName, decimal Amount) 
+public record CreateOrderCommand(Guid OrderId, string ProductName, decimal Amount)
     : IRequest<CreateOrderResponse>;
 
 public record CreateOrderResponse(bool Success, string OrderNumber);
 
 // 查询（读取数据）
-public record GetOrderQuery(Guid OrderId) 
+public record GetOrderQuery(Guid OrderId)
     : IRequest<OrderDto>;
 
 public record OrderDto(Guid Id, string ProductName, decimal Amount, string Status);
 
 // 事件（已发生的事实）
-public record OrderCreatedEvent(Guid OrderId, string ProductName, decimal Amount) 
+public record OrderCreatedEvent(Guid OrderId, string ProductName, decimal Amount)
     : INotification;
 
-public record OrderCancelledEvent(Guid OrderId, string Reason) 
+public record OrderCancelledEvent(Guid OrderId, string Reason)
     : INotification;
 ```
 
@@ -325,7 +325,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
     }
 
     public async Task<CreateOrderResponse> HandleAsync(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken cancellationToken = default)
     {
         // 1. 验证
@@ -364,11 +364,11 @@ public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, OrderDto>
     }
 
     public async Task<OrderDto> HandleAsync(
-        GetOrderQuery request, 
+        GetOrderQuery request,
         CancellationToken cancellationToken = default)
     {
         var order = await _repository.GetByIdAsync(request.OrderId, cancellationToken);
-        
+
         return new OrderDto(order.Id, order.ProductName, order.Amount, order.Status);
     }
 }
@@ -384,13 +384,13 @@ public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent>
     }
 
     public async Task HandleAsync(
-        OrderCreatedEvent @event, 
+        OrderCreatedEvent @event,
         CancellationToken cancellationToken = default)
     {
         // 发送邮件通知
         await _emailService.SendOrderConfirmationAsync(
-            @event.OrderId, 
-            @event.ProductName, 
+            @event.OrderId,
+            @event.ProductName,
             cancellationToken);
     }
 }
@@ -406,12 +406,12 @@ public class OrderCreatedInventoryHandler : IEventHandler<OrderCreatedEvent>
     }
 
     public async Task HandleAsync(
-        OrderCreatedEvent @event, 
+        OrderCreatedEvent @event,
         CancellationToken cancellationToken = default)
     {
         // 更新库存
         await _inventoryService.ReserveStockAsync(
-            @event.ProductName, 
+            @event.ProductName,
             cancellationToken);
     }
 }
@@ -435,16 +435,16 @@ public class OrdersController : ControllerBase
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
     {
         var command = new CreateOrderCommand(
-            Guid.NewGuid(), 
-            request.ProductName, 
+            Guid.NewGuid(),
+            request.ProductName,
             request.Amount);
 
         var response = await _mediator.SendAsync<CreateOrderCommand, CreateOrderResponse>(
-            command, 
+            command,
             HttpContext.RequestAborted);
 
-        return response.Success 
-            ? Ok(new { orderNumber = response.OrderNumber }) 
+        return response.Success
+            ? Ok(new { orderNumber = response.OrderNumber })
             : BadRequest();
     }
 
@@ -455,11 +455,11 @@ public class OrdersController : ControllerBase
         var query = new GetOrderQuery(orderId);
 
         var result = await _mediator.SendAsync<GetOrderQuery, OrderDto>(
-            query, 
+            query,
             HttpContext.RequestAborted);
 
-        return result != null 
-            ? Ok(result) 
+        return result != null
+            ? Ok(result)
             : NotFound();
     }
 
@@ -496,7 +496,7 @@ builder.Services.AddCatgaHandlers(); // Source Generator 自动生成的扩展�
 
 ### ⚠️ 关键约束
 
-1. **序列化抽象**: 
+1. **序列化抽象**:
    - ❌ **禁止**直接使用 `System.Text.Json.JsonSerializer`
    - ✅ **必须**使用 `IMessageSerializer` 接口
    - 原因: 支持 AOT，支持多种序列化器（JSON、MemoryPack 等）
@@ -504,7 +504,7 @@ builder.Services.AddCatgaHandlers(); // Source Generator 自动生成的扩展�
    ```csharp
    // ❌ 错误
    var json = JsonSerializer.Serialize(message);
-   
+
    // ✅ 正确
    private readonly IMessageSerializer _serializer;
    var bytes = await _serializer.SerializeAsync(message, cancellationToken);
@@ -521,7 +521,7 @@ builder.Services.AddCatgaHandlers(); // Source Generator 自动生成的扩展�
    {
        Task.Run(() => DoWork()); // 没有 await，fire-and-forget
    }
-   
+
    // ✅ 正确
    public async Task ProcessAsync()
    {
@@ -557,7 +557,7 @@ builder.Services.AddCatgaHandlers(); // Source Generator 自动生成的扩展�
    ```csharp
    // ❌ 错误
    var type = Type.GetType("MyNamespace.MyClass");
-   
+
    // ✅ 正确 - 使用泛型
    var instance = GetService<MyClass>();
    ```
@@ -635,7 +635,7 @@ UpdateUserResponse
 public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, CreateOrderResponse>
 {
     public async Task<CreateOrderResponse> HandleAsync(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken cancellationToken = default)
     {
         try
@@ -677,7 +677,7 @@ public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent>
     private readonly IInboxStore _inboxStore;
 
     public async Task HandleAsync(
-        OrderCreatedEvent @event, 
+        OrderCreatedEvent @event,
         CancellationToken cancellationToken = default)
     {
         // 检查是否已处理
@@ -709,22 +709,22 @@ using Catga.Observability;
 public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, CreateOrderResponse>
 {
     public async Task<CreateOrderResponse> HandleAsync(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken cancellationToken = default)
     {
         // 创建 Activity（自动使用 CatgaActivitySource）
         using var activity = CatgaActivitySource.Source.StartActivity("CreateOrder");
-        
+
         activity?.SetTag(CatgaActivitySource.Tags.AggregateId, request.OrderId);
         activity?.SetTag(CatgaActivitySource.Tags.AggregateType, "Order");
 
         try
         {
             var order = await _repository.CreateAsync(request, cancellationToken);
-            
+
             // 标记成功
             activity?.SetSuccess(true, order.OrderNumber);
-            
+
             return new CreateOrderResponse(true, order.OrderNumber);
         }
         catch (Exception ex)
@@ -764,7 +764,7 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         {
             var response = await next();
             stopwatch.Stop();
-            
+
             _logger.LogInformation(
                 "Handled {RequestName} in {ElapsedMilliseconds}ms",
                 requestName,
@@ -907,7 +907,7 @@ public ValueTask<OrderDto> GetFromCacheAsync(Guid orderId)
     {
         return new ValueTask<OrderDto>(order); // 同步完成，无分配
     }
-    
+
     return new ValueTask<OrderDto>(LoadFromDatabaseAsync(orderId)); // 异步
 }
 ```

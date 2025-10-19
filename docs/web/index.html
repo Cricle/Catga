@@ -2601,7 +2601,7 @@ docker run -d --name nats <span class="code-keyword">\</span>
         function toggleMobileMenu() {
             const mobileNav = document.getElementById('mobileNav');
             mobileNav.classList.toggle('active');
-            
+
             // Prevent body scroll when menu is open
             if (mobileNav.classList.contains('active')) {
                 document.body.style.overflow = 'hidden';
@@ -2616,7 +2616,7 @@ docker run -d --name nats <span class="code-keyword">\</span>
             tabs.forEach((tab, i) => {
                 tab.classList.toggle('active', i === index);
             });
-            
+
             const contents = document.querySelectorAll('.demo-content');
             contents.forEach((content, i) => {
                 content.classList.toggle('active', i === index);

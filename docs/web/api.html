@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Catga API 文档 - 完整的接口参考和使用指南">
+    <meta name="keywords" content="Catga, API, Interface, CQRS, Event Sourcing, .NET">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <title>Catga API 文档 - 接口参考</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #512BD4;
+            --secondary-color: #6C63FF;
+            --accent-color: #00D9FF;
+            --text-color: #2D3748;
+            --text-light: #718096;
+            --bg-light: #F7FAFC;
+            --bg-white: #FFFFFF;
+            --border-color: #E2E8F0;
+            --success-color: #48BB78;
+            --warning-color: #F59E0B;
+            --info-color: #3B82F6;
+            --code-bg: #1E293B;
+        }
+
+        [data-theme="dark"] {
+            --primary-color: #8B7BF7;
+            --text-color: #E2E8F0;
+            --text-light: #94A3B8;
+            --bg-light: #1E293B;
+            --bg-white: #0F172A;
+            --border-color: #334155;
+            --code-bg: #0F172A;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background: var(--bg-light);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        code, pre {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Header */
+        header {
+            background: var(--bg-white);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        nav {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        .theme-toggle {
+            background: var(--bg-light);
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .theme-toggle:hover {
+            background: var(--primary-color);
+            transform: rotate(15deg);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 3rem;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: sticky;
+            top: 100px;
+            height: calc(100vh - 120px);
+            overflow-y: auto;
+            background: var(--bg-white);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .sidebar-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+
+        .sidebar-section {
+            margin-bottom: 2rem;
+        }
+
+        .sidebar-section-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-light);
+            margin-bottom: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+
+        .sidebar-links {
+            list-style: none;
+        }
+
+        .sidebar-links li {
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar-links a {
+            color: var(--text-color);
+            text-decoration: none;
+            font-size: 0.95rem;
+            display: block;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .sidebar-links a:hover {
+            background: var(--bg-light);
+            color: var(--primary-color);
+            transform: translateX(5px);
+        }
+
+        .sidebar-links a.active {
+            background: var(--primary-color);
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Main Content */
+        .main-content {
+            background: var(--bg-white);
+            border-radius: 12px;
+            padding: 3rem;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        .page-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-light);
+            margin-bottom: 2rem;
+        }
+
+        /* Interface Card */
+        .interface-card {
+            background: var(--bg-light);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .interface-card:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 8px 25px rgba(81, 43, 212, 0.1);
+        }
+
+        .interface-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .interface-name {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .interface-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: var(--info-color);
+            color: white;
+        }
+
+        .interface-badge.core {
+            background: var(--primary-color);
+        }
+
+        .interface-badge.transport {
+            background: var(--success-color);
+        }
+
+        .interface-badge.persistence {
+            background: var(--warning-color);
+        }
+
+        .interface-description {
+            color: var(--text-color);
+            margin-bottom: 1.5rem;
+            line-height: 1.8;
+        }
+
+        /* Method */
+        .method {
+            background: var(--bg-white);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .method-signature {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+
+        .method-description {
+            color: var(--text-light);
+            margin-bottom: 1rem;
+        }
+
+        .method-params {
+            margin-top: 1rem;
+        }
+
+        .param-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+        }
+
+        .param {
+            display: flex;
+            gap: 1rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .param:last-child {
+            border-bottom: none;
+        }
+
+        .param-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--primary-color);
+            min-width: 150px;
+        }
+
+        .param-desc {
+            color: var(--text-light);
+        }
+
+        /* Code Block */
+        .code-example {
+            background: var(--code-bg);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            position: relative;
+            overflow-x: auto;
+        }
+
+        .code-example pre {
+            color: #E2E8F0;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .code-example code {
+            color: #E2E8F0;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* Search */
+        .search-box {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            background: var(--bg-white);
+            color: var(--text-color);
+            transition: all 0.3s;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(81, 43, 212, 0.1);
+        }
+
+        /* Back to Top */
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 50px;
+            height: 50px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 15px rgba(81, 43, 212, 0.3);
+            transition: all 0.3s;
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .back-to-top:hover {
+            transform: translateY(-5px);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: static;
+                height: auto;
+                margin-bottom: 2rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 1.5rem;
+            }
+
+            .page-title {
+                font-size: 2rem;
+            }
+
+            .interface-name {
+                font-size: 1.3rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav>
+            <a href="index.html" class="logo">⚡ Catga</a>
+            <ul class="nav-links">
+                <li><a href="index.html">首页</a></li>
+                <li><a href="api.html" style="color: var(--primary-color)">API 文档</a></li>
+                <li><a href="../articles/getting-started.html">快速开始</a></li>
+                <li><a href="https://github.com/Cricle/Catga" target="_blank">GitHub</a></li>
+            </ul>
+            <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
+                <span class="theme-icon" id="themeIcon">🌙</span>
+            </button>
+        </nav>
+    </header>
+
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <h3 class="sidebar-title">📚 API 导航</h3>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">核心接口</div>
+                <ul class="sidebar-links">
+                    <li><a href="#mediator" class="active">ICatgaMediator</a></li>
+                    <li><a href="#pipeline">IPipelineBehavior</a></li>
+                    <li><a href="#metadata">IMessageMetadata</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">消息传输</div>
+                <ul class="sidebar-links">
+                    <li><a href="#transport">IMessageTransport</a></li>
+                    <li><a href="#rpc-client">IRpcClient</a></li>
+                    <li><a href="#rpc-server">IRpcServer</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">持久化</div>
+                <ul class="sidebar-links">
+                    <li><a href="#eventstore">IEventStore</a></li>
+                    <li><a href="#outbox">IOutboxStore</a></li>
+                    <li><a href="#inbox">IInboxStore</a></li>
+                    <li><a href="#idempotency">IIdempotencyStore</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">序列化</div>
+                <ul class="sidebar-links">
+                    <li><a href="#serializer">IMessageSerializer</a></li>
+                    <li><a href="#buffered-serializer">IBufferedMessageSerializer</a></li>
+                    <li><a href="#pooled-serializer">IPooledMessageSerializer</a></li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">辅助功能</div>
+                <ul class="sidebar-links">
+                    <li><a href="#cache">IDistributedCache</a></li>
+                    <li><a href="#lock">IDistributedLock</a></li>
+                    <li><a href="#id-generator">IDistributedIdGenerator</a></li>
+                    <li><a href="#health">IHealthCheck</a></li>
+                    <li><a href="#dlq">IDeadLetterQueue</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <h1 class="page-title">📖 Catga API 文档</h1>
+            <p class="page-subtitle">完整的接口参考和使用指南</p>
+
+            <input type="text" class="search-box" placeholder="🔍 搜索接口或方法..." id="searchBox" onkeyup="searchAPI()">
+
+            <!-- Core Interfaces -->
+            <h2 style="margin-top: 3rem; margin-bottom: 2rem; color: var(--primary-color);">核心接口</h2>
+
+            <!-- ICatgaMediator -->
+            <div class="interface-card" id="mediator">
+                <div class="interface-header">
+                    <h3 class="interface-name">ICatgaMediator</h3>
+                    <span class="interface-badge core">核心</span>
+                </div>
+                <p class="interface-description">
+                    Catga 的核心中介者接口，用于发送命令、查询和发布事件。支持 CQRS 模式，提供类型安全的消息传递。
+                </p>
+
+                <div class="method">
+                    <div class="method-signature">Task&lt;CatgaResult&lt;TResponse&gt;&gt; SendAsync&lt;TResponse&gt;(IRequest&lt;TResponse&gt; request, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">发送命令或查询请求，返回类型化的结果</div>
+                    <div class="method-params">
+                        <div class="param-title">参数:</div>
+                        <div class="param">
+                            <span class="param-name">request</span>
+                            <span class="param-desc">实现 IRequest&lt;TResponse&gt; 的请求对象</span>
+                        </div>
+                        <div class="param">
+                            <span class="param-name">cancellationToken</span>
+                            <span class="param-desc">取消令牌</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="method">
+                    <div class="method-signature">Task&lt;CatgaResult&gt; SendAsync(IRequest request, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">发送无返回值的命令</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-signature">Task PublishAsync&lt;TEvent&gt;(TEvent @event, CancellationToken cancellationToken = default) where TEvent : IEvent</div>
+                    <div class="method-description">发布事件到所有订阅者</div>
+                </div>
+
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 复制</button>
+                    <pre><code>// 发送命令
+var command = new CreateOrderCommand(orderId, customerId);
+var result = await mediator.SendAsync(command);
+
+if (result.IsSuccess)
+{
+    Console.WriteLine($"订单创建成功: {result.Value}");
+}
+
+// 发布事件
+var @event = new OrderCreatedEvent(orderId);
+await mediator.PublishAsync(@event);</code></pre>
+                </div>
+            </div>
+
+            <!-- IPipelineBehavior -->
+            <div class="interface-card" id="pipeline">
+                <div class="interface-header">
+                    <h3 class="interface-name">IPipelineBehavior&lt;TRequest, TResponse&gt;</h3>
+                    <span class="interface-badge core">核心</span>
+                </div>
+                <p class="interface-description">
+                    管道行为接口，用于在请求处理前后添加横切关注点（如日志、验证、缓存）。
+                </p>
+
+                <div class="method">
+                    <div class="method-signature">Task&lt;CatgaResult&lt;TResponse&gt;&gt; HandleAsync(TRequest request, RequestHandlerDelegate&lt;TResponse&gt; next, CancellationToken cancellationToken)</div>
+                    <div class="method-description">处理请求并调用下一个管道行为</div>
+                </div>
+
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 复制</button>
+                    <pre><code>public class LoggingBehavior&lt;TRequest, TResponse&gt; 
+    : IPipelineBehavior&lt;TRequest, TResponse&gt;
+    where TRequest : IRequest&lt;TResponse&gt;
+{
+    private readonly ILogger&lt;LoggingBehavior&lt;TRequest, TResponse&gt;&gt; _logger;
+
+    public async Task&lt;CatgaResult&lt;TResponse&gt;&gt; HandleAsync(
+        TRequest request, 
+        RequestHandlerDelegate&lt;TResponse&gt; next, 
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("处理请求: {RequestName}", typeof(TRequest).Name);
+        var result = await next();
+        _logger.LogInformation("请求完成: {Success}", result.IsSuccess);
+        return result;
+    }
+}</code></pre>
+                </div>
+            </div>
+
+            <!-- Message Transport -->
+            <h2 style="margin-top: 3rem; margin-bottom: 2rem; color: var(--success-color);" id="transport-section">消息传输</h2>
+
+            <!-- IMessageTransport -->
+            <div class="interface-card" id="transport">
+                <div class="interface-header">
+                    <h3 class="interface-name">IMessageTransport</h3>
+                    <span class="interface-badge transport">传输</span>
+                </div>
+                <p class="interface-description">
+                    统一的消息传输接口，支持发布/订阅、点对点、RPC 等多种消息模式。实现包括 InMemory、NATS、Redis。
+                </p>
+
+                <div class="method">
+                    <div class="method-signature">Task PublishAsync&lt;T&gt;(string topic, T message, MessageOptions? options = null, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">发布消息到主题（发布/订阅模式）</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-signature">Task SendAsync&lt;T&gt;(string queue, T message, MessageOptions? options = null, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">发送消息到队列（点对点模式）</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-signature">Task&lt;IDisposable&gt; SubscribeAsync&lt;T&gt;(string topic, Func&lt;T, MessageContext, Task&gt; handler, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">订阅主题消息</div>
+                </div>
+
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 复制</button>
+                    <pre><code>// 发布消息
+await transport.PublishAsync("orders.created", new OrderCreatedEvent
+{
+    OrderId = orderId,
+    Timestamp = DateTime.UtcNow
+});
+
+// 订阅消息
+var subscription = await transport.SubscribeAsync&lt;OrderCreatedEvent&gt;(
+    "orders.created",
+    async (message, context) =>
+    {
+        Console.WriteLine($"收到订单: {message.OrderId}");
+        await ProcessOrderAsync(message);
+    }
+);</code></pre>
+                </div>
+            </div>
+
+            <!-- Persistence -->
+            <h2 style="margin-top: 3rem; margin-bottom: 2rem; color: var(--warning-color);">持久化</h2>
+
+            <!-- IEventStore -->
+            <div class="interface-card" id="eventstore">
+                <div class="interface-header">
+                    <h3 class="interface-name">IEventStore</h3>
+                    <span class="interface-badge persistence">持久化</span>
+                </div>
+                <p class="interface-description">
+                    事件存储接口，用于 Event Sourcing。支持保存和加载聚合根的事件流。
+                </p>
+
+                <div class="method">
+                    <div class="method-signature">Task SaveEventsAsync(string aggregateId, IEnumerable&lt;IEvent&gt; events, long expectedVersion, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">保存聚合根的事件，支持乐观并发控制</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-signature">Task&lt;IEnumerable&lt;IEvent&gt;&gt; LoadEventsAsync(string aggregateId, long fromVersion = 0, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">加载聚合根的所有事件</div>
+                </div>
+
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 复制</button>
+                    <pre><code>// 保存事件
+var events = new[] 
+{ 
+    new OrderCreatedEvent(orderId),
+    new OrderItemAddedEvent(orderId, itemId)
+};
+await eventStore.SaveEventsAsync(orderId, events, expectedVersion: 0);
+
+// 加载事件
+var history = await eventStore.LoadEventsAsync(orderId);
+var order = Order.LoadFromHistory(history);</code></pre>
+                </div>
+            </div>
+
+            <!-- IOutboxStore -->
+            <div class="interface-card" id="outbox">
+                <div class="interface-header">
+                    <h3 class="interface-name">IOutboxStore</h3>
+                    <span class="interface-badge persistence">持久化</span>
+                </div>
+                <p class="interface-description">
+                    Outbox 模式存储接口，确保消息可靠发送。在数据库事务中保存消息，异步发布。
+                </p>
+
+                <div class="method">
+                    <div class="method-signature">Task AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">添加消息到 Outbox</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-signature">Task&lt;IEnumerable&lt;OutboxMessage&gt;&gt; GetPendingAsync(int batchSize, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">获取待发送的消息</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-signature">Task MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">标记消息已发布</div>
+                </div>
+
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 复制</button>
+                    <pre><code>// 在数据库事务中
+using var transaction = await dbContext.Database.BeginTransactionAsync();
+
+// 1. 保存业务数据
+order.Status = OrderStatus.Confirmed;
+await dbContext.SaveChangesAsync();
+
+// 2. 保存到 Outbox
+var message = new OutboxMessage
+{
+    MessageId = Guid.NewGuid().ToString(),
+    MessageType = typeof(OrderConfirmedEvent).AssemblyQualifiedName,
+    Payload = JsonSerializer.Serialize(new OrderConfirmedEvent(orderId))
+};
+await outboxStore.AddAsync(message);
+
+await transaction.CommitAsync();
+
+// 后台服务会自动发布消息</code></pre>
+                </div>
+            </div>
+
+            <!-- IInboxStore -->
+            <div class="interface-card" id="inbox">
+                <div class="interface-header">
+                    <h3 class="interface-name">IInboxStore</h3>
+                    <span class="interface-badge persistence">持久化</span>
+                </div>
+                <p class="interface-description">
+                    Inbox 模式存储接口，确保消息幂等处理。防止重复消费相同的消息。
+                </p>
+
+                <div class="method">
+                    <div class="method-signature">Task&lt;bool&gt; ExistsAsync(string messageId, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">检查消息是否已处理</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-signature">Task AddAsync(string messageId, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">记录消息已处理</div>
+                </div>
+
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 复制</button>
+                    <pre><code>// 幂等消息处理
+var messageId = context.MessageId;
+
+// 检查是否已处理
+if (await inboxStore.ExistsAsync(messageId))
+{
+    Console.WriteLine("消息已处理，跳过");
+    return;
+}
+
+// 处理消息
+await ProcessMessageAsync(message);
+
+// 记录已处理
+await inboxStore.AddAsync(messageId);</code></pre>
+                </div>
+            </div>
+
+            <!-- Serialization -->
+            <h2 style="margin-top: 3rem; margin-bottom: 2rem; color: var(--info-color);">序列化</h2>
+
+            <!-- IMessageSerializer -->
+            <div class="interface-card" id="serializer">
+                <div class="interface-header">
+                    <h3 class="interface-name">IMessageSerializer</h3>
+                    <span class="interface-badge">序列化</span>
+                </div>
+                <p class="interface-description">
+                    消息序列化接口，支持多种序列化格式（JSON、MemoryPack）。100% AOT 兼容。
+                </p>
+
+                <div class="method">
+                    <div class="method-signature">byte[] Serialize&lt;T&gt;(T value)</div>
+                    <div class="method-description">序列化对象到字节数组</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-signature">T? Deserialize&lt;T&gt;(byte[] data)</div>
+                    <div class="method-description">从字节数组反序列化对象</div>
+                </div>
+
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 复制</button>
+                    <pre><code>// 使用 JSON 序列化
+services.AddCatga()
+    .AddJsonSerializer();
+
+// 使用 MemoryPack（更快）
+services.AddCatga()
+    .AddMemoryPackSerializer();
+
+// 自定义使用
+var message = new OrderCreatedEvent(orderId);
+var data = serializer.Serialize(message);
+var restored = serializer.Deserialize&lt;OrderCreatedEvent&gt;(data);</code></pre>
+                </div>
+            </div>
+
+            <!-- IPooledMessageSerializer -->
+            <div class="interface-card" id="pooled-serializer">
+                <div class="interface-header">
+                    <h3 class="interface-name">IPooledMessageSerializer</h3>
+                    <span class="interface-badge">序列化</span>
+                </div>
+                <p class="interface-description">
+                    池化序列化接口，使用 ArrayPool 减少内存分配。适合高性能场景。
+                </p>
+
+                <div class="method">
+                    <div class="method-signature">PooledBuffer SerializePooled&lt;T&gt;(T value)</div>
+                    <div class="method-description">序列化到池化缓冲区</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-signature">T? DeserializePooled&lt;T&gt;(ReadOnlyMemory&lt;byte&gt; data)</div>
+                    <div class="method-description">从内存反序列化</div>
+                </div>
+
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 复制</button>
+                    <pre><code>// 零分配序列化
+using var buffer = pooledSerializer.SerializePooled(message);
+
+// 使用缓冲区
+await stream.WriteAsync(buffer.Memory);
+
+// 自动返回池（通过 using）</code></pre>
+                </div>
+            </div>
+
+            <!-- Auxiliary -->
+            <h2 style="margin-top: 3rem; margin-bottom: 2rem; color: var(--text-color);">辅助功能</h2>
+
+            <!-- IDistributedCache -->
+            <div class="interface-card" id="cache">
+                <div class="interface-header">
+                    <h3 class="interface-name">IDistributedCache</h3>
+                    <span class="interface-badge">辅助</span>
+                </div>
+                <p class="interface-description">
+                    分布式缓存接口，支持跨服务的数据缓存。
+                </p>
+
+                <div class="method">
+                    <div class="method-signature">Task&lt;T?&gt; GetAsync&lt;T&gt;(string key, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">获取缓存值</div>
+                </div>
+
+                <div class="method">
+                    <div class="method-signature">Task SetAsync&lt;T&gt;(string key, T value, TimeSpan? expiration = null, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">设置缓存值</div>
+                </div>
+            </div>
+
+            <!-- IDistributedLock -->
+            <div class="interface-card" id="lock">
+                <div class="interface-header">
+                    <h3 class="interface-name">IDistributedLock</h3>
+                    <span class="interface-badge">辅助</span>
+                </div>
+                <p class="interface-description">
+                    分布式锁接口，用于协调多实例的并发访问。
+                </p>
+
+                <div class="method">
+                    <div class="method-signature">Task&lt;IDisposable?&gt; AcquireLockAsync(string key, TimeSpan expiration, CancellationToken cancellationToken = default)</div>
+                    <div class="method-description">获取分布式锁</div>
+                </div>
+
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 复制</button>
+                    <pre><code>// 使用分布式锁
+await using var lockHandle = await distributedLock.AcquireLockAsync(
+    $"order:{orderId}", 
+    TimeSpan.FromSeconds(30)
+);
+
+if (lockHandle != null)
+{
+    // 持有锁，执行关键操作
+    await ProcessOrderAsync(orderId);
+}
+// 自动释放锁</code></pre>
+                </div>
+            </div>
+
+            <!-- IDistributedIdGenerator -->
+            <div class="interface-card" id="id-generator">
+                <div class="interface-header">
+                    <h3 class="interface-name">IDistributedIdGenerator</h3>
+                    <span class="interface-badge">辅助</span>
+                </div>
+                <p class="interface-description">
+                    分布式 ID 生成器（Snowflake 算法），生成全局唯一、递增的 ID。
+                </p>
+
+                <div class="method">
+                    <div class="method-signature">long GenerateId()</div>
+                    <div class="method-description">生成分布式 ID</div>
+                </div>
+
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyCode(this)">📋 复制</button>
+                    <pre><code>// 生成 ID
+var orderId = idGenerator.GenerateId();
+// 例如: 1234567890123456789 (64位 long)</code></pre>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Back to Top -->
+    <button class="back-to-top" id="backToTop" onclick="scrollToTop()">↑</button>
+
+    <script>
+        // Theme toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            document.getElementById('themeIcon').textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        }
+
+        // Initialize theme
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 
+                (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            document.getElementById('themeIcon').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+        })();
+
+        // Search
+        function searchAPI() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            const cards = document.querySelectorAll('.interface-card');
+            
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(searchTerm) ? 'block' : 'none';
+            });
+        }
+
+        // Copy code
+        function copyCode(btn) {
+            const code = btn.nextElementSibling.textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                btn.textContent = '✅ 已复制';
+                setTimeout(() => btn.textContent = '📋 复制', 2000);
+            });
+        }
+
+        // Back to top
+        window.addEventListener('scroll', () => {
+            const btn = document.getElementById('backToTop');
+            btn.classList.toggle('visible', window.scrollY > 500);
+        });
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Smooth scroll for sidebar links
+        document.querySelectorAll('.sidebar-links a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const target = document.getElementById(targetId);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    
+                    // Update active link
+                    document.querySelectorAll('.sidebar-links a').forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+

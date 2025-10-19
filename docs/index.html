@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="0;url=web/">
+    <title>Catga - 正在跳转...</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            text-align: center;
+        }
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        a {
+            color: white;
+            text-decoration: underline;
+        }
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-top: 2rem;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+    <script>
+        // 如果 5 秒后还没跳转，手动跳转
+        setTimeout(() => {
+            if (window.location.pathname === '/') {
+                window.location.href = 'web/';
+            }
+        }, 5000);
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ Catga</h1>
+        <p>正在跳转到官方文档网站...</p>
+        <p>如果没有自动跳转，请点击 <a href="web/">这里</a></p>
+        <div class="spinner"></div>
+    </div>
+</body>
+</html>
+

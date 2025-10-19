@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://your-org.github.io/Catga/sitemap.xml
+
+# 不索引的路径
+Disallow: /_site/
+Disallow: /obj/
+Disallow: /bin/
+

@@ -156,6 +156,107 @@
             display: inline;
         }
 
+        /* Back to Top Button */
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 50px;
+            height: 50px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 15px rgba(81, 43, 212, 0.3);
+            transition: all 0.3s;
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px);
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .back-to-top:hover {
+            background: var(--secondary-color);
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(81, 43, 212, 0.4);
+        }
+
+        .back-to-top-icon {
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s;
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: white;
+        }
+
+        .loading-logo {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            animation: logoFloat 2s ease-in-out infinite;
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .loading-text {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 2rem;
+            letter-spacing: 0.1em;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            margin: 0 auto;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         /* Hero Section - Enhanced */
         .hero {
             background: var(--gradient);
@@ -1949,9 +2050,9 @@
             <div class="logo">⚡ Catga</div>
             <ul class="nav-links">
                 <li><a href="#demo">动画演示</a></li>
+                <li><a href="#performance">性能对比</a></li>
                 <li><a href="#learning">学习路径</a></li>
                 <li><a href="#use-cases">使用场景</a></li>
-                <li><a href="#examples">示例</a></li>
                 <li><a href="https://github.com/Cricle/Catga" target="_blank">GitHub</a></li>
             </ul>
             <div class="nav-actions">
@@ -1972,6 +2073,7 @@
         </div>
         <ul class="mobile-nav-links">
             <li><a href="#demo" onclick="toggleMobileMenu()">🎬 动画演示</a></li>
+            <li><a href="#performance" onclick="toggleMobileMenu()">📊 性能对比</a></li>
             <li><a href="#learning" onclick="toggleMobileMenu()">🎓 学习路径</a></li>
             <li><a href="#use-cases" onclick="toggleMobileMenu()">💼 使用场景</a></li>
             <li><a href="#examples" onclick="toggleMobileMenu()">💻 代码示例</a></li>
@@ -3820,7 +3922,52 @@ docker run -d --name nats <span class="code-keyword">\</span>
         });
     </script>
 
+    <!-- Back to Top Button -->
+    <button id="backToTop" class="back-to-top" onclick="scrollToTop()" title="返回顶部">
+        <span class="back-to-top-icon">↑</span>
+    </button>
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-logo">⚡</div>
+            <div class="loading-text">Catga</div>
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
     <!-- Particles.js -->
     <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+
+    <script>
+        // Back to top functionality
+        const backToTopBtn = document.getElementById('backToTop');
+        
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 500) {
+                backToTopBtn.classList.add('visible');
+            } else {
+                backToTopBtn.classList.remove('visible');
+            }
+        });
+
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        // Loading screen
+        window.addEventListener('load', () => {
+            const loadingScreen = document.getElementById('loadingScreen');
+            setTimeout(() => {
+                loadingScreen.classList.add('hidden');
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 500);
+            }, 800);
+        });
+    </script>
 </body>
 </html>

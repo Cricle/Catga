@@ -10,6 +10,9 @@
 - **并发控制测试** - 无锁设计、限流器、熔断器、并发控制
 - **序列化对比** - MemoryPack vs System.Text.Json
 - **Pipeline 性能** - 行为链开销测试
+- **🆕 Transport 层** - InMemory 消息传输性能
+- **🆕 Persistence 层** - Outbox、Inbox、EventStore 持久化性能
+- **🆕 Memory Pool** - 内存池、PooledBufferWriter 性能
 
 ## 🚀 快速开始
 

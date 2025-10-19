@@ -1,4 +1,4 @@
-using Catga.Results;
+using Catga.Core;
 using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.Extensions.DependencyInjection;

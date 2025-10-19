@@ -12,9 +12,6 @@ public static class CorrelationIdExtensions
     /// Add CorrelationId middleware to the pipeline
     /// This should be added early in the pipeline (before routing)
     /// </summary>
-    public static IApplicationBuilder UseCorrelationId(this IApplicationBuilder app)
-    {
-        return app.UseMiddleware<CorrelationIdMiddleware>();
-    }
+    public static IApplicationBuilder UseCorrelationId(this IApplicationBuilder app) => app.UseMiddleware<CorrelationIdMiddleware>();
 }
 

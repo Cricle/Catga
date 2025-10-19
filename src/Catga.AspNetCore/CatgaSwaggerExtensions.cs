@@ -9,7 +9,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 /// <summary>Swagger/OpenAPI extensions for Catga</summary>
 public static class CatgaSwaggerExtensions
 {
-    public static RouteHandlerBuilder WithCatgaCommandMetadata<TCommand, TResponse>(this RouteHandlerBuilder builder) where TCommand : IRequest<TResponse>
+    public static RouteHandlerBuilder WithCatgaCommandMetadata<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TCommand, TResponse>(this RouteHandlerBuilder builder) where TCommand : IRequest<TResponse>
     {
         var commandName = TypeNameCache<TCommand>.Name.Replace("Command", "");
         return builder
@@ -24,7 +24,7 @@ public static class CatgaSwaggerExtensions
             .Produces<ErrorResponse>(StatusCodes.Status422UnprocessableEntity);
     }
 
-    public static RouteHandlerBuilder WithCatgaQueryMetadata<TQuery, TResponse>(this RouteHandlerBuilder builder) where TQuery : IRequest<TResponse>
+    public static RouteHandlerBuilder WithCatgaQueryMetadata<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TQuery, TResponse>(this RouteHandlerBuilder builder) where TQuery : IRequest<TResponse>
     {
         var queryName = TypeNameCache<TQuery>.Name.Replace("Query", "");
         return builder
@@ -36,7 +36,7 @@ public static class CatgaSwaggerExtensions
             .Produces(StatusCodes.Status404NotFound);
     }
 
-    public static RouteHandlerBuilder WithCatgaEventMetadata<TEvent>(this RouteHandlerBuilder builder) where TEvent : IEvent
+    public static RouteHandlerBuilder WithCatgaEventMetadata<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(this RouteHandlerBuilder builder) where TEvent : IEvent
     {
         var eventName = TypeNameCache<TEvent>.Name.Replace("Event", "");
         return builder

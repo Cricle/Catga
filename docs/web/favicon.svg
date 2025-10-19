@@ -1,13 +1,46 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#512BD4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6C63FF;stop-opacity:1" />
     </linearGradient>
   </defs>
-  <circle cx="50" cy="50" r="48" fill="url(#grad)"/>
-  <path d="M 30 35 Q 20 50 30 65 L 40 65 Q 30 50 40 35 Z" fill="white" opacity="0.9"/>
-  <path d="M 45 35 L 55 65 L 65 65 L 55 35 Z" fill="white" opacity="0.9"/>
-  <path d="M 70 35 Q 80 50 70 65 L 60 65 Q 70 50 60 35 Z" fill="white" opacity="0.9"/>
-</svg>
 
+  <!-- 圆角背景 -->
+  <rect width="64" height="64" fill="url(#bg)" rx="14"/>
+  
+  <g fill="#FFFFFF">
+    <!-- 猫头 -->
+    <circle cx="32" cy="24" r="8"/>
+    
+    <!-- 左耳（带动态感） -->
+    <path d="M 26 18 L 22 10 L 28 16 Z"/>
+    
+    <!-- 右耳（带动态感） -->
+    <path d="M 38 18 L 42 10 L 36 16 Z"/>
+    
+    <!-- 眼睛（锐利） -->
+    <ellipse cx="29" cy="23" rx="1.2" ry="1.8" fill="#512BD4"/>
+    <ellipse cx="35" cy="23" rx="1.2" ry="1.8" fill="#512BD4"/>
+    
+    <!-- 猫身体（流线型，跳跃姿态） -->
+    <path d="M 24 30 Q 20 35, 22 42 Q 25 48, 32 46 Q 39 44, 42 38 Q 44 32, 40 28 Z"/>
+    
+    <!-- 尾巴（S形曲线） -->
+    <path d="M 40 38 Q 46 40, 52 34" 
+          fill="none" 
+          stroke="#FFFFFF" 
+          stroke-width="3.5" 
+          stroke-linecap="round"/>
+    
+    <!-- 速度线条（表示迅速） -->
+    <g opacity="0.7">
+      <path d="M 8 22 L 16 22" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M 6 28 L 18 28" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+      <path d="M 10 34 L 20 34" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"/>
+    </g>
+    
+    <!-- 闪电符号（表示高性能） -->
+    <path d="M 48 26 L 45 30 L 48 30 L 44 36 L 49 32 L 46 32 Z" opacity="0.95"/>
+  </g>
+</svg>

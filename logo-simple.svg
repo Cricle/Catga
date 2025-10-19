@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="catGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#512BD4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6C63FF;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="speedGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FF6B6B;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#FFD93D;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- 简化版猫形状 -->
+  <g id="simple-cat">
+    <!-- 身体 -->
+    <path d="M 30 45 Q 25 50, 27 60 Q 30 70, 40 68 Q 50 66, 55 58 Q 58 50, 55 42 Q 52 35, 45 35 Z" 
+          fill="url(#catGrad)"/>
+
+    <!-- 头部 -->
+    <circle cx="48" cy="32" r="10" fill="url(#catGrad)"/>
+
+    <!-- 左耳 -->
+    <path d="M 42 25 L 38 18 L 44 24 Z" fill="url(#catGrad)"/>
+    
+    <!-- 右耳 -->
+    <path d="M 54 25 L 58 18 L 52 24 Z" fill="url(#catGrad)"/>
+
+    <!-- 眼睛 -->
+    <circle cx="45" cy="31" r="1.5" fill="#FFF"/>
+    <circle cx="51" cy="31" r="1.5" fill="#FFF"/>
+
+    <!-- 尾巴（流线型） -->
+    <path d="M 55 58 Q 65 60, 72 52" 
+          fill="none" 
+          stroke="url(#catGrad)" 
+          stroke-width="4" 
+          stroke-linecap="round"/>
+  </g>
+
+  <!-- 速度线条 -->
+  <g opacity="0.7">
+    <path d="M 8 35 L 22 35" stroke="url(#speedGrad)" stroke-width="2" stroke-linecap="round"/>
+    <path d="M 5 42 L 25 42" stroke="url(#speedGrad)" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M 10 49 L 28 49" stroke="url(#speedGrad)" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- 闪电 -->
+  <path d="M 62 38 L 58 44 L 62 44 L 57 52 L 64 46 L 60 46 Z" 
+        fill="#FFD93D" 
+        opacity="0.9"/>
+</svg>
+

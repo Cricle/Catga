@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <!-- 定义渐变 -->
+    <linearGradient id="catGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#512BD4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6C63FF;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- 速度线条渐变 -->
+    <linearGradient id="speedGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FF6B6B;stop-opacity:0" />
+      <stop offset="50%" style="stop-color:#FF6B6B;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#FFD93D;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- 闪电效果 -->
+    <linearGradient id="lightningGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD93D;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF6B6B;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- 背景圆形 -->
+  <circle cx="100" cy="100" r="95" fill="#F8F9FA" opacity="0.3"/>
+
+  <!-- 速度线条（表示迅速） -->
+  <g opacity="0.6">
+    <!-- 第一组速度线 -->
+    <path d="M 20 60 L 50 60" stroke="url(#speedGradient)" stroke-width="3" stroke-linecap="round">
+      <animate attributeName="opacity" values="0.3;0.8;0.3" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+    <path d="M 15 75 L 55 75" stroke="url(#speedGradient)" stroke-width="2.5" stroke-linecap="round">
+      <animate attributeName="opacity" values="0.4;0.9;0.4" dur="1.5s" begin="0.2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M 25 90 L 60 90" stroke="url(#speedGradient)" stroke-width="2" stroke-linecap="round">
+      <animate attributeName="opacity" values="0.3;0.7;0.3" dur="1.5s" begin="0.4s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- 猫的主体（抽象、流线型设计） -->
+  <g id="cat-body">
+    <!-- 猫的身体（流线型曲线，体现灵活） -->
+    <path d="M 85 80 Q 70 85, 65 100 Q 62 115, 70 130 Q 78 140, 90 138 Q 105 136, 115 125 Q 125 110, 120 95 Q 115 80, 100 78 Z" 
+          fill="url(#catGradient)" 
+          stroke="#512BD4" 
+          stroke-width="2">
+      <!-- 呼吸动画，体现生命力 -->
+      <animate attributeName="d" 
+               values="M 85 80 Q 70 85, 65 100 Q 62 115, 70 130 Q 78 140, 90 138 Q 105 136, 115 125 Q 125 110, 120 95 Q 115 80, 100 78 Z;
+                       M 85 80 Q 70 86, 64 100 Q 61 116, 71 131 Q 79 141, 91 139 Q 106 137, 116 126 Q 126 111, 121 95 Q 116 80, 100 78 Z;
+                       M 85 80 Q 70 85, 65 100 Q 62 115, 70 130 Q 78 140, 90 138 Q 105 136, 115 125 Q 125 110, 120 95 Q 115 80, 100 78 Z"
+               dur="2s" 
+               repeatCount="indefinite"/>
+    </path>
+
+    <!-- 猫的头部 -->
+    <ellipse cx="105" cy="75" rx="18" ry="20" fill="url(#catGradient)" stroke="#512BD4" stroke-width="2"/>
+
+    <!-- 猫耳朵（左） -->
+    <path d="M 90 65 L 85 50 L 95 60 Z" fill="url(#catGradient)" stroke="#512BD4" stroke-width="1.5">
+      <!-- 耳朵轻微摆动 -->
+      <animateTransform attributeName="transform"
+                        type="rotate"
+                        values="0 90 65; -5 90 65; 0 90 65"
+                        dur="3s"
+                        repeatCount="indefinite"/>
+    </path>
+
+    <!-- 猫耳朵（右） -->
+    <path d="M 120 65 L 125 50 L 115 60 Z" fill="url(#catGradient)" stroke="#512BD4" stroke-width="1.5">
+      <!-- 耳朵轻微摆动 -->
+      <animateTransform attributeName="transform"
+                        type="rotate"
+                        values="0 120 65; 5 120 65; 0 120 65"
+                        dur="3s"
+                        begin="0.5s"
+                        repeatCount="indefinite"/>
+    </path>
+
+    <!-- 猫眼睛（左，锐利的眼神） -->
+    <ellipse cx="100" cy="73" rx="2.5" ry="4" fill="#FFFFFF">
+      <!-- 眨眼动画 -->
+      <animate attributeName="ry" values="4;0.5;4" dur="4s" repeatCount="indefinite"/>
+    </ellipse>
+
+    <!-- 猫眼睛（右，锐利的眼神） -->
+    <ellipse cx="110" cy="73" rx="2.5" ry="4" fill="#FFFFFF">
+      <!-- 眨眼动画 -->
+      <animate attributeName="ry" values="4;0.5;4" dur="4s" repeatCount="indefinite"/>
+    </ellipse>
+
+    <!-- 猫的尾巴（S形曲线，体现灵活） -->
+    <path d="M 115 125 Q 130 130, 140 120 Q 150 110, 155 120" 
+          fill="none" 
+          stroke="url(#catGradient)" 
+          stroke-width="6" 
+          stroke-linecap="round">
+      <!-- 尾巴摇摆动画 -->
+      <animate attributeName="d" 
+               values="M 115 125 Q 130 130, 140 120 Q 150 110, 155 120;
+                       M 115 125 Q 130 135, 140 130 Q 150 125, 155 130;
+                       M 115 125 Q 130 130, 140 125 Q 150 115, 155 115;
+                       M 115 125 Q 130 130, 140 120 Q 150 110, 155 120"
+               dur="2s" 
+               repeatCount="indefinite"/>
+    </path>
+
+    <!-- 猫的前爪（跳跃姿态） -->
+    <ellipse cx="75" cy="128" rx="4" ry="6" fill="url(#catGradient)" opacity="0.9"/>
+    
+    <!-- 猫的后爪 -->
+    <ellipse cx="108" cy="138" rx="5" ry="7" fill="url(#catGradient)" opacity="0.9"/>
+  </g>
+
+  <!-- 闪电符号（表示速度和敏捷，CQRS 的快速处理） -->
+  <g id="lightning" opacity="0.85">
+    <path d="M 135 85 L 130 95 L 135 95 L 128 110 L 138 98 L 133 98 Z" 
+          fill="url(#lightningGradient)" 
+          stroke="#FFD93D" 
+          stroke-width="1">
+      <!-- 闪烁效果 -->
+      <animate attributeName="opacity" values="0.5;1;0.5" dur="1s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- 代码符号（表示软件框架）-->
+  <g id="code-brackets" opacity="0.7">
+    <!-- 左括号 -->
+    <path d="M 50 110 L 45 115 L 50 120" 
+          fill="none" 
+          stroke="#512BD4" 
+          stroke-width="2.5" 
+          stroke-linecap="round">
+      <animate attributeName="opacity" values="0.5;0.9;0.5" dur="2s" repeatCount="indefinite"/>
+    </path>
+    
+    <!-- 右括号 -->
+    <path d="M 160 110 L 165 115 L 160 120" 
+          fill="none" 
+          stroke="#512BD4" 
+          stroke-width="2.5" 
+          stroke-linecap="round">
+      <animate attributeName="opacity" values="0.5;0.9;0.5" dur="2s" begin="0.5s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- 粒子效果（表示数据流动） -->
+  <g id="particles">
+    <circle cx="140" cy="70" r="2" fill="#FF6B6B" opacity="0.6">
+      <animate attributeName="cx" values="140;180;140" dur="3s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;0.8;0" dur="3s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="145" cy="80" r="1.5" fill="#FFD93D" opacity="0.6">
+      <animate attributeName="cx" values="145;185;145" dur="2.5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;0.9;0" dur="2.5s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="138" cy="75" r="2.5" fill="#6C63FF" opacity="0.6">
+      <animate attributeName="cx" values="138;178;138" dur="3.5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;0.7;0" dur="3.5s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- 底部文字（可选） -->
+  <text x="100" y="175" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="url(#catGradient)" text-anchor="middle">
+    Catga
+  </text>
+  <text x="100" y="188" font-family="Arial, sans-serif" font-size="10" fill="#666" text-anchor="middle" opacity="0.8">
+    Fast &amp; Agile
+  </text>
+</svg>
+

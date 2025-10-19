@@ -2048,9 +2048,114 @@
         }
 
         /* Landscape Mobile */
+        /* Additional mobile optimizations */
+        @media (max-width: 640px) {
+            /* Hero adjustments for small screens */
+            .hero {
+                padding: 4rem 1rem 3rem;
+                min-height: auto;
+            }
+
+            .hero-title {
+                font-size: 2.5rem !important;
+            }
+
+            .hero-subtitle {
+                font-size: 0.95rem !important;
+            }
+
+            .hero-stat {
+                padding: 1.5rem 1rem;
+            }
+
+            .stat-icon {
+                font-size: 2rem;
+            }
+
+            .hero-stat-value {
+                font-size: 1.8rem;
+            }
+
+            /* Performance comparison */
+            .comparison-container {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .comparison-card {
+                margin-bottom: 1rem;
+            }
+
+            .metric-value {
+                font-size: 1.5rem;
+            }
+
+            .advantages-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            /* Learning path */
+            .path-step {
+                padding: 1.5rem;
+                flex-direction: column;
+            }
+
+            .step-number {
+                width: 50px;
+                height: 50px;
+                font-size: 1.5rem;
+                margin-bottom: 1rem;
+            }
+
+            .step-title {
+                font-size: 1.3rem;
+            }
+
+            /* Use cases */
+            .use-case-tab {
+                font-size: 0.85rem;
+                padding: 0.6rem 1rem;
+            }
+
+            .use-case-content {
+                padding: 1.5rem;
+            }
+
+            /* Demo controls */
+            .demo-btn {
+                padding: 0.6rem 1.2rem;
+                font-size: 0.85rem;
+            }
+
+            .animation-canvas {
+                height: 300px;
+            }
+
+            /* Code examples */
+            .code-panel pre {
+                font-size: 0.8rem;
+                padding: 1rem;
+            }
+
+            /* Section spacing */
+            .section {
+                padding: 3rem 1rem;
+            }
+
+            .section-title {
+                font-size: 1.75rem;
+            }
+
+            .section-subtitle {
+                font-size: 1rem;
+            }
+        }
+
         @media (max-width: 768px) and (orientation: landscape) {
             .hero {
                 padding: 3rem 2rem;
+                min-height: 80vh;
             }
 
             .animation-canvas {
@@ -2059,6 +2164,24 @@
 
             .demo-container {
                 min-height: 300px;
+            }
+        }
+
+        /* Touch improvements */
+        @media (hover: none) and (pointer: coarse) {
+            .btn,
+            .demo-btn,
+            .use-case-tab,
+            .code-tab,
+            .demo-tab {
+                min-height: 44px;
+                min-width: 44px;
+            }
+
+            .path-step,
+            .use-case-content,
+            .comparison-card {
+                cursor: default;
             }
         }
     </style>

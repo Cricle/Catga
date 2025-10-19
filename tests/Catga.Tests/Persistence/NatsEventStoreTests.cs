@@ -18,26 +18,22 @@ public class NatsEventStoreTests : IAsyncLifetime
 {
     private readonly Mock<INatsConnection> _mockConnection;
     private readonly Mock<INatsJSContext> _mockJetStream;
-    private readonly Mock<INatsKVContext> _mockKVStore;
     private readonly Mock<IMessageSerializer> _mockSerializer;
-    private NatsEventStore _eventStore = null!;
+    private NatsJSEventStore _eventStore = null!;
 
     public NatsEventStoreTests()
     {
         _mockConnection = new Mock<INatsConnection>();
         _mockJetStream = new Mock<INatsJSContext>();
-        _mockKVStore = new Mock<INatsKVContext>();
         _mockSerializer = new Mock<IMessageSerializer>();
 
         _mockConnection.Setup(x => x.CreateJetStreamContext(It.IsAny<NatsJSOpts>()))
             .Returns(_mockJetStream.Object);
-        _mockConnection.Setup(x => x.CreateKeyValueStoreContext(It.IsAny<NatsKVOpts>()))
-            .Returns(_mockKVStore.Object);
     }
 
     public Task InitializeAsync()
     {
-        _eventStore = new NatsEventStore(_mockConnection.Object, _mockSerializer.Object);
+        _eventStore = new NatsJSEventStore(_mockConnection.Object, _mockSerializer.Object);
         return Task.CompletedTask;
     }
 

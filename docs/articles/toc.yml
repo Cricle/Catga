@@ -10,6 +10,8 @@
   href: persistence-layer.md
 - name: Serialization
   href: serialization.md
+- name: OpenTelemetry Integration
+  href: opentelemetry-integration.md
 - name: Native AOT Deployment
   href: aot-deployment.md
 

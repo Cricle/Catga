@@ -3,7 +3,7 @@ using System.Diagnostics;
 namespace Catga.Observability;
 
 /// <summary>
-/// Centralized ActivitySource for Catga framework
+/// Centralized ActivitySource for Catga framework distributed tracing
 /// Provides distributed tracing for all operations
 /// </summary>
 public static class CatgaActivitySource
@@ -21,7 +21,7 @@ public static class CatgaActivitySource
     public static class Tags
     {
         // Catga type classification
-        public const string CatgaType = "catga.type";  // command | event | catga | aggregate
+        public const string CatgaType = "catga.type";  // command | event | query | aggregate
 
         // Message tags
         public const string MessageId = "catga.message.id";
@@ -42,13 +42,6 @@ public static class CatgaActivitySource
         public const string HandlerType = "catga.handler.type";
         public const string HandlerCount = "catga.handler.count";
 
-        // Catga (distributed transaction) tags
-        public const string CatgaStepId = "catga.step.id";
-        public const string CatgaStepName = "catga.step.name";
-        public const string CatgaStepType = "catga.step.type";  // forward | compensation
-        public const string CatgaStepsTotal = "catga.steps.total";
-        public const string CatgaCompensationTriggered = "catga.compensation.triggered";
-
         // Performance tags
         public const string Duration = "catga.duration.ms";
         public const string QueueTime = "catga.queue_time.ms";
@@ -58,6 +51,20 @@ public static class CatgaActivitySource
         public const string AggregateType = "catga.aggregate.type";
         public const string AggregateVersion = "catga.aggregate.version";
         public const string CommandResult = "catga.command.result";
+
+        // OpenTelemetry semantic conventions (for transport layer)
+        // See: https://opentelemetry.io/docs/specs/semconv/messaging/
+        public const string MessagingMessageId = "messaging.message.id";
+        public const string MessagingMessageType = "messaging.message.type";
+        public const string MessagingDestination = "messaging.destination.name";
+        public const string MessagingSystem = "messaging.system";
+        public const string MessagingOperation = "messaging.operation";
+
+        // Catga-specific tags
+        public const string QoS = "catga.qos";
+        public const string Handler = "catga.handler";
+        public const string StreamId = "catga.stream_id";
+        public const string EventCount = "catga.event_count";
     }
 
     /// <summary>Activity names</summary>
@@ -71,8 +78,6 @@ public static class CatgaActivitySource
         public const string HandleEvent = "Catga.HandleEvent";
         public const string Pipeline = "Catga.Pipeline";
         public const string Behavior = "Catga.Behavior";
-        public const string CatgaTransaction = "Catga.Transaction";
-        public const string CatgaCompensation = "Catga.Compensation";
     }
 
     /// <summary>Activity event names for timeline markers</summary>
@@ -86,86 +91,6 @@ public static class CatgaActivitySource
         // Event lifecycle
         public const string EventPublished = "catga.event.published";
         public const string EventReceived = "catga.event.received";
-
-        // Catga step events
-        public const string StepStarted = "catga.step.started";
-        public const string StepCompleted = "catga.step.completed";
-        public const string StepFailed = "catga.step.failed";
-
-        // Compensation events
-        public const string CompensationStarted = "catga.compensation.started";
-        public const string CompensationCompleted = "catga.compensation.completed";
-        public const string CompensationFailed = "catga.compensation.failed";
-    }
-
-    /// <summary>Create a new activity for command/query execution</summary>
-    public static Activity? StartSendActivity<TRequest>(string activityName, TRequest request, string? correlationId = null)
-    {
-        var activity = Source.StartActivity(activityName, ActivityKind.Internal);
-        if (activity == null) return null;
-
-        var requestType = typeof(TRequest).Name;
-
-        activity.SetTag(Tags.CatgaType, "command");
-        activity.SetTag(Tags.RequestType, requestType);
-        activity.SetTag(Tags.MessageType, requestType);
-
-        if (!string.IsNullOrEmpty(correlationId))
-        {
-            activity.SetTag(Tags.CorrelationId, correlationId);
-            activity.SetBaggage(Tags.CorrelationId, correlationId);
-        }
-
-        return activity;
-    }
-
-    /// <summary>Create a new activity for event publishing</summary>
-    public static Activity? StartPublishActivity<TEvent>(TEvent @event, string? correlationId = null)
-    {
-        var activity = Source.StartActivity(Activities.PublishEvent, ActivityKind.Producer);
-        if (activity == null) return null;
-
-        var eventType = typeof(TEvent).Name;
-
-        activity.SetTag(Tags.CatgaType, "event");
-        activity.SetTag(Tags.EventType, eventType);
-        activity.SetTag(Tags.EventName, eventType);
-        activity.SetTag(Tags.MessageType, eventType);
-
-        if (!string.IsNullOrEmpty(correlationId))
-        {
-            activity.SetTag(Tags.CorrelationId, correlationId);
-            activity.SetBaggage(Tags.CorrelationId, correlationId);
-        }
-
-        // Record event publication
-        activity.AddActivityEvent(Events.EventPublished, ("event.type", eventType));
-
-        return activity;
-    }
-
-    /// <summary>Create a new activity for event handling</summary>
-    public static Activity? StartHandleEventActivity<TEvent>(string handlerType, string? correlationId = null)
-    {
-        var activity = Source.StartActivity(Activities.HandleEvent, ActivityKind.Consumer);
-        if (activity == null) return null;
-
-        var eventType = typeof(TEvent).Name;
-
-        activity.SetTag(Tags.CatgaType, "event");
-        activity.SetTag(Tags.EventType, eventType);
-        activity.SetTag(Tags.HandlerType, handlerType);
-
-        if (!string.IsNullOrEmpty(correlationId))
-        {
-            activity.SetTag(Tags.CorrelationId, correlationId);
-            activity.SetBaggage(Tags.CorrelationId, correlationId);
-        }
-
-        // Record event reception
-        activity.AddActivityEvent(Events.EventReceived, ("event.type", eventType), ("handler", handlerType));
-
-        return activity;
     }
 
     /// <summary>Mark activity as success with optional result</summary>
@@ -202,4 +127,3 @@ public static class CatgaActivitySource
         activity.AddEvent(new ActivityEvent(name, tags: activityTags));
     }
 }
-

@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<IsAotCompatible>true</IsAotCompatible>
+		<IsTrimmable>true</IsTrimmable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- Aspire dependencies -->
+		<PackageReference Include="Aspire.Hosting.AppHost" />
+
+		<!-- Catga references -->
+		<ProjectReference Include="..\Catga\Catga.csproj" />
+	</ItemGroup>
+
+</Project>

@@ -4,6 +4,7 @@ using Catga.Messages;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Catga.Persistence;
@@ -195,6 +196,9 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
     /// <summary>
     /// 从 NATS 消息反序列化事件（从 headers 读取类型信息）
     /// </summary>
+    [UnconditionalSuppressMessage("Trimming", "IL2057:UnrecognizedReflectionPattern",
+        Justification = "Event type names are validated at design time and must be available in the application domain. " +
+                       "For AOT scenarios, ensure all event types are registered or use source generators.")]
     private IEvent DeserializeEventFromMessage(NatsJSMsg<byte[]> msg)
     {
         // 从 headers 获取事件类型
@@ -202,8 +206,8 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         if (string.IsNullOrEmpty(eventTypeName))
             throw new InvalidOperationException("Event type not found in message headers");
 
-        var eventType = Type.GetType(eventTypeName!)
-            ?? throw new InvalidOperationException($"Event type not found: {eventTypeName}");
+        var eventType = Type.GetType(eventTypeName!, throwOnError: false)
+            ?? throw new InvalidOperationException($"Event type not found: {eventTypeName}. Ensure the type is available in the application domain.");
 
         return (IEvent)(_serializer.Deserialize(msg.Data!, eventType) ?? throw new InvalidOperationException("Fail to deserialize msg"));
     }

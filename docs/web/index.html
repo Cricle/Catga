@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta name="description" content="Catga - 高性能 .NET CQRS/Event Sourcing 框架，支持 Native AOT">
     <meta name="keywords" content="Catga, CQRS, Event Sourcing, .NET, C#, Mediator, Native AOT, High Performance">
     <meta name="author" content="Catga Team">
@@ -20,6 +20,17 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        html {
+            overflow-x: hidden;
+            width: 100%;
+        }
+
+        body {
+            overflow-x: hidden;
+            width: 100%;
+            position: relative;
         }
 
         :root {
@@ -2050,18 +2061,29 @@
         /* Landscape Mobile */
         /* Additional mobile optimizations */
         @media (max-width: 640px) {
+            /* Prevent horizontal scroll */
+            * {
+                max-width: 100%;
+            }
+
+            .container {
+                padding: 0 0.5rem;
+            }
+
             /* Hero adjustments for small screens */
             .hero {
-                padding: 4rem 1rem 3rem;
+                padding: 3rem 0.75rem 2rem;
                 min-height: auto;
             }
 
             .hero-title {
-                font-size: 2.5rem !important;
+                font-size: 2rem !important;
+                word-break: break-word;
             }
 
             .hero-subtitle {
-                font-size: 0.95rem !important;
+                font-size: 0.9rem !important;
+                padding: 0 0.5rem;
             }
 
             .hero-stat {
@@ -2164,6 +2186,73 @@
 
             .demo-container {
                 min-height: 300px;
+            }
+        }
+
+        /* Extra small screens */
+        @media (max-width: 400px) {
+            body {
+                font-size: 13px;
+            }
+
+            .hero-title {
+                font-size: 1.75rem !important;
+            }
+
+            .hero-subtitle {
+                font-size: 0.85rem !important;
+            }
+
+            .hero-stats {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .hero-stat {
+                padding: 1rem 0.75rem;
+            }
+
+            .hero-stat-value {
+                font-size: 1.5rem;
+            }
+
+            .stat-icon {
+                font-size: 1.75rem;
+            }
+
+            .cta-buttons {
+                gap: 0.75rem;
+            }
+
+            .btn {
+                padding: 0.75rem 1.5rem;
+                font-size: 0.9rem;
+            }
+
+            .section {
+                padding: 2rem 0.5rem;
+            }
+
+            .section-title {
+                font-size: 1.5rem;
+            }
+
+            .comparison-card,
+            .advantage-card,
+            .path-step {
+                padding: 1rem;
+            }
+
+            .interface-card {
+                padding: 1rem;
+            }
+
+            .method {
+                padding: 0.75rem;
+            }
+
+            pre, code {
+                font-size: 0.75rem !important;
             }
         }
 

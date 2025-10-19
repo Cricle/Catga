@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <meta name="description" content="Catga API 文档 - 完整的接口参考和使用指南">
     <meta name="keywords" content="Catga, API, Interface, CQRS, Event Sourcing, .NET">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -17,6 +17,17 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        html {
+            overflow-x: hidden;
+            width: 100%;
+        }
+
+        body {
+            overflow-x: hidden;
+            width: 100%;
+            position: relative;
         }
 
         :root {
@@ -659,28 +670,69 @@
         }
 
         @media (max-width: 480px) {
+            .container {
+                padding: 0.25rem;
+            }
+
             .page-title {
-                font-size: 1.5rem;
+                font-size: 1.4rem;
+                word-break: break-word;
+            }
+
+            .page-subtitle {
+                font-size: 0.9rem;
             }
 
             .interface-name {
-                font-size: 1.1rem;
+                font-size: 1rem;
+                word-break: break-word;
             }
 
             .method-signature {
-                font-size: 0.75rem;
+                font-size: 0.7rem;
+                word-break: break-all;
             }
 
             .code-example pre {
-                font-size: 0.75rem;
+                font-size: 0.7rem;
             }
 
             .main-content {
-                padding: 0.75rem;
+                padding: 0.5rem;
             }
 
             .interface-card {
-                padding: 1rem;
+                padding: 0.75rem;
+            }
+
+            .method {
+                padding: 0.75rem;
+            }
+        }
+
+        @media (max-width: 360px) {
+            body {
+                font-size: 13px;
+            }
+
+            .page-title {
+                font-size: 1.25rem;
+            }
+
+            .interface-name {
+                font-size: 0.95rem;
+            }
+
+            .method-signature {
+                font-size: 0.65rem;
+            }
+
+            .interface-card {
+                padding: 0.5rem;
+            }
+
+            .main-content {
+                padding: 0.25rem;
             }
         }
     </style>

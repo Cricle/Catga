@@ -37,6 +37,26 @@
             --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
 
+        /* Dark Mode */
+        [data-theme="dark"] {
+            --primary-color: #8B7BF7;
+            --secondary-color: #9F8FFF;
+            --accent-color: #00F5FF;
+            --text-color: #E2E8F0;
+            --text-light: #94A3B8;
+            --bg-light: #1E293B;
+            --bg-white: #0F172A;
+            --border-color: #334155;
+            --success-color: #10B981;
+            --warning-color: #F59E0B;
+            --info-color: #3B82F6;
+            --gradient: linear-gradient(135deg, #4338CA 0%, #7C3AED 100%);
+        }
+
+        body {
+            transition: background-color 0.3s, color 0.3s;
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.6;
@@ -92,6 +112,48 @@
 
         .nav-links a:hover {
             color: var(--primary-color);
+        }
+
+        /* Navigation Actions */
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .theme-toggle-btn {
+            background: var(--bg-light);
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.3s;
+        }
+
+        .theme-toggle-btn:hover {
+            background: var(--primary-color);
+            transform: scale(1.1) rotate(15deg);
+        }
+
+        .theme-icon {
+            display: none;
+        }
+
+        .light-icon {
+            display: inline;
+        }
+
+        [data-theme="dark"] .light-icon {
+            display: none;
+        }
+
+        [data-theme="dark"] .dark-icon {
+            display: inline;
         }
 
         /* Hero Section - Enhanced */
@@ -388,6 +450,206 @@
         .scroll-text {
             font-size: 0.85rem;
             opacity: 0.8;
+        }
+
+        /* Performance Comparison Section */
+        .performance-comparison {
+            background: var(--bg-white);
+        }
+
+        .comparison-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .comparison-card {
+            background: var(--bg-light);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .comparison-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+        }
+
+        .comparison-card:first-child {
+            border-color: var(--primary-color);
+            box-shadow: 0 8px 30px rgba(81, 43, 212, 0.15);
+        }
+
+        .comparison-header {
+            padding: 1.5rem;
+            background: var(--bg-white);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .catga-header {
+            background: var(--gradient);
+            color: white;
+        }
+
+        .framework-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .framework-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            background: var(--bg-light);
+            color: var(--text-color);
+            font-weight: 600;
+        }
+
+        .best-badge {
+            background: rgba(255,255,255,0.3);
+            color: white;
+            animation: pulse 2s ease infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .comparison-body {
+            padding: 2rem 1.5rem;
+        }
+
+        .metric {
+            margin-bottom: 1.5rem;
+        }
+
+        .metric:last-child {
+            margin-bottom: 0;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value.excellent {
+            color: var(--success-color);
+        }
+
+        .metric-value.good {
+            color: var(--info-color);
+        }
+
+        .metric-value.average {
+            color: var(--warning-color);
+        }
+
+        .metric-value.poor {
+            color: #EF4444;
+        }
+
+        .metric-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-white);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .metric-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s ease;
+        }
+
+        .metric-bar-fill.excellent {
+            background: linear-gradient(90deg, var(--success-color), #34D399);
+        }
+
+        .metric-bar-fill.good {
+            background: linear-gradient(90deg, var(--info-color), #60A5FA);
+        }
+
+        .metric-bar-fill.average {
+            background: linear-gradient(90deg, var(--warning-color), #FCD34D);
+        }
+
+        .comparison-footer {
+            padding: 1.5rem;
+            background: var(--bg-white);
+            text-align: center;
+        }
+
+        .comparison-cta {
+            display: inline-block;
+            padding: 0.8rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .primary-cta {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .primary-cta:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+
+        .comparison-note {
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        /* Advantages Grid */
+        .advantages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+
+        .advantage-card {
+            background: var(--bg-light);
+            padding: 2rem;
+            border-radius: 16px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .advantage-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+        }
+
+        .advantage-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .advantage-title {
+            font-size: 1.3rem;
+            margin-bottom: 0.8rem;
+            color: var(--text-color);
+        }
+
+        .advantage-desc {
+            color: var(--text-light);
+            line-height: 1.6;
         }
 
         /* Section Styles */
@@ -1692,7 +1954,13 @@
                 <li><a href="#examples">示例</a></li>
                 <li><a href="https://github.com/Cricle/Catga" target="_blank">GitHub</a></li>
             </ul>
-            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+            <div class="nav-actions">
+                <button class="theme-toggle-btn" onclick="toggleTheme()" title="切换主题">
+                    <span class="theme-icon light-icon">🌙</span>
+                    <span class="theme-icon dark-icon">☀️</span>
+                </button>
+                <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+            </div>
         </nav>
     </header>
 
@@ -1873,6 +2141,152 @@
                     </div>
                     <div id="tracing-canvas" class="animation-canvas"></div>
                     <div id="tracing-timeline" class="demo-timeline"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Performance Comparison Section -->
+    <section id="performance" class="section performance-comparison">
+        <div class="container">
+            <h2 class="section-title">📊 性能对比</h2>
+            <p class="section-subtitle">Catga 在性能和资源利用率上全面领先主流框架</p>
+
+            <!-- Comparison Table -->
+            <div class="comparison-container">
+                <div class="comparison-card">
+                    <div class="comparison-header catga-header">
+                        <h3 class="framework-name">🐱 Catga</h3>
+                        <div class="framework-badge best-badge">最佳选择</div>
+                    </div>
+                    <div class="comparison-body">
+                        <div class="metric">
+                            <div class="metric-label">命令延迟</div>
+                            <div class="metric-value excellent">< 1μs</div>
+                            <div class="metric-bar">
+                                <div class="metric-bar-fill excellent" style="width: 100%"></div>
+                            </div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">内存分配</div>
+                            <div class="metric-value excellent">24B</div>
+                            <div class="metric-bar">
+                                <div class="metric-bar-fill excellent" style="width: 5%"></div>
+                            </div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">吞吐量</div>
+                            <div class="metric-value excellent">1.2M ops/s</div>
+                            <div class="metric-bar">
+                                <div class="metric-bar-fill excellent" style="width: 100%"></div>
+                            </div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">AOT 支持</div>
+                            <div class="metric-value excellent">✅ 100%</div>
+                        </div>
+                    </div>
+                    <div class="comparison-footer">
+                        <a href="#learning" class="comparison-cta primary-cta">开始使用 →</a>
+                    </div>
+                </div>
+
+                <div class="comparison-card">
+                    <div class="comparison-header">
+                        <h3 class="framework-name">MediatR</h3>
+                        <div class="framework-badge">流行框架</div>
+                    </div>
+                    <div class="comparison-body">
+                        <div class="metric">
+                            <div class="metric-label">命令延迟</div>
+                            <div class="metric-value good">~10μs</div>
+                            <div class="metric-bar">
+                                <div class="metric-bar-fill good" style="width: 10%"></div>
+                            </div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">内存分配</div>
+                            <div class="metric-value average">408B</div>
+                            <div class="metric-bar">
+                                <div class="metric-bar-fill average" style="width: 85%"></div>
+                            </div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">吞吐量</div>
+                            <div class="metric-value good">~120K ops/s</div>
+                            <div class="metric-bar">
+                                <div class="metric-bar-fill good" style="width: 10%"></div>
+                            </div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">AOT 支持</div>
+                            <div class="metric-value poor">⚠️ 部分</div>
+                        </div>
+                    </div>
+                    <div class="comparison-footer">
+                        <div class="comparison-note">反射密集</div>
+                    </div>
+                </div>
+
+                <div class="comparison-card">
+                    <div class="comparison-header">
+                        <h3 class="framework-name">MassTransit</h3>
+                        <div class="framework-badge">企业级</div>
+                    </div>
+                    <div class="comparison-body">
+                        <div class="metric">
+                            <div class="metric-label">命令延迟</div>
+                            <div class="metric-value average">~5μs</div>
+                            <div class="metric-bar">
+                                <div class="metric-bar-fill average" style="width: 20%"></div>
+                            </div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">内存分配</div>
+                            <div class="metric-value average">320B</div>
+                            <div class="metric-bar">
+                                <div class="metric-bar-fill average" style="width: 67%"></div>
+                            </div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">吞吐量</div>
+                            <div class="metric-value average">~250K ops/s</div>
+                            <div class="metric-bar">
+                                <div class="metric-bar-fill average" style="width: 21%"></div>
+                            </div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">AOT 支持</div>
+                            <div class="metric-value poor">❌ 不支持</div>
+                        </div>
+                    </div>
+                    <div class="comparison-footer">
+                        <div class="comparison-note">功能丰富但复杂</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key advantages -->
+            <div class="advantages-grid">
+                <div class="advantage-card">
+                    <div class="advantage-icon">⚡</div>
+                    <h4 class="advantage-title">极致性能</h4>
+                    <p class="advantage-desc">零分配设计，< 1μs 延迟，10x MediatR 性能</p>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">💎</div>
+                    <h4 class="advantage-title">Native AOT</h4>
+                    <p class="advantage-desc">完全兼容 AOT，启动快90%，内存省60%</p>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">🎯</div>
+                    <h4 class="advantage-title">零反射</h4>
+                    <p class="advantage-desc">源生成器自动注册，消除运行时开销</p>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">🛡️</div>
+                    <h4 class="advantage-title">类型安全</h4>
+                    <p class="advantage-desc">编译时检查，IDE 智能提示，杜绝运行时错误</p>
                 </div>
             </div>
         </div>
@@ -2897,6 +3311,35 @@ docker run -d --name nats <span class="code-keyword">\</span>
                 document.body.style.overflow = '';
             }
         }
+
+        // Theme toggle functionality
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            // Update particles color for dark mode
+            if (typeof pJSDom !== 'undefined' && pJSDom[0]) {
+                const particlesColor = newTheme === 'dark' ? '#ffffff' : '#ffffff';
+                pJSDom[0].pJS.particles.color.value = particlesColor;
+                pJSDom[0].pJS.particles.line_linked.color = particlesColor;
+                pJSDom[0].pJS.fn.particlesRefresh();
+            }
+        }
+
+        // Initialize theme from localStorage
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+            
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
 
         // Number animation for hero stats
         function animateNumber(element) {

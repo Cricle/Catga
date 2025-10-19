@@ -65,7 +65,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
             Id = "test-1",
             Data = "Outbox message"
         };
-        
+
         var message = new OutboxMessage
         {
             MessageId = Guid.NewGuid().ToString(),
@@ -90,7 +90,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     {
         // Arrange
         var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!);
-        
+
         var message1 = CreateOutboxMessage("pending-1", OutboxStatus.Pending);
         var message2 = CreateOutboxMessage("pending-2", OutboxStatus.Pending);
         var message3 = CreateOutboxMessage("published-1", OutboxStatus.Published);
@@ -113,7 +113,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
         // Arrange
         var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!);
         var message = CreateOutboxMessage("test-msg", OutboxStatus.Pending);
-        
+
         await outbox.AddAsync(message);
 
         // Act
@@ -206,7 +206,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
         var messageId = Guid.NewGuid().ToString();
-        
+
         // Lock first
         await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
 
@@ -216,7 +216,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
             Id = "inbox-test",
             Data = "Test data"
         };
-        
+
         var message = new InboxMessage
         {
             MessageId = messageId,
@@ -243,14 +243,14 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
         var messageId = Guid.NewGuid().ToString();
-        
+
         var eventData = new TestEvent
         {
             MessageId = messageId,
             Id = "check-test",
             Data = "Test"
         };
-        
+
         var message = new InboxMessage
         {
             MessageId = messageId,
@@ -276,7 +276,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
         var messageId = Guid.NewGuid().ToString();
-        
+
         // Lock first
         await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
 
@@ -320,7 +320,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
             Id = id,
             Data = $"Data for {id}"
         };
-        
+
         return new OutboxMessage
         {
             MessageId = id,

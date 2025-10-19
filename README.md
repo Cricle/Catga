@@ -513,6 +513,42 @@ curl -X POST http://localhost:5000/demo/order-failure
 
 ---
 
+## 📚 文档
+
+### 📖 入门指南
+- [快速开始](./docs/articles/getting-started.md) - 5分钟入门教程
+- [架构概览](./docs/architecture/overview.md) - 系统架构设计
+- [配置指南](./docs/articles/configuration.md) - 详细配置说明
+
+### 🎯 核心功能
+- [CQRS 模式](./docs/architecture/cqrs.md) - CQRS 架构详解
+- [分布式 ID](./docs/guides/distributed-id.md) - 高性能 ID 生成器
+- [消息序列化](./docs/guides/serialization.md) - JSON/MemoryPack 对比
+- [Source Generator](./docs/guides/source-generator.md) - 自动化代码生成
+
+### 🚀 高级主题
+- [内存优化](./docs/guides/memory-optimization-plan.md) - 零分配优化指南
+- [AOT 部署](./docs/articles/aot-deployment.md) - Native AOT 最佳实践
+- [分布式追踪](./docs/observability/DISTRIBUTED-TRACING-GUIDE.md) - OpenTelemetry 集成
+- [Kubernetes 部署](./docs/deployment/kubernetes.md) - K8s 部署指南
+
+### 📊 性能与监控
+- [性能报告](./docs/PERFORMANCE-REPORT.md) - 基准测试结果
+- [Benchmark 结果](./docs/BENCHMARK-RESULTS.md) - 详细性能数据
+- [监控指南](./docs/production/MONITORING-GUIDE.md) - 生产环境监控
+
+### 🔧 开发者工具
+- [Analyzers](./docs/guides/analyzers.md) - 代码分析器
+- [自定义错误处理](./docs/guides/custom-error-handling.md) - 错误处理策略
+- [AI 学习指南](./AI-LEARNING-GUIDE.md) - 给AI的使用说明
+
+### 🌐 在线资源
+- **官方文档**: [https://cricle.github.io/Catga/](https://cricle.github.io/Catga/)
+- **API 参考**: [在线 API 文档](https://cricle.github.io/Catga/api.html)
+- **示例代码**: [./examples/](./examples/)
+
+---
+
 ## 🤝 贡献
 
 欢迎贡献！我们欢迎：

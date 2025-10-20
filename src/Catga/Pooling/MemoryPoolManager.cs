@@ -4,11 +4,11 @@ using System.Runtime.CompilerServices;
 namespace Catga.Pooling;
 
 /// <summary>
-/// Centralized memory pool manager for Catga (AOT-safe, thread-safe)
+/// Centralized memory pool manager for Catga (AOT-safe, thread-safe, zero-config)
 /// </summary>
 /// <remarks>
-/// Uses MemoryPool&lt;byte&gt;.Shared for optimal performance and zero configuration.
-/// Thread-safe and AOT-compatible.
+/// Uses MemoryPool&lt;byte&gt;.Shared and ArrayPool&lt;byte&gt;.Shared for optimal performance.
+/// All methods are thread-safe and AOT-compatible.
 /// </remarks>
 public static class MemoryPoolManager
 {
@@ -17,12 +17,11 @@ public static class MemoryPoolManager
     /// </summary>
     /// <param name="minimumLength">Minimum length required</param>
     /// <returns>Pooled memory handle (must dispose)</returns>
-    /// <remarks>AOT-safe. Uses MemoryPool&lt;byte&gt;.Shared.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static PooledMemory RentMemory(int minimumLength)
     {
         if (minimumLength <= 0)
-            throw new ArgumentOutOfRangeException(nameof(minimumLength), "Minimum length must be positive");
+            throw new ArgumentOutOfRangeException(nameof(minimumLength));
 
         return new PooledMemory(MemoryPool<byte>.Shared.Rent(minimumLength));
     }
@@ -31,13 +30,12 @@ public static class MemoryPoolManager
     /// Rent byte array from shared pool
     /// </summary>
     /// <param name="minimumLength">Minimum length required</param>
-    /// <returns>Rented array handle (must dispose)</returns>
-    /// <remarks>AOT-safe. Uses ArrayPool&lt;byte&gt;.Shared.</remarks>
+    /// <returns>Pooled array handle (must dispose)</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static PooledArray RentArray(int minimumLength)
     {
         if (minimumLength <= 0)
-            throw new ArgumentOutOfRangeException(nameof(minimumLength), "Minimum length must be positive");
+            throw new ArgumentOutOfRangeException(nameof(minimumLength));
 
         return new PooledArray(ArrayPool<byte>.Shared.Rent(minimumLength), minimumLength);
     }
@@ -47,12 +45,11 @@ public static class MemoryPoolManager
     /// </summary>
     /// <param name="initialCapacity">Initial capacity</param>
     /// <returns>Pooled buffer writer (must dispose)</returns>
-    /// <remarks>AOT-safe. Uses ArrayPool&lt;byte&gt;.Shared.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static PooledBufferWriter<byte> RentBufferWriter(int initialCapacity = 256)
     {
         if (initialCapacity <= 0)
-            throw new ArgumentOutOfRangeException(nameof(initialCapacity), "Initial capacity must be positive");
+            throw new ArgumentOutOfRangeException(nameof(initialCapacity));
 
         return new PooledBufferWriter<byte>(initialCapacity, ArrayPool<byte>.Shared);
     }
@@ -61,9 +58,6 @@ public static class MemoryPoolManager
 /// <summary>
 /// Readonly struct wrapper for pooled memory with automatic disposal
 /// </summary>
-/// <remarks>
-/// AOT-safe. Always use with 'using' statement to ensure proper disposal.
-/// </remarks>
 public readonly struct PooledMemory : IDisposable
 {
     private readonly IMemoryOwner<byte>? _owner;
@@ -94,15 +88,6 @@ public readonly struct PooledMemory : IDisposable
     }
 
     /// <summary>
-    /// Convert to IMemoryOwner for compatibility
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IMemoryOwner<byte> ToMemoryOwner()
-    {
-        return new PooledMemoryOwner(this);
-    }
-
-    /// <summary>
     /// Implicitly convert to ReadOnlyMemory
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -115,16 +100,19 @@ public readonly struct PooledMemory : IDisposable
     public static implicit operator Memory<byte>(PooledMemory pooled) => pooled.Memory;
 
     /// <summary>
-    /// Wrapper class to expose PooledMemory as IMemoryOwner
+    /// Wrap as IMemoryOwner for compatibility (creates small allocation)
     /// </summary>
-    private sealed class PooledMemoryOwner : IMemoryOwner<byte>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal IMemoryOwner<byte> AsMemoryOwner() => new PooledMemoryWrapper(this);
+
+    /// <summary>
+    /// Minimal wrapper to expose PooledMemory as IMemoryOwner
+    /// </summary>
+    private sealed class PooledMemoryWrapper : IMemoryOwner<byte>
     {
         private PooledMemory _pooled;
-
-        public PooledMemoryOwner(PooledMemory pooled) => _pooled = pooled;
-
+        public PooledMemoryWrapper(PooledMemory pooled) => _pooled = pooled;
         public Memory<byte> Memory => _pooled.Memory;
-
         public void Dispose() => _pooled.Dispose();
     }
 }
@@ -132,9 +120,6 @@ public readonly struct PooledMemory : IDisposable
 /// <summary>
 /// Readonly struct wrapper for pooled array with automatic disposal
 /// </summary>
-/// <remarks>
-/// AOT-safe. Always use with 'using' statement to ensure proper disposal.
-/// </remarks>
 public readonly struct PooledArray : IDisposable
 {
     private readonly byte[]? _array;
@@ -189,4 +174,3 @@ public readonly struct PooledArray : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator Span<byte>(PooledArray pooled) => pooled.Span;
 }
-

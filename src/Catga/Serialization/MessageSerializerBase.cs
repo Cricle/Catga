@@ -130,7 +130,7 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
 
         var pooled = MemoryPoolManager.RentMemory(writer.WrittenCount);
         writer.WrittenSpan.CopyTo(pooled.Memory.Span);
-        return pooled.ToMemoryOwner();
+        return pooled.AsMemoryOwner();
     }
 
     /// <summary>

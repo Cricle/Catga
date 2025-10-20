@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Catga.Core;
-using Catga.Handlers;
 using Catga.Idempotency;
 using Catga.Messages;
 using Catga.Observability;
@@ -143,5 +142,12 @@ public class InMemoryMessageTransport : IMessageTransport
         activity?.AddTag("exception.type", ExceptionTypeCache.GetFullTypeName(ex));
         activity?.AddTag("exception.message", ex.Message);
     }
+}
+
+/// <summary>Typed subscriber cache (internal to InMemory transport, avoid Type as dictionary key)</summary>
+internal static class TypedSubscribers<TMessage> where TMessage : class
+{
+    public static readonly List<Delegate> Handlers = new();
+    public static readonly object Lock = new();
 }
 

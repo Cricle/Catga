@@ -446,7 +446,7 @@ services.AddCatga()
    ↓
 2. ICatgaMediator.PublishAsync()
    ↓
-3. 查找所有订阅者 (TypedSubscribers<TEvent>)
+3. 从 DI 获取所有 EventHandler (GetServices<IEventHandler<TEvent>>)
    ↓
 4. 并行执行所有 EventHandler
    ├─ Handler 1

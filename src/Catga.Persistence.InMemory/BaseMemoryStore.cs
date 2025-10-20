@@ -18,13 +18,14 @@ internal static class ExpirationHelper
         TimeSpan retentionPeriod)
     {
         var cutoff = DateTime.UtcNow - retentionPeriod;
-        var expiredKeys = dictionary
-            .Where(kvp => timestampSelector(kvp.Value) < cutoff)
-            .Select(kvp => kvp.Key)
-            .ToList();
-
-        foreach (var key in expiredKeys)
-            dictionary.TryRemove(key, out _);
+        
+        // Optimize: Directly remove without materializing to list
+        // ConcurrentDictionary supports modification during enumeration
+        foreach (var kvp in dictionary)
+        {
+            if (timestampSelector(kvp.Value) < cutoff)
+                dictionary.TryRemove(kvp.Key, out _);
+        }
     }
 }
 
@@ -73,13 +74,13 @@ public abstract class BaseMemoryStore<TMessage> where TMessage : class
         Func<TMessage, bool> predicate,
         CancellationToken cancellationToken = default)
     {
-        var keysToRemove = Messages
-            .Where(kvp => predicate(kvp.Value))
-            .Select(kvp => kvp.Key)
-            .ToList();
-
-        foreach (var key in keysToRemove)
-            Messages.TryRemove(key, out _);
+        // Optimize: Directly remove without materializing to list
+        // ConcurrentDictionary supports modification during enumeration
+        foreach (var kvp in Messages)
+        {
+            if (predicate(kvp.Value))
+                Messages.TryRemove(kvp.Key, out _);
+        }
 
         return ValueTask.CompletedTask;
     }

@@ -72,9 +72,11 @@ public sealed class CatgaMediator : ICatgaMediator
                 // Fast path: Singleton handler found, but still need scope for behaviors
                 using var singletonScope = _serviceProvider.CreateScope();
                 var singletonBehaviors = singletonScope.ServiceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-                var singletonBehaviorsList = singletonBehaviors as IPipelineBehavior<TRequest, TResponse>[] ?? singletonBehaviors.ToArray();
+                // Optimize: Prefer IList to avoid ToArray(), most DI containers return List<T>
+                var singletonBehaviorsList = singletonBehaviors as IList<IPipelineBehavior<TRequest, TResponse>>
+                    ?? singletonBehaviors.ToArray();
 
-                var singletonResult = FastPath.CanUseFastPath(singletonBehaviorsList.Length)
+                var singletonResult = FastPath.CanUseFastPath(singletonBehaviorsList.Count)
                     ? await FastPath.ExecuteRequestDirectAsync(singletonHandler, request, cancellationToken)
                     : await PipelineExecutor.ExecuteAsync(request, singletonHandler, singletonBehaviorsList, cancellationToken);
 
@@ -110,9 +112,10 @@ public sealed class CatgaMediator : ICatgaMediator
             }
 
             var behaviors = scopedProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-            // Optimize: Try to avoid ToList() allocation by checking if already a concrete collection
-            var behaviorsList = behaviors as IPipelineBehavior<TRequest, TResponse>[] ?? behaviors.ToArray();
-            var result = FastPath.CanUseFastPath(behaviorsList.Length)
+            // Optimize: Prefer IList to avoid ToArray(), most DI containers return List<T>
+            var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>>
+                ?? behaviors.ToArray();
+            var result = FastPath.CanUseFastPath(behaviorsList.Count)
                 ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
                 : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
 

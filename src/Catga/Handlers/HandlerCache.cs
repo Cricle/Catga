@@ -17,7 +17,7 @@ public sealed class HandlerCache
     public IReadOnlyList<THandler> GetEventHandlers<THandler>(IServiceProvider scopedProvider) where THandler : class
     {
         var handlers = scopedProvider.GetServices<THandler>();
-        // Avoid ToArray() if already IReadOnlyList
+        // Optimize: Most DI containers return List<T> which implements IReadOnlyList<T>
         return handlers as IReadOnlyList<THandler> ?? handlers.ToArray();
     }
 }

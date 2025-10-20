@@ -73,7 +73,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var outbox = new NatsJSOutboxStore(
             _natsConnection!,
             _serializer!,
-            streamName: "TEST_OUTBOX");
+            streamName: MessageExtensions.NewMessageId());
         
         var eventData = new TestEvent
         {

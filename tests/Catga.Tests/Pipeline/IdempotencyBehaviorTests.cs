@@ -26,11 +26,11 @@ public class IdempotencyBehaviorTests
         var cachedResponse = new TestResponse("Cached");
 
         idempotencyStore
-            .HasBeenProcessedAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .HasBeenProcessedAsync(Arg.Any<long>(), Arg.Any<CancellationToken>())
             .Returns(true);
 
         idempotencyStore
-            .GetCachedResultAsync<TestResponse>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .GetCachedResultAsync<TestResponse>(Arg.Any<long>(), Arg.Any<CancellationToken>())
             .Returns(cachedResponse);
 
         var nextCalled = false;
@@ -61,7 +61,7 @@ public class IdempotencyBehaviorTests
         var request = new TestRequest("test");
 
         idempotencyStore
-            .HasBeenProcessedAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .HasBeenProcessedAsync(Arg.Any<long>(), Arg.Any<CancellationToken>())
             .Returns(false);
 
         var nextCalled = false;
@@ -97,7 +97,7 @@ public class IdempotencyBehaviorTests
         var request = new TestRequest("test");
 
         idempotencyStore
-            .HasBeenProcessedAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .HasBeenProcessedAsync(Arg.Any<long>(), Arg.Any<CancellationToken>())
             .Returns(false);
 
         PipelineDelegate<TestResponse> next = () =>

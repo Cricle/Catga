@@ -247,8 +247,11 @@ public class BaseMemoryStoreTests
     // Test implementation of BaseMemoryStore
     private class TestMemoryStore : BaseMemoryStore<TestMessage>
     {
-        public void AddOrUpdate(string id, TestMessage message) => AddOrUpdateMessage(id, message);
-        public bool TryGet(string id, out TestMessage? message) => TryGetMessage(id, out message);
+        private long StringToLong(string id) => long.TryParse(id, out var result) ? result : id.GetHashCode();
+        
+        public void AddOrUpdate(string id, TestMessage message) => AddOrUpdateMessage(StringToLong(id), message);
+        public void AddOrUpdate(long id, TestMessage message) => AddOrUpdateMessage(id, message);
+        public bool TryGet(string id, out TestMessage? message) => TryGetMessage(StringToLong(id), out message);
         public List<TestMessage> GetAll() => Messages.Values.ToList();
         public List<TestMessage> GetByPredicate(Func<TestMessage, bool> predicate, int maxCount, IComparer<TestMessage>? comparer = null)
             => GetMessagesByPredicate(predicate, maxCount, comparer);
@@ -258,9 +261,9 @@ public class BaseMemoryStoreTests
         
         public ValueTask DeleteExpiredWithTimestampAsync(TimeSpan retentionPeriod, Func<TestMessage, DateTime?> timestampSelector, Func<TestMessage, bool> statusFilter, CancellationToken ct = default)
             => DeleteExpiredMessagesAsync(retentionPeriod, timestampSelector, statusFilter, ct);
-        public Task ExecuteIfExistsPublic(string id, Action<TestMessage> action) => ExecuteIfExistsAsync(id, action);
+        public Task ExecuteIfExistsPublic(string id, Action<TestMessage> action) => ExecuteIfExistsAsync(StringToLong(id), action);
         public Task<TResult?> GetValueIfExistsPublic<TResult>(string id, Func<TestMessage, TResult?> selector)
-            => GetValueIfExistsAsync(id, selector);
+            => GetValueIfExistsAsync(StringToLong(id), selector);
     }
 
     private class TestMessage

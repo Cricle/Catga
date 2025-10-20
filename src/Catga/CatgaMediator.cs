@@ -69,33 +69,8 @@ public sealed class CatgaMediator : ICatgaMediator
             {
                 // Fast path: Singleton handler found, but still need scope for behaviors
                 using var singletonScope = _serviceProvider.CreateScope();
-                var singletonBehaviors = singletonScope.ServiceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-                // Optimize: Prefer IList to avoid ToArray(), most DI containers return List<T>
-                var singletonBehaviorsList = singletonBehaviors as IList<IPipelineBehavior<TRequest, TResponse>>
-                    ?? singletonBehaviors.ToArray();
-
-                var singletonResult = FastPath.CanUseFastPath(singletonBehaviorsList.Count)
-                    ? await FastPath.ExecuteRequestDirectAsync(singletonHandler, request, cancellationToken)
-                    : await PipelineExecutor.ExecuteAsync(request, singletonHandler, singletonBehaviorsList, cancellationToken);
-
-                var singletonDuration = GetElapsedMilliseconds(startTimestamp);
-                CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", singletonResult.IsSuccess.ToString()));
-                CatgaDiagnostics.CommandDuration.Record(singletonDuration, new KeyValuePair<string, object?>("request_type", reqType));
-                CatgaLog.CommandExecuted(_logger, reqType, message?.MessageId, singletonDuration, singletonResult.IsSuccess);
-
-                activity?.SetTag(CatgaActivitySource.Tags.Success, singletonResult.IsSuccess);
-                activity?.SetTag(CatgaActivitySource.Tags.Duration, singletonDuration);
-
-                if (singletonResult.IsSuccess)
-                    activity?.SetStatus(ActivityStatusCode.Ok);
-                else
-                {
-                    activity?.SetTag(CatgaActivitySource.Tags.Error, singletonResult.Error ?? "Unknown error");
-                    activity?.SetStatus(ActivityStatusCode.Error, singletonResult.Error);
-                    CatgaLog.CommandFailed(_logger, singletonResult.Exception, reqType, message?.MessageId, singletonResult.Error ?? "Unknown");
-                }
-
-                return singletonResult;
+                return await ExecuteRequestWithMetricsAsync(singletonHandler, request, 
+                    singletonScope.ServiceProvider, activity, message, reqType, startTimestamp, cancellationToken);
             }
 
             // Standard path: Scoped/Transient handler
@@ -109,33 +84,8 @@ public sealed class CatgaMediator : ICatgaMediator
                 return CatgaResult<TResponse>.Failure($"No handler for {reqType}", new HandlerNotFoundException(reqType));
             }
 
-            var behaviors = scopedProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-            // Optimize: Prefer IList to avoid ToArray(), most DI containers return List<T>
-            var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>>
-                ?? behaviors.ToArray();
-            var result = FastPath.CanUseFastPath(behaviorsList.Count)
-                ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
-                : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
-
-            var duration = GetElapsedMilliseconds(startTimestamp);
-            CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", result.IsSuccess.ToString()));
-            CatgaDiagnostics.CommandDuration.Record(duration, new KeyValuePair<string, object?>("request_type", reqType));
-            CatgaLog.CommandExecuted(_logger, reqType, message?.MessageId, duration, result.IsSuccess);
-
-            // Set result and duration tags
-            activity?.SetTag(CatgaActivitySource.Tags.Success, result.IsSuccess);
-            activity?.SetTag(CatgaActivitySource.Tags.Duration, duration);
-
-            if (result.IsSuccess)
-                activity?.SetStatus(ActivityStatusCode.Ok);
-            else
-            {
-                activity?.SetTag(CatgaActivitySource.Tags.Error, result.Error ?? "Unknown error");
-                activity?.SetStatus(ActivityStatusCode.Error, result.Error);
-                CatgaLog.CommandFailed(_logger, result.Exception, reqType, message?.MessageId, result.Error ?? "Unknown");
-            }
-
-            return result;
+            return await ExecuteRequestWithMetricsAsync(handler, request, 
+                scopedProvider, activity, message, reqType, startTimestamp, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -154,6 +104,50 @@ public sealed class CatgaMediator : ICatgaMediator
     {
         var elapsed = Stopwatch.GetTimestamp() - startTimestamp;
         return elapsed * 1000.0 / Stopwatch.Frequency;
+    }
+
+    /// <summary>
+    /// Execute request with pipeline and record metrics (DRY helper)
+    /// </summary>
+    private async ValueTask<CatgaResult<TResponse>> ExecuteRequestWithMetricsAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(
+        IRequestHandler<TRequest, TResponse> handler,
+        TRequest request,
+        IServiceProvider scopedProvider,
+        Activity? activity,
+        IMessage? message,
+        string reqType,
+        long startTimestamp,
+        CancellationToken cancellationToken)
+        where TRequest : IRequest<TResponse>
+    {
+        var behaviors = scopedProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
+        var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>>
+            ?? behaviors.ToArray();
+        
+        var result = FastPath.CanUseFastPath(behaviorsList.Count)
+            ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
+            : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
+        
+        // Record metrics and logs
+        var duration = GetElapsedMilliseconds(startTimestamp);
+        CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", result.IsSuccess.ToString()));
+        CatgaDiagnostics.CommandDuration.Record(duration, new KeyValuePair<string, object?>("request_type", reqType));
+        CatgaLog.CommandExecuted(_logger, reqType, message?.MessageId, duration, result.IsSuccess);
+        
+        // Set activity tags
+        activity?.SetTag(CatgaActivitySource.Tags.Success, result.IsSuccess);
+        activity?.SetTag(CatgaActivitySource.Tags.Duration, duration);
+        
+        if (result.IsSuccess)
+            activity?.SetStatus(ActivityStatusCode.Ok);
+        else
+        {
+            activity?.SetTag(CatgaActivitySource.Tags.Error, result.Error ?? "Unknown error");
+            activity?.SetStatus(ActivityStatusCode.Error, result.Error);
+            CatgaLog.CommandFailed(_logger, result.Exception, reqType, message?.MessageId, result.Error ?? "Unknown");
+        }
+        
+        return result;
     }
 
     public async Task<CatgaResult> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest

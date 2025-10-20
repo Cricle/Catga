@@ -36,6 +36,17 @@ public static class MemoryPoolManager
 /// <summary>
 /// Readonly struct wrapper for pooled array with automatic disposal
 /// </summary>
+/// <remarks>
+/// IMPORTANT: Must be disposed exactly once. Use 'using' statement to ensure proper cleanup.
+/// Double-dispose is handled gracefully by ArrayPool but should be avoided for clarity.
+/// <code>
+/// // Correct usage:
+/// using var buffer = MemoryPoolManager.RentArray(1024);
+/// var span = buffer.Span;
+/// // ... use span ...
+/// // Automatically returned to pool when exiting scope
+/// </code>
+/// </remarks>
 public readonly struct PooledArray(byte[] array, int length) : IDisposable
 {
     private readonly byte[] _array = array ?? throw new ArgumentNullException(nameof(array));

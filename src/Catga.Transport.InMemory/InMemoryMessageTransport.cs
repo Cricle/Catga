@@ -22,7 +22,8 @@ public class InMemoryMessageTransport : IMessageTransport
         using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Message.Publish", ActivityKind.Producer);
         var sw = Stopwatch.StartNew();
 
-        var handlers = TypedSubscribers<TMessage>.Handlers;
+        // Take snapshot for thread-safety (ConcurrentBag is thread-safe but enumeration needs snapshot)
+        var handlers = TypedSubscribers<TMessage>.Handlers.ToList();
         if (handlers.Count == 0) return;
 
         var ctx = context ?? new TransportContext { MessageId = MessageExtensions.NewMessageId(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
@@ -117,10 +118,7 @@ public class InMemoryMessageTransport : IMessageTransport
 
     public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(Func<TMessage, TransportContext, Task> handler, CancellationToken cancellationToken = default) where TMessage : class
     {
-        lock (TypedSubscribers<TMessage>.Lock)
-        {
-            TypedSubscribers<TMessage>.Handlers.Add(handler);
-        }
+        TypedSubscribers<TMessage>.Handlers.Add(handler);
         return Task.CompletedTask;
     }
 
@@ -143,10 +141,9 @@ public class InMemoryMessageTransport : IMessageTransport
     }
 }
 
-/// <summary>Typed subscriber cache (internal to InMemory transport, avoid Type as dictionary key)</summary>
+/// <summary>Typed subscriber cache (internal to InMemory transport, thread-safe using ConcurrentBag)</summary>
 internal static class TypedSubscribers<TMessage> where TMessage : class
 {
-    public static readonly List<Delegate> Handlers = new();
-    public static readonly object Lock = new();
+    public static readonly ConcurrentBag<Delegate> Handlers = new();
 }
 

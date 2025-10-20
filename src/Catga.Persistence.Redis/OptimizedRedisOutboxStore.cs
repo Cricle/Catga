@@ -157,8 +157,9 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         var cutoff = DateTime.UtcNow - retentionPeriod;
 
         // Get all published messages older than cutoff
-        var allKeys = _redis.GetServer(_redis.GetEndPoints().First())
-            .Keys(pattern: $"{_keyPrefix}*");
+        var endpoints = _redis.GetEndPoints();
+        var server = _redis.GetServer(endpoints[0]); // First endpoint
+        var allKeys = server.Keys(pattern: $"{_keyPrefix}*");
 
         var keysToDelete = new List<string>();
 

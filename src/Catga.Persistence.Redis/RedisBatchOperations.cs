@@ -86,8 +86,14 @@ public class RedisBatchOperations
         batch.Execute();
         var results = await Task.WhenAll(tasks);
 
-        // Count successful deletions without blocking .Result
-        return results.Count(r => r);
+        // Manual count instead of LINQ Count()
+        var count = 0;
+        for (int i = 0; i < results.Length; i++)
+        {
+            if (results[i])
+                count++;
+        }
+        return count;
     }
 
     /// <summary>

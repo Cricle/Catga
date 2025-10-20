@@ -85,7 +85,13 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
             // Stream doesn't exist yet
         }
 
-        return messages.OrderBy(m => m.CreatedAt).ToList();
+        // Manual sort instead of LINQ OrderBy
+        if (messages.Count > 1)
+        {
+            messages.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
+        }
+        
+        return messages;
     }
 
     public async ValueTask MarkAsPublishedAsync(long messageId, CancellationToken cancellationToken = default)

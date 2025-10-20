@@ -53,9 +53,12 @@ public static class ValidationHelper
             if (collection.Count == 0)
                 throw new ArgumentException("Messages collection cannot be empty", paramName);
         }
-        else if (!messages.Any())
+        else
         {
-            throw new ArgumentException("Messages collection cannot be empty", paramName);
+            // Manual enumeration instead of LINQ Any()
+            using var enumerator = messages.GetEnumerator();
+            if (!enumerator.MoveNext())
+                throw new ArgumentException("Messages collection cannot be empty", paramName);
         }
     }
 

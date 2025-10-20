@@ -22,13 +22,14 @@ internal sealed class InMemoryIdempotencyStore
     private void CleanupExpired()
     {
         var cutoff = DateTime.UtcNow - _retentionPeriod;
-        var expiredKeys = _processedMessages
-            .Where(kvp => kvp.Value < cutoff)
-            .Select(kvp => kvp.Key)
-            .ToList();
-
-        foreach (var key in expiredKeys)
-            _processedMessages.TryRemove(key, out _);
+        
+        // Manual enumeration instead of LINQ Where/Select
+        // ConcurrentDictionary supports modification during enumeration
+        foreach (var kvp in _processedMessages)
+        {
+            if (kvp.Value < cutoff)
+                _processedMessages.TryRemove(kvp.Key, out _);
+        }
     }
 }
 

@@ -11,13 +11,12 @@
 - [最佳实践](#最佳实践)
 - [性能基准](#性能基准)
 - [AOT 兼容性](#aot-兼容性)
-- [故障排查](#故障排查)
 
 ---
 
 ## 🚀 快速开始
 
-### 1. 使用池化序列化器
+### 1. 使用高性能序列化器
 
 ```csharp
 // 使用 MemoryPack (推荐 - 100% AOT 兼容)
@@ -26,35 +25,27 @@ services.AddCatga()
 
 // 或使用 JSON (兼容性更好)
 services.AddCatga()
-    .UseJsonSerializer(new JsonMessageSerializer(options));
+    .UseJsonSerializer();
 ```
 
 ### 2. 零分配序列化
 
 ```csharp
-// 自动使用池化内存
 var serializer = serviceProvider.GetRequiredService<IMessageSerializer>();
 
-// 方式 1: 使用 SerializeToMemory (需要手动 Dispose)
-using var owner = serializer.SerializeToMemory(message);
-await SendAsync(owner.Memory);
-
-// 方式 2: 使用 SerializePooled (自动 Dispose)
-if (serializer is IPooledMessageSerializer pooled)
-{
-    using var buffer = pooled.SerializePooled(message);
-    await SendAsync(buffer.Memory);
-}
+// 直接使用 byte[]（内部使用池化缓冲区）
+var bytes = serializer.Serialize(message);
+await SendAsync(bytes);
 ```
 
 ### 3. 零拷贝反序列化
 
 ```csharp
-// 从 ReadOnlyMemory<byte> 反序列化
-var message = serializer.Deserialize<MyMessage>(receivedData);
+// 从 ReadOnlySpan<byte> 反序列化（零拷贝）
+var message = serializer.Deserialize<MyMessage>(receivedData.AsSpan());
 
-// 从 ReadOnlySequence<byte> 反序列化 (Pipeline 场景)
-var message = serializer.Deserialize<MyMessage>(sequence);
+// 从 byte[] 反序列化
+var message = serializer.Deserialize<MyMessage>(receivedData);
 ```
 
 ---
@@ -66,39 +57,32 @@ var message = serializer.Deserialize<MyMessage>(sequence);
 Catga 使用 `MemoryPoolManager` 统一管理所有内存池：
 
 ```csharp
-// 获取共享实例
-var poolManager = MemoryPoolManager.Shared;
+// 租用数组（自动使用 ArrayPool）
+using var pooled = MemoryPoolManager.RentArray(minimumLength: 1024);
+pooled.Span.Fill(0);
+// 离开 using 作用域时自动归还
 
 // 租用缓冲区写入器
-using var writer = poolManager.RentBufferWriter(initialCapacity: 256);
+using var writer = MemoryPoolManager.RentBufferWriter(initialCapacity: 256);
 writer.Write(data);
-// 自动归还到池
-
-// 租用内存
-using var owner = poolManager.RentMemory(minimumLength: 1024);
-owner.Memory.Span.Fill(0);
 // 自动归还到池
 ```
 
-### 三层池化策略
+### 简化的池化策略
 
-`MemoryPoolManager` 根据大小自动选择合适的池：
+`MemoryPoolManager` 使用 .NET 的共享池：
 
-| 池类型 | 大小范围 | 最大容量 | 缓冲区数量 |
-|--------|---------|---------|-----------|
-| **SmallBytePool** | < 4KB | 16KB | 50 |
-| **MediumBytePool** | 4KB - 64KB | 128KB | 20 |
-| **LargeBytePool** | > 64KB | 无限制 | 共享池 |
+- **ArrayPool<byte>.Shared** - 所有数组租用
+- **MemoryPool<byte>.Shared** - 已移除（直接使用 ArrayPool）
 
 ```csharp
-// 小消息：使用 SmallBytePool
-var small = poolManager.RentArray(1024);  // 1KB
+// 小消息
+using var small = MemoryPoolManager.RentArray(1024);  // 1KB
 
-// 中等消息：使用 MediumBytePool
-var medium = poolManager.RentArray(32 * 1024);  // 32KB
+// 大消息
+using var large = MemoryPoolManager.RentArray(256 * 1024);  // 256KB
 
-// 大消息：使用 LargeBytePool (ArrayPool.Shared)
-var large = poolManager.RentArray(256 * 1024);  // 256KB
+// 都使用同一个共享池 - 简单高效
 ```
 
 ---
@@ -134,7 +118,7 @@ services.AddCatga()
     .UseMemoryPackSerializer();
 
 // 3. 自动使用池化
-// Catga 会自动使用零分配序列化
+var bytes = serializer.Serialize(message);  // 内部使用 PooledBufferWriter
 ```
 
 ### JsonMessageSerializer
@@ -143,7 +127,7 @@ services.AddCatga()
 - ✅ 人类可读
 - ✅ 工具支持好
 - ✅ 跨语言兼容
-- ✅ 泛型方法 AOT 兼容
+- ✅ AOT 兼容（泛型方法）
 - ✅ 完整池化支持
 
 **使用场景**:
@@ -155,7 +139,6 @@ services.AddCatga()
 ```csharp
 // 1. 配置 JsonSerializerOptions (可选 - AOT 优化)
 [JsonSerializable(typeof(OrderCreatedEvent))]
-[JsonSerializable(typeof(PaymentProcessedEvent))]
 public partial class MyJsonContext : JsonSerializerContext { }
 
 // 2. 注册序列化器
@@ -165,56 +148,41 @@ var options = new JsonSerializerOptions
 };
 services.AddCatga()
     .UseJsonSerializer(new JsonMessageSerializer(options));
-
-// 3. 自动使用池化
-// 泛型方法会自动使用池化序列化
 ```
 
 ---
 
 ## 🏊 池化内存管理
 
-### IMemoryOwner<byte> 模式
+### PooledArray 模式
 
 ```csharp
 public async Task SendMessagePooled<T>(T message, IMessageSerializer serializer)
 {
-    // 序列化到池化内存
-    using var owner = serializer.SerializeToMemory(message);
+    // 序列化到池化数组
+    using var pooled = MemoryPoolManager.RentArray(4096);
     
-    // 使用内存（在 using 作用域内有效）
-    var memory = owner.Memory;
-    await transport.PublishAsync(memory);
+    // 使用 IBufferWriter 直接序列化
+    using var writer = MemoryPoolManager.RentBufferWriter();
+    serializer.Serialize(message, writer);
     
-    // 离开作用域时自动归还内存
+    // 发送
+    await transport.PublishAsync(writer.WrittenMemory);
+    
+    // 离开作用域时自动归还
 }
 ```
 
-### PooledBuffer 模式
-
-```csharp
-public string SerializeToBase64<T>(T message, IPooledMessageSerializer serializer)
-{
-    // 使用池化缓冲区
-    using var buffer = serializer.SerializePooled(message);
-    
-    // 转换为 Base64
-    return Convert.ToBase64String(buffer.Memory.Span);
-    
-    // 自动归还
-}
-```
-
-### IPooledBufferWriter<byte> 模式
+### PooledBufferWriter 模式
 
 ```csharp
 public async Task WriteMessagesToStream<T>(
     IEnumerable<T> messages, 
     Stream stream,
-    IPooledMessageSerializer serializer)
+    IMessageSerializer serializer)
 {
     // 获取池化写入器
-    using var writer = serializer.GetPooledWriter(initialCapacity: 4096);
+    using var writer = MemoryPoolManager.RentBufferWriter(initialCapacity: 4096);
     
     // 批量序列化
     foreach (var message in messages)
@@ -237,12 +205,12 @@ public async Task WriteMessagesToStream<T>(
 
 ```csharp
 // ✅ 正确
-using var owner = serializer.SerializeToMemory(message);
-await SendAsync(owner.Memory);
+using var pooled = MemoryPoolManager.RentArray(1024);
+await SendAsync(pooled.Memory);
 
 // ❌ 错误 - 内存泄漏！
-var owner = serializer.SerializeToMemory(message);
-await SendAsync(owner.Memory);
+var pooled = MemoryPoolManager.RentArray(1024);
+await SendAsync(pooled.Memory);
 // 忘记 Dispose，内存永远不会归还
 ```
 
@@ -251,57 +219,35 @@ await SendAsync(owner.Memory);
 ```csharp
 // ❌ 错误 - 使用已释放的内存
 ReadOnlyMemory<byte> storedMemory;
-using (var owner = serializer.SerializeToMemory(message))
+using (var pooled = MemoryPoolManager.RentArray(1024))
 {
-    storedMemory = owner.Memory;  // 危险！
+    storedMemory = pooled.Memory;  // 危险！
 }
 await SendAsync(storedMemory);  // 💥 已释放的内存
 
 // ✅ 正确 - 在有效作用域内使用
-using var owner = serializer.SerializeToMemory(message);
-await SendAsync(owner.Memory);
+using var pooled = MemoryPoolManager.RentArray(1024);
+await SendAsync(pooled.Memory);
 ```
 
 ### 3. 小消息使用 stackalloc
 
 ```csharp
-// 对于小消息 (< 256 bytes)，使用 TrySerialize
-if (serializer is IBufferedMessageSerializer buffered)
+// 对于小消息 (< 256 bytes)，使用 stackalloc
+Span<byte> buffer = stackalloc byte[256];
+if (TrySerialize(message, buffer, out int bytesWritten))
 {
-    Span<byte> buffer = stackalloc byte[256];
-    if (buffered.TrySerialize(message, buffer, out int bytesWritten))
-    {
-        // 零堆分配！
-        await SendAsync(buffer.Slice(0, bytesWritten));
-    }
+    // 零堆分配！
+    await SendAsync(buffer.Slice(0, bytesWritten));
 }
 ```
 
-### 4. 批量操作优化
-
-```csharp
-// ✅ 使用批量序列化
-if (serializer is IBufferedMessageSerializer buffered)
-{
-    using var writer = poolManager.RentBufferWriter();
-    int totalBytes = buffered.SerializeBatch(messages, writer);
-    await SendBatchAsync(writer.WrittenMemory);
-}
-
-// ❌ 避免逐个序列化
-foreach (var message in messages)
-{
-    var bytes = serializer.Serialize(message);  // 多次分配
-    await SendAsync(bytes);
-}
-```
-
-### 5. 使用 SerializationHelper
+### 4. 使用 SerializationHelper
 
 ```csharp
 // SerializationHelper 自动使用池化序列化器
 var base64 = SerializationHelper.Serialize(message, serializer);
-// 内部自动检测 IPooledMessageSerializer 并使用零分配编码
+// 内部自动使用 PooledBufferWriter
 
 var decoded = SerializationHelper.Deserialize<MyMessage>(base64, serializer);
 // 内部使用池化 Base64 解码
@@ -317,12 +263,10 @@ var decoded = SerializationHelper.Deserialize<MyMessage>(base64, serializer);
 BenchmarkDotNet v0.13.12, Windows 11 (10.0.22631.4602)
 Intel Core i9-13900K, 1 CPU, 32 logical and 24 physical cores
 
-| Method                          | Mean      | Allocated |
-|-------------------------------- |----------:| ---------:|
-| MemoryPack_Serialize            |  45.2 ns  |     128 B |
-| MemoryPack_SerializePooled      |  47.8 ns  |      32 B | ⬇️ -75%
-| JSON_Serialize                  | 312.4 ns  |     584 B |
-| JSON_SerializePooled            | 289.1 ns  |      96 B | ⬇️ -84%
+| Method                    | Mean      | Allocated |
+|-------------------------- |----------:| ---------:|
+| MemoryPack_Serialize      |  45.2 ns  |     128 B |
+| JSON_Serialize            | 312.4 ns  |     584 B |
 ```
 
 ### Base64 编码性能
@@ -382,108 +326,6 @@ var bytes = serializer.Serialize(message);  // AOT 安全
 var msg = serializer.Deserialize<MyMessage>(bytes);  // AOT 安全
 ```
 
-### 避免使用的模式
-
-```csharp
-// ❌ 非泛型方法（使用反射）
-var bytes = serializer.Serialize(message, message.GetType());  // 非 AOT
-var msg = serializer.Deserialize(bytes, typeof(MyMessage));    // 非 AOT
-
-// ✅ 使用泛型方法代替
-var bytes = serializer.Serialize(message);  // AOT 安全
-var msg = serializer.Deserialize<MyMessage>(bytes);  // AOT 安全
-```
-
----
-
-## 🐛 故障排查
-
-### 问题 1: 内存泄漏
-
-**症状**: 内存持续增长，GC 无法回收
-
-**原因**: 忘记 Dispose IMemoryOwner
-
-```csharp
-// ❌ 错误
-var owner = serializer.SerializeToMemory(message);
-// 忘记 Dispose
-
-// ✅ 修复
-using var owner = serializer.SerializeToMemory(message);
-```
-
-### 问题 2: ObjectDisposedException
-
-**症状**: 访问已释放的内存时抛出异常
-
-**原因**: 在 using 作用域外使用 Memory
-
-```csharp
-// ❌ 错误
-ReadOnlyMemory<byte> data;
-using (var owner = serializer.SerializeToMemory(message))
-{
-    data = owner.Memory;
-}
-var result = data.Span[0];  // 💥 ObjectDisposedException
-
-// ✅ 修复 - 在作用域内完成所有操作
-using var owner = serializer.SerializeToMemory(message);
-var result = owner.Memory.Span[0];
-```
-
-### 问题 3: StackOverflowException
-
-**症状**: stackalloc 在循环中导致栈溢出
-
-**原因**: stackalloc 在循环内部
-
-```csharp
-// ❌ 错误
-foreach (var message in messages)
-{
-    Span<byte> buffer = stackalloc byte[4096];  // 每次迭代分配
-}
-
-// ✅ 修复 - 在循环外或使用池化
-Span<byte> buffer = stackalloc byte[4096];
-foreach (var message in messages)
-{
-    // 重用 buffer
-}
-
-// 或使用池化（更安全）
-using var writer = poolManager.RentBufferWriter(4096);
-foreach (var message in messages)
-{
-    writer.Clear();
-    // 使用 writer
-}
-```
-
-### 问题 4: AOT 警告
-
-**症状**: Native AOT 编译时出现警告
-
-**原因**: 使用了非泛型序列化方法
-
-```csharp
-// ⚠️ AOT 警告
-var bytes = serializer.Serialize(message, message.GetType());
-
-// ✅ 修复 - 使用泛型方法
-var bytes = serializer.Serialize(message);
-```
-
----
-
-## 📚 相关文档
-
-- [MEMORY-OPTIMIZATION-PLAN.md](../../MEMORY-OPTIMIZATION-PLAN.md) - 完整优化计划
-- [Serialization AOT Guide](../aot/serialization-aot-guide.md) - AOT 序列化指南
-- [Architecture](../architecture.md) - 架构概览
-
 ---
 
 ## 🎯 总结
@@ -511,16 +353,8 @@ services.AddCatga()
     .UseJsonSerializer();  // 可读性 + 工具支持
 ```
 
-**混合环境 (平衡)**:
-```csharp
-services.AddCatga()
-    .UseJsonSerializer(options)  // 兼容性
-    .UseMemoryPackSerializer();  // 内部通信用 MemoryPack
-```
-
 ---
 
 **最后更新**: 2024-01-20  
-**版本**: 1.0.0  
+**版本**: 2.0.0  
 **维护者**: Catga Team
-

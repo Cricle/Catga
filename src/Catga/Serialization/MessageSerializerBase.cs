@@ -35,17 +35,13 @@ namespace Catga.Serialization;
 public abstract class MessageSerializerBase : IPooledMessageSerializer
 {
     /// <summary>
-    /// Memory pool manager for buffer allocation and reuse
+    /// Initialize base serializer
     /// </summary>
-    protected readonly MemoryPoolManager PoolManager;
-
-    /// <summary>
-    /// Initialize base serializer with optional pool manager
-    /// </summary>
-    /// <param name="poolManager">Pool manager for buffer allocation (null = use shared instance)</param>
-    protected MessageSerializerBase(MemoryPoolManager? poolManager = null)
+    /// <remarks>
+    /// Uses shared memory pools (MemoryPool&lt;byte&gt;.Shared and ArrayPool&lt;byte&gt;.Shared) for optimal performance.
+    /// </remarks>
+    protected MessageSerializerBase()
     {
-        PoolManager = poolManager ?? MemoryPoolManager.Shared;
     }
 
     #region Abstract Methods (Must Implement)
@@ -111,7 +107,7 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public virtual byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value)
     {
-        using var writer = PoolManager.RentBufferWriter(GetSizeEstimate(value));
+        using var writer = MemoryPoolManager.RentBufferWriter(GetSizeEstimate(value));
         Serialize(value, writer);
         return writer.WrittenSpan.ToArray();
     }
@@ -129,12 +125,12 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public virtual IMemoryOwner<byte> SerializeToMemory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value)
     {
-        using var writer = PoolManager.RentBufferWriter(GetSizeEstimate(value));
+        using var writer = MemoryPoolManager.RentBufferWriter(GetSizeEstimate(value));
         Serialize(value, writer);
 
-        var owner = PoolManager.RentMemory(writer.WrittenCount);
-        writer.WrittenSpan.CopyTo(owner.Memory.Span);
-        return owner;
+        var pooled = MemoryPoolManager.RentMemory(writer.WrittenCount);
+        writer.WrittenSpan.CopyTo(pooled.Memory.Span);
+        return pooled.ToMemoryOwner();
     }
 
     /// <summary>
@@ -175,7 +171,7 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
             return Deserialize<T>(data.FirstSpan);
 
         // Multi-segment: rent pooled buffer and copy
-        using var owner = PoolManager.RentMemory((int)data.Length);
+        using var owner = MemoryPoolManager.RentMemory((int)data.Length);
         data.CopyTo(owner.Memory.Span);
         return Deserialize<T>(owner.Memory.Span);
     }
@@ -199,7 +195,7 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
     {
         try
         {
-            using var pooledWriter = PoolManager.RentBufferWriter(destination.Length);
+            using var pooledWriter = MemoryPoolManager.RentBufferWriter(destination.Length);
             Serialize(value, pooledWriter);
 
             if (pooledWriter.WrittenCount > destination.Length)
@@ -233,7 +229,7 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
         Memory<byte> destination,
         out int bytesWritten)
     {
-        using var pooledWriter = PoolManager.RentBufferWriter(destination.Length);
+        using var pooledWriter = MemoryPoolManager.RentBufferWriter(destination.Length);
         Serialize(value, pooledWriter);
 
         if (pooledWriter.WrittenCount > destination.Length)
@@ -277,7 +273,7 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
     /// <remarks>AOT-safe.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public virtual IPooledBufferWriter<byte> GetPooledWriter(int initialCapacity = 256)
-        => PoolManager.RentBufferWriter(initialCapacity);
+        => MemoryPoolManager.RentBufferWriter(initialCapacity);
 
     #endregion
 

@@ -104,22 +104,14 @@ public static class SerializationHelper
         }
 
         // Large data: use ArrayPool
-        var pool = MemoryPoolManager.Shared;
-        var buffer = pool.RentArray(base64Length);
-        try
+        using var pooled = MemoryPoolManager.RentArray(base64Length);
+        if (Base64.EncodeToUtf8(data, pooled.Span, out _, out int pooledBytesWritten) == OperationStatus.Done)
         {
-            if (Base64.EncodeToUtf8(data, buffer, out _, out int bytesWritten) == OperationStatus.Done)
-            {
-                return System.Text.Encoding.UTF8.GetString(buffer, 0, bytesWritten);
-            }
-            
-            // Fallback
-            return Convert.ToBase64String(data);
+            return System.Text.Encoding.UTF8.GetString(pooled.Span.Slice(0, pooledBytesWritten));
         }
-        finally
-        {
-            pool.ReturnArray(buffer, clearArray: false);
-        }
+        
+        // Fallback
+        return Convert.ToBase64String(data);
     }
 
     /// <summary>
@@ -138,8 +130,7 @@ public static class SerializationHelper
         // Estimate decoded size (Base64 expands by ~33%)
         int maxDecodedLength = (base64.Length * 3) / 4;
         
-        var pool = MemoryPoolManager.Shared;
-        var owner = pool.RentMemory(maxDecodedLength);
+        var pooled = MemoryPoolManager.RentMemory(maxDecodedLength);
 
         try
         {
@@ -148,20 +139,20 @@ public static class SerializationHelper
             int utf8ByteCount = System.Text.Encoding.UTF8.GetBytes(base64, utf8Bytes);
 
             // Decode Base64
-            if (Base64.DecodeFromUtf8(utf8Bytes.Slice(0, utf8ByteCount), owner.Memory.Span, out _, out int bytesWritten) == OperationStatus.Done)
+            if (Base64.DecodeFromUtf8(utf8Bytes.Slice(0, utf8ByteCount), pooled.Memory.Span, out _, out int bytesWritten) == OperationStatus.Done)
             {
                 // Success: return memory owner (will be wrapped to limit length)
-                return new SlicedMemoryOwner(owner, bytesWritten);
+                return new SlicedMemoryOwner(pooled, bytesWritten);
             }
 
             // Fallback: use Convert
             var decoded = Convert.FromBase64String(base64);
-            decoded.CopyTo(owner.Memory.Span);
-            return new SlicedMemoryOwner(owner, decoded.Length);
+            decoded.CopyTo(pooled.Memory.Span);
+            return new SlicedMemoryOwner(pooled, decoded.Length);
         }
         catch
         {
-            owner.Dispose();
+            pooled.Dispose();
             throw;
         }
     }
@@ -176,21 +167,21 @@ public static class SerializationHelper
     }
 
     /// <summary>
-    /// Sliced memory owner that wraps another owner and limits the visible length (AOT-safe)
+    /// Sliced memory owner that wraps pooled memory and limits the visible length (AOT-safe)
     /// </summary>
     private sealed class SlicedMemoryOwner : IMemoryOwner<byte>
     {
-        private readonly IMemoryOwner<byte> _inner;
+        private PooledMemory _pooled;
         private readonly int _length;
 
-        public SlicedMemoryOwner(IMemoryOwner<byte> inner, int length)
+        public SlicedMemoryOwner(PooledMemory pooled, int length)
         {
-            _inner = inner;
+            _pooled = pooled;
             _length = length;
         }
 
-        public Memory<byte> Memory => _inner.Memory.Slice(0, _length);
+        public Memory<byte> Memory => _pooled.Memory.Slice(0, _length);
 
-        public void Dispose() => _inner.Dispose();
+        public void Dispose() => _pooled.Dispose();
     }
 }

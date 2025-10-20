@@ -495,6 +495,7 @@
 
             nav {
                 padding: 0.75rem 1rem;
+                flex-wrap: wrap;
             }
 
             .logo {
@@ -510,16 +511,23 @@
             .container {
                 padding: 0.5rem;
                 gap: 0;
+                width: 100%;
+                max-width: 100vw;
             }
 
             .main-content {
                 padding: 1rem;
                 border-radius: 8px;
+                width: 100%;
+                max-width: 100%;
+                overflow-x: hidden;
             }
 
             .page-title {
                 font-size: 1.75rem;
                 margin-bottom: 0.75rem;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
             }
 
             .page-subtitle {
@@ -531,23 +539,32 @@
                 padding: 0.6rem 0.85rem;
                 font-size: 0.95rem;
                 margin-bottom: 1.5rem;
+                width: 100%;
+                max-width: 100%;
             }
 
             /* Interface Cards */
             .interface-card {
                 padding: 1.25rem;
                 margin-bottom: 1.5rem;
+                width: 100%;
+                max-width: 100%;
+                overflow-x: hidden;
             }
 
             .interface-header {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 0.75rem;
+                width: 100%;
             }
 
             .interface-name {
                 font-size: 1.2rem;
-                word-break: break-word;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                hyphens: auto;
+                max-width: 100%;
             }
 
             .interface-badge {
@@ -564,12 +581,18 @@
             .method {
                 padding: 1rem;
                 margin-bottom: 0.75rem;
+                width: 100%;
+                max-width: 100%;
+                overflow-x: hidden;
             }
 
             .method-signature {
                 font-size: 0.8rem;
-                word-break: break-all;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: pre-wrap;
                 line-height: 1.6;
+                max-width: 100%;
             }
 
             .method-description {
@@ -584,11 +607,14 @@
                 flex-direction: column;
                 gap: 0.25rem;
                 padding: 0.75rem 0;
+                width: 100%;
             }
 
             .param-name {
                 font-size: 0.85rem;
                 min-width: auto;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
             }
 
             .param-desc {
@@ -600,19 +626,32 @@
                 padding: 1rem;
                 margin: 1rem 0;
                 border-radius: 6px;
+                width: 100%;
+                max-width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
             }
 
             .code-example pre {
                 font-size: 0.8rem;
                 line-height: 1.5;
                 overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                max-width: 100%;
+            }
+
+            .code-example code {
+                white-space: pre;
+                word-wrap: normal;
             }
 
             .copy-btn {
+                position: sticky;
                 top: 0.5rem;
                 right: 0.5rem;
                 padding: 0.4rem 0.8rem;
                 font-size: 0.8rem;
+                z-index: 10;
             }
 
             /* Sidebar on mobile */
@@ -666,17 +705,21 @@
                 font-size: 1.5rem !important;
                 margin-top: 2rem !important;
                 margin-bottom: 1.5rem !important;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
             }
         }
 
         @media (max-width: 480px) {
             .container {
                 padding: 0.25rem;
+                width: 100%;
             }
 
             .page-title {
                 font-size: 1.4rem;
-                word-break: break-word;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
             }
 
             .page-subtitle {
@@ -685,28 +728,42 @@
 
             .interface-name {
                 font-size: 1rem;
-                word-break: break-word;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
             }
 
             .method-signature {
-                font-size: 0.7rem;
-                word-break: break-all;
+                font-size: 0.75rem;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: pre-wrap;
+            }
+
+            .code-example {
+                padding: 0.75rem;
+                margin: 0.75rem 0;
             }
 
             .code-example pre {
-                font-size: 0.7rem;
+                font-size: 0.75rem;
+                padding-right: 3rem; /* Space for copy button */
             }
 
             .main-content {
-                padding: 0.5rem;
+                padding: 0.75rem;
             }
 
             .interface-card {
-                padding: 0.75rem;
+                padding: 1rem;
             }
 
             .method {
                 padding: 0.75rem;
+            }
+
+            .copy-btn {
+                padding: 0.35rem 0.7rem;
+                font-size: 0.75rem;
             }
         }
 
@@ -715,8 +772,14 @@
                 font-size: 13px;
             }
 
+            .container {
+                padding: 0.125rem;
+                width: 100%;
+            }
+
             .page-title {
                 font-size: 1.25rem;
+                line-height: 1.3;
             }
 
             .interface-name {
@@ -724,15 +787,45 @@
             }
 
             .method-signature {
-                font-size: 0.65rem;
+                font-size: 0.7rem;
+                white-space: pre-wrap;
             }
 
             .interface-card {
-                padding: 0.5rem;
+                padding: 0.75rem;
             }
 
             .main-content {
-                padding: 0.25rem;
+                padding: 0.5rem;
+            }
+
+            .method {
+                padding: 0.5rem;
+            }
+
+            .code-example {
+                padding: 0.5rem;
+            }
+
+            .code-example pre {
+                font-size: 0.7rem;
+            }
+
+            .copy-btn {
+                padding: 0.3rem 0.6rem;
+                font-size: 0.7rem;
+            }
+        }
+
+        /* Prevent horizontal scroll on all mobile devices */
+        @media (max-width: 768px) {
+            * {
+                max-width: 100%;
+            }
+
+            body, html {
+                overflow-x: hidden;
+                width: 100%;
             }
         }
     </style>

@@ -13,7 +13,7 @@ public class BaseMemoryStoreTests
     {
         // Arrange
         var store = new TestMemoryStore();
-        var message = new TestMessage { Id = 1L, Data = "test data" };
+        var message = new TestMessage { Id = "1", Data = "test data" };
 
         // Act
         store.AddOrUpdate(message.Id, message);
@@ -30,8 +30,8 @@ public class BaseMemoryStoreTests
     {
         // Arrange
         var store = new TestMemoryStore();
-        var message1 = new TestMessage { Id = 1L, Data = "original" };
-        var message2 = new TestMessage { Id = 1L, Data = "updated" };
+        var message1 = new TestMessage { Id = "1", Data = "original" };
+        var message2 = new TestMessage { Id = "1", Data = "updated" };
 
         // Act
         store.AddOrUpdate(message1.Id, message1);
@@ -62,9 +62,9 @@ public class BaseMemoryStoreTests
     {
         // Arrange
         var store = new TestMemoryStore();
-        store.AddOrUpdate(1L, new TestMessage { Id = 1L, Data = "data1" });
-        store.AddOrUpdate(2L, new TestMessage { Id = 2L, Data = "data2" });
-        store.AddOrUpdate(3L, new TestMessage { Id = 3L, Data = "data3" });
+        store.AddOrUpdate(1L, new TestMessage { Id = "1", Data = "data1" });
+        store.AddOrUpdate(2L, new TestMessage { Id = "2", Data = "data2" });
+        store.AddOrUpdate(3L, new TestMessage { Id = "3", Data = "data3" });
 
         // Act
         var allMessages = store.GetAll();
@@ -78,9 +78,9 @@ public class BaseMemoryStoreTests
     {
         // Arrange
         var store = new TestMemoryStore();
-        store.AddOrUpdate(1L, new TestMessage { Id = 1L, Data = "test", Priority = 1 });
-        store.AddOrUpdate(2L, new TestMessage { Id = 2L, Data = "test", Priority = 2 });
-        store.AddOrUpdate(3L, new TestMessage { Id = 3L, Data = "other", Priority = 3 });
+        store.AddOrUpdate(1L, new TestMessage { Id = "1", Data = "test", Priority = 1 });
+        store.AddOrUpdate(2L, new TestMessage { Id = "2", Data = "test", Priority = 2 });
+        store.AddOrUpdate(3L, new TestMessage { Id = "3", Data = "other", Priority = 3 });
 
         // Act
         var filtered = store.GetByPredicate(m => m.Data == "test", maxCount: 10);
@@ -112,9 +112,9 @@ public class BaseMemoryStoreTests
     {
         // Arrange
         var store = new TestMemoryStore();
-        store.AddOrUpdate(1L, new TestMessage { Id = 1L, Priority = 3 });
-        store.AddOrUpdate(2L, new TestMessage { Id = 2L, Priority = 1 });
-        store.AddOrUpdate(3L, new TestMessage { Id = 3L, Priority = 2 });
+        store.AddOrUpdate(1L, new TestMessage { Id = "1", Priority = 3 });
+        store.AddOrUpdate(2L, new TestMessage { Id = "2", Priority = 1 });
+        store.AddOrUpdate(3L, new TestMessage { Id = "3", Priority = 2 });
 
         var comparer = Comparer<TestMessage>.Create((a, b) => a.Priority.CompareTo(b.Priority));
 
@@ -133,9 +133,9 @@ public class BaseMemoryStoreTests
     {
         // Arrange
         var store = new TestMemoryStore();
-        store.AddOrUpdate(1L, new TestMessage { Id = 1L, Data = "test" });
-        store.AddOrUpdate(2L, new TestMessage { Id = 2L, Data = "test" });
-        store.AddOrUpdate(3L, new TestMessage { Id = 3L, Data = "other" });
+        store.AddOrUpdate(1L, new TestMessage { Id = "1", Data = "test" });
+        store.AddOrUpdate(2L, new TestMessage { Id = "2", Data = "test" });
+        store.AddOrUpdate(3L, new TestMessage { Id = "3", Data = "other" });
 
         // Act
         var count = store.GetCountByPredicate(m => m.Data == "test");
@@ -170,7 +170,7 @@ public class BaseMemoryStoreTests
     {
         // Arrange
         var store = new TestMemoryStore();
-        var message = new TestMessage { Id = 1L, Data = "original" };
+        var message = new TestMessage { Id = "1", Data = "original" };
         store.AddOrUpdate(message.Id, message);
 
         // Act
@@ -199,7 +199,7 @@ public class BaseMemoryStoreTests
     {
         // Arrange
         var store = new TestMemoryStore();
-        var message = new TestMessage { Id = 1L, Data = "test data" };
+        var message = new TestMessage { Id = "1", Data = "test data" };
         store.AddOrUpdate(message.Id, message);
 
         // Act

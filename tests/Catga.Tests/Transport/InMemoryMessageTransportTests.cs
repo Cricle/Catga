@@ -190,7 +190,7 @@ public class InMemoryMessageTransportTests
         });
 
         var message = new QoS2Message(555, "QoS2");
-        var context = new TransportContext { messageId = unique-id-123L };
+        var context = new TransportContext { MessageId = unique-id-123L };
 
         // Act - publish same message twice with same MessageId
         await _transport.PublishAsync(message, context);
@@ -214,8 +214,8 @@ public class InMemoryMessageTransportTests
 
         var message1 = new QoS2Message(666, "QoS2-1");
         var message2 = new QoS2Message(777, "QoS2-2");
-        var context1 = new TransportContext { messageId = id-1L };
-        var context2 = new TransportContext { messageId = id-2L };
+        var context1 = new TransportContext { MessageId = id-1L };
+        var context2 = new TransportContext { MessageId = id-2L };
 
         // Act
         await _transport.PublishAsync(message1, context1);
@@ -303,7 +303,7 @@ public class InMemoryMessageTransportTests
         var message = new TestTransportMessage(888, "Context");
         var context = new TransportContext
         {
-            messageId = custom-idL,
+            MessageId = custom-idL,
             CorrelationId = "correlation-123",
             MessageType = "CustomType"
         };

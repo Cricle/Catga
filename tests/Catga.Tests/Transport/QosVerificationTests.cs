@@ -185,7 +185,7 @@ public class QosVerificationTests
         var @event = new ExactlyOnceEvent("test-1", "data");
 
         // 使用固定的 MessageId 进行去重
-        var context = new TransportContext { messageId = fixed-msg-1L };
+        var context = new TransportContext { MessageId = 1001L };
 
         // Act - 发布同一条消息 5 次，使用相同的 MessageId
         for (int i = 0; i < 5; i++)
@@ -208,17 +208,17 @@ public class QosVerificationTests
 
         // Act - 发布 3 条不同的消息（不同的 MessageId）
         await transport.PublishAsync(new ExactlyOnceEvent("msg-1", "data1"),
-            new TransportContext { messageId = id-1L });
+            new TransportContext { MessageId = 2001L });
         await transport.PublishAsync(new ExactlyOnceEvent("msg-2", "data2"),
-            new TransportContext { messageId = id-2L });
+            new TransportContext { MessageId = 2002L });
         await transport.PublishAsync(new ExactlyOnceEvent("msg-3", "data3"),
-            new TransportContext { messageId = id-3L });
+            new TransportContext { MessageId = 2003L });
 
         // 重复发布前 2 条（相同的 MessageId）
         await transport.PublishAsync(new ExactlyOnceEvent("msg-1", "data1"),
-            new TransportContext { messageId = id-1L }); // 去重
+            new TransportContext { MessageId = 2001L }); // 去重
         await transport.PublishAsync(new ExactlyOnceEvent("msg-2", "data2"),
-            new TransportContext { messageId = id-2L }); // 去重
+            new TransportContext { MessageId = 2002L }); // 去重
 
         // Assert
         // QoS 2: 应该只发布 3 次（2 次重复被去重）
@@ -232,7 +232,7 @@ public class QosVerificationTests
         var transport = new MockTransport(_logger, _serializer,
             enableDeduplication: true);
         var @event = new ExactlyOnceEvent("test-1", "data");
-        var context = new TransportContext { messageId = dedup-testL };
+        var context = new TransportContext { MessageId = 3001L };
 
         // Act - 首次发布
         await transport.PublishAsync(@event, context);
@@ -255,9 +255,9 @@ public class QosVerificationTests
     public void QoS_Contracts_ShouldBeCorrect()
     {
         // Arrange & Assert
-        IMessage qos0 = new TestEvent("1", "data");
-        IMessage qos1 = new ReliableTestEvent("1", "data");
-        IMessage qos2 = new ExactlyOnceEvent("1", "data");
+        IMessage qos0 = new TestEvent(1L, "data");
+        IMessage qos1 = new ReliableTestEvent(1L, "data");
+        IMessage qos2 = new ExactlyOnceEvent(1L, "data");
 
         qos0.QoS.Should().Be(QualityOfService.AtMostOnce, "IEvent should default to QoS 0");
         qos1.QoS.Should().Be(QualityOfService.AtLeastOnce, "IReliableEvent should use QoS 1");
@@ -310,7 +310,7 @@ public class MockTransport : IMessageTransport
     private readonly bool _simulateDuplicates;
     private readonly bool _enableDeduplication;
     private readonly TimeSpan _ackDelay;
-    private readonly ConcurrentDictionary<string, bool> _processedMessages = new();
+    private readonly ConcurrentDictionary<long, bool> _processedMessages = new();
     private readonly List<Func<object, TransportContext, Task>> _subscribers = new();
     private readonly Random _random = new();
 
@@ -348,7 +348,7 @@ public class MockTransport : IMessageTransport
         CancellationToken cancellationToken = default) where TMessage : class
     {
         var qos = (message as IMessage)?.QoS ?? QualityOfService.AtMostOnce;
-        var ctx = context ?? new TransportContext { MessageId = Guid.NewGuid().ToString() };
+        var ctx = context ?? new TransportContext { MessageId = MessageExtensions.NewMessageId() };
         switch (qos)
         {
             case QualityOfService.AtMostOnce:
@@ -421,7 +421,7 @@ public class MockTransport : IMessageTransport
         CancellationToken cancellationToken) where TMessage : class
     {
         // QoS 2: 发布前检查去重（防止重复发送）
-        if (_enableDeduplication && _processedMessages.ContainsKey(context.MessageId!))
+        if (_enableDeduplication && context.MessageId.HasValue && _processedMessages.ContainsKey(context.MessageId.Value))
         {
             _logger.LogDebug("Message {MessageId} already published (QoS 2), skipping", context.MessageId);
             return; // 已处理，跳过
@@ -431,9 +431,9 @@ public class MockTransport : IMessageTransport
         await PublishQoS1Async(message, context, cancellationToken);
 
         // 标记为已发布（防止后续重复）
-        if (_enableDeduplication)
+        if (_enableDeduplication && context.MessageId.HasValue)
         {
-            _processedMessages.TryAdd(context.MessageId!, true);
+            _processedMessages.TryAdd(context.MessageId.Value, true);
         }
     }
 

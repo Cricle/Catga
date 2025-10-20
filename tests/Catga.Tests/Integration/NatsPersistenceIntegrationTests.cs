@@ -111,7 +111,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         // Add multiple messages
         for (int i = 0; i < 3; i++)
         {
-            var msg = CreateOutboxMessage($"pending-{i}", OutboxStatus.Pending);
+            var msg = CreateOutboxMessage(1000L + i, OutboxStatus.Pending);
             await outbox.AddAsync(msg);
         }
 
@@ -135,7 +135,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _serializer!,
             streamName: streamName);
         
-        var message = CreateOutboxMessage("publish-test", OutboxStatus.Pending);
+        var message = CreateOutboxMessage(2000L, OutboxStatus.Pending);
         await outbox.AddAsync(message);
         await Task.Delay(300);
 
@@ -160,7 +160,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _serializer!,
             streamName: streamName);
         
-        var messageId = Guid.NewGuid().ToString();
+        var messageId = MessageExtensions.NewMessageId();
         var lockDuration = TimeSpan.FromMinutes(5);
 
         // Act
@@ -180,7 +180,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _serializer!,
             streamName: streamName);
         
-        var messageId = Guid.NewGuid().ToString();
+        var messageId = MessageExtensions.NewMessageId();
         var lockDuration = TimeSpan.FromMinutes(5);
 
         // Act - First lock
@@ -205,7 +205,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _serializer!,
             streamName: streamName);
         
-        var messageId = Guid.NewGuid().ToString();
+        var messageId = MessageExtensions.NewMessageId();
         
         // Lock first
         await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
@@ -243,7 +243,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _serializer!,
             streamName: streamName);
         
-        var messageId = Guid.NewGuid().ToString();
+        var messageId = MessageExtensions.NewMessageId();
 
         var eventData = new TestEvent
         {
@@ -282,7 +282,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _serializer!,
             streamName: streamName);
         
-        var messageId = Guid.NewGuid().ToString();
+        var messageId = MessageExtensions.NewMessageId();
         
         // Lock first
         await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
@@ -385,7 +385,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         {
             new TestEvent
             {
-                MessageId = Guid.NewGuid().ToString(),
+                MessageId = MessageExtensions.NewMessageId(),
                 Id = "version-test",
                 Data = "Version check"
             }
@@ -418,7 +418,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         {
             new TestEvent
             {
-                MessageId = Guid.NewGuid().ToString(),
+                MessageId = MessageExtensions.NewMessageId(),
                 Id = "concurrency-1",
                 Data = "First event"
             }
@@ -431,7 +431,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         {
             new TestEvent
             {
-                MessageId = Guid.NewGuid().ToString(),
+                MessageId = MessageExtensions.NewMessageId(),
                 Id = "concurrency-2",
                 Data = "Second event"
             }
@@ -447,18 +447,18 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
 
     #region Helper Methods
 
-    private OutboxMessage CreateOutboxMessage(string id, OutboxStatus status)
+    private OutboxMessage CreateOutboxMessage(long messageId, OutboxStatus status)
     {
         var eventData = new TestEvent
         {
-            MessageId = id,
-            Id = id,
-            Data = $"Data for {id}"
+            MessageId = messageId,
+            Id = messageId.ToString(),
+            Data = $"Data for {messageId}"
         };
         
         return new OutboxMessage
         {
-            MessageId = id,
+            MessageId = messageId,
             MessageType = typeof(TestEvent).FullName!,
             Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
             Status = status,

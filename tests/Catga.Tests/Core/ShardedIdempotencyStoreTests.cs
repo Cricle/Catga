@@ -15,10 +15,10 @@ public class ShardedIdempotencyStoreTests
     {
         // Arrange
         var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
 
         // Act
-        var result = await store.HasBeenProcessedAsync(messageId);
+        var result = await store.HasBeenProcessedAsync(MessageId);
 
         // Assert
         result.Should().BeFalse();
@@ -29,12 +29,12 @@ public class ShardedIdempotencyStoreTests
     {
         // Arrange
         var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
         var resultValue = "test result";
 
         // Act
-        await store.MarkAsProcessedAsync(messageId, resultValue);
-        var isProcessed = await store.HasBeenProcessedAsync(messageId);
+        await store.MarkAsProcessedAsync(MessageId, resultValue);
+        var isProcessed = await store.HasBeenProcessedAsync(MessageId);
 
         // Assert
         isProcessed.Should().BeTrue();
@@ -45,12 +45,12 @@ public class ShardedIdempotencyStoreTests
     {
         // Arrange
         var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
         var resultValue = "test result";
 
         // Act
-        await store.MarkAsProcessedAsync(messageId, resultValue);
-        var cachedResult = await store.GetCachedResultAsync<string>(messageId);
+        await store.MarkAsProcessedAsync(MessageId, resultValue);
+        var cachedResult = await store.GetCachedResultAsync<string>(MessageId);
 
         // Assert
         cachedResult.Should().Be(resultValue);
@@ -61,10 +61,10 @@ public class ShardedIdempotencyStoreTests
     {
         // Arrange
         var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
 
         // Act
-        var cachedResult = await store.GetCachedResultAsync<string>(messageId);
+        var cachedResult = await store.GetCachedResultAsync<string>(MessageId);
 
         // Assert
         cachedResult.Should().BeNull();
@@ -75,12 +75,12 @@ public class ShardedIdempotencyStoreTests
     {
         // Arrange
         var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
 
         // Act
-        await store.MarkAsProcessedAsync<string>(messageId, null);
-        var isProcessed = await store.HasBeenProcessedAsync(messageId);
-        var cachedResult = await store.GetCachedResultAsync<string>(messageId);
+        await store.MarkAsProcessedAsync<string>(MessageId, null);
+        var isProcessed = await store.HasBeenProcessedAsync(MessageId);
+        var cachedResult = await store.GetCachedResultAsync<string>(MessageId);
 
         // Assert
         isProcessed.Should().BeTrue();
@@ -93,12 +93,12 @@ public class ShardedIdempotencyStoreTests
         // Arrange
         var retentionPeriod = TimeSpan.FromMilliseconds(100);
         var store = new ShardedIdempotencyStore(_serializer, shardCount: 4, retentionPeriod: retentionPeriod);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
 
         // Act
-        await store.MarkAsProcessedAsync(messageId, "test");
+        await store.MarkAsProcessedAsync(MessageId, "test");
         await Task.Delay(150); // Wait for expiration
-        var isProcessed = await store.HasBeenProcessedAsync(messageId);
+        var isProcessed = await store.HasBeenProcessedAsync(MessageId);
 
         // Assert
         isProcessed.Should().BeFalse();
@@ -110,12 +110,12 @@ public class ShardedIdempotencyStoreTests
         // Arrange
         var retentionPeriod = TimeSpan.FromMilliseconds(100);
         var store = new ShardedIdempotencyStore(_serializer, shardCount: 4, retentionPeriod: retentionPeriod);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
 
         // Act
-        await store.MarkAsProcessedAsync(messageId, "test");
+        await store.MarkAsProcessedAsync(MessageId, "test");
         await Task.Delay(150); // Wait for expiration
-        var cachedResult = await store.GetCachedResultAsync<string>(messageId);
+        var cachedResult = await store.GetCachedResultAsync<string>(MessageId);
 
         // Assert
         cachedResult.Should().BeNull();
@@ -126,18 +126,18 @@ public class ShardedIdempotencyStoreTests
     {
         // Arrange
         var store = new ShardedIdempotencyStore(_serializer, shardCount: 8);
-        var messageIds = Enumerable.Range(0, 100).Select(_ => Guid.NewGuid().ToString()).ToArray();
+        var messageIds = Enumerable.Range(0, 100).Select(_ => MessageExtensions.NewMessageId()).ToArray();
 
         // Act
-        foreach (var messageId in messageIds)
+        foreach (var MessageId in messageIds)
         {
-            await store.MarkAsProcessedAsync(messageId, $"result-{messageId}");
+            await store.MarkAsProcessedAsync(MessageId, $"result-{MessageId}");
         }
 
         // Assert - All should be processed
-        foreach (var messageId in messageIds)
+        foreach (var MessageId in messageIds)
         {
-            var isProcessed = await store.HasBeenProcessedAsync(messageId);
+            var isProcessed = await store.HasBeenProcessedAsync(MessageId);
             isProcessed.Should().BeTrue();
         }
     }
@@ -147,18 +147,18 @@ public class ShardedIdempotencyStoreTests
     {
         // Arrange
         var store = new ShardedIdempotencyStore(_serializer, shardCount: 16);
-        var messageIds = Enumerable.Range(0, 1000).Select(_ => Guid.NewGuid().ToString()).ToArray();
+        var messageIds = Enumerable.Range(0, 1000).Select(_ => MessageExtensions.NewMessageId()).ToArray();
 
         // Act - Concurrent writes
-        await Parallel.ForEachAsync(messageIds, async (messageId, ct) =>
+        await Parallel.ForEachAsync(messageIds, async (MessageId, ct) =>
         {
-            await store.MarkAsProcessedAsync(messageId, $"result-{messageId}", ct);
+            await store.MarkAsProcessedAsync(MessageId, $"result-{MessageId}", ct);
         });
 
         // Assert - All should be processed
-        foreach (var messageId in messageIds)
+        foreach (var MessageId in messageIds)
         {
-            var isProcessed = await store.HasBeenProcessedAsync(messageId);
+            var isProcessed = await store.HasBeenProcessedAsync(MessageId);
             isProcessed.Should().BeTrue();
         }
     }
@@ -168,14 +168,14 @@ public class ShardedIdempotencyStoreTests
     {
         // Arrange
         var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
 
         // Act
-        await store.MarkAsProcessedAsync(messageId, "string result");
-        await store.MarkAsProcessedAsync(messageId, 42);
+        await store.MarkAsProcessedAsync(MessageId, "string result");
+        await store.MarkAsProcessedAsync(MessageId, 42);
 
-        var stringResult = await store.GetCachedResultAsync<string>(messageId);
-        var intResult = await store.GetCachedResultAsync<int>(messageId);
+        var stringResult = await store.GetCachedResultAsync<string>(MessageId);
+        var intResult = await store.GetCachedResultAsync<int>(MessageId);
 
         // Assert
         stringResult.Should().Be("string result");
@@ -208,7 +208,7 @@ public class ShardedIdempotencyStoreTests
     {
         // Arrange
         var store = new ShardedIdempotencyStore(_serializer, shardCount: 4);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
         var complexObject = new TestComplexObject
         {
             Id = 123,
@@ -217,8 +217,8 @@ public class ShardedIdempotencyStoreTests
         };
 
         // Act
-        await store.MarkAsProcessedAsync(messageId, complexObject);
-        var retrieved = await store.GetCachedResultAsync<TestComplexObject>(messageId);
+        await store.MarkAsProcessedAsync(MessageId, complexObject);
+        var retrieved = await store.GetCachedResultAsync<TestComplexObject>(MessageId);
 
         // Assert
         retrieved.Should().NotBeNull();

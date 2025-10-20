@@ -61,14 +61,14 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
         var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!);
         var eventData = new TestEvent
         {
-            MessageId = Guid.NewGuid().ToString(),
+            MessageId = MessageExtensions.NewMessageId(),
             Id = "test-1",
             Data = "Outbox message"
         };
 
         var message = new OutboxMessage
         {
-            MessageId = Guid.NewGuid().ToString(),
+            MessageId = MessageExtensions.NewMessageId(),
             MessageType = typeof(TestEvent).FullName!,
             Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
             Status = OutboxStatus.Pending,
@@ -165,18 +165,18 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     {
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
         var lockDuration = TimeSpan.FromMinutes(5);
 
         // Act
-        var locked = await inbox.TryLockMessageAsync(messageId, lockDuration);
+        var locked = await inbox.TryLockMessageAsync(MessageId, lockDuration);
 
         // Assert
         locked.Should().BeTrue("first lock attempt should succeed");
 
         // Verify in Redis
         var db = _redis!.GetDatabase();
-        var key = $"inbox:msg:{messageId}";
+        var key = $"inbox:msg:{MessageId}";
         var exists = await db.KeyExistsAsync(key);
         exists.Should().BeTrue();
     }
@@ -186,14 +186,14 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     {
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
         var lockDuration = TimeSpan.FromMinutes(5);
 
         // Act - First lock
-        var firstLock = await inbox.TryLockMessageAsync(messageId, lockDuration);
+        var firstLock = await inbox.TryLockMessageAsync(MessageId, lockDuration);
 
         // Act - Second lock (duplicate)
-        var secondLock = await inbox.TryLockMessageAsync(messageId, lockDuration);
+        var secondLock = await inbox.TryLockMessageAsync(MessageId, lockDuration);
 
         // Assert
         firstLock.Should().BeTrue();
@@ -205,21 +205,21 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     {
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
 
         // Lock first
-        await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
+        await inbox.TryLockMessageAsync(MessageId, TimeSpan.FromMinutes(5));
 
         var eventData = new TestEvent
         {
-            MessageId = messageId,
+            MessageId = MessageId,
             Id = "inbox-test",
             Data = "Test data"
         };
 
         var message = new InboxMessage
         {
-            MessageId = messageId,
+            MessageId = MessageId,
             MessageType = typeof(TestEvent).FullName!,
             Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
             Status = InboxStatus.Processing,
@@ -231,7 +231,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
 
         // Assert - Message should persist with 24h TTL
         var db = _redis!.GetDatabase();
-        var key = $"inbox:msg:{messageId}";
+        var key = $"inbox:msg:{MessageId}";
         var ttl = await db.KeyTimeToLiveAsync(key);
         ttl.Should().NotBeNull();
         ttl.Value.Should().BeCloseTo(TimeSpan.FromHours(24), TimeSpan.FromMinutes(1));
@@ -242,18 +242,18 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     {
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
 
         var eventData = new TestEvent
         {
-            MessageId = messageId,
+            MessageId = MessageId,
             Id = "check-test",
             Data = "Test"
         };
 
         var message = new InboxMessage
         {
-            MessageId = messageId,
+            MessageId = MessageId,
             MessageType = typeof(TestEvent).FullName!,
             Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
             Status = InboxStatus.Processed,
@@ -264,7 +264,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
         await inbox.MarkAsProcessedAsync(message);
 
         // Act
-        var hasBeenProcessed = await inbox.HasBeenProcessedAsync(messageId);
+        var hasBeenProcessed = await inbox.HasBeenProcessedAsync(MessageId);
 
         // Assert
         hasBeenProcessed.Should().BeTrue();
@@ -275,16 +275,16 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     {
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
 
         // Lock first
-        await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
+        await inbox.TryLockMessageAsync(MessageId, TimeSpan.FromMinutes(5));
 
         // Act
-        await inbox.ReleaseLockAsync(messageId);
+        await inbox.ReleaseLockAsync(MessageId);
 
         // Assert - Should be able to lock again
-        var canLockAgain = await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
+        var canLockAgain = await inbox.TryLockMessageAsync(MessageId, TimeSpan.FromMinutes(5));
         canLockAgain.Should().BeTrue("lock should be released");
     }
 
@@ -293,12 +293,12 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     {
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
-        var messageId = Guid.NewGuid().ToString();
+        var MessageId = MessageExtensions.NewMessageId();
         var lockDuration = TimeSpan.FromMinutes(5);
 
         // Act - Simulate concurrent lock attempts
         var tasks = Enumerable.Range(0, 10)
-            .Select(_ => inbox.TryLockMessageAsync(messageId, lockDuration).AsTask())
+            .Select(_ => inbox.TryLockMessageAsync(MessageId, lockDuration).AsTask())
             .ToArray();
 
         var results = await Task.WhenAll(tasks);

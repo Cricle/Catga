@@ -102,7 +102,7 @@ public static class CatgaResultHttpConversionExtensions
             CatgaResultHttpExtensions.HttpConflict => Results.Conflict(new { error, errorCode }),
             CatgaResultHttpExtensions.HttpUnauthorized => Results.Unauthorized(),
             CatgaResultHttpExtensions.HttpForbidden => Results.Forbid(),
-            
+
             // Core Catga error codes
             ErrorCodes.ValidationFailed => Results.UnprocessableEntity(new { error, errorCode }),
             ErrorCodes.Timeout => Results.Problem(detail: error, statusCode: 408),
@@ -113,7 +113,7 @@ public static class CatgaResultHttpConversionExtensions
             ErrorCodes.LockFailed => Results.Problem(detail: error, statusCode: 503),
             ErrorCodes.TransportFailed => Results.Problem(detail: error, statusCode: 503),
             ErrorCodes.SerializationFailed => Results.BadRequest(new { error, errorCode }),
-            
+
             _ => Results.BadRequest(new { error, errorCode })
         };
     }

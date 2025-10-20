@@ -113,10 +113,10 @@ public class MemoryPackMessageSerializer : IPooledMessageSerializer
     {
         // Use pooled writer to avoid intermediate allocation
         using var tempWriter = _poolManager.RentBufferWriter(128);
-        
+
         // Serialize to temp writer first (MemoryPack non-generic doesn't support IBufferWriter directly)
         var bytes = MemoryPackSerializer.Serialize(type, value);
-        
+
         // Write to target buffer
         bufferWriter.Write(bytes);
     }

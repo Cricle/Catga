@@ -37,26 +37,32 @@ public sealed class CatgaMediator : ICatgaMediator
         // 优雅停机：自动跟踪操作
         using var operationScope = _shutdownManager?.BeginOperation();
 
-        using var activity = CatgaActivitySource.Source.StartActivity(
-            $"Command: {TypeNameCache<TRequest>.Name}",
-            ActivityKind.Internal);
-
         var startTimestamp = Stopwatch.GetTimestamp();
         var reqType = TypeNameCache<TRequest>.Name;
         var message = request as IMessage;
 
-        // Set Catga-specific tags for Jaeger
-        activity?.SetTag(CatgaActivitySource.Tags.CatgaType, "command");
-        activity?.SetTag(CatgaActivitySource.Tags.RequestType, reqType);
-        activity?.SetTag(CatgaActivitySource.Tags.MessageType, reqType);
+        // Optimize: Create activity only if there are active listeners
+        using var activity = CatgaActivitySource.Source.HasListeners()
+            ? CatgaActivitySource.Source.StartActivity(
+                $"Command: {reqType}",  // Use cached reqType instead of TypeNameCache lookup
+                ActivityKind.Internal)
+            : null;
 
-        if (message != null)
+        // Set Catga-specific tags for Jaeger (only if activity was created)
+        if (activity != null)
         {
-            activity?.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);
-            if (!string.IsNullOrEmpty(message.CorrelationId))
+            activity.SetTag(CatgaActivitySource.Tags.CatgaType, "command");
+            activity.SetTag(CatgaActivitySource.Tags.RequestType, reqType);
+            activity.SetTag(CatgaActivitySource.Tags.MessageType, reqType);
+
+            if (message != null)
             {
-                activity?.SetTag(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
-                activity?.SetBaggage(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
+                activity.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);
+                if (!string.IsNullOrEmpty(message.CorrelationId))
+                {
+                    activity.SetTag(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
+                    activity.SetBaggage(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
+                }
             }
         }
 
@@ -64,6 +70,41 @@ public sealed class CatgaMediator : ICatgaMediator
 
         try
         {
+            // Optimize: Try to resolve Singleton handler first (skip CreateScope for performance)
+            var singletonHandler = _serviceProvider.GetService<IRequestHandler<TRequest, TResponse>>();
+
+            if (singletonHandler != null)
+            {
+                // Fast path: Singleton handler found, but still need scope for behaviors
+                using var singletonScope = _serviceProvider.CreateScope();
+                var singletonBehaviors = singletonScope.ServiceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
+                var singletonBehaviorsList = singletonBehaviors as IPipelineBehavior<TRequest, TResponse>[] ?? singletonBehaviors.ToArray();
+
+                var singletonResult = FastPath.CanUseFastPath(singletonBehaviorsList.Length)
+                    ? await FastPath.ExecuteRequestDirectAsync(singletonHandler, request, cancellationToken)
+                    : await PipelineExecutor.ExecuteAsync(request, singletonHandler, singletonBehaviorsList, cancellationToken);
+
+                var singletonDuration = GetElapsedMilliseconds(startTimestamp);
+                CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", singletonResult.IsSuccess.ToString()));
+                CatgaDiagnostics.CommandDuration.Record(singletonDuration, new KeyValuePair<string, object?>("request_type", reqType));
+                CatgaLog.CommandExecuted(_logger, reqType, message?.MessageId, singletonDuration, singletonResult.IsSuccess);
+
+                activity?.SetTag(CatgaActivitySource.Tags.Success, singletonResult.IsSuccess);
+                activity?.SetTag(CatgaActivitySource.Tags.Duration, singletonDuration);
+
+                if (singletonResult.IsSuccess)
+                    activity?.SetStatus(ActivityStatusCode.Ok);
+                else
+                {
+                    activity?.SetTag(CatgaActivitySource.Tags.Error, singletonResult.Error ?? "Unknown error");
+                    activity?.SetStatus(ActivityStatusCode.Error, singletonResult.Error);
+                    CatgaLog.CommandFailed(_logger, singletonResult.Exception, reqType, message?.MessageId, singletonResult.Error ?? "Unknown");
+                }
+
+                return singletonResult;
+            }
+
+            // Standard path: Scoped/Transient handler
             using var scope = _serviceProvider.CreateScope();
             var scopedProvider = scope.ServiceProvider;
 
@@ -75,8 +116,9 @@ public sealed class CatgaMediator : ICatgaMediator
             }
 
             var behaviors = scopedProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-            var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToList();
-            var result = FastPath.CanUseFastPath(behaviorsList.Count)
+            // Optimize: Try to avoid ToList() allocation by checking if already a concrete collection
+            var behaviorsList = behaviors as IPipelineBehavior<TRequest, TResponse>[] ?? behaviors.ToArray();
+            var result = FastPath.CanUseFastPath(behaviorsList.Length)
                 ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
                 : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
 
@@ -136,23 +178,29 @@ public sealed class CatgaMediator : ICatgaMediator
         var eventType = TypeNameCache<TEvent>.Name;
         var message = @event as IMessage;
 
-        using var activity = CatgaActivitySource.Source.StartActivity(
-            $"Event: {eventType}",
-            ActivityKind.Producer);
+        // Optimize: Create activity only if there are active listeners
+        using var activity = CatgaActivitySource.Source.HasListeners()
+            ? CatgaActivitySource.Source.StartActivity(
+                $"Event: {eventType}",
+                ActivityKind.Producer)
+            : null;
 
-        // Set Catga-specific tags for Jaeger
-        activity?.SetTag(CatgaActivitySource.Tags.CatgaType, "event");
-        activity?.SetTag(CatgaActivitySource.Tags.EventType, eventType);
-        activity?.SetTag(CatgaActivitySource.Tags.EventName, eventType);
-        activity?.SetTag(CatgaActivitySource.Tags.MessageType, eventType);
-
-        if (message != null)
+        // Set Catga-specific tags for Jaeger (only if activity was created)
+        if (activity != null)
         {
-            activity?.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);
-            if (!string.IsNullOrEmpty(message.CorrelationId))
+            activity.SetTag(CatgaActivitySource.Tags.CatgaType, "event");
+            activity.SetTag(CatgaActivitySource.Tags.EventType, eventType);
+            activity.SetTag(CatgaActivitySource.Tags.EventName, eventType);
+            activity.SetTag(CatgaActivitySource.Tags.MessageType, eventType);
+
+            if (message != null)
             {
-                activity?.SetTag(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
-                activity?.SetBaggage(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
+                activity.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);
+                if (!string.IsNullOrEmpty(message.CorrelationId))
+                {
+                    activity.SetTag(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
+                    activity.SetBaggage(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
+                }
             }
         }
 

@@ -19,15 +19,12 @@ public class IdempotencyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessed
         var messageId = TryGetMessageId(request);
         if (string.IsNullOrEmpty(messageId)) return await next();
 
-        // Check if already processed
+        // Check if already processed (optimize: removed unnecessary ResultMetadata allocation)
         if (await _store.HasBeenProcessedAsync(messageId, cancellationToken))
         {
             LogInformation("Message {MessageId} already processed - returning cached result", messageId);
             var cachedResult = await _store.GetCachedResultAsync<TResponse>(messageId, cancellationToken);
-            var metadata = new ResultMetadata();
-            metadata.Add("FromCache", "true");
-            metadata.Add("MessageId", messageId);
-            return CatgaResult<TResponse>.Success(cachedResult ?? default!, metadata);
+            return CatgaResult<TResponse>.Success(cachedResult ?? default!);  // No metadata allocation
         }
 
         // Process and cache successful results only (failed results not cached to allow retry)

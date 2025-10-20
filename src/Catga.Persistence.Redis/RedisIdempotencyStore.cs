@@ -93,7 +93,21 @@ public class RedisIdempotencyStore : IIdempotencyStore
         return _serializer.Deserialize<TResult>(entry.ResultBytes);
     }
 
-    private string GetKey(string messageId) => $"{_keyPrefix}{messageId}";
+    // Optimize: Use Span to avoid string interpolation allocation
+    private string GetKey(string messageId)
+    {
+        // For small keys, use stack allocation
+        if (_keyPrefix.Length + messageId.Length <= 256)
+        {
+            Span<char> buffer = stackalloc char[256];
+            _keyPrefix.AsSpan().CopyTo(buffer);
+            messageId.AsSpan().CopyTo(buffer[_keyPrefix.Length..]);
+            return new string(buffer[..(_keyPrefix.Length + messageId.Length)]);
+        }
+
+        // Fallback for large keys
+        return $"{_keyPrefix}{messageId}";
+    }
 
     /// <summary>
     /// Idempotency entry

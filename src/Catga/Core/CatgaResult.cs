@@ -32,12 +32,25 @@ public readonly record struct CatgaResult<T>
     public string? Error { get; init; }
     public CatgaException? Exception { get; init; }
     public ResultMetadata? Metadata { get; init; }
+    
+    /// <summary>Error code (e.g., CATGA_1001)</summary>
+    public string? ErrorCode { get; init; }
 
     public static CatgaResult<T> Success(T value, ResultMetadata? metadata = null)
         => new() { IsSuccess = true, Value = value, Metadata = metadata };
 
     public static CatgaResult<T> Failure(string error, CatgaException? exception = null)
-        => new() { IsSuccess = false, Error = error, Exception = exception };
+        => new() { IsSuccess = false, Error = error, Exception = exception, ErrorCode = exception?.ErrorCode };
+    
+    /// <summary>Create failure result from ErrorInfo (zero exception allocation)</summary>
+    public static CatgaResult<T> Failure(ErrorInfo errorInfo)
+        => new()
+        {
+            IsSuccess = false,
+            Error = errorInfo.Message,
+            ErrorCode = errorInfo.Code,
+            Exception = errorInfo.Exception as CatgaException
+        };
 }
 
 /// <summary>Catga operation result without value (zero-allocation struct for performance)</summary>
@@ -47,10 +60,23 @@ public readonly record struct CatgaResult
     public string? Error { get; init; }
     public CatgaException? Exception { get; init; }
     public ResultMetadata? Metadata { get; init; }
+    
+    /// <summary>Error code (e.g., CATGA_1001)</summary>
+    public string? ErrorCode { get; init; }
 
     public static CatgaResult Success(ResultMetadata? metadata = null)
         => new() { IsSuccess = true, Metadata = metadata };
 
     public static CatgaResult Failure(string error, CatgaException? exception = null)
-        => new() { IsSuccess = false, Error = error, Exception = exception };
+        => new() { IsSuccess = false, Error = error, Exception = exception, ErrorCode = exception?.ErrorCode };
+    
+    /// <summary>Create failure result from ErrorInfo (zero exception allocation)</summary>
+    public static CatgaResult Failure(ErrorInfo errorInfo)
+        => new()
+        {
+            IsSuccess = false,
+            Error = errorInfo.Message,
+            ErrorCode = errorInfo.Code,
+            Exception = errorInfo.Exception as CatgaException
+        };
 }

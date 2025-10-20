@@ -67,8 +67,7 @@ public class TracingBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccesse
                 ["exception.message"] = ex.Message,
                 ["exception.escaped"] = false  // Changed to false - exception is handled, not escaped
             }));
-            return CatgaResult<TResponse>.Failure($"Request failed: {ex.Message}", 
-                ex as CatgaException ?? new CatgaException($"Request failed: {ex.Message}", ex));
+            return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.HandlerExecutionFailed, isRetryable: false));
         }
     }
 }

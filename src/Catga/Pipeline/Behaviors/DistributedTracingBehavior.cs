@@ -106,8 +106,7 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
                 ("Message", ex.Message),
                 ("Duration", $"{durationMs:F2}ms"));
 
-            return CatgaResult<TResponse>.Failure($"Command failed: {ex.Message}", 
-                ex as CatgaException ?? new CatgaException($"Command failed: {ex.Message}", ex));
+            return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.HandlerExecutionFailed, isRetryable: false));
         }
     }
 

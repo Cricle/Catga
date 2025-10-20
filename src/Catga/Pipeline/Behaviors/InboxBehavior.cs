@@ -97,7 +97,7 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in inbox behavior for message {MessageId}", id);
-            return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.InboxPersistenceFailed, isRetryable: true));
+            return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PersistenceFailed, isRetryable: true));
         }
     }
 }

@@ -7,13 +7,13 @@ using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 using System.Runtime.CompilerServices;
 
-namespace Catga.Transport.Nats;
+namespace Catga.Persistence.Nats;
 
 /// <summary>
 /// High-performance NATS JetStream-based event store.
 /// Zero reflection, optimized GC, thread-safe.
 /// </summary>
-public sealed class NatsEventStore : IEventStore, IAsyncDisposable
+public sealed class NatsJSEventStore : IEventStore, IAsyncDisposable
 {
     private readonly INatsConnection _connection;
     private readonly INatsJSContext _jetStream;
@@ -22,7 +22,7 @@ public sealed class NatsEventStore : IEventStore, IAsyncDisposable
     private readonly SemaphoreSlim _streamLock = new(1, 1);
     private bool _streamCreated;
 
-    public NatsEventStore(
+    public NatsJSEventStore(
         INatsConnection connection,
         IMessageSerializer serializer,
         string streamName = "CATGA_EVENTS")

@@ -275,9 +275,9 @@ public sealed class CatgaMediator : ICatgaMediator
                 activity.SetTag("catga.success", true);
                 activity.SetTag("catga.duration.ms", GetElapsedMilliseconds(startTimestamp));
             }
-        }
-        catch (Exception ex)
-        {
+                }
+                catch (Exception ex)
+                {
             _logger.LogError(ex, "Event handler failed: {HandlerType}", handlerType);
 
             if (activity != null)

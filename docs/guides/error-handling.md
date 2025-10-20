@@ -18,33 +18,26 @@ Catga uses **structured error codes** instead of throwing exceptions for busines
 
 ## Error Code Structure
 
-All Catga error codes follow the format: `CATGA_XXXX`
+Catga uses **10 simple, readable error codes**:
 
 ```csharp
 public static class ErrorCodes
 {
-    // Message Processing (1xxx)
-    public const string MessageValidationFailed = "CATGA_1001";
-    public const string InvalidMessageId = "CATGA_1002";
-    public const string MessageAlreadyProcessed = "CATGA_1003";
-    
-    // Inbox/Outbox (2xxx)
-    public const string InboxLockFailed = "CATGA_2001";
-    public const string InboxPersistenceFailed = "CATGA_2002";
-    
-    // Transport (3xxx)
-    public const string TransportPublishFailed = "CATGA_3002";
-    
-    // Persistence (4xxx)
-    public const string EventStoreWriteFailed = "CATGA_4001";
-    
-    // Configuration (5xxx)
-    public const string SerializerNotRegistered = "CATGA_5001";
-    
-    // Pipeline (6xxx)
-    public const string HandlerExecutionFailed = "CATGA_6003";
+    // Core error codes - simple and focused
+    public const string ValidationFailed = "VALIDATION_FAILED";
+    public const string HandlerFailed = "HANDLER_FAILED";
+    public const string PipelineFailed = "PIPELINE_FAILED";
+    public const string PersistenceFailed = "PERSISTENCE_FAILED";
+    public const string LockFailed = "LOCK_FAILED";
+    public const string TransportFailed = "TRANSPORT_FAILED";
+    public const string SerializationFailed = "SERIALIZATION_FAILED";
+    public const string Timeout = "TIMEOUT";
+    public const string Cancelled = "CANCELLED";
+    public const string InternalError = "INTERNAL_ERROR";
 }
 ```
+
+**Philosophy**: Simple > Perfect categorization. 10 codes cover all scenarios.
 
 ---
 
@@ -130,22 +123,24 @@ if (!result.IsSuccess)
     // Check error code
     switch (result.ErrorCode)
     {
-        case ErrorCodes.MessageValidationFailed:
+        case ErrorCodes.ValidationFailed:
             _logger.LogWarning("Validation failed: {Error}", result.Error);
             return BadRequest(result.Error);
         
-        case ErrorCodes.InboxPersistenceFailed:
-            if (result.IsRetryable)  // Check if retryable (from ErrorInfo)
-            {
-                _logger.LogWarning("Retryable error: {Error}", result.Error);
-                // Enqueue for retry
-                await _retryQueue.EnqueueAsync(request);
-            }
+        case ErrorCodes.PersistenceFailed:
+        case ErrorCodes.LockFailed:
+            _logger.LogWarning("Retryable error: {Error}", result.Error);
+            // Retry or return 503
             return StatusCode(503, "Service temporarily unavailable");
         
-        case ErrorCodes.HandlerExecutionFailed:
-            _logger.LogError("Handler failed: {Error}", result.Error);
+        case ErrorCodes.HandlerFailed:
+        case ErrorCodes.PipelineFailed:
+            _logger.LogError("Execution failed: {Error}", result.Error);
             return StatusCode(500, "Internal server error");
+        
+        case ErrorCodes.Timeout:
+        case ErrorCodes.Cancelled:
+            return StatusCode(408, "Request timeout");
         
         default:
             _logger.LogError("Unknown error: {ErrorCode} - {Error}", result.ErrorCode, result.Error);
@@ -168,10 +163,10 @@ if (!result.IsSuccess)
     // Extract ErrorInfo-like properties from result
     var isRetryable = result.ErrorCode switch
     {
-        ErrorCodes.InboxLockFailed => true,
-        ErrorCodes.InboxPersistenceFailed => true,
-        ErrorCodes.TransportPublishFailed => true,
-        ErrorCodes.NetworkTimeout => true,
+        ErrorCodes.LockFailed => true,
+        ErrorCodes.PersistenceFailed => true,
+        ErrorCodes.TransportFailed => true,
+        ErrorCodes.Timeout => true,
         _ => false
     };
     

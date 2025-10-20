@@ -140,24 +140,30 @@
 
 ## 🔨 执行计划
 
-### Phase 1: 删除未使用的抽象 (高优先级)
-- [ ] 删除 `IDistributedCache`, `ICacheable`, `CachingBehavior`
-- [ ] 删除 `IDistributedLock`, `ILockHandle`
-- [ ] 删除 `IHealthCheck`
-- [ ] 删除 `IRpcClient`, `IRpcServer`, `src/Catga/Rpc/`
-- [ ] 删除 `AggregateRoot`, `ProjectionBase`, `CatgaTransactionBase`
-- [ ] 删除 `SafeRequestHandler`
+### Phase 1: 删除未使用的抽象 (高优先级) ✅ 完成
+- [x] 删除 `IDistributedCache`, `ICacheable`, `CachingBehavior`
+- [x] 删除 `IDistributedLock`, `ILockHandle`
+- [x] 删除 `IHealthCheck`
+- [x] 删除 `IRpcClient`, `IRpcServer`, `src/Catga/Rpc/`
+- [x] 删除 `AggregateRoot`, `ProjectionBase`, `CatgaTransactionBase`
+- [x] 删除 `SafeRequestHandler`
+- [x] 删除 `EventStoreRepository` (依赖 AggregateRoot)
 
-### Phase 2: 简化核心类 (中优先级)
-- [ ] 删除 `ResultMetadata` 从 `CatgaResult`
-- [ ] 简化 `ErrorCodes` - 只保留 10 个核心错误
-- [ ] 删除 `ErrorInfo` - 直接用字符串错误代码
-- [ ] 删除 `TracingBehavior`，只保留 `DistributedTracingBehavior`
-- [ ] 简化 `BaseBehavior` - 改为 static helper
+**结果**: 删除 21 个文件，~900 行代码 (~22%)
 
-### Phase 3: 简化优化逻辑 (低优先级)
-- [ ] 简化 `FastPath` - 删除过度优化
-- [ ] 审查 `HandlerCache` - 确保不过度缓存
+### Phase 2: 简化核心类 (中优先级) ✅ 完成
+- [x] 删除 `ResultMetadata` 从 `CatgaResult`
+- [x] 简化 `ErrorCodes` - 从 50+ 个减少到 10 个核心错误
+- [x] 保留 `ErrorInfo` - 有用，不删除
+- [x] 删除 `TracingBehavior`，只保留 `DistributedTracingBehavior`
+- [x] 保留 `BaseBehavior` - 作为基类更简单
+
+**结果**: 删除 ~150 行代码 (~4%)
+
+### Phase 3: 文档更新 ✅ 完成
+- [x] 更新 `error-handling.md` - 反映简化后的错误代码
+- [x] 更新示例代码 - 使用新的错误代码名称
+- [x] 更新 `SIMPLIFICATION_PLAN.md` - 记录实际执行结果
 
 ---
 

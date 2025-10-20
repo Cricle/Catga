@@ -83,8 +83,7 @@ public class InMemoryMessageTransport : IMessageTransport
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     private static async ValueTask ExecuteHandlersAsync<TMessage>(List<Delegate> handlers, TMessage message, TransportContext context) where TMessage : class
     {
-        using var rented = ArrayPoolHelper.RentOrAllocate<Task>(handlers.Count);
-        var tasks = rented.Array;
+        var tasks = new Task[handlers.Count];
         for (int i = 0; i < handlers.Count; i++)
             tasks[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, context);
 

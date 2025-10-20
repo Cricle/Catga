@@ -27,7 +27,7 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
     public Task SendAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, Exception exception, int retryCount, CancellationToken cancellationToken = default) where TMessage : IMessage
     {
         var messageBytes = _serializer.Serialize(message);
-        var messageJson = ArrayPoolHelper.GetString(messageBytes); // Zero-allocation conversion
+        var messageJson = System.Text.Encoding.UTF8.GetString(messageBytes);
 
         var deadLetter = new DeadLetterMessage
         {

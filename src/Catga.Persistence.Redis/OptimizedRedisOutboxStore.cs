@@ -82,23 +82,9 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         {
             if (value != null)
             {
-                // 零拷贝路径：使用预分配的栈缓冲或 ArrayPool
-                var estimatedSize = value.Length * 3;  // UTF-8 最多 3 字节/字符
-                OutboxMessage? message;
-
-                if (estimatedSize <= stackBuffer.Length)
-                {
-                    // ✅ 使用栈缓冲（零分配）
-                    var bytesWritten = ArrayPoolHelper.GetBytes(value, stackBuffer);
-                    message = _serializer.Deserialize<OutboxMessage>(stackBuffer.Slice(0, bytesWritten));
-                }
-                else
-                {
-                    // 大字符串：使用 ArrayPool（减少分配）
-                    using var rented = ArrayPoolHelper.RentOrAllocate<byte>(estimatedSize);
-                    var bytesWritten = ArrayPoolHelper.GetBytes(value, rented.AsSpan());
-                    message = _serializer.Deserialize<OutboxMessage>(rented.AsSpan().Slice(0, bytesWritten));
-                }
+                // 直接反序列化（序列化器内部已优化）
+                var bytes = System.Text.Encoding.UTF8.GetBytes(value);
+                var message = _serializer.Deserialize<OutboxMessage>(bytes.AsSpan());
 
                 if (message != null &&
                     message.Status == OutboxStatus.Pending &&

@@ -239,8 +239,7 @@ public sealed class CatgaMediator : ICatgaMediator
             return;
         }
 
-        using var rentedTasks = ArrayPoolHelper.RentOrAllocate<Task>(handlerList.Count);
-        var tasks = rentedTasks.Array;
+        var tasks = new Task[handlerList.Count];
         for (var i = 0; i < handlerList.Count; i++)
             tasks[i] = HandleEventSafelyAsync(handlerList[i], @event, cancellationToken);
 

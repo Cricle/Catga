@@ -152,13 +152,13 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
             Context = context
         };
         var bytes = _serializer.Serialize(envelope);
-        return ArrayPoolHelper.ToBase64String(bytes); // ArrayPool optimized
+        return Convert.ToBase64String(bytes);
     }
 
     private (TMessage Message, TransportContext? Context) DeserializeMessage<TMessage>(RedisValue data)
         where TMessage : class
     {
-        var bytes = ArrayPoolHelper.FromBase64String(data.ToString()!); // ArrayPool optimized
+        var bytes = Convert.FromBase64String(data.ToString()!);
         var envelope = _serializer.Deserialize<MessageEnvelope<TMessage>>(bytes);
         return (envelope!.Message, envelope.Context);
     }

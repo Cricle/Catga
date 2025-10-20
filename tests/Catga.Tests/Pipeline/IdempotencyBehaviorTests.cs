@@ -83,7 +83,7 @@ public class IdempotencyBehaviorTests
         // 验证结果被缓存 (缓存的是 TestResponse 而不是 CatgaResult<TestResponse>)
         await idempotencyStore
             .Received(1)
-            .MarkAsProcessedAsync(Arg.Any<string>(), Arg.Any<TestResponse>(), Arg.Any<CancellationToken>());
+            .MarkAsProcessedAsync(Arg.Any<long>(), Arg.Any<TestResponse>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public class IdempotencyBehaviorTests
         // 验证结果没有被缓存
         await idempotencyStore
             .DidNotReceive()
-            .MarkAsProcessedAsync(Arg.Any<string>(), Arg.Any<CatgaResult<TestResponse>>(), Arg.Any<CancellationToken>());
+            .MarkAsProcessedAsync(Arg.Any<long>(), Arg.Any<CatgaResult<TestResponse>>(), Arg.Any<CancellationToken>());
     }
 }
 

@@ -1,4 +1,5 @@
 using Catga.Idempotency;
+using Catga.Messages;
 using Catga.Serialization.Json;
 using FluentAssertions;
 

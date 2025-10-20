@@ -73,18 +73,18 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var outbox = new NatsJSOutboxStore(
             _natsConnection!,
             _serializer!,
-            streamName: MessageExtensions.NewMessageId());
+            streamName: $"TEST_STREAM_{Guid.NewGuid():N}");
         
         var eventData = new TestEvent
         {
-            MessageId = Guid.NewGuid().ToString(),
+            MessageId = MessageExtensions.NewMessageId(),
             Id = "nats-test-1",
             Data = "NATS Outbox message"
         };
 
         var message = new OutboxMessage
         {
-            MessageId = Guid.NewGuid().ToString(),
+            MessageId = MessageExtensions.NewMessageId(),
             MessageType = typeof(TestEvent).FullName!,
             Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
             Status = OutboxStatus.Pending,
@@ -317,13 +317,13 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         {
             new TestEvent
             {
-                MessageId = Guid.NewGuid().ToString(),
+                MessageId = MessageExtensions.NewMessageId(),
                 Id = "event-1",
                 Data = "First event"
             },
             new TestEvent
             {
-                MessageId = Guid.NewGuid().ToString(),
+                MessageId = MessageExtensions.NewMessageId(),
                 Id = "event-2",
                 Data = "Second event"
             }
@@ -352,7 +352,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         {
             new TestEvent
             {
-                MessageId = Guid.NewGuid().ToString(),
+                MessageId = MessageExtensions.NewMessageId(),
                 Id = "read-1",
                 Data = "Event to read"
             }

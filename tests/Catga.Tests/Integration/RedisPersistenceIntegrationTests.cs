@@ -91,9 +91,9 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
         // Arrange
         var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!);
 
-        var message1 = CreateOutboxMessage("pending-1", OutboxStatus.Pending);
-        var message2 = CreateOutboxMessage("pending-2", OutboxStatus.Pending);
-        var message3 = CreateOutboxMessage("published-1", OutboxStatus.Published);
+        var message1 = CreateOutboxMessage(1001L, OutboxStatus.Pending);
+        var message2 = CreateOutboxMessage(1002L, OutboxStatus.Pending);
+        var message3 = CreateOutboxMessage(2001L, OutboxStatus.Published);
 
         await outbox.AddAsync(message1);
         await outbox.AddAsync(message2);
@@ -112,7 +112,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     {
         // Arrange
         var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!);
-        var message = CreateOutboxMessage("test-msg", OutboxStatus.Pending);
+        var message = CreateOutboxMessage(3001L, OutboxStatus.Pending);
 
         await outbox.AddAsync(message);
 
@@ -139,7 +139,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
         // Arrange
         var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!);
         var messages = Enumerable.Range(1, 20).Select(i =>
-            CreateOutboxMessage($"batch-{i}", OutboxStatus.Pending)
+            CreateOutboxMessage(4000L + i, OutboxStatus.Pending)
         ).ToList();
 
         // Act - Add all messages
@@ -312,18 +312,18 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
 
     #region Helper Methods
 
-    private OutboxMessage CreateOutboxMessage(string id, OutboxStatus status)
+    private OutboxMessage CreateOutboxMessage(long messageId, OutboxStatus status)
     {
         var eventData = new TestEvent
         {
-            MessageId = id,
-            Id = id,
-            Data = $"Data for {id}"
+            MessageId = messageId,
+            Id = messageId.ToString(),
+            Data = $"Data for {messageId}"
         };
 
         return new OutboxMessage
         {
-            MessageId = id,
+            MessageId = messageId,
             MessageType = typeof(TestEvent).FullName!,
             Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
             Status = status,

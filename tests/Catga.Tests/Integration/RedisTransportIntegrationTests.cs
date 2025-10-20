@@ -55,7 +55,7 @@ public class RedisTransportIntegrationTests : IAsyncLifetime
         // Arrange
         var testEvent = new TestEvent
         {
-            MessageId = Guid.NewGuid().ToString(),
+            MessageId = MessageExtensions.NewMessageId(),
             Id = "test-1",
             Data = "Hello Redis!",
             QoS = QualityOfService.AtMostOnce
@@ -94,7 +94,7 @@ public class RedisTransportIntegrationTests : IAsyncLifetime
         // Arrange
         var testEvent = new TestEvent
         {
-            MessageId = Guid.NewGuid().ToString(),
+            MessageId = MessageExtensions.NewMessageId(),
             Id = "test-2",
             Data = "Persistent message",
             QoS = QualityOfService.AtLeastOnce
@@ -140,7 +140,7 @@ public class RedisTransportIntegrationTests : IAsyncLifetime
         // Arrange
         var events = Enumerable.Range(1, 10).Select(i => new TestEvent
         {
-            MessageId = Guid.NewGuid().ToString(),
+            MessageId = MessageExtensions.NewMessageId(),
             Id = $"batch-{i}",
             Data = $"Message {i}",
             QoS = QualityOfService.AtMostOnce
@@ -184,7 +184,7 @@ public class RedisTransportIntegrationTests : IAsyncLifetime
         // Arrange
         var testEvent = new TestEvent
         {
-            MessageId = Guid.NewGuid().ToString(),
+            MessageId = MessageExtensions.NewMessageId(),
             Id = "multi-sub",
             Data = "Broadcast message",
             QoS = QualityOfService.AtMostOnce

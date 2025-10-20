@@ -255,9 +255,9 @@ public class QosVerificationTests
     public void QoS_Contracts_ShouldBeCorrect()
     {
         // Arrange & Assert
-        IMessage qos0 = new TestEvent(1L, "data");
-        IMessage qos1 = new ReliableTestEvent(1L, "data");
-        IMessage qos2 = new ExactlyOnceEvent(1L, "data");
+        IMessage qos0 = new TestEvent("1", "data");
+        IMessage qos1 = new ReliableTestEvent("1", "data");
+        IMessage qos2 = new ExactlyOnceEvent("1", "data");
 
         qos0.QoS.Should().Be(QualityOfService.AtMostOnce, "IEvent should default to QoS 0");
         qos1.QoS.Should().Be(QualityOfService.AtLeastOnce, "IReliableEvent should use QoS 1");

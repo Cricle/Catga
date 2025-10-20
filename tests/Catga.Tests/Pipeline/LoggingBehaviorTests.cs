@@ -78,7 +78,7 @@ public class LoggingBehaviorTests
     {
         // Arrange
         var behavior = new LoggingBehavior<TestCommand, TestResponse>(_logger);
-        var correlationId = Guid.NewGuid().ToString();
+        var correlationId = MessageExtensions.NewMessageId();
         var request = new TestCommand("Test") { CorrelationId = correlationId };
         var expectedResponse = new TestResponse("Success");
 
@@ -138,8 +138,8 @@ public class LoggingBehaviorTests
     // Test data classes
     public record TestCommand(string Name) : IRequest<TestResponse>
     {
-        public long MessageId { get; init; } = Guid.NewGuid().ToString();
-        public string? CorrelationId { get; init; }
+        public long MessageId { get; init; } = MessageExtensions.NewMessageId();
+        public long? CorrelationId { get; init; }
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     }
 

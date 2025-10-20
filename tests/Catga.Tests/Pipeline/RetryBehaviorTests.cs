@@ -207,7 +207,7 @@ public class RetryBehaviorTests
     // Test data classes
     public record TestCommand(string Name) : IRequest<TestResponse>
     {
-        public long MessageId { get; init; } = Guid.NewGuid().ToString();
+        public long MessageId { get; init; } = MessageExtensions.NewMessageId();
         public string? CorrelationId { get; init; }
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     }

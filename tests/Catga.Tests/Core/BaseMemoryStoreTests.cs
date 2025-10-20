@@ -248,7 +248,7 @@ public class BaseMemoryStoreTests
     private class TestMemoryStore : BaseMemoryStore<TestMessage>
     {
         private long StringToLong(string id) => long.TryParse(id, out var result) ? result : id.GetHashCode();
-        
+
         public void AddOrUpdate(string id, TestMessage message) => AddOrUpdateMessage(StringToLong(id), message);
         public void AddOrUpdate(long id, TestMessage message) => AddOrUpdateMessage(id, message);
         public bool TryGet(string id, out TestMessage? message) => TryGetMessage(StringToLong(id), out message);
@@ -258,7 +258,7 @@ public class BaseMemoryStoreTests
         public new int GetCountByPredicate(Func<TestMessage, bool> predicate) => base.GetCountByPredicate(predicate);
         public ValueTask DeleteExpiredAsync(TimeSpan retentionPeriod, Func<TestMessage, bool> predicate, CancellationToken ct = default)
             => DeleteMessagesByPredicateAsync(predicate, ct);
-        
+
         public ValueTask DeleteExpiredWithTimestampAsync(TimeSpan retentionPeriod, Func<TestMessage, DateTime?> timestampSelector, Func<TestMessage, bool> statusFilter, CancellationToken ct = default)
             => DeleteExpiredMessagesAsync(retentionPeriod, timestampSelector, statusFilter, ct);
         public Task ExecuteIfExistsPublic(string id, Action<TestMessage> action) => ExecuteIfExistsAsync(StringToLong(id), action);

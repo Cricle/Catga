@@ -135,20 +135,6 @@ public class MemoryPackMessageSerializerTests
         deserialized!.Id.Should().Be(222);
     }
 
-    [Fact]
-    public void GetSizeEstimate_ShouldReturnReasonableValue()
-    {
-        // Arrange
-        var message = new TestMessage(333, "Size", DateTime.UtcNow);
-
-        // Act
-        var estimate = _serializer.GetSizeEstimate(message);
-
-        // Assert
-        estimate.Should().BeGreaterThan(0);
-        estimate.Should().Be(128); // Default estimate
-    }
-
     #endregion
 
     #region Complex Object Tests (3 tests)

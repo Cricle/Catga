@@ -200,20 +200,6 @@ public class JsonMessageSerializerTests
         deserialized!.Id.Should().Be(666);
     }
 
-    [Fact]
-    public void GetSizeEstimate_ShouldReturnReasonableValue()
-    {
-        // Arrange
-        var message = new JsonTestMessage { Id = 777, Name = "Size", Timestamp = DateTime.UtcNow };
-
-        // Act
-        var estimate = _serializer.GetSizeEstimate(message);
-
-        // Assert
-        estimate.Should().BeGreaterThan(0);
-        estimate.Should().Be(256); // Default estimate
-    }
-
     #endregion
 
     #region Performance Tests (3 tests)

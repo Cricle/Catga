@@ -1,6 +1,7 @@
 using Catga;
 using Catga.Configuration;
-using Catga.Core;
+using Catga.DependencyInjection;
+using Catga.DistributedId;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -14,34 +15,33 @@ public static class CatgaServiceCollectionExtensions
     /// <summary>
     /// Adds Catga mediator and core services to the service collection
     /// </summary>
-    public static IServiceCollection AddCatga(this IServiceCollection services)
+    public static CatgaServiceBuilder AddCatga(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         // Register Catga options
-        services.TryAddSingleton<CatgaOptions>();
+        var options = new CatgaOptions();
+        services.TryAddSingleton(options);
 
         // Register core services
         services.TryAddScoped<ICatgaMediator, Catga.Mediator.CatgaMediator>();
-        services.TryAddSingleton<Catga.Abstractions.IDistributedIdGenerator, SnowflakeIdGenerator>();
+        services.TryAddSingleton<IDistributedIdGenerator, SnowflakeIdGenerator>();
 
-        return services;
+        return new CatgaServiceBuilder(services, options);
     }
 
     /// <summary>
     /// Adds Catga mediator and core services with configuration
     /// </summary>
-    public static IServiceCollection AddCatga(this IServiceCollection services, Action<CatgaOptions> configure)
+    public static CatgaServiceBuilder AddCatga(this IServiceCollection services, Action<CatgaOptions> configure)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
 
-        services.AddCatga();
+        var builder = services.AddCatga();
+        configure(builder.Options);
 
-        // Configure options
-        services.Configure(configure);
-
-        return services;
+        return builder;
     }
 }
 

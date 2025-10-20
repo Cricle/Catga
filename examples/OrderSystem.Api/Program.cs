@@ -85,7 +85,7 @@ app.MapPost("/demo/order-success", async (ICatgaMediator m) =>
         OrderId = result.Value?.OrderId,
         TotalAmount = result.Value?.TotalAmount,
         Message = result.IsSuccess ? "✅ Order created successfully!" : result.Error,
-        Metadata = result.Metadata?.GetAll()
+        ErrorCode = result.ErrorCode
     });
 }).WithName("DemoOrderSuccess").WithTags("Demo");
 
@@ -103,8 +103,8 @@ app.MapPost("/demo/order-failure", async (ICatgaMediator m) =>
     {
         result.IsSuccess,
         result.Error,
+        result.ErrorCode,
         Message = result.IsSuccess ? "Order created" : "❌ Order creation failed! Automatic rollback completed.",
-        RollbackDetails = result.Metadata?.GetAll(),
         Explanation = "Payment validation failed, triggering automatic rollback"
     });
 }).WithName("DemoOrderFailure").WithTags("Demo");

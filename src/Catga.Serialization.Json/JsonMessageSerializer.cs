@@ -40,11 +40,10 @@ public class JsonMessageSerializer : MessageSerializerBase
 
     /// <summary>Create JSON serializer with custom options (for AOT, provide options with JsonSerializerContext)</summary>
     public JsonMessageSerializer(JsonSerializerOptions options)
-        : this(options, null) { }
+        { }
 
-    /// <summary>Create JSON serializer with custom options and pool manager</summary>
-    public JsonMessageSerializer(JsonSerializerOptions options, MemoryPoolManager? poolManager)
-        : base(poolManager)
+    /// <summary>Create JSON serializer with custom options</summary>
+    public JsonMessageSerializer(JsonSerializerOptions options)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
     }

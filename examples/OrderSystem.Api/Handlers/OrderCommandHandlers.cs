@@ -1,11 +1,10 @@
 using Catga;
+using Catga.Abstractions;
 using Catga.Core;
 using Catga.Exceptions;
-using Catga.Abstractions;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Services;
-using Catga.Abstractions;
 
 namespace OrderSystem.Api.Handlers;
 

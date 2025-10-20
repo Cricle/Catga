@@ -1,10 +1,8 @@
 using Catga;
+using Catga.Abstractions;
 using Catga.Configuration;
 using Catga.Core;
 using Catga.DependencyInjection;
-using Catga.Core;
-using Catga.Abstractions;
-using Catga.Core;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 

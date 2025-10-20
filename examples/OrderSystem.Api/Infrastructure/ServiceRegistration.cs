@@ -5,7 +5,6 @@ using OrderSystem.Api.Domain;
 using OrderSystem.Api.Handlers;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Services;
-using Catga.Abstractions;
 
 namespace OrderSystem.Api.Infrastructure;
 

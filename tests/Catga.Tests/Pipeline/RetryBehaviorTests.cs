@@ -1,13 +1,12 @@
+using Catga.Abstractions;
 using Catga.Configuration;
 using Catga.Core;
 using Catga.Exceptions;
-using Catga.Core;
 using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-using Catga.Abstractions;
 
 namespace Catga.Tests.Pipeline;
 

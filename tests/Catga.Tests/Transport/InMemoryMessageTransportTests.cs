@@ -1,9 +1,8 @@
-using Catga.Core;
+using Catga.Abstractions;
 using Catga.Core;
 using Catga.Transport;
 using FluentAssertions;
 using MemoryPack;
-using Catga.Abstractions;
 
 namespace Catga.Tests.Transport;
 

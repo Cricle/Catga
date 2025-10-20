@@ -1,12 +1,11 @@
+using Catga.Abstractions;
 using Catga.Core;
 using Catga.Idempotency;
-using Catga.Core;
 using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using Catga.Abstractions;
 
 namespace Catga.Tests.Pipeline;
 

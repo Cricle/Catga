@@ -1,3 +1,5 @@
+using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Outbox;
 using Microsoft.Extensions.Logging;

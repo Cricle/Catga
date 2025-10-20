@@ -1,6 +1,6 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
-using System.Collections.Concurrent;
 
 namespace Catga.Persistence.Redis;
 

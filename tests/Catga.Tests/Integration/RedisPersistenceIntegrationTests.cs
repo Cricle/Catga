@@ -1,6 +1,6 @@
 using Catga.Abstractions;
+using Catga.Core;
 using Catga.Inbox;
-using Catga.Messages;
 using Catga.Outbox;
 using Catga.Persistence.Redis.Persistence;
 using Catga.Serialization.Json;
@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using StackExchange.Redis;
 using Testcontainers.Redis;
+using Xunit;
 
 namespace Catga.Tests.Integration;
 

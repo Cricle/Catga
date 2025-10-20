@@ -1,8 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Core;
-using Catga.Messages;
+using Catga.Core;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using System.Diagnostics.CodeAnalysis;
+using Catga.Abstractions;
 
 namespace Microsoft.Extensions.DependencyInjection;
 

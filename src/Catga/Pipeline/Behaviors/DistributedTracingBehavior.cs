@@ -1,8 +1,8 @@
-using Catga.Core;
-using Catga.Messages;
-using Catga.Observability;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Catga.Core;
+using Catga.Abstractions;
+using Catga.Observability;
 
 namespace Catga.Pipeline.Behaviors;
 
@@ -106,7 +106,7 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
                 ("Message", ex.Message),
                 ("Duration", $"{durationMs:F2}ms"));
 
-            return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.HandlerExecutionFailed, isRetryable: false));
+            return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.HandlerFailed, isRetryable: false));
         }
     }
 

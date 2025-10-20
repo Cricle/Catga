@@ -1,5 +1,6 @@
 using Catga.Abstractions;
 using Catga.Outbox;
+using Catga.Persistence;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
@@ -89,7 +90,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
         {
             messages.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
         }
-
+        
         return messages;
     }
 

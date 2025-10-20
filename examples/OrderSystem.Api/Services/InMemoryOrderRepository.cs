@@ -1,6 +1,6 @@
+using System.Collections.Concurrent;
 using Catga.Core;
 using OrderSystem.Api.Domain;
-using System.Collections.Concurrent;
 
 namespace OrderSystem.Api.Services;
 

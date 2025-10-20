@@ -1,7 +1,8 @@
-using Catga.Core;
 using System.ComponentModel;
+using Catga.Core;
 
-namespace Catga.Messages;
+using Catga.Abstractions;
+namespace Catga.Abstractions;
 
 /// <summary>
 /// Base message interface (framework use only).

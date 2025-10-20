@@ -1,8 +1,10 @@
 using BenchmarkDotNet.Attributes;
+using Catga;
+using Catga.Configuration;
 using Catga.Core;
 using Catga.DependencyInjection;
-using Catga.Handlers;
-using Catga.Messages;
+using Catga.Abstractions;
+using Catga.Core;
 using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 

@@ -1,7 +1,7 @@
-using Catga.DistributedId;
-using Catga.Messages;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Catga.DistributedId;
+using Catga.Abstractions;
 
 namespace Catga.Core;
 

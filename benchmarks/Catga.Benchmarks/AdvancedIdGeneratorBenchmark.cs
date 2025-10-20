@@ -1,3 +1,4 @@
+using System.Runtime.Intrinsics.X86;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
 using Catga.DistributedId;

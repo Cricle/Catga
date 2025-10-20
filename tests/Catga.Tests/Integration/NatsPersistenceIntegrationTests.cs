@@ -1,7 +1,7 @@
 using Catga.Abstractions;
 using Catga.EventSourcing;
 using Catga.Inbox;
-using Catga.Messages;
+using Catga.Core;
 using Catga.Outbox;
 using Catga.Persistence;
 using Catga.Persistence.Stores;
@@ -10,6 +10,8 @@ using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using FluentAssertions;
 using NATS.Client.Core;
+using NATS.Client.JetStream;
+using Xunit;
 
 namespace Catga.Tests.Integration;
 
@@ -72,7 +74,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _natsConnection!,
             _serializer!,
             streamName: $"TEST_STREAM_{Guid.NewGuid():N}");
-
+        
         var eventData = new TestEvent
         {
             MessageId = MessageExtensions.NewMessageId(),
@@ -105,7 +107,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _natsConnection!,
             _serializer!,
             streamName: streamName);
-
+        
         // Add multiple messages
         for (int i = 0; i < 3; i++)
         {
@@ -132,7 +134,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _natsConnection!,
             _serializer!,
             streamName: streamName);
-
+        
         var message = CreateOutboxMessage(2000L, OutboxStatus.Pending);
         await outbox.AddAsync(message);
         await Task.Delay(300);
@@ -157,7 +159,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _natsConnection!,
             _serializer!,
             streamName: streamName);
-
+        
         var messageId = MessageExtensions.NewMessageId();
         var lockDuration = TimeSpan.FromMinutes(5);
 
@@ -177,7 +179,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _natsConnection!,
             _serializer!,
             streamName: streamName);
-
+        
         var messageId = MessageExtensions.NewMessageId();
         var lockDuration = TimeSpan.FromMinutes(5);
 
@@ -202,9 +204,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _natsConnection!,
             _serializer!,
             streamName: streamName);
-
+        
         var messageId = MessageExtensions.NewMessageId();
-
+        
         // Lock first
         await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
 
@@ -240,7 +242,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _natsConnection!,
             _serializer!,
             streamName: streamName);
-
+        
         var messageId = MessageExtensions.NewMessageId();
 
         var eventData = new TestEvent
@@ -249,7 +251,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             Id = "check-test",
             Data = "Test"
         };
-
+        
         var message = new InboxMessage
         {
             MessageId = messageId,
@@ -279,9 +281,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _natsConnection!,
             _serializer!,
             streamName: streamName);
-
+        
         var messageId = MessageExtensions.NewMessageId();
-
+        
         // Lock first
         await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
         await Task.Delay(200);
@@ -308,9 +310,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _natsConnection!,
             _serializer!,
             streamName: streamName);
-
+        
         var streamId = $"order-{Guid.NewGuid()}";
-
+        
         var events = new List<IEvent>
         {
             new TestEvent
@@ -343,9 +345,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _natsConnection!,
             _serializer!,
             streamName: streamName);
-
+        
         var streamId = $"order-{Guid.NewGuid()}";
-
+        
         var events = new List<IEvent>
         {
             new TestEvent
@@ -376,9 +378,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _natsConnection!,
             _serializer!,
             streamName: streamName);
-
+        
         var streamId = $"order-{Guid.NewGuid()}";
-
+        
         var events = new List<IEvent>
         {
             new TestEvent
@@ -408,9 +410,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             _natsConnection!,
             _serializer!,
             streamName: streamName);
-
+        
         var streamId = $"order-{Guid.NewGuid()}";
-
+        
         // First append
         var events1 = new List<IEvent>
         {
@@ -453,7 +455,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
             Id = messageId.ToString(),
             Data = $"Data for {messageId}"
         };
-
+        
         return new OutboxMessage
         {
             MessageId = messageId,

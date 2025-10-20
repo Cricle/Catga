@@ -1,10 +1,11 @@
 using Catga.Abstractions;
-using Catga.Messages;
+using Catga.Core;
 using Catga.Serialization.Json;
 using Catga.Transport;
 using FluentAssertions;
 using StackExchange.Redis;
 using Testcontainers.Redis;
+using Xunit;
 
 namespace Catga.Tests.Integration;
 

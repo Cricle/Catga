@@ -1,8 +1,8 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Core;
 using Catga.Idempotency;
-using Catga.Messages;
+using Catga.Abstractions;
 using Microsoft.Extensions.Logging;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Catga.Pipeline.Behaviors;
 

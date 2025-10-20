@@ -1,8 +1,13 @@
+using Catga;
+using Catga.Configuration;
 using Catga.Core;
-using Catga.Handlers;
-using Catga.Messages;
+using Catga.DependencyInjection;
+using Catga.Core;using Catga.Abstractions;
+using Catga.Core;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Catga.Tests;
 

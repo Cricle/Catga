@@ -1,9 +1,11 @@
-using Catga.Core;
-using Catga.Idempotency;
-using Catga.Messages;
-using Catga.Observability;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Catga.Core;
+using Catga.Idempotency;
+using Catga.Core;
+using Catga.Observability;
+using Catga.Abstractions;
 
 namespace Catga.Transport;
 
@@ -127,8 +129,7 @@ public class InMemoryMessageTransport : IMessageTransport
     {
         await BatchOperationHelper.ExecuteBatchAsync(
             messages,
-            m => PublishAsync(m, context, cancellationToken),
-            cancellationToken);
+            m => PublishAsync(m, context, cancellationToken));
     }
 
     public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class

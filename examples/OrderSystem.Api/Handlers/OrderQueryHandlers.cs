@@ -1,16 +1,22 @@
+using Catga.Abstractions;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Services;
+using Catga.Core;
+using Catga.Abstractions;
 
 namespace OrderSystem.Api.Handlers;
 
-public class GetOrderHandler : SafeRequestHandler<GetOrderQuery, Order?>
+public class GetOrderHandler : IRequestHandler<GetOrderQuery, Order?>
 {
     private readonly IOrderRepository _repository;
 
-    public GetOrderHandler(IOrderRepository repository, ILogger<GetOrderHandler> logger) : base(logger)
+    public GetOrderHandler(IOrderRepository repository)
         => _repository = repository;
 
-    protected override async Task<Order?> HandleCoreAsync(GetOrderQuery request, CancellationToken cancellationToken)
-        => await _repository.GetByIdAsync(request.OrderId, cancellationToken);
+    public async Task<CatgaResult<Order?>> HandleAsync(GetOrderQuery request, CancellationToken cancellationToken)
+    {
+        var order = await _repository.GetByIdAsync(request.OrderId, cancellationToken);
+        return CatgaResult<Order?>.Success(order);
+    }
 }

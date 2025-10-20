@@ -1,5 +1,13 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Catga.Abstractions;
+using Catga.Core;
 using Catga.Outbox;
+using Catga;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
@@ -66,7 +74,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         var keys = new string[messageIds.Length];
         for (int i = 0; i < messageIds.Length; i++)
             keys[i] = GetKey((long)messageIds[i]);
-
+        
         var values = await _batchOps.BatchGetAsync(keys, cancellationToken);
 
         var messages = new List<OutboxMessage>();

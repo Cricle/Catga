@@ -1,11 +1,11 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Catga.Abstractions;
 using Catga.Core;
-using Catga.Messages;
+using Catga.Core;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 
 namespace Catga.Transport.Nats;
 
@@ -134,15 +134,14 @@ public class NatsMessageTransport : IMessageTransport
     {
         await BatchOperationHelper.ExecuteBatchAsync(
             messages,
-            m => PublishAsync(m, context, cancellationToken),
-            cancellationToken);
+            m => PublishAsync(m, context, cancellationToken));
     }
 
     public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
         => PublishBatchAsync(messages, context, cancellationToken);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private string GetSubjectCached<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>() => SubjectCache<TMessage>.Subject ??= $"{_subjectPrefix}.{TypeNameCache<TMessage>.Name}";
+    private string GetSubjectCached<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]TMessage>() => SubjectCache<TMessage>.Subject ??= $"{_subjectPrefix}.{TypeNameCache<TMessage>.Name}";
 }
 
 /// <summary>Zero-allocation subject cache per message type</summary>

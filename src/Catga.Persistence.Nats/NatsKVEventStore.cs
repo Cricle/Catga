@@ -1,6 +1,6 @@
 using Catga.Abstractions;
 using Catga.EventSourcing;
-using Catga.Messages;
+using Catga.Core;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
@@ -213,8 +213,8 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         var deserializeMethod = typeof(IMessageSerializer)
             .GetMethod(nameof(IMessageSerializer.Deserialize), new[] { typeof(byte[]) })
             ?.MakeGenericMethod(eventType);
-
-        return (IEvent)(deserializeMethod?.Invoke(_serializer, new object[] { msg.Data! })
+        
+        return (IEvent)(deserializeMethod?.Invoke(_serializer, new object[] { msg.Data! }) 
             ?? throw new InvalidOperationException("Failed to deserialize message"));
     }
 }

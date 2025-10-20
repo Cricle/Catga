@@ -8,24 +8,42 @@ namespace Catga.Messages;
 /// </summary>
 public static class MessageExtensions
 {
-    // Singleton SnowflakeIdGenerator for MessageId generation (workerId = 1)
-    private static readonly IDistributedIdGenerator MessageIdGenerator = new SnowflakeIdGenerator(workerId: 1);
-
-    // Singleton SnowflakeIdGenerator for CorrelationId generation (workerId = 2)
-    private static readonly IDistributedIdGenerator CorrelationIdGenerator = new SnowflakeIdGenerator(workerId: 2);
+    // Lazy-initialized SnowflakeIdGenerator (workerId from environment or random)
+    private static readonly Lazy<IDistributedIdGenerator> MessageIdGenerator = new(() =>
+    {
+        var workerId = GetWorkerId("CATGA_WORKER_ID");
+        return new SnowflakeIdGenerator(workerId);
+    });
 
     /// <summary>
     /// Generates a new MessageId as a long using Snowflake algorithm.
     /// 92% memory reduction compared to string GUID, ordered by time, traceable.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static long NewMessageId() => MessageIdGenerator.NextId();
+    public static long NewMessageId() => MessageIdGenerator.Value.NextId();
 
     /// <summary>
     /// Generates a new CorrelationId as a long using Snowflake algorithm.
     /// 92% memory reduction compared to string GUID, ordered by time, traceable.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static long NewCorrelationId() => CorrelationIdGenerator.NextId();
-}
+    public static long NewCorrelationId() => MessageIdGenerator.Value.NextId();
 
+    /// <summary>
+    /// Get worker ID from environment variable or generate a random one
+    /// </summary>
+    private static int GetWorkerId(string envVarName)
+    {
+        var envValue = Environment.GetEnvironmentVariable(envVarName);
+        if (!string.IsNullOrEmpty(envValue) && int.TryParse(envValue, out var workerId))
+        {
+            // Validate worker ID is within valid range (0-1023 for default Snowflake layout)
+            if (workerId >= 0 && workerId <= 1023)
+                return workerId;
+        }
+
+        // Generate a random worker ID (0-1023)
+        // In production, this should be set via environment variable
+        return Random.Shared.Next(0, 1024);
+    }
+}

@@ -6,36 +6,28 @@ namespace Microsoft.Extensions.DependencyInjection;
 /// <summary>CatgaResult to ASP.NET Core IResult conversion</summary>
 public static class CatgaResultExtensions
 {
-    private const string HttpStatusCodeKey = "HttpStatusCode";
-    private const string ErrorTypeKey = "ErrorType";
-
     public static IResult ToHttpResult<T>(this CatgaResult<T> result)
     {
         if (result.IsSuccess)
             return result.Value is null ? Results.NoContent() : Results.Ok(result.Value);
 
         var error = result.Error ?? "An error occurred";
+        var errorCode = result.ErrorCode;
 
-        if (result.Metadata?.TryGetValue(HttpStatusCodeKey, out var statusCodeStr) == true)
+        // Map Catga error codes to HTTP status codes
+        return errorCode switch
         {
-            if (int.TryParse(statusCodeStr, out var statusCode))
-                return Results.Problem(detail: error, statusCode: statusCode);
-        }
-
-        if (result.Metadata?.TryGetValue(ErrorTypeKey, out var errorType) == true)
-        {
-            return errorType switch
-            {
-                "NotFound" => Results.NotFound(new { error, metadata = result.Metadata?.GetAll() }),
-                "Conflict" => Results.Conflict(new { error, metadata = result.Metadata?.GetAll() }),
-                "Validation" => Results.UnprocessableEntity(new { error, metadata = result.Metadata?.GetAll() }),
-                "Unauthorized" => Results.Unauthorized(),
-                "Forbidden" => Results.Forbid(),
-                _ => Results.BadRequest(new { error, metadata = result.Metadata?.GetAll() })
-            };
-        }
-
-        return Results.BadRequest(new { error, metadata = result.Metadata?.GetAll() });
+            ErrorCodes.ValidationFailed => Results.UnprocessableEntity(new { error, errorCode }),
+            ErrorCodes.Timeout => Results.Problem(detail: error, statusCode: 408),
+            ErrorCodes.Cancelled => Results.Problem(detail: error, statusCode: 408),
+            ErrorCodes.HandlerFailed => Results.BadRequest(new { error, errorCode }),
+            ErrorCodes.PipelineFailed => Results.BadRequest(new { error, errorCode }),
+            ErrorCodes.PersistenceFailed => Results.Problem(detail: error, statusCode: 503),
+            ErrorCodes.LockFailed => Results.Problem(detail: error, statusCode: 503),
+            ErrorCodes.TransportFailed => Results.Problem(detail: error, statusCode: 503),
+            ErrorCodes.SerializationFailed => Results.BadRequest(new { error, errorCode }),
+            _ => Results.BadRequest(new { error, errorCode })
+        };
     }
 
     public static IResult ToHttpResult<T>(this CatgaResult<T> result, int successStatusCode)
@@ -62,55 +54,67 @@ public static class CatgaResultExtensions
     }
 }
 
-/// <summary>CatgaResult factory extensions with HTTP status hints</summary>
+/// <summary>CatgaResult factory extensions with HTTP status code hints</summary>
+/// <remarks>
+/// These are custom error codes outside the core Catga error codes.
+/// They map to HTTP status codes for ASP.NET Core convenience.
+/// </remarks>
 public static class CatgaResultHttpExtensions
 {
+    // Custom HTTP error codes (not in core ErrorCodes)
+    public const string HttpNotFound = "HTTP_NOT_FOUND";
+    public const string HttpConflict = "HTTP_CONFLICT";
+    public const string HttpUnauthorized = "HTTP_UNAUTHORIZED";
+    public const string HttpForbidden = "HTTP_FORBIDDEN";
+
     public static CatgaResult<T> NotFound<T>(string error)
-    {
-        var metadata = new ResultMetadata();
-        metadata.Add("ErrorType", "NotFound");
-        return new CatgaResult<T> { IsSuccess = false, Error = error, Metadata = metadata };
-    }
+        => new() { IsSuccess = false, Error = error, ErrorCode = HttpNotFound };
 
     public static CatgaResult<T> Conflict<T>(string error)
-    {
-        var metadata = new ResultMetadata();
-        metadata.Add("ErrorType", "Conflict");
-        return new CatgaResult<T> { IsSuccess = false, Error = error, Metadata = metadata };
-    }
+        => new() { IsSuccess = false, Error = error, ErrorCode = HttpConflict };
 
     public static CatgaResult<T> ValidationError<T>(string error)
-    {
-        var metadata = new ResultMetadata();
-        metadata.Add("ErrorType", "Validation");
-        return new CatgaResult<T> { IsSuccess = false, Error = error, Metadata = metadata };
-    }
+        => new() { IsSuccess = false, Error = error, ErrorCode = ErrorCodes.ValidationFailed };
 
     public static CatgaResult<T> Unauthorized<T>(string error)
-    {
-        var metadata = new ResultMetadata();
-        metadata.Add("ErrorType", "Unauthorized");
-        return new CatgaResult<T> { IsSuccess = false, Error = error, Metadata = metadata };
-    }
+        => new() { IsSuccess = false, Error = error, ErrorCode = HttpUnauthorized };
 
     public static CatgaResult<T> Forbidden<T>(string error)
-    {
-        var metadata = new ResultMetadata();
-        metadata.Add("ErrorType", "Forbidden");
-        return new CatgaResult<T> { IsSuccess = false, Error = error, Metadata = metadata };
-    }
+        => new() { IsSuccess = false, Error = error, ErrorCode = HttpForbidden };
+}
 
-    public static CatgaResult<T> WithStatusCode<T>(this CatgaResult<T> result, int statusCode)
+/// <summary>Extended HTTP result conversion with custom HTTP error codes</summary>
+public static class CatgaResultHttpConversionExtensions
+{
+    public static IResult ToHttpResultEx<T>(this CatgaResult<T> result)
     {
-        var metadata = result.Metadata ?? new ResultMetadata();
-        metadata.Add("HttpStatusCode", statusCode.ToString());
-        return new CatgaResult<T>
+        if (result.IsSuccess)
+            return result.Value is null ? Results.NoContent() : Results.Ok(result.Value);
+
+        var error = result.Error ?? "An error occurred";
+        var errorCode = result.ErrorCode;
+
+        // Map all error codes (core + HTTP custom) to HTTP status codes
+        return errorCode switch
         {
-            IsSuccess = result.IsSuccess,
-            Value = result.Value,
-            Error = result.Error,
-            Exception = result.Exception,
-            Metadata = metadata
+            // Custom HTTP error codes
+            CatgaResultHttpExtensions.HttpNotFound => Results.NotFound(new { error, errorCode }),
+            CatgaResultHttpExtensions.HttpConflict => Results.Conflict(new { error, errorCode }),
+            CatgaResultHttpExtensions.HttpUnauthorized => Results.Unauthorized(),
+            CatgaResultHttpExtensions.HttpForbidden => Results.Forbid(),
+            
+            // Core Catga error codes
+            ErrorCodes.ValidationFailed => Results.UnprocessableEntity(new { error, errorCode }),
+            ErrorCodes.Timeout => Results.Problem(detail: error, statusCode: 408),
+            ErrorCodes.Cancelled => Results.Problem(detail: error, statusCode: 408),
+            ErrorCodes.HandlerFailed => Results.BadRequest(new { error, errorCode }),
+            ErrorCodes.PipelineFailed => Results.BadRequest(new { error, errorCode }),
+            ErrorCodes.PersistenceFailed => Results.Problem(detail: error, statusCode: 503),
+            ErrorCodes.LockFailed => Results.Problem(detail: error, statusCode: 503),
+            ErrorCodes.TransportFailed => Results.Problem(detail: error, statusCode: 503),
+            ErrorCodes.SerializationFailed => Results.BadRequest(new { error, errorCode }),
+            
+            _ => Results.BadRequest(new { error, errorCode })
         };
     }
 }

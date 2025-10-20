@@ -256,9 +256,11 @@ public sealed class CatgaMediator : ICatgaMediator
     {
         var handlerType = handler.GetType().Name;
         var eventType = typeof(TEvent).Name;
-        var activityName = $"Handle: {eventType}";
 
-        using var activity = CatgaActivitySource.Source.StartActivity(activityName, ActivityKind.Consumer);
+        // Optimize: Create activity only if there are active listeners
+        using var activity = CatgaActivitySource.Source.HasListeners()
+            ? CatgaActivitySource.Source.StartActivity($"Handle: {eventType}", ActivityKind.Consumer)
+            : null;
 
         if (activity != null)
         {

@@ -87,7 +87,7 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
         catch (Exception ex)
         {
             _logger.LogError(ex, "[Outbox] Error in outbox behavior for {RequestType}", TypeNameCache<TRequest>.Name);
-            return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.OutboxPersistenceFailed, isRetryable: true));
+            return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PersistenceFailed, isRetryable: true));
         }
     }
 }

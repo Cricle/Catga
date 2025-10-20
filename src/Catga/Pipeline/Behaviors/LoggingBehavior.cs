@@ -32,7 +32,7 @@ public partial class LoggingBehavior<[System.Diagnostics.CodeAnalysis.Dynamicall
         catch (Exception ex)
         {
             LogRequestException(ex, reqName, msgId, (long)GetElapsedMilliseconds(startTimestamp), corrId);
-            return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.HandlerExecutionFailed, isRetryable: false));
+            return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.HandlerFailed, isRetryable: false));
         }
     }
 

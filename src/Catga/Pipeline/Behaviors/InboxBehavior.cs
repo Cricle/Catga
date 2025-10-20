@@ -66,7 +66,7 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
                 _logger.LogWarning("Failed to acquire lock for message {MessageId}, another instance may be processing it", id);
                 return CatgaResult<TResponse>.Failure(new ErrorInfo
                 {
-                    Code = ErrorCodes.InboxLockFailed,
+                    Code = ErrorCodes.LockFailed,
                     Message = "Message is being processed by another instance",
                     IsRetryable = true
                 });
@@ -91,7 +91,7 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
             {
                 await _persistence.ReleaseLockAsync(id, cancellationToken);
                 _logger.LogError(ex, "Error processing message {MessageId} in inbox", id);
-                return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.InboxPersistenceFailed, isRetryable: true));
+                return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PersistenceFailed, isRetryable: true));
             }
         }
         catch (Exception ex)

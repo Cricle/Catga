@@ -144,7 +144,7 @@ public sealed class CatgaMediator : ICatgaMediator
             CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", "false"));
             RecordException(activity, ex);
             CatgaLog.CommandFailed(_logger, ex, reqType, message?.MessageId, ex.Message);
-            return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PipelineExecutionFailed, isRetryable: false));
+            return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PipelineFailed, isRetryable: false));
         }
     }
 

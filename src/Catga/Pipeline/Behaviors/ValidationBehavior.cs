@@ -38,7 +38,7 @@ public class ValidationBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAcce
 
             LogWarning("Validation failed for {RequestType}, MessageId: {MessageId}, Errors: {Errors}",
                 GetRequestName(), messageId, errorMessage);
-            
+
             return CatgaResult<TResponse>.Failure(ErrorInfo.Validation("Validation failed", errorMessage));
         }
         return await next();

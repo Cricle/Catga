@@ -1,4 +1,3 @@
-using Catga.Persistence.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Catga;

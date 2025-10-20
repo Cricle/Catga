@@ -8,62 +8,48 @@ using Catga.Pooling;
 namespace Catga.Serialization;
 
 /// <summary>
-/// Serialization helper with memory pooling and zero-allocation Base64 encoding
+/// Serialization helper with memory pooling (AOT-safe)
 /// </summary>
-/// <remarks>
-/// Memory Optimizations:
-/// - Uses ArrayPool for Base64 encoding/decoding
-/// - Zero-allocation paths for small messages (stackalloc)
-/// - Pooled buffer writers for large messages
-/// - All methods are AOT-safe (generic only)
-/// </remarks>
 public static class SerializationHelper
 {
-    private const int StackAllocThreshold = 256; // Use stackalloc for < 256 bytes
-    private const int SmallMessageThreshold = 1024; // Small message optimization
+    private const int StackAllocThreshold = 256;
 
     /// <summary>
-    /// Serialize object to Base64 string (pooled, zero-allocation for small messages)
+    /// Serialize to Base64 string
     /// </summary>
-    /// <remarks>AOT-safe when T is known at compile time</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T obj, IMessageSerializer serializer)
+    public static string Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
+        T obj,
+        IMessageSerializer serializer)
     {
         ArgumentNullException.ThrowIfNull(serializer);
-
-        // Try to use pooled serialization if available
-        if (serializer is IPooledMessageSerializer pooledSerializer)
-        {
-            using var pooledBuffer = pooledSerializer.SerializePooled(obj);
-            return EncodeBase64Pooled(pooledBuffer.Memory.Span);
-        }
-
-        // Fallback to regular serialization
         var bytes = serializer.Serialize(obj);
-        return Convert.ToBase64String(bytes);
+        return EncodeBase64(bytes);
     }
 
     /// <summary>
-    /// Deserialize object from Base64 string (pooled, zero-allocation)
+    /// Deserialize from Base64 string
     /// </summary>
-    /// <remarks>AOT-safe when T is known at compile time</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(string data, IMessageSerializer serializer)
+    public static T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
+        string data,
+        IMessageSerializer serializer)
     {
         ArgumentNullException.ThrowIfNull(serializer);
-        
         if (string.IsNullOrEmpty(data))
             return default;
 
-        // Use pooled decoding
-        using var decodedBytes = DecodeBase64Pooled(data);
-        
-        // Use Memory-based deserialization if available
-        return serializer.Deserialize<T>(decodedBytes.Memory);
+        var bytes = DecodeBase64(data);
+        return serializer.Deserialize<T>(bytes);
     }
 
-    /// <summary>Try deserialize using provided serializer (required)</summary>
-    public static bool TryDeserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(string data, out T? result, IMessageSerializer serializer)
+    /// <summary>
+    /// Try deserialize
+    /// </summary>
+    public static bool TryDeserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
+        string data,
+        out T? result,
+        IMessageSerializer serializer)
     {
         ArgumentNullException.ThrowIfNull(serializer);
         try
@@ -79,14 +65,10 @@ public static class SerializationHelper
     }
 
     /// <summary>
-    /// Encode bytes to Base64 string using ArrayPool (zero-allocation for small data)
+    /// Encode bytes to Base64 string using pooled buffer
     /// </summary>
-    /// <remarks>
-    /// AOT-safe. Uses stackalloc for small buffers, ArrayPool for large buffers.
-    /// This is significantly faster than Convert.ToBase64String for repeated calls.
-    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string EncodeBase64Pooled(ReadOnlySpan<byte> data)
+    private static string EncodeBase64(ReadOnlySpan<byte> data)
     {
         if (data.Length == 0)
             return string.Empty;
@@ -96,92 +78,44 @@ public static class SerializationHelper
         // Small data: use stackalloc
         if (base64Length <= StackAllocThreshold)
         {
-            Span<byte> base64Buffer = stackalloc byte[base64Length];
-            if (Base64.EncodeToUtf8(data, base64Buffer, out _, out int bytesWritten) == OperationStatus.Done)
-            {
-                return System.Text.Encoding.UTF8.GetString(base64Buffer.Slice(0, bytesWritten));
-            }
+            Span<byte> buffer = stackalloc byte[base64Length];
+            if (Base64.EncodeToUtf8(data, buffer, out _, out int written) == OperationStatus.Done)
+                return System.Text.Encoding.UTF8.GetString(buffer[..written]);
         }
 
         // Large data: use ArrayPool
         using var pooled = MemoryPoolManager.RentArray(base64Length);
-        if (Base64.EncodeToUtf8(data, pooled.Span, out _, out int pooledBytesWritten) == OperationStatus.Done)
-        {
-            return System.Text.Encoding.UTF8.GetString(pooled.Span.Slice(0, pooledBytesWritten));
-        }
-        
+        if (Base64.EncodeToUtf8(data, pooled.Span, out _, out int pooledWritten) == OperationStatus.Done)
+            return System.Text.Encoding.UTF8.GetString(pooled.Span[..pooledWritten]);
+
         // Fallback
         return Convert.ToBase64String(data);
     }
 
     /// <summary>
-    /// Decode Base64 string to bytes using ArrayPool (returns IMemoryOwner that must be disposed)
+    /// Decode Base64 string to bytes
     /// </summary>
-    /// <remarks>
-    /// AOT-safe. Returns pooled memory that caller must dispose.
-    /// Zero-allocation except for the IMemoryOwner instance.
-    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static IMemoryOwner<byte> DecodeBase64Pooled(string base64)
+    private static byte[] DecodeBase64(string base64)
     {
         if (string.IsNullOrEmpty(base64))
-            return new EmptyMemoryOwner();
+            return Array.Empty<byte>();
 
-        // Estimate decoded size (Base64 expands by ~33%)
-        int maxDecodedLength = (base64.Length * 3) / 4;
-        
-        var pooled = MemoryPoolManager.RentMemory(maxDecodedLength);
+        // Estimate decoded size
+        int maxLength = (base64.Length * 3) / 4;
 
-        try
+        // Small data: use stackalloc
+        if (maxLength <= StackAllocThreshold)
         {
-            // Convert string to UTF8 bytes first
-            Span<byte> utf8Bytes = stackalloc byte[base64.Length];
-            int utf8ByteCount = System.Text.Encoding.UTF8.GetBytes(base64, utf8Bytes);
+            Span<byte> utf8 = stackalloc byte[base64.Length];
+            int utf8Count = System.Text.Encoding.UTF8.GetBytes(base64, utf8);
 
-            // Decode Base64
-            if (Base64.DecodeFromUtf8(utf8Bytes.Slice(0, utf8ByteCount), pooled.Memory.Span, out _, out int bytesWritten) == OperationStatus.Done)
-            {
-                // Success: return memory owner (will be wrapped to limit length)
-                return new SlicedMemoryOwner(pooled, bytesWritten);
-            }
-
-            // Fallback: use Convert
-            var decoded = Convert.FromBase64String(base64);
-            decoded.CopyTo(pooled.Memory.Span);
-            return new SlicedMemoryOwner(pooled, decoded.Length);
-        }
-        catch
-        {
-            pooled.Dispose();
-            throw;
-        }
-    }
-
-    /// <summary>
-    /// Empty memory owner for empty strings (AOT-safe)
-    /// </summary>
-    private sealed class EmptyMemoryOwner : IMemoryOwner<byte>
-    {
-        public Memory<byte> Memory => Memory<byte>.Empty;
-        public void Dispose() { }
-    }
-
-    /// <summary>
-    /// Sliced memory owner that wraps pooled memory and limits the visible length (AOT-safe)
-    /// </summary>
-    private sealed class SlicedMemoryOwner : IMemoryOwner<byte>
-    {
-        private PooledMemory _pooled;
-        private readonly int _length;
-
-        public SlicedMemoryOwner(PooledMemory pooled, int length)
-        {
-            _pooled = pooled;
-            _length = length;
+            Span<byte> buffer = stackalloc byte[maxLength];
+            if (Base64.DecodeFromUtf8(utf8[..utf8Count], buffer, out _, out int written) == OperationStatus.Done)
+                return buffer[..written].ToArray();
         }
 
-        public Memory<byte> Memory => _pooled.Memory.Slice(0, _length);
-
-        public void Dispose() => _pooled.Dispose();
+        // Fallback
+        return Convert.FromBase64String(base64);
     }
 }

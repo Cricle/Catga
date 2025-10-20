@@ -82,30 +82,22 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         {
             if (value != null)
             {
+                // 零拷贝路径：使用预分配的栈缓冲或 ArrayPool
+                var estimatedSize = value.Length * 3;  // UTF-8 最多 3 字节/字符
                 OutboxMessage? message;
-                if (_serializer is IBufferedMessageSerializer bufferedSerializer)
-                {
-                    // 零拷贝路径：使用预分配的栈缓冲或 ArrayPool
-                    var estimatedSize = value.Length * 3;  // UTF-8 最多 3 字节/字符
 
-                    if (estimatedSize <= stackBuffer.Length)
-                    {
-                        // ✅ 使用栈缓冲（零分配）
-                        var bytesWritten = ArrayPoolHelper.GetBytes(value, stackBuffer);
-                        message = bufferedSerializer.Deserialize<OutboxMessage>(stackBuffer.Slice(0, bytesWritten));
-                    }
-                    else
-                    {
-                        // 大字符串：使用 ArrayPool（减少分配）
-                        using var rented = ArrayPoolHelper.RentOrAllocate<byte>(estimatedSize);
-                        var bytesWritten = ArrayPoolHelper.GetBytes(value, rented.AsSpan());
-                        message = bufferedSerializer.Deserialize<OutboxMessage>(rented.AsSpan().Slice(0, bytesWritten));
-                    }
+                if (estimatedSize <= stackBuffer.Length)
+                {
+                    // ✅ 使用栈缓冲（零分配）
+                    var bytesWritten = ArrayPoolHelper.GetBytes(value, stackBuffer);
+                    message = _serializer.Deserialize<OutboxMessage>(stackBuffer.Slice(0, bytesWritten));
                 }
                 else
                 {
-                    // Fallback: 传统路径 (使用 ArrayPoolHelper 统一编码)
-                    message = _serializer.Deserialize<OutboxMessage>(ArrayPoolHelper.GetBytes(value));
+                    // 大字符串：使用 ArrayPool（减少分配）
+                    using var rented = ArrayPoolHelper.RentOrAllocate<byte>(estimatedSize);
+                    var bytesWritten = ArrayPoolHelper.GetBytes(value, rented.AsSpan());
+                    message = _serializer.Deserialize<OutboxMessage>(rented.AsSpan().Slice(0, bytesWritten));
                 }
 
                 if (message != null &&

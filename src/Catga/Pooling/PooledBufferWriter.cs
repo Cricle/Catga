@@ -10,7 +10,7 @@ namespace Catga.Pooling;
 /// <typeparam name="T">Element type</typeparam>
 /// <remarks>
 /// <para>
-/// Implements IPooledBufferWriter with automatic buffer growth and pooling.
+/// IBufferWriter with automatic buffer growth and pooling.
 /// Buffers are rented from ArrayPool and returned on Dispose.
 /// </para>
 /// <para>
@@ -23,7 +23,7 @@ namespace Catga.Pooling;
 /// Thread Safety: Not thread-safe. Each instance should be used by single thread.
 /// </para>
 /// </remarks>
-public sealed class PooledBufferWriter<T> : IPooledBufferWriter<T>
+public sealed class PooledBufferWriter<T> : IBufferWriter<T>, IDisposable
 {
     private T[] _buffer;
     private int _index;

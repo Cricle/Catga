@@ -6,24 +6,8 @@ namespace Catga.Pooling;
 /// <summary>
 /// Centralized memory pool manager for Catga (AOT-safe, thread-safe, zero-config)
 /// </summary>
-/// <remarks>
-/// Uses MemoryPool&lt;byte&gt;.Shared and ArrayPool&lt;byte&gt;.Shared for optimal performance.
-/// All methods are thread-safe and AOT-compatible.
-/// </remarks>
 public static class MemoryPoolManager
 {
-    /// <summary>
-    /// Rent memory from shared pool
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static PooledMemory RentMemory(int minimumLength)
-    {
-        if (minimumLength <= 0)
-            throw new ArgumentOutOfRangeException(nameof(minimumLength));
-
-        return new PooledMemory(MemoryPool<byte>.Shared.Rent(minimumLength));
-    }
-
     /// <summary>
     /// Rent byte array from shared pool
     /// </summary>
@@ -46,57 +30,6 @@ public static class MemoryPoolManager
             throw new ArgumentOutOfRangeException(nameof(initialCapacity));
 
         return new PooledBufferWriter<byte>(initialCapacity, ArrayPool<byte>.Shared);
-    }
-}
-
-/// <summary>
-/// Readonly struct wrapper for pooled memory with automatic disposal
-/// </summary>
-public readonly struct PooledMemory(IMemoryOwner<byte> owner) : IDisposable
-{
-    private readonly IMemoryOwner<byte> _owner = owner ?? throw new ArgumentNullException(nameof(owner));
-
-    /// <summary>
-    /// The rented memory
-    /// </summary>
-    public Memory<byte> Memory => _owner.Memory;
-
-    /// <summary>
-    /// The actual length of the rented memory
-    /// </summary>
-    public int Length => _owner.Memory.Length;
-
-    /// <summary>
-    /// Return memory to pool
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _owner.Dispose();
-
-    /// <summary>
-    /// Implicitly convert to ReadOnlyMemory
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static implicit operator ReadOnlyMemory<byte>(PooledMemory pooled) => pooled.Memory;
-
-    /// <summary>
-    /// Implicitly convert to Memory
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static implicit operator Memory<byte>(PooledMemory pooled) => pooled.Memory;
-
-    /// <summary>
-    /// Wrap as IMemoryOwner for compatibility (creates small allocation)
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal IMemoryOwner<byte> AsMemoryOwner() => new PooledMemoryWrapper(_owner);
-
-    /// <summary>
-    /// Minimal wrapper to expose IMemoryOwner
-    /// </summary>
-    private sealed class PooledMemoryWrapper(IMemoryOwner<byte> owner) : IMemoryOwner<byte>
-    {
-        public Memory<byte> Memory { get; } = owner.Memory;
-        public void Dispose() => owner.Dispose();
     }
 }
 

@@ -1,3 +1,4 @@
+using Catga.Abstractions;
 using Catga.EventSourcing;
 using Catga.Messages;
 using Catga.Serialization;
@@ -16,14 +17,14 @@ public sealed class NatsEventStore : IEventStore, IAsyncDisposable
 {
     private readonly INatsConnection _connection;
     private readonly INatsJSContext _jetStream;
-    private readonly IBufferedMessageSerializer _serializer;
+    private readonly IMessageSerializer _serializer;
     private readonly string _streamName;
     private readonly SemaphoreSlim _streamLock = new(1, 1);
     private bool _streamCreated;
 
     public NatsEventStore(
         INatsConnection connection,
-        IBufferedMessageSerializer serializer,
+        IMessageSerializer serializer,
         string streamName = "CATGA_EVENTS")
     {
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));

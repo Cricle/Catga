@@ -209,7 +209,13 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         var eventType = Type.GetType(eventTypeName!, throwOnError: false)
             ?? throw new InvalidOperationException($"Event type not found: {eventTypeName}. Ensure the type is available in the application domain.");
 
-        return (IEvent)(_serializer.Deserialize(msg.Data!, eventType) ?? throw new InvalidOperationException("Fail to deserialize msg"));
+        // Use reflection to call generic Deserialize<T>
+        var deserializeMethod = typeof(IMessageSerializer)
+            .GetMethod(nameof(IMessageSerializer.Deserialize), new[] { typeof(byte[]) })
+            ?.MakeGenericMethod(eventType);
+        
+        return (IEvent)(deserializeMethod?.Invoke(_serializer, new object[] { msg.Data! }) 
+            ?? throw new InvalidOperationException("Failed to deserialize message"));
     }
 }
 

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
@@ -22,8 +23,8 @@ public class InMemoryMessageTransport : IMessageTransport
         using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Message.Publish", ActivityKind.Producer);
         var sw = Stopwatch.StartNew();
 
-        // Take snapshot for thread-safety (ConcurrentBag is thread-safe but enumeration needs snapshot)
-        var handlers = TypedSubscribers<TMessage>.Handlers.ToList();
+        // Get immutable snapshot (lock-free read via volatile)
+        var handlers = TypedSubscribers<TMessage>.GetHandlers();
         if (handlers.Count == 0) return;
 
         var ctx = context ?? new TransportContext { MessageId = MessageExtensions.NewMessageId(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
@@ -81,7 +82,7 @@ public class InMemoryMessageTransport : IMessageTransport
     }
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    private static async ValueTask ExecuteHandlersAsync<TMessage>(List<Delegate> handlers, TMessage message, TransportContext context) where TMessage : class
+    private static async ValueTask ExecuteHandlersAsync<TMessage>(IReadOnlyList<Delegate> handlers, TMessage message, TransportContext context) where TMessage : class
     {
         var tasks = new Task[handlers.Count];
         for (int i = 0; i < handlers.Count; i++)
@@ -90,13 +91,13 @@ public class InMemoryMessageTransport : IMessageTransport
         await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
-    private static async ValueTask FireAndForgetAsync<TMessage>(List<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class
+    private static async ValueTask FireAndForgetAsync<TMessage>(IReadOnlyList<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class
     {
         try { await ExecuteHandlersAsync(handlers, message, context); }
         catch { }
     }
 
-    private static async ValueTask DeliverWithRetryAsync<TMessage>(List<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class
+    private static async ValueTask DeliverWithRetryAsync<TMessage>(IReadOnlyList<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class
     {
         for (int attempt = 0; attempt <= 3; attempt++)
         {
@@ -118,7 +119,7 @@ public class InMemoryMessageTransport : IMessageTransport
 
     public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(Func<TMessage, TransportContext, Task> handler, CancellationToken cancellationToken = default) where TMessage : class
     {
-        TypedSubscribers<TMessage>.Handlers.Add(handler);
+        TypedSubscribers<TMessage>.AddHandler(handler);
         return Task.CompletedTask;
     }
 
@@ -141,9 +142,37 @@ public class InMemoryMessageTransport : IMessageTransport
     }
 }
 
-/// <summary>Typed subscriber cache (internal to InMemory transport, thread-safe using ConcurrentBag)</summary>
+/// <summary>
+/// Typed subscriber cache (lock-free using ImmutableList + Interlocked.CompareExchange)
+/// Inspired by Snowflake ID generator's CAS pattern for zero-lock concurrency
+/// </summary>
 internal static class TypedSubscribers<TMessage> where TMessage : class
 {
-    public static readonly ConcurrentBag<Delegate> Handlers = new();
+    private static ImmutableList<Delegate> _handlers = ImmutableList<Delegate>.Empty;
+
+    /// <summary>
+    /// Get current handlers snapshot (lock-free read via Volatile)
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public static ImmutableList<Delegate> GetHandlers() => 
+        Volatile.Read(ref _handlers);
+
+    /// <summary>
+    /// Add handler (lock-free using CAS loop like SnowflakeIdGenerator)
+    /// </summary>
+    public static void AddHandler(Delegate handler)
+    {
+        while (true)
+        {
+            var current = Volatile.Read(ref _handlers);
+            var next = current.Add(handler);
+            
+            // CAS: if _handlers is still 'current', replace with 'next'
+            if (Interlocked.CompareExchange(ref _handlers, next, current) == current)
+                return;
+            
+            // Retry if another thread modified _handlers
+        }
+    }
 }
 

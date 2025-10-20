@@ -1,12 +1,11 @@
-using Xunit;
-using FluentAssertions;
-using NSubstitute;
-using Microsoft.Extensions.Logging;
-using Catga.Core;
-using Catga.Transport;
-using Catga.Serialization.Json;
-using System.Collections.Concurrent;
 using Catga.Abstractions;
+using Catga.Messages;
+using Catga.Serialization.Json;
+using Catga.Transport;
+using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
+using System.Collections.Concurrent;
 
 namespace Catga.Tests.Transport;
 

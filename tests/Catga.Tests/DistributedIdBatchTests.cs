@@ -1,6 +1,5 @@
 using Catga.DistributedId;
 using FluentAssertions;
-using Xunit;
 
 namespace Catga.Tests;
 

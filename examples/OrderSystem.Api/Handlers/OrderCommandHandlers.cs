@@ -1,98 +1,77 @@
 using Catga;
 using Catga.Core;
 using Catga.Exceptions;
-using Catga.Abstractions;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Services;
-using Catga.Abstractions;
 
 namespace OrderSystem.Api.Handlers;
 
-public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderCreatedResult>
+public partial class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderCreatedResult>
 {
     private readonly IOrderRepository _repository;
     private readonly IInventoryService _inventory;
     private readonly ICatgaMediator _mediator;
-    private readonly ILogger<CreateOrderHandler> _logger;
     private string? _orderId;
     private bool _inventoryReserved, _orderSaved;
 
     public CreateOrderHandler(IOrderRepository repository, IInventoryService inventory,
-        ICatgaMediator mediator, ILogger<CreateOrderHandler> logger)
+        ICatgaMediator mediator, ILogger<CreateOrderHandler> logger) : base(logger)
     {
-        (_repository, _inventory, _mediator, _logger) = (repository, inventory, mediator, logger);
+        (_repository, _inventory, _mediator) = (repository, inventory, mediator);
     }
 
-    public async Task<CatgaResult<OrderCreatedResult>> HandleAsync(
+    protected override async Task<OrderCreatedResult> HandleCoreAsync(
         CreateOrderCommand request, CancellationToken cancellationToken)
     {
-        try
+        LogOrderCreationStarted(request.CustomerId);
+
+        var stockCheck = await _inventory.CheckStockAsync(request.Items, cancellationToken);
+        if (!stockCheck.IsSuccess)
         {
-            LogOrderCreationStarted(request.CustomerId);
-
-            var stockCheck = await _inventory.CheckStockAsync(request.Items, cancellationToken);
-            if (!stockCheck.IsSuccess)
-            {
-                LogStockCheckFailed(request.CustomerId);
-                return CatgaResult<OrderCreatedResult>.Failure(
-                    $"Insufficient stock: {string.Join(", ", request.Items.Select(i => i.ProductId))}");
-            }
-
-            var totalAmount = request.Items.Sum(item => item.Subtotal);
-            LogOrderTotalCalculated(totalAmount);
-
-            _orderId = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..8]}";
-            var order = new Order
-            {
-                OrderId = _orderId,
-                CustomerId = request.CustomerId,
-                Items = request.Items,
-                TotalAmount = totalAmount,
-                Status = OrderStatus.Pending,
-                CreatedAt = DateTime.UtcNow,
-                ShippingAddress = request.ShippingAddress,
-                PaymentMethod = request.PaymentMethod
-            };
-
-            await _repository.SaveAsync(order, cancellationToken);
-            _orderSaved = true;
-            LogOrderSaved(_orderId);
-
-            var reserveResult = await _inventory.ReserveStockAsync(_orderId, request.Items, cancellationToken);
-            if (!reserveResult.IsSuccess)
-            {
-                await RollbackAsync(request, cancellationToken);
-                return CatgaResult<OrderCreatedResult>.Failure(
-                    $"Failed to reserve inventory. All changes rolled back.");
-            }
-
-            _inventoryReserved = true;
-            LogInventoryReserved(_orderId);
-
-            if (request.PaymentMethod.Contains("FAIL", StringComparison.OrdinalIgnoreCase))
-            {
-                await RollbackAsync(request, cancellationToken);
-                return CatgaResult<OrderCreatedResult>.Failure(
-                    $"Payment method '{request.PaymentMethod}' validation failed. All changes rolled back.");
-            }
-
-            await _mediator.PublishAsync(new OrderCreatedEvent(
-                _orderId, request.CustomerId, request.Items, totalAmount, order.CreatedAt), cancellationToken);
-
-            LogOrderCreatedSuccess(_orderId, totalAmount);
-            return CatgaResult<OrderCreatedResult>.Success(
-                new OrderCreatedResult(_orderId, totalAmount, order.CreatedAt));
+            LogStockCheckFailed(request.CustomerId);
+            throw new CatgaException($"Insufficient stock: {string.Join(", ", request.Items.Select(i => i.ProductId))}");
         }
-        catch (Exception ex)
+
+        var totalAmount = request.Items.Sum(item => item.Subtotal);
+        LogOrderTotalCalculated(totalAmount);
+
+        _orderId = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..8]}";
+        var order = new Order
         {
-            _logger.LogError(ex, "Order creation failed for customer {CustomerId}", request.CustomerId);
-            await RollbackAsync(request, cancellationToken);
-            return CatgaResult<OrderCreatedResult>.Failure($"Order creation failed: {ex.Message}. All changes rolled back.");
-        }
+            OrderId = _orderId,
+            CustomerId = request.CustomerId,
+            Items = request.Items,
+            TotalAmount = totalAmount,
+            Status = OrderStatus.Pending,
+            CreatedAt = DateTime.UtcNow,
+            ShippingAddress = request.ShippingAddress,
+            PaymentMethod = request.PaymentMethod
+        };
+
+        await _repository.SaveAsync(order, cancellationToken);
+        _orderSaved = true;
+        LogOrderSaved(_orderId);
+
+        var reserveResult = await _inventory.ReserveStockAsync(_orderId, request.Items, cancellationToken);
+        if (!reserveResult.IsSuccess)
+            throw new CatgaException("Failed to reserve inventory", reserveResult.Exception!);
+
+        _inventoryReserved = true;
+        LogInventoryReserved(_orderId);
+
+        if (request.PaymentMethod.Contains("FAIL", StringComparison.OrdinalIgnoreCase))
+            throw new CatgaException($"Payment method '{request.PaymentMethod}' validation failed");
+
+        await _mediator.PublishAsync(new OrderCreatedEvent(
+            _orderId, request.CustomerId, request.Items, totalAmount, order.CreatedAt), cancellationToken);
+
+        LogOrderCreatedSuccess(_orderId, totalAmount);
+        return new OrderCreatedResult(_orderId, totalAmount, order.CreatedAt);
     }
 
-    private async Task RollbackAsync(CreateOrderCommand request, CancellationToken cancellationToken)
+    protected override async Task<CatgaResult<OrderCreatedResult>> OnBusinessErrorAsync(
+        CreateOrderCommand request, CatgaException exception, CancellationToken cancellationToken)
     {
         LogRollbackInitiated();
 
@@ -112,7 +91,7 @@ public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Or
 
             if (_orderId != null)
                 await _mediator.PublishAsync(new OrderFailedEvent(
-                    _orderId, request.CustomerId, "Rollback completed", DateTime.UtcNow), cancellationToken);
+                    _orderId, request.CustomerId, exception.Message, DateTime.UtcNow), cancellationToken);
 
             LogRollbackCompleted();
         }
@@ -120,6 +99,22 @@ public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Or
         {
             LogRollbackFailed(rollbackEx, _orderId ?? "N/A");
         }
+
+        var metadata = new ResultMetadata();
+        metadata.Add("OrderId", _orderId ?? "N/A");
+        metadata.Add("CustomerId", request.CustomerId);
+        metadata.Add("RollbackCompleted", "true");
+        metadata.Add("InventoryRolledBack", _inventoryReserved.ToString());
+        metadata.Add("OrderDeleted", _orderSaved.ToString());
+        metadata.Add("FailureTimestamp", DateTime.UtcNow.ToString("O"));
+
+        return new CatgaResult<OrderCreatedResult>
+        {
+            IsSuccess = false,
+            Error = $"Order creation failed: {exception.Message}. All changes rolled back.",
+            Exception = exception,
+            Metadata = metadata
+        };
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Starting order creation for customer {CustomerId}")]
@@ -156,42 +151,31 @@ public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Or
     partial void LogRollbackFailed(Exception exception, string orderId);
 }
 
-public partial class CancelOrderHandler : IRequestHandler<CancelOrderCommand>
+public partial class CancelOrderHandler : SafeRequestHandler<CancelOrderCommand>
 {
     private readonly IOrderRepository _repository;
     private readonly IInventoryService _inventory;
     private readonly ICatgaMediator _mediator;
-    private readonly ILogger<CancelOrderHandler> _logger;
 
     public CancelOrderHandler(IOrderRepository repository, IInventoryService inventory,
-        ICatgaMediator mediator, ILogger<CancelOrderHandler> logger)
+        ICatgaMediator mediator, ILogger<CancelOrderHandler> logger) : base(logger)
     {
-        (_repository, _inventory, _mediator, _logger) = (repository, inventory, mediator, logger);
+        (_repository, _inventory, _mediator) = (repository, inventory, mediator);
     }
 
-    public async Task<CatgaResult> HandleAsync(CancelOrderCommand request, CancellationToken cancellationToken)
+    protected override async Task HandleCoreAsync(CancelOrderCommand request, CancellationToken cancellationToken)
     {
-        try
-        {
-            var order = await _repository.GetByIdAsync(request.OrderId, cancellationToken);
-            if (order == null)
-                return CatgaResult.Failure("Order not found");
+        var order = await _repository.GetByIdAsync(request.OrderId, cancellationToken)
+            ?? throw new CatgaException("Order not found");
 
-            if (order.Status == OrderStatus.Cancelled)
-                return CatgaResult.Failure("Order already cancelled");
+        if (order.Status == OrderStatus.Cancelled)
+            throw new CatgaException("Order already cancelled");
 
-            await _repository.UpdateAsync(order with { Status = OrderStatus.Cancelled, UpdatedAt = DateTime.UtcNow }, cancellationToken);
-            await _inventory.ReleaseStockAsync(request.OrderId, order.Items, cancellationToken);
-            await _mediator.PublishAsync(new OrderCancelledEvent(request.OrderId, request.Reason, DateTime.UtcNow), cancellationToken);
+        await _repository.UpdateAsync(order with { Status = OrderStatus.Cancelled, UpdatedAt = DateTime.UtcNow }, cancellationToken);
+        await _inventory.ReleaseStockAsync(request.OrderId, order.Items, cancellationToken);
+        await _mediator.PublishAsync(new OrderCancelledEvent(request.OrderId, request.Reason, DateTime.UtcNow), cancellationToken);
 
-            LogOrderCancelled(request.OrderId, request.Reason);
-            return CatgaResult.Success();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to cancel order {OrderId}", request.OrderId);
-            return CatgaResult.Failure($"Failed to cancel order: {ex.Message}");
-        }
+        LogOrderCancelled(request.OrderId, request.Reason);
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Order cancelled: {OrderId}, reason: {Reason}")]

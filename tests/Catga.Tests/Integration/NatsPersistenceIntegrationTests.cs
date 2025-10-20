@@ -1,7 +1,7 @@
 using Catga.Abstractions;
 using Catga.EventSourcing;
 using Catga.Inbox;
-using Catga.Core;
+using Catga.Messages;
 using Catga.Outbox;
 using Catga.Persistence;
 using Catga.Persistence.Stores;
@@ -10,8 +10,6 @@ using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using FluentAssertions;
 using NATS.Client.Core;
-using NATS.Client.JetStream;
-using Xunit;
 
 namespace Catga.Tests.Integration;
 

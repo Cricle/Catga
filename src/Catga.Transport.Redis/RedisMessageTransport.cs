@@ -1,8 +1,6 @@
 using Catga.Abstractions;
 using Catga.Core;
-using Catga.Transport;
 using StackExchange.Redis;
-using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -119,7 +117,8 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
     {
         await BatchOperationHelper.ExecuteBatchAsync(
             messages,
-            m => PublishAsync(m, context, cancellationToken));
+            m => PublishAsync(m, context, cancellationToken),
+            cancellationToken);
     }
 
     public async Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
@@ -132,7 +131,8 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
         await BatchOperationHelper.ExecuteBatchAsync(
             messages,
             destination,
-            (m, dest) => SendAsync(m, dest, context, cancellationToken));
+            (m, dest) => SendAsync(m, dest, context, cancellationToken),
+            cancellationToken);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

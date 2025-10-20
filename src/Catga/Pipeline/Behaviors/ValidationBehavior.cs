@@ -1,6 +1,5 @@
 using Catga.Core;
-using Catga.Exceptions;
-using Catga.Abstractions;
+using Catga.Messages;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.Pipeline.Behaviors;

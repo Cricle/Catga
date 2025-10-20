@@ -1,7 +1,7 @@
-using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
+using System.Runtime.CompilerServices;
 
-namespace Catga.Core;
+namespace Catga.Handlers;
 
 /// <summary>
 /// Minimal handler resolver - delegates to DI container directly.

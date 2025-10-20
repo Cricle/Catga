@@ -1,11 +1,11 @@
+using Catga.Abstractions;
+using Catga.Pooling;
 using System.Buffers;
 using System.Buffers.Text;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Catga.Abstractions;
-using Catga.Core;
 
-namespace Catga;
+namespace Catga.Serialization;
 
 /// <summary>
 /// Base class for message serializers (AOT-safe, minimal API)

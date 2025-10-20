@@ -1,11 +1,8 @@
-using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using System.Text;
-using System.Text.Json;
-using Catga.Observability;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using System.Diagnostics;
+using System.Text;
 
 namespace Catga.AspNetCore;
 

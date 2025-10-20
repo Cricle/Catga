@@ -1,7 +1,6 @@
 using Catga.Abstractions;
 using Catga.EventSourcing;
-using Catga.Core;
-using Catga;
+using Catga.Messages;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;

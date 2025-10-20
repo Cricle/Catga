@@ -1,8 +1,8 @@
-using System.Diagnostics.CodeAnalysis;
 using Catga.DistributedId;
-using Catga.Abstractions;
+using Catga.Messages;
 using Catga.Pipeline;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Catga.Core;
 

@@ -1,11 +1,9 @@
 // OrderSystem.Api - Handler and Service Registration
-using Catga.Abstractions;
-using Microsoft.Extensions.DependencyInjection;
+using Catga.Handlers;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Handlers;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Services;
-using Catga.Abstractions;
 
 namespace OrderSystem.Api.Infrastructure;
 

@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using Catga.Core;
 
 #if !NET6_0
 using System.Buffers;

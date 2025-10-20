@@ -1,5 +1,5 @@
+using Catga.Messages;
 using System.Diagnostics.CodeAnalysis;
-using Catga.Abstractions;
 
 namespace Catga.DeadLetter;
 

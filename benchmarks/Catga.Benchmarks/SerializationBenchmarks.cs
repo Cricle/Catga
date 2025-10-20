@@ -1,7 +1,5 @@
-using System.Text.Json.Serialization;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Order;
-using Catga;
 using Catga.Serialization.Json;
 using Catga.Serialization.MemoryPack;
 using MemoryPack;
@@ -59,7 +57,7 @@ public class SerializationBenchmarks
     [Benchmark(Description = "JSON Serialize (buffered)")]
     public byte[] JsonSerialize_Buffered()
     {
-        using var bufferWriter = new Catga.Core.PooledBufferWriter<byte>(256);
+        using var bufferWriter = new Catga.Pooling.PooledBufferWriter<byte>(256);
         _jsonSerializer.Serialize(_message, bufferWriter);
         return bufferWriter.WrittenSpan.ToArray();
     }
@@ -83,7 +81,7 @@ public class SerializationBenchmarks
     [Benchmark(Description = "MemoryPack Serialize (buffered)")]
     public byte[] MemoryPackSerialize_Buffered()
     {
-        using var bufferWriter = new Catga.Core.PooledBufferWriter<byte>(128);
+        using var bufferWriter = new Catga.Pooling.PooledBufferWriter<byte>(128);
         _memoryPackSerializer.Serialize(_message, bufferWriter);
         return bufferWriter.WrittenSpan.ToArray();
     }

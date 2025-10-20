@@ -1,15 +1,11 @@
 using Catga;
-using Catga.AspNetCore;
 using Catga.AspNetCore.Extensions;
 using Catga.DependencyInjection;
-using Catga.Abstractions;
 using Catga.Observability;
-using OrderSystem.Api.Domain;
-using OrderSystem.Api.Messages;
-using OrderSystem.Api.Handlers;
-using OrderSystem.Api.Services;
-using OrderSystem.Api.Infrastructure;
 using MemoryPack;
+using OrderSystem.Api.Domain;
+using OrderSystem.Api.Infrastructure;
+using OrderSystem.Api.Messages;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -85,7 +81,7 @@ app.MapPost("/demo/order-success", async (ICatgaMediator m) =>
         OrderId = result.Value?.OrderId,
         TotalAmount = result.Value?.TotalAmount,
         Message = result.IsSuccess ? "✅ Order created successfully!" : result.Error,
-        ErrorCode = result.ErrorCode
+        Metadata = result.Metadata?.GetAll()
     });
 }).WithName("DemoOrderSuccess").WithTags("Demo");
 
@@ -103,8 +99,8 @@ app.MapPost("/demo/order-failure", async (ICatgaMediator m) =>
     {
         result.IsSuccess,
         result.Error,
-        result.ErrorCode,
         Message = result.IsSuccess ? "Order created" : "❌ Order creation failed! Automatic rollback completed.",
+        RollbackDetails = result.Metadata?.GetAll(),
         Explanation = "Payment validation failed, triggering automatic rollback"
     });
 }).WithName("DemoOrderFailure").WithTags("Demo");

@@ -1,8 +1,7 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
-using Catga;
 
-namespace Catga.Core;
+namespace Catga.Pooling;
 
 /// <summary>
 /// Recyclable buffer writer using ArrayPool (AOT-safe, zero reflection)

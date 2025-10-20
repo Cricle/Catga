@@ -1,8 +1,8 @@
+using Catga.DistributedId;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Catga.DistributedId;
 
-namespace Catga.Abstractions;
+namespace Catga.Messages;
 
 /// <summary>Message identifier (Snowflake-based)</summary>
 [StructLayout(LayoutKind.Sequential)]

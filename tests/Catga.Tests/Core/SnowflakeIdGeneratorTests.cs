@@ -1,4 +1,3 @@
-using Catga.Core;
 using Catga.DistributedId;
 using FluentAssertions;
 

@@ -1,4 +1,3 @@
-using Catga;
 using Catga.Serialization.Json;
 using FluentAssertions;
 using System.Buffers;
@@ -198,6 +197,20 @@ public class JsonMessageSerializerTests
         var deserialized = _serializer.Deserialize<JsonTestMessage>(bufferWriter.WrittenSpan);
         deserialized.Should().NotBeNull();
         deserialized!.Id.Should().Be(666);
+    }
+
+    [Fact]
+    public void GetSizeEstimate_ShouldReturnReasonableValue()
+    {
+        // Arrange
+        var message = new JsonTestMessage { Id = 777, Name = "Size", Timestamp = DateTime.UtcNow };
+
+        // Act
+        var estimate = _serializer.GetSizeEstimate(message);
+
+        // Assert
+        estimate.Should().BeGreaterThan(0);
+        estimate.Should().Be(256); // Default estimate
     }
 
     #endregion

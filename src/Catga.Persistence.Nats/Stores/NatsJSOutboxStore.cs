@@ -1,6 +1,5 @@
 using Catga.Abstractions;
 using Catga.Outbox;
-using Catga.Persistence;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
@@ -96,6 +95,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
 
     public async ValueTask MarkAsPublishedAsync(long messageId, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(messageId);
 
         await EnsureInitializedAsync(cancellationToken);
 
@@ -159,6 +159,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
         string errorMessage,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(messageId);
         ArgumentNullException.ThrowIfNull(errorMessage);
 
         await EnsureInitializedAsync(cancellationToken);

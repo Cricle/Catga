@@ -1,11 +1,11 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 using Catga.Abstractions;
 using Catga.Core;
-using Catga.Core;
+using Catga.Messages;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace Catga.Transport.Nats;
 
@@ -134,7 +134,8 @@ public class NatsMessageTransport : IMessageTransport
     {
         await BatchOperationHelper.ExecuteBatchAsync(
             messages,
-            m => PublishAsync(m, context, cancellationToken));
+            m => PublishAsync(m, context, cancellationToken),
+            cancellationToken);
     }
 
     public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class

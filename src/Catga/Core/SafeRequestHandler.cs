@@ -7,7 +7,8 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Core;
 
 /// <summary>
-/// Safe request handler base - users only write business logic, no try-catch needed
+/// Safe request handler base - automatically handles exceptions
+/// Users only write business logic, no try-catch needed
 /// </summary>
 public abstract class SafeRequestHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> : IRequestHandler<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
@@ -16,9 +17,6 @@ public abstract class SafeRequestHandler<[DynamicallyAccessedMembers(Dynamically
 
     protected SafeRequestHandler(ILogger logger) => Logger = logger;
 
-    /// <summary>
-    /// Framework handles exceptions automatically - users only implement business logic
-    /// </summary>
     public async Task<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
         try
@@ -37,12 +35,8 @@ public abstract class SafeRequestHandler<[DynamicallyAccessedMembers(Dynamically
     }
 
     /// <summary>
-    /// Handle business logic errors (CatgaException). Override to customize error handling.
+    /// Handle business logic errors (CatgaException). Override to customize.
     /// </summary>
-    /// <param name="request">The original request</param>
-    /// <param name="exception">The business exception</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Failed result with error information</returns>
     protected virtual Task<CatgaResult<TResponse>> OnBusinessErrorAsync(TRequest request, CatgaException exception, CancellationToken cancellationToken)
     {
         Logger.LogWarning(exception, "Business logic failed: {Message}", exception.Message);
@@ -50,12 +44,8 @@ public abstract class SafeRequestHandler<[DynamicallyAccessedMembers(Dynamically
     }
 
     /// <summary>
-    /// Handle unexpected errors (non-CatgaException). Override to customize error handling.
+    /// Handle unexpected errors (non-CatgaException). Override to customize.
     /// </summary>
-    /// <param name="request">The original request</param>
-    /// <param name="exception">The unexpected exception</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Failed result with error information</returns>
     protected virtual Task<CatgaResult<TResponse>> OnUnexpectedErrorAsync(TRequest request, Exception exception, CancellationToken cancellationToken)
     {
         Logger.LogError(exception, "Unexpected error in handler");
@@ -96,12 +86,8 @@ public abstract class SafeRequestHandler<[DynamicallyAccessedMembers(Dynamically
     }
 
     /// <summary>
-    /// Handle business logic errors (CatgaException). Override to customize error handling.
+    /// Handle business logic errors (CatgaException). Override to customize.
     /// </summary>
-    /// <param name="request">The original request</param>
-    /// <param name="exception">The business exception</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Failed result with error information</returns>
     protected virtual Task<CatgaResult> OnBusinessErrorAsync(TRequest request, CatgaException exception, CancellationToken cancellationToken)
     {
         Logger.LogWarning(exception, "Business logic failed: {Message}", exception.Message);
@@ -109,12 +95,8 @@ public abstract class SafeRequestHandler<[DynamicallyAccessedMembers(Dynamically
     }
 
     /// <summary>
-    /// Handle unexpected errors (non-CatgaException). Override to customize error handling.
+    /// Handle unexpected errors (non-CatgaException). Override to customize.
     /// </summary>
-    /// <param name="request">The original request</param>
-    /// <param name="exception">The unexpected exception</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Failed result with error information</returns>
     protected virtual Task<CatgaResult> OnUnexpectedErrorAsync(TRequest request, Exception exception, CancellationToken cancellationToken)
     {
         Logger.LogError(exception, "Unexpected error in handler");

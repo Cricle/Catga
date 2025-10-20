@@ -5,11 +5,14 @@ using Catga.Messages;
 
 namespace Catga.Core;
 
-/// <summary>Message helper methods (AOT-friendly)</summary>
+/// <summary>Message helper methods (AOT-safe)</summary>
 public static class MessageHelper
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static long GetOrGenerateMessageId<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request, IDistributedIdGenerator idGenerator) where TRequest : class
+    public static long GetOrGenerateMessageId<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(
+        TRequest request,
+        IDistributedIdGenerator idGenerator)
+        where TRequest : class
     {
         if (request is IMessage message && message.MessageId != 0)
             return message.MessageId;
@@ -21,13 +24,7 @@ public static class MessageHelper
         => TypeNameCache<TRequest>.FullName;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static long? GetCorrelationId<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request) where TRequest : class
+    public static long? GetCorrelationId<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request)
+        where TRequest : class
         => request is IMessage message ? message.CorrelationId : null;
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void ValidateMessageId(long messageId, string paramName = "messageId")
-    {
-        if (messageId == 0)
-            throw new ArgumentException("MessageId must be > 0", paramName);
-    }
 }

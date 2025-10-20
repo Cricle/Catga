@@ -225,7 +225,6 @@ public sealed class CatgaMediator : ICatgaMediator
         var handlerList = _handlerCache.GetEventHandlers<IEventHandler<TEvent>>(scopedProvider);
         if (handlerList.Count == 0)
         {
-            await FastPath.PublishEventNoOpAsync();
             CatgaLog.EventPublished(_logger, eventType, message?.MessageId, 0);
             return;
         }

@@ -6,7 +6,6 @@ namespace Catga.Core;
 
 /// <summary>
 /// Graceful recovery manager - auto-handles reconnection and state recovery
-/// Users don't need to worry about complex recovery logic
 /// </summary>
 public sealed partial class GracefulRecoveryManager
 {
@@ -20,23 +19,14 @@ public sealed partial class GracefulRecoveryManager
         _logger = logger;
     }
 
-    /// <summary>
-    /// Is recovery in progress
-    /// </summary>
     public bool IsRecovering => _isRecovering;
 
-    /// <summary>
-    /// Register recoverable component
-    /// </summary>
     public void RegisterComponent(IRecoverableComponent component)
     {
-        _components.Add(component);  // Lock-free with ConcurrentBag
+        _components.Add(component);
         LogComponentRegistered(component.GetType().Name);
     }
 
-    /// <summary>
-    /// Recover all components - auto-reconnect
-    /// </summary>
     public async Task<RecoveryResult> RecoverAsync(CancellationToken cancellationToken = default)
     {
         await _recoveryLock.WaitAsync(cancellationToken);
@@ -49,8 +39,6 @@ public sealed partial class GracefulRecoveryManager
             }
 
             _isRecovering = true;
-
-            // ✅ 优化：直接遍历 ConcurrentBag，避免 ToArray() 分配
             var componentCount = _components.Count;
             LogRecoveryStarted(componentCount);
 
@@ -74,7 +62,6 @@ public sealed partial class GracefulRecoveryManager
             }
 
             LogRecoveryComplete(succeeded, failed, sw.Elapsed.TotalSeconds);
-
             return new RecoveryResult(succeeded, failed, sw.Elapsed);
         }
         finally
@@ -84,9 +71,6 @@ public sealed partial class GracefulRecoveryManager
         }
     }
 
-    /// <summary>
-    /// Auto-recovery loop - retries on failure detection
-    /// </summary>
     public async Task StartAutoRecoveryAsync(
         TimeSpan checkInterval,
         int maxRetries = 3,
@@ -100,9 +84,7 @@ public sealed partial class GracefulRecoveryManager
             {
                 await Task.Delay(checkInterval, cancellationToken);
 
-                // ✅ 优化：直接遍历 ConcurrentBag，避免 ToArray() 分配
                 var needsRecovery = false;
-
                 foreach (var component in _components)
                 {
                     try
@@ -116,7 +98,6 @@ public sealed partial class GracefulRecoveryManager
                     }
                     catch (Exception ex)
                     {
-                        // ✅ 修复：IsHealthy 抛异常时不应让整个循环退出
                         LogComponentHealthCheckFailed(component.GetType().Name, ex.Message);
                         needsRecovery = true;
                         break;
@@ -147,14 +128,11 @@ public sealed partial class GracefulRecoveryManager
             }
             catch (OperationCanceledException)
             {
-                // ✅ 正常的取消，退出循环
                 break;
             }
             catch (Exception ex)
             {
-                // ✅ 修复：其他异常不应让自动恢复循环退出
                 LogAutoRecoveryLoopException(ex.Message, ex);
-                // 继续循环，等待下次检查
             }
         }
     }
@@ -196,28 +174,16 @@ public sealed partial class GracefulRecoveryManager
     partial void LogAutoRecoveryLoopException(string errorMessage, Exception ex);
 }
 
-/// <summary>
-/// 可恢复组件接口 - 任何需要恢复的组件都实现此接口
-/// </summary>
+/// <summary>Recoverable component interface</summary>
 public interface IRecoverableComponent
 {
-    /// <summary>
-    /// 组件是否健康
-    /// </summary>
     bool IsHealthy { get; }
-
-    /// <summary>
-    /// 执行恢复逻辑
-    /// </summary>
     Task RecoverAsync(CancellationToken cancellationToken = default);
 }
 
-/// <summary>
-/// 恢复结果
-/// </summary>
+/// <summary>Recovery result</summary>
 public readonly record struct RecoveryResult(int Succeeded, int Failed, TimeSpan Duration)
 {
     public static RecoveryResult AlreadyRecovering => new(-1, -1, TimeSpan.Zero);
     public bool IsSuccess => Failed == 0 && Succeeded > 0;
 }
-

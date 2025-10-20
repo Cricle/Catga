@@ -3,6 +3,7 @@ using Catga.Core;
 using Catga.Messages;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Catga.Abstractions;
 
 namespace Microsoft.Extensions.DependencyInjection;
 

@@ -1,4 +1,4 @@
-using Catga.Messages;
+using Catga.Abstractions;
 
 namespace Catga.EventSourcing;
 

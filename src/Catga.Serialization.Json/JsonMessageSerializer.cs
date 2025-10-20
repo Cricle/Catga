@@ -1,7 +1,7 @@
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
-using Catga.Serialization;
+using Catga;
 
 namespace Catga.Serialization.Json;
 

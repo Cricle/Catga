@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using Catga.DistributedId;
 
-namespace Catga.Messages;
+namespace Catga.Core;
 
 /// <summary>
 /// Extension methods for message creation with proper ID generation.

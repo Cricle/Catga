@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Core;
-using Catga.Messages;
+using Catga.Abstractions;
 
 namespace Catga.Pipeline;
 

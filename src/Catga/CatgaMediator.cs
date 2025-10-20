@@ -3,14 +3,15 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Catga.Core;
 using Catga.Exceptions;
-using Catga.Handlers;
-using Catga.Messages;
+using Catga.Core;
+using Catga.Core;
 using Catga.Observability;
 using Catga.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace Catga.Mediator;
+using Catga.Abstractions;
+namespace Catga;
 
 /// <summary>High-performance Catga Mediator (AOT-compatible, lock-free)</summary>
 public sealed class CatgaMediator : ICatgaMediator

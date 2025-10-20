@@ -11,6 +11,7 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using Catga.Abstractions;
 
 namespace Catga.SourceGenerator
 {
@@ -60,7 +61,7 @@ namespace Catga.SourceGenerator
 			sb.AppendLine("using System.Threading;");
 			sb.AppendLine("using System.Threading.Tasks;");
 			sb.AppendLine("using Microsoft.Extensions.DependencyInjection;");
-			sb.AppendLine("using Catga.Handlers;");
+			sb.AppendLine("using Catga.Core;using Catga.Abstractions;");
 			sb.AppendLine("using Catga.Messages;");
 			sb.AppendLine();
 			sb.AppendLine("namespace Catga.Generated");

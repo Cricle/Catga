@@ -2,6 +2,7 @@ using Catga.EventSourcing;
 using Catga.Messages;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using Catga.Abstractions;
 
 namespace Catga.Persistence.Stores;
 

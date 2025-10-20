@@ -2,7 +2,7 @@ using Catga;
 using Catga.Configuration;
 using Catga.Core;
 using Catga.DependencyInjection;
-using Catga.Handlers;
+using Catga.Core;using Catga.Abstractions;
 using Catga.Messages;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;

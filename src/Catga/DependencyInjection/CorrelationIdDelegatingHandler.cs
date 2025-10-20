@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace Catga.Http;
+namespace Catga.DependencyInjection;
 
 /// <summary>
 /// HTTP DelegatingHandler that automatically propagates CorrelationId to downstream services
@@ -17,6 +17,7 @@ namespace Catga.Http;
 public sealed class CorrelationIdDelegatingHandler : DelegatingHandler
 {
     private const string CorrelationIdHeaderName = "X-Correlation-ID";
+
     private const string BaggageKey = "catga.correlation_id";
 
     protected override async Task<HttpResponseMessage> SendAsync(

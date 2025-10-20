@@ -1,6 +1,7 @@
 using Catga.Transport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Catga.Abstractions;
 
 namespace Catga;
 

@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
+using Catga.Abstractions;
 
 namespace Catga.Transport;
 

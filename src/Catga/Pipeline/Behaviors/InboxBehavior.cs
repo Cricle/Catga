@@ -2,8 +2,8 @@ using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.Inbox;
-using Catga.Messages;
-using Catga.Serialization;
+using Catga.Abstractions;
+using Catga;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.Pipeline.Behaviors;

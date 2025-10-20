@@ -1,4 +1,4 @@
-using Catga.Serialization;
+using Catga;
 using Catga.Serialization.MemoryPack;
 using FluentAssertions;
 using MemoryPack;

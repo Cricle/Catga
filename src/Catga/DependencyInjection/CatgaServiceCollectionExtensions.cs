@@ -24,7 +24,7 @@ public static class CatgaServiceCollectionExtensions
         services.TryAddSingleton(options);
 
         // Register core services
-        services.TryAddScoped<ICatgaMediator, Catga.Mediator.CatgaMediator>();
+        services.TryAddScoped<ICatgaMediator, CatgaMediator>();
         services.TryAddSingleton<IDistributedIdGenerator, SnowflakeIdGenerator>();
 
         return new CatgaServiceBuilder(services, options);

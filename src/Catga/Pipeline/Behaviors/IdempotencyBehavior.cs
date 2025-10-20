@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Core;
 using Catga.Idempotency;
-using Catga.Messages;
+using Catga.Abstractions;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.Pipeline.Behaviors;

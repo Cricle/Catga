@@ -3,6 +3,7 @@ using Catga.Outbox;
 using Catga.Persistence.Redis.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Catga.Abstractions;
 
 namespace Catga.DependencyInjection;
 

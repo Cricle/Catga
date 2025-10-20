@@ -1,7 +1,7 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
 
-namespace Catga.Pooling;
+namespace Catga.Core;
 
 /// <summary>
 /// Centralized memory pool manager for Catga (AOT-safe, thread-safe, zero-config)

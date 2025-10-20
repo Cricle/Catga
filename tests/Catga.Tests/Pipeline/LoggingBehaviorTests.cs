@@ -6,6 +6,7 @@ using Catga.Pipeline.Behaviors;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Catga.Abstractions;
 
 namespace Catga.Tests.Pipeline;
 

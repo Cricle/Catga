@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Catga.Abstractions;
 
 namespace Catga.SourceGenerator.Analyzers;
 

@@ -4,6 +4,7 @@ using Catga.Messages;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Catga.Abstractions;
 
 namespace Microsoft.Extensions.DependencyInjection;
 

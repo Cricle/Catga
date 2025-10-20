@@ -1,4 +1,4 @@
-using Catga.Serialization;
+using Catga;
 using Catga.Serialization.Json;
 using FluentAssertions;
 using System.Buffers;

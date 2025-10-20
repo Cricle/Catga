@@ -1,6 +1,6 @@
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
-using Catga.Serialization;
+using Catga;
 using MemoryPack;
 
 namespace Catga.Serialization.MemoryPack;

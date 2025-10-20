@@ -3,6 +3,7 @@ using Catga.Messages;
 using Catga.Transport;
 using FluentAssertions;
 using MemoryPack;
+using Catga.Abstractions;
 
 namespace Catga.Tests.Transport;
 

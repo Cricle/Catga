@@ -5,6 +5,7 @@ using Catga.Core;
 using Catga.Idempotency;
 using Catga.Messages;
 using Catga.Observability;
+using Catga.Abstractions;
 
 namespace Catga.Transport;
 

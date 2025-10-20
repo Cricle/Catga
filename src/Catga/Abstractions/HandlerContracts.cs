@@ -1,8 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Core;
-using Catga.Messages;
 
-namespace Catga.Handlers;
+using Catga.Abstractions;
+namespace Catga.Abstractions;
 
 /// <summary>Request handler with response</summary>
 public interface IRequestHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] in TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> where TRequest : IRequest<TResponse>

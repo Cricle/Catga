@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.DistributedId;
-using Catga.Messages;
+using Catga.Abstractions;
 using Catga.Pipeline;
 using Microsoft.Extensions.Logging;
 

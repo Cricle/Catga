@@ -2,6 +2,7 @@ using Catga.Transport;
 using Catga.Transport.Nats;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Catga.Abstractions;
 
 namespace Catga.DependencyInjection;
 

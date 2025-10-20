@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.Outbox;
-using Catga.Serialization;
+using Catga;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 

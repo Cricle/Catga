@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
+using Catga.Abstractions;
 
 namespace Catga.Abstractions;
 

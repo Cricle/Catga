@@ -1,7 +1,7 @@
 using Catga.Configuration;
 using Catga.Core;
 using Catga.Exceptions;
-using Catga.Messages;
+using Catga.Abstractions;
 using Microsoft.Extensions.Logging;
 using Polly;
 using Polly.Retry;

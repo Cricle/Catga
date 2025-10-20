@@ -119,8 +119,7 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
     {
         await BatchOperationHelper.ExecuteBatchAsync(
             messages,
-            m => PublishAsync(m, context, cancellationToken),
-            cancellationToken);
+            m => PublishAsync(m, context, cancellationToken));
     }
 
     public async Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
@@ -133,8 +132,7 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
         await BatchOperationHelper.ExecuteBatchAsync(
             messages,
             destination,
-            (m, dest) => SendAsync(m, dest, context, cancellationToken),
-            cancellationToken);
+            (m, dest) => SendAsync(m, dest, context, cancellationToken));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

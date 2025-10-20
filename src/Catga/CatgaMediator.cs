@@ -69,7 +69,7 @@ public sealed class CatgaMediator : ICatgaMediator
             {
                 // Fast path: Singleton handler found, but still need scope for behaviors
                 using var singletonScope = _serviceProvider.CreateScope();
-                return await ExecuteRequestWithMetricsAsync(singletonHandler, request, 
+                return await ExecuteRequestWithMetricsAsync(singletonHandler, request,
                     singletonScope.ServiceProvider, activity, message, reqType, startTimestamp, cancellationToken);
             }
 
@@ -84,7 +84,7 @@ public sealed class CatgaMediator : ICatgaMediator
                 return CatgaResult<TResponse>.Failure($"No handler for {reqType}", new HandlerNotFoundException(reqType));
             }
 
-            return await ExecuteRequestWithMetricsAsync(handler, request, 
+            return await ExecuteRequestWithMetricsAsync(handler, request,
                 scopedProvider, activity, message, reqType, startTimestamp, cancellationToken);
         }
         catch (Exception ex)
@@ -123,21 +123,21 @@ public sealed class CatgaMediator : ICatgaMediator
         var behaviors = scopedProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
         var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>>
             ?? behaviors.ToArray();
-        
+
         var result = FastPath.CanUseFastPath(behaviorsList.Count)
             ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
             : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
-        
+
         // Record metrics and logs
         var duration = GetElapsedMilliseconds(startTimestamp);
         CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", result.IsSuccess.ToString()));
         CatgaDiagnostics.CommandDuration.Record(duration, new KeyValuePair<string, object?>("request_type", reqType));
         CatgaLog.CommandExecuted(_logger, reqType, message?.MessageId, duration, result.IsSuccess);
-        
+
         // Set activity tags
         activity?.SetTag(CatgaActivitySource.Tags.Success, result.IsSuccess);
         activity?.SetTag(CatgaActivitySource.Tags.Duration, duration);
-        
+
         if (result.IsSuccess)
             activity?.SetStatus(ActivityStatusCode.Ok);
         else
@@ -146,7 +146,7 @@ public sealed class CatgaMediator : ICatgaMediator
             activity?.SetStatus(ActivityStatusCode.Error, result.Error);
             CatgaLog.CommandFailed(_logger, result.Exception, reqType, message?.MessageId, result.Error ?? "Unknown");
         }
-        
+
         return result;
     }
 

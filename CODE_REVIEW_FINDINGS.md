@@ -1,7 +1,7 @@
 # 📋 Catga 代码审查发现
 
-**审查日期**: 2025-10-20  
-**审查范围**: 核心组件、传输层、持久化层  
+**审查日期**: 2025-10-20
+**审查范围**: 核心组件、传输层、持久化层
 **审查方法**: 静态分析 + 代码走查
 
 ---
@@ -144,30 +144,30 @@ private async ValueTask<CatgaResult<TResponse>> ExecuteRequestAsync<TRequest, TR
     var behaviors = scopedProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
     var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>>
         ?? behaviors.ToArray();
-    
+
     var result = FastPath.CanUseFastPath(behaviorsList.Count)
         ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
         : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
-    
+
     // 统一记录指标
     RecordRequestMetrics(reqType, message, result, startTimestamp, activity);
-    
+
     return result;
 }
 
 // SendAsync 简化为:
-public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(...) 
+public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(...)
 {
     // ... 准备工作 ...
-    
+
     var singletonHandler = _serviceProvider.GetService<IRequestHandler<TRequest, TResponse>>();
     if (singletonHandler != null)
     {
         using var scope = _serviceProvider.CreateScope();
-        return await ExecuteRequestAsync(singletonHandler, request, scope.ServiceProvider, 
+        return await ExecuteRequestAsync(singletonHandler, request, scope.ServiceProvider,
             activity, message, reqType, startTimestamp, cancellationToken);
     }
-    
+
     using var standardScope = _serviceProvider.CreateScope();
     var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(standardScope.ServiceProvider);
     // ... null check ...
@@ -176,7 +176,7 @@ public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(..
 }
 ```
 
-**优先级**: 中  
+**优先级**: 中
 **影响**: 可维护性 ↑, 代码行数 ↓30%
 
 ---
@@ -218,10 +218,10 @@ internal static class TypedSubscribers<TMessage> where TMessage : class
 {
     private static ImmutableList<Delegate> _handlers = ImmutableList<Delegate>.Empty;
     private static readonly object _lock = new();
-    
-    public static ImmutableList<Delegate> Handlers => 
+
+    public static ImmutableList<Delegate> Handlers =>
         Volatile.Read(ref _handlers);
-    
+
     public static void Add(Delegate handler)
     {
         lock (_lock)
@@ -241,7 +241,7 @@ internal static class TypedSubscribers<TMessage> where TMessage : class
 var handlers = TypedSubscribers<TMessage>.Handlers.ToArray();
 ```
 
-**优先级**: 高  
+**优先级**: 高
 **影响**: 线程安全 ↑, 并发正确性 ↑
 
 ---
@@ -290,7 +290,7 @@ await Task.WhenAll(tasks.ToArray()).ConfigureAwait(false);
 // - ArrayPool 管理开销可能更大
 ```
 
-**优先级**: 低  
+**优先级**: 低
 **影响**: 性能 ↑ (仅当 handler 很多时)
 **建议**: 保持现状，不过度优化
 
@@ -338,7 +338,7 @@ public readonly struct PooledArray(byte[] array, int length) : IDisposable
     private readonly byte[] _array = array ?? throw new ArgumentNullException(nameof(array));
     private readonly int _length = length;
     private int _disposed = 0; // ⚠️ 破坏 readonly struct 语义
-    
+
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 0)
@@ -354,7 +354,7 @@ public readonly struct PooledArray(byte[] array, int length) : IDisposable
 - 文档中提醒用户只 Dispose 一次
 - 使用 `using` 语句确保只调用一次
 
-**优先级**: 低  
+**优先级**: 低
 **建议**: 保持现状，添加 XML 文档警告
 
 ---
@@ -364,16 +364,16 @@ public readonly struct PooledArray(byte[] array, int length) : IDisposable
 ### CatgaMediator.cs ⭐⭐⭐⭐☆
 
 #### 优点:
-✅ ValueTask<T> 使用正确  
-✅ AggressiveInlining 适当  
-✅ FastPath 优化有效  
-✅ Activity 仅在有监听器时创建  
-✅ Singleton handler 快速路径  
-✅ ConfigureAwait(false) 正确使用  
+✅ ValueTask<T> 使用正确
+✅ AggressiveInlining 适当
+✅ FastPath 优化有效
+✅ Activity 仅在有监听器时创建
+✅ Singleton handler 快速路径
+✅ ConfigureAwait(false) 正确使用
 
 #### 问题:
-⚠️ **代码重复** (SendAsync 两个路径 ~70% 重复)  
-⚠️ **Task[] 分配** (Event 广播时，影响小)  
+⚠️ **代码重复** (SendAsync 两个路径 ~70% 重复)
+⚠️ **Task[] 分配** (Event 广播时，影响小)
 
 #### 性能分析:
 - Command/Query: ~723ns ✅ 优秀
@@ -392,10 +392,10 @@ public readonly struct PooledArray(byte[] array, int length) : IDisposable
 ### HandlerCache.cs ⭐⭐⭐⭐⭐
 
 #### 优点:
-✅ 极简设计 (直接委托 DI)  
-✅ 无过度缓存  
-✅ 尊重 DI 生命周期  
-✅ IReadOnlyList cast 优化  
+✅ 极简设计 (直接委托 DI)
+✅ 无过度缓存
+✅ 尊重 DI 生命周期
+✅ IReadOnlyList cast 优化
 
 #### 问题:
 无重大问题
@@ -410,10 +410,10 @@ public readonly struct PooledArray(byte[] array, int length) : IDisposable
 ### MemoryPoolManager.cs ⭐⭐⭐⭐⭐
 
 #### 优点:
-✅ 使用 Shared 池 (零配置)  
-✅ PooledArray readonly struct  
-✅ Span<T>/Memory<T> 支持  
-✅ 简单直接  
+✅ 使用 Shared 池 (零配置)
+✅ PooledArray readonly struct
+✅ Span<T>/Memory<T> 支持
+✅ 简单直接
 
 #### 问题:
 ⚠️ PooledArray 可能被多次 Dispose (低风险)
@@ -435,14 +435,14 @@ public void Dispose() => ArrayPool<byte>.Shared.Return(_array, clearArray: false
 ### InMemoryMessageTransport.cs ⭐⭐⭐⭐☆
 
 #### 优点:
-✅ QoS 实现清晰  
-✅ 幂等性支持  
-✅ 重试策略合理  
-✅ ConfigureAwait 正确  
+✅ QoS 实现清晰
+✅ 幂等性支持
+✅ 重试策略合理
+✅ ConfigureAwait 正确
 
 #### 问题:
-⚠️ **TypedSubscribers 线程安全** (高优先级)  
-⚠️ **Task[] 分配** (低优先级)  
+⚠️ **TypedSubscribers 线程安全** (高优先级)
+⚠️ **Task[] 分配** (低优先级)
 
 #### TypedSubscribers 问题详细分析:
 
@@ -482,10 +482,10 @@ internal static class TypedSubscribers<TMessage> where TMessage : class
 {
     private static ImmutableList<Delegate> _handlers = ImmutableList<Delegate>.Empty;
     private static readonly object _lock = new();
-    
-    public static ImmutableList<Delegate> GetHandlers() => 
+
+    public static ImmutableList<Delegate> GetHandlers() =>
         Volatile.Read(ref _handlers);
-    
+
     public static void Add(Delegate handler)
     {
         lock (_lock)
@@ -501,7 +501,7 @@ if (handlers.Count == 0) return;
 // 现在安全了，因为 ImmutableList 是快照
 ```
 
-**优先级**: **高**  
+**优先级**: **高**
 **影响**: 并发安全 ↑, 正确性 ↑
 
 **评分**: 4/5 (因为并发问题)
@@ -511,12 +511,12 @@ if (handlers.Count == 0) return;
 ### SnowflakeIdGenerator.cs ⭐⭐⭐⭐⭐
 
 #### 优点:
-✅ Pure CAS loop (真正 lock-free)  
-✅ 时钟回拨检测  
-✅ 灵活位布局  
-✅ SIMD 批量生成  
-✅ 零分配  
-✅ Worker ID 验证  
+✅ Pure CAS loop (真正 lock-free)
+✅ 时钟回拨检测
+✅ 灵活位布局
+✅ SIMD 批量生成
+✅ 零分配
+✅ Worker ID 验证
 
 #### 问题:
 无重大问题
@@ -532,10 +532,10 @@ if (handlers.Count == 0) return;
 ### Serialization.cs ⭐⭐⭐⭐⭐
 
 #### 优点:
-✅ 抽象基类设计合理  
-✅ PooledBufferWriter 集成  
-✅ Span<T> / IBufferWriter<T> 支持  
-✅ 简化的接口 (不过度抽象)  
+✅ 抽象基类设计合理
+✅ PooledBufferWriter 集成
+✅ Span<T> / IBufferWriter<T> 支持
+✅ 简化的接口 (不过度抽象)
 
 #### 问题:
 无重大问题
@@ -547,34 +547,34 @@ if (handlers.Count == 0) return;
 ## 🔧 Pipeline Behaviors 审查
 
 ### LoggingBehavior.cs ⭐⭐⭐⭐⭐
-✅ Source Generator 日志 (零分配)  
-✅ 异常转换为 CatgaResult.Failure  
-✅ 性能指标记录  
+✅ Source Generator 日志 (零分配)
+✅ 异常转换为 CatgaResult.Failure
+✅ 性能指标记录
 **评分**: 5/5
 
 ### ValidationBehavior.cs ⭐⭐⭐⭐⭐
-✅ ValidationHelper 统一验证  
-✅ 明确的错误消息  
+✅ ValidationHelper 统一验证
+✅ 明确的错误消息
 **评分**: 5/5
 
 ### IdempotencyBehavior.cs ⭐⭐⭐⭐☆
-✅ 幂等性实现正确  
-⚠️ 缓存过期策略可配置性不够  
+✅ 幂等性实现正确
+⚠️ 缓存过期策略可配置性不够
 **评分**: 4.5/5
 
 ### RetryBehavior.cs ⭐⭐⭐⭐☆
-✅ 指数退避实现  
-⚠️ 重试配置可以更灵活  
+✅ 指数退避实现
+⚠️ 重试配置可以更灵活
 **评分**: 4.5/5
 
 ### InboxBehavior.cs ⭐⭐⭐⭐⭐
-✅ 存储层去重  
-✅ 错误处理完善  
+✅ 存储层去重
+✅ 错误处理完善
 **评分**: 5/5
 
 ### OutboxBehavior.cs ⭐⭐⭐⭐⭐
-✅ 可靠消息发送  
-✅ 批量优化  
+✅ 可靠消息发送
+✅ 批量优化
 **评分**: 5/5
 
 ---
@@ -677,7 +677,7 @@ src/Catga/:
    /// <remarks>
    /// IMPORTANT: Must be disposed exactly once. Use 'using' statement.
    /// Double-dispose is handled by ArrayPool but should be avoided.
-   /// 
+   ///
    /// Example:
    /// <code>
    /// using var buffer = MemoryPoolManager.RentArray(1024);
@@ -743,8 +743,8 @@ src/Catga/:
 
 <div align="center">
 
-**代码质量: 优秀 ✨**  
-**主要问题: 1 个 (并发安全)**  
+**代码质量: 优秀 ✨**
+**主要问题: 1 个 (并发安全)**
 **建议: 修复后即可发布**
 
 </div>

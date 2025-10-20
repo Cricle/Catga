@@ -243,11 +243,7 @@ public sealed class CatgaMediator : ICatgaMediator
         for (var i = 0; i < handlerList.Count; i++)
             tasks[i] = HandleEventSafelyAsync(handlerList[i], @event, cancellationToken);
 
-        // Zero-allocation: use exact-sized array or ArraySegment
-        if (tasks.Length == handlerList.Count)
-            await Task.WhenAll((IEnumerable<Task>)tasks).ConfigureAwait(false);
-        else
-            await Task.WhenAll(tasks.Take(handlerList.Count)).ConfigureAwait(false);
+        await Task.WhenAll(tasks).ConfigureAwait(false);
         CatgaLog.EventPublished(_logger, eventType, message?.MessageId, handlerList.Count);
     }
 

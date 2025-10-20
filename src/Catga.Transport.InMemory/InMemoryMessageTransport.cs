@@ -87,15 +87,7 @@ public class InMemoryMessageTransport : IMessageTransport
         for (int i = 0; i < handlers.Count; i++)
             tasks[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, context);
 
-        // Zero-allocation: use exact-sized array or ArraySegment
-        if (tasks.Length == handlers.Count)
-        {
-            await Task.WhenAll((IEnumerable<Task>)tasks).ConfigureAwait(false);
-        }
-        else
-        {
-            await Task.WhenAll((IEnumerable<Task>)new ArraySegment<Task>(tasks, 0, handlers.Count)).ConfigureAwait(false);
-        }
+        await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
     private static async ValueTask FireAndForgetAsync<TMessage>(List<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class

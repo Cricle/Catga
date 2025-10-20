@@ -117,29 +117,10 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
         CancellationToken cancellationToken = default)
         where TMessage : class
     {
-        ArgumentNullException.ThrowIfNull(messages);
-
-        // Convert to list to get count (avoid multiple enumeration)
-        var messageList = messages as IList<TMessage> ?? messages.ToList();
-        if (messageList.Count == 0)
-            return;
-
-        // Use ArrayPool to avoid array allocation
-        var pool = ArrayPool<Task>.Shared;
-        var tasks = pool.Rent(messageList.Count);
-        try
-        {
-            for (int i = 0; i < messageList.Count; i++)
-            {
-                tasks[i] = PublishAsync(messageList[i], context, cancellationToken);
-            }
-
-            await Task.WhenAll(tasks.AsMemory(0, messageList.Count).ToArray());
-        }
-        finally
-        {
-            pool.Return(tasks, clearArray: false);
-        }
+        await BatchOperationHelper.ExecuteBatchAsync(
+            messages,
+            m => PublishAsync(m, context, cancellationToken),
+            cancellationToken);
     }
 
     public async Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
@@ -149,29 +130,11 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
         CancellationToken cancellationToken = default)
         where TMessage : class
     {
-        ArgumentNullException.ThrowIfNull(messages);
-
-        // Convert to list to get count (avoid multiple enumeration)
-        var messageList = messages as IList<TMessage> ?? messages.ToList();
-        if (messageList.Count == 0)
-            return;
-
-        // Use ArrayPool to avoid array allocation
-        var pool = ArrayPool<Task>.Shared;
-        var tasks = pool.Rent(messageList.Count);
-        try
-        {
-            for (int i = 0; i < messageList.Count; i++)
-            {
-                tasks[i] = SendAsync(messageList[i], destination, context, cancellationToken);
-            }
-
-            await Task.WhenAll(tasks.AsMemory(0, messageList.Count).ToArray());
-        }
-        finally
-        {
-            pool.Return(tasks, clearArray: false);
-        }
+        await BatchOperationHelper.ExecuteBatchAsync(
+            messages,
+            destination,
+            (m, dest) => SendAsync(m, dest, context, cancellationToken),
+            cancellationToken);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

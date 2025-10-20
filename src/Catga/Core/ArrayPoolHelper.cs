@@ -108,10 +108,10 @@ public static class ArrayPoolHelper
 
         // Estimate max byte count (UTF-8 can be up to 4 bytes per char)
         int maxByteCount = Utf8Encoding.GetMaxByteCount(str.Length);
-        
+
         var buffer = ArrayPool<byte>.Shared.Rent(maxByteCount);
         int actualBytes = Utf8Encoding.GetBytes(str, buffer);
-        
+
         return new RentedArray<byte>(buffer, actualBytes, isRented: true);
     }
 
@@ -166,7 +166,7 @@ public static class ArrayPoolHelper
             {
                 return new string(buffer, 0, charsWritten);
             }
-            
+
             // Fallback (should rarely happen)
             return Convert.ToBase64String(bytes);
         }
@@ -198,14 +198,14 @@ public static class ArrayPoolHelper
 
         // Estimate decoded length (Base64 is ~33% larger than original)
         int maxLength = (base64.Length * 3) / 4 + 4; // +4 for padding safety
-        
+
         var buffer = ArrayPool<byte>.Shared.Rent(maxLength);
-        
+
         if (Convert.TryFromBase64String(base64, buffer, out int bytesWritten))
         {
             return new RentedArray<byte>(buffer, bytesWritten, isRented: true);
         }
-        
+
         // Fallback: decode to new array, then copy to pooled buffer
         try
         {

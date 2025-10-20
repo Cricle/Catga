@@ -1,7 +1,7 @@
 # DRY (Don't Repeat Yourself) 重构计划
 
-**创建时间**: 2025-10-20  
-**状态**: 📋 计划中  
+**创建时间**: 2025-10-20
+**状态**: 📋 计划中
 **目标**: 消除重复代码，提高可维护性，减少bug风险
 
 ---
@@ -31,7 +31,7 @@ public IMemoryOwner<byte> SerializeToMemory<T>(T value)
 {
     using var writer = _poolManager.RentBufferWriter();
     Serialize(value, writer);  // ← 唯一差异
-    
+
     var owner = _poolManager.RentMemory(writer.WrittenCount);
     writer.WrittenSpan.CopyTo(owner.Memory.Span);
     return owner;
@@ -42,7 +42,7 @@ public IMemoryOwner<byte> SerializeToMemory<T>(T value)
 {
     using var writer = _poolManager.RentBufferWriter();
     MemoryPackSerializer.Serialize(writer, value);  // ← 唯一差异
-    
+
     var owner = _poolManager.RentMemory(writer.WrittenCount);
     writer.WrittenSpan.CopyTo(owner.Memory.Span);
     return owner;
@@ -75,13 +75,13 @@ public bool TrySerialize<T>(T value, Span<byte> destination, out int bytesWritte
     {
         using var pooledWriter = _poolManager.RentBufferWriter(destination.Length);
         Serialize(value, pooledWriter);  // ← 唯一差异
-        
+
         if (pooledWriter.WrittenCount > destination.Length)
         {
             bytesWritten = 0;
             return false;
         }
-        
+
         pooledWriter.WrittenSpan.CopyTo(destination);
         bytesWritten = pooledWriter.WrittenCount;
         return true;
@@ -103,10 +103,10 @@ public void Serialize<T>(T value, Memory<byte> destination, out int bytesWritten
 {
     using var pooledWriter = _poolManager.RentBufferWriter(destination.Length);
     Serialize(value, pooledWriter);  // ← 调用虚方法
-    
+
     if (pooledWriter.WrittenCount > destination.Length)
         throw new InvalidOperationException($"Destination buffer too small. Required: {pooledWriter.WrittenCount}, Available: {destination.Length}");
-    
+
     pooledWriter.WrittenSpan.CopyTo(destination.Span);
     bytesWritten = pooledWriter.WrittenCount;
 }
@@ -261,7 +261,7 @@ namespace Catga.Serialization;
 /// - Deserialize(ReadOnlySequence) (pooled)
 /// - TrySerialize (pooled)
 /// - Serialize(Memory) (pooled)
-/// 
+///
 /// Derived classes only need to implement:
 /// - Serialize(T, IBufferWriter) - Core serialization
 /// - Deserialize(ReadOnlySpan) - Core deserialization
@@ -278,16 +278,16 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
     // === Abstract methods (must implement by derived classes) ===
 
     public abstract string Name { get; }
-    
+
     /// <summary>Core serialization - must implement</summary>
     public abstract void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
-        T value, 
+        T value,
         IBufferWriter<byte> bufferWriter);
-    
+
     /// <summary>Core deserialization - must implement</summary>
     public abstract T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         ReadOnlySpan<byte> data);
-    
+
     public abstract int GetSizeEstimate<T>(T value);
 
     // === Common implementations (DRY, no duplication) ===
@@ -311,7 +311,7 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
     {
         using var writer = PoolManager.RentBufferWriter(GetSizeEstimate(value));
         Serialize(value, writer);
-        
+
         var owner = PoolManager.RentMemory(writer.WrittenCount);
         writer.WrittenSpan.CopyTo(owner.Memory.Span);
         return owner;
@@ -349,8 +349,8 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
     /// Try to serialize to destination span (zero-allocation if sufficient space)
     /// </summary>
     public virtual bool TrySerialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
-        T value, 
-        Span<byte> destination, 
+        T value,
+        Span<byte> destination,
         out int bytesWritten)
     {
         try
@@ -379,8 +379,8 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
     /// Serialize to Memory destination (throws if insufficient space)
     /// </summary>
     public virtual void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
-        T value, 
-        Memory<byte> destination, 
+        T value,
+        Memory<byte> destination,
         out int bytesWritten)
     {
         using var pooledWriter = PoolManager.RentBufferWriter(destination.Length);
@@ -421,7 +421,7 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
     // === Non-generic overloads (optional, can be overridden) ===
 
     public virtual byte[] Serialize(
-        object? value, 
+        object? value,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
     {
         throw new NotSupportedException(
@@ -429,7 +429,7 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
     }
 
     public virtual object? Deserialize(
-        byte[] data, 
+        byte[] data,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
     {
         throw new NotSupportedException(
@@ -437,8 +437,8 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
     }
 
     public virtual void Serialize(
-        object? value, 
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type, 
+        object? value,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type,
         IBufferWriter<byte> bufferWriter)
     {
         throw new NotSupportedException(
@@ -446,7 +446,7 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
     }
 
     public virtual object? Deserialize(
-        ReadOnlySpan<byte> data, 
+        ReadOnlySpan<byte> data,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
     {
         throw new NotSupportedException(
@@ -454,7 +454,7 @@ public abstract class MessageSerializerBase : IPooledMessageSerializer
     }
 
     public virtual int SerializeBatch<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
-        IEnumerable<T> values, 
+        IEnumerable<T> values,
         IBufferWriter<byte> bufferWriter)
     {
         throw new NotSupportedException(
@@ -480,7 +480,7 @@ public class JsonMessageSerializer : IPooledMessageSerializer
 {
     private readonly JsonSerializerOptions _options;
     private readonly MemoryPoolManager _poolManager;
-    
+
     // ... 大量重复实现 ...
 }
 ```
@@ -491,10 +491,10 @@ public class JsonMessageSerializer : MessageSerializerBase
 {
     private readonly JsonSerializerOptions _options;
 
-    public JsonMessageSerializer() 
+    public JsonMessageSerializer()
         : this(new JsonSerializerOptions { PropertyNameCaseInsensitive = true, WriteIndented = false }) { }
 
-    public JsonMessageSerializer(JsonSerializerOptions options) 
+    public JsonMessageSerializer(JsonSerializerOptions options)
         : this(options, null) { }
 
     public JsonMessageSerializer(JsonSerializerOptions options, MemoryPoolManager? poolManager)
@@ -550,7 +550,7 @@ public class JsonMessageSerializer : MessageSerializerBase
 public class MemoryPackMessageSerializer : IPooledMessageSerializer
 {
     private readonly MemoryPoolManager _poolManager;
-    
+
     // ... 大量重复实现 ...
 }
 ```
@@ -559,7 +559,7 @@ public class MemoryPackMessageSerializer : IPooledMessageSerializer
 ```csharp
 public class MemoryPackMessageSerializer : MessageSerializerBase
 {
-    public MemoryPackMessageSerializer() 
+    public MemoryPackMessageSerializer()
         : this(null) { }
 
     public MemoryPackMessageSerializer(MemoryPoolManager? poolManager)
@@ -588,7 +588,7 @@ public class MemoryPackMessageSerializer : MessageSerializerBase
     {
         int totalBytes = 0;
         Span<byte> lengthBuffer = stackalloc byte[4];
-        
+
         var count = values is ICollection<T> collection ? collection.Count : values.Count();
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(lengthBuffer, count);
         bufferWriter.Write(lengthBuffer);
@@ -868,6 +868,6 @@ After:
 
 ---
 
-**Created by**: Catga Team  
+**Created by**: Catga Team
 **Next Review**: 实施Phase 1后
 

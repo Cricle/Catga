@@ -1,5 +1,4 @@
 using Microsoft.CodeAnalysis;
-using Catga.Abstractions;
 
 namespace Catga.SourceGenerator.Analyzers;
 

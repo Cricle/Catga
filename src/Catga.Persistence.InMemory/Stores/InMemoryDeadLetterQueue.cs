@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Catga.Abstractions;
 using Catga.Core;
-using Catga.Messages;
+using Catga.Core;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.DeadLetter;

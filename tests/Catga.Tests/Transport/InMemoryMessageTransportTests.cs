@@ -1,5 +1,5 @@
 using Catga.Core;
-using Catga.Messages;
+using Catga.Core;
 using Catga.Transport;
 using FluentAssertions;
 using MemoryPack;

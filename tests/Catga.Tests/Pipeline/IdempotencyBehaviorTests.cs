@@ -1,6 +1,6 @@
 using Catga.Core;
 using Catga.Idempotency;
-using Catga.Messages;
+using Catga.Core;
 using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
 using FluentAssertions;

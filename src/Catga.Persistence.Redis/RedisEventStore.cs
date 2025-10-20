@@ -1,6 +1,6 @@
 using Catga.Abstractions;
 using Catga.EventSourcing;
-using Catga.Messages;
+using Catga.Core;
 using StackExchange.Redis;
 
 namespace Catga.Persistence;

@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Catga.Core;
 using Catga.Idempotency;
-using Catga.Messages;
+using Catga.Core;
 using Catga.Observability;
 using Catga.Abstractions;
 

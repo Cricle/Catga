@@ -1,7 +1,7 @@
 using Catga.Abstractions;
 using Catga.EventSourcing;
 using Catga.Inbox;
-using Catga.Messages;
+using Catga.Core;
 using Catga.Outbox;
 using Catga.Persistence;
 using Catga.Persistence.Stores;

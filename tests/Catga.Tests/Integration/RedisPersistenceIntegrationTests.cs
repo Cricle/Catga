@@ -1,6 +1,6 @@
 using Catga.Abstractions;
+using Catga.Core;
 using Catga.Inbox;
-using Catga.Messages;
 using Catga.Outbox;
 using Catga.Persistence.Redis.Persistence;
 using Catga.Serialization.Json;

@@ -2,7 +2,7 @@ using Catga;
 using Catga.AspNetCore;
 using Catga.AspNetCore.Extensions;
 using Catga.DependencyInjection;
-using Catga.Handlers;
+using Catga.Abstractions;
 using Catga.Observability;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;

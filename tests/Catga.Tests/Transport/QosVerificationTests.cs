@@ -2,7 +2,7 @@ using Xunit;
 using FluentAssertions;
 using NSubstitute;
 using Microsoft.Extensions.Logging;
-using Catga.Messages;
+using Catga.Core;
 using Catga.Transport;
 using Catga.Serialization.Json;
 using System.Collections.Concurrent;

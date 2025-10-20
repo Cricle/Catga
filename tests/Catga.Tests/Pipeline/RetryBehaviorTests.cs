@@ -1,7 +1,7 @@
 using Catga.Configuration;
 using Catga.Core;
 using Catga.Exceptions;
-using Catga.Messages;
+using Catga.Core;
 using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
 using FluentAssertions;

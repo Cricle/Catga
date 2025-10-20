@@ -1,5 +1,6 @@
-using Catga.Handlers;
+using Catga.Abstractions;
 using OrderSystem.Api.Messages;
+using Catga.Abstractions;
 
 namespace OrderSystem.Api.Handlers;
 

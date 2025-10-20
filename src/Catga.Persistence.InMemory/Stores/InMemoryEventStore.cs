@@ -1,5 +1,5 @@
 using Catga.EventSourcing;
-using Catga.Messages;
+using Catga.Core;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Catga.Abstractions;

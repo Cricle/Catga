@@ -191,7 +191,7 @@ public class InMemoryMessageTransportTests
         });
 
         var message = new QoS2Message(555, "QoS2");
-        var context = new TransportContext { MessageId = MessageExtensions.NewMessageId()-123L };
+        var context = new TransportContext { MessageId = MessageExtensions.NewMessageId() - 123L };
 
         // Act - publish same message twice with same MessageId
         await _transport.PublishAsync(message, context);

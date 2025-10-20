@@ -37,6 +37,8 @@ public class JsonMessageSerializer : MessageSerializerBase
     /// <summary>
     /// Serialize to buffer writer
     /// </summary>
+    [RequiresDynamicCode()]
+    [RequiresUnreferencedCode()]
     public override void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         T value,
         IBufferWriter<byte> bufferWriter)
@@ -48,6 +50,8 @@ public class JsonMessageSerializer : MessageSerializerBase
     /// <summary>
     /// Deserialize from span
     /// </summary>
+    [RequiresDynamicCode()]
+    [RequiresUnreferencedCode()]
     public override T Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         ReadOnlySpan<byte> data)
     {

@@ -199,6 +199,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
     [UnconditionalSuppressMessage("Trimming", "IL2057:UnrecognizedReflectionPattern",
         Justification = "Event type names are validated at design time and must be available in the application domain. " +
                        "For AOT scenarios, ensure all event types are registered or use source generators.")]
+    [RequiresDynamicCode("Calls System.Reflection.MethodInfo.MakeGenericMethod(params Type[])")]
     private IEvent DeserializeEventFromMessage(NatsJSMsg<byte[]> msg)
     {
         // 从 headers 获取事件类型
@@ -213,8 +214,8 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         var deserializeMethod = typeof(IMessageSerializer)
             .GetMethod(nameof(IMessageSerializer.Deserialize), new[] { typeof(byte[]) })
             ?.MakeGenericMethod(eventType);
-        
-        return (IEvent)(deserializeMethod?.Invoke(_serializer, new object[] { msg.Data! }) 
+
+        return (IEvent)(deserializeMethod?.Invoke(_serializer, new object[] { msg.Data! })
             ?? throw new InvalidOperationException("Failed to deserialize message"));
     }
 }

@@ -18,7 +18,7 @@ internal static class ExpirationHelper
         TimeSpan retentionPeriod)
     {
         var cutoff = DateTime.UtcNow - retentionPeriod;
-        
+
         // Optimize: Directly remove without materializing to list
         // ConcurrentDictionary supports modification during enumeration
         foreach (var kvp in dictionary)

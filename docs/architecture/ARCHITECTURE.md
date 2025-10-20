@@ -125,13 +125,13 @@ public sealed class CatgaMediator : ICatgaMediator
     {
         // 1. 解析 Handler
         var handler = ResolveHandler<TRequest, TResponse>();
-        
+
         // 2. 解析 Behaviors
         var behaviors = ResolveBehaviors<TRequest, TResponse>();
-        
+
         // 3. 构建管道
         var pipeline = BuildPipeline(handler, behaviors);
-        
+
         // 4. 执行
         return await pipeline(request, cancellationToken);
     }
@@ -143,7 +143,7 @@ public sealed class CatgaMediator : ICatgaMediator
     {
         // 1. 解析所有 EventHandlers
         var handlers = ResolveEventHandlers<TEvent>();
-        
+
         // 2. 并行执行
         await Task.WhenAll(handlers.Select(h => h.HandleAsync(@event, cancellationToken)));
     }
@@ -167,13 +167,13 @@ public readonly record struct CatgaResult<T>
     public T? Value { get; init; }
     public string? Error { get; init; }
     public string ErrorCode { get; init; }
-    
-    public static CatgaResult<T> Success(T value) 
+
+    public static CatgaResult<T> Success(T value)
         => new() { IsSuccess = true, Value = value };
-    
+
     public static CatgaResult<T> Failure(string error, string errorCode = ErrorCodes.Unknown)
         => new() { IsSuccess = false, Error = error, ErrorCode = errorCode };
-    
+
     public static CatgaResult<T> Failure(ErrorInfo errorInfo)
         => new() { IsSuccess = false, Error = errorInfo.Message, ErrorCode = errorInfo.Code };
 }
@@ -280,25 +280,25 @@ Catga.Serialization.MemoryPack  - 高性能二进制
 
 1. **IRpcClient / IRpcServer**
    - 理由: 未使用，CQRS 不需要 RPC
-   
+
 2. **IDistributedCache / ICacheable / CachingBehavior**
    - 理由: 过度设计，应用层可自行集成 Redis/FusionCache
-   
+
 3. **IDistributedLock / ILockHandle**
    - 理由: 过度设计，应用层可使用 Redlock.net
-   
+
 4. **IHealthCheck**
    - 理由: .NET 已有 `IHealthCheck` 接口
-   
+
 5. **AggregateRoot / ProjectionBase / CatgaTransactionBase**
    - 理由: 强制 DDD 架构，违反"非侵入"原则
-   
+
 6. **SafeRequestHandler**
    - 理由: 不必要的抽象，使用 `CatgaResult` 即可
-   
+
 7. **ResultMetadata**
    - 理由: 复杂度过高，`ErrorCode` 足够
-   
+
 8. **TracingBehavior**
    - 理由: 与 `DistributedTracingBehavior` 重复
 
@@ -307,11 +307,11 @@ Catga.Serialization.MemoryPack  - 高性能二进制
 1. **HandlerCache**
    - Before: 3 层缓存（ThreadStatic + ConcurrentDictionary + Statistics）
    - After: 直接委托给 DI 容器
-   
+
 2. **ErrorCodes**
    - Before: 50+ 错误码
    - After: 10 个核心错误码
-   
+
 3. **CatgaResult**
    - Before: 包含 Metadata, TraceId 等
    - After: 只保留 Value, Error, ErrorCode

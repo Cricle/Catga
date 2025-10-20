@@ -48,14 +48,16 @@ public class JsonMessageSerializer : IPooledMessageSerializer
 
     public byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value)
     {
-        var bufferWriter = new ArrayBufferWriter<byte>(256);
+        // Use pooled buffer writer to reduce GC pressure
+        using var bufferWriter = _poolManager.RentBufferWriter(256);
         Serialize(value, bufferWriter);
         return bufferWriter.WrittenSpan.ToArray();
     }
 
     public byte[] Serialize(object? value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
     {
-        var bufferWriter = new ArrayBufferWriter<byte>(256);
+        // Use pooled buffer writer to reduce GC pressure
+        using var bufferWriter = _poolManager.RentBufferWriter(256);
         using var writer = new Utf8JsonWriter(bufferWriter);
         JsonSerializer.Serialize(writer, value, type, _options);
         return bufferWriter.WrittenSpan.ToArray();

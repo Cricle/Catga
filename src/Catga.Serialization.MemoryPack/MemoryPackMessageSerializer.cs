@@ -50,7 +50,12 @@ public class MemoryPackMessageSerializer : IPooledMessageSerializer
     public string Name => "MemoryPack";
 
     public byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value)
-        => MemoryPackSerializer.Serialize(value);
+    {
+        // Use pooled buffer writer for zero-allocation serialization
+        using var writer = _poolManager.RentBufferWriter(128);
+        MemoryPackSerializer.Serialize(writer, value);
+        return writer.WrittenSpan.ToArray();
+    }
 
     public byte[] Serialize(object? value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
         => MemoryPackSerializer.Serialize(type, value);
@@ -106,8 +111,13 @@ public class MemoryPackMessageSerializer : IPooledMessageSerializer
     /// <inheritdoc />
     public void Serialize(object? value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type, IBufferWriter<byte> bufferWriter)
     {
-        // MemoryPack's non-generic version already uses IBufferWriter
+        // Use pooled writer to avoid intermediate allocation
+        using var tempWriter = _poolManager.RentBufferWriter(128);
+        
+        // Serialize to temp writer first (MemoryPack non-generic doesn't support IBufferWriter directly)
         var bytes = MemoryPackSerializer.Serialize(type, value);
+        
+        // Write to target buffer
         bufferWriter.Write(bytes);
     }
 

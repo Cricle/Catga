@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Outbox;
@@ -93,8 +94,15 @@ public class RedisOutboxPersistence : IOutboxStore
 
         var messages = new List<OutboxMessage>(messageIds.Length);
 
-        // 批量 GET 操作
-        var keys = messageIds.Select(id => (RedisKey)GetMessageKey(id.ToString())).ToArray();
+        // 批量 GET 操作 - Build keys array
+        // Note: We create exact-sized array here for Redis API compatibility
+        // The allocation is necessary but smaller than previous LINQ approach
+        var keys = new RedisKey[messageIds.Length];
+        for (int i = 0; i < messageIds.Length; i++)
+        {
+            keys[i] = (RedisKey)GetMessageKey(messageIds[i].ToString());
+        }
+
         var values = await db.StringGetAsync(keys);
 
         // 反序列化和过滤

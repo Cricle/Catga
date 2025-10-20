@@ -1,7 +1,7 @@
 # MemoryPoolManager 优化计划
 
-**创建时间**: 2025-10-20  
-**状态**: 📋 计划中  
+**创建时间**: 2025-10-20
+**状态**: 📋 计划中
 **目标**: 通过 MemoryPoolManager 全面优化内存分配，减少 GC 压力，提升性能
 
 ---
@@ -93,7 +93,7 @@ public byte[] Serialize<T>(T value)
 ```csharp
 private readonly MemoryPoolManager _poolManager;
 
-public MemoryPackMessageSerializer() 
+public MemoryPackMessageSerializer()
     : this(MemoryPoolManager.Shared) { }
 
 public MemoryPackMessageSerializer(MemoryPoolManager poolManager)
@@ -114,7 +114,7 @@ public IMemoryOwner<byte> SerializeToMemory<T>(T value)
 {
     using var writer = _poolManager.RentBufferWriter(256);
     MemoryPackSerializer.Serialize(writer, value);
-    
+
     var owner = _poolManager.RentMemory(writer.WrittenCount);
     writer.WrittenSpan.CopyTo(owner.Memory.Span);
     return owner;
@@ -163,7 +163,7 @@ public byte[] Serialize<T>(T value)
 {
     using var writer = _poolManager.RentBufferWriter(256);
     Serialize(value, writer);
-    
+
     var result = _poolManager.RentArray(writer.WrittenCount);
     writer.WrittenSpan.CopyTo(result);
     return result;
@@ -250,7 +250,7 @@ try
     {
         keys[index++] = (RedisKey)GetMessageKey(id.ToString());
     }
-    
+
     var values = await db.StringGetAsync(keys.AsMemory(0, index));
     // ... 处理结果
 }
@@ -306,13 +306,13 @@ public static RentedArray<byte> GetBytesPooled(string str, MemoryPoolManager? po
 {
     if (string.IsNullOrEmpty(str))
         return new RentedArray<byte>(Array.Empty<byte>(), 0, false);
-    
+
     pool ??= MemoryPoolManager.Shared;
     int maxByteCount = Utf8Encoding.GetMaxByteCount(str.Length);
-    
+
     var buffer = pool.RentArray(maxByteCount);
     int actualBytes = Utf8Encoding.GetBytes(str, buffer);
-    
+
     return new RentedArray<byte>(buffer, actualBytes, isRented: true);
 }
 
@@ -324,7 +324,7 @@ public static string GetStringFast(ReadOnlySpan<byte> bytes)
 {
     if (bytes.Length == 0)
         return string.Empty;
-    
+
     return Utf8Encoding.GetString(bytes);
 }
 
@@ -335,10 +335,10 @@ public static string ToBase64StringPooled(ReadOnlySpan<byte> bytes, MemoryPoolMa
 {
     if (bytes.Length == 0)
         return string.Empty;
-    
+
     pool ??= MemoryPoolManager.Shared;
     int base64Length = ((bytes.Length + 2) / 3) * 4;
-    
+
     var buffer = pool.RentArray(base64Length);
     try
     {
@@ -361,16 +361,16 @@ public static RentedArray<byte> FromBase64StringPooled(string base64, MemoryPool
 {
     if (string.IsNullOrEmpty(base64))
         return new RentedArray<byte>(Array.Empty<byte>(), 0, false);
-    
+
     pool ??= MemoryPoolManager.Shared;
     int maxLength = (base64.Length * 3) / 4;
-    
+
     var buffer = pool.RentArray(maxLength);
     if (Convert.TryFromBase64String(base64, buffer, out int bytesWritten))
     {
         return new RentedArray<byte>(buffer, bytesWritten, isRented: true);
     }
-    
+
     // Fallback
     pool.ReturnArray(buffer);
     var decoded = Convert.FromBase64String(base64);
@@ -430,7 +430,7 @@ public ValueTask PublishAsync(IMessage message, CancellationToken cancellationTo
     {
         return ValueTask.CompletedTask;
     }
-    
+
     // Slow path: async
     return PublishAsyncCore(message, cancellationToken);
 }
@@ -459,13 +459,13 @@ public sealed class CustomMemoryPool<T> : MemoryPool<T>
     private readonly int[] _bucketSizes;
     private long _totalRented;
     private long _totalReturned;
-    
+
     public override IMemoryOwner<T> Rent(int minimumLength)
     {
         Interlocked.Increment(ref _totalRented);
         // ... 自定义逻辑
     }
-    
+
     public MemoryPoolStatistics GetStatistics()
     {
         return new MemoryPoolStatistics
@@ -497,7 +497,7 @@ public class MemoryPoolBenchmarks
         var serializer = new JsonMessageSerializer();
         var data = serializer.Serialize(new TestMessage { Id = 123, Name = "Test" });
     }
-    
+
     [Benchmark]
     public void Serialize_WithPool()
     {
@@ -505,13 +505,13 @@ public class MemoryPoolBenchmarks
         var serializer = new JsonMessageSerializer(options, poolManager);
         using var pooled = serializer.SerializePooled(new TestMessage { Id = 123, Name = "Test" });
     }
-    
+
     [Benchmark]
     public void BatchOperation_NoPool()
     {
         var tasks = Enumerable.Range(0, 100).Select(i => Task.CompletedTask).ToArray();
     }
-    
+
     [Benchmark]
     public void BatchOperation_WithPool()
     {
@@ -533,7 +533,7 @@ public async Task MemoryPool_HighLoadScenario_ShouldNotLeak()
 {
     var poolManager = new MemoryPoolManager();
     var tasks = new List<Task>();
-    
+
     for (int i = 0; i < 10000; i++)
     {
         tasks.Add(Task.Run(() =>
@@ -542,14 +542,14 @@ public async Task MemoryPool_HighLoadScenario_ShouldNotLeak()
             // ... 操作
         }));
     }
-    
+
     await Task.WhenAll(tasks);
-    
+
     // 验证没有内存泄漏
     GC.Collect();
     GC.WaitForPendingFinalizers();
     var stats = poolManager.GetStatistics();
-    
+
     Assert.True(stats.TotalRented == stats.TotalReturned);
 }
 
@@ -558,7 +558,7 @@ public void MemoryPool_ConcurrentAccess_ShouldBeThreadSafe()
 {
     var poolManager = MemoryPoolManager.Shared;
     var exceptions = new ConcurrentBag<Exception>();
-    
+
     Parallel.For(0, 10000, i =>
     {
         try
@@ -572,7 +572,7 @@ public void MemoryPool_ConcurrentAccess_ShouldBeThreadSafe()
             exceptions.Add(ex);
         }
     });
-    
+
     Assert.Empty(exceptions);
 }
 ```
@@ -694,7 +694,7 @@ public void MemoryPool_ConcurrentAccess_ShouldBeThreadSafe()
 
 ---
 
-**Created by**: Catga Team  
-**Last Updated**: 2025-10-20  
+**Created by**: Catga Team
+**Last Updated**: 2025-10-20
 **Next Review**: 每周五
 

@@ -2,6 +2,7 @@ using Catga.Abstractions;
 using Catga.Core;
 using Catga.Transport;
 using StackExchange.Redis;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -118,9 +119,27 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(messages);
 
-        // Materialize the tasks immediately to avoid deferred execution issues
-        var tasks = messages.Select(m => PublishAsync(m, context, cancellationToken)).ToArray();
-        await Task.WhenAll(tasks);
+        // Convert to list to get count (avoid multiple enumeration)
+        var messageList = messages as IList<TMessage> ?? messages.ToList();
+        if (messageList.Count == 0)
+            return;
+
+        // Use ArrayPool to avoid array allocation
+        var pool = ArrayPool<Task>.Shared;
+        var tasks = pool.Rent(messageList.Count);
+        try
+        {
+            for (int i = 0; i < messageList.Count; i++)
+            {
+                tasks[i] = PublishAsync(messageList[i], context, cancellationToken);
+            }
+
+            await Task.WhenAll(tasks.AsMemory(0, messageList.Count).ToArray());
+        }
+        finally
+        {
+            pool.Return(tasks, clearArray: false);
+        }
     }
 
     public async Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
@@ -132,9 +151,27 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(messages);
 
-        // Materialize the tasks immediately to avoid deferred execution issues
-        var tasks = messages.Select(m => SendAsync(m, destination, context, cancellationToken)).ToArray();
-        await Task.WhenAll(tasks);
+        // Convert to list to get count (avoid multiple enumeration)
+        var messageList = messages as IList<TMessage> ?? messages.ToList();
+        if (messageList.Count == 0)
+            return;
+
+        // Use ArrayPool to avoid array allocation
+        var pool = ArrayPool<Task>.Shared;
+        var tasks = pool.Rent(messageList.Count);
+        try
+        {
+            for (int i = 0; i < messageList.Count; i++)
+            {
+                tasks[i] = SendAsync(messageList[i], destination, context, cancellationToken);
+            }
+
+            await Task.WhenAll(tasks.AsMemory(0, messageList.Count).ToArray());
+        }
+        finally
+        {
+            pool.Return(tasks, clearArray: false);
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

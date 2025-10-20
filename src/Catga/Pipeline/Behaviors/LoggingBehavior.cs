@@ -32,7 +32,8 @@ public partial class LoggingBehavior<[System.Diagnostics.CodeAnalysis.Dynamicall
         catch (Exception ex)
         {
             LogRequestException(ex, reqName, msgId, (long)GetElapsedMilliseconds(startTimestamp), corrId);
-            throw;
+            return CatgaResult<TResponse>.Failure($"Request failed: {ex.Message}", 
+                ex as CatgaException ?? new CatgaException($"Request failed: {ex.Message}", ex));
         }
     }
 

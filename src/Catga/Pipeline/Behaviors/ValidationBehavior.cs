@@ -21,10 +21,10 @@ public class ValidationBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAcce
             return await next();
 
         var errors = new List<string>();
-        
+
         // First validator (already have from enumerator)
         errors.AddRange(await enumerator.Current.ValidateAsync(request, cancellationToken));
-        
+
         // Remaining validators
         while (enumerator.MoveNext())
             errors.AddRange(await enumerator.Current.ValidateAsync(request, cancellationToken));
@@ -32,10 +32,10 @@ public class ValidationBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAcce
         if (errors.Count > 0)
         {
             var messageId = TryGetMessageId(request)?.ToString() ?? "N/A";
-            
+
             // Manual string concatenation instead of string.Join
             var errorMessage = errors.Count == 1 ? errors[0] : BuildErrorMessage(errors);
-            
+
             LogWarning("Validation failed for {RequestType}, MessageId: {MessageId}, Errors: {Errors}",
                 GetRequestName(), messageId, errorMessage);
             return CatgaResult<TResponse>.Failure("Validation failed", new CatgaValidationException("Validation failed", errors));

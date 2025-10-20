@@ -144,7 +144,8 @@ public sealed class CatgaMediator : ICatgaMediator
             CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", "false"));
             RecordException(activity, ex);
             CatgaLog.CommandFailed(_logger, ex, reqType, message?.MessageId, ex.Message);
-            throw;
+            return CatgaResult<TResponse>.Failure($"Command execution failed: {ex.Message}", 
+                ex as CatgaException ?? new CatgaException($"Command execution failed: {ex.Message}", ex));
         }
     }
 

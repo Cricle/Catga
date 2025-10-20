@@ -82,16 +82,19 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
                 _logger.LogDebug("Marked message {MessageId} as processed in inbox", id);
                 return result;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 await _persistence.ReleaseLockAsync(id, cancellationToken);
-                throw;
+                _logger.LogError(ex, "Error processing message {MessageId} in inbox", id);
+                return CatgaResult<TResponse>.Failure($"Inbox processing failed: {ex.Message}", 
+                    ex as CatgaException ?? new CatgaException($"Inbox processing failed: {ex.Message}", ex));
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in inbox behavior for message {MessageId}", id);
-            throw;
+            return CatgaResult<TResponse>.Failure($"Inbox behavior failed: {ex.Message}", 
+                ex as CatgaException ?? new CatgaException($"Inbox behavior failed: {ex.Message}", ex));
         }
     }
 }

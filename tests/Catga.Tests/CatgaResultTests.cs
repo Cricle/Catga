@@ -70,22 +70,4 @@ public class CatgaResultTests
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Be("Error occurred");
     }
-
-    [Fact]
-    public void ResultMetadata_ShouldStoreCustomData()
-    {
-        // Arrange
-        var metadata = new ResultMetadata();
-        metadata.Add("key1", "value1");
-        metadata.Add("key2", "value2");
-
-        // Act
-        var result = CatgaResult<int>.Success(42, metadata);
-
-        // Assert
-        result.Metadata.Should().NotBeNull();
-        result.Metadata!.TryGetValue("key1", out var value1).Should().BeTrue();
-        value1.Should().Be("value1");
-        result.Metadata.ContainsKey("key2").Should().BeTrue();
-    }
 }

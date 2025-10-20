@@ -10,7 +10,7 @@ public interface IInboxStore
     /// Try to lock a message for processing (returns false if already processed or locked)
     /// </summary>
     public ValueTask<bool> TryLockMessageAsync(
-        string messageId,
+        long messageId,
         TimeSpan lockDuration,
         CancellationToken cancellationToken = default);
 
@@ -25,21 +25,21 @@ public interface IInboxStore
     /// Check if message has already been processed
     /// </summary>
     public ValueTask<bool> HasBeenProcessedAsync(
-        string messageId,
+        long messageId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get processing result for a message (if available)
     /// </summary>
     public ValueTask<string?> GetProcessedResultAsync(
-        string messageId,
+        long messageId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Release lock on a message (in case of processing failure)
     /// </summary>
     public ValueTask ReleaseLockAsync(
-        string messageId,
+        long messageId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -56,9 +56,9 @@ public interface IInboxStore
 public class InboxMessage
 {
     /// <summary>
-    /// Unique message identifier
+    /// Unique message identifier (Snowflake ID)
     /// </summary>
-    public required string MessageId { get; init; }
+    public required long MessageId { get; init; }
 
     /// <summary>
     /// Message type (full type name)
@@ -96,9 +96,9 @@ public class InboxMessage
     public DateTime? LockExpiresAt { get; set; }
 
     /// <summary>
-    /// Optional correlation ID for tracing
+    /// Optional correlation ID for tracing (Snowflake ID)
     /// </summary>
-    public string? CorrelationId { get; set; }
+    public long? CorrelationId { get; set; }
 
     /// <summary>
     /// Optional metadata (JSON)

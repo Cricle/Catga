@@ -1,4 +1,3 @@
-using Catga.Idempotency;
 using Catga.Transport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

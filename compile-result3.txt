@@ -1,0 +1,40 @@
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  Catga.SourceGenerator -> C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\bin\Debug\netstandard2.0\Catga.SourceGenerator.dll
+  Catga -> C:\Users\huaji\Workplace\github\Catga\src\Catga\bin\Debug\net9.0\Catga.dll
+  Catga -> C:\Users\huaji\Workplace\github\Catga\src\Catga\bin\Debug\net8.0\Catga.dll
+  Catga -> C:\Users\huaji\Workplace\github\Catga\src\Catga\bin\Debug\net6.0\Catga.dll
+  Catga.Transport.Redis -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Transport.Redis\bin\Debug\net9.0\Catga.Transport.Redis.dll
+  Catga.Transport.Nats -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Transport.Nats\bin\Debug\net9.0\Catga.Transport.Nats.dll
+  Catga.Transport.InMemory -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Transport.InMemory\bin\Debug\net9.0\Catga.Transport.InMemory.dll
+  Catga.Serialization.MemoryPack -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Serialization.MemoryPack\bin\Debug\net9.0\Catga.Serialization.MemoryPack.dll
+  Catga.AspNetCore -> C:\Users\huaji\Workplace\github\Catga\src\Catga.AspNetCore\bin\Debug\net9.0\Catga.AspNetCore.dll
+  Catga.Persistence.Nats -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.Nats\bin\Debug\net9.0\Catga.Persistence.Nats.dll
+  Catga.Serialization.Json -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Serialization.Json\bin\Debug\net9.0\Catga.Serialization.Json.dll
+  OrderSystem.ServiceDefaults -> C:\Users\huaji\Workplace\github\Catga\examples\OrderSystem.ServiceDefaults\bin\Debug\net9.0\OrderSystem.ServiceDefaults.dll
+  Catga.Persistence.Redis -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.Redis\bin\Debug\net9.0\Catga.Persistence.Redis.dll
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(41,31): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(44,25): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(51,29): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(55,46): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(62,62): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(66,64): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(67,47): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\InMemoryDeadLetterQueue.cs(34,25): error CS0029: 无法将类型“long”隐式转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+
+生成失败。
+
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(41,31): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(44,25): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(51,29): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(55,46): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(62,62): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(66,64): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\ShardedIdempotencyStore.cs(67,47): error CS1503: 参数 1: 无法从“long”转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Stores\InMemoryDeadLetterQueue.cs(34,25): error CS0029: 无法将类型“long”隐式转换为“string” [C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj]
+    0 个警告
+    8 个错误
+
+已用时间 00:00:03.36
+
+有可用的工作负载更新。有关详细信息，请运行 `dotnet workload list`。

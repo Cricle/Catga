@@ -16,7 +16,7 @@ public partial record CreateOrderCommand(
     string PaymentMethod
 ) : IRequest<OrderCreatedResult>
 {
-    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
 }
 
 [MemoryPackable]
@@ -36,7 +36,7 @@ public partial record CancelOrderCommand(
     string Reason
 ) : IRequest
 {
-    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
 }
 
 /// <summary>
@@ -48,7 +48,7 @@ public partial record GetOrderQuery(
     string OrderId
 ) : IRequest<Order?>
 {
-    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
 }
 
 // ===== 扩展指南 =====

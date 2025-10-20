@@ -23,7 +23,7 @@ public class ValidationBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAcce
 
         if (errors.Count > 0)
         {
-            var messageId = TryGetMessageId(request) ?? "N/A";
+            var messageId = TryGetMessageId(request)?.ToString() ?? "N/A";
             LogWarning("Validation failed for {RequestType}, MessageId: {MessageId}, Errors: {Errors}",
                 GetRequestName(), messageId, string.Join("; ", errors));
             return CatgaResult<TResponse>.Failure("Validation failed", new CatgaValidationException("Validation failed", errors));

@@ -6,7 +6,7 @@ namespace Catga.Inbox;
 /// <summary>In-memory inbox store (AOT compatible)</summary>
 public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
 {
-    public ValueTask<bool> TryLockMessageAsync(string messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
+    public ValueTask<bool> TryLockMessageAsync(long messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
     {
         ValidationHelper.ValidateMessageId(messageId);
 
@@ -59,13 +59,13 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
         return default;
     }
 
-    public ValueTask<bool> HasBeenProcessedAsync(string messageId, CancellationToken cancellationToken = default)
+    public ValueTask<bool> HasBeenProcessedAsync(long messageId, CancellationToken cancellationToken = default)
         => new(TryGetMessage(messageId, out var message) && message != null && message.Status == InboxStatus.Processed);
 
-    public ValueTask<string?> GetProcessedResultAsync(string messageId, CancellationToken cancellationToken = default)
+    public ValueTask<string?> GetProcessedResultAsync(long messageId, CancellationToken cancellationToken = default)
         => new(TryGetMessage(messageId, out var message) && message != null && message.Status == InboxStatus.Processed ? message.ProcessingResult : null);
 
-    public ValueTask ReleaseLockAsync(string messageId, CancellationToken cancellationToken = default)
+    public ValueTask ReleaseLockAsync(long messageId, CancellationToken cancellationToken = default)
     {
         if (TryGetMessage(messageId, out var message) && message != null)
         {

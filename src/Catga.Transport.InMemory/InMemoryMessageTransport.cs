@@ -26,7 +26,7 @@ public class InMemoryMessageTransport : IMessageTransport
         var handlers = TypedSubscribers<TMessage>.Handlers;
         if (handlers.Count == 0) return;
 
-        var ctx = context ?? new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
+        var ctx = context ?? new TransportContext { MessageId = MessageExtensions.NewMessageId(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
         var msg = message as IMessage;
         var qos = msg?.QoS ?? QualityOfService.AtLeastOnce;
 
@@ -51,7 +51,7 @@ public class InMemoryMessageTransport : IMessageTransport
                     break;
 
                 case QualityOfService.ExactlyOnce:
-                    if (ctx.MessageId != null && _idempotencyStore.IsProcessed(ctx.MessageId))
+                    if (ctx.MessageId.HasValue && _idempotencyStore.IsProcessed(ctx.MessageId.Value))
                     {
                         activity?.SetTag("catga.idempotent", true);
                         return;
@@ -59,8 +59,8 @@ public class InMemoryMessageTransport : IMessageTransport
 
                     await ExecuteHandlersAsync(handlers, message, ctx);
 
-                    if (ctx.MessageId != null)
-                        _idempotencyStore.MarkAsProcessed(ctx.MessageId);
+                    if (ctx.MessageId.HasValue)
+                        _idempotencyStore.MarkAsProcessed(ctx.MessageId.Value);
                     break;
             }
 

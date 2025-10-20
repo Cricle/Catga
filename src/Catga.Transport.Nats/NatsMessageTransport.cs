@@ -47,18 +47,18 @@ public class NatsMessageTransport : IMessageTransport
     {
         var subject = GetSubjectCached<TMessage>();
         var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
-        var ctx = context ?? new TransportContext { MessageId = Guid.NewGuid().ToString(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
+        var ctx = context ?? new TransportContext { MessageId = MessageExtensions.NewMessageId(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
 
         var payload = _serializer.Serialize(message);
         var headers = new NatsHeaders
         {
-            ["MessageId"] = ctx.MessageId,
+            ["MessageId"] = ctx.MessageId?.ToString() ?? string.Empty,
             ["MessageType"] = ctx.MessageType ?? TypeNameCache<TMessage>.FullName,
             ["SentAt"] = ctx.SentAt?.ToString("O") ?? DateTime.UtcNow.ToString("O"),
             ["QoS"] = ((int)qos).ToString()
         };
-        if (!string.IsNullOrEmpty(ctx.CorrelationId))
-            headers["CorrelationId"] = ctx.CorrelationId;
+        if (ctx.CorrelationId.HasValue)
+            headers["CorrelationId"] = ctx.CorrelationId.Value.ToString();
 
         // Delegate QoS handling to NATS native capabilities
         switch (qos)
@@ -71,14 +71,14 @@ public class NatsMessageTransport : IMessageTransport
 
             case QualityOfService.AtLeastOnce:
                 // JetStream: guaranteed delivery, may duplicate (consumer acks)
-                var ack1 = await _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId }, headers: headers, cancellationToken: cancellationToken);
+                var ack1 = await _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: cancellationToken);
                 _logger.LogDebug("Published to JetStream (QoS 1 - at-least-once): {MessageId}, Seq: {Seq}, Duplicate: {Dup}", ctx.MessageId, ack1.Seq, ack1.Duplicate);
                 break;
 
             case QualityOfService.ExactlyOnce:
                 // JetStream with MsgId deduplication: exactly-once using NATS native dedup window (default 2 minutes)
                 // Note: Application-level idempotency (via IdempotencyBehavior) provides additional business logic dedup
-                var ack2 = await _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId }, headers: headers, cancellationToken: cancellationToken);
+                var ack2 = await _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: cancellationToken);
                 _logger.LogDebug("Published to JetStream (QoS 2 - exactly-once): {MessageId}, Seq: {Seq}, Duplicate: {Dup}", ctx.MessageId, ack2.Seq, ack2.Duplicate);
                 break;
         }
@@ -109,11 +109,19 @@ public class NatsMessageTransport : IMessageTransport
                 DateTime? sentAt = null;
                 if (sentAtValue.HasValue && DateTime.TryParse(sentAtValue.Value.ToString(), out var parsed))
                     sentAt = parsed;
+                long? messageId = null;
+                if (msg.Headers?["MessageId"] is var msgIdHeader && long.TryParse(msgIdHeader.ToString(), out var parsedMsgId))
+                    messageId = parsedMsgId;
+
+                long? correlationId = null;
+                if (msg.Headers?["CorrelationId"] is var corrIdHeader && long.TryParse(corrIdHeader.ToString(), out var parsedCorrId))
+                    correlationId = parsedCorrId;
+
                 var context = new TransportContext
                 {
-                    MessageId = msg.Headers?["MessageId"],
+                    MessageId = messageId,
                     MessageType = msg.Headers?["MessageType"],
-                    CorrelationId = msg.Headers?["CorrelationId"],
+                    CorrelationId = correlationId,
                     SentAt = sentAt
                 };
                 await handler(message, context);

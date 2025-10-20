@@ -125,8 +125,8 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
             return baggageId;
 
         // 2. Try IMessage interface (AOT-safe, type-safe contract)
-        if (request is IMessage message && !string.IsNullOrEmpty(message.CorrelationId))
-            return message.CorrelationId;
+        if (request is IMessage message && message.CorrelationId.HasValue)
+            return message.CorrelationId.Value.ToString();
 
         // 3. ✅ 优雅降级：生成默认 CorrelationId（适用于单元测试、本地开发等场景）
         // 使用 ActivityTraceId 作为 CorrelationId（自动跨服务传播）

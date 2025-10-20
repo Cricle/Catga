@@ -34,35 +34,36 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
 
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
-
-        string? messageId = null;
-        if (request is IMessage message && !string.IsNullOrEmpty(message.MessageId))
+        long? messageId = null;
+        if (request is IMessage message && message.MessageId != 0)
             messageId = message.MessageId;
 
-        if (string.IsNullOrEmpty(messageId))
+        if (!messageId.HasValue)
         {
             _logger.LogDebug("No MessageId found for {RequestType}, skipping inbox check", TypeNameCache<TRequest>.Name);
             return await next();
         }
 
+        var id = messageId.Value;
+
         try
         {
-            var hasBeenProcessed = await _persistence.HasBeenProcessedAsync(messageId, cancellationToken);
+            var hasBeenProcessed = await _persistence.HasBeenProcessedAsync(id, cancellationToken);
             if (hasBeenProcessed)
             {
-                _logger.LogInformation("Message {MessageId} has already been processed, returning cached result", messageId);
-                var cachedResult = await _persistence.GetProcessedResultAsync(messageId, cancellationToken);
+                _logger.LogInformation("Message {MessageId} has already been processed, returning cached result", id);
+                var cachedResult = await _persistence.GetProcessedResultAsync(id, cancellationToken);
                 if (!string.IsNullOrEmpty(cachedResult) &&
                     SerializationHelper.TryDeserialize<CatgaResult<TResponse>>(cachedResult, out var result, _serializer))
                     return result;
-                _logger.LogWarning("Failed to deserialize cached result for message {MessageId}, returning default success", messageId);
+                _logger.LogWarning("Failed to deserialize cached result for message {MessageId}, returning default success", id);
                 return CatgaResult<TResponse>.Success(default!);
             }
 
-            var lockAcquired = await _persistence.TryLockMessageAsync(messageId, _lockDuration, cancellationToken);
+            var lockAcquired = await _persistence.TryLockMessageAsync(id, _lockDuration, cancellationToken);
             if (!lockAcquired)
             {
-                _logger.LogWarning("Failed to acquire lock for message {MessageId}, another instance may be processing it", messageId);
+                _logger.LogWarning("Failed to acquire lock for message {MessageId}, another instance may be processing it", id);
                 return CatgaResult<TResponse>.Failure("Message is being processed by another instance");
             }
 
@@ -71,25 +72,25 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
                 var result = await next();
                 var inboxMessage = new InboxMessage
                 {
-                    MessageId = messageId,
+                    MessageId = id,
                     MessageType = MessageHelper.GetMessageType<TRequest>(),
                     Payload = SerializationHelper.Serialize(request, _serializer),
                     ProcessingResult = SerializationHelper.Serialize(result, _serializer),
                     CorrelationId = MessageHelper.GetCorrelationId(request)
                 };
                 await _persistence.MarkAsProcessedAsync(inboxMessage, cancellationToken);
-                _logger.LogDebug("Marked message {MessageId} as processed in inbox", messageId);
+                _logger.LogDebug("Marked message {MessageId} as processed in inbox", id);
                 return result;
             }
             catch (Exception)
             {
-                await _persistence.ReleaseLockAsync(messageId, cancellationToken);
+                await _persistence.ReleaseLockAsync(id, cancellationToken);
                 throw;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in inbox behavior for message {MessageId}", messageId);
+            _logger.LogError(ex, "Error in inbox behavior for message {MessageId}", id);
             throw;
         }
     }

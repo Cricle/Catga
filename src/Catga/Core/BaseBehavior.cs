@@ -19,16 +19,16 @@ public abstract class BaseBehavior<[DynamicallyAccessedMembers(DynamicallyAccess
     protected static string GetRequestFullName() => TypeNameCache<TRequest>.FullName;
     protected static string GetResponseName() => TypeNameCache<TResponse>.Name;
 
-    protected static string? TryGetMessageId(TRequest request)
-        => request is IMessage message && !string.IsNullOrEmpty(message.MessageId) ? message.MessageId : null;
+    protected static long? TryGetMessageId(TRequest request)
+        => request is IMessage message && message.MessageId != 0 ? message.MessageId : null;
 
-    protected static string? TryGetCorrelationId(TRequest request)
+    protected static long? TryGetCorrelationId(TRequest request)
         => request is IMessage message ? message.CorrelationId : null;
 
-    protected static string GetCorrelationId(TRequest request, IDistributedIdGenerator idGenerator)
+    protected static long GetCorrelationId(TRequest request, IDistributedIdGenerator idGenerator)
     {
         var correlationId = TryGetCorrelationId(request);
-        return correlationId ?? idGenerator.NextId().ToString();
+        return correlationId ?? idGenerator.NextId();
     }
 
     protected async ValueTask<CatgaResult<TResponse>> SafeExecuteAsync(TRequest request, PipelineDelegate<TResponse> next, Func<TRequest, PipelineDelegate<TResponse>, ValueTask<CatgaResult<TResponse>>> handler, CancellationToken cancellationToken = default)
@@ -44,10 +44,10 @@ public abstract class BaseBehavior<[DynamicallyAccessedMembers(DynamicallyAccess
         }
     }
 
-    protected void LogSuccess(string messageId, long durationMs)
+    protected void LogSuccess(long messageId, long durationMs)
         => Logger.LogDebug("{BehaviorType} succeeded for {RequestType} [MessageId={MessageId}, Duration={Duration}ms]", GetType().Name, GetRequestName(), messageId, durationMs);
 
-    protected void LogFailure(string messageId, Exception ex)
+    protected void LogFailure(long messageId, Exception ex)
         => Logger.LogError(ex, "{BehaviorType} failed for {RequestType} [MessageId={MessageId}]", GetType().Name, GetRequestName(), messageId);
 
     protected void LogWarning(string message, params object[] args) => Logger.LogWarning(message, args);

@@ -17,20 +17,22 @@ public class IdempotencyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessed
     public override async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
         var messageId = TryGetMessageId(request);
-        if (string.IsNullOrEmpty(messageId)) return await next();
+        if (!messageId.HasValue) return await next();  // No MessageId, skip idempotency
+
+        var id = messageId.Value;
 
         // Check if already processed (optimize: removed unnecessary ResultMetadata allocation)
-        if (await _store.HasBeenProcessedAsync(messageId, cancellationToken))
+        if (await _store.HasBeenProcessedAsync(id, cancellationToken))
         {
-            LogInformation("Message {MessageId} already processed - returning cached result", messageId);
-            var cachedResult = await _store.GetCachedResultAsync<TResponse>(messageId, cancellationToken);
+            LogInformation("Message {MessageId} already processed - returning cached result", id);
+            var cachedResult = await _store.GetCachedResultAsync<TResponse>(id, cancellationToken);
             return CatgaResult<TResponse>.Success(cachedResult ?? default!);  // No metadata allocation
         }
 
         // Process and cache successful results only (failed results not cached to allow retry)
         var result = await next();
         if (result.IsSuccess)
-            await _store.MarkAsProcessedAsync(messageId, result.Value, cancellationToken);
+            await _store.MarkAsProcessedAsync(id, result.Value, cancellationToken);
 
         return result;
     }

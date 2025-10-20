@@ -18,7 +18,7 @@ public partial record OrderCreatedEvent(
     DateTime CreatedAt
 ) : IEvent
 {
-    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
 }
 
 /// <summary>
@@ -32,7 +32,7 @@ public partial record OrderCancelledEvent(
     DateTime CancelledAt
 ) : IEvent
 {
-    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
 }
 
 /// <summary>
@@ -48,7 +48,7 @@ public partial record OrderFailedEvent(
     DateTime FailedAt
 ) : IEvent
 {
-    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
 }
 
 // ===== 扩展指南 =====

@@ -58,10 +58,10 @@ public sealed class CatgaMediator : ICatgaMediator
             if (message != null)
             {
                 activity.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);
-                if (!string.IsNullOrEmpty(message.CorrelationId))
+                if (message.CorrelationId.HasValue)
                 {
-                    activity.SetTag(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
-                    activity.SetBaggage(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
+                    activity.SetTag(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId.Value);
+                    activity.SetBaggage(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId.Value.ToString());
                 }
             }
         }
@@ -196,10 +196,10 @@ public sealed class CatgaMediator : ICatgaMediator
             if (message != null)
             {
                 activity.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);
-                if (!string.IsNullOrEmpty(message.CorrelationId))
+                if (message.CorrelationId.HasValue)
                 {
-                    activity.SetTag(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
-                    activity.SetBaggage(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId);
+                    activity.SetTag(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId.Value);
+                    activity.SetBaggage(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId.Value.ToString());
                 }
             }
         }
@@ -275,7 +275,8 @@ public sealed class CatgaMediator : ICatgaMediator
             if (@event is IMessage message)
             {
                 activity.SetTag("catga.event.id", message.MessageId);
-                activity.SetTag("catga.correlation_id", message.CorrelationId);
+                if (message.CorrelationId.HasValue)
+                    activity.SetTag("catga.correlation_id", message.CorrelationId.Value);
             }
 
             // Capture event payload for Jaeger UI (debug-only, graceful degradation on AOT)

@@ -214,14 +214,14 @@ public class CatgaMediatorTests
 // 测试用的消息类型
 public record TestCommand(string Value) : IRequest<TestResponse>
 {
-    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
 }
 
 public record TestResponse(string Message);
 
 public record TestEvent(string Message) : IEvent
 {
-    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
 }
 
 // 测试用的处理器

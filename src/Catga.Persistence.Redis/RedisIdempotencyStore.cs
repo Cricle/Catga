@@ -31,7 +31,7 @@ public class RedisIdempotencyStore : IIdempotencyStore
     }
 
     /// <inheritdoc/>
-    public async Task<bool> HasBeenProcessedAsync(string messageId, CancellationToken cancellationToken = default)
+    public async Task<bool> HasBeenProcessedAsync(long messageId, CancellationToken cancellationToken = default)
     {
         var db = _redis.GetDatabase();
         var key = GetKey(messageId);
@@ -40,7 +40,7 @@ public class RedisIdempotencyStore : IIdempotencyStore
 
     /// <inheritdoc/>
     public async Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
-        string messageId,
+        long messageId,
         TResult? result = default,
         CancellationToken cancellationToken = default)
     {
@@ -63,7 +63,7 @@ public class RedisIdempotencyStore : IIdempotencyStore
 
     /// <inheritdoc/>
     public async Task<TResult?> GetCachedResultAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(
-        string messageId,
+        long messageId,
         CancellationToken cancellationToken = default)
     {
         var db = _redis.GetDatabase();
@@ -94,15 +94,18 @@ public class RedisIdempotencyStore : IIdempotencyStore
     }
 
     // Optimize: Use Span to avoid string interpolation allocation
-    private string GetKey(string messageId)
+    private string GetKey(long messageId)
     {
-        // For small keys, use stack allocation
-        if (_keyPrefix.Length + messageId.Length <= 256)
+        // For long IDs, convert to string with stack allocation
+        Span<char> idBuffer = stackalloc char[20];  // long max = 19 digits + sign
+        messageId.TryFormat(idBuffer, out var idLen);
+
+        if (_keyPrefix.Length + idLen <= 256)
         {
             Span<char> buffer = stackalloc char[256];
             _keyPrefix.AsSpan().CopyTo(buffer);
-            messageId.AsSpan().CopyTo(buffer[_keyPrefix.Length..]);
-            return new string(buffer[..(_keyPrefix.Length + messageId.Length)]);
+            idBuffer[..idLen].CopyTo(buffer[_keyPrefix.Length..]);
+            return new string(buffer[..(_keyPrefix.Length + idLen)]);
         }
 
         // Fallback for large keys
@@ -114,7 +117,7 @@ public class RedisIdempotencyStore : IIdempotencyStore
     /// </summary>
     private class IdempotencyEntry
     {
-        public string MessageId { get; set; } = string.Empty;
+        public long MessageId { get; set; }
         public DateTime ProcessedAt { get; set; }
         public string? ResultType { get; set; }
         public byte[]? ResultBytes { get; set; }

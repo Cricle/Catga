@@ -164,7 +164,7 @@ public class SafeRequestHandlerCustomErrorTests
     // Test Messages
     private record TestRequest(string Id) : IRequest<TestResponse>
     {
-        public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+        public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     }
     private record TestResponse(string Result);
 
@@ -277,7 +277,7 @@ public class SafeRequestHandlerCustomErrorTests
     // Additional message type for no-response tests
     private record NoResponseRequest(string Id) : IRequest
     {
-        public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+        public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     }
 
     // No-response handler with default error handling

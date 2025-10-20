@@ -9,11 +9,11 @@ namespace Catga.Core;
 public static class MessageHelper
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string GetOrGenerateMessageId<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request, IDistributedIdGenerator idGenerator) where TRequest : class
+    public static long GetOrGenerateMessageId<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request, IDistributedIdGenerator idGenerator) where TRequest : class
     {
-        if (request is IMessage message && !string.IsNullOrEmpty(message.MessageId))
+        if (request is IMessage message && message.MessageId != 0)
             return message.MessageId;
-        return idGenerator.NextId().ToString();
+        return idGenerator.NextId();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -21,13 +21,13 @@ public static class MessageHelper
         => TypeNameCache<TRequest>.FullName;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string? GetCorrelationId<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request) where TRequest : class
+    public static long? GetCorrelationId<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request) where TRequest : class
         => request is IMessage message ? message.CorrelationId : null;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void ValidateMessageId(string? messageId, string paramName = "messageId")
+    public static void ValidateMessageId(long messageId, string paramName = "messageId")
     {
-        if (string.IsNullOrEmpty(messageId))
-            throw new ArgumentException("MessageId is required", paramName);
+        if (messageId == 0)
+            throw new ArgumentException("MessageId must be > 0", paramName);
     }
 }

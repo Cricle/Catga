@@ -45,7 +45,7 @@ public class RedisInboxPersistence : IInboxStore
     }
 
     public async ValueTask<bool> TryLockMessageAsync(
-        string messageId,
+        long messageId,
         TimeSpan lockDuration,
         CancellationToken cancellationToken = default)
     {
@@ -109,7 +109,7 @@ public class RedisInboxPersistence : IInboxStore
     }
 
     public async ValueTask<bool> HasBeenProcessedAsync(
-        string messageId,
+        long messageId,
         CancellationToken cancellationToken = default)
     {
         var db = _redis.GetDatabase();
@@ -119,7 +119,7 @@ public class RedisInboxPersistence : IInboxStore
     }
 
     public async ValueTask<string?> GetProcessedResultAsync(
-        string messageId,
+        long messageId,
         CancellationToken cancellationToken = default)
     {
         var db = _redis.GetDatabase();
@@ -134,7 +134,7 @@ public class RedisInboxPersistence : IInboxStore
     }
 
     public async ValueTask ReleaseLockAsync(
-        string messageId,
+        long messageId,
         CancellationToken cancellationToken = default)
     {
         var db = _redis.GetDatabase();
@@ -155,7 +155,7 @@ public class RedisInboxPersistence : IInboxStore
         return default;
     }
 
-    private string GetMessageKey(string messageId) => $"{_keyPrefix}:msg:{messageId}";
+    private string GetMessageKey(long messageId) => $"{_keyPrefix}:msg:{messageId}";
 }
 
 /// <summary>

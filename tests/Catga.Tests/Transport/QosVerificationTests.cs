@@ -34,7 +34,7 @@ public class QosVerificationTests
     /// </summary>
     public record TestEvent(string Id, string Data) : IEvent
     {
-        public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+        public long MessageId { get; init; } = MessageExtensions.NewMessageId();
         public QualityOfService QoS => QualityOfService.AtMostOnce;
     }
 
@@ -43,7 +43,7 @@ public class QosVerificationTests
     /// </summary>
     public record ReliableTestEvent(string Id, string Data) : IReliableEvent
     {
-        public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+        public long MessageId { get; init; } = MessageExtensions.NewMessageId();
         QualityOfService IMessage.QoS => QualityOfService.AtLeastOnce;
     }
 
@@ -52,7 +52,7 @@ public class QosVerificationTests
     /// </summary>
     public record ExactlyOnceEvent(string Id, string Data) : IEvent
     {
-        public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+        public long MessageId { get; init; } = MessageExtensions.NewMessageId();
         public QualityOfService QoS => QualityOfService.ExactlyOnce;
     }
 
@@ -185,7 +185,7 @@ public class QosVerificationTests
         var @event = new ExactlyOnceEvent("test-1", "data");
 
         // 使用固定的 MessageId 进行去重
-        var context = new TransportContext { MessageId = "fixed-msg-1" };
+        var context = new TransportContext { messageId = fixed-msg-1L };
 
         // Act - 发布同一条消息 5 次，使用相同的 MessageId
         for (int i = 0; i < 5; i++)
@@ -208,17 +208,17 @@ public class QosVerificationTests
 
         // Act - 发布 3 条不同的消息（不同的 MessageId）
         await transport.PublishAsync(new ExactlyOnceEvent("msg-1", "data1"),
-            new TransportContext { MessageId = "id-1" });
+            new TransportContext { messageId = id-1L });
         await transport.PublishAsync(new ExactlyOnceEvent("msg-2", "data2"),
-            new TransportContext { MessageId = "id-2" });
+            new TransportContext { messageId = id-2L });
         await transport.PublishAsync(new ExactlyOnceEvent("msg-3", "data3"),
-            new TransportContext { MessageId = "id-3" });
+            new TransportContext { messageId = id-3L });
 
         // 重复发布前 2 条（相同的 MessageId）
         await transport.PublishAsync(new ExactlyOnceEvent("msg-1", "data1"),
-            new TransportContext { MessageId = "id-1" }); // 去重
+            new TransportContext { messageId = id-1L }); // 去重
         await transport.PublishAsync(new ExactlyOnceEvent("msg-2", "data2"),
-            new TransportContext { MessageId = "id-2" }); // 去重
+            new TransportContext { messageId = id-2L }); // 去重
 
         // Assert
         // QoS 2: 应该只发布 3 次（2 次重复被去重）
@@ -232,7 +232,7 @@ public class QosVerificationTests
         var transport = new MockTransport(_logger, _serializer,
             enableDeduplication: true);
         var @event = new ExactlyOnceEvent("test-1", "data");
-        var context = new TransportContext { MessageId = "dedup-test" };
+        var context = new TransportContext { messageId = dedup-testL };
 
         // Act - 首次发布
         await transport.PublishAsync(@event, context);

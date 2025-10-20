@@ -70,7 +70,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
             return Array.Empty<OutboxMessage>();
 
         // Batch get all messages (1 round-trip!)
-        var keys = messageIds.Select(id => GetKey(id.ToString())).ToList();
+        var keys = messageIds.Select(id => GetKey((long)id)).ToList();
         var values = await _batchOps.BatchGetAsync(keys, cancellationToken);
 
         var messages = new List<OutboxMessage>();
@@ -120,7 +120,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         return messages;
     }
     public async ValueTask MarkAsPublishedAsync(
-        string messageId,
+        long messageId,
         CancellationToken cancellationToken = default)
     {
         var key = GetKey(messageId);
@@ -141,7 +141,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         }
     }
     public async ValueTask MarkAsFailedAsync(
-        string messageId,
+        long messageId,
         string errorMessage,
         CancellationToken cancellationToken = default)
     {
@@ -205,7 +205,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         }
     }
 
-    private string GetKey(string messageId) => $"{_keyPrefix}{messageId}";
+    private string GetKey(long messageId) => $"{_keyPrefix}{messageId}";
     private string GetPendingSetKey() => $"{_keyPrefix}pending";
 }
 

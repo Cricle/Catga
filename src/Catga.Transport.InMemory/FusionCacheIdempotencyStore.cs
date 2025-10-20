@@ -25,17 +25,17 @@ internal sealed class FusionCacheIdempotencyStore
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string GetKey(string messageId) => $"{KeyPrefix}{messageId}";
+    private static string GetKey(long messageId) => $"{KeyPrefix}{messageId}";
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool IsProcessed(string messageId)
+    public bool IsProcessed(long messageId)
     {
         var result = _cache.TryGet<bool>(GetKey(messageId));
         return result.HasValue && result.Value;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void MarkAsProcessed(string messageId)
+    public void MarkAsProcessed(long messageId)
         => _cache.Set(GetKey(messageId), true, _options);
 }
 

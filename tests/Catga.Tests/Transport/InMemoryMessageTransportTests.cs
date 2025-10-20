@@ -190,7 +190,7 @@ public class InMemoryMessageTransportTests
         });
 
         var message = new QoS2Message(555, "QoS2");
-        var context = new TransportContext { MessageId = "unique-id-123" };
+        var context = new TransportContext { messageId = unique-id-123L };
 
         // Act - publish same message twice with same MessageId
         await _transport.PublishAsync(message, context);
@@ -214,8 +214,8 @@ public class InMemoryMessageTransportTests
 
         var message1 = new QoS2Message(666, "QoS2-1");
         var message2 = new QoS2Message(777, "QoS2-2");
-        var context1 = new TransportContext { MessageId = "id-1" };
-        var context2 = new TransportContext { MessageId = "id-2" };
+        var context1 = new TransportContext { messageId = id-1L };
+        var context2 = new TransportContext { messageId = id-2L };
 
         // Act
         await _transport.PublishAsync(message1, context1);
@@ -303,7 +303,7 @@ public class InMemoryMessageTransportTests
         var message = new TestTransportMessage(888, "Context");
         var context = new TransportContext
         {
-            MessageId = "custom-id",
+            messageId = custom-idL,
             CorrelationId = "correlation-123",
             MessageType = "CustomType"
         };
@@ -437,7 +437,7 @@ public class InMemoryMessageTransportTests
 [MemoryPackable]
 public partial record TestTransportMessage(int Id, string Name) : IMessage
 {
-    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     public QualityOfService QoS => QualityOfService.AtLeastOnce;
     public DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
 }
@@ -445,7 +445,7 @@ public partial record TestTransportMessage(int Id, string Name) : IMessage
 [MemoryPackable]
 public partial record QoS0Message(int Id, string Name) : IMessage
 {
-    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     public QualityOfService QoS => QualityOfService.AtMostOnce;
     public DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
 }
@@ -453,7 +453,7 @@ public partial record QoS0Message(int Id, string Name) : IMessage
 [MemoryPackable]
 public partial record QoS1WaitMessage(int Id, string Name) : IMessage
 {
-    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     public QualityOfService QoS => QualityOfService.AtLeastOnce;
     public DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
 }
@@ -461,7 +461,7 @@ public partial record QoS1WaitMessage(int Id, string Name) : IMessage
 [MemoryPackable]
 public partial record QoS1RetryMessage(int Id, string Name) : IMessage
 {
-    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     public QualityOfService QoS => QualityOfService.AtLeastOnce;
     public DeliveryMode DeliveryMode => DeliveryMode.AsyncRetry;
 }
@@ -469,7 +469,7 @@ public partial record QoS1RetryMessage(int Id, string Name) : IMessage
 [MemoryPackable]
 public partial record QoS2Message(int Id, string Name) : IMessage
 {
-    public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     public QualityOfService QoS => QualityOfService.ExactlyOnce;
     public DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
 }

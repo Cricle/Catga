@@ -8,7 +8,7 @@ namespace Catga.Idempotency;
 /// <summary>High-performance sharded idempotency store (lock-free)</summary>
 public class ShardedIdempotencyStore : IIdempotencyStore
 {
-    private readonly ConcurrentDictionary<string, (DateTime ProcessedAt, Type? ResultType, byte[]? ResultData)>[] _shards;
+    private readonly ConcurrentDictionary<long, (DateTime ProcessedAt, Type? ResultType, byte[]? ResultData)>[] _shards;
     private readonly IMessageSerializer _serializer;
     private readonly TimeSpan _retentionPeriod;
     private readonly int _shardCount;
@@ -25,16 +25,16 @@ public class ShardedIdempotencyStore : IIdempotencyStore
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         _shardCount = shardCount;
         _retentionPeriod = retentionPeriod ?? TimeSpan.FromHours(24);
-        _shards = new ConcurrentDictionary<string, (DateTime, Type?, byte[]?)>[_shardCount];
+        _shards = new ConcurrentDictionary<long, (DateTime, Type?, byte[]?)>[_shardCount];
         for (int i = 0; i < _shardCount; i++)
-            _shards[i] = new ConcurrentDictionary<string, (DateTime, Type?, byte[]?)>();
+            _shards[i] = new ConcurrentDictionary<long, (DateTime, Type?, byte[]?)>();
         _lastCleanupTicks = DateTime.UtcNow.Ticks;
     }
 
-    private ConcurrentDictionary<string, (DateTime, Type?, byte[]?)> GetShard(string messageId)
+    private ConcurrentDictionary<long, (DateTime, Type?, byte[]?)> GetShard(long messageId)
         => _shards[messageId.GetHashCode() & (_shardCount - 1)];
 
-    public Task<bool> HasBeenProcessedAsync(string messageId, CancellationToken cancellationToken = default)
+    public Task<bool> HasBeenProcessedAsync(long messageId, CancellationToken cancellationToken = default)
     {
         TryLazyCleanup();
         var shard = GetShard(messageId);
@@ -45,7 +45,7 @@ public class ShardedIdempotencyStore : IIdempotencyStore
         return Task.FromResult(false);
     }
 
-    public Task MarkAsProcessedAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default)
+    public Task MarkAsProcessedAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(long messageId, TResult? result = default, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
         GetShard(messageId)[messageId] = (now, typeof(TResult), null);
@@ -57,7 +57,7 @@ public class ShardedIdempotencyStore : IIdempotencyStore
         return Task.CompletedTask;
     }
 
-    public Task<TResult?> GetCachedResultAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, CancellationToken cancellationToken = default)
+    public Task<TResult?> GetCachedResultAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(long messageId, CancellationToken cancellationToken = default)
     {
         if (TypedIdempotencyCache<TResult>.Cache.TryGetValue(messageId, out var entry))
         {

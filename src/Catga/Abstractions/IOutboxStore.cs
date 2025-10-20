@@ -23,13 +23,13 @@ public interface IOutboxStore
     /// <summary>
     /// Mark message as published successfully
     /// </summary>
-    public ValueTask MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default);
+    public ValueTask MarkAsPublishedAsync(long messageId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Mark message as failed and increment retry count
     /// </summary>
     public ValueTask MarkAsFailedAsync(
-        string messageId,
+        long messageId,
         string errorMessage,
         CancellationToken cancellationToken = default);
 
@@ -47,9 +47,9 @@ public interface IOutboxStore
 public class OutboxMessage
 {
     /// <summary>
-    /// Unique message identifier
+    /// Unique message identifier (Snowflake ID)
     /// </summary>
-    public required string MessageId { get; init; }
+    public required long MessageId { get; init; }
 
     /// <summary>
     /// Message type (full type name for routing)
@@ -92,9 +92,9 @@ public class OutboxMessage
     public OutboxStatus Status { get; set; } = OutboxStatus.Pending;
 
     /// <summary>
-    /// Optional correlation ID for tracing
+    /// Optional correlation ID for tracing (Snowflake ID)
     /// </summary>
-    public string? CorrelationId { get; init; }
+    public long? CorrelationId { get; init; }
 
     /// <summary>
     /// Optional metadata (JSON)

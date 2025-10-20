@@ -19,8 +19,8 @@ public interface IMessageTransport
 /// <summary>Transport context - carries message metadata (zero-allocation struct)</summary>
 public readonly struct TransportContext
 {
-    public string? MessageId { get; init; }
-    public string? CorrelationId { get; init; }
+    public long? MessageId { get; init; }
+    public long? CorrelationId { get; init; }
     public string? MessageType { get; init; }
     public DateTime? SentAt { get; init; }
     public int RetryCount { get; init; }

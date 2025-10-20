@@ -31,7 +31,7 @@ public interface IDeadLetterQueue
 /// </summary>
 public readonly struct DeadLetterMessage
 {
-    public required string MessageId { get; init; }
+    public required long MessageId { get; init; }
     public required string MessageType { get; init; }
     public required string MessageJson { get; init; }
     public required string ExceptionType { get; init; }

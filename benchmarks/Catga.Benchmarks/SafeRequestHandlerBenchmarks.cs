@@ -53,7 +53,7 @@ public class SafeRequestHandlerBenchmarks
     // Test types
     public record TestRequest : IRequest<TestResponse>
     {
-        public string MessageId { get; init; } = MessageExtensions.NewMessageId();
+        public long MessageId { get; init; } = MessageExtensions.NewMessageId();
         public bool ShouldFail { get; init; }
     }
 

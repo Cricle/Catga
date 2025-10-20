@@ -13,7 +13,7 @@ internal static class ExpirationHelper
 
     /// <summary>Remove expired entries from dictionary</summary>
     public static void CleanupExpired<TValue>(
-        ConcurrentDictionary<string, TValue> dictionary,
+        ConcurrentDictionary<long, TValue> dictionary,
         Func<TValue, DateTime> timestampSelector,
         TimeSpan retentionPeriod)
     {
@@ -31,7 +31,7 @@ internal static class ExpirationHelper
 /// <summary>Base class for in-memory stores (lock-free)</summary>
 public abstract class BaseMemoryStore<TMessage> where TMessage : class
 {
-    protected readonly ConcurrentDictionary<string, TMessage> Messages = new();
+    protected readonly ConcurrentDictionary<long, TMessage> Messages = new();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int GetMessageCount() => Messages.Count;
@@ -130,19 +130,19 @@ public abstract class BaseMemoryStore<TMessage> where TMessage : class
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected bool TryGetMessage(string messageId, out TMessage? message) => Messages.TryGetValue(messageId, out message);
+    protected bool TryGetMessage(long messageId, out TMessage? message) => Messages.TryGetValue(messageId, out message);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected void AddOrUpdateMessage(string messageId, TMessage message) => Messages[messageId] = message;
+    protected void AddOrUpdateMessage(long messageId, TMessage message) => Messages[messageId] = message;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected bool TryRemoveMessage(string messageId, out TMessage? message) => Messages.TryRemove(messageId, out message);
+    protected bool TryRemoveMessage(long messageId, out TMessage? message) => Messages.TryRemove(messageId, out message);
 
     /// <summary>
     /// Execute action on message if exists (DRY helper for common pattern)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected Task ExecuteIfExistsAsync(string messageId, Action<TMessage> action)
+    protected Task ExecuteIfExistsAsync(long messageId, Action<TMessage> action)
     {
         if (TryGetMessage(messageId, out var message) && message != null)
             action(message);
@@ -153,7 +153,7 @@ public abstract class BaseMemoryStore<TMessage> where TMessage : class
     /// Get value from message if exists (DRY helper for common pattern)
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected Task<TResult?> GetValueIfExistsAsync<TResult>(string messageId, Func<TMessage, TResult?> selector)
+    protected Task<TResult?> GetValueIfExistsAsync<TResult>(long messageId, Func<TMessage, TResult?> selector)
     {
         if (TryGetMessage(messageId, out var message) && message != null)
             return Task.FromResult(selector(message));

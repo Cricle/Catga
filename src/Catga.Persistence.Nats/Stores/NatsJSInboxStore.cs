@@ -26,12 +26,10 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
     protected override string[] GetSubjects() => [$"{StreamName}.>"];
 
     public async ValueTask<bool> TryLockMessageAsync(
-        string messageId,
+        long messageId,
         TimeSpan lockDuration,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(messageId);
-
         await EnsureInitializedAsync(cancellationToken);
 
         var subject = $"{StreamName}.{messageId}";
@@ -83,11 +81,9 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
     }
 
     public async ValueTask<bool> HasBeenProcessedAsync(
-        string messageId,
+        long messageId,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(messageId);
-
         await EnsureInitializedAsync(cancellationToken);
 
         var message = await GetMessageAsync(messageId, cancellationToken);
@@ -95,11 +91,9 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
     }
 
     public async ValueTask<string?> GetProcessedResultAsync(
-        string messageId,
+        long messageId,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(messageId);
-
         await EnsureInitializedAsync(cancellationToken);
 
         var message = await GetMessageAsync(messageId, cancellationToken);
@@ -107,11 +101,9 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
     }
 
     public async ValueTask ReleaseLockAsync(
-        string messageId,
+        long messageId,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(messageId);
-
         await EnsureInitializedAsync(cancellationToken);
 
         var message = await GetMessageAsync(messageId, cancellationToken);
@@ -135,7 +127,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         await Task.CompletedTask;
     }
 
-    private async Task<InboxMessage?> GetMessageAsync(string messageId, CancellationToken cancellationToken)
+    private async Task<InboxMessage?> GetMessageAsync(long messageId, CancellationToken cancellationToken)
     {
         try
         {

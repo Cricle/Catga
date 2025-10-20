@@ -11,17 +11,17 @@ public interface IIdempotencyStore
     /// <summary>
     /// Check if message has already been processed
     /// </summary>
-    public Task<bool> HasBeenProcessedAsync(string messageId, CancellationToken cancellationToken = default);
+    public Task<bool> HasBeenProcessedAsync(long messageId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Mark message as processed with result (generic)
     /// </summary>
-    public Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default);
+    public Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(long messageId, TResult? result = default, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get cached result for previously processed message (generic)
     /// </summary>
-    public Task<TResult?> GetCachedResultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, CancellationToken cancellationToken = default);
+    public Task<TResult?> GetCachedResultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(long messageId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -34,8 +34,8 @@ public interface IIdempotencyStore
 public class MemoryIdempotencyStore : IIdempotencyStore
 {
     private readonly IMessageSerializer _serializer;
-    private readonly Dictionary<string, (DateTime ProcessedAt, Type? ResultType, byte[]? ResultData)> _processedMessages = new();
-    private readonly Dictionary<string, Dictionary<Type, byte[]>> _typedResults = new();
+    private readonly Dictionary<long, (DateTime ProcessedAt, Type? ResultType, byte[]? ResultData)> _processedMessages = new();
+    private readonly Dictionary<long, Dictionary<Type, byte[]>> _typedResults = new();
     private readonly TimeSpan _retentionPeriod = TimeSpan.FromHours(24);
     private readonly SemaphoreSlim _lock = new(1, 1);
 
@@ -44,7 +44,7 @@ public class MemoryIdempotencyStore : IIdempotencyStore
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
     }
 
-    public async Task<bool> HasBeenProcessedAsync(string messageId, CancellationToken cancellationToken = default)
+    public async Task<bool> HasBeenProcessedAsync(long messageId, CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);
         try
@@ -57,7 +57,7 @@ public class MemoryIdempotencyStore : IIdempotencyStore
             _lock.Release();
         }
     }
-    public async Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, TResult? result = default, CancellationToken cancellationToken = default)
+    public async Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(long messageId, TResult? result = default, CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);
         try
@@ -81,7 +81,7 @@ public class MemoryIdempotencyStore : IIdempotencyStore
             _lock.Release();
         }
     }
-    public async Task<TResult?> GetCachedResultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(string messageId, CancellationToken cancellationToken = default)
+    public async Task<TResult?> GetCachedResultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(long messageId, CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);
         try
@@ -102,13 +102,13 @@ public class MemoryIdempotencyStore : IIdempotencyStore
         var cutoff = DateTime.UtcNow - _retentionPeriod;
 
         // Use List to avoid "Collection was modified" exception
-        List<string>? expiredKeys = null;
+        List<long>? expiredKeys = null;
 
         foreach (var kvp in _processedMessages)
         {
             if (kvp.Value.ProcessedAt < cutoff)
             {
-                expiredKeys ??= new List<string>();
+                expiredKeys ??= new List<long>();
                 expiredKeys.Add(kvp.Key);
             }
         }

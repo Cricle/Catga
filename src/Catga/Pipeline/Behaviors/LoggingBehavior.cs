@@ -14,8 +14,8 @@ public partial class LoggingBehavior<[System.Diagnostics.CodeAnalysis.Dynamicall
     {
         var startTimestamp = Stopwatch.GetTimestamp();
         var reqName = GetRequestName();
-        var msgId = TryGetMessageId(request) ?? "N/A";
-        var corrId = TryGetCorrelationId(request) ?? string.Empty;
+        var msgId = TryGetMessageId(request) ?? 0;  // Default to 0 for "N/A"
+        var corrId = TryGetCorrelationId(request) ?? 0;  // Default to 0 for empty
         LogRequestStarted(reqName, msgId, corrId);
 
         try
@@ -44,14 +44,14 @@ public partial class LoggingBehavior<[System.Diagnostics.CodeAnalysis.Dynamicall
     }
 
     [LoggerMessage(EventId = 1001, Level = LogLevel.Information, Message = "Request started {RequestType} [MessageId={MessageId}, CorrelationId={CorrelationId}]")]
-    partial void LogRequestStarted(string requestType, string messageId, string correlationId);
+    partial void LogRequestStarted(string requestType, long messageId, long correlationId);
 
     [LoggerMessage(EventId = 1002, Level = LogLevel.Information, Message = "Request succeeded {RequestType} [MessageId={MessageId}, Duration={DurationMs}ms, CorrelationId={CorrelationId}]")]
-    partial void LogRequestSucceeded(string requestType, string messageId, long durationMs, string correlationId);
+    partial void LogRequestSucceeded(string requestType, long messageId, long durationMs, long correlationId);
 
     [LoggerMessage(EventId = 1003, Level = LogLevel.Warning, Message = "Request failed {RequestType} [MessageId={MessageId}, Duration={DurationMs}ms, Error={Error}, CorrelationId={CorrelationId}, ErrorType={ErrorType}]")]
-    partial void LogRequestFailed(string requestType, string messageId, long durationMs, string error, string correlationId, string? errorType);
+    partial void LogRequestFailed(string requestType, long messageId, long durationMs, string error, long correlationId, string? errorType);
 
     [LoggerMessage(EventId = 1004, Level = LogLevel.Error, Message = "Request exception {RequestType} [MessageId={MessageId}, Duration={DurationMs}ms, CorrelationId={CorrelationId}]")]
-    partial void LogRequestException(Exception exception, string requestType, string messageId, long durationMs, string correlationId);
+    partial void LogRequestException(Exception exception, string requestType, long messageId, long durationMs, long correlationId);
 }

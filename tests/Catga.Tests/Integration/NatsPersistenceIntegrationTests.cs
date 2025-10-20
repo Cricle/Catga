@@ -473,7 +473,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
 
     private record TestEvent : IEvent
     {
-        public required string MessageId { get; init; }
+        public required long MessageId { get; init; }
         public required string Id { get; init; }
         public required string Data { get; init; }
         public DateTime OccurredAt { get; init; } = DateTime.UtcNow;

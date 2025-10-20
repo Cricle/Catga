@@ -20,7 +20,7 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
             maxCount,
             Comparer<OutboxMessage>.Create((a, b) => a.CreatedAt.CompareTo(b.CreatedAt))));
 
-    public ValueTask MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)
+    public ValueTask MarkAsPublishedAsync(long messageId, CancellationToken cancellationToken = default)
     {
         if (TryGetMessage(messageId, out var message) && message != null)
         {
@@ -30,7 +30,7 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
         return default;
     }
 
-    public ValueTask MarkAsFailedAsync(string messageId, string errorMessage, CancellationToken cancellationToken = default)
+    public ValueTask MarkAsFailedAsync(long messageId, string errorMessage, CancellationToken cancellationToken = default)
     {
         if (TryGetMessage(messageId, out var message) && message != null)
         {

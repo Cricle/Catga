@@ -100,7 +100,7 @@ public class RedisOutboxPersistence : IOutboxStore
         var keys = new RedisKey[messageIds.Length];
         for (int i = 0; i < messageIds.Length; i++)
         {
-            keys[i] = (RedisKey)GetMessageKey(messageIds[i].ToString());
+            keys[i] = (RedisKey)GetMessageKey((long)messageIds[i]);
         }
 
         var values = await db.StringGetAsync(keys);
@@ -130,7 +130,7 @@ public class RedisOutboxPersistence : IOutboxStore
         return messages;
     }
 
-    public async ValueTask MarkAsPublishedAsync(string messageId, CancellationToken cancellationToken = default)
+    public async ValueTask MarkAsPublishedAsync(long messageId, CancellationToken cancellationToken = default)
     {
         var db = _redis.GetDatabase();
         var key = GetMessageKey(messageId);
@@ -165,8 +165,7 @@ public class RedisOutboxPersistence : IOutboxStore
         _logger.LogDebug("Marked message {MessageId} as published", messageId);
     }
 
-    public async ValueTask MarkAsFailedAsync(
-        string messageId,
+    public async ValueTask MarkAsFailedAsync(long messageId,
         string errorMessage,
         CancellationToken cancellationToken = default)
     {
@@ -228,7 +227,7 @@ public class RedisOutboxPersistence : IOutboxStore
         }
     }
 
-    private string GetMessageKey(string messageId) => $"{_keyPrefix}:msg:{messageId}";
+    private string GetMessageKey(long messageId) => $"{_keyPrefix}:msg:{messageId}";
 }
 
 /// <summary>

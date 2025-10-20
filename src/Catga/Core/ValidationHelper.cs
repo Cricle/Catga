@@ -45,30 +45,30 @@ public static class ValidationHelper
     {
         ArgumentNullException.ThrowIfNull(message, paramName);
 
-        // For IMessage, also validate MessageId
-        if (message is IMessage msg && string.IsNullOrEmpty(msg.MessageId))
+        // For IMessage, also validate MessageId (must be > 0 for long IDs)
+        if (message is IMessage msg && msg.MessageId == 0)
         {
-            throw new ArgumentException("MessageId cannot be null or empty", paramName);
+            throw new ArgumentException("MessageId must be > 0", paramName);
         }
     }
 
     /// <summary>
-    /// Validate MessageId string (null/empty check)
+    /// Validate MessageId long (must be > 0)
     /// </summary>
     /// <param name="messageId">MessageId to validate</param>
     /// <param name="paramName">Parameter name (auto-captured)</param>
-    /// <exception cref="ArgumentException">Thrown if messageId is null or empty</exception>
+    /// <exception cref="ArgumentException">Thrown if messageId is 0</exception>
     /// <remarks>
-    /// AOT-safe. Simple string validation with clear error message.
+    /// AOT-safe. Validates Snowflake ID is non-zero.
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void ValidateMessageId(
-        [NotNull] string? messageId,
+        long messageId,
         [CallerArgumentExpression(nameof(messageId))] string? paramName = null)
     {
-        if (string.IsNullOrEmpty(messageId))
+        if (messageId == 0)
         {
-            throw new ArgumentException("MessageId cannot be null or empty", paramName);
+            throw new ArgumentException("MessageId must be > 0", paramName);
         }
     }
 

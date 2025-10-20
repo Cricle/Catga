@@ -58,7 +58,7 @@ public class LoggingBehaviorTests
     }
 
     [Fact]
-    public async Task HandleAsync_WithException_ShouldPropagateException()
+    public async Task HandleAsync_WithException_ShouldReturnFailure()
     {
         // Arrange
         var behavior = new LoggingBehavior<TestCommand, TestResponse>(_logger);
@@ -67,11 +67,13 @@ public class LoggingBehaviorTests
 
         PipelineDelegate<TestResponse> next = () => throw expectedException;
 
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await behavior.HandleAsync(request, next));
+        // Act
+        var result = await behavior.HandleAsync(request, next);
 
-        exception.Should().Be(expectedException);
+        // Assert - 异常应被捕获并转换为 CatgaResult.Failure
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Contain("Test exception");
+        result.ErrorCode.Should().Be(ErrorCodes.HandlerFailed);
     }
 
     [Fact]

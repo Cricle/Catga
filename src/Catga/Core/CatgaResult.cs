@@ -9,7 +9,7 @@ public readonly record struct CatgaResult<T>
     public T? Value { get; init; }
     public string? Error { get; init; }
     public CatgaException? Exception { get; init; }
-    
+
     /// <summary>Error code (e.g., CATGA_1001)</summary>
     public string? ErrorCode { get; init; }
 
@@ -18,7 +18,7 @@ public readonly record struct CatgaResult<T>
 
     public static CatgaResult<T> Failure(string error, CatgaException? exception = null)
         => new() { IsSuccess = false, Error = error, Exception = exception, ErrorCode = exception?.ErrorCode };
-    
+
     /// <summary>Create failure result from ErrorInfo (zero exception allocation)</summary>
     public static CatgaResult<T> Failure(ErrorInfo errorInfo)
         => new()
@@ -36,7 +36,7 @@ public readonly record struct CatgaResult
     public bool IsSuccess { get; init; }
     public string? Error { get; init; }
     public CatgaException? Exception { get; init; }
-    
+
     /// <summary>Error code (e.g., CATGA_1001)</summary>
     public string? ErrorCode { get; init; }
 
@@ -45,7 +45,7 @@ public readonly record struct CatgaResult
 
     public static CatgaResult Failure(string error, CatgaException? exception = null)
         => new() { IsSuccess = false, Error = error, Exception = exception, ErrorCode = exception?.ErrorCode };
-    
+
     /// <summary>Create failure result from ErrorInfo (zero exception allocation)</summary>
     public static CatgaResult Failure(ErrorInfo errorInfo)
         => new()

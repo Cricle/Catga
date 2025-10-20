@@ -37,13 +37,13 @@ public static class MessageExtensions
         var envValue = Environment.GetEnvironmentVariable(envVarName);
         if (!string.IsNullOrEmpty(envValue) && int.TryParse(envValue, out var workerId))
         {
-            // Validate worker ID is within valid range (0-1023 for default Snowflake layout)
-            if (workerId >= 0 && workerId <= 1023)
+            // Validate worker ID is within valid range (0-255 for default 44-8-11 Snowflake layout)
+            if (workerId >= 0 && workerId <= 255)
                 return workerId;
         }
 
-        // Generate a random worker ID (0-1023)
+        // Generate a random worker ID (0-255 for default 8-bit worker ID)
         // In production, this should be set via environment variable
-        return Random.Shared.Next(0, 1024);
+        return Random.Shared.Next(0, 256);
     }
 }

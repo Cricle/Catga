@@ -1,11 +1,10 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Catga.Abstractions;
 using Catga.Core;
 using Catga.Idempotency;
-using Catga.Core;
 using Catga.Observability;
-using Catga.Abstractions;
 
 namespace Catga.Transport;
 

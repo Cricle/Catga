@@ -22,7 +22,7 @@ internal sealed class InMemoryIdempotencyStore
     private void CleanupExpired()
     {
         var cutoff = DateTime.UtcNow - _retentionPeriod;
-        
+
         // Manual enumeration instead of LINQ Where/Select
         // ConcurrentDictionary supports modification during enumeration
         foreach (var kvp in _processedMessages)

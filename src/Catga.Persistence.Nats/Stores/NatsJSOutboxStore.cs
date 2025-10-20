@@ -90,13 +90,12 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
         {
             messages.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
         }
-        
+
         return messages;
     }
 
     public async ValueTask MarkAsPublishedAsync(long messageId, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(messageId);
 
         await EnsureInitializedAsync(cancellationToken);
 
@@ -160,7 +159,6 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
         string errorMessage,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(messageId);
         ArgumentNullException.ThrowIfNull(errorMessage);
 
         await EnsureInitializedAsync(cancellationToken);

@@ -74,7 +74,7 @@ public class OptimizedRedisOutboxStore : IOutboxStore
         var keys = new string[messageIds.Length];
         for (int i = 0; i < messageIds.Length; i++)
             keys[i] = GetKey((long)messageIds[i]);
-        
+
         var values = await _batchOps.BatchGetAsync(keys, cancellationToken);
 
         var messages = new List<OutboxMessage>();

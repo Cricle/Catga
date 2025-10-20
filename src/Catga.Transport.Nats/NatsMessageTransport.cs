@@ -2,7 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Catga.Abstractions;
 using Catga.Core;
-using Catga.Core;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
@@ -141,7 +140,7 @@ public class NatsMessageTransport : IMessageTransport
         => PublishBatchAsync(messages, context, cancellationToken);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private string GetSubjectCached<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]TMessage>() => SubjectCache<TMessage>.Subject ??= $"{_subjectPrefix}.{TypeNameCache<TMessage>.Name}";
+    private string GetSubjectCached<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>() => SubjectCache<TMessage>.Subject ??= $"{_subjectPrefix}.{TypeNameCache<TMessage>.Name}";
 }
 
 /// <summary>Zero-allocation subject cache per message type</summary>

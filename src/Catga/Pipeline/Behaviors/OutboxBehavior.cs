@@ -1,9 +1,8 @@
+using Catga;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.DistributedId;
-using Catga.Abstractions;
 using Catga.Outbox;
-using Catga;
 using Catga.Transport;
 using Microsoft.Extensions.Logging;
 

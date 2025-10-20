@@ -18,25 +18,19 @@ public sealed class CatgaMediator : ICatgaMediator
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CatgaMediator> _logger;
     private readonly HandlerCache _handlerCache;
-    private readonly GracefulShutdownManager? _shutdownManager;
 
     public CatgaMediator(
         IServiceProvider serviceProvider,
-        ILogger<CatgaMediator> logger,
-        GracefulShutdownManager? shutdownManager = null)
+        ILogger<CatgaMediator> logger)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _handlerCache = new HandlerCache();
-        _shutdownManager = shutdownManager;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public async ValueTask<CatgaResult<TResponse>> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
     {
-        // 优雅停机：自动跟踪操作
-        using var operationScope = _shutdownManager?.BeginOperation();
-
         var startTimestamp = Stopwatch.GetTimestamp();
         var reqType = TypeNameCache<TRequest>.Name;
         var message = request as IMessage;
@@ -172,9 +166,6 @@ public sealed class CatgaMediator : ICatgaMediator
 
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(TEvent @event, CancellationToken cancellationToken = default) where TEvent : IEvent
     {
-        // 优雅停机：自动跟踪操作
-        using var operationScope = _shutdownManager?.BeginOperation();
-
         var eventType = TypeNameCache<TEvent>.Name;
         var message = @event as IMessage;
 

@@ -26,7 +26,7 @@ public static class BatchOperationExtensions
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static async ValueTask<IReadOnlyList<TResult>> ExecuteBatchWithResultsAsync<TSource, TResult>(
-        this IReadOnlyList<TSource> items, 
+        this IReadOnlyList<TSource> items,
         Func<TSource, ValueTask<TResult>> action)
     {
         if (items == null || items.Count == 0) return Array.Empty<TResult>();

@@ -26,20 +26,14 @@ public interface IEventStoreRepository<TId, TState>
 /// High-performance repository for event-sourced aggregates.
 /// Zero reflection, optimized GC, thread-safe.
 /// </summary>
-public sealed class EventStoreRepository<TId, TState> : IEventStoreRepository<TId, TState>
+public sealed class EventStoreRepository<TId, TState>(
+    IEventStore eventStore,
+    ILogger<EventStoreRepository<TId, TState>> logger) : IEventStoreRepository<TId, TState>
     where TId : notnull
     where TState : class, new()
 {
-    private readonly IEventStore _eventStore;
-    private readonly ILogger<EventStoreRepository<TId, TState>> _logger;
-
-    public EventStoreRepository(
-        IEventStore eventStore,
-        ILogger<EventStoreRepository<TId, TState>> logger)
-    {
-        _eventStore = eventStore ?? throw new ArgumentNullException(nameof(eventStore));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
+    private readonly IEventStore _eventStore = eventStore ?? throw new ArgumentNullException(nameof(eventStore));
+    private readonly ILogger<EventStoreRepository<TId, TState>> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     public async ValueTask<TAggregate?> LoadAsync<TAggregate>(
         TId id,

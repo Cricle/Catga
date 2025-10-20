@@ -16,31 +16,17 @@ namespace Catga.DependencyInjection;
 ///     .ForProduction();
 /// </code>
 /// </remarks>
-public class CatgaServiceBuilder
+public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions options)
 {
-    private readonly IServiceCollection _services;
-    private readonly CatgaOptions _options;
-
     /// <summary>
     /// Get the underlying service collection
     /// </summary>
-    public IServiceCollection Services => _services;
+    public IServiceCollection Services { get; } = services ?? throw new ArgumentNullException(nameof(services));
 
     /// <summary>
     /// Get the Catga options
     /// </summary>
-    public CatgaOptions Options => _options;
-
-    /// <summary>
-    /// Create a new Catga service builder
-    /// </summary>
-    public CatgaServiceBuilder(IServiceCollection services, CatgaOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(options);
-        _services = services;
-        _options = options;
-    }
+    public CatgaOptions Options { get; } = options ?? throw new ArgumentNullException(nameof(options));
 
     /// <summary>
     /// Configure Catga options
@@ -48,7 +34,7 @@ public class CatgaServiceBuilder
     public CatgaServiceBuilder Configure(Action<CatgaOptions> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
-        configure(_options);
+        configure(Options);
         return this;
     }
 
@@ -57,7 +43,7 @@ public class CatgaServiceBuilder
     /// </summary>
     public CatgaServiceBuilder ForDevelopment()
     {
-        _options.ForDevelopment();
+        Options.ForDevelopment();
         return this;
     }
 
@@ -66,12 +52,12 @@ public class CatgaServiceBuilder
     /// </summary>
     public CatgaServiceBuilder ForProduction()
     {
-        _options.EnableLogging = true;
-        _options.EnableTracing = true;
-        _options.EnableIdempotency = true;
-        _options.EnableRetry = true;
-        _options.EnableValidation = true;
-        _options.EnableDeadLetterQueue = true;
+        Options.EnableLogging = true;
+        Options.EnableTracing = true;
+        Options.EnableIdempotency = true;
+        Options.EnableRetry = true;
+        Options.EnableValidation = true;
+        Options.EnableDeadLetterQueue = true;
         return this;
     }
 
@@ -80,7 +66,7 @@ public class CatgaServiceBuilder
     /// </summary>
     public CatgaServiceBuilder ForHighPerformance()
     {
-        _options.WithHighPerformance();
+        Options.WithHighPerformance();
         return this;
     }
 
@@ -89,7 +75,7 @@ public class CatgaServiceBuilder
     /// </summary>
     public CatgaServiceBuilder Minimal()
     {
-        _options.Minimal();
+        Options.Minimal();
         return this;
     }
 
@@ -98,7 +84,7 @@ public class CatgaServiceBuilder
     /// </summary>
     public CatgaServiceBuilder WithLogging(bool enabled = true)
     {
-        _options.EnableLogging = enabled;
+        Options.EnableLogging = enabled;
         return this;
     }
 
@@ -107,12 +93,12 @@ public class CatgaServiceBuilder
     /// </summary>
     public CatgaServiceBuilder WithTracing(bool enabled = true)
     {
-        _options.EnableTracing = enabled;
+        Options.EnableTracing = enabled;
 
         if (enabled)
         {
             // Register distributed tracing behavior for rich trace data in Jaeger
-            _services.AddSingleton(typeof(Catga.Pipeline.Behaviors.DistributedTracingBehavior<,>));
+            Services.AddSingleton(typeof(Catga.Pipeline.Behaviors.DistributedTracingBehavior<,>));
         }
 
         return this;
@@ -123,8 +109,8 @@ public class CatgaServiceBuilder
     /// </summary>
     public CatgaServiceBuilder WithRetry(bool enabled = true, int maxAttempts = 3)
     {
-        _options.EnableRetry = enabled;
-        _options.MaxRetryAttempts = maxAttempts;
+        Options.EnableRetry = enabled;
+        Options.MaxRetryAttempts = maxAttempts;
         return this;
     }
 
@@ -133,8 +119,8 @@ public class CatgaServiceBuilder
     /// </summary>
     public CatgaServiceBuilder WithIdempotency(bool enabled = true, int retentionHours = 24)
     {
-        _options.EnableIdempotency = enabled;
-        _options.IdempotencyRetentionHours = retentionHours;
+        Options.EnableIdempotency = enabled;
+        Options.IdempotencyRetentionHours = retentionHours;
         return this;
     }
 
@@ -143,7 +129,7 @@ public class CatgaServiceBuilder
     /// </summary>
     public CatgaServiceBuilder WithValidation(bool enabled = true)
     {
-        _options.EnableValidation = enabled;
+        Options.EnableValidation = enabled;
         return this;
     }
 
@@ -152,9 +138,8 @@ public class CatgaServiceBuilder
     /// </summary>
     public CatgaServiceBuilder WithDeadLetterQueue(bool enabled = true, int maxSize = 1000)
     {
-        _options.EnableDeadLetterQueue = enabled;
-        _options.DeadLetterQueueMaxSize = maxSize;
+        Options.EnableDeadLetterQueue = enabled;
+        Options.DeadLetterQueueMaxSize = maxSize;
         return this;
     }
 }
-

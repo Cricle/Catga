@@ -142,16 +142,17 @@ public interface ICatgaMediator
 ```csharp
 public sealed class CatgaMediator : ICatgaMediator
 {
-    // 零反射 - 使用静态泛型缓存
+    // 直接 DI 解析 - 尊重生命周期，无过度缓存
     public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(
         TRequest request, CancellationToken ct = default)
         where TRequest : IRequest<TResponse>
     {
-        // 1. 从静态缓存获取 Handler (零反射)
-        var handler = HandlerCache<TRequest, TResponse>.GetHandler(_serviceProvider);
+        // 1. 从 DI 获取 Handler（泛型 JIT 优化）
+        using var scope = _serviceProvider.CreateScope();
+        var handler = scope.ServiceProvider.GetRequiredService<IRequestHandler<TRequest, TResponse>>();
 
         // 2. 执行 Pipeline
-        var result = await ExecutePipelineAsync(request, handler, ct);
+        var result = await ExecutePipelineAsync(request, handler, scope.ServiceProvider, ct);
 
         return result;
     }
@@ -222,16 +223,8 @@ internal static class TypeNameCache<T>
     public static readonly string Value = typeof(T).FullName ?? typeof(T).Name;
 }
 
-internal static class HandlerCache<TRequest, TResponse>
-    where TRequest : IRequest<TResponse>
-{
-    private static IRequestHandler<TRequest, TResponse>? _handler;
-
-    public static IRequestHandler<TRequest, TResponse> GetHandler(IServiceProvider sp)
-    {
-        return _handler ??= sp.GetRequiredService<IRequestHandler<TRequest, TResponse>>();
-    }
-}
+// Note: No handler instance caching to respect DI lifecycle
+// GetRequiredService<T>() is already optimized by .NET DI container
 ```
 
 #### Roslyn 分析器
@@ -491,8 +484,8 @@ var handler = HandlerCache<TRequest, TResponse>.GetHandler(serviceProvider);  //
 **技术**:
 - `ValueTask<T>` - 避免 Task 分配
 - `readonly struct` - 栈分配
-- `ArrayPool<T>` - 重用数组
-- 静态缓存 - 避免重复创建
+- `ArrayPool<T>` - 重用 byte[] 缓冲区
+- 直接 DI 解析 - 尊重生命周期，无过度缓存
 
 **收益**:
 - 热路径零堆分配

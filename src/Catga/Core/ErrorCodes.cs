@@ -7,31 +7,31 @@ public static class ErrorCodes
 {
     /// <summary>Validation failed</summary>
     public const string ValidationFailed = "VALIDATION_FAILED";
-    
+
     /// <summary>Handler execution failed</summary>
     public const string HandlerFailed = "HANDLER_FAILED";
-    
+
     /// <summary>Pipeline execution failed</summary>
     public const string PipelineFailed = "PIPELINE_FAILED";
-    
+
     /// <summary>Inbox/Outbox persistence failed</summary>
     public const string PersistenceFailed = "PERSISTENCE_FAILED";
-    
+
     /// <summary>Failed to acquire lock</summary>
     public const string LockFailed = "LOCK_FAILED";
-    
+
     /// <summary>Message transport failed</summary>
     public const string TransportFailed = "TRANSPORT_FAILED";
-    
+
     /// <summary>Serialization/Deserialization failed</summary>
     public const string SerializationFailed = "SERIALIZATION_FAILED";
-    
+
     /// <summary>Operation timeout</summary>
     public const string Timeout = "TIMEOUT";
-    
+
     /// <summary>Operation cancelled</summary>
     public const string Cancelled = "CANCELLED";
-    
+
     /// <summary>Unknown/Internal error</summary>
     public const string InternalError = "INTERNAL_ERROR";
 }
@@ -65,7 +65,7 @@ public readonly record struct ErrorInfo
             IsRetryable = isRetryable,
             Exception = ex
         };
-    
+
     /// <summary>Create validation error</summary>
     public static ErrorInfo Validation(string message, string? details = null)
         => new()
@@ -75,7 +75,7 @@ public readonly record struct ErrorInfo
             IsRetryable = false,
             Details = details
         };
-    
+
     /// <summary>Create timeout error</summary>
     public static ErrorInfo Timeout(string message)
         => new()

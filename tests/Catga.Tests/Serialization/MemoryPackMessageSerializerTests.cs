@@ -295,7 +295,7 @@ public class MemoryPackMessageSerializerTests
         // Act
         for (int i = 0; i < 100; i++)
         {
-            tasks.Add(Task.Run(() => _serializer.Deserialize<TestMessage>(bytes)));
+            tasks.Add(Task.Run(() => _serializer.Deserialize<TestMessage>(bytes))!);
         }
         var results = await Task.WhenAll(tasks);
 

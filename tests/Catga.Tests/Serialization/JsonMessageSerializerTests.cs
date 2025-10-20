@@ -310,7 +310,7 @@ public class JsonMessageSerializerTests
         // Act
         for (int i = 0; i < 100; i++)
         {
-            tasks.Add(Task.Run(() => _serializer.Deserialize<JsonTestMessage>(bytes)));
+            tasks.Add(Task.Run(() => _serializer.Deserialize<JsonTestMessage>(bytes))!);
         }
         var results = await Task.WhenAll(tasks);
 

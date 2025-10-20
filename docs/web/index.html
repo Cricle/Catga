@@ -2339,25 +2339,25 @@
             <div class="hero-stats animate__animated animate__fadeInUp animate__delay-2s">
                 <div class="hero-stat glass-card">
                     <div class="stat-icon">⚡</div>
-                    <span class="hero-stat-value" data-target="0.1">&lt; 1</span>
-                    <span class="hero-stat-unit">μs</span>
-                    <span class="hero-stat-label">命令处理延迟</span>
-                    <div class="stat-progress">
-                        <div class="stat-progress-bar" style="width: 95%"></div>
-                    </div>
-                </div>
-                <div class="hero-stat glass-card">
-                    <div class="stat-icon">🚀</div>
-                    <span class="hero-stat-value" data-target="1000000">0</span>
-                    <span class="hero-stat-unit">+</span>
-                    <span class="hero-stat-label">每秒吞吐量</span>
+                    <span class="hero-stat-value" data-target="72">72</span>
+                    <span class="hero-stat-unit">ns</span>
+                    <span class="hero-stat-label">DI 解析速度</span>
                     <div class="stat-progress">
                         <div class="stat-progress-bar" style="width: 100%"></div>
                     </div>
                 </div>
                 <div class="hero-stat glass-card">
+                    <div class="stat-icon">🚀</div>
+                    <span class="hero-stat-value" data-target="267">267</span>
+                    <span class="hero-stat-unit">ns</span>
+                    <span class="hero-stat-label">序列化延迟</span>
+                    <div class="stat-progress">
+                        <div class="stat-progress-bar" style="width: 95%"></div>
+                    </div>
+                </div>
+                <div class="hero-stat glass-card">
                     <div class="stat-icon">✨</div>
-                    <span class="hero-stat-value" data-target="100">0</span>
+                    <span class="hero-stat-value" data-target="100">100</span>
                     <span class="hero-stat-unit">%</span>
                     <span class="hero-stat-label">AOT 兼容</span>
                     <div class="stat-progress">
@@ -2366,11 +2366,11 @@
                 </div>
                 <div class="hero-stat glass-card">
                     <div class="stat-icon">🧪</div>
-                    <span class="hero-stat-value" data-target="194">0</span>
+                    <span class="hero-stat-value" data-target="221">221</span>
                     <span class="hero-stat-unit"></span>
-                    <span class="hero-stat-label">测试覆盖</span>
+                    <span class="hero-stat-label">测试通过</span>
                     <div class="stat-progress">
-                        <div class="stat-progress-bar" style="width: 98%"></div>
+                        <div class="stat-progress-bar" style="width: 100%"></div>
                     </div>
                 </div>
             </div>
@@ -2889,7 +2889,7 @@
                 <div class="feature-card">
                     <div class="feature-icon">🚀</div>
                     <h3>极致性能</h3>
-                    <p>零反射、零分配、Native AOT 支持。命令处理 &lt; 1μs，吞吐量 &gt; 1M ops/s。ArrayPool 优化，MemoryPack 序列化。</p>
+                    <p>零反射、低分配、Native AOT 支持。DI 解析 72ns，序列化 267ns。ArrayPool + MemoryPool 优化，MemoryPack 比 JSON 快 2.5-4x。</p>
                 </div>
 
                 <div class="feature-card">

@@ -23,9 +23,9 @@
 ### 🚀 高性能
 
 - **零反射**：所有代码生成均在编译时完成
-- **零分配**：使用 `ArrayPool<T>` 和 `Span<T>` 优化内存
+- **零分配**：使用 `ArrayPool<T>` 和 `MemoryPool<T>` 优化内存
 - **AOT 友好**：100% 支持 Native AOT 编译
-- **高吞吐**：命令处理 56K QPS，事件发布 2.3M QPS
+- **高吞吐**：序列化 < 500 ns，DI解析 ~72 ns
 
 ### 🔌 可插拔架构
 
@@ -363,23 +363,25 @@ builder.Services
 
 ## 📊 性能基准
 
-基于 BenchmarkDotNet 的真实测试结果：
+基于 BenchmarkDotNet 的真实测试结果 (AMD Ryzen 7 5800H, .NET 9.0):
 
-| 操作 | 平均耗时 | 分配内存 | 吞吐量 |
-|------|---------|---------|--------|
-| **命令处理** | 17.6 μs | 408 B | **56K QPS** |
-| **查询处理** | 16.1 μs | 408 B | **62K QPS** |
-| **事件发布** | 428 ns | 0 B | **2.3M QPS** |
-| **序列化 (MemoryPack)** | 48 ns | 0 B | **20M/s** |
-| **分布式 ID 生成** | 485 ns | 0 B | **2M/s** |
+| 操作 | 平均耗时 | 分配内存 | 比率 |
+|------|---------|---------|------|
+| **DI 自动注册** | 72.38 ns | 128 B | **比手动快 6%** ⚡ |
+| **MemoryPack 序列化** | 267.2 ns | 1.13 KB | **1.0x (基准)** |
+| **MemoryPack 反序列化** | 206.7 ns | 1.17 KB | **0.77x** |
+| **MemoryPack 往返** | 584.9 ns | 2.3 KB | **1.82x** |
+| **JSON 序列化 (池化)** | 666.7 ns | 1.63 KB | **2.5x** |
+| **JSON 反序列化** | 1,061.0 ns | 1.17 KB | **3.97x** |
+| **JSON 往返** | 1,926.5 ns | 2.8 KB | **7.21x** |
 
-**关键优势**:
-- ⚡ 命令处理 < 20μs
-- 🔥 事件发布接近零分配
-- 📦 MemoryPack 比 JSON 快 4-8x
-- 🎯 并发场景线性扩展
+**性能亮点**：
+- ⚡ **源生成器**: 自动注册性能优于手动注册 6%
+- 🚀 **MemoryPack**: 比 JSON 快 2.5-4x，序列化 < 300ns
+- 💾 **内存优化**: ArrayPool + MemoryPool，最小分配
+- 🔥 **零开销**: DI 解析 < 80ns，纳秒级性能
 
-完整报告: [性能基准文档](./docs/PERFORMANCE-REPORT.md)
+完整报告: [性能基准文档](./docs/BENCHMARK-RESULTS.md)
 
 ---
 
@@ -484,12 +486,13 @@ curl -X POST http://localhost:5000/demo/order-failure
 
 | 特性 | Catga | MediatR |
 |------|-------|---------|
-| **性能** | 56K QPS | ~40K QPS |
+| **性能** | 72ns DI解析 | ~100ns+ |
 | **AOT 支持** | ✅ 100% | ❌ 部分 |
 | **分布式** | ✅ 内置 NATS/Redis | ❌ 需要扩展 |
 | **Outbox/Inbox** | ✅ 内置 | ❌ 需要自己实现 |
 | **Event Sourcing** | ✅ 完整支持 | ❌ 不支持 |
-| **Source Generator** | ✅ 自动注册 | ⚠️ 手动注册 |
+| **Source Generator** | ✅ 自动注册 (快6%) | ⚠️ 手动注册 |
+| **内存优化** | ✅ ArrayPool+MemoryPool | ⚠️ 标准分配 |
 
 ### vs MassTransit
 

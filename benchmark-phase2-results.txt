@@ -1,0 +1,508 @@
+// Validating benchmarks:
+// ***** BenchmarkRunner: Start   *****
+// ***** Found 5 benchmark(s) in total *****
+// ***** Building 1 exe(s) in Parallel: Start   *****
+// start dotnet  restore /p:UseSharedCompilation=false /p:BuildInParallel=false /m:1 /p:Deterministic=true /p:Optimize=true /p:IntermediateOutputPath="C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa\obj\Release\net9.0/" /p:OutDir="C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa\bin\Release\net9.0/" /p:OutputPath="C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa\bin\Release\net9.0/" in C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa
+// command took 5.13 sec and exited with 0
+// start dotnet  build -c Release --no-restore /p:UseSharedCompilation=false /p:BuildInParallel=false /m:1 /p:Deterministic=true /p:Optimize=true /p:IntermediateOutputPath="C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa\obj\Release\net9.0/" /p:OutDir="C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa\bin\Release\net9.0/" /p:OutputPath="C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa\bin\Release\net9.0/" --output "C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa\bin\Release\net9.0/" in C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa
+// command took 28.62 sec and exited with 0
+// ***** Done, took 00:00:33 (33.88 sec)   *****
+// Found 5 benchmarks:
+//   CqrsPerformanceBenchmarks.'Send Command (single)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+//   CqrsPerformanceBenchmarks.'Send Query (single)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+//   CqrsPerformanceBenchmarks.'Publish Event (single)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+//   CqrsPerformanceBenchmarks.'Send Command (batch 100)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+//   CqrsPerformanceBenchmarks.'Publish Event (batch 100)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: 高性能)
+// **************************
+// Benchmark: CqrsPerformanceBenchmarks.'Send Command (single)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet 98db9d80-bcf0-493a-af1f-c0180c53dffa.dll --anonymousPipes 1668 1672 --benchmarkName Catga.Benchmarks.CqrsPerformanceBenchmarks.SendCommand_Single --job "IterationCount=3, LaunchCount=1, WarmupCount=1" --benchmarkId 0 in C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa\bin\Release\net9.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 9.0.8 (9.0.825.36511), X64 RyuJIT AVX2
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: Job-YXFQJT(IterationCount=3, LaunchCount=1, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 437500.00 ns, 437.5000 us/op
+WorkloadJitting  1: 1 op, 119542400.00 ns, 119.5424 ms/op
+
+WorkloadPilot    1: 2 op, 19194000.00 ns, 9.5970 ms/op
+WorkloadPilot    2: 3 op, 241300.00 ns, 80.4333 us/op
+WorkloadPilot    3: 4 op, 208900.00 ns, 52.2250 us/op
+WorkloadPilot    4: 5 op, 174400.00 ns, 34.8800 us/op
+WorkloadPilot    5: 6 op, 194000.00 ns, 32.3333 us/op
+WorkloadPilot    6: 7 op, 238900.00 ns, 34.1286 us/op
+WorkloadPilot    7: 8 op, 212900.00 ns, 26.6125 us/op
+WorkloadPilot    8: 9 op, 320400.00 ns, 35.6000 us/op
+WorkloadPilot    9: 10 op, 406500.00 ns, 40.6500 us/op
+WorkloadPilot   10: 11 op, 388400.00 ns, 35.3091 us/op
+WorkloadPilot   11: 12 op, 394200.00 ns, 32.8500 us/op
+WorkloadPilot   12: 13 op, 441400.00 ns, 33.9538 us/op
+WorkloadPilot   13: 14 op, 463100.00 ns, 33.0786 us/op
+WorkloadPilot   14: 15 op, 496600.00 ns, 33.1067 us/op
+WorkloadPilot   15: 16 op, 549900.00 ns, 34.3688 us/op
+WorkloadPilot   16: 32 op, 1009800.00 ns, 31.5563 us/op
+WorkloadPilot   17: 64 op, 1730600.00 ns, 27.0406 us/op
+WorkloadPilot   18: 128 op, 3732100.00 ns, 29.1570 us/op
+WorkloadPilot   19: 256 op, 6883800.00 ns, 26.8898 us/op
+WorkloadPilot   20: 512 op, 13620900.00 ns, 26.6033 us/op
+WorkloadPilot   21: 1024 op, 28281800.00 ns, 27.6189 us/op
+WorkloadPilot   22: 2048 op, 52134400.00 ns, 25.4563 us/op
+WorkloadPilot   23: 4096 op, 132351200.00 ns, 32.3123 us/op
+WorkloadPilot   24: 8192 op, 254656200.00 ns, 31.0860 us/op
+WorkloadPilot   25: 16384 op, 368584000.00 ns, 22.4966 us/op
+WorkloadPilot   26: 32768 op, 311591400.00 ns, 9.5090 us/op
+WorkloadPilot   27: 65536 op, 594137900.00 ns, 9.0658 us/op
+
+WorkloadWarmup   1: 65536 op, 588129800.00 ns, 8.9741 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 65536 op, 571397500.00 ns, 8.7188 us/op
+WorkloadActual   2: 65536 op, 609358900.00 ns, 9.2981 us/op
+WorkloadActual   3: 65536 op, 571887900.00 ns, 8.7263 us/op
+
+// AfterActualRun
+WorkloadResult   1: 65536 op, 571397500.00 ns, 8.7188 us/op
+WorkloadResult   2: 65536 op, 609358900.00 ns, 9.2981 us/op
+WorkloadResult   3: 65536 op, 571887900.00 ns, 8.7263 us/op
+// GC:  68 0 0 575684704 65536
+// Threading:  0 0 65536
+
+// AfterAll
+// Benchmark Process 5612 has exited with code 0.
+
+Mean = 8.914 us, StdErr = 0.192 us (2.15%), N = 3, StdDev = 0.332 us
+Min = 8.719 us, Q1 = 8.723 us, Median = 8.726 us, Q3 = 9.012 us, Max = 9.298 us
+IQR = 0.290 us, LowerFence = 8.288 us, UpperFence = 9.447 us
+ConfidenceInterval = [2.852 us; 14.977 us] (CI 99.9%), Margin = 6.062 us (68.00% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 4 (80.0%) benchmark(s) to run. Estimated finish 2025-10-20 14:51 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: 高性能)
+// **************************
+// Benchmark: CqrsPerformanceBenchmarks.'Send Query (single)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet 98db9d80-bcf0-493a-af1f-c0180c53dffa.dll --anonymousPipes 2516 1692 --benchmarkName Catga.Benchmarks.CqrsPerformanceBenchmarks.SendQuery_Single --job "IterationCount=3, LaunchCount=1, WarmupCount=1" --benchmarkId 1 in C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa\bin\Release\net9.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 9.0.8 (9.0.825.36511), X64 RyuJIT AVX2
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: Job-OAWHZX(IterationCount=3, LaunchCount=1, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 428800.00 ns, 428.8000 us/op
+WorkloadJitting  1: 1 op, 111667000.00 ns, 111.6670 ms/op
+
+WorkloadPilot    1: 2 op, 18302200.00 ns, 9.1511 ms/op
+WorkloadPilot    2: 3 op, 140600.00 ns, 46.8667 us/op
+WorkloadPilot    3: 4 op, 168300.00 ns, 42.0750 us/op
+WorkloadPilot    4: 5 op, 198700.00 ns, 39.7400 us/op
+WorkloadPilot    5: 6 op, 231400.00 ns, 38.5667 us/op
+WorkloadPilot    6: 7 op, 237400.00 ns, 33.9143 us/op
+WorkloadPilot    7: 8 op, 297600.00 ns, 37.2000 us/op
+WorkloadPilot    8: 9 op, 312500.00 ns, 34.7222 us/op
+WorkloadPilot    9: 10 op, 331000.00 ns, 33.1000 us/op
+WorkloadPilot   10: 11 op, 354300.00 ns, 32.2091 us/op
+WorkloadPilot   11: 12 op, 378800.00 ns, 31.5667 us/op
+WorkloadPilot   12: 13 op, 496000.00 ns, 38.1538 us/op
+WorkloadPilot   13: 14 op, 503000.00 ns, 35.9286 us/op
+WorkloadPilot   14: 15 op, 466300.00 ns, 31.0867 us/op
+WorkloadPilot   15: 16 op, 533300.00 ns, 33.3313 us/op
+WorkloadPilot   16: 32 op, 1098400.00 ns, 34.3250 us/op
+WorkloadPilot   17: 64 op, 1711500.00 ns, 26.7422 us/op
+WorkloadPilot   18: 128 op, 3609500.00 ns, 28.1992 us/op
+WorkloadPilot   19: 256 op, 7044900.00 ns, 27.5191 us/op
+WorkloadPilot   20: 512 op, 14784000.00 ns, 28.8750 us/op
+WorkloadPilot   21: 1024 op, 29821700.00 ns, 29.1228 us/op
+WorkloadPilot   22: 2048 op, 53189800.00 ns, 25.9716 us/op
+WorkloadPilot   23: 4096 op, 131084200.00 ns, 32.0030 us/op
+WorkloadPilot   24: 8192 op, 247029800.00 ns, 30.1550 us/op
+WorkloadPilot   25: 16384 op, 372543100.00 ns, 22.7382 us/op
+WorkloadPilot   26: 32768 op, 290788900.00 ns, 8.8742 us/op
+WorkloadPilot   27: 65536 op, 544755600.00 ns, 8.3123 us/op
+
+WorkloadWarmup   1: 65536 op, 527126000.00 ns, 8.0433 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 65536 op, 526761500.00 ns, 8.0377 us/op
+WorkloadActual   2: 65536 op, 548517400.00 ns, 8.3697 us/op
+WorkloadActual   3: 65536 op, 537131100.00 ns, 8.1960 us/op
+
+// AfterActualRun
+WorkloadResult   1: 65536 op, 526761500.00 ns, 8.0377 us/op
+WorkloadResult   2: 65536 op, 548517400.00 ns, 8.3697 us/op
+WorkloadResult   3: 65536 op, 537131100.00 ns, 8.1960 us/op
+// GC:  68 0 0 574636128 65536
+// Threading:  0 0 65536
+
+// AfterAll
+// Benchmark Process 2556 has exited with code 0.
+
+Mean = 8.201 us, StdErr = 0.096 us (1.17%), N = 3, StdDev = 0.166 us
+Min = 8.038 us, Q1 = 8.117 us, Median = 8.196 us, Q3 = 8.283 us, Max = 8.370 us
+IQR = 0.166 us, LowerFence = 7.868 us, UpperFence = 8.532 us
+ConfidenceInterval = [5.172 us; 11.230 us] (CI 99.9%), Margin = 3.029 us (36.94% of Mean)
+Skewness = 0.03, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 3 (60.0%) benchmark(s) to run. Estimated finish 2025-10-20 14:51 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: 高性能)
+// **************************
+// Benchmark: CqrsPerformanceBenchmarks.'Publish Event (single)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet 98db9d80-bcf0-493a-af1f-c0180c53dffa.dll --anonymousPipes 2280 2284 --benchmarkName Catga.Benchmarks.CqrsPerformanceBenchmarks.PublishEvent_Single --job "IterationCount=3, LaunchCount=1, WarmupCount=1" --benchmarkId 2 in C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa\bin\Release\net9.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 9.0.8 (9.0.825.36511), X64 RyuJIT AVX2
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: Job-BDDHKK(IterationCount=3, LaunchCount=1, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 327600.00 ns, 327.6000 us/op
+WorkloadJitting  1: 1 op, 18486600.00 ns, 18.4866 ms/op
+
+OverheadJitting  2: 16 op, 302000.00 ns, 18.8750 us/op
+WorkloadJitting  2: 16 op, 2370800.00 ns, 148.1750 us/op
+
+WorkloadPilot    1: 16 op, 84200.00 ns, 5.2625 us/op
+WorkloadPilot    2: 32 op, 136400.00 ns, 4.2625 us/op
+WorkloadPilot    3: 64 op, 242400.00 ns, 3.7875 us/op
+WorkloadPilot    4: 128 op, 618600.00 ns, 4.8328 us/op
+WorkloadPilot    5: 256 op, 763500.00 ns, 2.9824 us/op
+WorkloadPilot    6: 512 op, 2675900.00 ns, 5.2264 us/op
+WorkloadPilot    7: 1024 op, 2232600.00 ns, 2.1803 us/op
+WorkloadPilot    8: 2048 op, 4341500.00 ns, 2.1199 us/op
+WorkloadPilot    9: 4096 op, 9535900.00 ns, 2.3281 us/op
+WorkloadPilot   10: 8192 op, 20052100.00 ns, 2.4478 us/op
+WorkloadPilot   11: 16384 op, 38867600.00 ns, 2.3723 us/op
+WorkloadPilot   12: 32768 op, 77171500.00 ns, 2.3551 us/op
+WorkloadPilot   13: 65536 op, 91062400.00 ns, 1.3895 us/op
+WorkloadPilot   14: 131072 op, 66018300.00 ns, 503.6797 ns/op
+WorkloadPilot   15: 262144 op, 129686200.00 ns, 494.7136 ns/op
+WorkloadPilot   16: 524288 op, 252965400.00 ns, 482.4932 ns/op
+WorkloadPilot   17: 1048576 op, 502759500.00 ns, 479.4688 ns/op
+
+OverheadWarmup   1: 1048576 op, 2435000.00 ns, 2.3222 ns/op
+OverheadWarmup   2: 1048576 op, 2500000.00 ns, 2.3842 ns/op
+OverheadWarmup   3: 1048576 op, 2509400.00 ns, 2.3932 ns/op
+OverheadWarmup   4: 1048576 op, 2503900.00 ns, 2.3879 ns/op
+OverheadWarmup   5: 1048576 op, 2473900.00 ns, 2.3593 ns/op
+OverheadWarmup   6: 1048576 op, 2498900.00 ns, 2.3831 ns/op
+OverheadWarmup   7: 1048576 op, 2482600.00 ns, 2.3676 ns/op
+
+OverheadActual   1: 1048576 op, 2724300.00 ns, 2.5981 ns/op
+OverheadActual   2: 1048576 op, 2457500.00 ns, 2.3437 ns/op
+OverheadActual   3: 1048576 op, 2412400.00 ns, 2.3006 ns/op
+OverheadActual   4: 1048576 op, 2426000.00 ns, 2.3136 ns/op
+OverheadActual   5: 1048576 op, 2427000.00 ns, 2.3146 ns/op
+OverheadActual   6: 1048576 op, 2458900.00 ns, 2.3450 ns/op
+OverheadActual   7: 1048576 op, 2470100.00 ns, 2.3557 ns/op
+OverheadActual   8: 1048576 op, 2462400.00 ns, 2.3483 ns/op
+OverheadActual   9: 1048576 op, 2493000.00 ns, 2.3775 ns/op
+OverheadActual  10: 1048576 op, 2494400.00 ns, 2.3788 ns/op
+OverheadActual  11: 1048576 op, 2600200.00 ns, 2.4797 ns/op
+OverheadActual  12: 1048576 op, 2507600.00 ns, 2.3914 ns/op
+OverheadActual  13: 1048576 op, 2507900.00 ns, 2.3917 ns/op
+OverheadActual  14: 1048576 op, 2526600.00 ns, 2.4096 ns/op
+OverheadActual  15: 1048576 op, 2500200.00 ns, 2.3844 ns/op
+
+WorkloadWarmup   1: 1048576 op, 522012700.00 ns, 497.8301 ns/op
+
+// BeforeActualRun
+WorkloadActual   1: 1048576 op, 535606000.00 ns, 510.7937 ns/op
+WorkloadActual   2: 1048576 op, 502039100.00 ns, 478.7818 ns/op
+WorkloadActual   3: 1048576 op, 519639000.00 ns, 495.5664 ns/op
+
+// AfterActualRun
+WorkloadResult   1: 1048576 op, 533113000.00 ns, 508.4162 ns/op
+WorkloadResult   2: 1048576 op, 499546100.00 ns, 476.4043 ns/op
+WorkloadResult   3: 1048576 op, 517146000.00 ns, 493.1889 ns/op
+// GC:  58 0 0 486551936 1048576
+// Threading:  0 0 1048576
+
+// AfterAll
+// Benchmark Process 22616 has exited with code 0.
+
+Mean = 492.670 ns, StdErr = 9.245 ns (1.88%), N = 3, StdDev = 16.012 ns
+Min = 476.404 ns, Q1 = 484.797 ns, Median = 493.189 ns, Q3 = 500.803 ns, Max = 508.416 ns
+IQR = 16.006 ns, LowerFence = 460.788 ns, UpperFence = 524.811 ns
+ConfidenceInterval = [200.547 ns; 784.793 ns] (CI 99.9%), Margin = 292.123 ns (59.29% of Mean)
+Skewness = -0.03, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 2 (40.0%) benchmark(s) to run. Estimated finish 2025-10-20 14:51 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: 高性能)
+// **************************
+// Benchmark: CqrsPerformanceBenchmarks.'Send Command (batch 100)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet 98db9d80-bcf0-493a-af1f-c0180c53dffa.dll --anonymousPipes 1792 2296 --benchmarkName Catga.Benchmarks.CqrsPerformanceBenchmarks.SendCommand_Batch100 --job "IterationCount=3, LaunchCount=1, WarmupCount=1" --benchmarkId 3 in C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa\bin\Release\net9.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 9.0.8 (9.0.825.36511), X64 RyuJIT AVX2
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: Job-PITDTV(IterationCount=3, LaunchCount=1, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 319700.00 ns, 319.7000 us/op
+WorkloadJitting  1: 1 op, 133417800.00 ns, 133.4178 ms/op
+
+WorkloadPilot    1: 2 op, 4748200.00 ns, 2.3741 ms/op
+WorkloadPilot    2: 3 op, 8228700.00 ns, 2.7429 ms/op
+WorkloadPilot    3: 4 op, 9588500.00 ns, 2.3971 ms/op
+WorkloadPilot    4: 5 op, 12933700.00 ns, 2.5867 ms/op
+WorkloadPilot    5: 6 op, 14568600.00 ns, 2.4281 ms/op
+WorkloadPilot    6: 7 op, 17183500.00 ns, 2.4548 ms/op
+WorkloadPilot    7: 8 op, 19019800.00 ns, 2.3775 ms/op
+WorkloadPilot    8: 9 op, 22405300.00 ns, 2.4895 ms/op
+WorkloadPilot    9: 10 op, 24673900.00 ns, 2.4674 ms/op
+WorkloadPilot   10: 11 op, 25670800.00 ns, 2.3337 ms/op
+WorkloadPilot   11: 12 op, 37046600.00 ns, 3.0872 ms/op
+WorkloadPilot   12: 13 op, 40337900.00 ns, 3.1029 ms/op
+WorkloadPilot   13: 14 op, 41864100.00 ns, 2.9903 ms/op
+WorkloadPilot   14: 15 op, 46892600.00 ns, 3.1262 ms/op
+WorkloadPilot   15: 16 op, 51043900.00 ns, 3.1902 ms/op
+WorkloadPilot   16: 32 op, 92762800.00 ns, 2.8988 ms/op
+WorkloadPilot   17: 64 op, 188899200.00 ns, 2.9516 ms/op
+WorkloadPilot   18: 128 op, 259944500.00 ns, 2.0308 ms/op
+WorkloadPilot   19: 256 op, 236491200.00 ns, 923.7938 us/op
+WorkloadPilot   20: 512 op, 405975200.00 ns, 792.9203 us/op
+WorkloadPilot   21: 1024 op, 821277400.00 ns, 802.0287 us/op
+
+WorkloadWarmup   1: 1024 op, 802563900.00 ns, 783.7538 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 1024 op, 811228600.00 ns, 792.2154 us/op
+WorkloadActual   2: 1024 op, 800384900.00 ns, 781.6259 us/op
+WorkloadActual   3: 1024 op, 806326100.00 ns, 787.4278 us/op
+
+// AfterActualRun
+WorkloadResult   1: 1024 op, 811228600.00 ns, 792.2154 us/op
+WorkloadResult   2: 1024 op, 800384900.00 ns, 781.6259 us/op
+WorkloadResult   3: 1024 op, 806326100.00 ns, 787.4278 us/op
+// GC:  106 1 0 888856992 1024
+// Threading:  0 0 1024
+
+// AfterAll
+// Benchmark Process 16132 has exited with code 0.
+
+Mean = 787.090 us, StdErr = 3.062 us (0.39%), N = 3, StdDev = 5.303 us
+Min = 781.626 us, Q1 = 784.527 us, Median = 787.428 us, Q3 = 789.822 us, Max = 792.215 us
+IQR = 5.295 us, LowerFence = 776.585 us, UpperFence = 797.764 us
+ConfidenceInterval = [690.346 us; 883.834 us] (CI 99.9%), Margin = 96.744 us (12.29% of Mean)
+Skewness = -0.06, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 1 (20.0%) benchmark(s) to run. Estimated finish 2025-10-20 14:51 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: 高性能)
+// **************************
+// Benchmark: CqrsPerformanceBenchmarks.'Publish Event (batch 100)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet 98db9d80-bcf0-493a-af1f-c0180c53dffa.dll --anonymousPipes 2284 2264 --benchmarkName Catga.Benchmarks.CqrsPerformanceBenchmarks.PublishEvent_Batch100 --job "IterationCount=3, LaunchCount=1, WarmupCount=1" --benchmarkId 4 in C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\bin\Release\net9.0\98db9d80-bcf0-493a-af1f-c0180c53dffa\bin\Release\net9.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 9.0.8 (9.0.825.36511), X64 RyuJIT AVX2
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: Job-DEDCAW(IterationCount=3, LaunchCount=1, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 312900.00 ns, 312.9000 us/op
+WorkloadJitting  1: 1 op, 19063800.00 ns, 19.0638 ms/op
+
+OverheadJitting  2: 16 op, 326500.00 ns, 20.4063 us/op
+WorkloadJitting  2: 16 op, 5936100.00 ns, 371.0063 us/op
+
+WorkloadPilot    1: 16 op, 3535800.00 ns, 220.9875 us/op
+WorkloadPilot    2: 32 op, 7098100.00 ns, 221.8156 us/op
+WorkloadPilot    3: 64 op, 14855000.00 ns, 232.1094 us/op
+WorkloadPilot    4: 128 op, 30061400.00 ns, 234.8547 us/op
+WorkloadPilot    5: 256 op, 58824900.00 ns, 229.7848 us/op
+WorkloadPilot    6: 512 op, 117942500.00 ns, 230.3564 us/op
+WorkloadPilot    7: 1024 op, 139716400.00 ns, 136.4418 us/op
+WorkloadPilot    8: 2048 op, 95660200.00 ns, 46.7091 us/op
+WorkloadPilot    9: 4096 op, 182009100.00 ns, 44.4358 us/op
+WorkloadPilot   10: 8192 op, 362547000.00 ns, 44.2562 us/op
+WorkloadPilot   11: 16384 op, 720448000.00 ns, 43.9727 us/op
+
+OverheadWarmup   1: 16384 op, 41100.00 ns, 2.5085 ns/op
+OverheadWarmup   2: 16384 op, 32500.00 ns, 1.9836 ns/op
+OverheadWarmup   3: 16384 op, 32200.00 ns, 1.9653 ns/op
+OverheadWarmup   4: 16384 op, 32300.00 ns, 1.9714 ns/op
+OverheadWarmup   5: 16384 op, 36300.00 ns, 2.2156 ns/op
+OverheadWarmup   6: 16384 op, 31400.00 ns, 1.9165 ns/op
+OverheadWarmup   7: 16384 op, 39600.00 ns, 2.4170 ns/op
+OverheadWarmup   8: 16384 op, 31900.00 ns, 1.9470 ns/op
+
+OverheadActual   1: 16384 op, 36900.00 ns, 2.2522 ns/op
+OverheadActual   2: 16384 op, 34000.00 ns, 2.0752 ns/op
+OverheadActual   3: 16384 op, 34100.00 ns, 2.0813 ns/op
+OverheadActual   4: 16384 op, 33600.00 ns, 2.0508 ns/op
+OverheadActual   5: 16384 op, 35500.00 ns, 2.1667 ns/op
+OverheadActual   6: 16384 op, 33500.00 ns, 2.0447 ns/op
+OverheadActual   7: 16384 op, 33400.00 ns, 2.0386 ns/op
+OverheadActual   8: 16384 op, 33400.00 ns, 2.0386 ns/op
+OverheadActual   9: 16384 op, 35400.00 ns, 2.1606 ns/op
+OverheadActual  10: 16384 op, 33400.00 ns, 2.0386 ns/op
+OverheadActual  11: 16384 op, 33000.00 ns, 2.0142 ns/op
+OverheadActual  12: 16384 op, 33100.00 ns, 2.0203 ns/op
+OverheadActual  13: 16384 op, 34900.00 ns, 2.1301 ns/op
+OverheadActual  14: 16384 op, 32900.00 ns, 2.0081 ns/op
+OverheadActual  15: 16384 op, 33000.00 ns, 2.0142 ns/op
+
+WorkloadWarmup   1: 16384 op, 734939900.00 ns, 44.8572 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 16384 op, 736421500.00 ns, 44.9476 us/op
+WorkloadActual   2: 16384 op, 748329100.00 ns, 45.6744 us/op
+WorkloadActual   3: 16384 op, 710953400.00 ns, 43.3932 us/op
+
+// AfterActualRun
+WorkloadResult   1: 16384 op, 736388000.00 ns, 44.9456 us/op
+WorkloadResult   2: 16384 op, 748295600.00 ns, 45.6723 us/op
+WorkloadResult   3: 16384 op, 710919900.00 ns, 43.3911 us/op
+// GC:  90 0 0 760236880 16384
+// Threading:  0 0 16384
+
+// AfterAll
+// Benchmark Process 21408 has exited with code 0.
+
+Mean = 44.670 us, StdErr = 0.673 us (1.51%), N = 3, StdDev = 1.165 us
+Min = 43.391 us, Q1 = 44.168 us, Median = 44.946 us, Q3 = 45.309 us, Max = 45.672 us
+IQR = 1.141 us, LowerFence = 42.457 us, UpperFence = 47.020 us
+ConfidenceInterval = [23.409 us; 65.930 us] (CI 99.9%), Margin = 21.261 us (47.60% of Mean)
+Skewness = -0.22, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 0 (0.0%) benchmark(s) to run. Estimated finish 2025-10-20 14:51 (0h 0m from now) **
+Successfully reverted power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: 高性能)
+// ***** BenchmarkRunner: Finish  *****
+
+// * Export *
+  BenchmarkDotNet.Artifacts\results\Catga.Benchmarks.CqrsPerformanceBenchmarks-report.csv
+  BenchmarkDotNet.Artifacts\results\Catga.Benchmarks.CqrsPerformanceBenchmarks-report-github.md
+  BenchmarkDotNet.Artifacts\results\Catga.Benchmarks.CqrsPerformanceBenchmarks-report.html
+
+// * Detailed results *
+CqrsPerformanceBenchmarks.'Send Command (single)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+Runtime = .NET 9.0.8 (9.0.825.36511), X64 RyuJIT AVX2; GC = Concurrent Workstation
+Mean = 8.914 us, StdErr = 0.192 us (2.15%), N = 3, StdDev = 0.332 us
+Min = 8.719 us, Q1 = 8.723 us, Median = 8.726 us, Q3 = 9.012 us, Max = 9.298 us
+IQR = 0.290 us, LowerFence = 8.288 us, UpperFence = 9.447 us
+ConfidenceInterval = [2.852 us; 14.977 us] (CI 99.9%), Margin = 6.062 us (68.00% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[8.706 us ; 9.311 us) | @@@
+---------------------------------------------------
+
+CqrsPerformanceBenchmarks.'Send Query (single)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+Runtime = .NET 9.0.8 (9.0.825.36511), X64 RyuJIT AVX2; GC = Concurrent Workstation
+Mean = 8.201 us, StdErr = 0.096 us (1.17%), N = 3, StdDev = 0.166 us
+Min = 8.038 us, Q1 = 8.117 us, Median = 8.196 us, Q3 = 8.283 us, Max = 8.370 us
+IQR = 0.166 us, LowerFence = 7.868 us, UpperFence = 8.532 us
+ConfidenceInterval = [5.172 us; 11.230 us] (CI 99.9%), Margin = 3.029 us (36.94% of Mean)
+Skewness = 0.03, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[7.966 us ; 8.268 us) | @@
+[8.268 us ; 8.521 us) | @
+---------------------------------------------------
+
+CqrsPerformanceBenchmarks.'Publish Event (single)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+Runtime = .NET 9.0.8 (9.0.825.36511), X64 RyuJIT AVX2; GC = Concurrent Workstation
+Mean = 492.670 ns, StdErr = 9.245 ns (1.88%), N = 3, StdDev = 16.012 ns
+Min = 476.404 ns, Q1 = 484.797 ns, Median = 493.189 ns, Q3 = 500.803 ns, Max = 508.416 ns
+IQR = 16.006 ns, LowerFence = 460.788 ns, UpperFence = 524.811 ns
+ConfidenceInterval = [200.547 ns; 784.793 ns] (CI 99.9%), Margin = 292.123 ns (59.29% of Mean)
+Skewness = -0.03, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[461.833 ns ; 486.231 ns) | @
+[486.231 ns ; 515.374 ns) | @@
+---------------------------------------------------
+
+CqrsPerformanceBenchmarks.'Send Command (batch 100)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+Runtime = .NET 9.0.8 (9.0.825.36511), X64 RyuJIT AVX2; GC = Concurrent Workstation
+Mean = 787.090 us, StdErr = 3.062 us (0.39%), N = 3, StdDev = 5.303 us
+Min = 781.626 us, Q1 = 784.527 us, Median = 787.428 us, Q3 = 789.822 us, Max = 792.215 us
+IQR = 5.295 us, LowerFence = 776.585 us, UpperFence = 797.764 us
+ConfidenceInterval = [690.346 us; 883.834 us] (CI 99.9%), Margin = 96.744 us (12.29% of Mean)
+Skewness = -0.06, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[776.800 us ; 797.041 us) | @@@
+---------------------------------------------------
+
+CqrsPerformanceBenchmarks.'Publish Event (batch 100)': Job-AQDBYZ(IterationCount=3, LaunchCount=1, WarmupCount=1)
+Runtime = .NET 9.0.8 (9.0.825.36511), X64 RyuJIT AVX2; GC = Concurrent Workstation
+Mean = 44.670 us, StdErr = 0.673 us (1.51%), N = 3, StdDev = 1.165 us
+Min = 43.391 us, Q1 = 44.168 us, Median = 44.946 us, Q3 = 45.309 us, Max = 45.672 us
+IQR = 1.141 us, LowerFence = 42.457 us, UpperFence = 47.020 us
+ConfidenceInterval = [23.409 us; 65.930 us] (CI 99.9%), Margin = 21.261 us (47.60% of Mean)
+Skewness = -0.22, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[42.331 us ; 44.248 us) | @
+[44.248 us ; 46.733 us) | @@
+---------------------------------------------------
+
+// * Summary *
+
+BenchmarkDotNet v0.14.0, Windows 10 (10.0.19045.6456/22H2/2022Update)
+AMD Ryzen 7 5800H with Radeon Graphics, 1 CPU, 16 logical and 8 physical cores
+.NET SDK 9.0.304
+  [Host]     : .NET 9.0.8 (9.0.825.36511), X64 RyuJIT AVX2
+  Job-AQDBYZ : .NET 9.0.8 (9.0.825.36511), X64 RyuJIT AVX2
+
+IterationCount=3  LaunchCount=1  WarmupCount=1  
+
+| Method                      | Mean         | Error       | StdDev      | Ratio | RatioSD | Gen0     | Gen1   | Allocated | Alloc Ratio |
+|---------------------------- |-------------:|------------:|------------:|------:|--------:|---------:|-------:|----------:|------------:|
+| 'Send Command (single)'     |   8,914.4 ns |  6,062.2 ns |   332.29 ns |  1.00 |    0.05 |   1.0376 |      - |    8784 B |        1.00 |
+| 'Send Query (single)'       |   8,201.1 ns |  3,029.3 ns |   166.04 ns |  0.92 |    0.03 |   1.0376 |      - |    8768 B |        1.00 |
+| 'Publish Event (single)'    |     492.7 ns |    292.1 ns |    16.01 ns |  0.06 |    0.00 |   0.0553 |      - |     464 B |        0.05 |
+| 'Send Command (batch 100)'  | 787,089.7 ns | 96,744.0 ns | 5,302.87 ns | 88.37 |    2.84 | 103.5156 | 0.9766 |  868024 B |       98.82 |
+| 'Publish Event (batch 100)' |  44,669.7 ns | 21,260.7 ns | 1,165.37 ns |  5.02 |    0.19 |   5.4932 |      - |   46401 B |        5.28 |
+
+// * Legends *
+  Mean        : Arithmetic mean of all measurements
+  Error       : Half of 99.9% confidence interval
+  StdDev      : Standard deviation of all measurements
+  Ratio       : Mean of the ratio distribution ([Current]/[Baseline])
+  RatioSD     : Standard deviation of the ratio distribution ([Current]/[Baseline])
+  Gen0        : GC Generation 0 collects per 1000 operations
+  Gen1        : GC Generation 1 collects per 1000 operations
+  Allocated   : Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)
+  Alloc Ratio : Allocated memory ratio distribution ([Current]/[Baseline])
+  1 ns        : 1 Nanosecond (0.000000001 sec)
+
+// * Diagnostic Output - MemoryDiagnoser *
+
+
+// ***** BenchmarkRunner: End *****
+Run time: 00:00:27 (27.4 sec), executed benchmarks: 5
+
+Global total time: 00:01:01 (61.55 sec), executed benchmarks: 5
+// * Artifacts cleanup *
+Artifacts cleanup is finished
+
+================================================================================
+Benchmark Summary
+================================================================================
+
+To view detailed results, open:
+  BenchmarkDotNet.Artifacts/results/*.html
+
+To run specific benchmark:
+  dotnet run -c Release --project benchmarks/Catga.Benchmarks --filter *DistributedId*
+  dotnet run -c Release --project benchmarks/Catga.Benchmarks --filter *ReflectionOptimization*
+  dotnet run -c Release --project benchmarks/Catga.Benchmarks --filter *MessageRouting*
+

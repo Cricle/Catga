@@ -22,7 +22,7 @@ public class QosVerificationTests
     public QosVerificationTests()
     {
         _logger = Substitute.For<ILogger<MockTransport>>();
-        
+
         // 使用真实的 JsonMessageSerializer 而非 Mock，确保测试真实性
         _serializer = new JsonMessageSerializer();
     }

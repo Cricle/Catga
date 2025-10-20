@@ -70,8 +70,11 @@ public class OptimizedRedisOutboxStore : IOutboxStore
             return Array.Empty<OutboxMessage>();
 
         // Batch get all messages (1 round-trip!)
-        // Optimize: Select is lazy, BatchGetAsync will enumerate once
-        var keys = messageIds.Select(id => GetKey((long)id));
+        // Materialize keys array to avoid lazy enumeration issues
+        var keys = new string[messageIds.Length];
+        for (int i = 0; i < messageIds.Length; i++)
+            keys[i] = GetKey((long)messageIds[i]);
+        
         var values = await _batchOps.BatchGetAsync(keys, cancellationToken);
 
         var messages = new List<OutboxMessage>();

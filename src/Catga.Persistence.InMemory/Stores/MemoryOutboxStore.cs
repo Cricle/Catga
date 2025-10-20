@@ -8,8 +8,8 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
 {
     public ValueTask AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(message);
-        MessageHelper.ValidateMessageId(message.MessageId, nameof(message.MessageId));
+        ValidationHelper.ValidateNotNull(message);
+        ValidationHelper.ValidateMessageId(message.MessageId);
         AddOrUpdateMessage(message.MessageId, message);
         return default;
     }
@@ -42,13 +42,11 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
     }
 
     public ValueTask DeletePublishedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
-    {
-        var cutoff = DateTime.UtcNow - retentionPeriod;
-        var keysToRemove = Messages.Where(kvp => kvp.Value.Status == OutboxStatus.Published && kvp.Value.PublishedAt.HasValue && kvp.Value.PublishedAt.Value < cutoff).Select(kvp => kvp.Key).ToList();
-        foreach (var key in keysToRemove)
-            Messages.TryRemove(key, out _);
-        return default;
-    }
+        => DeleteExpiredMessagesAsync(
+            retentionPeriod,
+            m => m.PublishedAt,
+            m => m.Status == OutboxStatus.Published,
+            cancellationToken);
 
     public int GetMessageCountByStatus(OutboxStatus status) => GetCountByPredicate(m => m.Status == status);
 }

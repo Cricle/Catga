@@ -63,8 +63,8 @@ public static class BatchOperationHelper
         Func<T, Task> operation,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(items);
-        ArgumentNullException.ThrowIfNull(operation);
+        ValidationHelper.ValidateNotNull(items);
+        ValidationHelper.ValidateNotNull(operation);
 
         // Convert to list for count optimization
         var itemList = items as IList<T> ?? items.ToList();
@@ -128,8 +128,8 @@ public static class BatchOperationHelper
         Func<T, TParam, Task> operation,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(items);
-        ArgumentNullException.ThrowIfNull(operation);
+        ValidationHelper.ValidateNotNull(items);
+        ValidationHelper.ValidateNotNull(operation);
 
         // Convert to list for count optimization
         var itemList = items as IList<T> ?? items.ToList();
@@ -188,8 +188,8 @@ public static class BatchOperationHelper
         Func<T, int, Task> operation,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(items);
-        ArgumentNullException.ThrowIfNull(operation);
+        ValidationHelper.ValidateNotNull(items);
+        ValidationHelper.ValidateNotNull(operation);
 
         // Convert to list for count optimization
         var itemList = items as IList<T> ?? items.ToList();

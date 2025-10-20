@@ -8,7 +8,7 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
 {
     public ValueTask<bool> TryLockMessageAsync(string messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
     {
-        MessageHelper.ValidateMessageId(messageId, nameof(messageId));
+        ValidationHelper.ValidateMessageId(messageId);
 
         if (TryGetMessage(messageId, out var existingMessage) && existingMessage != null)
         {
@@ -35,7 +35,7 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
 
     public ValueTask MarkAsProcessedAsync(InboxMessage message, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(message);
+        ValidationHelper.ValidateNotNull(message);
 
         if (TryGetMessage(message.MessageId, out var existing) && existing != null)
         {
@@ -76,13 +76,11 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
     }
 
     public ValueTask DeleteProcessedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
-    {
-        var cutoff = DateTime.UtcNow - retentionPeriod;
-        var keysToRemove = Messages.Where(kvp => kvp.Value.Status == InboxStatus.Processed && kvp.Value.ProcessedAt.HasValue && kvp.Value.ProcessedAt.Value < cutoff).Select(kvp => kvp.Key).ToList();
-        foreach (var key in keysToRemove)
-            Messages.TryRemove(key, out _);
-        return default;
-    }
+        => DeleteExpiredMessagesAsync(
+            retentionPeriod,
+            m => m.ProcessedAt,
+            m => m.Status == InboxStatus.Processed,
+            cancellationToken);
 
     public int GetMessageCountByStatus(InboxStatus status) => GetCountByPredicate(m => m.Status == status);
 }

@@ -39,7 +39,7 @@ namespace Catga.Serialization.MemoryPack;
 public class MemoryPackMessageSerializer : MessageSerializerBase
 {
     /// <summary>Create MemoryPack serializer with shared pool manager</summary>
-    public MemoryPackMessageSerializer() 
+    public MemoryPackMessageSerializer()
         : this(null) { }
 
     /// <summary>Create MemoryPack serializer with custom pool manager</summary>

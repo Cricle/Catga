@@ -62,12 +62,71 @@ public abstract class BaseMemoryStore<TMessage> where TMessage : class
         return result;
     }
 
-    protected Task DeleteExpiredMessagesAsync(TimeSpan retentionPeriod, Func<TMessage, bool> shouldDelete, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Delete messages by predicate (AOT-safe, thread-safe)
+    /// </summary>
+    /// <remarks>
+    /// Uses ConcurrentDictionary for thread safety.
+    /// AOT compatible - no reflection or dynamic code generation.
+    /// </remarks>
+    protected ValueTask DeleteMessagesByPredicateAsync(
+        Func<TMessage, bool> predicate,
+        CancellationToken cancellationToken = default)
     {
-        var keysToRemove = Messages.Where(kvp => shouldDelete(kvp.Value)).Select(kvp => kvp.Key).ToList();
+        var keysToRemove = Messages
+            .Where(kvp => predicate(kvp.Value))
+            .Select(kvp => kvp.Key)
+            .ToList();
+
         foreach (var key in keysToRemove)
             Messages.TryRemove(key, out _);
-        return Task.CompletedTask;
+
+        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// Delete expired messages based on timestamp and status filter (DRY helper)
+    /// </summary>
+    /// <param name="retentionPeriod">Retention period for messages</param>
+    /// <param name="timestampSelector">Function to extract timestamp from message</param>
+    /// <param name="statusFilter">Function to filter messages by status</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>ValueTask representing the async operation</returns>
+    /// <remarks>
+    /// <para>
+    /// DRY pattern for cleaning expired messages in Outbox/Inbox stores.
+    /// Eliminates ~8 lines of duplicate code per store.
+    /// </para>
+    /// <para>
+    /// AOT-safe: Uses delegates instead of reflection.
+    /// Thread-safe: Uses ConcurrentDictionary.
+    /// </para>
+    /// <para>
+    /// Usage:
+    /// <code>
+    /// // OutboxStore
+    /// await DeleteExpiredMessagesAsync(
+    ///     retentionPeriod,
+    ///     m => m.PublishedAt,
+    ///     m => m.Status == OutboxStatus.Published,
+    ///     cancellationToken);
+    /// </code>
+    /// </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected ValueTask DeleteExpiredMessagesAsync(
+        TimeSpan retentionPeriod,
+        Func<TMessage, DateTime?> timestampSelector,
+        Func<TMessage, bool> statusFilter,
+        CancellationToken cancellationToken = default)
+    {
+        var cutoff = DateTime.UtcNow - retentionPeriod;
+
+        return DeleteMessagesByPredicateAsync(
+            message => statusFilter(message) &&
+                       timestampSelector(message) is DateTime timestamp &&
+                       timestamp < cutoff,
+            cancellationToken);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -35,11 +35,11 @@ public class JsonMessageSerializer : MessageSerializerBase
     private readonly JsonSerializerOptions _options;
 
     /// <summary>Create JSON serializer with default options (uses reflection, not AOT-compatible)</summary>
-    public JsonMessageSerializer() 
+    public JsonMessageSerializer()
         : this(new JsonSerializerOptions { PropertyNameCaseInsensitive = true, WriteIndented = false }) { }
 
     /// <summary>Create JSON serializer with custom options (for AOT, provide options with JsonSerializerContext)</summary>
-    public JsonMessageSerializer(JsonSerializerOptions options) 
+    public JsonMessageSerializer(JsonSerializerOptions options)
         : this(options, null) { }
 
     /// <summary>Create JSON serializer with custom options and pool manager</summary>

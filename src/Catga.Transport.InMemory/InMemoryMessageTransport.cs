@@ -136,8 +136,10 @@ public class InMemoryMessageTransport : IMessageTransport
 
     public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
     {
-        foreach (var message in messages)
-            await PublishAsync(message, context, cancellationToken);
+        await BatchOperationHelper.ExecuteBatchAsync(
+            messages,
+            m => PublishAsync(m, context, cancellationToken),
+            cancellationToken);
     }
 
     public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class

@@ -253,8 +253,11 @@ public class BaseMemoryStoreTests
         public List<TestMessage> GetByPredicate(Func<TestMessage, bool> predicate, int maxCount, IComparer<TestMessage>? comparer = null)
             => GetMessagesByPredicate(predicate, maxCount, comparer);
         public new int GetCountByPredicate(Func<TestMessage, bool> predicate) => base.GetCountByPredicate(predicate);
-        public Task DeleteExpiredAsync(TimeSpan retentionPeriod, Func<TestMessage, bool> predicate, CancellationToken ct = default)
-            => DeleteExpiredMessagesAsync(retentionPeriod, predicate, ct);
+        public ValueTask DeleteExpiredAsync(TimeSpan retentionPeriod, Func<TestMessage, bool> predicate, CancellationToken ct = default)
+            => DeleteMessagesByPredicateAsync(predicate, ct);
+        
+        public ValueTask DeleteExpiredWithTimestampAsync(TimeSpan retentionPeriod, Func<TestMessage, DateTime?> timestampSelector, Func<TestMessage, bool> statusFilter, CancellationToken ct = default)
+            => DeleteExpiredMessagesAsync(retentionPeriod, timestampSelector, statusFilter, ct);
         public Task ExecuteIfExistsPublic(string id, Action<TestMessage> action) => ExecuteIfExistsAsync(id, action);
         public Task<TResult?> GetValueIfExistsPublic<TResult>(string id, Func<TestMessage, TResult?> selector)
             => GetValueIfExistsAsync(id, selector);

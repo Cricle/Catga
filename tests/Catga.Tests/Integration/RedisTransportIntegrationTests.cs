@@ -13,6 +13,8 @@ namespace Catga.Tests.Integration;
 /// Redis Transport 集成测试
 /// 使用 Testcontainers 启动真实的 Redis 容器进行测试
 /// </summary>
+[Trait("Category", "Integration")]
+[Trait("Requires", "Docker")]
 public class RedisTransportIntegrationTests : IAsyncLifetime
 {
     private RedisContainer? _redisContainer;
@@ -22,6 +24,13 @@ public class RedisTransportIntegrationTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // 跳过测试如果 Docker 未运行
+        if (!IsDockerRunning())
+        {
+            // Docker 未运行时，测试会在后续操作时自动失败并跳过
+            return;
+        }
+
         // 启动 Redis 容器
         _redisContainer = new RedisBuilder()
             .WithImage("redis:7-alpine")
@@ -47,6 +56,28 @@ public class RedisTransportIntegrationTests : IAsyncLifetime
 
         if (_redisContainer != null)
             await _redisContainer.DisposeAsync();
+    }
+
+    private static bool IsDockerRunning()
+    {
+        try
+        {
+            var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "docker",
+                Arguments = "info",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            process?.WaitForExit(5000);
+            return process?.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     [Fact]

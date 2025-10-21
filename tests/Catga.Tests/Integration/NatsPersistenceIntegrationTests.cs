@@ -19,6 +19,8 @@ namespace Catga.Tests.Integration;
 /// NATS Persistence 集成测试
 /// 测试 JetStream 的 Outbox、Inbox 和 EventStore
 /// </summary>
+[Trait("Category", "Integration")]
+[Trait("Requires", "Docker")]
 public class NatsPersistenceIntegrationTests : IAsyncLifetime
 {
     private IContainer? _natsContainer;
@@ -27,6 +29,13 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // 跳过测试如果 Docker 未运行
+        if (!IsDockerRunning())
+        {
+            // Docker 未运行时，测试会在后续操作时自动失败并跳过
+            return;
+        }
+
         // 启动 NATS 容器 (with JetStream enabled)
         _natsContainer = new ContainerBuilder()
             .WithImage("nats:latest")
@@ -62,6 +71,28 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
 
         if (_natsContainer != null)
             await _natsContainer.DisposeAsync();
+    }
+
+    private static bool IsDockerRunning()
+    {
+        try
+        {
+            var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "docker",
+                Arguments = "info",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            process?.WaitForExit(5000);
+            return process?.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     #region Outbox Tests

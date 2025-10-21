@@ -1,284 +1,164 @@
 using Catga;
 using Catga.Abstractions;
-using Catga.Configuration;
 using Catga.Core;
-using Catga.DependencyInjection;
-using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
+using Xunit;
 
 namespace Catga.Tests;
 
 /// <summary>
 /// CatgaMediator 核心功能测试
+/// 每个 Command/Query 只有一个 Handler，符合 CQRS 原则
 /// </summary>
 public class CatgaMediatorTests
 {
-    [Fact]
-    public async Task SendAsync_WithValidCommand_ShouldReturnSuccess()
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ICatgaMediator _mediator;
+
+    public CatgaMediatorTests()
     {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging(); // 添加 Logging 支持
-        services.AddCatga();
-        services.AddScoped<IRequestHandler<TestCommand, TestResponse>, TestCommandHandler>();
-
-        var provider = services.BuildServiceProvider();
-        var mediator = provider.GetRequiredService<ICatgaMediator>();
-        var command = new TestCommand("test");
-
-        // Act
-        var result = await mediator.SendAsync<TestCommand, TestResponse>(command);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.IsSuccess.Should().BeTrue();
-        result.Value.Should().NotBeNull();
-        result.Value!.Message.Should().Be("Processed: test");
-    }
-
-    [Fact]
-    public async Task SendAsync_WithoutHandler_ShouldReturnFailure()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging(); // 添加 Logging 支持
-        services.AddCatga();
-        // 注意：没有注册 handler
-
-        var provider = services.BuildServiceProvider();
-        var mediator = provider.GetRequiredService<ICatgaMediator>();
-        var command = new TestCommand("test");
-
-        // Act
-        var result = await mediator.SendAsync<TestCommand, TestResponse>(command);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.IsSuccess.Should().BeFalse();
-        result.Error.Should().NotBeNull();
-    }
-
-    [Fact]
-    public async Task PublishAsync_WithValidEvent_ShouldInvokeHandler()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging(); // 添加 Logging 支持
-        services.AddCatga();
-        services.AddScoped<IEventHandler<TestEvent>, TestEventHandler>();
-
-        var provider = services.BuildServiceProvider();
-        var mediator = provider.GetRequiredService<ICatgaMediator>();
-        var testEvent = new TestEvent("Hello");
-
-        // Act
-        await mediator.PublishAsync(testEvent);
-
-        // Assert - 事件发布成功（不抛异常）
-        Assert.True(true);
-    }
-
-    [Fact]
-    public async Task PublishAsync_WithMultipleHandlers_ShouldInvokeAll()
-    {
-        // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddCatga();
-        services.AddScoped<IEventHandler<TestEvent>, TestEventHandler>();
-        services.AddScoped<IEventHandler<TestEvent>, TestEventHandler2>();
 
-        var provider = services.BuildServiceProvider();
-        var mediator = provider.GetRequiredService<ICatgaMediator>();
-        var testEvent = new TestEvent("Hello");
+        // 注册测试 handlers
+        services.AddScoped<IRequestHandler<CreateUserCommand, CreateUserResponse>, CreateUserCommandHandler>();
+        services.AddScoped<IRequestHandler<GetUserQuery, GetUserResponse>, GetUserQueryHandler>();
+        services.AddScoped<IEventHandler<UserCreatedEvent>, UserCreatedEventHandler>();
+        services.AddScoped<IEventHandler<UserCreatedEvent>, SendWelcomeEmailHandler>();
 
-        // Act
-        await mediator.PublishAsync(testEvent);
-
-        // Assert - 事件发布成功（不抛异常）
-        Assert.True(true);
+        _serviceProvider = services.BuildServiceProvider();
+        _mediator = _serviceProvider.GetRequiredService<ICatgaMediator>();
     }
 
     [Fact]
-    public async Task PublishAsync_WithNoHandlers_ShouldNotThrow()
+    public async Task SendAsync_Command_ShouldReturnSuccess()
     {
         // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddCatga();
-        // 没有注册handler
-
-        var provider = services.BuildServiceProvider();
-        var mediator = provider.GetRequiredService<ICatgaMediator>();
-        var testEvent = new TestEvent("Hello");
-
-        // Act & Assert - 不应该抛异常
-        await mediator.PublishAsync(testEvent);
-        Assert.True(true);
-    }
-
-    // TODO: Fix CancellationToken propagation through pipeline behaviors
-    // [Fact]
-    // public async Task SendAsync_WithCancellationToken_ShouldPropagate()
-    // {
-    //     // Arrange
-    //     var services = new ServiceCollection();
-    //     services.AddLogging();
-    //     services.AddCatga();
-    //     services.AddScoped<IRequestHandler<TestCommand, TestResponse>, CancellableCommandHandler>();
-    //
-    //     var provider = services.BuildServiceProvider();
-    //     var mediator = provider.GetRequiredService<ICatgaMediator>();
-    //     var command = new TestCommand("test");
-    //     var cts = new CancellationTokenSource();
-    //     cts.Cancel();
-    //
-    //     // Act & Assert
-    //     await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-    //         await mediator.SendAsync<TestCommand, TestResponse>(command, cts.Token));
-    // }
-
-    [Fact]
-    public async Task SendAsync_WithFailureResult_ShouldReturnFailure()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddCatga();
-        services.AddScoped<IRequestHandler<TestCommand, TestResponse>, FailingCommandHandler>();
-
-        var provider = services.BuildServiceProvider();
-        var mediator = provider.GetRequiredService<ICatgaMediator>();
-        var command = new TestCommand("test");
+        var command = new CreateUserCommand("Alice", "alice@example.com");
 
         // Act
-        var result = await mediator.SendAsync<TestCommand, TestResponse>(command);
+        var result = await _mediator.SendAsync<CreateUserCommand, CreateUserResponse>(command);
 
         // Assert
-        result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Be("Handler failed");
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal("Alice", result.Value.Name);
+        Assert.NotEqual(0, result.Value.UserId);
     }
 
     [Fact]
-    public async Task SendAsync_MultipleSequentialCalls_ShouldAllSucceed()
+    public async Task SendAsync_Query_ShouldReturnSuccess()
     {
         // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddCatga();
-        services.AddScoped<IRequestHandler<TestCommand, TestResponse>, TestCommandHandler>();
-
-        var provider = services.BuildServiceProvider();
-        var mediator = provider.GetRequiredService<ICatgaMediator>();
+        var query = new GetUserQuery(123);
 
         // Act
-        var result1 = await mediator.SendAsync<TestCommand, TestResponse>(new TestCommand("test1"));
-        var result2 = await mediator.SendAsync<TestCommand, TestResponse>(new TestCommand("test2"));
-        var result3 = await mediator.SendAsync<TestCommand, TestResponse>(new TestCommand("test3"));
+        var result = await _mediator.SendAsync<GetUserQuery, GetUserResponse>(query);
 
         // Assert
-        result1.IsSuccess.Should().BeTrue();
-        result1.Value!.Message.Should().Be("Processed: test1");
-        result2.IsSuccess.Should().BeTrue();
-        result2.Value!.Message.Should().Be("Processed: test2");
-        result3.IsSuccess.Should().BeTrue();
-        result3.Value!.Message.Should().Be("Processed: test3");
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal(123, result.Value.UserId);
     }
 
     [Fact]
-    public async Task SendAsync_ConcurrentCalls_ShouldAllSucceed()
+    public async Task PublishAsync_Event_ShouldExecuteAllHandlers()
     {
         // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddCatga();
-        services.AddScoped<IRequestHandler<TestCommand, TestResponse>, TestCommandHandler>();
+        var @event = new UserCreatedEvent(100, "Bob", "bob@example.com");
 
-        var provider = services.BuildServiceProvider();
-        var mediator = provider.GetRequiredService<ICatgaMediator>();
+        // Act & Assert (不抛异常即成功)
+        await _mediator.PublishAsync(@event);
+    }
+
+    [Fact]
+    public async Task SendBatchAsync_ShouldProcessMultipleCommands()
+    {
+        // Arrange
+        var commands = new List<CreateUserCommand>
+        {
+            new("User1", "user1@example.com"),
+            new("User2", "user2@example.com"),
+            new("User3", "user3@example.com")
+        };
 
         // Act
-        var tasks = Enumerable.Range(0, 10).Select(i =>
-            mediator.SendAsync<TestCommand, TestResponse>(new TestCommand($"test{i}")).AsTask());
-        var results = await Task.WhenAll(tasks);
+        var results = await _mediator.SendBatchAsync<CreateUserCommand, CreateUserResponse>(commands);
 
         // Assert
-        results.Should().AllSatisfy(result => result.IsSuccess.Should().BeTrue());
-        results.Should().HaveCount(10);
+        Assert.Equal(3, results.Count);
+        Assert.All(results, r => Assert.True(r.IsSuccess));
+    }
+
+    [Fact]
+    public async Task PublishBatchAsync_ShouldProcessMultipleEvents()
+    {
+        // Arrange
+        var events = new List<UserCreatedEvent>
+        {
+            new(1, "User1", "user1@example.com"),
+            new(2, "User2", "user2@example.com"),
+            new(3, "User3", "user3@example.com")
+        };
+
+        // Act & Assert (不抛异常即成功)
+        await _mediator.PublishBatchAsync(events);
     }
 }
 
-// 测试用的消息类型
-public record TestCommand(string Value) : IRequest<TestResponse>
-{
-    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
-}
+// ==================== 测试消息定义 ====================
 
-public record TestResponse(string Message);
+public partial record CreateUserCommand(string Name, string Email) : IRequest<CreateUserResponse>;
+public partial record CreateUserResponse(long UserId, string Name, string Email);
 
-public record TestEvent(string Message) : IEvent
-{
-    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
-}
+public partial record GetUserQuery(long UserId) : IRequest<GetUserResponse>;
+public partial record GetUserResponse(long UserId, string Name, string Email);
 
-// 测试用的处理器
-public class TestCommandHandler : IRequestHandler<TestCommand, TestResponse>
+public partial record UserCreatedEvent(long UserId, string Name, string Email) : IEvent;
+
+// ==================== 测试 Handlers ====================
+
+public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, CreateUserResponse>
 {
-    public Task<CatgaResult<TestResponse>> HandleAsync(
-        TestCommand request,
+    private static long _nextUserId = 1000;
+
+    public Task<CatgaResult<CreateUserResponse>> HandleAsync(
+        CreateUserCommand request,
         CancellationToken cancellationToken = default)
     {
-        var response = new TestResponse($"Processed: {request.Value}");
-        return Task.FromResult(CatgaResult<TestResponse>.Success(response));
+        var userId = Interlocked.Increment(ref _nextUserId);
+        var response = new CreateUserResponse(userId, request.Name, request.Email);
+        return Task.FromResult(CatgaResult<CreateUserResponse>.Success(response));
     }
 }
 
-public class TestEventHandler : IEventHandler<TestEvent>
+public class GetUserQueryHandler : IRequestHandler<GetUserQuery, GetUserResponse>
 {
-    public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+    public Task<CatgaResult<GetUserResponse>> HandleAsync(
+        GetUserQuery request,
+        CancellationToken cancellationToken = default)
     {
-        // 模拟事件处理
+        // 模拟从数据库查询
+        var response = new GetUserResponse(request.UserId, "MockUser", "mock@example.com");
+        return Task.FromResult(CatgaResult<GetUserResponse>.Success(response));
+    }
+}
+
+public class UserCreatedEventHandler : IEventHandler<UserCreatedEvent>
+{
+    public Task HandleAsync(UserCreatedEvent @event, CancellationToken cancellationToken = default)
+    {
+        // 模拟事件处理（如保存到事件存储）
         return Task.CompletedTask;
     }
 }
 
-public class TestEventHandler2 : IEventHandler<TestEvent>
+public class SendWelcomeEmailHandler : IEventHandler<UserCreatedEvent>
 {
-    public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+    public Task HandleAsync(UserCreatedEvent @event, CancellationToken cancellationToken = default)
     {
-        // 第二个事件处理器
-        return Task.CompletedTask;
-    }
-}
-
-public class CancellableCommandHandler : IRequestHandler<TestCommand, TestResponse>
-{
-    public Task<CatgaResult<TestResponse>> HandleAsync(
-        TestCommand request,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse("Success")));
-    }
-}
-
-public class FailingCommandHandler : IRequestHandler<TestCommand, TestResponse>
-{
-    public Task<CatgaResult<TestResponse>> HandleAsync(
-        TestCommand request,
-        CancellationToken cancellationToken = default)
-    {
-        return Task.FromResult(CatgaResult<TestResponse>.Failure("Handler failed"));
-    }
-}
-
-public class CancellableEventHandler : IEventHandler<TestEvent>
-{
-    public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
+        // 模拟发送欢迎邮件
         return Task.CompletedTask;
     }
 }

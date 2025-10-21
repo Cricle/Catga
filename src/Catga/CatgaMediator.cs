@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
 using Catga.Abstractions;
 using Catga.Configuration;
@@ -101,7 +102,9 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
             var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(scopedProvider);
             if (handler == null)
             {
-                CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", "false"));
+                // ✅ Use TagList (stack allocated) instead of KeyValuePair (heap allocated)
+                var tags = new TagList { { "request_type", reqType }, { "success", "false" } };
+                CatgaDiagnostics.CommandsExecuted.Add(1, tags);
                 return CatgaResult<TResponse>.Failure($"No handler for {reqType}", new HandlerNotFoundException(reqType));
             }
 
@@ -110,7 +113,9 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         }
         catch (Exception ex)
         {
-            CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", "false"));
+            // ✅ Use TagList (stack allocated) instead of KeyValuePair (heap allocated)
+            var tags = new TagList { { "request_type", reqType }, { "success", "false" } };
+            CatgaDiagnostics.CommandsExecuted.Add(1, tags);
             RecordException(activity, ex);
             CatgaLog.CommandFailed(_logger, ex, reqType, message?.MessageId, ex.Message);
             return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PipelineFailed, isRetryable: false));
@@ -151,8 +156,12 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
         // Record metrics and logs
         var duration = GetElapsedMilliseconds(startTimestamp);
-        CatgaDiagnostics.CommandsExecuted.Add(1, new("request_type", reqType), new("success", result.IsSuccess.ToString()));
-        CatgaDiagnostics.CommandDuration.Record(duration, new KeyValuePair<string, object?>("request_type", reqType));
+        // ✅ Use TagList (stack allocated) to reduce GC pressure
+        var successValue = result.IsSuccess ? "true" : "false";  // Avoid ToString() allocation
+        var executedTags = new TagList { { "request_type", reqType }, { "success", successValue } };
+        var durationTags = new TagList { { "request_type", reqType } };
+        CatgaDiagnostics.CommandsExecuted.Add(1, executedTags);
+        CatgaDiagnostics.CommandDuration.Record(duration, durationTags);
         CatgaLog.CommandExecuted(_logger, reqType, message?.MessageId, duration, result.IsSuccess);
 
         // Set activity tags
@@ -236,7 +245,12 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
             return;
         }
 
-        CatgaDiagnostics.EventsPublished.Add(1, new("event_type", eventType), new("handler_count", handlerList.Count.ToString()));
+        // ✅ Use TagList (stack allocated) + avoid int.ToString() allocation
+        Span<char> countBuffer = stackalloc char[10];
+        handlerList.Count.TryFormat(countBuffer, out int charsWritten);
+        var handlerCount = new string(countBuffer[..charsWritten]);
+        var eventTags = new TagList { { "event_type", eventType }, { "handler_count", handlerCount } };
+        CatgaDiagnostics.EventsPublished.Add(1, eventTags);
 
         if (handlerList.Count == 1)
         {

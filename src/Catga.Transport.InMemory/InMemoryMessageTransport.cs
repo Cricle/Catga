@@ -70,7 +70,7 @@ public class InMemoryMessageTransport : IMessageTransport, IDisposable
                         try
                         {
                             await _circuitBreaker.ExecuteAsync(() =>
-                                ExecuteHandlersAsync(handlers, message, ctx).AsTask()).ConfigureAwait(false);
+                                ExecuteHandlersAsync(handlers, message, ctx)).ConfigureAwait(false);
                         }
                         catch (Exception ex)
                         {
@@ -89,7 +89,7 @@ public class InMemoryMessageTransport : IMessageTransport, IDisposable
                         using (await _concurrencyLimiter.AcquireAsync(cancellationToken).ConfigureAwait(false))
                         {
                             await _circuitBreaker.ExecuteAsync(() =>
-                                ExecuteHandlersAsync(handlers, message, ctx).AsTask()).ConfigureAwait(false);
+                                ExecuteHandlersAsync(handlers, message, ctx)).ConfigureAwait(false);
                         }
                     }
                     else
@@ -109,7 +109,7 @@ public class InMemoryMessageTransport : IMessageTransport, IDisposable
                     using (await _concurrencyLimiter.AcquireAsync(cancellationToken).ConfigureAwait(false))
                     {
                         await _circuitBreaker.ExecuteAsync(() =>
-                            ExecuteHandlersAsync(handlers, message, ctx).AsTask()).ConfigureAwait(false);
+                            ExecuteHandlersAsync(handlers, message, ctx)).ConfigureAwait(false);
                     }
 
                     if (ctx.MessageId.HasValue)
@@ -134,7 +134,7 @@ public class InMemoryMessageTransport : IMessageTransport, IDisposable
     }
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    private static async ValueTask ExecuteHandlersAsync<TMessage>(IReadOnlyList<Delegate> handlers, TMessage message, TransportContext context) where TMessage : class
+    private static async Task ExecuteHandlersAsync<TMessage>(IReadOnlyList<Delegate> handlers, TMessage message, TransportContext context) where TMessage : class
     {
         var tasks = new Task[handlers.Count];
         for (int i = 0; i < handlers.Count; i++)
@@ -155,7 +155,7 @@ public class InMemoryMessageTransport : IMessageTransport, IDisposable
                     try
                     {
                         await _circuitBreaker.ExecuteAsync(() =>
-                            ExecuteHandlersAsync(handlers, message, context).AsTask()).ConfigureAwait(false);
+                            ExecuteHandlersAsync(handlers, message, context)).ConfigureAwait(false);
                         return;
                     }
                     catch (CircuitBreakerOpenException)

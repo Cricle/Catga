@@ -126,12 +126,6 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
         inPendingSet.HasValue.Should().BeFalse("message should be removed from pending set");
     }
 
-    [Fact(Skip = "DeleteAsync method not available in current implementation")]
-    public async Task Outbox_DeleteAsync_ShouldRemoveMessage()
-    {
-        // TODO: Implement DeleteAsync in RedisOutboxPersistence if needed
-        await Task.CompletedTask;
-    }
 
     [Fact]
     public async Task Outbox_BatchOperations_ShouldHandleMultipleMessages()

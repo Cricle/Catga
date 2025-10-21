@@ -126,13 +126,6 @@ public class RedisTransportIntegrationTests : IAsyncLifetime
         receivedMessages[0].QoS.Should().Be(QualityOfService.AtLeastOnce);
     }
 
-    [Fact(Skip = "SendAsync request-reply pattern needs proper setup")]
-    public async Task SendAsync_RequestReply_ShouldWork()
-    {
-        // TODO: Implement full request-reply integration test
-        // This requires proper responder setup and async coordination
-        await Task.CompletedTask;
-    }
 
     [Fact]
     public async Task PublishBatchAsync_ShouldDeliverAllMessages()

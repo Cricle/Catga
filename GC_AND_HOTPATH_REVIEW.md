@@ -91,25 +91,48 @@ private void CheckState()  // 热路径：小而快
 
 ### 3. BatchOperationHelper (src/Catga/Core/BatchOperationHelper.cs)
 
-#### 当前状态
+#### 🔴 优化前问题
 ```csharp
-public static async Task ExecuteBatchAsync<T>(
-    IEnumerable<T> items,
-    Func<T, Task> operation,
-    int chunkSize = DefaultChunkSize)
+// ❌ List<Task> 默认容量 4，频繁扩容
+var tasks = new List<Task>();
+
+foreach (var item in items)  // 1000 项
 {
-    // 检查点：
-    // 1. Task[] 数组分配（已优化：固定大小分块）
-    // 2. items.ToList() 可能的额外分配
-    // 3. Func<T, Task> 委托分配
+    // List 扩容: 4→8→16→32→64→128→256→512→1024
+    tasks.Add(task);  // 多次重新分配内存
 }
 ```
 
+#### ✅ 优化后
+```csharp
+// ✅ 预分配准确容量，零扩容
+var tasks = items is ICollection<T> collection 
+    ? new List<Task>(collection.Count)  // 直接分配 1000 容量
+    : new List<Task>();
+
+foreach (var item in items)
+{
+    tasks.Add(task);  // 零扩容开销
+}
+```
+
+**改进点**：
+- ✅ `ICollection<T>` 检测（已知 Count）
+- ✅ 预分配准确容量
+- ✅ 避免 List 动态扩容
+- ✅ 减少内存碎片
+
+**性能提升**：
+- 大批量（1000+ 项）避免多次扩容分配
+- 减少内存拷贝（扩容时需要拷贝旧数组）
+- 降低 GC 压力（减少临时数组）
+
 **评估**：
 - ✅ 分块处理避免大数组分配
+- ✅ List 预分配已优化
 - ⚠️ `ToList()` 在 slow path 是必要的
 - ⚠️ `Func<T, Task>` 是调用方传入，无法避免
-- **结论**：当前设计合理，无需进一步优化
+- **结论**：已充分优化 ✅
 
 ---
 

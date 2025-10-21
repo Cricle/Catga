@@ -1,7 +1,7 @@
 # Catga.Testing 测试辅助库 - 开发总结
 
-**日期**: 2025-10-21  
-**状态**: ✅ 已完成并推送  
+**日期**: 2025-10-21
+**状态**: ✅ 已完成并推送
 **版本**: v1.0
 
 ---
@@ -335,8 +335,8 @@ public async Task Handler_ShouldProcessCorrectly()
 public async Task Event_ShouldBePlublished()
 {
     var eventHandler = new TrackableEventHandler<MyEvent>();
-    
-    fixture.ConfigureServices(s => 
+
+    fixture.ConfigureServices(s =>
         s.AddSingleton<IEventHandler<MyEvent>>(eventHandler));
 
     await fixture.Mediator.PublishAsync(new MyEvent());
@@ -431,8 +431,8 @@ public async Task Command_ShouldHandleError()
 
 ---
 
-**最后更新**: 2025-10-21  
-**版本**: v1.0  
-**Commit**: `d7f8923`  
+**最后更新**: 2025-10-21
+**版本**: v1.0
+**Commit**: `d7f8923`
 **状态**: ✅ 已完成并推送到 GitHub
 

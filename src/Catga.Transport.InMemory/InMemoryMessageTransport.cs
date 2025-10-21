@@ -41,14 +41,14 @@ public class InMemoryMessageTransport : IMessageTransport
             switch (qos)
             {
                 case QualityOfService.AtMostOnce:
-                    _ = FireAndForgetAsync(handlers, message, ctx, cancellationToken);
+                    FireAndForgetAsync(handlers, message, ctx, cancellationToken);
                     break;
 
                 case QualityOfService.AtLeastOnce:
                     if ((msg?.DeliveryMode ?? DeliveryMode.WaitForResult) == DeliveryMode.WaitForResult)
                         await ExecuteHandlersAsync(handlers, message, ctx);
                     else
-                        _ = DeliverWithRetryAsync(handlers, message, ctx, cancellationToken);
+                        DeliverWithRetryAsync(handlers, message, ctx, cancellationToken);
                     break;
 
                 case QualityOfService.ExactlyOnce:
@@ -91,27 +91,44 @@ public class InMemoryMessageTransport : IMessageTransport
         await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
-    private static async ValueTask FireAndForgetAsync<TMessage>(IReadOnlyList<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class
+    private static void FireAndForgetAsync<TMessage>(IReadOnlyList<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class
     {
-        try { await ExecuteHandlersAsync(handlers, message, context); }
-        catch { }
+        // 使用 Task.Run 确保在线程池中执行，避免同步上下文捕获
+        _ = Task.Run(async () =>
+        {
+            try 
+            { 
+                await ExecuteHandlersAsync(handlers, message, context).ConfigureAwait(false); 
+            }
+            catch 
+            { 
+                // Fire-and-forget: 吞掉异常，防止未观察异常崩溃进程
+            }
+        }, cancellationToken);
     }
 
-    private static async ValueTask DeliverWithRetryAsync<TMessage>(IReadOnlyList<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class
+    private static void DeliverWithRetryAsync<TMessage>(IReadOnlyList<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class
     {
-        for (int attempt = 0; attempt <= 3; attempt++)
+        // 使用 Task.Run 确保在线程池中执行
+        _ = Task.Run(async () =>
         {
-            try
+            for (int attempt = 0; attempt <= 3; attempt++)
             {
-                await ExecuteHandlersAsync(handlers, message, context);
-                return;
+                try
+                {
+                    await ExecuteHandlersAsync(handlers, message, context).ConfigureAwait(false);
+                    return;
+                }
+                catch when (attempt < 3)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(100 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
+                }
+                catch 
+                { 
+                    // 最后一次重试失败，吞掉异常
+                }
             }
-            catch when (attempt < 3)
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(100 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
-            }
-            catch { }
-        }
+        }, cancellationToken);
     }
 
     public Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class

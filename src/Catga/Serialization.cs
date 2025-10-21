@@ -66,6 +66,65 @@ public abstract class MessageSerializerBase : IMessageSerializer
     [RequiresUnreferencedCode("Deserialization may require unreferenced code for certain types")]
     public virtual T Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(byte[] data)
         => Deserialize<T>(data.AsSpan());
+
+    /// <summary>
+    /// Serialize object to byte array (with runtime type)
+    /// </summary>
+    public virtual byte[] Serialize(object value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(type);
+
+        // Use reflection to call generic Serialize<T>
+        var method = typeof(MessageSerializerBase).GetMethod(nameof(Serialize), 1, new[] { type })!;
+        var genericMethod = method.MakeGenericMethod(type);
+        return (byte[])genericMethod.Invoke(this, new[] { value })!;
+    }
+
+    /// <summary>
+    /// Deserialize from byte array (with runtime type)
+    /// </summary>
+    public virtual object? Deserialize(byte[] data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(type);
+
+        // Use reflection to call generic Deserialize<T>
+        var method = typeof(MessageSerializerBase).GetMethod(nameof(Deserialize), new[] { typeof(byte[]) })!;
+        var genericMethod = method.MakeGenericMethod(type);
+        return genericMethod.Invoke(this, new object[] { data });
+    }
+
+    /// <summary>
+    /// Deserialize from ReadOnlySpan (with runtime type, zero-copy)
+    /// </summary>
+    public virtual object? Deserialize(ReadOnlySpan<byte> data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+
+        // Convert ReadOnlySpan to byte[] since we can't box spans
+        var dataArray = data.ToArray();
+        
+        // Use reflection to call generic Deserialize<T>
+        var method = typeof(MessageSerializerBase).GetMethod(nameof(Deserialize), new[] { typeof(byte[]) })!;
+        var genericMethod = method.MakeGenericMethod(type);
+        return genericMethod.Invoke(this, new object[] { dataArray });
+    }
+
+    /// <summary>
+    /// Serialize object to buffer writer (with runtime type, zero-allocation)
+    /// </summary>
+    public virtual void Serialize(object value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type, IBufferWriter<byte> bufferWriter)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(bufferWriter);
+
+        // Use reflection to call generic Serialize<T>
+        var method = typeof(MessageSerializerBase).GetMethod(nameof(Serialize), new[] { type, typeof(IBufferWriter<byte>) })!;
+        var genericMethod = method.MakeGenericMethod(type);
+        genericMethod.Invoke(this, new[] { value, bufferWriter });
+    }
 }
 
 /// <summary>

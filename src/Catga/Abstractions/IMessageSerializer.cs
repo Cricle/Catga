@@ -40,4 +40,24 @@ public interface IMessageSerializer
     [RequiresDynamicCode("Serialization may use reflection for certain types")]
     [RequiresUnreferencedCode("Serialization may require unreferenced code for certain types")]
     void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value, IBufferWriter<byte> bufferWriter);
+
+    /// <summary>
+    /// Serialize object to byte array (with runtime type)
+    /// </summary>
+    byte[] Serialize(object value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type);
+
+    /// <summary>
+    /// Deserialize from byte array (with runtime type)
+    /// </summary>
+    object? Deserialize(byte[] data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type);
+
+    /// <summary>
+    /// Deserialize from ReadOnlySpan (with runtime type, zero-copy)
+    /// </summary>
+    object? Deserialize(ReadOnlySpan<byte> data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type);
+
+    /// <summary>
+    /// Serialize object to buffer writer (with runtime type, zero-allocation)
+    /// </summary>
+    void Serialize(object value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type, IBufferWriter<byte> bufferWriter);
 }

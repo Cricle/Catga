@@ -186,6 +186,7 @@ public static class BatchOperationHelper
     /// <summary>
     /// Execute batch operations with concurrency control using SemaphoreSlim.
     /// Useful when you need to limit concurrent operations regardless of batch size.
+    /// Optimized to avoid List resizing by pre-allocating when count is known.
     /// </summary>
     /// <param name="items">Items to process</param>
     /// <param name="operation">Operation to execute on each item</param>
@@ -204,7 +205,11 @@ public static class BatchOperationHelper
             throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0");
 
         using var semaphore = new SemaphoreSlim(maxConcurrency, maxConcurrency);
-        var tasks = new List<Task>();
+        
+        // Optimize: pre-allocate List if count is known to avoid resizing
+        var tasks = items is ICollection<T> collection 
+            ? new List<Task>(collection.Count)
+            : new List<Task>();
 
         foreach (var item in items)
         {

@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.Metrics;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.Idempotency;
@@ -55,7 +56,15 @@ public class InMemoryMessageTransport : IMessageTransport, IDisposable
 
         activity?.SetTag("catga.message.type", TypeNameCache<TMessage>.Name);
         activity?.SetTag("catga.message.id", ctx.MessageId);
-        activity?.SetTag("catga.qos", qos.ToString());
+        // ✅ Avoid enum boxing: use static string mapping
+        var qosString = qos switch
+        {
+            QualityOfService.AtMostOnce => "AtMostOnce",
+            QualityOfService.AtLeastOnce => "AtLeastOnce",
+            QualityOfService.ExactlyOnce => "ExactlyOnce",
+            _ => "Unknown"
+        };
+        activity?.SetTag("catga.qos", qosString);
 
         CatgaDiagnostics.IncrementActiveMessages();
         try
@@ -118,12 +127,21 @@ public class InMemoryMessageTransport : IMessageTransport, IDisposable
             }
 
             sw.Stop();
-            CatgaDiagnostics.MessagesPublished.Add(1, new KeyValuePair<string, object?>("message_type", TypeNameCache<TMessage>.Name), new KeyValuePair<string, object?>("qos", qos.ToString()));
-            CatgaDiagnostics.MessageDuration.Record(sw.Elapsed.TotalMilliseconds, new KeyValuePair<string, object?>("message_type", TypeNameCache<TMessage>.Name));
+            // ✅ Use TagList to avoid heap allocation
+            var publishedTags = new TagList
+            {
+                { "message_type", TypeNameCache<TMessage>.Name },
+                { "qos", qosString }
+            };
+            var durationTags = new TagList { { "message_type", TypeNameCache<TMessage>.Name } };
+            CatgaDiagnostics.MessagesPublished.Add(1, publishedTags);
+            CatgaDiagnostics.MessageDuration.Record(sw.Elapsed.TotalMilliseconds, durationTags);
         }
         catch (Exception ex)
         {
-            CatgaDiagnostics.MessagesFailed.Add(1, new KeyValuePair<string, object?>("message_type", TypeNameCache<TMessage>.Name));
+            // ✅ Use TagList to avoid heap allocation
+            var failedTags = new TagList { { "message_type", TypeNameCache<TMessage>.Name } };
+            CatgaDiagnostics.MessagesFailed.Add(1, failedTags);
             RecordException(activity, ex);
             throw;
         }

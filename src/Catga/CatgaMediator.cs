@@ -74,8 +74,12 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
                 activity.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);
                 if (message.CorrelationId.HasValue)
                 {
-                    activity.SetTag(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId.Value);
-                    activity.SetBaggage(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId.Value.ToString());
+                    var correlationId = message.CorrelationId.Value;
+                    activity.SetTag(CatgaActivitySource.Tags.CorrelationId, correlationId);
+                    // ✅ Avoid boxing: format long directly to stack-allocated buffer
+                    Span<char> buffer = stackalloc char[20];
+                    correlationId.TryFormat(buffer, out int written);
+                    activity.SetBaggage(CatgaActivitySource.Tags.CorrelationId, new string(buffer[..written]));
                 }
             }
         }
@@ -214,8 +218,12 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
                 activity.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);
                 if (message.CorrelationId.HasValue)
                 {
-                    activity.SetTag(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId.Value);
-                    activity.SetBaggage(CatgaActivitySource.Tags.CorrelationId, message.CorrelationId.Value.ToString());
+                    var correlationId = message.CorrelationId.Value;
+                    activity.SetTag(CatgaActivitySource.Tags.CorrelationId, correlationId);
+                    // ✅ Avoid boxing: format long directly to stack-allocated buffer
+                    Span<char> buffer = stackalloc char[20];
+                    correlationId.TryFormat(buffer, out int written);
+                    activity.SetBaggage(CatgaActivitySource.Tags.CorrelationId, new string(buffer[..written]));
                 }
             }
         }

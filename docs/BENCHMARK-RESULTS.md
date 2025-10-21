@@ -26,16 +26,16 @@ Catga framework performance benchmarks focusing on **business scenarios** rather
 
 | Operation | Mean | Allocated | Notes |
 |-----------|------|-----------|-------|
-| Send Command | TBD | TBD | Single command execution |
-| Send Query | TBD | TBD | Single query execution |
-| Publish Event | TBD | TBD | Single event publication |
+| Send Command | **462 ns** | 432 B | Single command execution |
+| Send Query | **446 ns** | 368 B | Single query execution |
+| Publish Event | **438 ns** | 432 B | Single event publication |
 
 ### Batch Performance (100 operations)
 
 | Operation | Mean | Allocated | Throughput |
 |-----------|------|-----------|------------|
-| Send Command (batch 100) | TBD | TBD | TBD ops/s |
-| Publish Event (batch 100) | TBD | TBD | TBD ops/s |
+| Send Command (batch 100) | **45.1 μs** | 32.8 KB | ~2.2M ops/s |
+| Publish Event (batch 100) | **41.7 μs** | 43.2 KB | ~2.4M ops/s |
 
 ---
 
@@ -45,16 +45,15 @@ Catga framework performance benchmarks focusing on **business scenarios** rather
 
 | Concurrency Level | Mean | Allocated | Throughput |
 |-------------------|------|-----------|------------|
-| 10 concurrent | TBD | TBD | TBD ops/s |
-| 100 concurrent | TBD | TBD | TBD ops/s |
-| 1000 concurrent | TBD | TBD | TBD ops/s |
+| 10 concurrent | **5.3 μs** | 3.5 KB | ~1.9M ops/s |
+| 100 concurrent | **54.2 μs** | 34.4 KB | ~1.8M ops/s |
+| 1000 concurrent | **519 μs** | 343.8 KB | ~1.9M ops/s |
 
 ### Concurrent Event Publishing
 
 | Concurrency Level | Mean | Allocated | Throughput |
 |-------------------|------|-----------|------------|
-| 10 concurrent | TBD | TBD | TBD ops/s |
-| 100 concurrent | TBD | TBD | TBD ops/s |
+| 100 concurrent events | **49.9 μs** | 46.2 KB | ~2.0M ops/s |
 
 ---
 
@@ -64,14 +63,14 @@ Catga framework performance benchmarks focusing on **business scenarios** rather
 
 | Scenario | Mean | Allocated | Description |
 |----------|------|-----------|-------------|
-| Create Order | TBD | TBD | Single order creation |
-| Process Payment | TBD | TBD | Payment processing |
-| Get Order | TBD | TBD | Order query |
-| Get User Orders | TBD | TBD | User orders aggregation |
-| Order Created Event | TBD | TBD | Event with 3 handlers |
-| Complete Order Flow | TBD | TBD | Command + Event flow |
-| E-Commerce Scenario | TBD | TBD | Order + Payment + Query |
-| High-Throughput Batch | TBD | TBD | 100 orders batch |
+| Create Order | **544 ns** | 440 B | Single order creation |
+| Process Payment | **626 ns** | 568 B | Payment processing |
+| Get Order | **509 ns** | 416 B | Order query |
+| Get User Orders | **512 ns** | 408 B | User orders aggregation |
+| Order Created Event | **914 ns** | 1032 B | Event with 3 handlers |
+| Complete Order Flow | **1.63 μs** | 1368 B | Command + Event flow |
+| E-Commerce Scenario | **1.80 μs** | 1112 B | Order + Payment + Query |
+| High-Throughput Batch | **52.7 μs** | 49.8 KB | 100 orders batch |
 
 ---
 
@@ -130,9 +129,9 @@ Catga framework performance benchmarks focusing on **business scenarios** rather
 ## 🔧 Test Configuration
 
 ### Hardware
-- **CPU**: TBD
-- **RAM**: TBD
-- **OS**: Windows 10/11
+- **CPU**: AMD Ryzen 7 5800H (8 physical, 16 logical cores)
+- **RAM**: 16GB+
+- **OS**: Windows 10 (10.0.19045.6456/22H2)
 
 ### Software
 - **.NET Runtime**: .NET 9.0

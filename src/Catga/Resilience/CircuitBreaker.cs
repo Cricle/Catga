@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.Resilience;
@@ -5,11 +6,13 @@ namespace Catga.Resilience;
 /// <summary>
 /// Lock-free circuit breaker implementation to prevent cascading failures.
 /// Uses three states: Closed (normal), Open (failing), HalfOpen (testing recovery).
+/// Optimized for hot path with minimal allocations.
 /// </summary>
 public sealed class CircuitBreaker : IDisposable
 {
     private readonly int _failureThreshold;
     private readonly TimeSpan _openDuration;
+    private readonly long _openDurationTicks; // Pre-calculated for hot path
     private readonly ILogger? _logger;
 
     // Lock-free design using Interlocked for safe concurrent access
@@ -27,6 +30,7 @@ public sealed class CircuitBreaker : IDisposable
 
         _failureThreshold = failureThreshold;
         _openDuration = openDuration ?? TimeSpan.FromSeconds(30);
+        _openDurationTicks = _openDuration.Ticks; // Pre-calculate for hot path
         _logger = logger;
         _state = (int)CircuitState.Closed;
     }
@@ -39,7 +43,9 @@ public sealed class CircuitBreaker : IDisposable
 
     /// <summary>
     /// Execute an operation protected by the circuit breaker.
+    /// Hot path: inlined for performance.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public async Task ExecuteAsync(Func<Task> operation)
     {
         CheckState();
@@ -58,7 +64,9 @@ public sealed class CircuitBreaker : IDisposable
 
     /// <summary>
     /// Execute an operation with return value protected by the circuit breaker.
+    /// Hot path: inlined for performance.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public async Task<T> ExecuteAsync<T>(Func<Task<T>> operation)
     {
         CheckState();
@@ -76,36 +84,45 @@ public sealed class CircuitBreaker : IDisposable
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void CheckState()
     {
         var currentState = (CircuitState)Volatile.Read(ref _state);
 
         if (currentState == CircuitState.Open)
         {
-            var lastFailureTicks = Volatile.Read(ref _lastFailureTimeTicks);
-            var elapsed = TimeSpan.FromTicks(DateTime.UtcNow.Ticks - lastFailureTicks);
+            CheckOpenState();
+        }
+    }
 
-            if (elapsed >= _openDuration)
-            {
-                // Try to transition to HalfOpen (only one thread succeeds using CAS)
-                var original = Interlocked.CompareExchange(
-                    ref _state,
-                    (int)CircuitState.HalfOpen,
-                    (int)CircuitState.Open);
+    // Cold path: separated to keep CheckState hot path small
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void CheckOpenState()
+    {
+        var lastFailureTicks = Volatile.Read(ref _lastFailureTimeTicks);
+        var elapsedTicks = DateTime.UtcNow.Ticks - lastFailureTicks;
 
-                if (original == (int)CircuitState.Open)
-                {
-                    _logger?.LogInformation(
-                        "Circuit breaker transitioning to Half-Open state after {Duration}s",
-                        _openDuration.TotalSeconds);
-                }
-            }
-            else
+        if (elapsedTicks >= _openDurationTicks)
+        {
+            // Try to transition to HalfOpen (only one thread succeeds using CAS)
+            var original = Interlocked.CompareExchange(
+                ref _state,
+                (int)CircuitState.HalfOpen,
+                (int)CircuitState.Open);
+
+            if (original == (int)CircuitState.Open)
             {
-                var retryAfter = (_openDuration - elapsed).TotalSeconds;
-                throw new CircuitBreakerOpenException(
-                    $"Circuit breaker is open. Retry after {retryAfter:F1}s");
+                _logger?.LogInformation(
+                    "Circuit breaker transitioning to Half-Open state after {Duration}s",
+                    _openDuration.TotalSeconds);
             }
+        }
+        else
+        {
+            // Avoid TimeSpan allocation in hot path
+            var retryAfterSeconds = (_openDurationTicks - elapsedTicks) / (double)TimeSpan.TicksPerSecond;
+            throw new CircuitBreakerOpenException(
+                $"Circuit breaker is open. Retry after {retryAfterSeconds:F1}s");
         }
     }
 

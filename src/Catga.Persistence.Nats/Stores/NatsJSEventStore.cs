@@ -13,25 +13,24 @@ namespace Catga.Persistence.Nats;
 /// High-performance NATS JetStream-based event store.
 /// Lock-free, zero reflection, optimized GC, thread-safe.
 /// </summary>
-public sealed class NatsJSEventStore : IEventStore
+public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
 {
-    private readonly INatsConnection _connection;
-    private readonly INatsJSContext _jetStream;
     private readonly IMessageSerializer _serializer;
-    private readonly string _streamName;
-    private volatile int _initializationState; // 0=未开始, 1=初始化中, 2=已完成
-    private volatile bool _streamCreated;
 
     public NatsJSEventStore(
         INatsConnection connection,
         IMessageSerializer serializer,
-        string streamName = "CATGA_EVENTS")
+        string streamName = "CATGA_EVENTS",
+        NatsJSStoreOptions? options = null)
+        : base(connection, streamName, options)
     {
-        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
-        _streamName = streamName ?? throw new ArgumentNullException(nameof(streamName));
-        _jetStream = new NatsJSContext(_connection);
     }
+
+    /// <summary>
+    /// Define subjects for event store stream
+    /// </summary>
+    protected override string[] GetSubjects() => new[] { $"{StreamName}.>" };
 
     public async ValueTask AppendAsync(
         string streamId,
@@ -42,7 +41,7 @@ public sealed class NatsJSEventStore : IEventStore
         if (string.IsNullOrEmpty(streamId)) throw new ArgumentException("Stream ID cannot be empty", nameof(streamId));
         if (events == null || events.Count == 0) throw new ArgumentException("Events cannot be null or empty", nameof(events));
 
-        await EnsureStreamCreatedAsync(cancellationToken);
+        await EnsureInitializedAsync(cancellationToken);
 
         // Check version for concurrency control
         if (expectedVersion >= 0)
@@ -55,7 +54,7 @@ public sealed class NatsJSEventStore : IEventStore
         }
 
         // Publish events to NATS JetStream (batch for efficiency)
-        var subject = $"{_streamName}.{streamId}";
+        var subject = $"{StreamName}.{streamId}";
 
         foreach (var @event in events)
         {
@@ -63,7 +62,7 @@ public sealed class NatsJSEventStore : IEventStore
             var data = _serializer.Serialize(@event);
 
             // Publish to JetStream
-            var ack = await _jetStream.PublishAsync(
+            var ack = await JetStream.PublishAsync(
                 subject,
                 data,
                 cancellationToken: cancellationToken);
@@ -84,16 +83,16 @@ public sealed class NatsJSEventStore : IEventStore
     {
         if (string.IsNullOrEmpty(streamId)) throw new ArgumentException("Stream ID cannot be empty", nameof(streamId));
 
-        await EnsureStreamCreatedAsync(cancellationToken);
+        await EnsureInitializedAsync(cancellationToken);
 
-        var subject = $"{_streamName}.{streamId}";
+        var subject = $"{StreamName}.{streamId}";
         var events = new List<StoredEvent>();
 
         try
         {
             // Create consumer for fetching events
-            var consumer = await _jetStream.CreateOrUpdateConsumerAsync(
-                _streamName,
+            var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                StreamName,
                 new ConsumerConfig
                 {
                     Name = $"temp-{streamId}-{Guid.NewGuid():N}",
@@ -157,15 +156,15 @@ public sealed class NatsJSEventStore : IEventStore
         string streamId,
         CancellationToken cancellationToken = default)
     {
-        await EnsureStreamCreatedAsync(cancellationToken);
+        await EnsureInitializedAsync(cancellationToken);
 
-        var subject = $"{_streamName}.{streamId}";
+        var subject = $"{StreamName}.{streamId}";
 
         try
         {
             // Create a lightweight consumer to fetch the last message for this subject
-            var consumer = await _jetStream.CreateOrUpdateConsumerAsync(
-                _streamName,
+            var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                StreamName,
                 new ConsumerConfig
                 {
                     Name = $"ver-{streamId}-{Guid.NewGuid():N}",
@@ -191,57 +190,5 @@ public sealed class NatsJSEventStore : IEventStore
         }
     }
 
-    /// <summary>
-    /// Lock-free stream initialization using CAS pattern
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private async ValueTask EnsureStreamCreatedAsync(CancellationToken cancellationToken)
-    {
-        // Fast path: 已初始化则直接返回（零开销）
-        if (_streamCreated) return;
-
-        // CAS: 只有一个线程能成功从 0 -> 1
-        if (Interlocked.CompareExchange(ref _initializationState, 1, 0) == 0)
-        {
-            try
-            {
-                try
-                {
-                    await _jetStream.CreateStreamAsync(
-                        new StreamConfig(
-                            _streamName,
-                            new[] { $"{_streamName}.>" }
-                        ),
-                        cancellationToken);
-                }
-                catch (NatsJSApiException ex) when (ex.Error.Code == 400 && ex.Error.Description?.Contains("already exists") == true)
-                {
-                    // Stream already exists, ignore
-                }
-
-                _streamCreated = true;
-                Interlocked.Exchange(ref _initializationState, 2);
-            }
-            catch
-            {
-                // 重置状态允许重试
-                Interlocked.Exchange(ref _initializationState, 0);
-                throw;
-            }
-        }
-        else
-        {
-            // 等待初始化完成（自旋等待）
-            var spinner = new SpinWait();
-            while (Volatile.Read(ref _initializationState) == 1)
-            {
-                spinner.SpinOnce();
-            }
-
-            // 如果初始化失败，抛出异常
-            if (!_streamCreated)
-                throw new InvalidOperationException("Stream initialization failed by another thread.");
-        }
-    }
 }
 

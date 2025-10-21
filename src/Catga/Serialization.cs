@@ -51,7 +51,7 @@ public abstract class MessageSerializerBase : IMessageSerializer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public virtual byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value)
     {
-        using var writer = MemoryPoolManager.RentBufferWriter(GetSizeEstimate(value));
+        using var writer = MemoryPoolManager.RentBufferWriter<byte>(GetSizeEstimate(value));
         Serialize(value, writer);
         return writer.WrittenSpan.ToArray();
     }
@@ -141,7 +141,7 @@ public static class SerializationHelper
         }
 
         // Large data: use ArrayPool
-        using var pooled = MemoryPoolManager.RentArray(base64Length);
+        using var pooled = MemoryPoolManager.RentArray<byte>(base64Length);
         if (Base64.EncodeToUtf8(data, pooled.Span, out _, out int pooledWritten) == OperationStatus.Done)
             return System.Text.Encoding.UTF8.GetString(pooled.Span[..pooledWritten]);
 

@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.DeadLetter;
@@ -42,8 +41,7 @@ public sealed class NatsJSDeadLetterQueue : NatsJSStoreBase, IDeadLetterQueue
     {
         await EnsureInitializedAsync(cancellationToken);
 
-        var messageBytes = _serializer.Serialize(message);
-        var messageJson = Encoding.UTF8.GetString(messageBytes);
+        var messageJson = _serializer.SerializeToJson(message);
 
         var dlqMessage = new DeadLetterMessage
         {

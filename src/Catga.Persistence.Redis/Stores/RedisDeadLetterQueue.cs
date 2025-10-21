@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.DeadLetter;
@@ -39,8 +38,7 @@ public sealed class RedisDeadLetterQueue : RedisStoreBase, IDeadLetterQueue
         var messageId = message.MessageId.ToString();
 
         // Serialize message to JSON string
-        var messageBytes = Serializer.Serialize(message);
-        var messageJson = Encoding.UTF8.GetString(messageBytes);
+        var messageJson = Serializer.SerializeToJson(message);
 
         var dlqMessage = new DeadLetterMessage
         {

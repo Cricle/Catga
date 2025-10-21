@@ -6,13 +6,35 @@ using Catga.Abstractions;
 using Catga.Core;
 using Catga.Idempotency;
 using Catga.Observability;
+using Catga.Resilience;
+using Microsoft.Extensions.Logging;
 
 namespace Catga.Transport;
 
 /// <summary>In-memory message transport (for testing, supports QoS)</summary>
-public class InMemoryMessageTransport : IMessageTransport
+public class InMemoryMessageTransport : IMessageTransport, IDisposable
 {
     private readonly InMemoryIdempotencyStore _idempotencyStore = new();
+    private readonly ConcurrencyLimiter _concurrencyLimiter;
+    private readonly CircuitBreaker _circuitBreaker;
+    private readonly ILogger<InMemoryMessageTransport>? _logger;
+
+    public InMemoryMessageTransport(
+        InMemoryTransportOptions? options = null,
+        ILogger<InMemoryMessageTransport>? logger = null)
+    {
+        _logger = logger;
+        options ??= new InMemoryTransportOptions();
+
+        _concurrencyLimiter = new ConcurrencyLimiter(
+            options.MaxConcurrency,
+            logger);
+
+        _circuitBreaker = new CircuitBreaker(
+            options.CircuitBreakerThreshold,
+            options.CircuitBreakerDuration,
+            logger);
+    }
 
     public string Name => "InMemory";
     public BatchTransportOptions? BatchOptions => null;
@@ -41,14 +63,40 @@ public class InMemoryMessageTransport : IMessageTransport
             switch (qos)
             {
                 case QualityOfService.AtMostOnce:
-                    FireAndForgetAsync(handlers, message, ctx, cancellationToken);
+                    // ✅ QoS 0: Best-effort delivery, wait for completion but no retry
+                    // Failure is discarded (logged but not thrown)
+                    using (await _concurrencyLimiter.AcquireAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        try
+                        {
+                            await _circuitBreaker.ExecuteAsync(() =>
+                                ExecuteHandlersAsync(handlers, message, ctx).AsTask()).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            // QoS 0: Discard on failure, log but don't throw
+                            _logger?.LogWarning(ex,
+                                "QoS 0 message processing failed, discarding. MessageId: {MessageId}, Type: {MessageType}",
+                                ctx.MessageId, TypeNameCache<TMessage>.Name);
+                        }
+                    }
                     break;
 
                 case QualityOfService.AtLeastOnce:
                     if ((msg?.DeliveryMode ?? DeliveryMode.WaitForResult) == DeliveryMode.WaitForResult)
-                        await ExecuteHandlersAsync(handlers, message, ctx);
+                    {
+                        // Synchronous mode: wait for result
+                        using (await _concurrencyLimiter.AcquireAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            await _circuitBreaker.ExecuteAsync(() =>
+                                ExecuteHandlersAsync(handlers, message, ctx).AsTask()).ConfigureAwait(false);
+                        }
+                    }
                     else
+                    {
+                        // Asynchronous mode: background retry
                         DeliverWithRetryAsync(handlers, message, ctx, cancellationToken);
+                    }
                     break;
 
                 case QualityOfService.ExactlyOnce:
@@ -58,7 +106,11 @@ public class InMemoryMessageTransport : IMessageTransport
                         return;
                     }
 
-                    await ExecuteHandlersAsync(handlers, message, ctx);
+                    using (await _concurrencyLimiter.AcquireAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        await _circuitBreaker.ExecuteAsync(() =>
+                            ExecuteHandlersAsync(handlers, message, ctx).AsTask()).ConfigureAwait(false);
+                    }
 
                     if (ctx.MessageId.HasValue)
                         _idempotencyStore.MarkAsProcessed(ctx.MessageId.Value);
@@ -91,41 +143,43 @@ public class InMemoryMessageTransport : IMessageTransport
         await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
-    private static void FireAndForgetAsync<TMessage>(IReadOnlyList<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class
+    private void DeliverWithRetryAsync<TMessage>(IReadOnlyList<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class
     {
-        // 使用 Task.Run 确保在线程池中执行，避免同步上下文捕获
+        // Use Task.Run to ensure execution on thread pool
         _ = Task.Run(async () =>
         {
-            try 
-            { 
-                await ExecuteHandlersAsync(handlers, message, context).ConfigureAwait(false); 
-            }
-            catch 
-            { 
-                // Fire-and-forget: 吞掉异常，防止未观察异常崩溃进程
-            }
-        }, cancellationToken);
-    }
-
-    private static void DeliverWithRetryAsync<TMessage>(IReadOnlyList<Delegate> handlers, TMessage message, TransportContext context, CancellationToken cancellationToken) where TMessage : class
-    {
-        // 使用 Task.Run 确保在线程池中执行
-        _ = Task.Run(async () =>
-        {
-            for (int attempt = 0; attempt <= 3; attempt++)
+            using (await _concurrencyLimiter.AcquireAsync(cancellationToken).ConfigureAwait(false))
             {
-                try
+                for (int attempt = 0; attempt <= 3; attempt++)
                 {
-                    await ExecuteHandlersAsync(handlers, message, context).ConfigureAwait(false);
-                    return;
-                }
-                catch when (attempt < 3)
-                {
-                    await Task.Delay(TimeSpan.FromMilliseconds(100 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
-                }
-                catch 
-                { 
-                    // 最后一次重试失败，吞掉异常
+                    try
+                    {
+                        await _circuitBreaker.ExecuteAsync(() =>
+                            ExecuteHandlersAsync(handlers, message, context).AsTask()).ConfigureAwait(false);
+                        return;
+                    }
+                    catch (CircuitBreakerOpenException)
+                    {
+                        // Circuit breaker is open, stop retrying
+                        _logger?.LogWarning(
+                            "Circuit breaker open, stopping retry for message {MessageId}",
+                            context.MessageId);
+                        break;
+                    }
+                    catch when (attempt < 3)
+                    {
+                        // Exponential backoff
+                        await Task.Delay(
+                            TimeSpan.FromMilliseconds(100 * Math.Pow(2, attempt)),
+                            cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Final retry failed, log and discard
+                        _logger?.LogError(ex,
+                            "Final retry failed for message {MessageId} after {Attempts} attempts",
+                            context.MessageId, attempt + 1);
+                    }
                 }
             }
         }, cancellationToken);
@@ -157,6 +211,25 @@ public class InMemoryMessageTransport : IMessageTransport
         activity?.AddTag("exception.type", ExceptionTypeCache.GetFullTypeName(ex));
         activity?.AddTag("exception.message", ex.Message);
     }
+
+    public void Dispose()
+    {
+        _concurrencyLimiter?.Dispose();
+        _circuitBreaker?.Dispose();
+    }
+}
+
+/// <summary>Options for configuring InMemory transport</summary>
+public class InMemoryTransportOptions
+{
+    /// <summary>Maximum number of concurrent message processing tasks (default: CPU cores * 2, min 16)</summary>
+    public int MaxConcurrency { get; set; } = Math.Max(Environment.ProcessorCount * 2, 16);
+
+    /// <summary>Circuit breaker: consecutive failure threshold before opening (default: 5)</summary>
+    public int CircuitBreakerThreshold { get; set; } = 5;
+
+    /// <summary>Circuit breaker: duration to keep circuit open (default: 30 seconds)</summary>
+    public TimeSpan CircuitBreakerDuration { get; set; } = TimeSpan.FromSeconds(30);
 }
 
 /// <summary>
@@ -171,7 +244,7 @@ internal static class TypedSubscribers<TMessage> where TMessage : class
     /// Get current handlers snapshot (lock-free read via Volatile)
     /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    public static ImmutableList<Delegate> GetHandlers() => 
+    public static ImmutableList<Delegate> GetHandlers() =>
         Volatile.Read(ref _handlers);
 
     /// <summary>
@@ -183,11 +256,11 @@ internal static class TypedSubscribers<TMessage> where TMessage : class
         {
             var current = Volatile.Read(ref _handlers);
             var next = current.Add(handler);
-            
+
             // CAS: if _handlers is still 'current', replace with 'next'
             if (Interlocked.CompareExchange(ref _handlers, next, current) == current)
                 return;
-            
+
             // Retry if another thread modified _handlers
         }
     }

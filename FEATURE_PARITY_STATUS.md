@@ -175,7 +175,7 @@ c22ded4 docs: Add feature parity status report
 InMemory、Redis、NATS 三个实现在**所有5个核心接口**上完全对等：
 1. ✅ IEventStore
 2. ✅ IOutboxStore
-3. ✅ IInboxStore  
+3. ✅ IInboxStore
 4. ✅ IDeadLetterQueue
 5. ✅ IIdempotencyStore
 

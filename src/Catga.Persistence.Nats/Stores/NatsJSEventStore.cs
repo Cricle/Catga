@@ -11,16 +11,16 @@ namespace Catga.Persistence.Nats;
 
 /// <summary>
 /// High-performance NATS JetStream-based event store.
-/// Zero reflection, optimized GC, thread-safe.
+/// Lock-free, zero reflection, optimized GC, thread-safe.
 /// </summary>
-public sealed class NatsJSEventStore : IEventStore, IAsyncDisposable
+public sealed class NatsJSEventStore : IEventStore
 {
     private readonly INatsConnection _connection;
     private readonly INatsJSContext _jetStream;
     private readonly IMessageSerializer _serializer;
     private readonly string _streamName;
-    private readonly SemaphoreSlim _streamLock = new(1, 1);
-    private bool _streamCreated;
+    private volatile int _initializationState; // 0=未开始, 1=初始化中, 2=已完成
+    private volatile bool _streamCreated;
 
     public NatsJSEventStore(
         INatsConnection connection,
@@ -191,42 +191,57 @@ public sealed class NatsJSEventStore : IEventStore, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Lock-free stream initialization using CAS pattern
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private async ValueTask EnsureStreamCreatedAsync(CancellationToken cancellationToken)
     {
+        // Fast path: 已初始化则直接返回（零开销）
         if (_streamCreated) return;
 
-        await _streamLock.WaitAsync(cancellationToken);
-        try
+        // CAS: 只有一个线程能成功从 0 -> 1
+        if (Interlocked.CompareExchange(ref _initializationState, 1, 0) == 0)
         {
-            if (_streamCreated) return;
-
             try
             {
-                await _jetStream.CreateStreamAsync(
-                    new StreamConfig(
-                        _streamName,
-                        new[] { $"{_streamName}.>" }
-                    ),
-                    cancellationToken);
+                try
+                {
+                    await _jetStream.CreateStreamAsync(
+                        new StreamConfig(
+                            _streamName,
+                            new[] { $"{_streamName}.>" }
+                        ),
+                        cancellationToken);
+                }
+                catch (NatsJSApiException ex) when (ex.Error.Code == 400 && ex.Error.Description?.Contains("already exists") == true)
+                {
+                    // Stream already exists, ignore
+                }
+
+                _streamCreated = true;
+                Interlocked.Exchange(ref _initializationState, 2);
             }
-            catch (NatsJSApiException ex) when (ex.Error.Code == 400 && ex.Error.Description?.Contains("already exists") == true)
+            catch
             {
-                // Stream already exists, ignore
+                // 重置状态允许重试
+                Interlocked.Exchange(ref _initializationState, 0);
+                throw;
+            }
+        }
+        else
+        {
+            // 等待初始化完成（自旋等待）
+            var spinner = new SpinWait();
+            while (Volatile.Read(ref _initializationState) == 1)
+            {
+                spinner.SpinOnce();
             }
 
-            _streamCreated = true;
+            // 如果初始化失败，抛出异常
+            if (!_streamCreated)
+                throw new InvalidOperationException("Stream initialization failed by another thread.");
         }
-        finally
-        {
-            _streamLock.Release();
-        }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        _streamLock?.Dispose();
-        await Task.CompletedTask;
     }
 }
 

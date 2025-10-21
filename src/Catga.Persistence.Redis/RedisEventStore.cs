@@ -13,7 +13,7 @@ namespace Catga.Persistence;
 /// See tests/Catga.Tests/Persistence/RedisEventStoreTests.cs for specification.
 /// </remarks>
 [Obsolete("This is a placeholder implementation. Full implementation is pending.", error: false)]
-public sealed class RedisEventStore : IEventStore, IDisposable
+public sealed class RedisEventStore : IEventStore
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly IMessageSerializer _serializer;
@@ -42,11 +42,6 @@ public sealed class RedisEventStore : IEventStore, IDisposable
     public ValueTask<bool> ExistsAsync(string streamId, CancellationToken cancellationToken = default)
     {
         throw new NotImplementedException("RedisEventStore implementation is pending. See TEST-IMPLEMENTATION-MAP.md for details.");
-    }
-
-    public void Dispose()
-    {
-        // Nothing to dispose in placeholder
     }
 }
 

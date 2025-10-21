@@ -33,7 +33,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         options ??= new CatgaOptions();
 
         // Circuit breaker for all operations
-        _circuitBreaker = new CircuitBreaker(
+            _circuitBreaker = new CircuitBreaker(
             options.CircuitBreakerThreshold ?? 5,
             options.CircuitBreakerDuration ?? TimeSpan.FromSeconds(30),
             logger);

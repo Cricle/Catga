@@ -89,10 +89,13 @@ public sealed class NatsJSDeadLetterQueue : NatsJSStoreBase, IDeadLetterQueue
 
                 try
                 {
-                    var dlqMsg = _serializer.Deserialize<DeadLetterMessage>(msg.Data);
-                    result.Add(dlqMsg);
-                    await msg.AckAsync(cancellationToken: cancellationToken);
-                    count++;
+                    if (msg.Data != null)
+                    {
+                        var dlqMsg = _serializer.Deserialize<DeadLetterMessage>(msg.Data);
+                        result.Add(dlqMsg);
+                        await msg.AckAsync(cancellationToken: cancellationToken);
+                        count++;
+                    }
                 }
                 catch
                 {

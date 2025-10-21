@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Catga.Abstractions;
@@ -25,7 +26,7 @@ public static class SerializationExtensions
     /// <param name="value">Value to serialize</param>
     /// <returns>UTF-8 JSON string</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string SerializeToJson<T>(this IMessageSerializer serializer, T value)
+    public static string SerializeToJson<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(this IMessageSerializer serializer, T value)
     {
         if (value == null) return string.Empty;
         
@@ -41,7 +42,7 @@ public static class SerializationExtensions
     /// <param name="json">UTF-8 JSON string</param>
     /// <returns>Deserialized object, or default if null/empty</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T? DeserializeFromJson<T>(this IMessageSerializer serializer, string json)
+    public static T? DeserializeFromJson<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(this IMessageSerializer serializer, string json)
     {
         if (string.IsNullOrEmpty(json)) return default;
         
@@ -57,7 +58,7 @@ public static class SerializationExtensions
     /// <param name="data">Byte array to deserialize</param>
     /// <param name="result">Deserialized result (output)</param>
     /// <returns>True if successful, false otherwise</returns>
-    public static bool TryDeserialize<T>(
+    public static bool TryDeserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         this IMessageSerializer serializer,
         byte[] data,
         out T? result)
@@ -88,7 +89,7 @@ public static class SerializationExtensions
     /// <param name="json">JSON string</param>
     /// <param name="result">Deserialized result (output)</param>
     /// <returns>True if successful, false otherwise</returns>
-    public static bool TryDeserializeFromJson<T>(
+    public static bool TryDeserializeFromJson<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         this IMessageSerializer serializer,
         string json,
         out T? result)

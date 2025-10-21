@@ -49,6 +49,8 @@ public abstract class MessageSerializerBase : IMessageSerializer
     /// Serialize to byte[] using pooled buffer
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [RequiresDynamicCode("Serialization may use reflection for certain types")]
+    [RequiresUnreferencedCode("Serialization may require unreferenced code for certain types")]
     public virtual byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value)
     {
         using var writer = MemoryPoolManager.RentBufferWriter<byte>(GetSizeEstimate(value));
@@ -60,6 +62,8 @@ public abstract class MessageSerializerBase : IMessageSerializer
     /// Deserialize from byte[]
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [RequiresDynamicCode("Deserialization may use reflection for certain types")]
+    [RequiresUnreferencedCode("Deserialization may require unreferenced code for certain types")]
     public virtual T Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(byte[] data)
         => Deserialize<T>(data.AsSpan());
 }

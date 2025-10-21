@@ -60,7 +60,7 @@ namespace Catga.SourceGenerator
 			sb.AppendLine("using System.Threading;");
 			sb.AppendLine("using System.Threading.Tasks;");
 			sb.AppendLine("using Microsoft.Extensions.DependencyInjection;");
-			sb.AppendLine("using Catga.Core;using Catga.Abstractions;");
+			sb.AppendLine("using Catga.Abstractions;");
 			sb.AppendLine("using Catga.Core;");
 			sb.AppendLine();
 			sb.AppendLine("namespace Catga.Generated");

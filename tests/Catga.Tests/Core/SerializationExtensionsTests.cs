@@ -168,10 +168,9 @@ public class SerializationExtensionsTests
         // Arrange
         var data = new byte[] { 1, 2, 3 };
         var mockSerializer = new Mock<IMessageSerializer>();
-        TestData? nullResult = null;
         mockSerializer
             .Setup(s => s.Deserialize<TestData>(data))
-            .Returns(nullResult);
+            .Returns<byte[]>(_ => default(TestData)!);
 
         // Act
         var success = mockSerializer.Object.TryDeserialize<TestData>(data, out var result);

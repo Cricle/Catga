@@ -26,6 +26,8 @@ public abstract class MessageSerializerBase : IMessageSerializer
     /// <summary>
     /// Serialize to buffer writer (zero-allocation)
     /// </summary>
+    [RequiresDynamicCode("Serialization may use reflection for certain types")]
+    [RequiresUnreferencedCode("Serialization may require unreferenced code for certain types")]
     public abstract void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         T value,
         IBufferWriter<byte> bufferWriter);
@@ -33,6 +35,8 @@ public abstract class MessageSerializerBase : IMessageSerializer
     /// <summary>
     /// Deserialize from span (zero-copy)
     /// </summary>
+    [RequiresDynamicCode("Deserialization may use reflection for certain types")]
+    [RequiresUnreferencedCode("Deserialization may require unreferenced code for certain types")]
     public abstract T Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         ReadOnlySpan<byte> data);
 

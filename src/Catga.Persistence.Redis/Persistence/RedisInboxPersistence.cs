@@ -8,12 +8,9 @@ namespace Catga.Persistence.Redis.Persistence;
 /// <summary>
 /// Redis Inbox 持久化存储 - 专注于存储，不涉及传输
 /// </summary>
-public class RedisInboxPersistence : IInboxStore
+public class RedisInboxPersistence : RedisStoreBase, IInboxStore
 {
-    private readonly IConnectionMultiplexer _redis;
-    private readonly IMessageSerializer _serializer;
     private readonly ILogger<RedisInboxPersistence> _logger;
-    private readonly string _keyPrefix;
 
     // Lua 脚本：原子化尝试锁定消息
     private const string TryLockScript = @"
@@ -37,11 +34,9 @@ public class RedisInboxPersistence : IInboxStore
         IMessageSerializer serializer,
         ILogger<RedisInboxPersistence> logger,
         RedisInboxOptions? options = null)
+        : base(redis, serializer, options?.KeyPrefix ?? "inbox")
     {
-        _redis = redis;
-        _serializer = serializer;
         _logger = logger;
-        _keyPrefix = options?.KeyPrefix ?? "inbox";
     }
 
     public async ValueTask<bool> TryLockMessageAsync(
@@ -49,7 +44,7 @@ public class RedisInboxPersistence : IInboxStore
         TimeSpan lockDuration,
         CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
+        var db = GetDatabase();
         var key = GetMessageKey(messageId);
 
         // 创建锁定消息
@@ -62,7 +57,7 @@ public class RedisInboxPersistence : IInboxStore
             LockExpiresAt = DateTime.UtcNow.Add(lockDuration)
         };
 
-        var data = _serializer.Serialize(message);
+        var data = Serializer.Serialize(message);
 
         // 使用 Lua 脚本原子化检查并锁定
         var result = await db.ScriptEvaluateAsync(
@@ -93,14 +88,14 @@ public class RedisInboxPersistence : IInboxStore
         InboxMessage message,
         CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
+        var db = GetDatabase();
         var key = GetMessageKey(message.MessageId);
 
         message.Status = InboxStatus.Processed;
         message.ProcessedAt = DateTime.UtcNow;
         message.LockExpiresAt = null;
 
-        var data = _serializer.Serialize(message);
+        var data = Serializer.Serialize(message);
 
         // 保存已处理消息（保留 24 小时用于幂等性检查）
         await db.StringSetAsync(key, data, TimeSpan.FromHours(24));
@@ -112,7 +107,7 @@ public class RedisInboxPersistence : IInboxStore
         long messageId,
         CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
+        var db = GetDatabase();
         var key = GetMessageKey(messageId);
 
         return await db.KeyExistsAsync(key);
@@ -122,14 +117,14 @@ public class RedisInboxPersistence : IInboxStore
         long messageId,
         CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
+        var db = GetDatabase();
         var key = GetMessageKey(messageId);
 
         var data = await db.StringGetAsync(key);
         if (!data.HasValue)
             return null;
 
-        var message = _serializer.Deserialize<InboxMessage>(data!);
+        var message = Serializer.Deserialize<InboxMessage>(data!);
         return message?.ProcessingResult;
     }
 
@@ -137,7 +132,7 @@ public class RedisInboxPersistence : IInboxStore
         long messageId,
         CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
+        var db = GetDatabase();
         var key = GetMessageKey(messageId);
 
         // 删除锁定
@@ -155,7 +150,7 @@ public class RedisInboxPersistence : IInboxStore
         return default;
     }
 
-    private string GetMessageKey(long messageId) => $"{_keyPrefix}:msg:{messageId}";
+    private string GetMessageKey(long messageId) => $"{KeyPrefix}:msg:{messageId}";
 }
 
 /// <summary>

@@ -3,7 +3,7 @@ using Catga.EventSourcing;
 using Catga.Core;
 using StackExchange.Redis;
 
-namespace Catga.Persistence;
+namespace Catga.Persistence.Redis;
 
 /// <summary>
 /// Redis-based event store implementation (PLACEHOLDER - TODO: Full Implementation)
@@ -13,15 +13,11 @@ namespace Catga.Persistence;
 /// See tests/Catga.Tests/Persistence/RedisEventStoreTests.cs for specification.
 /// </remarks>
 [Obsolete("This is a placeholder implementation. Full implementation is pending.", error: false)]
-public sealed class RedisEventStore : IEventStore
+public sealed class RedisEventStore : RedisStoreBase, IEventStore
 {
-    private readonly IConnectionMultiplexer _redis;
-    private readonly IMessageSerializer _serializer;
-
     public RedisEventStore(IConnectionMultiplexer redis, IMessageSerializer serializer)
+        : base(redis, serializer, "events:")
     {
-        _redis = redis ?? throw new ArgumentNullException(nameof(redis));
-        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
     }
 
     public ValueTask AppendAsync(string streamId, IReadOnlyList<IEvent> events, long expectedVersion = -1, CancellationToken cancellationToken = default)

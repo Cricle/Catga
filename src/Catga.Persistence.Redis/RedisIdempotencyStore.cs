@@ -9,12 +9,9 @@ namespace Catga.Persistence.Redis;
 /// <summary>
 /// Redis idempotency store - production-grade high-performance (uses injected IMessageSerializer)
 /// </summary>
-public class RedisIdempotencyStore : IIdempotencyStore
+public class RedisIdempotencyStore : RedisStoreBase, IIdempotencyStore
 {
-    private readonly IConnectionMultiplexer _redis;
-    private readonly IMessageSerializer _serializer;
     private readonly ILogger<RedisIdempotencyStore> _logger;
-    private readonly string _keyPrefix;
     private readonly TimeSpan _defaultExpiry;
 
     public RedisIdempotencyStore(
@@ -22,19 +19,17 @@ public class RedisIdempotencyStore : IIdempotencyStore
         IMessageSerializer serializer,
         ILogger<RedisIdempotencyStore> logger,
         RedisIdempotencyOptions? options = null)
+        : base(redis, serializer, options?.KeyPrefix ?? "idempotency:")
     {
-        _redis = redis;
-        _serializer = serializer;
         _logger = logger;
-        _keyPrefix = options?.KeyPrefix ?? "idempotency:";
         _defaultExpiry = options?.Expiry ?? TimeSpan.FromHours(24);
     }
 
     /// <inheritdoc/>
     public async Task<bool> HasBeenProcessedAsync(long messageId, CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
-        var key = GetKey(messageId);
+        var db = GetDatabase();
+        var key = BuildKey(messageId);
         return await db.KeyExistsAsync(key);
     }
 
@@ -44,18 +39,18 @@ public class RedisIdempotencyStore : IIdempotencyStore
         TResult? result = default,
         CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
-        var key = GetKey(messageId);
+        var db = GetDatabase();
+        var key = BuildKey(messageId);
 
         var entry = new IdempotencyEntry
         {
             MessageId = messageId,
             ProcessedAt = DateTime.UtcNow,
             ResultType = result?.GetType().AssemblyQualifiedName,
-            ResultBytes = result != null ? _serializer.Serialize(result) : null
+            ResultBytes = result != null ? Serializer.Serialize(result) : null
         };
 
-        var bytes = _serializer.Serialize(entry);
+        var bytes = Serializer.Serialize(entry);
         await db.StringSetAsync(key, bytes, _defaultExpiry);
 
         _logger.LogDebug("Marked message {MessageId} as processed in Redis", messageId);
@@ -66,8 +61,8 @@ public class RedisIdempotencyStore : IIdempotencyStore
         long messageId,
         CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
-        var key = GetKey(messageId);
+        var db = GetDatabase();
+        var key = BuildKey(messageId);
 
         var bytes = await db.StringGetAsync(key);
         if (!bytes.HasValue)
@@ -75,7 +70,7 @@ public class RedisIdempotencyStore : IIdempotencyStore
             return default;
         }
 
-        var entry = _serializer.Deserialize<IdempotencyEntry>((byte[])bytes!);
+        var entry = Serializer.Deserialize<IdempotencyEntry>((byte[])bytes!);
         if (entry?.ResultBytes == null)
         {
             return default;
@@ -90,26 +85,7 @@ public class RedisIdempotencyStore : IIdempotencyStore
             return default;
         }
 
-        return _serializer.Deserialize<TResult>(entry.ResultBytes);
-    }
-
-    // Optimize: Use Span to avoid string interpolation allocation
-    private string GetKey(long messageId)
-    {
-        // For long IDs, convert to string with stack allocation
-        Span<char> idBuffer = stackalloc char[20];  // long max = 19 digits + sign
-        messageId.TryFormat(idBuffer, out var idLen);
-
-        if (_keyPrefix.Length + idLen <= 256)
-        {
-            Span<char> buffer = stackalloc char[256];
-            _keyPrefix.AsSpan().CopyTo(buffer);
-            idBuffer[..idLen].CopyTo(buffer[_keyPrefix.Length..]);
-            return new string(buffer[..(_keyPrefix.Length + idLen)]);
-        }
-
-        // Fallback for large keys
-        return $"{_keyPrefix}{messageId}";
+        return Serializer.Deserialize<TResult>(entry.ResultBytes);
     }
 
     /// <summary>

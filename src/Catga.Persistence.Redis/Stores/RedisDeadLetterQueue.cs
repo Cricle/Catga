@@ -14,10 +14,8 @@ namespace Catga.Persistence.Redis;
 /// Lock-free: Redis is single-threaded, all operations are atomic.
 /// Uses Redis List for queue and Hash for message details.
 /// </remarks>
-public sealed class RedisDeadLetterQueue : IDeadLetterQueue
+public sealed class RedisDeadLetterQueue : RedisStoreBase, IDeadLetterQueue
 {
-    private readonly IConnectionMultiplexer _redis;
-    private readonly IMessageSerializer _serializer;
     private readonly string _listKey;
     private readonly string _hashKeyPrefix;
 
@@ -25,9 +23,8 @@ public sealed class RedisDeadLetterQueue : IDeadLetterQueue
         IConnectionMultiplexer redis,
         IMessageSerializer serializer,
         string keyPrefix = "dlq:")
+        : base(redis, serializer, keyPrefix)
     {
-        _redis = redis ?? throw new ArgumentNullException(nameof(redis));
-        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         _listKey = $"{keyPrefix}messages";
         _hashKeyPrefix = $"{keyPrefix}details:";
     }
@@ -38,11 +35,11 @@ public sealed class RedisDeadLetterQueue : IDeadLetterQueue
         int retryCount,
         CancellationToken cancellationToken = default) where TMessage : IMessage
     {
-        var db = _redis.GetDatabase();
+        var db = GetDatabase();
         var messageId = message.MessageId.ToString();
 
         // Serialize message to JSON string
-        var messageBytes = _serializer.Serialize(message);
+        var messageBytes = Serializer.Serialize(message);
         var messageJson = Encoding.UTF8.GetString(messageBytes);
 
         var dlqMessage = new DeadLetterMessage
@@ -78,7 +75,7 @@ public sealed class RedisDeadLetterQueue : IDeadLetterQueue
         int maxCount = 100,
         CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
+        var db = GetDatabase();
         var messageIds = await db.ListRangeAsync(_listKey, 0, maxCount - 1);
 
         var result = new List<DeadLetterMessage>(messageIds.Length);

@@ -28,13 +28,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Catga\Catga.csproj" />
-    <ProjectReference Include="..\Catga.Serialization.Json\Catga.Serialization.Json.csproj" />
-    <ProjectReference Include="..\Catga.Transport.InMemory\Catga.Transport.InMemory.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
-    <PackageReference Include="ZiggyCreatures.FusionCache" />
   </ItemGroup>
 
 </Project>

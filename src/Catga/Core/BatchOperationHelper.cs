@@ -205,9 +205,9 @@ public static class BatchOperationHelper
             throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0");
 
         using var semaphore = new SemaphoreSlim(maxConcurrency, maxConcurrency);
-        
+
         // Optimize: pre-allocate List if count is known to avoid resizing
-        var tasks = items is ICollection<T> collection 
+        var tasks = items is ICollection<T> collection
             ? new List<Task>(collection.Count)
             : new List<Task>();
 

@@ -16,7 +16,7 @@
 #### 🔴 优化前问题
 ```csharp
 // ❌ 每次 Acquire 分配一个 class 对象
-private sealed class SemaphoreReleaser : IDisposable  
+private sealed class SemaphoreReleaser : IDisposable
 {
     // 每次调用分配 ~24-48 字节
 }
@@ -106,7 +106,7 @@ foreach (var item in items)  // 1000 项
 #### ✅ 优化后
 ```csharp
 // ✅ 预分配准确容量，零扩容
-var tasks = items is ICollection<T> collection 
+var tasks = items is ICollection<T> collection
     ? new List<Task>(collection.Count)  // 直接分配 1000 容量
     : new List<Task>();
 
@@ -143,17 +143,17 @@ foreach (var item in items)
 public async Task PublishAsync<TMessage>(...)
 {
     // 热路径检查点：
-    
+
     // ✅ using var activity - 已优化（只在有监听器时创建）
     using var activity = CatgaDiagnostics.ActivitySource.StartActivity(...);
-    
+
     // ✅ using 语句 - 零分配（struct SemaphoreReleaser）
     using (await _concurrencyLimiter.AcquireAsync(...))
     {
         // ✅ await _circuitBreaker.ExecuteAsync - 内联优化
         await _circuitBreaker.ExecuteAsync(...);
     }
-    
+
     // ⚠️ lambda 表达式分配
     () => ExecuteHandlersAsync(handlers, message, ctx).AsTask()
     // 分析：每次调用分配闭包，但难以避免且影响有限
@@ -185,11 +185,11 @@ public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(..
     // ✅ ValueTask - 零分配（当同步完成时）
     // ✅ 缓存 TypeNameCache<T> - 避免反射
     // ✅ activity 懒创建 - 只在需要时
-    
+
     // ⚠️ CreateScope() - 每次请求分配
     using var scope = _serviceProvider.CreateScope();
     // 分析：DI 容器必须，无法避免
-    
+
     // 事件发布路径：
     // ✅ 智能分发策略（单个/小批量/大批量/并发限制）
     // ✅ 使用分块 BatchOperationHelper
@@ -263,7 +263,7 @@ public async ValueTask<CatgaResult<TResponse>> SendAsync<TRequest, TResponse>(..
 #### 1. InMemoryMessageTransport Lambda 优化
 ```csharp
 // 当前（有闭包分配）：
-await _circuitBreaker.ExecuteAsync(() => 
+await _circuitBreaker.ExecuteAsync(() =>
     ExecuteHandlersAsync(handlers, message, ctx).AsTask());
 
 // 可能优化：引入 ExecuteHandlersTaskAsync 直接返回 Task
@@ -336,7 +336,7 @@ public async ValueTask ExecuteValueTaskAsync(Func<ValueTask> operation)
 
 ---
 
-**审查日期**: 2025-10-21  
-**审查人**: AI Code Reviewer  
+**审查日期**: 2025-10-21
+**审查人**: AI Code Reviewer
 **版本**: v1.0
 

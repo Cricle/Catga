@@ -45,12 +45,12 @@
 ## 🚀 高级主题
 
 ### 性能优化
-- [性能基准测试](./BENCHMARK-RESULTS.md) - 业务场景性能数据
+- [性能基准测试](./BENCHMARK-RESULTS.md) - **纳秒级延迟 (400-600ns), 2M+ QPS 吞吐量**
 - [内存优化计划](./guides/memory-optimization-plan.md) - 零分配优化
 - [内存优化指南](./guides/memory-optimization-guide.md) - 实战技巧
 - [性能报告](./PERFORMANCE-REPORT.md) - 详细性能分析
-- [GC 和热路径优化](./development/GC_AND_HOTPATH_REVIEW.md) - 零分配设计
-- [线程池管理](./development/THREAD_POOL_MANAGEMENT_PLAN.md) - 并发控制策略
+- [GC 和热路径优化](./development/GC_AND_HOTPATH_REVIEW.md) - TagList 栈分配, Span 优化
+- [线程池管理](./development/THREAD_POOL_MANAGEMENT_PLAN.md) - 并发限制, 熔断器, 批处理
 
 ### Native AOT
 - [AOT 部署](./articles/aot-deployment.md) - Native AOT 部署

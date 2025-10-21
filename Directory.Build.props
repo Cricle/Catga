@@ -47,6 +47,9 @@
     <!-- 确定性构建 (可重现构建) -->
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- 启用中央包版本管理 -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
   <!-- README 和 Icon 文件包含 (如果项目根目录存在) -->
@@ -56,11 +59,6 @@
   <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)icon.png')">
     <None Include="$(MSBuildThisFileDirectory)icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
-
-  <!-- 启用中央包管理 -->
-  <PropertyGroup>
-    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-  </PropertyGroup>
 
 </Project>
 

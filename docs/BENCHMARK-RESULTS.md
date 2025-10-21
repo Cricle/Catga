@@ -1,8 +1,8 @@
 # Catga Performance Benchmark Results
 
-**Test Date**: 2025-10-21  
-**Test Environment**: .NET 9.0, Release Configuration  
-**BenchmarkDotNet**: v0.14.0  
+**Test Date**: 2025-10-21
+**Test Environment**: .NET 9.0, Release Configuration
+**BenchmarkDotNet**: v0.14.0
 
 ---
 
@@ -161,6 +161,6 @@ Catga demonstrates **production-ready performance** with:
 
 ---
 
-**Last Updated**: 2025-10-21  
+**Last Updated**: 2025-10-21
 **Version**: 1.0.0
 

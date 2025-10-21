@@ -91,14 +91,14 @@ app.Run();
 using Catga;
 
 // 命令（用于修改状态）
-public record CreateOrderCommand(string ProductName, decimal Amount) 
+public record CreateOrderCommand(string ProductName, decimal Amount)
     : IRequest<OrderResult>;
 
 // 响应
 public record OrderResult(Guid OrderId, DateTime CreatedAt);
 
 // 事件（表示已发生的事实）
-public record OrderCreatedEvent(Guid OrderId, string ProductName, decimal Amount) 
+public record OrderCreatedEvent(Guid OrderId, string ProductName, decimal Amount)
     : INotification;
 ```
 
@@ -108,7 +108,7 @@ public record OrderCreatedEvent(Guid OrderId, string ProductName, decimal Amount
 using Catga;
 
 // 命令处理器
-public class CreateOrderCommandHandler 
+public class CreateOrderCommandHandler
     : IRequestHandler<CreateOrderCommand, OrderResult>
 {
     private readonly ICatgaMediator _mediator;

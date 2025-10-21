@@ -25,9 +25,28 @@ public static class CatgaServiceCollectionExtensions
 
         // Register core services
         services.TryAddScoped<ICatgaMediator, CatgaMediator>();
-        services.TryAddSingleton<IDistributedIdGenerator, SnowflakeIdGenerator>();
+
+        // Register default SnowflakeIdGenerator with WorkerId from environment or random
+        // Users can override this by calling .UseWorkerId(n) or .UseWorkerIdFromEnvironment()
+        services.TryAddSingleton<IDistributedIdGenerator>(sp =>
+        {
+            var workerId = GetWorkerIdFromEnvironmentOrRandom("CATGA_WORKER_ID");
+            return new SnowflakeIdGenerator(workerId);
+        });
 
         return new CatgaServiceBuilder(services, options);
+    }
+
+    private static int GetWorkerIdFromEnvironmentOrRandom(string envVarName)
+    {
+        var envValue = Environment.GetEnvironmentVariable(envVarName);
+        if (!string.IsNullOrEmpty(envValue) && int.TryParse(envValue, out var workerId))
+        {
+            if (workerId >= 0 && workerId <= 255)
+                return workerId;
+        }
+        // Random WorkerId for backward compatibility (not recommended for production clusters)
+        return Random.Shared.Next(0, 256);
     }
 
     /// <summary>

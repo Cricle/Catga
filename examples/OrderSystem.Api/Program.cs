@@ -14,7 +14,33 @@ using MemoryPack;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
-builder.Services.AddCatga().UseMemoryPack().ForDevelopment();
+
+// 分布式/集群配置：支持通过命令行参数或环境变量设置 WorkerId
+// 单机开发：dotnet run
+// 多节点开发：dotnet run -- 1 (节点1), dotnet run -- 2 (节点2), ...
+// 生产环境：通过 CATGA_WORKER_ID 环境变量配置
+var catgaBuilder = builder.Services.AddCatga().UseMemoryPack();
+
+if (args.Length > 0 && int.TryParse(args[0], out var workerId))
+{
+    // 从命令行参数获取 WorkerId（便于本地多节点测试）
+    catgaBuilder.UseWorkerId(workerId);
+    builder.WebHost.UseUrls($"http://localhost:{5000 + workerId}");
+    Console.WriteLine($"[OrderSystem] 🌐 Using WorkerId from args: {workerId}, Port: {5000 + workerId}");
+}
+else if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CATGA_WORKER_ID")))
+{
+    // 从环境变量获取 WorkerId（生产/容器环境）
+    catgaBuilder.UseWorkerIdFromEnvironment();
+    Console.WriteLine("[OrderSystem] 🌐 Using WorkerId from environment variable");
+}
+else
+{
+    // 开发环境默认：使用随机 WorkerId（单节点场景）
+    Console.WriteLine("[OrderSystem] ⚙️ Single-node development mode (random WorkerId)");
+}
+
+catgaBuilder.ForDevelopment();
 
 // Configure ActivityPayloadCapture for Jaeger tracing (Required for AOT compatibility)
 // This serializer will be used to capture request/response/event payloads in Activity tags

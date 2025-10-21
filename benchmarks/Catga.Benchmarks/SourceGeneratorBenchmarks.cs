@@ -93,7 +93,7 @@ public class EventRouterBenchmarks
         }
     }
 
-    public record TestEvent(string Id) : IEvent
+    public partial record TestEvent(string Id) : IEvent
     {
         public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     }

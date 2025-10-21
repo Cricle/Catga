@@ -100,7 +100,9 @@ public abstract class NatsJSStoreBase
             // 等待初始化完成（自旋等待）
             // 使用 SpinWait 优化 CPU 使用
             var spinner = new SpinWait();
+#pragma warning disable CS0420 // Reference to volatile field is not treated as volatile (false positive - Volatile.Read is used correctly)
             while (Volatile.Read(ref _initializationState) == 1)
+#pragma warning restore CS0420
             {
                 spinner.SpinOnce();
             }

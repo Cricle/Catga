@@ -14,10 +14,35 @@
 
 ### 启动应用
 
+#### 单节点模式（开发/测试）
+
 ```bash
 cd examples/OrderSystem.Api
 dotnet run
 ```
+
+#### 多节点模式（分布式/集群演示）
+
+**终端 1 - 节点 1**：
+```bash
+dotnet run --project examples/OrderSystem.Api -- 1
+# 启动在 http://localhost:5001, WorkerId=1
+```
+
+**终端 2 - 节点 2**：
+```bash
+dotnet run --project examples/OrderSystem.Api -- 2
+# 启动在 http://localhost:5002, WorkerId=2
+```
+
+**终端 3 - 节点 3**：
+```bash
+dotnet run --project examples/OrderSystem.Api -- 3
+# 启动在 http://localhost:5003, WorkerId=3
+```
+
+每个节点生成的 MessageId 都包含其唯一的 WorkerId，确保分布式环境下 ID 不冲突。
+详见 [分布式部署指南](./DISTRIBUTED-DEPLOYMENT.md)。
 
 ### 访问界面
 

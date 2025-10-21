@@ -28,7 +28,6 @@
   <ItemGroup>
     <PackageReference Include="NATS.Client.Core" />
     <PackageReference Include="NATS.Client.JetStream" />
-    <PackageReference Include="NATS.Client.KeyValueStore" />
   </ItemGroup>
 
 </Project>

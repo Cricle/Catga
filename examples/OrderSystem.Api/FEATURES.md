@@ -33,6 +33,16 @@ This document demonstrates **ALL** Catga framework features through the OrderSys
 | **Type Safety** | ✅ Strong typing | All messages are records |
 | **AOT Compatible** | ✅ Zero reflection | Native AOT ready |
 
+### 🌐 Distributed & Cluster Deployment
+
+| Feature | Implementation | Notes |
+|---------|---------------|-------|
+| **Snowflake ID Generator** | ✅ WorkerId-based | Distributed ID generation |
+| **Configurable WorkerId** | ✅ CLI args / env vars | `dotnet run -- 1` or `CATGA_WORKER_ID=1` |
+| **Multi-Node Support** | ✅ No ID conflicts | Each node has unique WorkerId |
+| **Cluster Startup Script** | ✅ `start-cluster.ps1` | Launch 3+ nodes locally |
+| **ID Metadata Parsing** | ✅ Extract WorkerId | Debug and trace message origins |
+
 ### 🐛 Debugging & Observability
 
 | Feature | Implementation | Access |
@@ -86,7 +96,7 @@ sequenceDiagram
     participant Handler
     participant Inventory
     participant Repository
-    
+
     API->>Handler: CreateOrder
     Handler->>Inventory: CheckStock ✅
     Handler->>Repository: SaveOrder ✅
@@ -294,29 +304,36 @@ builder.Services.AddOpenTelemetry()
 ## 🎓 Learning Path
 
 1. **Run the Demo** (5 min)
-   - Start the app
+   - Start the app: `dotnet run`
    - Try success & failure scenarios
    - Observe console logs
 
-2. **Explore the Code** (15 min)
+2. **Test Multi-Node Cluster** (10 min)
+   - Run cluster script: `.\start-cluster.ps1`
+   - Send requests to different nodes
+   - Verify unique WorkerIds in generated IDs
+   - See [DISTRIBUTED-DEPLOYMENT.md](./DISTRIBUTED-DEPLOYMENT.md)
+
+3. **Explore the Code** (15 min)
    - Read `OrderCommandHandlers.cs` for SafeRequestHandler
    - Check `OrderEventHandlers.cs` for event-driven patterns
-   - Review `Program.cs` for configuration
+   - Review `Program.cs` for WorkerId configuration
 
-3. **Use the Debugger** (10 min)
+4. **Use the Debugger** (10 min)
    - Open http://localhost:5000/debug
    - Replay a failed order creation
    - Inspect rollback steps
 
-4. **Extend the System** (30 min)
+5. **Extend the System** (30 min)
    - Add `ConfirmOrderCommand`
    - Create `OrderConfirmedEvent`
    - See auto-registration in action
 
-5. **Deploy** (varies)
-   - Configure NATS/Redis
-   - Add OpenTelemetry
-   - Deploy to Kubernetes
+6. **Deploy to Production** (varies)
+   - Configure NATS/Redis for shared state
+   - Set `CATGA_WORKER_ID` for each pod/container
+   - Add OpenTelemetry tracing
+   - Deploy to Kubernetes with StatefulSet
 
 ## ✅ Completeness Checklist
 
@@ -337,6 +354,9 @@ This example demonstrates **100%** of Catga's core features:
 - [x] Structured Logging
 - [x] Exception Handling
 - [x] Type Safety
+- [x] **Distributed ID Generation** (Snowflake with WorkerId)
+- [x] **Multi-Node Cluster Deployment**
+- [x] **Configurable WorkerId** (CLI/Environment)
 
 ## 📚 Next Steps
 

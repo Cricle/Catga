@@ -2,28 +2,49 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Catga.Abstractions;
+using Catga.Configuration;
 using Catga.Core;
 using Catga.Exceptions;
 using Catga.Observability;
 using Catga.Pipeline;
+using Catga.Resilience;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 namespace Catga;
 
 /// <summary>High-performance Catga Mediator (AOT-compatible, lock-free)</summary>
-public sealed class CatgaMediator : ICatgaMediator
+public sealed class CatgaMediator : ICatgaMediator, IDisposable
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CatgaMediator> _logger;
     private readonly HandlerCache _handlerCache;
+    private readonly CircuitBreaker _circuitBreaker;
+    private readonly ConcurrencyLimiter? _eventConcurrencyLimiter;
 
     public CatgaMediator(
         IServiceProvider serviceProvider,
-        ILogger<CatgaMediator> logger)
+        ILogger<CatgaMediator> logger,
+        CatgaOptions? options = null)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _handlerCache = new HandlerCache();
+
+        options ??= new CatgaOptions();
+
+        // Circuit breaker for all operations
+        _circuitBreaker = new CircuitBreaker(
+            options.CircuitBreakerThreshold ?? 5,
+            options.CircuitBreakerDuration ?? TimeSpan.FromSeconds(30),
+            logger);
+
+        // Event handler concurrency limiter (optional, only if configured)
+        if (options.MaxEventHandlerConcurrency.HasValue && options.MaxEventHandlerConcurrency.Value > 0)
+        {
+            _eventConcurrencyLimiter = new ConcurrencyLimiter(
+                options.MaxEventHandlerConcurrency.Value,
+                logger);
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -224,11 +245,34 @@ public sealed class CatgaMediator : ICatgaMediator
             return;
         }
 
-        var tasks = new Task[handlerList.Count];
-        for (var i = 0; i < handlerList.Count; i++)
-            tasks[i] = HandleEventSafelyAsync(handlerList[i], @event, cancellationToken);
+        // Use concurrency limiter if configured, otherwise use chunked batch processing
+        if (_eventConcurrencyLimiter != null)
+        {
+            // Concurrency-limited processing
+            await BatchOperationHelper.ExecuteConcurrentBatchAsync(
+                handlerList,
+                handler => HandleEventSafelyAsync(handler, @event, cancellationToken),
+                _eventConcurrencyLimiter.MaxConcurrency,
+                cancellationToken).ConfigureAwait(false);
+        }
+        else if (handlerList.Count <= BatchOperationHelper.DefaultChunkSize)
+        {
+            // Small batch: execute all at once (fast path)
+            var tasks = new Task[handlerList.Count];
+            for (var i = 0; i < handlerList.Count; i++)
+                tasks[i] = HandleEventSafelyAsync(handlerList[i], @event, cancellationToken);
 
-        await Task.WhenAll(tasks).ConfigureAwait(false);
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+        else
+        {
+            // Large batch: use chunked processing to prevent thread pool starvation
+            await BatchOperationHelper.ExecuteBatchAsync(
+                handlerList,
+                handler => HandleEventSafelyAsync(handler, @event, cancellationToken),
+                chunkSize: BatchOperationHelper.DefaultChunkSize).ConfigureAwait(false);
+        }
+
         CatgaLog.EventPublished(_logger, eventType, message?.MessageId, handlerList.Count);
     }
 
@@ -315,5 +359,11 @@ public sealed class CatgaMediator : ICatgaMediator
         activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
         activity?.AddTag("exception.type", ExceptionTypeCache.GetFullTypeName(ex));
         activity?.AddTag("exception.message", ex.Message);
+    }
+
+    public void Dispose()
+    {
+        _circuitBreaker?.Dispose();
+        _eventConcurrencyLimiter?.Dispose();
     }
 }

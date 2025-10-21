@@ -21,6 +21,15 @@ public class CatgaOptions
 
     public QualityOfService DefaultQoS { get; set; } = QualityOfService.AtLeastOnce;
 
+    /// <summary>Circuit breaker: consecutive failure threshold before opening (default: 5)</summary>
+    public int? CircuitBreakerThreshold { get; set; }
+
+    /// <summary>Circuit breaker: duration to keep circuit open (default: 30 seconds)</summary>
+    public TimeSpan? CircuitBreakerDuration { get; set; }
+
+    /// <summary>Event handler maximum concurrency (default: null, unlimited). Set to limit concurrent event handlers.</summary>
+    public int? MaxEventHandlerConcurrency { get; set; }
+
     public CatgaOptions WithHighPerformance()
     {
         IdempotencyShardCount = 64;

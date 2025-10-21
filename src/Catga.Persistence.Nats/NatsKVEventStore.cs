@@ -190,16 +190,17 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private byte[] SerializeEvent(IEvent @event)
     {
-        return _serializer.Serialize(@event);
+        // Use non-generic Serialize for better AOT compatibility
+        return _serializer.Serialize(@event, @event.GetType());
     }
 
     /// <summary>
     /// 从 NATS 消息反序列化事件（从 headers 读取类型信息）
     /// </summary>
-    [UnconditionalSuppressMessage("Trimming", "IL2057:UnrecognizedReflectionPattern",
-        Justification = "Event type names are validated at design time and must be available in the application domain. " +
-                       "For AOT scenarios, ensure all event types are registered or use source generators.")]
-    [RequiresDynamicCode("Calls System.Reflection.MethodInfo.MakeGenericMethod(params Type[])")]
+    /// <remarks>
+    /// 使用非泛型 Deserialize(byte[], Type) 方法避免反射调用泛型方法。
+    /// Type 参数已标记 DynamicallyAccessedMembers，提供更好的 AOT 兼容性提示。
+    /// </remarks>
     private IEvent DeserializeEventFromMessage(NatsJSMsg<byte[]> msg)
     {
         // 从 headers 获取事件类型
@@ -210,12 +211,8 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         var eventType = Type.GetType(eventTypeName!, throwOnError: false)
             ?? throw new InvalidOperationException($"Event type not found: {eventTypeName}. Ensure the type is available in the application domain.");
 
-        // Use reflection to call generic Deserialize<T>
-        var deserializeMethod = typeof(IMessageSerializer)
-            .GetMethod(nameof(IMessageSerializer.Deserialize), new[] { typeof(byte[]) })
-            ?.MakeGenericMethod(eventType);
-
-        return (IEvent)(deserializeMethod?.Invoke(_serializer, new object[] { msg.Data! })
+        // Use non-generic Deserialize(byte[], Type) method - no reflection needed for generic method invocation
+        return (IEvent)(_serializer.Deserialize(msg.Data!, eventType)
             ?? throw new InvalidOperationException("Failed to deserialize message"));
     }
 }

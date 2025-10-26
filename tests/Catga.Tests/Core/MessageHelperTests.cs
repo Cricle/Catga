@@ -183,10 +183,10 @@ public class MessageHelperTests
     public void GetCorrelationId_WithIMessage_ShouldReturnCorrelationId()
     {
         // Arrange
-        var request = new TestRequest 
-        { 
-            MessageId = 123, 
-            CorrelationId = 456 
+        var request = new TestRequest
+        {
+            MessageId = 123,
+            CorrelationId = 456
         };
 
         // Act
@@ -200,10 +200,10 @@ public class MessageHelperTests
     public void GetCorrelationId_WithNullCorrelationId_ShouldReturnNull()
     {
         // Arrange
-        var request = new TestRequest 
-        { 
-            MessageId = 123, 
-            CorrelationId = null 
+        var request = new TestRequest
+        {
+            MessageId = 123,
+            CorrelationId = null
         };
 
         // Act
@@ -230,10 +230,10 @@ public class MessageHelperTests
     public void GetCorrelationId_WithZeroCorrelationId_ShouldReturnZero()
     {
         // Arrange
-        var request = new TestRequest 
-        { 
-            MessageId = 123, 
-            CorrelationId = 0 
+        var request = new TestRequest
+        {
+            MessageId = 123,
+            CorrelationId = 0
         };
 
         // Act
@@ -247,10 +247,10 @@ public class MessageHelperTests
     public void GetCorrelationId_WithMaxValueCorrelationId_ShouldReturnMaxValue()
     {
         // Arrange
-        var request = new TestRequest 
-        { 
-            MessageId = 123, 
-            CorrelationId = long.MaxValue 
+        var request = new TestRequest
+        {
+            MessageId = 123,
+            CorrelationId = long.MaxValue
         };
 
         // Act
@@ -264,10 +264,10 @@ public class MessageHelperTests
     public void GetCorrelationId_WithNegativeCorrelationId_ShouldReturnNegativeValue()
     {
         // Arrange
-        var request = new TestRequest 
-        { 
-            MessageId = 123, 
-            CorrelationId = -999 
+        var request = new TestRequest
+        {
+            MessageId = 123,
+            CorrelationId = -999
         };
 
         // Act

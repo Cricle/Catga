@@ -362,18 +362,27 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public async ValueTask<IReadOnlyList<CatgaResult<TResponse>>> SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(IReadOnlyList<TRequest> requests, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
-        => await requests.ExecuteBatchWithResultsAsync(request => SendAsync<TRequest, TResponse>(request, cancellationToken));
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(requests);
+        return await requests.ExecuteBatchWithResultsAsync(request => SendAsync<TRequest, TResponse>(request, cancellationToken));
+    }
 
     public async IAsyncEnumerable<CatgaResult<TResponse>> SendStreamAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(IAsyncEnumerable<TRequest> requests, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
     {
-        if (requests == null)
-            yield break;
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(requests);
+
         await foreach (var request in requests.WithCancellation(cancellationToken).ConfigureAwait(false))
             yield return await SendAsync<TRequest, TResponse>(request, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(IReadOnlyList<TEvent> events, CancellationToken cancellationToken = default) where TEvent : IEvent
-        => await events.ExecuteBatchAsync(@event => PublishAsync(@event, cancellationToken));
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(events);
+        await events.ExecuteBatchAsync(@event => PublishAsync(@event, cancellationToken));
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void RecordException(Activity? activity, Exception ex)

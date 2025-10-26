@@ -152,9 +152,26 @@ public sealed class CircuitBreaker : IDisposable
             "Circuit breaker recorded failure #{Failures}/{Threshold}",
             failures, _failureThreshold);
 
-        if (failures >= _failureThreshold)
+        var currentState = (CircuitState)Volatile.Read(ref _state);
+
+        // If in HalfOpen state, any failure should reopen the circuit immediately
+        if (currentState == CircuitState.HalfOpen)
         {
-            // Try to open the circuit (only transition from Closed to Open)
+            var original = Interlocked.CompareExchange(
+                ref _state,
+                (int)CircuitState.Open,
+                (int)CircuitState.HalfOpen);
+
+            if (original == (int)CircuitState.HalfOpen)
+            {
+                _logger?.LogError(
+                    "Circuit breaker reopened after failure in Half-Open state. Will remain open for {Duration}s",
+                    _openDuration.TotalSeconds);
+            }
+        }
+        else if (failures >= _failureThreshold)
+        {
+            // Try to open the circuit (transition from Closed to Open)
             var original = Interlocked.CompareExchange(
                 ref _state,
                 (int)CircuitState.Open,

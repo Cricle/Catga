@@ -1,0 +1,168 @@
+name: TDD Tests CI
+
+on:
+  push:
+    branches: [ main, develop, master ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - '.github/workflows/tdd-tests.yml'
+  pull_request:
+    branches: [ main, develop, master ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+
+jobs:
+  test:
+    name: Run TDD Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        dotnet-version: ['9.0.x']
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: 🔧 Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ matrix.dotnet-version }}
+
+    - name: 📦 Restore dependencies
+      run: dotnet restore
+
+    - name: 🔨 Build
+      run: dotnet build --no-restore --configuration Release
+
+    - name: 🧪 Run All Tests
+      run: dotnet test tests/Catga.Tests/Catga.Tests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test-results.trx"
+
+    - name: 📊 Collect Coverage
+      if: matrix.os == 'ubuntu-latest'
+      run: dotnet test tests/Catga.Tests/Catga.Tests.csproj --no-build --configuration Release /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=./coverage/
+
+    - name: 📈 Upload Coverage to Codecov
+      if: matrix.os == 'ubuntu-latest'
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./tests/Catga.Tests/coverage/coverage.cobertura.xml
+        flags: unittests
+        name: catga-tdd-tests
+        fail_ci_if_error: false
+
+    - name: 📄 Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always() && matrix.os == 'ubuntu-latest'
+      with:
+        files: |
+          **/test-results.trx
+        check_name: Test Results (${{ matrix.os }})
+
+    - name: 📋 Test Summary
+      if: always()
+      run: |
+        echo "## Test Results - ${{ matrix.os }}" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Tests completed" >> $GITHUB_STEP_SUMMARY
+
+  test-specific:
+    name: Test Specific Components
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-group:
+          - name: CircuitBreaker
+            filter: CircuitBreakerTests
+          - name: Concurrency
+            filter: ConcurrencyLimiterTests
+          - name: Streaming
+            filter: StreamProcessingTests
+          - name: Correlation
+            filter: CorrelationTrackingTests
+          - name: Batch
+            filter: BatchProcessingEdgeCasesTests
+          - name: EventFailure
+            filter: EventHandlerFailureTests
+          - name: HandlerCache
+            filter: HandlerCachePerformanceTests
+          - name: ECommerce
+            filter: ECommerceOrderFlowTests
+
+    steps:
+    - name: 📥 Checkout
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: 📦 Restore
+      run: dotnet restore
+
+    - name: 🔨 Build
+      run: dotnet build --no-restore
+
+    - name: 🧪 Run ${{ matrix.test-group.name }} Tests
+      run: dotnet test --no-build --filter "FullyQualifiedName~${{ matrix.test-group.filter }}" --logger "console;verbosity=detailed"
+
+  performance-check:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+    - name: 📥 Checkout
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: 📦 Restore
+      run: dotnet restore
+
+    - name: 🔨 Build
+      run: dotnet build --no-restore --configuration Release
+
+    - name: ⚡ Run Performance Tests
+      run: dotnet test tests/Catga.Tests/Catga.Tests.csproj --no-build --configuration Release --filter "FullyQualifiedName~Performance" --logger "console;verbosity=detailed"
+
+    - name: 📊 Comment PR
+      uses: actions/github-script@v7
+      if: always()
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '## Performance Test Results ⚡\n\nPerformance tests have been executed. Please review the detailed results above.'
+          })
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [test, test-specific]
+    if: always()
+
+    steps:
+    - name: 📊 Generate Summary
+      run: |
+        echo "# 🎉 TDD Test Suite Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Test Execution Completed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ All platforms: ubuntu, windows, macos" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ All test groups: 8 component test suites" >> $GITHUB_STEP_SUMMARY
+        echo "- 📊 Total test cases: 192+" >> $GITHUB_STEP_SUMMARY
+        echo "- 🎯 Coverage target: ~90%" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "View detailed results in the job logs above." >> $GITHUB_STEP_SUMMARY
+

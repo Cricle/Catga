@@ -41,11 +41,41 @@ jobs:
     - name: Pack Catga
       run: dotnet pack src/Catga/Catga.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
 
-    - name: Pack Catga.Nats
-      run: dotnet pack src/Catga.Nats/Catga.Nats.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+    - name: Pack Catga.AspNetCore
+      run: dotnet pack src/Catga.AspNetCore/Catga.AspNetCore.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
 
-    - name: Pack Catga.Redis
-      run: dotnet pack src/Catga.Redis/Catga.Redis.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+    - name: Pack Catga.Hosting.Aspire
+      run: dotnet pack src/Catga.Hosting.Aspire/Catga.Hosting.Aspire.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Persistence.InMemory
+      run: dotnet pack src/Catga.Persistence.InMemory/Catga.Persistence.InMemory.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Persistence.Nats
+      run: dotnet pack src/Catga.Persistence.Nats/Catga.Persistence.Nats.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Persistence.Redis
+      run: dotnet pack src/Catga.Persistence.Redis/Catga.Persistence.Redis.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Serialization.Json
+      run: dotnet pack src/Catga.Serialization.Json/Catga.Serialization.Json.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Serialization.MemoryPack
+      run: dotnet pack src/Catga.Serialization.MemoryPack/Catga.Serialization.MemoryPack.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.SourceGenerator
+      run: dotnet pack src/Catga.SourceGenerator/Catga.SourceGenerator.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Testing
+      run: dotnet pack src/Catga.Testing/Catga.Testing.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Transport.InMemory
+      run: dotnet pack src/Catga.Transport.InMemory/Catga.Transport.InMemory.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Transport.Nats
+      run: dotnet pack src/Catga.Transport.Nats/Catga.Transport.Nats.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Transport.Redis
+      run: dotnet pack src/Catga.Transport.Redis/Catga.Transport.Redis.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
 
     - name: Upload NuGet packages
       uses: actions/upload-artifact@v4

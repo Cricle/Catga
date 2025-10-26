@@ -61,22 +61,22 @@
 
 ```csharp
 // 1️⃣ 定义消息 (自动生成 MessageId)
-public record CreateOrderCommand(string ProductId, int Quantity) 
+public record CreateOrderCommand(string ProductId, int Quantity)
     : IRequest<Order>;
 
 // 2️⃣ 定义 Handler (自动注册)
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Order>
 {
     public async Task<CatgaResult<Order>> HandleAsync(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken cancellationToken = default)
     {
-        var order = new Order 
-        { 
-            ProductId = request.ProductId, 
-            Quantity = request.Quantity 
+        var order = new Order
+        {
+            ProductId = request.ProductId,
+            Quantity = request.Quantity
         };
-        
+
         // 自动错误处理、自动追踪、自动指标
         return CatgaResult<Order>.Success(order);
     }
@@ -201,15 +201,15 @@ public record User(int Id, string Name, string Email);
 public class CreateUserHandler : IRequestHandler<CreateUserCommand, User>
 {
     public async Task<CatgaResult<User>> HandleAsync(
-        CreateUserCommand request, 
+        CreateUserCommand request,
         CancellationToken cancellationToken = default)
     {
         // 业务逻辑
         var user = new User(1, request.Name, request.Email);
-        
+
         // ✅ 返回成功
         return CatgaResult<User>.Success(user);
-        
+
         // ❌ 返回失败
         // return CatgaResult<User>.Failure("Email already exists");
     }
@@ -369,6 +369,37 @@ curl -X POST http://localhost:5000/api/users \
 | **Persistence** | 数据持久化、事件存储 | ❌ 消息路由 |
 
 **📖 完整架构文档**: [ARCHITECTURE.md](./docs/architecture/ARCHITECTURE.md)
+
+---
+
+## 🧪 测试
+
+Catga 拥有全面的测试覆盖，使用 TDD 方法开发：
+
+```bash
+# 运行所有测试
+dotnet test tests/Catga.Tests/Catga.Tests.csproj
+
+# 使用便捷脚本
+.\tests\run-new-tests.ps1         # Windows
+./tests/run-new-tests.sh          # Linux/macOS
+
+# 查看测试覆盖率
+dotnet test /p:CollectCoverage=true
+```
+
+### 测试覆盖
+
+- ✅ **192+个测试用例** - 全面的场景覆盖
+- ✅ **~90%覆盖率** - 核心功能完整测试
+- ✅ **性能基准测试** - 确保性能指标达标
+- ✅ **并发场景测试** - 验证线程安全
+- ✅ **真实业务场景** - 电商订单完整流程
+
+**📚 测试文档**:
+- [快速开始](./tests/QUICK_START_TESTING.md)
+- [测试覆盖总结](./tests/Catga.Tests/TEST_COVERAGE_SUMMARY.md)
+- [测试索引](./tests/Catga.Tests/TESTS_INDEX.md)
 
 ---
 

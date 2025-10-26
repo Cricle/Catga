@@ -227,16 +227,16 @@ public record OrderCreatedEvent(string OrderId) : IEvent;
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Order>
 {
     public async Task<CatgaResult<Order>> HandleAsync(
-        CreateOrderCommand request, 
+        CreateOrderCommand request,
         CancellationToken cancellationToken = default)
     {
-        var order = new Order 
-        { 
+        var order = new Order
+        {
             Id = Guid.NewGuid().ToString(),
-            ProductId = request.ProductId, 
-            Quantity = request.Quantity 
+            ProductId = request.ProductId,
+            Quantity = request.Quantity
         };
-        
+
         return CatgaResult<Order>.Success(order);
     }
 }
@@ -313,19 +313,19 @@ var result = await mediator.SendAsync(new CreateOrderCommand("PROD-001", 5));
 
 ### 常见问题
 
-1. ❓ **如何开始？**  
+1. ❓ **如何开始？**
    → 查看 [快速开始指南](./articles/getting-started.md)
 
-2. ❓ **性能如何优化？**  
+2. ❓ **性能如何优化？**
    → 查看 [性能优化指南](./guides/memory-optimization-guide.md)
 
-3. ❓ **如何部署到生产？**  
+3. ❓ **如何部署到生产？**
    → 查看 [Kubernetes 部署](./deployment/kubernetes.md)
 
-4. ❓ **如何编写测试？**  
+4. ❓ **如何编写测试？**
    → 查看 [测试辅助库](../src/Catga.Testing/README.md)
 
-5. ❓ **如何贡献代码？**  
+5. ❓ **如何贡献代码？**
    → 查看 [贡献指南](./development/CONTRIBUTING.md)
 
 ### 获取支持

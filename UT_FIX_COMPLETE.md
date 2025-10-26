@@ -280,3 +280,4 @@ limiter.ActiveTasks.Should().Be(2); // releaser2 和 releaser3 都在使用
 
 所有测试都通过了，代码质量达到了生产标准。可以自信地发布v1.0.0版本！
 
+

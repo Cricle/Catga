@@ -514,3 +514,4 @@ public class UpdateInventoryEventHandler : IEventHandler<OrderCreatedEvent>
 
 #endregion
 
+

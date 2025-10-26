@@ -501,3 +501,4 @@ dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
 **测试框架:** xUnit + FluentAssertions + NSubstitute
 **覆盖率目标:** 85%+
 
+

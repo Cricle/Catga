@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catga测试报告 - 2025-10-26_20-22-47</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 40px;
+            background: #f8f9fa;
+        }
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card .number {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .stat-card .label {
+            color: #666;
+            font-size: 1.1em;
+        }
+        .stat-card.total .number { color: #667eea; }
+        .stat-card.passed .number { color: #28a745; }
+        .stat-card.failed .number { color: #dc3545; }
+        .stat-card.skipped .number { color: #ffc107; }
+        .progress-bar {
+            margin: 40px;
+            background: #e9ecef;
+            height: 40px;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .progress-fill {
+            height: 100%;
+            display: flex;
+        }
+        .progress-passed { background: #28a745; }
+        .progress-failed { background: #dc3545; }
+        .progress-skipped { background: #ffc107; }
+        .details {
+            padding: 40px;
+        }
+        .section-title {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .info-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .info-item strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .footer {
+            background: #2c3e50;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin: 5px;
+        }
+        .badge-success { background: #28a745; color: white; }
+        .badge-danger { background: #dc3545; color: white; }
+        .badge-warning { background: #ffc107; color: #000; }
+        .badge-info { background: #17a2b8; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Catga测试报告</h1>
+            <div class="subtitle">2025-10-26_20-22-47</div>
+        </div>
+
+        <div class="summary">
+            <div class="stat-card total">
+                <div class="label">总测试数</div>
+                <div class="number">0</div>
+            </div>
+            <div class="stat-card passed">
+                <div class="label">✅ 通过</div>
+                <div class="number">0</div>
+            </div>
+            <div class="stat-card failed">
+                <div class="label">❌ 失败</div>
+                <div class="number">0</div>
+            </div>
+            <div class="stat-card skipped">
+                <div class="label">⏭️ 跳过</div>
+                <div class="number">0</div>
+            </div>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-fill">
+                <div class="progress-passed" style="width: %"></div>
+                <div class="progress-failed" style="width: %"></div>
+                <div class="progress-skipped" style="width: %"></div>
+            </div>
+        </div>
+
+        <div class="details">
+            <h2 class="section-title">📊 测试详情</h2>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <strong>通过率</strong>
+                    <span class="badge badge-danger">
+                        0%
+                    </span>
+                </div>
+                <div class="info-item">
+                    <strong>测试项目</strong>
+                    Catga.Tests
+                </div>
+                <div class="info-item">
+                    <strong>配置</strong>
+                    Release
+                </div>
+                <div class="info-item">
+                    <strong>过滤器</strong>
+                    FullyQualifiedName!~Integration
+                </div>
+            </div>
+
+            <h2 class="section-title">🎯 质量评估</h2>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <strong>整体状态</strong>
+                    <span class="badge badge-success">优秀 ⭐⭐⭐⭐⭐</span>
+                </div>
+                <div class="info-item">
+                    <strong>推荐行动</strong>
+                    保持当前质量，继续维护
+                </div>
+            </div>
+
+                        <h2 class="section-title">📈 代码覆盖率</h2>
+            <div class="info-item">
+                <strong>覆盖率报告</strong>
+                已生成在: coverage_report/opencover.xml<br>
+                运行 <code>reportgenerator</code> 查看详细HTML报告
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Catga TDD测试套件 | 生成时间: 2025-10-26_20-22-47</p>
+            <p>查看详细日志: test-reports/test-results-2025-10-26_20-22-47.trx</p>
+        </div>
+    </div>
+</body>
+</html>

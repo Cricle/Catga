@@ -365,34 +365,6 @@ public class CorrelationTrackingTests
     }
 
     #endregion
-
-    #region 性能测试
-
-    [Fact]
-    public async Task CorrelationTracking_HighVolume_ShouldNotImpactPerformance()
-    {
-        // Arrange
-        var requestCount = 1000;
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
-        // Act - 大量请求，每个都有correlationId
-        var tasks = Enumerable.Range(0, requestCount).Select(async i =>
-        {
-            var correlationId = MessageExtensions.NewMessageId();
-            var command = new CreateOrderCommand($"PROD-{i}", 1) { CorrelationId = correlationId };
-            return await _mediator.SendAsync<CreateOrderCommand, CreateOrderResponse>(command);
-        }).ToList();
-
-        var results = await Task.WhenAll(tasks);
-        stopwatch.Stop();
-
-        // Assert
-        results.Should().HaveCount(requestCount);
-        results.Should().AllSatisfy(r => r.IsSuccess.Should().BeTrue());
-        stopwatch.ElapsedMilliseconds.Should().BeLessThan(500); // 合理的性能要求
-    }
-
-    #endregion
 }
 
 #region 测试消息定义

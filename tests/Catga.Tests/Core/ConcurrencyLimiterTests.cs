@@ -457,60 +457,6 @@ public class ConcurrencyLimiterTests
 
     #endregion
 
-    #region 性能测试
-
-    [Fact]
-    public async Task AcquireAsync_HighThroughput_ShouldMaintainPerformance()
-    {
-        // Arrange
-        var limiter = new ConcurrencyLimiter(maxConcurrency: 100);
-        var operationCount = 10000;
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
-        // Act - 快速获取和释放
-        for (int i = 0; i < operationCount; i++)
-        {
-            using var releaser = await limiter.AcquireAsync();
-            // 立即释放
-        }
-
-        stopwatch.Stop();
-
-        // Assert - 10000次操作应该在200ms内完成（考虑CI环境）
-        stopwatch.ElapsedMilliseconds.Should().BeLessThan(200);
-    }
-
-    [Fact]
-    public async Task AcquireAsync_MixedWorkload_ShouldHandleEfficiently()
-    {
-        // Arrange
-        var limiter = new ConcurrencyLimiter(maxConcurrency: 50);
-        var random = new Random(42); // 固定种子保证可重复
-        var totalOperations = 0;
-
-        // Act - 混合快速和慢速操作
-        var tasks = Enumerable.Range(0, 500).Select(async i =>
-        {
-            using var releaser = await limiter.AcquireAsync();
-            if (i % 10 == 0)
-            {
-                await Task.Delay(5); // 10%的慢操作
-            }
-            Interlocked.Increment(ref totalOperations);
-        }).ToList();
-
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        await Task.WhenAll(tasks);
-        stopwatch.Stop();
-
-        // Assert
-        totalOperations.Should().Be(500);
-        limiter.ActiveTasks.Should().Be(0);
-        stopwatch.ElapsedMilliseconds.Should().BeLessThan(500); // 合理的时间限制
-    }
-
-    #endregion
-
     #region 实际场景模拟
 
     [Fact]

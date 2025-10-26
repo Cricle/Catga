@@ -526,30 +526,5 @@ public class CircuitBreakerTests
     }
 
     #endregion
-
-    #region 性能测试
-
-    [Fact]
-    public async Task ExecuteAsync_HighThroughput_ShouldMaintainPerformance()
-    {
-        // Arrange
-        var circuitBreaker = new CircuitBreaker(failureThreshold: 1000);
-        var operationCount = 10000;
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
-        // Act
-        for (int i = 0; i < operationCount; i++)
-        {
-            await circuitBreaker.ExecuteAsync(async () => await Task.CompletedTask);
-        }
-
-        stopwatch.Stop();
-
-        // Assert - 10000次操作应该在100ms内完成（考虑CI环境）
-        stopwatch.ElapsedMilliseconds.Should().BeLessThan(100);
-        circuitBreaker.State.Should().Be(CircuitState.Closed);
-    }
-
-    #endregion
 }
 

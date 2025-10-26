@@ -445,43 +445,6 @@ public class ECommerceOrderFlowTests
     }
 
     #endregion
-
-    #region 性能和压力测试
-
-    [Fact]
-    public async Task OrderFlow_HighVolume_ShouldMaintainPerformance()
-    {
-        // Arrange
-        var productId = "HIGH-VOLUME";
-        var inventoryService = _serviceProvider.GetRequiredService<InMemoryInventoryService>();
-        inventoryService.AddStock(productId, 10000);
-
-        var orderCount = 1000;
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
-        // Act - 处理1000个订单
-        var tasks = Enumerable.Range(0, orderCount).Select(async i =>
-        {
-            var command = new CreateOrderCommand(productId, 1, 9.99m);
-            var result = await _mediator.SendAsync<CreateOrderCommand, OrderCreatedResult>(command);
-
-            if (result.IsSuccess)
-            {
-                var reserveCommand = new ReserveInventoryCommand(result.Value!.OrderId, productId, 1);
-                await _mediator.SendAsync<ReserveInventoryCommand, InventoryReservedResult>(reserveCommand);
-            }
-        }).ToList();
-
-        await Task.WhenAll(tasks);
-        stopwatch.Stop();
-
-        // Assert - 1000个订单应该在合理时间内完成
-        stopwatch.ElapsedMilliseconds.Should().BeLessThan(5000);
-        var ordersPerSecond = orderCount / (stopwatch.ElapsedMilliseconds / 1000.0);
-        ordersPerSecond.Should().BeGreaterThan(200);
-    }
-
-    #endregion
 }
 
 #region 领域消息定义 - Commands

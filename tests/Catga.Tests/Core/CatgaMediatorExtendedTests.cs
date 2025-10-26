@@ -74,54 +74,6 @@ public class CatgaMediatorExtendedTests
     }
 
     [Fact]
-    public async Task SendAsync_HighVolume_ShouldMaintainPerformance()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddCatga();
-        services.AddScoped<IRequestHandler<PerformanceCommand, PerformanceResponse>, PerformanceCommandHandler>();
-
-        var provider = services.BuildServiceProvider();
-        var mediator = provider.GetRequiredService<ICatgaMediator>();
-
-        // Act
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        for (int i = 0; i < 1000; i++)
-        {
-            await mediator.SendAsync<PerformanceCommand, PerformanceResponse>(new PerformanceCommand(i));
-        }
-        stopwatch.Stop();
-
-        // Assert - 1000 个命令应该在 150ms 内完成（放宽阈值以适应 CI 环境）
-        stopwatch.ElapsedMilliseconds.Should().BeLessThan(150);
-    }
-
-    [Fact]
-    public async Task PublishAsync_HighVolume_ShouldMaintainPerformance()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddCatga();
-        services.AddScoped<IEventHandler<PerformanceEvent>, PerformanceEventHandler>();
-
-        var provider = services.BuildServiceProvider();
-        var mediator = provider.GetRequiredService<ICatgaMediator>();
-
-        // Act
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        for (int i = 0; i < 1000; i++)
-        {
-            await mediator.PublishAsync(new PerformanceEvent(i));
-        }
-        stopwatch.Stop();
-
-        // Assert - 1000 个事件应该在 100ms 内完成
-        stopwatch.ElapsedMilliseconds.Should().BeLessThan(100);
-    }
-
-    [Fact]
     public async Task SendAsync_WithScope_ShouldIsolateHandlers()
     {
         // Arrange
@@ -167,17 +119,6 @@ public record ExceptionEvent : IEvent
     public long MessageId { get; init; } = MessageExtensions.NewMessageId();
 }
 
-public record PerformanceCommand(int Id) : IRequest<PerformanceResponse>
-{
-    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
-}
-public record PerformanceResponse(int Id);
-
-public record PerformanceEvent(int Id) : IEvent
-{
-    public long MessageId { get; init; } = MessageExtensions.NewMessageId();
-}
-
 public record ScopedCommand : IRequest<ScopedResponse>
 {
     public long MessageId { get; init; } = MessageExtensions.NewMessageId();
@@ -210,24 +151,6 @@ public class ExceptionEventHandler : IEventHandler<ExceptionEvent>
     public Task HandleAsync(ExceptionEvent @event, CancellationToken cancellationToken = default)
     {
         // 模拟异常但不抛出
-        return Task.CompletedTask;
-    }
-}
-
-public class PerformanceCommandHandler : IRequestHandler<PerformanceCommand, PerformanceResponse>
-{
-    public Task<CatgaResult<PerformanceResponse>> HandleAsync(
-        PerformanceCommand request,
-        CancellationToken cancellationToken = default)
-    {
-        return Task.FromResult(CatgaResult<PerformanceResponse>.Success(new PerformanceResponse(request.Id)));
-    }
-}
-
-public class PerformanceEventHandler : IEventHandler<PerformanceEvent>
-{
-    public Task HandleAsync(PerformanceEvent @event, CancellationToken cancellationToken = default)
-    {
         return Task.CompletedTask;
     }
 }

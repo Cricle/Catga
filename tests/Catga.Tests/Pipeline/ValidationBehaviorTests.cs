@@ -238,7 +238,8 @@ public class ValidationBehaviorTests
 
         // Assert
         result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Contain("Single error message");
+        result.Error.Should().Be("Validation failed");
+        result.ErrorCode.Should().Be(ErrorCodes.ValidationFailed);
     }
 
     [Fact]
@@ -293,14 +294,14 @@ public class ValidationBehaviorTests
 
     #region Test Helper Classes
 
-    private class TestRequest : IRequest<TestResponse>, IMessage
+    public class TestRequest : IRequest<TestResponse>, IMessage
     {
         public long MessageId { get; init; }
         public long? CorrelationId { get; init; }
         public string Data { get; init; } = string.Empty;
     }
 
-    private class TestResponse
+    public class TestResponse
     {
         public string Result { get; init; } = string.Empty;
     }

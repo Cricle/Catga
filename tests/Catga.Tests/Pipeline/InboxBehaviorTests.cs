@@ -356,14 +356,14 @@ public class InboxBehaviorTests
 
     #region Test Helper Classes
 
-    private class TestRequest : IRequest<TestResponse>, IMessage
+    public class TestRequest : IRequest<TestResponse>, IMessage
     {
         public long MessageId { get; init; }
         public long? CorrelationId { get; init; }
         public string Data { get; init; } = string.Empty;
     }
 
-    private class TestResponse
+    public class TestResponse
     {
         public string Result { get; init; } = string.Empty;
     }

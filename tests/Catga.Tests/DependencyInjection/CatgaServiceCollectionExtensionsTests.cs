@@ -1,4 +1,5 @@
 using Catga;
+using Catga.Abstractions;
 using Catga.Configuration;
 using Catga.DependencyInjection;
 using Catga.DistributedId;
@@ -47,7 +48,7 @@ public class CatgaServiceCollectionExtensionsTests
         // Assert
         var mediatorDescriptor = services.FirstOrDefault(sd => sd.ServiceType == typeof(ICatgaMediator));
         mediatorDescriptor.Should().NotBeNull();
-        mediatorDescriptor!.Lifetime.Should().Be(ServiceLifetime.Scoped);
+        mediatorDescriptor!.Lifetime.Should().Be(Microsoft.Extensions.DependencyInjection.ServiceLifetime.Scoped);
         mediatorDescriptor.ImplementationType.Should().Be(typeof(CatgaMediator));
     }
 
@@ -63,7 +64,7 @@ public class CatgaServiceCollectionExtensionsTests
         // Assert
         var optionsDescriptor = services.FirstOrDefault(sd => sd.ServiceType == typeof(CatgaOptions));
         optionsDescriptor.Should().NotBeNull();
-        optionsDescriptor!.Lifetime.Should().Be(ServiceLifetime.Singleton);
+        optionsDescriptor!.Lifetime.Should().Be(Microsoft.Extensions.DependencyInjection.ServiceLifetime.Singleton);
     }
 
     [Fact]
@@ -78,7 +79,7 @@ public class CatgaServiceCollectionExtensionsTests
         // Assert
         var idGenDescriptor = services.FirstOrDefault(sd => sd.ServiceType == typeof(IDistributedIdGenerator));
         idGenDescriptor.Should().NotBeNull();
-        idGenDescriptor!.Lifetime.Should().Be(ServiceLifetime.Singleton);
+        idGenDescriptor!.Lifetime.Should().Be(Microsoft.Extensions.DependencyInjection.ServiceLifetime.Singleton);
     }
 
     [Fact]
@@ -323,6 +324,7 @@ public class CatgaServiceCollectionExtensionsTests
         // Arrange
         var services = new ServiceCollection();
         services.AddCatga();
+        services.AddLogging();
         var provider = services.BuildServiceProvider();
 
         // Act

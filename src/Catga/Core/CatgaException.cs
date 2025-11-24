@@ -59,9 +59,7 @@ public class CatgaConfigurationException : CatgaException
             "  services.AddSingleton<IMessageSerializer, MemoryPackMessageSerializer>();\n\n" +
             "Available serializers:\n" +
             "  ✅ MemoryPack (recommended for AOT): Install Catga.Serialization.MemoryPack\n" +
-            "     - 100% AOT compatible, 5x faster, 40% smaller\n" +
-            "  ⚠️ JSON: Install Catga.Serialization.Json\n" +
-            "     - Requires JsonSerializerContext for AOT\n\n" +
+            "     - 100% AOT compatible, 5x faster, 40% smaller\n\n" +
             "Learn more: https://github.com/catga/docs/serialization");
     }
 }

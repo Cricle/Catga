@@ -321,7 +321,7 @@ public class SerializationHelperTests
         var largeBytes = new byte[300];
         for (int i = 0; i < largeBytes.Length; i++)
             largeBytes[i] = (byte)(i % 256);
-        
+
         _mockSerializer.Serialize(original).Returns(largeBytes);
         _mockSerializer.Deserialize<TestMessage>(Arg.Any<byte[]>()).Returns(original);
 
@@ -418,13 +418,13 @@ public class SerializationHelperTests
     // ==================== Concurrent Access Tests ====================
 
     [Fact]
-    public void SerializationHelper_MultipleConcurrentCalls_ShouldBeThreadSafe()
+    public async Task SerializationHelper_MultipleConcurrentCalls_ShouldBeThreadSafe()
     {
         // Arrange
         var messages = Enumerable.Range(1, 50)
             .Select(i => new TestMessage { Data = $"message{i}" })
             .ToArray();
-        
+
         _mockSerializer.Serialize(Arg.Any<TestMessage>())
             .Returns(callInfo => System.Text.Encoding.UTF8.GetBytes(callInfo.Arg<TestMessage>().Data));
         _mockSerializer.Deserialize<TestMessage>(Arg.Any<byte[]>())
@@ -438,7 +438,7 @@ public class SerializationHelperTests
             return deserialized!.Data;
         })).ToArray();
 
-        var results = Task.WhenAll(tasks).Result;
+        var results = await Task.WhenAll(tasks);
 
         // Assert
         results.Should().HaveCount(50);

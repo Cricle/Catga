@@ -33,7 +33,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
         await EnsureInitializedAsync(cancellationToken);
 
         var subject = $"{StreamName}.{message.MessageId}";
-        var data = _serializer.Serialize(message);
+        var data = _serializer.Serialize(message, typeof(OutboxMessage));
 
         var ack = await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
 
@@ -69,7 +69,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
             {
                 if (msg.Data != null && msg.Data.Length > 0)
                 {
-                    var outboxMsg = _serializer.Deserialize<OutboxMessage>(msg.Data);
+                    var outboxMsg = (OutboxMessage?)_serializer.Deserialize(msg.Data, typeof(OutboxMessage));
                     if (outboxMsg != null &&
                         outboxMsg.Status == OutboxStatus.Pending &&
                         outboxMsg.RetryCount < outboxMsg.MaxRetries)
@@ -121,7 +121,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                 if (msg.Data != null && msg.Data.Length > 0)
                 {
                     // 2. Deserialize existing message
-                    var outboxMsg = _serializer.Deserialize<OutboxMessage>(msg.Data);
+                    var outboxMsg = (OutboxMessage?)_serializer.Deserialize(msg.Data, typeof(OutboxMessage));
                     if (outboxMsg != null && outboxMsg.MessageId == messageId)
                     {
                         // 3. Update status and timestamp
@@ -129,7 +129,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                         outboxMsg.PublishedAt = DateTime.UtcNow;
 
                         // 4. Re-publish with updated data
-                        var updatedData = _serializer.Serialize(outboxMsg);
+                        var updatedData = _serializer.Serialize(outboxMsg, typeof(OutboxMessage));
                         var ack = await JetStream.PublishAsync(subject, updatedData, cancellationToken: cancellationToken);
 
                         if (ack.Error != null)
@@ -185,7 +185,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                 if (msg.Data != null && msg.Data.Length > 0)
                 {
                     // 2. Deserialize existing message
-                    var outboxMsg = _serializer.Deserialize<OutboxMessage>(msg.Data);
+                    var outboxMsg = (OutboxMessage?)_serializer.Deserialize(msg.Data, typeof(OutboxMessage));
                     if (outboxMsg != null && outboxMsg.MessageId == messageId)
                     {
                         // 3. Update fields
@@ -196,7 +196,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                             : OutboxStatus.Pending;
 
                         // 4. Re-publish with updated data
-                        var updatedData = _serializer.Serialize(outboxMsg);
+                        var updatedData = _serializer.Serialize(outboxMsg, typeof(OutboxMessage));
                         var ack = await JetStream.PublishAsync(subject, updatedData, cancellationToken: cancellationToken);
 
                         if (ack.Error != null)

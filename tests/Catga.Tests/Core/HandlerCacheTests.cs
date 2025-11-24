@@ -111,7 +111,7 @@ public class HandlerCacheTests
     }
 
     [Fact]
-    public void GetRequestHandler_ConcurrentCalls_ShouldHandleCorrectly()
+    public async Task GetRequestHandler_ConcurrentCalls_ShouldHandleCorrectly()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -124,7 +124,7 @@ public class HandlerCacheTests
             _cache.GetRequestHandler<TestRequestHandler>(scope.ServiceProvider)
         )).ToArray();
 
-        var handlers = Task.WhenAll(tasks).GetAwaiter().GetResult();
+        var handlers = await Task.WhenAll(tasks);
 
         // Assert
         handlers.Should().AllBeOfType<TestRequestHandler>();
@@ -248,7 +248,7 @@ public class HandlerCacheTests
     }
 
     [Fact]
-    public void GetEventHandlers_ConcurrentCalls_ShouldHandleCorrectly()
+    public async Task GetEventHandlers_ConcurrentCalls_ShouldHandleCorrectly()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -262,7 +262,7 @@ public class HandlerCacheTests
             _cache.GetEventHandlers<ITestEventHandler>(scope.ServiceProvider)
         )).ToArray();
 
-        var results = Task.WhenAll(tasks).GetAwaiter().GetResult();
+        var results = await Task.WhenAll(tasks);
 
         // Assert
         results.Should().AllSatisfy(handlers =>

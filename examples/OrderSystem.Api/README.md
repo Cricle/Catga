@@ -198,6 +198,29 @@ builder.Services.AddGeneratedHandlers();
 builder.Services.AddGeneratedServices();
 ```
 
+### 4. 全局端点命名与可靠性开关（本示例已启用）
+
+- 全局命名（源生成，零配置）：本项目在 `Properties/Catga.AssemblyNaming.cs` 中声明
+
+```csharp
+using Catga;
+[assembly: CatgaMessageDefaults(App = "shop", BoundedContext = "orders", LowerCase = true)]
+```
+
+- 可靠性开关（条件式启用）：已在 `Program.cs` 启用，缺少依赖时自动跳过
+
+```csharp
+builder.Services
+    .AddCatga()
+    .UseInbox()
+    .UseOutbox()
+    .UseDeadLetterQueue();
+```
+
+说明：
+- 传输层命名优先级：`TransportOptions.Naming` > 全局 `CatgaOptions.EndpointNamingConvention` > 类型名。
+- InMemory 传输仅将命名用于可观测性标签/指标（不影响路由）。
+
 ## 📊 Demo 流程对比
 
 ### ✅ 成功流程

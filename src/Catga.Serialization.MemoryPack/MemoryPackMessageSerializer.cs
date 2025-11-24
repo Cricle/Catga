@@ -46,4 +46,39 @@ public class MemoryPackMessageSerializer : MessageSerializerBase
     /// Estimate serialized size for buffer allocation
     /// </summary>
     protected override int GetSizeEstimate<T>(T value) => 128;
+
+    // --- Runtime-type overloads (no reflection) ---
+
+    public override byte[] Serialize(object value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(type);
+        return MemoryPackSerializer.Serialize(type, value)!;
+    }
+
+    public override object? Deserialize(byte[] data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(type);
+        return MemoryPackSerializer.Deserialize(type, data);
+    }
+
+    public override object? Deserialize(ReadOnlySpan<byte> data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        return MemoryPackSerializer.Deserialize(type, data);
+    }
+
+    public override void Serialize(object value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type, IBufferWriter<byte> bufferWriter)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(bufferWriter);
+
+        // MemoryPack doesn't expose a non-generic writer overload with Type; write the produced bytes
+        var bytes = MemoryPackSerializer.Serialize(type, value)!;
+        var span = bufferWriter.GetSpan(bytes.Length);
+        bytes.CopyTo(span);
+        bufferWriter.Advance(bytes.Length);
+    }
 }

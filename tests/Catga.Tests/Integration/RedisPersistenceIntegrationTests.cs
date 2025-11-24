@@ -3,7 +3,7 @@ using Catga.Core;
 using Catga.Inbox;
 using Catga.Outbox;
 using Catga.Persistence.Redis.Persistence;
-using Catga.Serialization.Json;
+using Catga.Serialization.MemoryPack;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -48,7 +48,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
         _redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
 
         // 创建序列化器和日志
-        _serializer = new JsonMessageSerializer();
+        _serializer = new MemoryPackMessageSerializer();
         _outboxLogger = Mock.Of<ILogger<RedisOutboxPersistence>>();
         _inboxLogger = Mock.Of<ILogger<RedisInboxPersistence>>();
     }

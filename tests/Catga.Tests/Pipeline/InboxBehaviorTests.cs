@@ -103,7 +103,7 @@ public class InboxBehaviorTests
         _mockStore.HasBeenProcessedAsync(123, Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(true));
         _mockStore.GetProcessedResultAsync(123, Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(serializedResult));
+            .Returns(ValueTask.FromResult<string?>(serializedResult));
 
         PipelineDelegate<TestResponse> next = () => throw new InvalidOperationException("Should not be called");
 
@@ -125,7 +125,7 @@ public class InboxBehaviorTests
         _mockStore.HasBeenProcessedAsync(456, Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(true));
         _mockStore.GetProcessedResultAsync(456, Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(string.Empty));
+            .Returns(ValueTask.FromResult<string?>(string.Empty));
 
         PipelineDelegate<TestResponse> next = () => throw new InvalidOperationException("Should not be called");
 
@@ -146,7 +146,7 @@ public class InboxBehaviorTests
         _mockStore.HasBeenProcessedAsync(789, Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(true));
         _mockStore.GetProcessedResultAsync(789, Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult("invalid json"));
+            .Returns(ValueTask.FromResult<string?>("invalid json"));
 
         PipelineDelegate<TestResponse> next = () => throw new InvalidOperationException("Should not be called");
 
@@ -209,7 +209,7 @@ public class InboxBehaviorTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().Be(response);
         await _mockStore.Received(1).MarkAsProcessedAsync(
-            Arg.Is<InboxMessage>(m => m.MessageId == 111), 
+            Arg.Is<InboxMessage>(m => m.MessageId == 111),
             Arg.Any<CancellationToken>());
     }
 

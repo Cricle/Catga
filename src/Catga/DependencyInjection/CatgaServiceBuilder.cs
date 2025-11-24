@@ -177,6 +177,24 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
         return UseWorkerId(workerId);
     }
 
+    public CatgaServiceBuilder UseInbox()
+    {
+        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.ConditionalInboxBehavior<,>));
+        return this;
+    }
+
+    public CatgaServiceBuilder UseOutbox()
+    {
+        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.ConditionalOutboxBehavior<,>));
+        return this;
+    }
+
+    public CatgaServiceBuilder UseDeadLetterQueue()
+    {
+        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.ConditionalDeadLetterBehavior<,>));
+        return this;
+    }
+
     private static int GetWorkerIdFromEnvironment(string envVarName)
     {
         var envValue = Environment.GetEnvironmentVariable(envVarName);

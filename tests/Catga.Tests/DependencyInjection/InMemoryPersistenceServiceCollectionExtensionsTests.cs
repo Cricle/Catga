@@ -5,7 +5,7 @@ using Catga.EventSourcing;
 using Catga.Inbox;
 using Catga.Outbox;
 using Catga.Persistence.Stores;
-using Catga.Serialization.Json;
+using Catga.Serialization.MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -17,7 +17,7 @@ public class InMemoryPersistenceServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
         // Add required dependencies
-        services.AddSingleton<IMessageSerializer, JsonMessageSerializer>();
+        services.AddSingleton<IMessageSerializer, MemoryPackMessageSerializer>();
         services.AddLogging();
         return services;
     }

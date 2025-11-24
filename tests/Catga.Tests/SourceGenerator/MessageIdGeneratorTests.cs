@@ -167,6 +167,7 @@ public partial class GenTestClassQuery : IRequest<string>
 }
 
 // Test message types - Struct
+#pragma warning disable CS0282 // Fields across partial struct declarations have no defined ordering
 public partial struct GenTestStructCommand : IRequest<string>
 {
     public GenTestStructCommand()
@@ -200,6 +201,7 @@ public partial struct GenTestStructQuery : IRequest<string>
 }
 
 // Test manual MessageId (should not be overridden)
+#pragma warning restore CS0282
 public partial class ManualMessageIdCommand : IRequest
 {
     public long MessageId { get; set; }

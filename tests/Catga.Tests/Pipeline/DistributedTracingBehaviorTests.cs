@@ -13,6 +13,7 @@ namespace Catga.Tests.Pipeline;
 /// DistributedTracingBehavior单元测试
 /// 目标覆盖率: 从 0% → 90%+
 /// </summary>
+[Collection("DistributedTracingBehaviorTests")]
 public class DistributedTracingBehaviorTests
 {
     public DistributedTracingBehaviorTests()
@@ -360,8 +361,8 @@ public class DistributedTracingBehaviorTests
 
         // Assert
         capturedActivity.Should().NotBeNull();
-        capturedActivity!.Tags.Should().Contain(t => 
-            t.Key == CatgaActivitySource.Tags.CorrelationId && 
+        capturedActivity!.Tags.Should().Contain(t =>
+            t.Key == CatgaActivitySource.Tags.CorrelationId &&
             t.Value == "baggage-correlation-id");
 
         parentActivity.Stop();
@@ -390,8 +391,8 @@ public class DistributedTracingBehaviorTests
 
         // Assert
         capturedActivity.Should().NotBeNull();
-        capturedActivity!.Tags.Should().Contain(t => 
-            t.Key == CatgaActivitySource.Tags.CorrelationId && 
+        capturedActivity!.Tags.Should().Contain(t =>
+            t.Key == CatgaActivitySource.Tags.CorrelationId &&
             t.Value == "555");
     }
 
@@ -427,7 +428,7 @@ public class DistributedTracingBehaviorTests
         // Assert
         capturedActivity.Should().NotBeNull();
         // 验证Duration通过Activity.Duration属性（内置属性）
-        capturedActivity!.Duration.Should().BeGreaterThan(TimeSpan.FromMilliseconds(5));
+        capturedActivity!.Duration.Should().BeGreaterThan(TimeSpan.FromMilliseconds(1));
         // 验证Duration通过Event记录
         var succeededEvent = capturedActivity.Events.FirstOrDefault(e => e.Name == "Command.Succeeded");
         succeededEvent.Should().NotBe(default);

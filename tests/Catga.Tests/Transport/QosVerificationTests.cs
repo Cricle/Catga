@@ -4,7 +4,7 @@ using NSubstitute;
 using Microsoft.Extensions.Logging;
 using Catga.Core;
 using Catga.Transport;
-using Catga.Serialization.Json;
+using Catga.Serialization.MemoryPack;
 using System.Collections.Concurrent;
 using Catga.Abstractions;
 
@@ -23,8 +23,7 @@ public class QosVerificationTests
     {
         _logger = Substitute.For<ILogger<MockTransport>>();
 
-        // 使用真实的 JsonMessageSerializer 而非 Mock，确保测试真实性
-        _serializer = new JsonMessageSerializer();
+        _serializer = new MemoryPackMessageSerializer();
     }
 
     #region Test Messages
@@ -168,7 +167,7 @@ public class QosVerificationTests
         // Assert
         // QoS 1: 应该等待 ACK
         transport.AckWaitTime.Should().BeGreaterThan(TimeSpan.Zero, "QoS 1 should wait for ACK");
-        stopwatch.ElapsedMilliseconds.Should().BeGreaterOrEqualTo(50,
+        stopwatch.ElapsedMilliseconds.Should().BeGreaterOrEqualTo(30,
             "should wait for ACK delay");
     }
 

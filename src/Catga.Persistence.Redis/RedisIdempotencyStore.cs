@@ -47,10 +47,10 @@ public class RedisIdempotencyStore : RedisStoreBase, IIdempotencyStore
             MessageId = messageId,
             ProcessedAt = DateTime.UtcNow,
             ResultType = result?.GetType().AssemblyQualifiedName,
-            ResultBytes = result != null ? Serializer.Serialize(result) : null
+            ResultBytes = result != null ? Serializer.Serialize(result, typeof(TResult)) : null
         };
 
-        var bytes = Serializer.Serialize(entry);
+        var bytes = Serializer.Serialize(entry, typeof(IdempotencyEntry));
         await db.StringSetAsync(key, bytes, _defaultExpiry);
 
         _logger.LogDebug("Marked message {MessageId} as processed in Redis", messageId);
@@ -70,7 +70,7 @@ public class RedisIdempotencyStore : RedisStoreBase, IIdempotencyStore
             return default;
         }
 
-        var entry = Serializer.Deserialize<IdempotencyEntry>((byte[])bytes!);
+        var entry = (IdempotencyEntry?)Serializer.Deserialize((byte[])bytes!, typeof(IdempotencyEntry));
         if (entry?.ResultBytes == null)
         {
             return default;
@@ -85,7 +85,7 @@ public class RedisIdempotencyStore : RedisStoreBase, IIdempotencyStore
             return default;
         }
 
-        return Serializer.Deserialize<TResult>(entry.ResultBytes);
+        return (TResult?)Serializer.Deserialize(entry.ResultBytes, typeof(TResult));
     }
 
     /// <summary>

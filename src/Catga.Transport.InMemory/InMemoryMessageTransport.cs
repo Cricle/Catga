@@ -19,6 +19,7 @@ public class InMemoryMessageTransport : IMessageTransport, IDisposable
     private readonly ConcurrencyLimiter _concurrencyLimiter;
     private readonly CircuitBreaker _circuitBreaker;
     private readonly ILogger<InMemoryMessageTransport>? _logger;
+    private Func<Type, string>? _naming;
 
     public InMemoryMessageTransport(
         InMemoryTransportOptions? options = null,
@@ -37,6 +38,15 @@ public class InMemoryMessageTransport : IMessageTransport, IDisposable
             logger);
     }
 
+    public InMemoryMessageTransport(
+        InMemoryTransportOptions? options,
+        ILogger<InMemoryMessageTransport>? logger,
+        Catga.Configuration.CatgaOptions globalOptions)
+        : this(options, logger)
+    {
+        _naming = globalOptions?.EndpointNamingConvention;
+    }
+
     public string Name => "InMemory";
     public BatchTransportOptions? BatchOptions => null;
     public CompressionTransportOptions? CompressionOptions => null;
@@ -53,10 +63,11 @@ public class InMemoryMessageTransport : IMessageTransport, IDisposable
         var ctx = context ?? new TransportContext { MessageId = MessageExtensions.NewMessageId(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
         var msg = message as IMessage;
         var qos = msg?.QoS ?? QualityOfService.AtLeastOnce;
+        var logicalName = _naming != null ? _naming(typeof(TMessage)) : TypeNameCache<TMessage>.Name;
 
-        activity?.SetTag("catga.message.type", TypeNameCache<TMessage>.Name);
+        activity?.SetTag("catga.message.type", logicalName);
         activity?.SetTag("catga.message.id", ctx.MessageId);
-        // ✅ Avoid enum boxing: use static string mapping
+        // Avoid enum boxing: use static string mapping
         var qosString = qos switch
         {
             QualityOfService.AtMostOnce => "AtMostOnce",
@@ -86,7 +97,7 @@ public class InMemoryMessageTransport : IMessageTransport, IDisposable
                             // QoS 0: Discard on failure, log but don't throw
                             _logger?.LogWarning(ex,
                                 "QoS 0 message processing failed, discarding. MessageId: {MessageId}, Type: {MessageType}",
-                                ctx.MessageId, TypeNameCache<TMessage>.Name);
+                                ctx.MessageId, logicalName);
                         }
                     }
                     break;
@@ -130,17 +141,17 @@ public class InMemoryMessageTransport : IMessageTransport, IDisposable
             // ✅ Use TagList to avoid heap allocation
             var publishedTags = new TagList
             {
-                { "message_type", TypeNameCache<TMessage>.Name },
+                { "message_type", logicalName },
                 { "qos", qosString }
             };
-            var durationTags = new TagList { { "message_type", TypeNameCache<TMessage>.Name } };
+            var durationTags = new TagList { { "message_type", logicalName } };
             CatgaDiagnostics.MessagesPublished.Add(1, publishedTags);
             CatgaDiagnostics.MessageDuration.Record(sw.Elapsed.TotalMilliseconds, durationTags);
         }
         catch (Exception ex)
         {
             // ✅ Use TagList to avoid heap allocation
-            var failedTags = new TagList { { "message_type", TypeNameCache<TMessage>.Name } };
+            var failedTags = new TagList { { "message_type", logicalName } };
             CatgaDiagnostics.MessagesFailed.Add(1, failedTags);
             RecordException(activity, ex);
             throw;

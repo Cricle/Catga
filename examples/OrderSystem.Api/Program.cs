@@ -19,7 +19,12 @@ builder.AddServiceDefaults();
 // 单机开发：dotnet run
 // 多节点开发：dotnet run -- 1 (节点1), dotnet run -- 2 (节点2), ...
 // 生产环境：通过 CATGA_WORKER_ID 环境变量配置
-var catgaBuilder = builder.Services.AddCatga().UseMemoryPack();
+var catgaBuilder = builder.Services
+    .AddCatga(o => o.EndpointNamingConvention = Catga.Generated.EndpointNaming.GetConvention())
+    .UseMemoryPack()
+    .UseInbox()
+    .UseOutbox()
+    .UseDeadLetterQueue();
 
 if (args.Length > 0 && int.TryParse(args[0], out var workerId))
 {
@@ -60,8 +65,9 @@ ActivityPayloadCapture.CustomSerializer = obj =>
 };
 builder.Services.AddInMemoryTransport();
 
-// Register handlers and services
-builder.Services.AddOrderSystemHandlers();
+// Register handlers/services explicitly via generated methods (no reflection)
+builder.Services.AddGeneratedHandlers();
+builder.Services.AddGeneratedServices();
 builder.Services.AddOrderSystemServices();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -155,7 +161,9 @@ app.MapGet("/demo/compare", () => Results.Ok(new
                        "✨ Rich metadata", "✨ Event-driven architecture" }
 })).WithName("DemoComparison").WithTags("Demo");
 
-app.Logger.LogInformation("🚀 OrderSystem started | UI: http://localhost:5000 | Swagger: /swagger | Jaeger: http://localhost:16686");
+string firstUrl = "http://localhost:5000";
+foreach (var u in app.Urls) { firstUrl = u; break; }
+app.Logger.LogInformation($"🚀 OrderSystem started | UI: {firstUrl} | Swagger: /swagger | Jaeger: http://localhost:16686");
 
 app.Run();
 

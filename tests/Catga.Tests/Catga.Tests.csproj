@@ -39,7 +39,10 @@
     <ProjectReference Include="..\..\src\Catga.Transport.Nats\Catga.Transport.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.Persistence.Nats\Catga.Persistence.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj" />
-    <ProjectReference Include="..\..\src\Catga.Serialization.Json\Catga.Serialization.Json.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Serialization\JsonMessageSerializerTests.cs" />
   </ItemGroup>
 
 </Project>

@@ -69,62 +69,24 @@ public abstract class MessageSerializerBase : IMessageSerializer
 
     /// <summary>
     /// Serialize object to byte array (with runtime type)
+    /// Must be implemented by concrete serializers without reflection.
     /// </summary>
-    public virtual byte[] Serialize(object value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-        ArgumentNullException.ThrowIfNull(type);
-
-        // Use reflection to call generic Serialize<T>
-        var method = typeof(MessageSerializerBase).GetMethod(nameof(Serialize), 1, new[] { type })!;
-        var genericMethod = method.MakeGenericMethod(type);
-        return (byte[])genericMethod.Invoke(this, new[] { value })!;
-    }
+    public abstract byte[] Serialize(object value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type);
 
     /// <summary>
     /// Deserialize from byte array (with runtime type)
     /// </summary>
-    public virtual object? Deserialize(byte[] data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
-    {
-        ArgumentNullException.ThrowIfNull(data);
-        ArgumentNullException.ThrowIfNull(type);
-
-        // Use reflection to call generic Deserialize<T>
-        var method = typeof(MessageSerializerBase).GetMethod(nameof(Deserialize), new[] { typeof(byte[]) })!;
-        var genericMethod = method.MakeGenericMethod(type);
-        return genericMethod.Invoke(this, new object[] { data });
-    }
+    public abstract object? Deserialize(byte[] data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type);
 
     /// <summary>
     /// Deserialize from ReadOnlySpan (with runtime type, zero-copy)
     /// </summary>
-    public virtual object? Deserialize(ReadOnlySpan<byte> data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
-    {
-        ArgumentNullException.ThrowIfNull(type);
-
-        // Convert ReadOnlySpan to byte[] since we can't box spans
-        var dataArray = data.ToArray();
-        
-        // Use reflection to call generic Deserialize<T>
-        var method = typeof(MessageSerializerBase).GetMethod(nameof(Deserialize), new[] { typeof(byte[]) })!;
-        var genericMethod = method.MakeGenericMethod(type);
-        return genericMethod.Invoke(this, new object[] { dataArray });
-    }
+    public abstract object? Deserialize(ReadOnlySpan<byte> data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type);
 
     /// <summary>
     /// Serialize object to buffer writer (with runtime type, zero-allocation)
     /// </summary>
-    public virtual void Serialize(object value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type, IBufferWriter<byte> bufferWriter)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-        ArgumentNullException.ThrowIfNull(type);
-        ArgumentNullException.ThrowIfNull(bufferWriter);
-
-        // Use reflection to call generic Serialize<T>
-        var method = typeof(MessageSerializerBase).GetMethod(nameof(Serialize), new[] { type, typeof(IBufferWriter<byte>) })!;
-        var genericMethod = method.MakeGenericMethod(type);
-        genericMethod.Invoke(this, new[] { value, bufferWriter });
-    }
+    public abstract void Serialize(object value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type, IBufferWriter<byte> bufferWriter);
 }
 
 /// <summary>
@@ -138,6 +100,8 @@ public static class SerializationHelper
     /// Serialize to Base64 string
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [RequiresDynamicCode("Serialization may use reflection for certain types")]
+    [RequiresUnreferencedCode("Serialization may require unreferenced code for certain types")]
     public static string Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         T obj,
         IMessageSerializer serializer)
@@ -151,6 +115,8 @@ public static class SerializationHelper
     /// Deserialize from Base64 string
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [RequiresDynamicCode("Deserialization may use reflection for certain types")]
+    [RequiresUnreferencedCode("Deserialization may require unreferenced code for certain types")]
     public static T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         string data,
         IMessageSerializer serializer)
@@ -166,6 +132,8 @@ public static class SerializationHelper
     /// <summary>
     /// Try deserialize
     /// </summary>
+    [RequiresDynamicCode("Deserialization may use reflection for certain types")]
+    [RequiresUnreferencedCode("Deserialization may require unreferenced code for certain types")]
     public static bool TryDeserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         string data,
         out T? result,

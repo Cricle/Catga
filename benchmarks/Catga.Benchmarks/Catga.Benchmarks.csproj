@@ -21,7 +21,6 @@
     <ProjectReference Include="..\..\src\Catga\Catga.csproj" />
     <ProjectReference Include="..\..\src\Catga.Transport.InMemory\Catga.Transport.InMemory.csproj" />
     <ProjectReference Include="..\..\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj" />
-    <ProjectReference Include="..\..\src\Catga.Serialization.Json\Catga.Serialization.Json.csproj" />
     <ProjectReference Include="..\..\src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj" />
 
     <!-- Source Generator for benchmarking auto-registration -->

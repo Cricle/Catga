@@ -2,6 +2,7 @@ using Catga.Transport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Catga.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace Catga;
 
@@ -16,7 +17,12 @@ public static class InMemoryTransportServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         // 注册 Transport (InMemoryIdempotencyStore 是内部实现)
-        services.TryAddSingleton<IMessageTransport, InMemoryMessageTransport>();
+        services.TryAddSingleton<IMessageTransport>(sp =>
+        {
+            var logger = sp.GetService<ILogger<InMemoryMessageTransport>>();
+            var global = sp.GetRequiredService<Catga.Configuration.CatgaOptions>();
+            return new InMemoryMessageTransport(new InMemoryTransportOptions(), logger, global);
+        });
 
         return services;
     }

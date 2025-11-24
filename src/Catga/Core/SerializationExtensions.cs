@@ -13,7 +13,7 @@ namespace Catga.Core;
 /// - Serialization to UTF-8 JSON string
 /// - Deserialization from UTF-8 JSON string
 /// - Safe deserialization with exception handling
-/// 
+///
 /// All methods are AOT-compatible and use stack allocation where possible.
 /// </remarks>
 public static class SerializationExtensions
@@ -29,7 +29,6 @@ public static class SerializationExtensions
     public static string SerializeToJson<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(this IMessageSerializer serializer, T value)
     {
         if (value == null) return string.Empty;
-        
         var bytes = serializer.Serialize(value);
         return Encoding.UTF8.GetString(bytes);
     }
@@ -45,7 +44,7 @@ public static class SerializationExtensions
     public static T? DeserializeFromJson<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(this IMessageSerializer serializer, string json)
     {
         if (string.IsNullOrEmpty(json)) return default;
-        
+
         var bytes = Encoding.UTF8.GetBytes(json);
         return serializer.Deserialize<T>(bytes);
     }

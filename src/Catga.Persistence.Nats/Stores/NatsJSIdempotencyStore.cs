@@ -96,7 +96,7 @@ public sealed class NatsJSIdempotencyStore : NatsJSStoreBase, IIdempotencyStore
 
         if (result != null)
         {
-            data = _serializer.Serialize(result);
+            data = _serializer.Serialize(result, typeof(TResult));
         }
         else
         {
@@ -149,7 +149,7 @@ public sealed class NatsJSIdempotencyStore : NatsJSStoreBase, IIdempotencyStore
                 if (!hasResult || msg.Data == null || msg.Data.Length == 0)
                     return default;
 
-                return _serializer.Deserialize<TResult>(msg.Data);
+                return (TResult?)_serializer.Deserialize(msg.Data, typeof(TResult));
             }
 
             return default;

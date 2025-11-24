@@ -57,7 +57,7 @@ public class RedisInboxPersistence : RedisStoreBase, IInboxStore
             LockExpiresAt = DateTime.UtcNow.Add(lockDuration)
         };
 
-        var data = Serializer.Serialize(message);
+        var data = Serializer.Serialize(message, typeof(InboxMessage));
 
         // 使用 Lua 脚本原子化检查并锁定
         var result = await db.ScriptEvaluateAsync(
@@ -95,7 +95,7 @@ public class RedisInboxPersistence : RedisStoreBase, IInboxStore
         message.ProcessedAt = DateTime.UtcNow;
         message.LockExpiresAt = null;
 
-        var data = Serializer.Serialize(message);
+        var data = Serializer.Serialize(message, typeof(InboxMessage));
 
         // 保存已处理消息（保留 24 小时用于幂等性检查）
         await db.StringSetAsync(key, data, TimeSpan.FromHours(24));
@@ -124,7 +124,7 @@ public class RedisInboxPersistence : RedisStoreBase, IInboxStore
         if (!data.HasValue)
             return null;
 
-        var message = Serializer.Deserialize<InboxMessage>(data!);
+        var message = (InboxMessage?)Serializer.Deserialize((byte[])data!, typeof(InboxMessage));
         return message?.ProcessingResult;
     }
 

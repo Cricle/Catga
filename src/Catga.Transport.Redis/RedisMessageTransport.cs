@@ -1,3 +1,4 @@
+using System;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.Transport;
@@ -22,6 +23,8 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
     private readonly IMessageSerializer _serializer;
     private readonly string _consumerGroup;
     private readonly string _consumerName;
+    private readonly string _channelPrefix = "catga."; // default logical prefix
+    private readonly Func<Type, string>? _naming;       // optional channel naming
 
     // Pub/Sub subscriptions (QoS 0)
     private readonly ConcurrentDictionary<string, ChannelMessageQueue> _pubSubSubscriptions = new();
@@ -46,6 +49,26 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
         _subscriber = _redis.GetSubscriber();
         _consumerGroup = consumerGroup ?? $"catga-group-{Environment.MachineName}";
         _consumerName = consumerName ?? $"catga-consumer-{Guid.NewGuid():N}";
+    }
+
+    /// <summary>
+    /// Overload that accepts RedisTransportOptions to enable naming convention and channel prefix.
+    /// </summary>
+    public RedisMessageTransport(
+        IConnectionMultiplexer redis,
+        IMessageSerializer serializer,
+        RedisTransportOptions options,
+        string? consumerGroup = null,
+        string? consumerName = null)
+        : this(redis, serializer, consumerGroup, consumerName)
+    {
+        if (options != null)
+        {
+            // Ensure trailing dot for simple concatenation
+            var prefix = options.ChannelPrefix ?? "catga.";
+            _channelPrefix = prefix.EndsWith('.') ? prefix : prefix + ".";
+            _naming = options.Naming;
+        }
     }
 
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
@@ -136,9 +159,10 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string GetSubject<TMessage>() where TMessage : class
+    private string GetSubject<TMessage>() where TMessage : class
     {
-        return typeof(TMessage).Name;
+        var name = _naming != null ? _naming(typeof(TMessage)) : typeof(TMessage).Name;
+        return _channelPrefix + name;
     }
 
     private string SerializeMessage<TMessage>(TMessage message, TransportContext? context)
@@ -149,7 +173,7 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
             Message = message,
             Context = context
         };
-        var bytes = _serializer.Serialize(envelope);
+        var bytes = _serializer.Serialize(envelope, typeof(MessageEnvelope<TMessage>));
         return Convert.ToBase64String(bytes);
     }
 
@@ -157,7 +181,7 @@ public sealed class RedisMessageTransport : IMessageTransport, IAsyncDisposable
         where TMessage : class
     {
         var bytes = Convert.FromBase64String(data.ToString()!);
-        var envelope = _serializer.Deserialize<MessageEnvelope<TMessage>>(bytes);
+        var envelope = (MessageEnvelope<TMessage>?)_serializer.Deserialize(bytes, typeof(MessageEnvelope<TMessage>));
         return (envelope!.Message, envelope.Context);
     }
 

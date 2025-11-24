@@ -179,6 +179,43 @@ public class LightweightHandler : IRequestHandler<MyRequest, MyResponse> { }
 ls obj/Debug/net9.0/generated/Catga.SourceGenerator/
 ```
 
+## 🧭 Endpoint Naming via Attributes
+
+Catga supports global endpoint naming via source generator attributes. This removes repetitive per-transport configuration and keeps naming AOT-friendly.
+
+### Assembly-level defaults (recommended)
+
+```csharp
+using Catga;
+[assembly: CatgaMessageDefaults(App = "shop", BoundedContext = "orders", Separator = ".", LowerCase = true)]
+```
+
+### Per-message override (optional)
+
+```csharp
+using Catga;
+[CatgaMessage(Name = "special.order.created")]
+public record OrderCreatedEvent(string OrderId) : IEvent;
+```
+
+### How it works
+
+- The generator emits a mapping `Catga.Generated.EndpointNaming` used by `AddCatga()` when `CatgaOptions.EndpointNamingConvention` is not explicitly configured.
+- Transports use the following precedence:
+  - NATS/Redis: `TransportOptions.Naming` > `CatgaOptions.EndpointNamingConvention` > fallback to type name
+  - InMemory: uses the naming for observability tags/metrics only (does not affect routing)
+
+### Manual configuration (explicit override)
+
+```csharp
+builder.Services.AddCatga(o =>
+{
+    o.EndpointNamingConvention = t => $"shop.orders.{t.Name}".ToLowerInvariant();
+});
+```
+
+> Tip: Prefer attributes for zero-config projects. Use explicit configuration when you need full programmatic control.
+
 ## 🔧 Troubleshooting
 
 ### Handlers Not Registered

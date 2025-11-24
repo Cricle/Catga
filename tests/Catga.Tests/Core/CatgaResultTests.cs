@@ -6,7 +6,7 @@ using Xunit;
 namespace Catga.Tests.Core;
 
 /// <summary>
-/// CatgaResult<T>和CatgaResult单元测试
+/// CatgaResult&lt;T&gt; 和 CatgaResult 单元测试
 /// 目标覆盖率: 从 0% → 100%
 /// </summary>
 public class CatgaResultTests
@@ -251,7 +251,7 @@ public class CatgaResultTests
         // Arrange & Act
         var result1 = CatgaResult<int>.Success(42);
         var result2 = result1; // Copy
-        
+
         // Assert - structs are copied by value
         result1.Should().Be(result2);
         typeof(CatgaResult<int>).IsValueType.Should().BeTrue();
@@ -263,7 +263,7 @@ public class CatgaResultTests
         // Arrange & Act
         var result1 = CatgaResult.Success();
         var result2 = result1;
-        
+
         // Assert
         result1.Should().Be(result2);
         typeof(CatgaResult).IsValueType.Should().BeTrue();
@@ -410,7 +410,7 @@ public class CatgaResultTests
     {
         if (shouldSucceed)
             return CatgaResult<int>.Success(42);
-        
+
         return CatgaResult<int>.Failure("Processing failed");
     }
 
@@ -418,7 +418,7 @@ public class CatgaResultTests
     {
         if (shouldSucceed)
             return CatgaResult.Success();
-        
+
         return CatgaResult.Failure("Operation failed");
     }
 

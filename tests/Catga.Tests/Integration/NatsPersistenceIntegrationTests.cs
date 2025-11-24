@@ -5,7 +5,7 @@ using Catga.Core;
 using Catga.Outbox;
 using Catga.Persistence;
 using Catga.Persistence.Stores;
-using Catga.Serialization.Json;
+using Catga.Serialization.MemoryPack;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using FluentAssertions;
@@ -61,7 +61,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         await _natsConnection.ConnectAsync();
 
         // 创建序列化器
-        _serializer = new JsonMessageSerializer();
+        _serializer = new MemoryPackMessageSerializer();
     }
 
     public async Task DisposeAsync()

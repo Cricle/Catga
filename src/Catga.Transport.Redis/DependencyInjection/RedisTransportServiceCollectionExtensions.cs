@@ -38,9 +38,14 @@ public static class RedisTransportServiceCollectionExtensions
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
             var serializer = sp.GetRequiredService<IMessageSerializer>();
+            // Pass options so ChannelPrefix/Naming can take effect
+            var catgaOptions = sp.GetRequiredService<Catga.Configuration.CatgaOptions>();
+            if (options.Naming is null && catgaOptions.EndpointNamingConvention is not null)
+                options.Naming = catgaOptions.EndpointNamingConvention;
             return new RedisMessageTransport(
                 redis,
                 serializer,
+                options,
                 options.ConsumerGroup,
                 options.ConsumerName);
         });

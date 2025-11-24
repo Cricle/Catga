@@ -284,6 +284,51 @@ curl -X POST http://localhost:5000/api/users \
 
 **🎉 就这么简单！** 完整示例请参考 [OrderSystem](./examples/OrderSystem.Api/)
 
+## 🔧 全局端点命名与可靠性开关
+
+- **全局端点命名（两种方式）**
+
+  1) 代码方式（一次配置，全局生效）
+  ```csharp
+  // Program.cs
+  builder.Services.AddCatga(o =>
+  {
+      o.EndpointNamingConvention = t => $"shop.orders.{t.Name}".ToLowerInvariant();
+  });
+  ```
+
+  2) 源生成（零配置，推荐）
+  ```csharp
+  // 任意项目（建议在应用层程序集）
+  using Catga;
+  [assembly: CatgaMessageDefaults(App = "shop", BoundedContext = "orders", LowerCase = true)]
+
+  // 可选：单条消息覆盖
+  [CatgaMessage(Name = "special.order.created")]
+  public record OrderCreatedEvent(string OrderId) : IEvent;
+  ```
+
+  说明：
+  - `AddCatga()` 会在未显式配置 `EndpointNamingConvention` 时，自动采用生成的命名映射。
+  - 传输层行为：
+    - NATS/Redis：若本地 `NatsTransportOptions.Naming`/`RedisTransportOptions.Naming` 未设置，则回退到全局 `CatgaOptions.EndpointNamingConvention`。
+    - InMemory：仅用于可观测性标签与指标，不影响路由。
+
+- **可靠性开关（按需启用）**
+
+  ```csharp
+  // Program.cs
+  builder.Services
+      .AddCatga()
+      .UseInbox()
+      .UseOutbox()
+      .UseDeadLetterQueue();
+  ```
+
+  说明：
+  - 条件式激活：缺少对应依赖（如 Outbox/Inbox 存储或 DeadLetterQueue）时自动跳过，不抛错。
+  - 与 InMemory/Redis/NATS 任意传输组合可用。
+
 ---
 
 ## 📊 性能基准

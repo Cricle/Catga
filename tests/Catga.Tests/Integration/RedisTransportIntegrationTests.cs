@@ -1,6 +1,6 @@
 using Catga.Abstractions;
 using Catga.Core;
-using Catga.Serialization.Json;
+using Catga.Serialization.MemoryPack;
 using Catga.Transport;
 using FluentAssertions;
 using StackExchange.Redis;
@@ -43,7 +43,7 @@ public class RedisTransportIntegrationTests : IAsyncLifetime
         _redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
 
         // 创建序列化器和传输层
-        _serializer = new JsonMessageSerializer();
+        _serializer = new MemoryPackMessageSerializer();
         _transport = new RedisMessageTransport(_redis, _serializer);
     }
 

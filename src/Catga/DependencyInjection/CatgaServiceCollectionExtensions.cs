@@ -1,5 +1,7 @@
+using System;
 using Catga;
 using Catga.Configuration;
+using Catga.Generated;
 using Catga.DependencyInjection;
 using Catga.DistributedId;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +23,7 @@ public static class CatgaServiceCollectionExtensions
 
         // Register Catga options
         var options = new CatgaOptions();
+        TrySetGeneratedEndpointNaming(options);
         services.TryAddSingleton(options);
 
         // Register core services
@@ -34,7 +37,11 @@ public static class CatgaServiceCollectionExtensions
             return new SnowflakeIdGenerator(workerId);
         });
 
-        return new CatgaServiceBuilder(services, options);
+        var builder = new CatgaServiceBuilder(services, options);
+
+        TryInvokeGeneratedRegistrations(services, options);
+
+        return builder;
     }
 
     private static int GetWorkerIdFromEnvironmentOrRandom(string envVarName)
@@ -62,5 +69,15 @@ public static class CatgaServiceCollectionExtensions
 
         return builder;
     }
-}
 
+    private static void TryInvokeGeneratedRegistrations(IServiceCollection services, CatgaOptions options)
+    {
+        // Reflection-free bootstrap: apply registrations and endpoint naming
+        GeneratedBootstrapRegistry.Apply(services, options);
+    }
+
+    private static void TrySetGeneratedEndpointNaming(CatgaOptions options)
+    {
+        // Intentionally left blank: naming is applied via GeneratedBootstrapRegistry.Apply
+    }
+}

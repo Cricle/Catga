@@ -56,7 +56,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         message.Status = InboxStatus.Processing;
         message.LockExpiresAt = DateTime.UtcNow.Add(lockDuration);
 
-        var data = _serializer.Serialize(message);
+        var data = _serializer.Serialize(message, typeof(InboxMessage));
         var ack = await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
 
         return ack.Error == null;
@@ -75,7 +75,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         message.LockExpiresAt = null;
 
         var subject = $"{StreamName}.{message.MessageId}";
-        var data = _serializer.Serialize(message);
+        var data = _serializer.Serialize(message, typeof(InboxMessage));
 
         await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
     }
@@ -113,7 +113,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
             message.LockExpiresAt = null;
 
             var subject = $"{StreamName}.{messageId}";
-            var data = _serializer.Serialize(message);
+            var data = _serializer.Serialize(message, typeof(InboxMessage));
 
             await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
         }
@@ -149,7 +149,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
             {
                 if (msg.Data != null && msg.Data.Length > 0)
                 {
-                    return _serializer.Deserialize<InboxMessage>(msg.Data);
+                    return (InboxMessage?)_serializer.Deserialize(msg.Data, typeof(InboxMessage));
                 }
             }
         }

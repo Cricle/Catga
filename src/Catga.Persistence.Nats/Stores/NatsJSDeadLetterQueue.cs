@@ -56,7 +56,7 @@ public sealed class NatsJSDeadLetterQueue : NatsJSStoreBase, IDeadLetterQueue
         };
 
         var subject = $"{StreamName.ToLowerInvariant()}.{message.MessageId}";
-        var data = _serializer.Serialize(dlqMessage);
+        var data = _serializer.Serialize(dlqMessage, typeof(DeadLetterMessage));
 
         await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
     }
@@ -91,7 +91,7 @@ public sealed class NatsJSDeadLetterQueue : NatsJSStoreBase, IDeadLetterQueue
                 {
                     if (msg.Data != null)
                     {
-                        var dlqMsg = _serializer.Deserialize<DeadLetterMessage>(msg.Data);
+                        var dlqMsg = (DeadLetterMessage)_serializer.Deserialize(msg.Data, typeof(DeadLetterMessage))!;
                         result.Add(dlqMsg);
                         await msg.AckAsync(cancellationToken: cancellationToken);
                         count++;

@@ -27,6 +27,7 @@ public class NatsMessageTransport : IMessageTransport
     private readonly IMessageSerializer _serializer;
     private readonly ILogger<NatsMessageTransport> _logger;
     private readonly string _subjectPrefix;
+    private Func<Type, string>? _naming;
     private INatsJSContext? _jsContext;
 
     public string Name => "NATS";
@@ -38,8 +39,17 @@ public class NatsMessageTransport : IMessageTransport
         _connection = connection;
         _serializer = serializer;
         _logger = logger;
-        _subjectPrefix = options?.SubjectPrefix ?? "catga";
+        // Normalize prefix to avoid double dots when composing subject
+        _subjectPrefix = (options?.SubjectPrefix ?? "catga").TrimEnd('.');
+        _naming = options?.Naming;
         _jsContext = new NatsJSContext(_connection);
+    }
+
+    public NatsMessageTransport(INatsConnection connection, IMessageSerializer serializer, ILogger<NatsMessageTransport> logger, Catga.Configuration.CatgaOptions globalOptions, NatsTransportOptions? options = null)
+        : this(connection, serializer, logger, options)
+    {
+        if (_naming == null)
+            _naming = globalOptions?.EndpointNamingConvention;
     }
 
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
@@ -48,7 +58,7 @@ public class NatsMessageTransport : IMessageTransport
         var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
         var ctx = context ?? new TransportContext { MessageId = MessageExtensions.NewMessageId(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
 
-        var payload = _serializer.Serialize(message);
+        var payload = _serializer.Serialize(message!, typeof(TMessage));
         var headers = new NatsHeaders
         {
             ["MessageId"] = ctx.MessageId?.ToString() ?? string.Empty,
@@ -98,7 +108,7 @@ public class NatsMessageTransport : IMessageTransport
                     _logger.LogWarning("Received empty message from subject {Subject}", subject);
                     continue;
                 }
-                var message = _serializer.Deserialize<TMessage>(msg.Data);
+                var message = (TMessage?)_serializer.Deserialize(msg.Data, typeof(TMessage));
                 if (message == null)
                 {
                     _logger.LogWarning("Failed to deserialize message from subject {Subject}", subject);
@@ -140,7 +150,15 @@ public class NatsMessageTransport : IMessageTransport
         => PublishBatchAsync(messages, context, cancellationToken);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private string GetSubjectCached<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>() => SubjectCache<TMessage>.Subject ??= $"{_subjectPrefix}.{TypeNameCache<TMessage>.Name}";
+    private string GetSubjectCached<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>()
+        => SubjectCache<TMessage>.Subject ??= BuildSubject<TMessage>();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private string BuildSubject<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>()
+    {
+        var name = _naming != null ? _naming(typeof(TMessage)) : TypeNameCache<TMessage>.Name;
+        return $"{_subjectPrefix}.{name}";
+    }
 }
 
 /// <summary>Zero-allocation subject cache per message type</summary>

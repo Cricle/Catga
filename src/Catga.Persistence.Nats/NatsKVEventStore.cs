@@ -57,7 +57,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
             var data = SerializeEvent(@event);
             var headers = new NatsHeaders
             {
-                ["EventType"] = @event.GetType().AssemblyQualifiedName!
+                ["EventType"] = @event.GetType().FullName!
             };
 
             var ack = await JetStream.PublishAsync(subject, data, headers: headers, cancellationToken: cancellationToken);
@@ -190,7 +190,6 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private byte[] SerializeEvent(IEvent @event)
     {
-        // Use non-generic Serialize for better AOT compatibility
         return _serializer.Serialize(@event, @event.GetType());
     }
 
@@ -208,12 +207,10 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         if (string.IsNullOrEmpty(eventTypeName))
             throw new InvalidOperationException("Event type not found in message headers");
 
-        var eventType = Type.GetType(eventTypeName!, throwOnError: false)
-            ?? throw new InvalidOperationException($"Event type not found: {eventTypeName}. Ensure the type is available in the application domain.");
+        if (Catga.Generated.EventTypeRegistry.TryDeserialize(eventTypeName!, msg.Data!, _serializer, out var evt))
+            return evt;
 
-        // Use non-generic Deserialize(byte[], Type) method - no reflection needed for generic method invocation
-        return (IEvent)(_serializer.Deserialize(msg.Data!, eventType)
-            ?? throw new InvalidOperationException("Failed to deserialize message"));
+        throw new InvalidOperationException($"Unknown event type: {eventTypeName}. Ensure it is included in compilation for registration.");
     }
 }
 

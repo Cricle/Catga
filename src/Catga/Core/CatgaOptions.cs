@@ -1,3 +1,4 @@
+using System;
 namespace Catga.Configuration;
 
 /// <summary>Catga configuration with sensible defaults</summary>
@@ -20,6 +21,9 @@ public class CatgaOptions
     public int DeadLetterQueueMaxSize { get; set; } = 1000;
 
     public QualityOfService DefaultQoS { get; set; } = QualityOfService.AtLeastOnce;
+
+    /// <summary>Optional global endpoint naming convention mapping message Type to logical name</summary>
+    public Func<Type, string>? EndpointNamingConvention { get; set; }
 
     /// <summary>Circuit breaker: consecutive failure threshold before opening (default: 5)</summary>
     public int? CircuitBreakerThreshold { get; set; }

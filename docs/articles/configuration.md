@@ -170,6 +170,44 @@ services.AddCatga(options =>
 });
 ```
 
+### Global Endpoint Naming
+
+```csharp
+// Program.cs — explicit configuration (one place, global effect)
+builder.Services.AddCatga(o =>
+{
+    o.EndpointNamingConvention = t => $"shop.orders.{t.Name}".ToLowerInvariant();
+});
+
+// Or via source generator attributes (zero-config, recommended)
+using Catga;
+[assembly: CatgaMessageDefaults(App = "shop", BoundedContext = "orders", Separator = ".", LowerCase = true)]
+
+// Optional per-message override
+[CatgaMessage(Name = "special.order.created")]
+public record OrderCreatedEvent(string OrderId) : IEvent;
+```
+
+Notes:
+- If `EndpointNamingConvention` is not explicitly set, `AddCatga()` uses the generated mapping.
+- Transports precedence:
+  - NATS/Redis: `TransportOptions.Naming` > `CatgaOptions.EndpointNamingConvention` > type name
+  - InMemory: naming is used for observability tags/metrics only (routing unaffected)
+
+### Reliability Toggles (conditional behaviors)
+
+```csharp
+builder.Services
+    .AddCatga()
+    .UseInbox()
+    .UseOutbox()
+    .UseDeadLetterQueue();
+```
+
+Notes:
+- Behaviors activate only if required dependencies are registered (e.g., Inbox/Outbox stores, IDeadLetterQueue).
+- Safe to enable in any environment; missing dependencies simply skip the behavior.
+
 ### Custom Behaviors
 
 ```csharp

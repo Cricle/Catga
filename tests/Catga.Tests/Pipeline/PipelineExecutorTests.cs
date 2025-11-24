@@ -389,7 +389,7 @@ public class PipelineExecutorTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().Be(modifiedResponse);
-        result.Value.Result.Should().Be("Modified");
+        result.Value!.Result.Should().Be("Modified");
     }
 
     #endregion

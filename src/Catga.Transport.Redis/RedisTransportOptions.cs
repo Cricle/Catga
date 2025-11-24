@@ -1,3 +1,4 @@
+using System;
 namespace Catga.Transport;
 
 /// <summary>
@@ -26,6 +27,17 @@ public enum RedisMode
 /// </summary>
 public sealed class RedisTransportOptions
 {
+    /// <summary>
+    /// Logical channel prefix for Pub/Sub subject naming (default: "catga.")
+    /// </summary>
+    public string ChannelPrefix { get; set; } = "catga.";
+
+    /// <summary>
+    /// Optional channel naming convention: maps message type to channel suffix.
+    /// Final channel will be ChannelPrefix + Naming(type).
+    /// </summary>
+    public Func<Type, string>? Naming { get; set; }
+
     /// <summary>
     /// Redis connection string
     /// </summary>

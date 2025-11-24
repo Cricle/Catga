@@ -1,0 +1,49 @@
+  姝ｅ湪纭畾瑕佽繕鍘熺殑椤圭洰鈥?
+  鎵€鏈夐」鐩潎鏄渶鏂扮殑锛屾棤娉曡繕鍘熴€?
+  Catga -> C:\Users\huaji\Workplace\github\Catga\src\Catga\bin\Debug\net9.0\Catga.dll
+  Catga -> C:\Users\huaji\Workplace\github\Catga\src\Catga\bin\Debug\net8.0\Catga.dll
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(139,27): error CS1010: 甯搁噺涓湁鎹㈣绗?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(139,131): error CS1003: 璇硶閿欒锛屽簲杈撳叆鈥?鈥?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(140,1): error CS1010: 甯搁噺涓湁鎹㈣绗?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(140,4): error CS1003: 璇硶閿欒锛屽簲杈撳叆鈥?鈥?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(141,151): error CS1026: 搴旇緭鍏?) [C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(185,45): error CS1002: 搴旇緭鍏?; [C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(185,49): error CS1519: Invalid token '\' in a member declaration [C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(185,49): error CS1056: 鎰忓鐨勫瓧绗︹€淺鈥?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(185,50): error CS1010: 甯搁噺涓湁鎹㈣绗?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(186,5): warning CS1570: XML 娉ㄩ噴鍑虹幇 XML 鏍煎紡閿欒 --鈥滃湪姝や綅缃笉搴斾负缁撴潫鏍囪銆傗€?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(196,1): error CS1010: 甯搁噺涓湁鎹㈣绗?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(196,1): error CS1519: Invalid token '";' in a member declaration [C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+  Catga -> C:\Users\huaji\Workplace\github\Catga\src\Catga\bin\Debug\net6.0\Catga.dll
+  Catga.Persistence.Nats -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.Nats\bin\Debug\net9.0\Catga.Persistence.Nats.dll
+  Catga.Transport.Redis -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Transport.Redis\bin\Debug\net9.0\Catga.Transport.Redis.dll
+  Catga.Serialization.Json -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Serialization.Json\bin\Debug\net9.0\Catga.Serialization.Json.dll
+  Catga.Persistence.InMemory -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\bin\Debug\net9.0\Catga.Persistence.InMemory.dll
+  Catga.Persistence.Redis -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.Redis\bin\Debug\net9.0\Catga.Persistence.Redis.dll
+  Catga.Serialization.MemoryPack -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Serialization.MemoryPack\bin\Debug\net9.0\Catga.Serialization.MemoryPack.dll
+  Catga.AspNetCore -> C:\Users\huaji\Workplace\github\Catga\src\Catga.AspNetCore\bin\Debug\net9.0\Catga.AspNetCore.dll
+  OrderSystem.ServiceDefaults -> C:\Users\huaji\Workplace\github\Catga\examples\OrderSystem.ServiceDefaults\bin\Debug\net9.0\OrderSystem.ServiceDefaults.dll
+  Catga.Transport.Nats -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Transport.Nats\bin\Debug\net9.0\Catga.Transport.Nats.dll
+  Catga.Transport.InMemory -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Transport.InMemory\bin\Debug\net9.0\Catga.Transport.InMemory.dll
+  Catga.Testing -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Testing\bin\Debug\net9.0\Catga.Testing.dll
+
+鐢熸垚澶辫触銆?
+
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(186,5): warning CS1570: XML 娉ㄩ噴鍑虹幇 XML 鏍煎紡閿欒 --鈥滃湪姝や綅缃笉搴斾负缁撴潫鏍囪銆傗€?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(139,27): error CS1010: 甯搁噺涓湁鎹㈣绗?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(139,131): error CS1003: 璇硶閿欒锛屽簲杈撳叆鈥?鈥?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(140,1): error CS1010: 甯搁噺涓湁鎹㈣绗?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(140,4): error CS1003: 璇硶閿欒锛屽簲杈撳叆鈥?鈥?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(141,151): error CS1026: 搴旇緭鍏?) [C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(185,45): error CS1002: 搴旇緭鍏?; [C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(185,49): error CS1519: Invalid token '\' in a member declaration [C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(185,49): error CS1056: 鎰忓鐨勫瓧绗︹€淺鈥?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(185,50): error CS1010: 甯搁噺涓湁鎹㈣绗?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(196,1): error CS1010: 甯搁噺涓湁鎹㈣绗?[C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\EndpointNamingGenerator.cs(196,1): error CS1519: Invalid token '";' in a member declaration [C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj]
+    1 涓鍛?
+    11 涓敊璇?
+
+宸茬敤鏃堕棿 00:00:02.86
+
+鏈夊彲鐢ㄧ殑宸ヤ綔璐熻浇鏇存柊銆傛湁鍏宠缁嗕俊鎭紝璇疯繍琛?`dotnet workload list`銆?

@@ -3,6 +3,8 @@ using Catga.Transport.Nats;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Catga.Abstractions;
+using NATS.Client.Core;
+using Microsoft.Extensions.Logging;
 
 namespace Catga.DependencyInjection;
 
@@ -19,7 +21,16 @@ public static class NatsTransportServiceCollectionExtensions
 
         configure?.Invoke(options);
         services.TryAddSingleton(options);
-        services.TryAddSingleton<IMessageTransport, NatsMessageTransport>();
+
+        // Use factory to pass CatgaOptions so global naming conventions can apply
+        services.TryAddSingleton<IMessageTransport>(sp =>
+        {
+            var conn = sp.GetRequiredService<INatsConnection>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var logger = sp.GetRequiredService<ILogger<NatsMessageTransport>>();
+            var catgaOptions = sp.GetRequiredService<Catga.Configuration.CatgaOptions>();
+            return new NatsMessageTransport(conn, serializer, logger, catgaOptions, options);
+        });
         return services;
     }
 }

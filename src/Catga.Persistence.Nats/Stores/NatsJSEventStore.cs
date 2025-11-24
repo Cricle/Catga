@@ -58,13 +58,21 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
 
         foreach (var @event in events)
         {
-            // Serialize event (use existing method)
-            var data = _serializer.Serialize(@event);
+            // Serialize with registry (no generic call warnings)
+            var typeName = @event.GetType().FullName!;
+            if (!Catga.Generated.EventTypeRegistry.TrySerialize(typeName, @event, _serializer, out var data))
+            {
+                // Fallback (should not happen if generator covered all events)
+                data = _serializer.Serialize(@event, @event.GetType());
+            }
+
+            var headers = new NatsHeaders { ["EventType"] = typeName };
 
             // Publish to JetStream
             var ack = await JetStream.PublishAsync(
                 subject,
                 data,
+                headers: headers,
                 cancellationToken: cancellationToken);
 
             // Verify publish success
@@ -110,18 +118,19 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
             {
                 if (count >= maxCount) break;
 
-                // Deserialize event
+                // Deserialize event using type header
                 if (msg.Data != null && msg.Data.Length > 0)
                 {
-                    var @event = _serializer.Deserialize<IEvent>(msg.Data);
-                    if (@event != null)
+                    var typeFullName = msg.Headers?["EventType"];
+                    if (!string.IsNullOrEmpty(typeFullName) &&
+                        Catga.Generated.EventTypeRegistry.TryDeserialize(typeFullName!, msg.Data!, _serializer, out var ev))
                     {
                         events.Add(new StoredEvent
                         {
                             Version = (long)(msg.Metadata?.Sequence.Stream ?? 0UL),
-                            Event = @event,
+                            Event = ev!,
                             Timestamp = (msg.Metadata?.Timestamp.UtcDateTime ?? DateTime.UtcNow),
-                            EventType = @event.GetType().Name
+                            EventType = ev!.GetType().Name
                         });
                         count++;
                     }

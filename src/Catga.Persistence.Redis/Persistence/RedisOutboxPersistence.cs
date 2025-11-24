@@ -53,7 +53,7 @@ public class RedisOutboxPersistence : IOutboxStore
         var key = GetMessageKey(message.MessageId);
 
         // 序列化消息
-        var data = _serializer.Serialize(message);
+        var data = _serializer.Serialize(message, typeof(OutboxMessage));
 
         // 使用 Redis 事务保证原子性
         var transaction = db.CreateTransaction();
@@ -113,7 +113,7 @@ public class RedisOutboxPersistence : IOutboxStore
 
             try
             {
-                var message = _serializer.Deserialize<OutboxMessage>(values[i]!);
+                var message = (OutboxMessage?)_serializer.Deserialize((byte[])values[i]!, typeof(OutboxMessage));
                 if (message != null &&
                     message.Status == OutboxStatus.Pending &&
                     message.RetryCount < message.MaxRetries)
@@ -143,7 +143,7 @@ public class RedisOutboxPersistence : IOutboxStore
             return;
         }
 
-        var message = _serializer.Deserialize<OutboxMessage>(data!);
+        var message = (OutboxMessage?)_serializer.Deserialize((byte[])data!, typeof(OutboxMessage));
         if (message == null)
             return;
 
@@ -158,7 +158,7 @@ public class RedisOutboxPersistence : IOutboxStore
             new RedisValue[]
             {
                 messageId,
-                _serializer.Serialize(message),
+                _serializer.Serialize(message, typeof(OutboxMessage)),
                 (int)TimeSpan.FromHours(24).TotalSeconds
             });
 
@@ -191,7 +191,7 @@ public class RedisOutboxPersistence : IOutboxStore
             message.Status = OutboxStatus.Failed;
 
             var transaction = db.CreateTransaction();
-            _ = transaction.StringSetAsync(key, _serializer.Serialize(message));
+            _ = transaction.StringSetAsync(key, _serializer.Serialize(message, typeof(OutboxMessage)));
             _ = transaction.SortedSetRemoveAsync(_pendingSetKey, messageId);
             await transaction.ExecuteAsync();
 
@@ -202,7 +202,7 @@ public class RedisOutboxPersistence : IOutboxStore
         {
             // 还可以重试，保持在待处理集合中
             message.Status = OutboxStatus.Pending;
-            await db.StringSetAsync(key, _serializer.Serialize(message));
+            await db.StringSetAsync(key, _serializer.Serialize(message, typeof(OutboxMessage)));
 
             _logger.LogDebug("Message {MessageId} failed (retry {RetryCount}/{MaxRetries}): {Error}",
                 messageId, message.RetryCount, message.MaxRetries, errorMessage);

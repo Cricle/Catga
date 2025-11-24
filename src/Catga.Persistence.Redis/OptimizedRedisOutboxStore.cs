@@ -42,7 +42,7 @@ public class OptimizedRedisOutboxStore : RedisStoreBase, IOutboxStore
         CancellationToken cancellationToken = default)
     {
         var key = BuildKey(message.MessageId);
-        var bytes = Serializer.Serialize(message);
+        var bytes = Serializer.Serialize(message, typeof(OutboxMessage));
 
         await _db.StringSetAsync(key, bytes);
 
@@ -83,7 +83,7 @@ public class OptimizedRedisOutboxStore : RedisStoreBase, IOutboxStore
             {
                 // 直接反序列化（序列化器内部已优化）
                 var bytes = System.Text.Encoding.UTF8.GetBytes(value);
-                var message = Serializer.Deserialize<OutboxMessage>(bytes.AsSpan());
+                var message = (OutboxMessage?)Serializer.Deserialize(bytes.AsSpan(), typeof(OutboxMessage));
 
                 if (message != null &&
                     message.Status == OutboxStatus.Pending &&
@@ -105,12 +105,12 @@ public class OptimizedRedisOutboxStore : RedisStoreBase, IOutboxStore
 
         if (bytes.HasValue)
         {
-            var message = Serializer.Deserialize<OutboxMessage>((byte[])bytes!);
+            var message = (OutboxMessage?)Serializer.Deserialize((byte[])bytes!, typeof(OutboxMessage));
             if (message != null)
             {
                 message.Status = OutboxStatus.Published;
 
-                await _db.StringSetAsync(key, Serializer.Serialize(message));
+                await _db.StringSetAsync(key, Serializer.Serialize(message, typeof(OutboxMessage)));
 
                 // Remove from pending set
                 await _db.SortedSetRemoveAsync(GetPendingSetKey(), messageId);
@@ -127,7 +127,7 @@ public class OptimizedRedisOutboxStore : RedisStoreBase, IOutboxStore
 
         if (json.HasValue)
         {
-            var message = Serializer.Deserialize<OutboxMessage>((byte[])json!);
+            var message = (OutboxMessage?)Serializer.Deserialize((byte[])json!, typeof(OutboxMessage));
             if (message != null)
             {
                 message.RetryCount++;
@@ -141,7 +141,7 @@ public class OptimizedRedisOutboxStore : RedisStoreBase, IOutboxStore
                     await _db.SortedSetRemoveAsync(GetPendingSetKey(), messageId);
                 }
 
-                await _db.StringSetAsync(key, Serializer.Serialize(message));
+                await _db.StringSetAsync(key, Serializer.Serialize(message, typeof(OutboxMessage)));
             }
         }
     }
@@ -163,7 +163,7 @@ public class OptimizedRedisOutboxStore : RedisStoreBase, IOutboxStore
             var bytes = await _db.StringGetAsync(key.ToString());
             if (bytes.HasValue)
             {
-                var message = Serializer.Deserialize<OutboxMessage>((byte[])bytes!);
+                var message = (OutboxMessage?)Serializer.Deserialize((byte[])bytes!, typeof(OutboxMessage));
                 if (message != null &&
                     message.Status == OutboxStatus.Published &&
                     message.PublishedAt.HasValue &&

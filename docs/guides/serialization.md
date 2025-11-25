@@ -628,7 +628,7 @@ services.AddCatga().UseCustomSerializer();
 - **[MemoryPack 官方文档](https://github.com/Cysharp/MemoryPack)** - 完整的 MemoryPack 指南
 - **[System.Text.Json 源生成](https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/source-generation)** - JSON 源生成器
 - **[Native AOT 部署](../deployment/native-aot-publishing.md)** - AOT 发布指南
-- **[性能优化](../../REFLECTION_OPTIMIZATION_SUMMARY.md)** - 性能优化总结
+- **[性能优化报告](../PERFORMANCE-REPORT.md)** - 性能优化总结
 
 ---
 
@@ -704,7 +704,7 @@ services.AddCatga().UseCustomSerializer();
 
 **🚀 选择正确的序列化器，获得最佳性能！**
 
-[返回主文档](../../README.md) · [快速参考](../../QUICK-REFERENCE.md) · [架构设计](../architecture/ARCHITECTURE.md)
+[返回主文档](../../README.md) · [文档索引](../INDEX.md) · [架构设计](../architecture/ARCHITECTURE.md)
 
 **推荐**: 生产环境使用 MemoryPack，开发调试使用 JSON
 

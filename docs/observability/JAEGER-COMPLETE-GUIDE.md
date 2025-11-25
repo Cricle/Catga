@@ -356,7 +356,7 @@ histogram_quantile(0.95, duration) > 1000  # P95 > 1秒
 - [Jaeger 官方文档](https://www.jaegertracing.io/docs/)
 - [OpenTelemetry .NET](https://opentelemetry.io/docs/instrumentation/net/)
 - [.NET Aspire Observability](https://learn.microsoft.com/en-us/dotnet/aspire/fundamentals/telemetry)
-- [Catga 项目 README](../../README.md)
+- [Catga 文档主页](../README.md)
 
 ---
 

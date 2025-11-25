@@ -380,10 +380,9 @@ ls -lh YourApp
 ## 资源
 
 - [Catga AOT 序列化指南](../aot/serialization-aot-guide.md)
-- [Catga 反射优化总结](../../REFLECTION_OPTIMIZATION_SUMMARY.md)
 - [源生成器使用指南](../guides/source-generator-usage.md)
 - [.NET Native AOT 官方文档](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
-- [性能基准测试](../../benchmarks/Catga.Benchmarks/)
+- [性能基准测试](../BENCHMARK-RESULTS.md)
 
 ## 总结
 

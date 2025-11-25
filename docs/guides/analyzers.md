@@ -3,7 +3,7 @@
 > **编译时代码检查** - 在编译时发现问题，而非运行时崩溃
 > 最后更新: 2025-10-14
 
-[返回主文档](../../README.md) · [快速参考](../../QUICK-REFERENCE.md) · [源生成器](./source-generator-usage.md)
+[返回主文档](../README.md) · [源生成器](./source-generator-usage.md)
 
 ---
 
@@ -534,7 +534,7 @@ dotnet build /p:NoWarn=CATGA001
 
 **🔍 让编译器帮你写出更好的代码！**
 
-[返回主文档](../../README.md) · [快速参考](../../QUICK-REFERENCE.md) · [架构设计](../architecture/ARCHITECTURE.md)
+[返回主文档](../README.md) · [架构设计](../architecture/ARCHITECTURE.md)
 
 **推荐**: 启用所有分析器，在编译时发现问题
 

@@ -273,7 +273,6 @@ public async Task<IActionResult> GetOrder(
 ## 相关文档
 
 - [消息类型](messages.md)
-- [处理器](handlers.md)
-- [Pipeline Behaviors](pipeline.md)
-- [结果类型](results.md)
+- [架构总览与 Pipeline](../architecture/ARCHITECTURE.md)
+- [错误处理指南](../guides/error-handling.md)
 

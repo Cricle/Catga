@@ -399,3 +399,8 @@ FodyWeavers.xsd
 .idea/
 
 /coverage-report
+
+# DocFX generated site and metadata
+/_site/
+/api/
+docfx.log

@@ -181,7 +181,6 @@
 - **Catga** - 核心框架
 - **Catga.InMemory** - 内存实现
 - **Catga.Serialization.MemoryPack** - MemoryPack 序列化器
-- **Catga.Serialization.Json** - JSON 序列化器
 - **Catga.Transport.Nats** - NATS 传输
 - **Catga.Persistence.Redis** - Redis 持久化
 - **Catga.AspNetCore** - ASP.NET Core 集成

@@ -3,7 +3,7 @@
 > **生产级 K8s 部署** - Catga + NATS + Redis 完整部署方案
 > 最后更新: 2025-10-14
 
-[返回主文档](../../README.md) · [快速参考](../../QUICK-REFERENCE.md) · [架构设计](../architecture/ARCHITECTURE.md)
+[返回主文档](../../README.md) · [文档索引](../INDEX.md) · [架构设计](../architecture/ARCHITECTURE.md)
 
 ---
 

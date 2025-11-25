@@ -8,6 +8,8 @@ using Catga.Persistence;
 using Catga.Persistence.Nats;
 using Catga.Persistence.Redis;
 using Catga.Persistence.Redis.Persistence;
+using Catga.Inbox;
+using Catga.Outbox;
 using Catga.Resilience;
 using Catga.Serialization.MemoryPack;
 using Catga.Transport;
@@ -37,8 +39,9 @@ public sealed class AdditionalE2ETests : IAsyncLifetime
         if (!IsDockerRunning()) return;
 
         // NATS with JetStream
+        var natsImage = Environment.GetEnvironmentVariable("TEST_NATS_IMAGE") ?? "nats:latest";
         _natsContainer = new ContainerBuilder()
-            .WithImage("nats:latest")
+            .WithImage(natsImage)
             .WithPortBinding(4222, true)
             .WithPortBinding(8222, true)
             .WithCommand("-js", "-m", "8222")
@@ -50,9 +53,125 @@ public sealed class AdditionalE2ETests : IAsyncLifetime
         await _nats.ConnectAsync();
 
         // Redis 7
-        _redisContainer = new RedisBuilder().WithImage("redis:7-alpine").Build();
+        var redisImage = Environment.GetEnvironmentVariable("TEST_REDIS_IMAGE") ?? "redis:7-alpine";
+        _redisContainer = new RedisBuilder().WithImage(redisImage).Build();
         await _redisContainer.StartAsync();
         _redis = await ConnectionMultiplexer.ConnectAsync(_redisContainer.GetConnectionString());
+    }
+
+    [Fact]
+    public async Task Redis_Transport_Publish_Retry_WithTransientFailures_Succeeds()
+    {
+        if (_redis is null) return;
+        var options = new Catga.Resilience.CatgaResilienceOptions
+        {
+            TransportRetryCount = 3,
+            TransportRetryDelay = TimeSpan.FromMilliseconds(50)
+        };
+        var inner = new Catga.Resilience.DefaultResiliencePipelineProvider(options);
+        var fault = new RedisFaultInjectingProvider(inner, publishFailuresBeforeSuccess: 2, sendFailuresBeforeSuccess: 0);
+
+        await using var transport = new RedisMessageTransport(_redis, _serializer, provider: fault);
+
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await transport.SubscribeAsync<DlqMessage>((msg, ctx) => { tcs.TrySetResult(); return Task.CompletedTask; });
+        await Task.Delay(150);
+
+        var ev = new DlqMessage { MessageId = MessageExtensions.NewMessageId(), Id = "retry-pub", Data = "r" };
+        await transport.PublishAsync(ev);
+
+        var done = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        done.Should().Be(tcs.Task);
+        fault.PublishAttemptCount.Should().BeGreaterOrEqualTo(3);
+    }
+
+    [Fact]
+    public async Task Redis_Transport_Send_Retry_WithTransientFailures_Succeeds()
+    {
+        if (_redis is null) return;
+        var options = new Catga.Resilience.CatgaResilienceOptions
+        {
+            TransportRetryCount = 3,
+            TransportRetryDelay = TimeSpan.FromMilliseconds(50)
+        };
+        var inner = new Catga.Resilience.DefaultResiliencePipelineProvider(options);
+        var fault = new RedisFaultInjectingProvider(inner, publishFailuresBeforeSuccess: 0, sendFailuresBeforeSuccess: 2);
+
+        await using var transport = new RedisMessageTransport(_redis, _serializer, provider: fault);
+
+        var ev = new DlqMessage { MessageId = MessageExtensions.NewMessageId(), Id = "retry-send", Data = "s" };
+        var dest = "e2e-retry-stream";
+        await transport.SendAsync(ev, dest);
+        await Task.Delay(200);
+
+        var entries = await _redis.GetDatabase().StreamReadAsync($"stream:{dest}", "0-0");
+        entries.Should().NotBeNull();
+        entries.Should().NotBeEmpty();
+        fault.SendAttemptCount.Should().BeGreaterOrEqualTo(3);
+    }
+
+    private sealed class RedisFaultInjectingProvider : Catga.Resilience.IResiliencePipelineProvider
+    {
+        private readonly Catga.Resilience.IResiliencePipelineProvider _inner;
+        private int _publishFailuresBeforeSuccess;
+        private int _sendFailuresBeforeSuccess;
+        public int PublishAttemptCount { get; private set; }
+        public int SendAttemptCount { get; private set; }
+
+        public RedisFaultInjectingProvider(Catga.Resilience.IResiliencePipelineProvider inner, int publishFailuresBeforeSuccess, int sendFailuresBeforeSuccess)
+        {
+            _inner = inner;
+            _publishFailuresBeforeSuccess = publishFailuresBeforeSuccess;
+            _sendFailuresBeforeSuccess = sendFailuresBeforeSuccess;
+        }
+
+        public ValueTask<T> ExecuteMediatorAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
+            => _inner.ExecuteMediatorAsync(action, cancellationToken);
+
+        public ValueTask ExecuteMediatorAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
+            => _inner.ExecuteMediatorAsync(action, cancellationToken);
+
+        public ValueTask<T> ExecuteTransportPublishAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
+            => _inner.ExecuteTransportPublishAsync<T>(ct =>
+            {
+                PublishAttemptCount++;
+                if (_publishFailuresBeforeSuccess-- > 0)
+                    throw new Exception("Injected transient publish failure");
+                return action(ct);
+            }, cancellationToken);
+
+        public ValueTask ExecuteTransportPublishAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
+            => _inner.ExecuteTransportPublishAsync(ct =>
+            {
+                PublishAttemptCount++;
+                if (_publishFailuresBeforeSuccess-- > 0)
+                    throw new Exception("Injected transient publish failure");
+                return action(ct);
+            }, cancellationToken);
+
+        public ValueTask<T> ExecuteTransportSendAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
+            => _inner.ExecuteTransportSendAsync<T>(ct =>
+            {
+                SendAttemptCount++;
+                if (_sendFailuresBeforeSuccess-- > 0)
+                    throw new Exception("Injected transient send failure");
+                return action(ct);
+            }, cancellationToken);
+
+        public ValueTask ExecuteTransportSendAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
+            => _inner.ExecuteTransportSendAsync(ct =>
+            {
+                SendAttemptCount++;
+                if (_sendFailuresBeforeSuccess-- > 0)
+                    throw new Exception("Injected transient send failure");
+                return action(ct);
+            }, cancellationToken);
+
+        public ValueTask<T> ExecutePersistenceAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
+            => _inner.ExecutePersistenceAsync(action, cancellationToken);
+
+        public ValueTask ExecutePersistenceAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
+            => _inner.ExecutePersistenceAsync(action, cancellationToken);
     }
 
     public async Task DisposeAsync()
@@ -140,7 +259,7 @@ public sealed class AdditionalE2ETests : IAsyncLifetime
     {
         if (_nats is null) return;
         var provider = new DiagnosticResiliencePipelineProvider();
-        var store = new NatsJSIdempotencyStore(_nats, _serializer, streamName: "CATGA_IDEMPOTENCY_E2E", consumerName: null, options: null, provider: provider);
+        var store = new NatsJSIdempotencyStore(_nats, _serializer, streamName: "CATGA_IDEMPOTENCY_E2E", ttl: null, options: null, provider: provider);
 
         var id = MessageExtensions.NewMessageId();
         var result = new IdemResult { Value = "ok-nats" };
@@ -180,7 +299,7 @@ public sealed class AdditionalE2ETests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Redis_E2E_Outbox_To_Transport_To_Inbox_QoS1_AtLeastOnce()
+    public async Task Redis_E2E_Outbox_To_Transport_To_Inbox_QoS0_PubSub()
     {
         if (_redis is null) return;
         var provider = new DiagnosticResiliencePipelineProvider();
@@ -237,8 +356,8 @@ public sealed class AdditionalE2ETests : IAsyncLifetime
         };
         await outbox.AddAsync(outboxMsg);
 
-        // QoS1 via Redis Streams path goes through SendAsync (point-to-point)
-        await transport.SendAsync(ev, destination: "e2e-redis-inbox");
+        // QoS0 via Pub/Sub; use Inbox to deduplicate and mark processed
+        await transport.PublishAsync(ev);
         await outbox.MarkAsPublishedAsync(messageId);
 
         var done = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(20)));

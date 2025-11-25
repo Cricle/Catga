@@ -4,17 +4,17 @@
 
 ## 📋 目录
 
-- [快速开始](#快速开始)
-- [核心概念](#核心概念)
-- [序列化器选择](#序列化器选择)
-- [池化内存管理](#池化内存管理)
-- [最佳实践](#最佳实践)
-- [性能基准](#性能基准)
-- [AOT 兼容性](#aot-兼容性)
+- [快速开始](#quickstart)
+- [核心概念](#core-concepts)
+- [序列化器选择](#serializer-choice)
+- [池化内存管理](#pooled-memory)
+- [最佳实践](#best-practices)
+- [性能基准](#benchmarks)
+- [AOT 兼容性](#aot-compat)
 
 ---
 
-## 🚀 快速开始
+## 🚀 快速开始 {#quickstart}
 
 ### 1. 使用高性能序列化器
 
@@ -50,7 +50,7 @@ var message = serializer.Deserialize<MyMessage>(receivedData);
 
 ---
 
-## 🧠 核心概念
+## 🧠 核心概念 {#core-concepts}
 
 ### 内存池化
 
@@ -87,7 +87,7 @@ using var large = MemoryPoolManager.RentArray(256 * 1024);  // 256KB
 
 ---
 
-## 🎯 序列化器选择
+## 🎯 序列化器选择 {#serializer-choice}
 
 ### MemoryPackMessageSerializer (推荐)
 
@@ -152,7 +152,7 @@ services.AddSingleton<IMessageSerializer>(sp => new CustomSerializer(options));
 
 ---
 
-## 🏊 池化内存管理
+## 🏊 池化内存管理 {#pooled-memory}
 
 ### PooledArray 模式
 
@@ -199,7 +199,7 @@ public async Task WriteMessagesToStream<T>(
 
 ---
 
-## 💡 最佳实践
+## 💡 最佳实践 {#best-practices}
 
 ### 1. 始终使用 using 语句
 
@@ -255,7 +255,7 @@ var decoded = SerializationHelper.Deserialize<MyMessage>(base64, serializer);
 
 ---
 
-## 📊 性能基准
+## 📊 性能基准 {#benchmarks}
 
 ### 序列化性能对比
 
@@ -298,7 +298,7 @@ Intel Core i9-13900K, 1 CPU, 32 logical and 24 physical cores
 
 ---
 
-## 🔧 AOT 兼容性
+## 🔧 AOT 兼容性 {#aot-compat}
 
 ### 完全 AOT 安全的组件
 

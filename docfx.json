@@ -27,8 +27,7 @@
     "content": [
       {
         "files": [
-          "api/**.yml",
-          "api/index.md"
+          "api/**.yml"
         ]
       },
       {
@@ -39,6 +38,17 @@
         "exclude": [
           "AI-VIEW.md"
         ]
+      },
+      {
+        "files": [
+          "examples/**.md"
+        ]
+      },
+      {
+        "files": [
+          "src/Catga.Testing/README.md",
+          "scripts/README.md"
+        ]
       }
     ],
     "resource": [
@@ -46,7 +56,13 @@
         "files": [
           "images/**",
           "docs/images/**",
-          "docs/web/**"
+          "docs/web/**",
+          "examples/**",
+          "scripts/**"
+        ],
+        "exclude": [
+          "examples/**.md",
+          "scripts/**.md"
         ]
       }
     ],

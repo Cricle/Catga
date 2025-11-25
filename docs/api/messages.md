@@ -312,7 +312,7 @@ partial class MyJsonContext : JsonSerializerContext { }
 
 ## 相关文档
 
-- [处理器](handlers.md)
 - [Mediator](mediator.md)
-- [Pipeline Behaviors](pipeline.md)
+- [架构总览与 Pipeline](../architecture/ARCHITECTURE.md)
+- [错误处理指南](../guides/error-handling.md)
 

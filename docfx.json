@@ -44,7 +44,8 @@
       {
         "files": [
           "images/**",
-          "docs/images/**"
+          "docs/images/**",
+          "docs/web/**"
         ]
       }
     ],

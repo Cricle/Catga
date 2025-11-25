@@ -80,8 +80,7 @@ builder.Services.AddOpenTelemetry()
 builder.Services
     .AddCatga()
     .UseMemoryPack()
-    .WithDebug()
-    .ForProduction(); // 关键：生产模式
+    .ForProduction(); // 生产模式
 
 var app = builder.Build();
 
@@ -109,10 +108,8 @@ app.Run();
 - ✅ **2小时后自动禁用**（安全保护）
 
 ```csharp
-// 生产模式 vs 开发模式对比
-builder.Services
-    .AddCatgaDebuggerForProduction();  // 生产环境
-    // .AddCatgaDebuggerForDevelopment(); // 开发环境
+// 生产模式建议：在生产环境使用采样与最小化捕获，避免额外调试开销
+// 使用 OpenTelemetry 采样与导出替代自定义调试器
 ```
 
 ---
@@ -429,23 +426,16 @@ topk(10,
 ### 1. 生产环境配置
 
 ```csharp
-// ✅ 正确：使用生产模式
-builder.Services.AddCatgaDebuggerForProduction();
+// ✅ 正确：使用生产模式（仅必要的监控与采样）
+builder.Services.AddCatga().ForProduction();
 
-// ❌ 错误：使用开发模式（泄露敏感信息）
-// builder.Services.AddCatgaDebuggerForDevelopment();
+// ❌ 错误：在生产中启用调试器式的全量捕获/完整调试 UI
+// 请改用 OpenTelemetry 采样与导出
 ```
 
 ### 2. 保护调试端点
 
 ```csharp
-// 仅在开发环境启用调试 UI
-if (app.Environment.IsDevelopment())
-{
-    app.MapCatgaDebuggerUi();        // /debug
-    app.MapCatgaDebuggerApi();       // /debug-api
-}
-
 // 生产环境仅暴露指标端点
 app.MapPrometheusScrapingEndpoint(); // /metrics
 ```

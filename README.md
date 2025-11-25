@@ -173,8 +173,7 @@ dotnet add package Catga.Persistence.InMemory
 dotnet add package Catga.Persistence.Redis
 dotnet add package Catga.Persistence.Nats
 
-# 可选：序列化
-dotnet add package Catga.Serialization.Json
+# 序列化（推荐）
 dotnet add package Catga.Serialization.MemoryPack
 
 # 可选：测试辅助
@@ -523,11 +522,10 @@ dotnet test /p:CollectCoverage=true
 | Catga.Persistence.Redis | Redis 存储 | 分布式应用 |
 | Catga.Persistence.Nats | NATS JetStream | 事件溯源、高可靠 |
 
-### 序列化 (二选一)
+### 序列化 (推荐 MemoryPack)
 
 | 包 | 说明 | 性能 |
 |----|------|------|
-| Catga.Serialization.Json | JSON 序列化 | 兼容性好 |
 | Catga.Serialization.MemoryPack | 二进制序列化 | 性能最优 |
 
 ### 可选包

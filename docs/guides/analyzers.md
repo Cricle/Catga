@@ -22,7 +22,7 @@ var result = await mediator.SendAsync<CreateOrder, OrderResult>(cmd);
 // ✅ 编译时就发现错误
 services.AddCatga();  // ← 编译警告: CATGA002
 //              ^^^^^
-// 💡 Quick Fix: 添加 .UseMemoryPack() 或 .UseJson()
+// 💡 Quick Fix: 添加 .UseMemoryPack() 或手动注册 IMessageSerializer
 
 // ✅ 修复后
 services.AddCatga().UseMemoryPack();  // 编译通过 ✓
@@ -140,7 +140,7 @@ dotnet_diagnostic.CATGA001.severity = none
 
 #### 描述
 
-检测调用 `AddCatga()` 但未链式调用 `.UseMemoryPack()` 或 `.UseJson()` 配置序列化器。
+检测调用 `AddCatga()` 但未链式调用 `.UseMemoryPack()` 或未手动注册 `IMessageSerializer`。
 
 #### 为什么需要？
 
@@ -161,10 +161,7 @@ services.AddCatga();
 // ✅ 方式 1: MemoryPack (推荐)
 services.AddCatga().UseMemoryPack();
 
-// ✅ 方式 2: JSON
-services.AddCatga().UseJson();
-
-// ✅ 方式 3: 手动注册
+// ✅ 方式 2: 手动注册自定义序列化器（例如 System.Text.Json 实现）
 services.AddCatga();
 services.AddSingleton<IMessageSerializer, CustomSerializer>();
 ```
@@ -173,7 +170,7 @@ services.AddSingleton<IMessageSerializer, CustomSerializer>();
 
 IDE 会提供自动修复选项：
 1. 添加 `.UseMemoryPack()` (推荐)
-2. 添加 `.UseJson()`
+2. 生成 `IMessageSerializer` 手动注册模板
 
 #### 检测范围
 

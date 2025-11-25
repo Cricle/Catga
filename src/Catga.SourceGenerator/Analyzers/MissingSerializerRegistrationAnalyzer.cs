@@ -16,8 +16,8 @@ public class MissingSerializerRegistrationAnalyzer : DiagnosticAnalyzer
     private const string Category = "Usage";
 
     private static readonly LocalizableString Title = "Serializer not registered after AddCatga()";
-    private static readonly LocalizableString MessageFormat = "AddCatga() requires a serializer. Call .UseMemoryPack() or .UseJson() immediately after AddCatga().";
-    private static readonly LocalizableString Description = "Catga requires an IMessageSerializer to be registered. Use .UseMemoryPack() (recommended for AOT) or .UseJson() for serialization.";
+    private static readonly LocalizableString MessageFormat = "AddCatga() requires a serializer. Call .UseMemoryPack() immediately after AddCatga().";
+    private static readonly LocalizableString Description = "Catga requires an IMessageSerializer to be registered. Use .UseMemoryPack() (recommended for AOT) or register a custom IMessageSerializer.";
 
     private static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(
         DiagnosticId,
@@ -80,9 +80,7 @@ public class MissingSerializerRegistrationAnalyzer : DiagnosticAnalyzer
         {
             var methodName = memberAccess.Name.Identifier.Text;
             if (methodName == "UseMemoryPack" ||
-                methodName == "UseJson" ||
-                methodName == "UseMemoryPackSerializer" ||
-                methodName == "UseJsonSerializer")
+                methodName == "UseMemoryPackSerializer")
             {
                 return true;
             }
@@ -113,7 +111,7 @@ public class MissingSerializerRegistrationAnalyzer : DiagnosticAnalyzer
                 continue;
 
             // Check for serializer methods
-            if (method.Name is "UseMemoryPack" or "UseJson" or "UseMemoryPackSerializer" or "UseJsonSerializer")
+            if (method.Name is "UseMemoryPack" or "UseMemoryPackSerializer")
                 return true;
 
             // Check for AddSingleton<IMessageSerializer>

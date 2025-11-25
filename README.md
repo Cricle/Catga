@@ -9,6 +9,8 @@
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![Native AOT](https://img.shields.io/badge/Native-AOT-success?logo=dotnet)](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Build (Coverage)](https://github.com/Cricle/Catga/actions/workflows/coverage.yml/badge.svg)](https://github.com/Cricle/Catga/actions/workflows/coverage.yml)
+[![Release](https://github.com/Cricle/Catga/actions/workflows/release.yml/badge.svg)](https://github.com/Cricle/Catga/actions/workflows/release.yml)
 [![GitHub Stars](https://img.shields.io/github/stars/Cricle/Catga?style=social)](https://github.com/Cricle/Catga)
 
 **纳秒级延迟 · 百万QPS · 零反射 · 源生成 · 生产就绪**
@@ -83,7 +85,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Order>
 }
 
 // 3️⃣ 配置 (2 行代码)
-builder.Services.AddCatga();
+builder.Services.AddCatga().UseMemoryPack();
 
 // 4️⃣ 使用
 var result = await mediator.SendAsync(new CreateOrderCommand("PROD-001", 5));
@@ -118,7 +120,6 @@ var result = await mediator.SendAsync(new CreateOrderCommand("PROD-001", 5));
       ┌──────▼──────┐
       │  序列化层    │
       ├─────────────┤
-      │ JSON        │
       │ MemoryPack  │
       │ 自定义       │
       └─────────────┘
@@ -147,7 +148,6 @@ var result = await mediator.SendAsync(new CreateOrderCommand("PROD-001", 5));
 
 ✅ 分布式支持
 ├── Event Sourcing - 事件溯源
-├── 时间旅行调试 - Replay 机制
 ├── .NET Aspire - 云原生开发
 ├── Kubernetes - 容器编排
 └── 分布式 ID - Snowflake 算法
@@ -221,8 +221,8 @@ public class CreateUserHandler : IRequestHandler<CreateUserCommand, User>
 // Program.cs
 var builder = WebApplication.CreateBuilder(args);
 
-// ✨ 一行代码配置 Catga (自动注册所有 Handler)
-builder.Services.AddCatga();
+// ✨ 一行配置 Catga，并选择序列化器（AOT 推荐 MemoryPack）
+builder.Services.AddCatga().UseMemoryPack();
 
 // 可选：添加传输层
 builder.Services.AddInMemoryTransport();
@@ -348,7 +348,15 @@ builder.Services.AddCatga()
 ```
 
 
-## �📊 性能基准
+## ✅ 兼容性与构建准则
+
+- **Native AOT & Trimming**: 全面兼容，零反射路径；关键类型使用 `DynamicallyAccessedMembers` 标注；备用路径已抑制 ILLink 警告。
+- **严格构建**: `TreatWarningsAsErrors=true`，包含 IL 裁剪相关警告，CI 上构建零警告。
+- **序列化建议**: 生产与 AOT 场景使用 `Catga.Serialization.MemoryPack`；如需自定义实现 `IMessageSerializer`，请避免运行时反射。
+- **Polly 弹性**: 通过 `UseResilience` 显式启用；未启用时 DI 不注册 `IResiliencePipelineProvider`。
+
+
+## 📊 性能基准
 
 > 基于 BenchmarkDotNet (.NET 9.0, Release, AMD Ryzen 7 5800H)
 
@@ -434,28 +442,6 @@ builder.Services.AddCatga()
 
 ---
 
-## 🧪 测试
-
-Catga 拥有全面的测试覆盖，使用 TDD 方法开发：
-
-```bash
-# 运行所有测试
-dotnet test tests/Catga.Tests/Catga.Tests.csproj
-
-# 使用便捷脚本
-.\tests\run-new-tests.ps1         # Windows
-./tests/run-new-tests.sh          # Linux/macOS
-
-# 查看测试覆盖率
-dotnet test /p:CollectCoverage=true
-```
-
-### 测试覆盖
-
-- ✅ **192+个测试用例** - 全面的场景覆盖
-- ✅ **~90%覆盖率** - 核心功能完整测试
-- ✅ **性能基准测试** - 确保性能指标达标
-- ✅ **并发场景测试** - 验证线程安全
 - ✅ **真实业务场景** - 电商订单完整流程
 
 **📚 测试文档**:
@@ -577,20 +563,6 @@ dotnet run
 - ✅ **Visual Studio 2022+**
 - ✅ **Visual Studio Code** + C# Dev Kit
 - ✅ **JetBrains Rider**
-
-### 调试工具
-
-```csharp
-// 时间旅行调试 - Replay 事件
-await debugger.ReplayAsync(aggregateId, fromVersion: 10, toVersion: 20);
-
-// 事件查看
-var events = await eventStore.GetEventsAsync(aggregateId);
-foreach (var evt in events)
-{
-    Console.WriteLine($"[{evt.Version}] {evt.GetType().Name}: {evt}");
-}
-```
 
 ### 监控工具
 

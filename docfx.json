@@ -33,10 +33,11 @@
       },
       {
         "files": [
-          "docs/articles/**.md",
-          "docs/toc.yml",
-          "toc.yml",
-          "*.md"
+          "docs/**.md",
+          "docs/toc.yml"
+        ],
+        "exclude": [
+          "AI-VIEW.md"
         ]
       }
     ],

@@ -1,4 +1,11 @@
 using System.Runtime.CompilerServices;
+#if NET8_0_OR_GREATER
+using Polly;
+using Polly.RateLimiting;
+using System.Threading.RateLimiting;
+#else
+using Polly;
+#endif
 
 namespace Catga.Core;
 
@@ -204,29 +211,44 @@ public static class BatchOperationHelper
         if (maxConcurrency <= 0)
             throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0");
 
-        using var semaphore = new SemaphoreSlim(maxConcurrency, maxConcurrency);
-
-        // Optimize: pre-allocate List if count is known to avoid resizing
+        // Pre-allocate task list when possible
         var tasks = items is ICollection<T> collection
             ? new List<Task>(collection.Count)
             : new List<Task>();
 
+#if NET8_0_OR_GREATER
+        // Use Polly v8 RateLimiter with ConcurrencyLimiter to control concurrency
+        var pipeline = new ResiliencePipelineBuilder()
+            .AddRateLimiter(new RateLimiterStrategyOptions
+            {
+                DefaultRateLimiterOptions = new ConcurrencyLimiterOptions
+                {
+                    PermitLimit = maxConcurrency,
+                    // Allow effectively unbounded queuing here to avoid rejections in helper semantics
+                    QueueLimit = int.MaxValue
+                }
+            })
+            .Build();
+
         foreach (var item in items)
         {
-            await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-
-            tasks.Add(Task.Run(async () =>
+            var task = pipeline.ExecuteAsync(async ct =>
             {
-                try
-                {
-                    await operation(item).ConfigureAwait(false);
-                }
-                finally
-                {
-                    semaphore.Release();
-                }
-            }, cancellationToken));
+                await operation(item).ConfigureAwait(false);
+                return 0;
+            }, cancellationToken).AsTask();
+            tasks.Add(task);
         }
+#else
+        // Use Polly v7 Bulkhead for .NET 6
+        var bulkhead = Policy.BulkheadAsync(maxConcurrency, int.MaxValue);
+
+        foreach (var item in items)
+        {
+            var task = bulkhead.ExecuteAsync(ct => operation(item), cancellationToken);
+            tasks.Add(task);
+        }
+#endif
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
     }

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Catga.Abstractions;
 using Catga.Configuration;
@@ -8,7 +9,7 @@ using Catga.Core;
 using Catga.Exceptions;
 using Catga.Observability;
 using Catga.Pipeline;
-using Catga.Resilience;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 namespace Catga;
@@ -19,8 +20,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CatgaMediator> _logger;
     private readonly HandlerCache _handlerCache;
-    private readonly CircuitBreaker _circuitBreaker;
-    private readonly ConcurrencyLimiter? _eventConcurrencyLimiter;
+
 
     public CatgaMediator(
         IServiceProvider serviceProvider,
@@ -33,19 +33,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
         options ??= new CatgaOptions();
 
-        // Circuit breaker for all operations
-            _circuitBreaker = new CircuitBreaker(
-            options.CircuitBreakerThreshold ?? 5,
-            options.CircuitBreakerDuration ?? TimeSpan.FromSeconds(30),
-            logger);
-
-        // Event handler concurrency limiter (optional, only if configured)
-        if (options.MaxEventHandlerConcurrency.HasValue && options.MaxEventHandlerConcurrency.Value > 0)
-        {
-            _eventConcurrencyLimiter = new ConcurrencyLimiter(
-                options.MaxEventHandlerConcurrency.Value,
-                logger);
-        }
+        // Removed custom circuit breaker & concurrency limiter (Polly-based resilience is applied via behaviors)
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -106,9 +94,14 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
             var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(scopedProvider);
             if (handler == null)
             {
-                // ✅ Use TagList (stack allocated) instead of KeyValuePair (heap allocated)
-                var tags = new TagList { { "request_type", reqType }, { "success", "false" } };
-                CatgaDiagnostics.CommandsExecuted.Add(1, tags);
+#if NET8_0_OR_GREATER
+                CatgaDiagnostics.CommandsExecuted.Add(1,
+                    new KeyValuePair<string, object?>("request_type", reqType),
+                    new KeyValuePair<string, object?>("success", "false"));
+#else
+                var _tags_nohandler = new TagList { { "request_type", reqType }, { "success", "false" } };
+                CatgaDiagnostics.CommandsExecuted.Add(1, _tags_nohandler);
+#endif
                 return CatgaResult<TResponse>.Failure($"No handler for {reqType}", new HandlerNotFoundException(reqType));
             }
 
@@ -117,9 +110,14 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         }
         catch (Exception ex)
         {
-            // ✅ Use TagList (stack allocated) instead of KeyValuePair (heap allocated)
-            var tags = new TagList { { "request_type", reqType }, { "success", "false" } };
-            CatgaDiagnostics.CommandsExecuted.Add(1, tags);
+#if NET8_0_OR_GREATER
+            CatgaDiagnostics.CommandsExecuted.Add(1,
+                new KeyValuePair<string, object?>("request_type", reqType),
+                new KeyValuePair<string, object?>("success", "false"));
+#else
+            var _tags_catch = new TagList { { "request_type", reqType }, { "success", "false" } };
+            CatgaDiagnostics.CommandsExecuted.Add(1, _tags_catch);
+#endif
             RecordException(activity, ex);
             CatgaLog.CommandFailed(_logger, ex, reqType, message?.MessageId, ex.Message);
             return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PipelineFailed, isRetryable: false));
@@ -154,22 +152,54 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>>
             ?? behaviors.ToArray();
 
+        // Record pipeline behavior count
+        {
+#if NET8_0_OR_GREATER
+            CatgaDiagnostics.PipelineBehaviorCount.Record(behaviorsList.Count,
+                new KeyValuePair<string, object?>("request_type", reqType));
+#else
+            var _tags_behavior_count = new TagList { { "request_type", reqType } };
+            CatgaDiagnostics.PipelineBehaviorCount.Record(behaviorsList.Count, _tags_behavior_count);
+#endif
+        }
+
+        // Measure pipeline execution duration separately
+        var pipelineStart = Stopwatch.GetTimestamp();
         var result = FastPath.CanUseFastPath(behaviorsList.Count)
             ? await FastPath.ExecuteRequestDirectAsync(handler, request, cancellationToken)
             : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
+        var pipelineElapsedTicks = Stopwatch.GetTimestamp() - pipelineStart;
+        var pipelineDurationMs = pipelineElapsedTicks * 1000.0 / Stopwatch.Frequency;
+        {
+#if NET8_0_OR_GREATER
+            CatgaDiagnostics.PipelineDuration.Record(pipelineDurationMs,
+                new KeyValuePair<string, object?>("request_type", reqType));
+#else
+            var _tags_pipeline_dur = new TagList { { "request_type", reqType } };
+            CatgaDiagnostics.PipelineDuration.Record(pipelineDurationMs, _tags_pipeline_dur);
+#endif
+        }
 
         // Record metrics and logs
         var duration = GetElapsedMilliseconds(startTimestamp);
-        // ✅ Use TagList (stack allocated) to reduce GC pressure
         var successValue = result.IsSuccess ? "true" : "false";  // Avoid ToString() allocation
-        var executedTags = new TagList { { "request_type", reqType }, { "success", successValue } };
-        var durationTags = new TagList { { "request_type", reqType } };
-        CatgaDiagnostics.CommandsExecuted.Add(1, executedTags);
-        CatgaDiagnostics.CommandDuration.Record(duration, durationTags);
+#if NET8_0_OR_GREATER
+        CatgaDiagnostics.CommandsExecuted.Add(1,
+            new KeyValuePair<string, object?>("request_type", reqType),
+            new KeyValuePair<string, object?>("success", successValue));
+        CatgaDiagnostics.CommandDuration.Record(duration,
+            new KeyValuePair<string, object?>("request_type", reqType));
+#else
+        var _tags_executed = new TagList { { "request_type", reqType }, { "success", successValue } };
+        var _tags_duration = new TagList { { "request_type", reqType } };
+        CatgaDiagnostics.CommandsExecuted.Add(1, _tags_executed);
+        CatgaDiagnostics.CommandDuration.Record(duration, _tags_duration);
+#endif
         CatgaLog.CommandExecuted(_logger, reqType, message?.MessageId, duration, result.IsSuccess);
 
         // Set activity tags
         activity?.SetTag(CatgaActivitySource.Tags.Success, result.IsSuccess);
+        activity?.SetTag(CatgaActivitySource.Tags.PipelineBehaviorCount, behaviorsList.Count);
         activity?.SetTag(CatgaActivitySource.Tags.Duration, duration);
 
         if (result.IsSuccess)
@@ -257,8 +287,16 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         Span<char> countBuffer = stackalloc char[10];
         handlerList.Count.TryFormat(countBuffer, out int charsWritten);
         var handlerCount = new string(countBuffer[..charsWritten]);
-        var eventTags = new TagList { { "event_type", eventType }, { "handler_count", handlerCount } };
-        CatgaDiagnostics.EventsPublished.Add(1, eventTags);
+        {
+#if NET8_0_OR_GREATER
+            CatgaDiagnostics.EventsPublished.Add(1,
+                new KeyValuePair<string, object?>("event_type", eventType),
+                new KeyValuePair<string, object?>("handler_count", handlerCount));
+#else
+            var _tags_event = new TagList { { "event_type", eventType }, { "handler_count", handlerCount } };
+            CatgaDiagnostics.EventsPublished.Add(1, _tags_event);
+#endif
+        }
 
         if (handlerList.Count == 1)
         {
@@ -267,17 +305,8 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
             return;
         }
 
-        // Use concurrency limiter if configured, otherwise use chunked batch processing
-        if (_eventConcurrencyLimiter != null)
-        {
-            // Concurrency-limited processing
-            await BatchOperationHelper.ExecuteConcurrentBatchAsync(
-                handlerList,
-                handler => HandleEventSafelyAsync(handler, @event, cancellationToken),
-                _eventConcurrencyLimiter.MaxConcurrency,
-                cancellationToken).ConfigureAwait(false);
-        }
-        else if (handlerList.Count <= BatchOperationHelper.DefaultChunkSize)
+        // Batch processing
+        if (handlerList.Count <= BatchOperationHelper.DefaultChunkSize)
         {
             // Small batch: execute all at once (fast path)
             var tasks = new Task[handlerList.Count];
@@ -338,8 +367,8 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
             if (activity != null)
             {
-                activity.SetTag("catga.success", true);
-                activity.SetTag("catga.duration.ms", GetElapsedMilliseconds(startTimestamp));
+                activity.SetTag(CatgaActivitySource.Tags.Success, true);
+                activity.SetTag(CatgaActivitySource.Tags.Duration, GetElapsedMilliseconds(startTimestamp));
             }
                 }
                 catch (Exception ex)
@@ -348,9 +377,9 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
             if (activity != null)
             {
-                activity.SetTag("catga.success", false);
-                activity.SetTag("catga.error", ex.Message);
-                activity.SetTag("catga.error.type", ex.GetType().Name);
+                activity.SetTag(CatgaActivitySource.Tags.Success, false);
+                activity.SetTag(CatgaActivitySource.Tags.Error, ex.Message);
+                activity.SetTag(CatgaActivitySource.Tags.ErrorType, ex.GetType().Name);
                 activity.SetTag("exception.message", ex.Message);
                 activity.SetTag("exception.type", ex.GetType().FullName);
                 activity.SetTag("exception.stacktrace", ex.StackTrace);
@@ -394,7 +423,6 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
     public void Dispose()
     {
-        _circuitBreaker?.Dispose();
-        _eventConcurrencyLimiter?.Dispose();
+        // No resources to dispose
     }
 }

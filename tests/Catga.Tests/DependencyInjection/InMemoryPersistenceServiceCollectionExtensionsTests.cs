@@ -6,6 +6,7 @@ using Catga.Inbox;
 using Catga.Outbox;
 using Catga.Persistence.Stores;
 using Catga.Serialization.MemoryPack;
+using Catga.Resilience;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -18,6 +19,7 @@ public class InMemoryPersistenceServiceCollectionExtensionsTests
         var services = new ServiceCollection();
         // Add required dependencies
         services.AddSingleton<IMessageSerializer, MemoryPackMessageSerializer>();
+        services.AddSingleton<IResiliencePipelineProvider, DiagnosticResiliencePipelineProvider>();
         services.AddLogging();
         return services;
     }

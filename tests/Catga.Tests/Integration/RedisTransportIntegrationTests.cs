@@ -6,6 +6,7 @@ using FluentAssertions;
 using StackExchange.Redis;
 using Testcontainers.Redis;
 using Xunit;
+using MemoryPack;
 
 namespace Catga.Tests.Integration;
 
@@ -15,7 +16,7 @@ namespace Catga.Tests.Integration;
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Requires", "Docker")]
-public class RedisTransportIntegrationTests : IAsyncLifetime
+public partial class RedisTransportIntegrationTests : IAsyncLifetime
 {
     private RedisContainer? _redisContainer;
     private IConnectionMultiplexer? _redis;
@@ -44,7 +45,7 @@ public class RedisTransportIntegrationTests : IAsyncLifetime
 
         // 创建序列化器和传输层
         _serializer = new MemoryPackMessageSerializer();
-        _transport = new RedisMessageTransport(_redis, _serializer);
+        _transport = new RedisMessageTransport(_redis, _serializer, provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
     }
 
     public async Task DisposeAsync()
@@ -252,9 +253,45 @@ public class RedisTransportIntegrationTests : IAsyncLifetime
         subscriber2Messages[0].Id.Should().Be("multi-sub");
     }
 
+    [Fact]
+    public async Task SendAsync_ShouldAppendToRedisStream()
+    {
+        // Arrange
+        var destination = "worker-queue";
+        var streamKey = $"stream:{destination}";
+        var testEvent = new TestEvent
+        {
+            MessageId = MessageExtensions.NewMessageId(),
+            Id = "stream-1",
+            Data = "Stream payload",
+            QoS = QualityOfService.AtLeastOnce
+        };
+
+        // Act
+        await _transport!.SendAsync(testEvent, destination);
+        await Task.Delay(200);
+
+        // Assert - read back from Redis Stream
+        var entries = await _redis!.GetDatabase().StreamReadAsync(streamKey, "0-0");
+        entries.Should().NotBeNull();
+        entries.Should().NotBeEmpty();
+        var last = entries[^1];
+        var dataField = last.Values.FirstOrDefault(v => v.Name == "data");
+        dataField.Value.HasValue.Should().BeTrue("stream entry should contain 'data' field");
+
+        // Deserialize
+        var base64 = (string)dataField.Value!;
+        var bytes = Convert.FromBase64String(base64);
+        var restored = (TestEvent?)_serializer!.Deserialize(bytes, typeof(TestEvent));
+        restored.Should().NotBeNull();
+        restored!.Id.Should().Be("stream-1");
+        restored.Data.Should().Be("Stream payload");
+    }
+
     #region Test Models
 
-    private record TestEvent : IEvent
+    [MemoryPackable]
+    private partial record TestEvent : IEvent
     {
         public required long MessageId { get; init; }
         public required string Id { get; init; }
@@ -263,14 +300,16 @@ public class RedisTransportIntegrationTests : IAsyncLifetime
         public QualityOfService QoS { get; init; } = QualityOfService.AtMostOnce;
     }
 
-    private record TestRequest : IRequest<TestResponse>
+    [MemoryPackable]
+    private partial record TestRequest : IRequest<TestResponse>
     {
         public required long MessageId { get; init; }
         public required string RequestId { get; init; }
         public required string Data { get; init; }
     }
 
-    private record TestResponse
+    [MemoryPackable]
+    private partial record TestResponse
     {
         public required string RequestId { get; init; }
         public required string Result { get; init; }

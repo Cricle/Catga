@@ -6,6 +6,8 @@ using Catga.Persistence.Redis.Persistence;
 using Catga.Serialization.MemoryPack;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
+using Catga.Resilience;
+using MemoryPack;
 using Moq;
 using StackExchange.Redis;
 using Testcontainers.Redis;
@@ -19,7 +21,7 @@ namespace Catga.Tests.Integration;
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Requires", "Docker")]
-public class RedisPersistenceIntegrationTests : IAsyncLifetime
+public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
 {
     private RedisContainer? _redisContainer;
     private IConnectionMultiplexer? _redis;
@@ -89,7 +91,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     public async Task Outbox_AddAsync_ShouldPersistMessage()
     {
         // Arrange
-        var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!);
+        var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var eventData = new TestEvent
         {
             MessageId = MessageExtensions.NewMessageId(),
@@ -120,7 +122,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     public async Task Outbox_GetPendingMessagesAsync_ShouldReturnPendingOnly()
     {
         // Arrange
-        var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!);
+        var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
 
         var message1 = CreateOutboxMessage(1001L, OutboxStatus.Pending);
         var message2 = CreateOutboxMessage(1002L, OutboxStatus.Pending);
@@ -142,7 +144,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     public async Task Outbox_MarkAsPublishedAsync_ShouldUpdateStatus()
     {
         // Arrange
-        var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!);
+        var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var message = CreateOutboxMessage(3001L, OutboxStatus.Pending);
 
         await outbox.AddAsync(message);
@@ -162,7 +164,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     public async Task Outbox_BatchOperations_ShouldHandleMultipleMessages()
     {
         // Arrange
-        var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!);
+        var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var messages = Enumerable.Range(1, 20).Select(i =>
             CreateOutboxMessage(4000L + i, OutboxStatus.Pending)
         ).ToList();
@@ -189,7 +191,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     public async Task Inbox_TryLockMessageAsync_FirstTime_ShouldSucceed()
     {
         // Arrange
-        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
+        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var MessageId = MessageExtensions.NewMessageId();
         var lockDuration = TimeSpan.FromMinutes(5);
 
@@ -210,7 +212,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     public async Task Inbox_TryLockMessageAsync_Duplicate_ShouldFail()
     {
         // Arrange
-        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
+        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var MessageId = MessageExtensions.NewMessageId();
         var lockDuration = TimeSpan.FromMinutes(5);
 
@@ -229,7 +231,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     public async Task Inbox_MarkAsProcessedAsync_ShouldUpdateMessage()
     {
         // Arrange
-        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
+        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var MessageId = MessageExtensions.NewMessageId();
 
         // Lock first
@@ -266,7 +268,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     public async Task Inbox_HasBeenProcessedAsync_ShouldDetectProcessed()
     {
         // Arrange
-        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
+        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var MessageId = MessageExtensions.NewMessageId();
 
         var eventData = new TestEvent
@@ -299,7 +301,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     public async Task Inbox_ReleaseLockAsync_ShouldRemoveLock()
     {
         // Arrange
-        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
+        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var MessageId = MessageExtensions.NewMessageId();
 
         // Lock first
@@ -317,7 +319,7 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
     public async Task Inbox_ConcurrentLocking_OnlyOneSucceeds()
     {
         // Arrange
-        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!);
+        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var MessageId = MessageExtensions.NewMessageId();
         var lockDuration = TimeSpan.FromMinutes(5);
 
@@ -361,7 +363,8 @@ public class RedisPersistenceIntegrationTests : IAsyncLifetime
 
     #region Test Models
 
-    private record TestEvent : IEvent
+    [MemoryPackable]
+    private partial record TestEvent : IEvent
     {
         public required long MessageId { get; init; }
         public required string Id { get; init; }

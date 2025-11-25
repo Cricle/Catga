@@ -3,6 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Catga.Abstractions;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using Catga.Observability;
 
 namespace Catga;
 
@@ -15,16 +18,31 @@ public static class InMemoryTransportServiceCollectionExtensions
     public static IServiceCollection AddInMemoryTransport(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-
-        // 注册 Transport (InMemoryIdempotencyStore 是内部实现)
-        services.TryAddSingleton<IMessageTransport>(sp =>
+        var sw = Stopwatch.StartNew();
+        var tags = new TagList { { "component", "DI.Transport.InMemory" } };
+        try
         {
-            var logger = sp.GetService<ILogger<InMemoryMessageTransport>>();
-            var global = sp.GetRequiredService<Catga.Configuration.CatgaOptions>();
-            return new InMemoryMessageTransport(new InMemoryTransportOptions(), logger, global);
-        });
+            // 注册 Transport (InMemoryIdempotencyStore 是内部实现)
+            services.TryAddSingleton<IMessageTransport>(sp =>
+            {
+                var logger = sp.GetService<ILogger<InMemoryMessageTransport>>();
+                var global = sp.GetRequiredService<Catga.Configuration.CatgaOptions>();
+                var provider = sp.GetRequiredService<Catga.Resilience.IResiliencePipelineProvider>();
+                return new InMemoryMessageTransport(new InMemoryTransportOptions(), logger, global, provider);
+            });
 
-        return services;
+            sw.Stop();
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tags);
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            return services;
+        }
+        catch
+        {
+            sw.Stop();
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tags);
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            throw;
+        }
     }
 }
 

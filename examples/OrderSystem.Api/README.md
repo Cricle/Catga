@@ -60,6 +60,20 @@ dotnet run --project examples/OrderSystem.Api -- 3
    - **成功场景**：创建订单 → 所有步骤成功
    - **失败场景**：支付验证失败 → 自动回滚所有操作
 
+## 🛡️ Resilience (Polly)
+
+在默认“诊断模式”下仅记录指标与追踪；如需启用完整弹性策略，请在服务注册时调用一次 `UseResilience`（仅此一个示例）：
+
+```csharp
+builder.Services
+    .AddCatga()
+    .UseResilience(o =>
+    {
+        o.TransportRetryCount = 3;
+        o.TransportRetryDelay = TimeSpan.FromMilliseconds(200);
+    });
+```
+
 ## 📂 项目结构
 
 ```

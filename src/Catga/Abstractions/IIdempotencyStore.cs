@@ -1,5 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
+using System.Diagnostics.Metrics;
+using Catga.Observability;
 
 namespace Catga.Idempotency;
 
@@ -50,13 +52,17 @@ public class MemoryIdempotencyStore : IIdempotencyStore
         try
         {
             CleanupOldEntries();
-            return _processedMessages.ContainsKey(messageId);
+            var hit = _processedMessages.ContainsKey(messageId);
+            if (hit) CatgaDiagnostics.IdempotencyHits.Add(1);
+            else CatgaDiagnostics.IdempotencyMisses.Add(1);
+            return hit;
         }
         finally
         {
             _lock.Release();
         }
     }
+
     public async Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(long messageId, TResult? result = default, CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);
@@ -64,6 +70,7 @@ public class MemoryIdempotencyStore : IIdempotencyStore
         {
             CleanupOldEntries();
             _processedMessages[messageId] = (DateTime.UtcNow, null, null);
+            CatgaDiagnostics.IdempotencyMarked.Add(1);
 
             if (result != null)
             {
@@ -81,13 +88,18 @@ public class MemoryIdempotencyStore : IIdempotencyStore
             _lock.Release();
         }
     }
+
     public async Task<TResult?> GetCachedResultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(long messageId, CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);
         try
         {
             if (_typedResults.TryGetValue(messageId, out var dict) && dict.TryGetValue(typeof(TResult), out var resultData))
+            {
+                CatgaDiagnostics.IdempotencyCacheHits.Add(1);
                 return (TResult?)_serializer.Deserialize(resultData, typeof(TResult));
+            }
+            CatgaDiagnostics.IdempotencyCacheMisses.Add(1);
             return default;
         }
         finally

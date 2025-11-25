@@ -2,7 +2,12 @@ using Catga.EventSourcing;
 using Catga.Core;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using System.Collections.Generic;
 using Catga.Abstractions;
+using Catga.Observability;
+using Catga.Resilience;
 
 namespace Catga.Persistence.Stores;
 
@@ -14,6 +19,12 @@ public sealed class InMemoryEventStore : IEventStore
 {
     // Lock-free concurrent storage
     private readonly ConcurrentDictionary<string, StreamData> _streams = new();
+    private readonly IResiliencePipelineProvider _provider;
+
+    public InMemoryEventStore(IResiliencePipelineProvider? provider = null)
+    {
+        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
+    }
 
     private sealed class StreamData
     {
@@ -76,27 +87,61 @@ public sealed class InMemoryEventStore : IEventStore
         long expectedVersion = -1,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(streamId))
-            throw new ArgumentException("Stream ID cannot be empty", nameof(streamId));
-
-        if (events == null || events.Count == 0)
-            throw new ArgumentException("Events cannot be null or empty", nameof(events));
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var stream = _streams.GetOrAdd(streamId, _ => new StreamData());
-
-        try
+        return _provider.ExecutePersistenceAsync(ct =>
         {
-            stream.Append(events, expectedVersion);
-        }
-        catch (InvalidOperationException)
-        {
-            // Convert to ConcurrencyException
-            throw new ConcurrencyException(streamId, expectedVersion, stream.Version);
-        }
+            if (string.IsNullOrEmpty(streamId))
+                throw new ArgumentException("Stream ID cannot be empty", nameof(streamId));
 
-        return ValueTask.CompletedTask;
+            if (events == null || events.Count == 0)
+                throw new ArgumentException("Events cannot be null or empty", nameof(events));
+
+            ct.ThrowIfCancellationRequested();
+
+            var startTimestamp = Stopwatch.GetTimestamp();
+            var stream = _streams.GetOrAdd(streamId, _ => new StreamData());
+
+            try
+            {
+                stream.Append(events, expectedVersion);
+
+                var elapsed = Stopwatch.GetTimestamp() - startTimestamp;
+                var durationMs = elapsed * 1000.0 / Stopwatch.Frequency;
+#if NET8_0_OR_GREATER
+                var tag_component = new KeyValuePair<string, object?>("component", "EventStore.InMemory");
+                CatgaDiagnostics.EventStoreAppends.Add(1, tag_component);
+                CatgaDiagnostics.EventStoreAppendDuration.Record(durationMs, tag_component);
+#else
+                var tags = new TagList { { "component", "EventStore.InMemory" } };
+                CatgaDiagnostics.EventStoreAppends.Add(1, tags);
+                CatgaDiagnostics.EventStoreAppendDuration.Record(durationMs, tags);
+#endif
+            }
+            catch (InvalidOperationException)
+            {
+#if NET8_0_OR_GREATER
+                CatgaDiagnostics.EventStoreFailures.Add(1,
+                    new KeyValuePair<string, object?>("component", "EventStore.InMemory"),
+                    new KeyValuePair<string, object?>("reason", "concurrency"));
+#else
+                var failureTags = new TagList { { "component", "EventStore.InMemory" }, { "reason", "concurrency" } };
+                CatgaDiagnostics.EventStoreFailures.Add(1, failureTags);
+#endif
+                throw new ConcurrencyException(streamId, expectedVersion, stream.Version);
+            }
+            catch
+            {
+#if NET8_0_OR_GREATER
+                CatgaDiagnostics.EventStoreFailures.Add(1,
+                    new KeyValuePair<string, object?>("component", "EventStore.InMemory"),
+                    new KeyValuePair<string, object?>("reason", "exception"));
+#else
+                var failureTags = new TagList { { "component", "EventStore.InMemory" }, { "reason", "exception" } };
+                CatgaDiagnostics.EventStoreFailures.Add(1, failureTags);
+#endif
+                throw;
+            }
+            return ValueTask.CompletedTask;
+        }, cancellationToken);
     }
 
     public ValueTask<EventStream> ReadAsync(
@@ -105,30 +150,61 @@ public sealed class InMemoryEventStore : IEventStore
         int maxCount = int.MaxValue,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(streamId))
-            throw new ArgumentException("Stream ID cannot be empty", nameof(streamId));
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (!_streams.TryGetValue(streamId, out var stream))
+        return _provider.ExecutePersistenceAsync(ct =>
         {
-            return ValueTask.FromResult(new EventStream
+            if (string.IsNullOrEmpty(streamId))
+                throw new ArgumentException("Stream ID cannot be empty", nameof(streamId));
+
+            ct.ThrowIfCancellationRequested();
+
+            var startTimestamp = Stopwatch.GetTimestamp();
+
+            if (!_streams.TryGetValue(streamId, out var stream))
+            {
+                var emptyResult = new EventStream
+                {
+                    StreamId = streamId,
+                    Version = -1,
+                    Events = Array.Empty<StoredEvent>()
+                };
+
+                var elapsedEmpty = Stopwatch.GetTimestamp() - startTimestamp;
+                var durationMsEmpty = elapsedEmpty * 1000.0 / Stopwatch.Frequency;
+#if NET8_0_OR_GREATER
+                var tag_component = new KeyValuePair<string, object?>("component", "EventStore.InMemory");
+                CatgaDiagnostics.EventStoreReads.Add(1, tag_component);
+                CatgaDiagnostics.EventStoreReadDuration.Record(durationMsEmpty, tag_component);
+#else
+                var emptyTags = new TagList { { "component", "EventStore.InMemory" } };
+                CatgaDiagnostics.EventStoreReads.Add(1, emptyTags);
+                CatgaDiagnostics.EventStoreReadDuration.Record(durationMsEmpty, emptyTags);
+#endif
+                return new ValueTask<EventStream>(emptyResult);
+            }
+
+            var events = stream.GetEvents(fromVersion, maxCount);
+            var version = stream.Version;
+
+            var result = new EventStream
             {
                 StreamId = streamId,
-                Version = -1,
-                Events = Array.Empty<StoredEvent>()
-            });
-        }
+                Version = version,
+                Events = events
+            };
 
-        var events = stream.GetEvents(fromVersion, maxCount);
-        var version = stream.Version;
-
-        return ValueTask.FromResult(new EventStream
-        {
-            StreamId = streamId,
-            Version = version,
-            Events = events
-        });
+            var elapsed = Stopwatch.GetTimestamp() - startTimestamp;
+            var durationMs = elapsed * 1000.0 / Stopwatch.Frequency;
+#if NET8_0_OR_GREATER
+            var tag_component2 = new KeyValuePair<string, object?>("component", "EventStore.InMemory");
+            CatgaDiagnostics.EventStoreReads.Add(1, tag_component2);
+            CatgaDiagnostics.EventStoreReadDuration.Record(durationMs, tag_component2);
+#else
+            var tags2 = new TagList { { "component", "EventStore.InMemory" } };
+            CatgaDiagnostics.EventStoreReads.Add(1, tags2);
+            CatgaDiagnostics.EventStoreReadDuration.Record(durationMs, tags2);
+#endif
+            return new ValueTask<EventStream>(result);
+        }, cancellationToken);
     }
 
     public ValueTask<long> GetVersionAsync(

@@ -3,6 +3,7 @@ using Catga.Core;
 using Catga.Transport;
 using FluentAssertions;
 using MemoryPack;
+using Catga.Resilience;
 
 namespace Catga.Tests.Transport;
 
@@ -12,7 +13,7 @@ namespace Catga.Tests.Transport;
 /// </summary>
 public class InMemoryMessageTransportTests
 {
-    private readonly InMemoryMessageTransport _transport = new();
+    private readonly InMemoryMessageTransport _transport = new(provider: new DiagnosticResiliencePipelineProvider());
 
     #region Basic Publish/Subscribe Tests (4 tests)
 

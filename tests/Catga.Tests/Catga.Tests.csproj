@@ -23,6 +23,7 @@
     <PackageReference Include="NATS.Client.KeyValueStore" />
     <PackageReference Include="Testcontainers" />
     <PackageReference Include="Testcontainers.Redis" />
+    <PackageReference Include="MemoryPack" />
   </ItemGroup>
 
   <ItemGroup>
@@ -39,10 +40,6 @@
     <ProjectReference Include="..\..\src\Catga.Transport.Nats\Catga.Transport.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.Persistence.Nats\Catga.Persistence.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Remove="Serialization\JsonMessageSerializerTests.cs" />
   </ItemGroup>
 
 </Project>

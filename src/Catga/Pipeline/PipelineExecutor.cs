@@ -1,7 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using System.Collections.Generic;
 using Catga.Abstractions;
 using Catga.Core;
+using Catga.Observability;
 
 namespace Catga.Pipeline;
 
@@ -36,7 +40,21 @@ public static class PipelineExecutor
 
         var behavior = context.Behaviors[index];
         ValueTask<CatgaResult<TResponse>> next() => ExecuteBehaviorAsync(context, index + 1);
-        return await behavior.HandleAsync(context.Request, next, context.CancellationToken);
+
+        // Measure single behavior duration
+        var start = Stopwatch.GetTimestamp();
+        var result = await behavior.HandleAsync(context.Request, next, context.CancellationToken);
+        var elapsed = Stopwatch.GetTimestamp() - start;
+        var durationMs = elapsed * 1000.0 / Stopwatch.Frequency;
+#if NET8_0_OR_GREATER
+        CatgaDiagnostics.PipelineBehaviorDuration.Record(durationMs,
+            new KeyValuePair<string, object?>("request_type", TypeNameCache<TRequest>.Name),
+            new KeyValuePair<string, object?>("behavior_type", behavior.GetType().Name));
+#else
+        var tags = new TagList { { "request_type", TypeNameCache<TRequest>.Name }, { "behavior_type", behavior.GetType().Name } };
+        CatgaDiagnostics.PipelineBehaviorDuration.Record(durationMs, tags);
+#endif
+        return result;
     }
 
     private struct PipelineContext<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> where TRequest : IRequest<TResponse>

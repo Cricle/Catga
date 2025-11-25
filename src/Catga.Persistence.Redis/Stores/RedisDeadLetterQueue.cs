@@ -1,8 +1,11 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.DeadLetter;
 using StackExchange.Redis;
+using System.Diagnostics;
+using Catga.Observability;
 
 namespace Catga.Persistence.Redis;
 
@@ -34,11 +37,12 @@ public sealed class RedisDeadLetterQueue : RedisStoreBase, IDeadLetterQueue
         int retryCount,
         CancellationToken cancellationToken = default) where TMessage : IMessage
     {
+        using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Redis.DeadLetter.Send", ActivityKind.Producer);
         var db = GetDatabase();
         var messageId = message.MessageId.ToString();
 
-        // Serialize message to JSON string
-        var messageJson = Serializer.SerializeToJson(message);
+        // Serialize message to Base64 string (serializer-agnostic)
+        var messageJson = Convert.ToBase64String(Serializer.Serialize(message, typeof(TMessage)));
 
         var dlqMessage = new DeadLetterMessage
         {
@@ -67,12 +71,14 @@ public sealed class RedisDeadLetterQueue : RedisStoreBase, IDeadLetterQueue
 
         await db.HashSetAsync(hashKey, hashEntries);
         await db.ListLeftPushAsync(_listKey, messageId);
+        CatgaDiagnostics.DeadLetters.Add(1);
     }
 
     public async Task<List<DeadLetterMessage>> GetFailedMessagesAsync(
         int maxCount = 100,
         CancellationToken cancellationToken = default)
     {
+        using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Redis.DeadLetter.GetFailed", ActivityKind.Internal);
         var db = GetDatabase();
         var messageIds = await db.ListRangeAsync(_listKey, 0, maxCount - 1);
 

@@ -1,10 +1,17 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
 using Catga.Abstractions;
 using Catga.Core;
+using Catga.Observability;
+using Catga.Resilience;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
+using NATS.Client.JetStream.Models;
 
 namespace Catga.Transport.Nats;
 
@@ -21,7 +28,7 @@ namespace Catga.Transport.Nats;
 /// - Outbox/Inbox pattern (transactional outbox)
 /// - Validation, caching, logging, tracing
 /// </remarks>
-public class NatsMessageTransport : IMessageTransport
+public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
 {
     private readonly INatsConnection _connection;
     private readonly IMessageSerializer _serializer;
@@ -29,12 +36,21 @@ public class NatsMessageTransport : IMessageTransport
     private readonly string _subjectPrefix;
     private Func<Type, string>? _naming;
     private INatsJSContext? _jsContext;
+    private readonly IResiliencePipelineProvider _provider;
+    private readonly ConcurrentDictionary<string, Task> _subscriptions = new();
+    private volatile bool _jsStreamEnsured;
+    private readonly object _jsInitLock = new();
+    private readonly ConcurrentDictionary<long, long> _dedupCache = new();
+    private readonly ConcurrentQueue<long> _dedupOrder = new();
+    private const int _dedupCapacity = 10000;
+    private static readonly TimeSpan _dedupTtl = TimeSpan.FromMinutes(2);
+    private readonly CancellationTokenSource _cts = new();
 
     public string Name => "NATS";
     public BatchTransportOptions? BatchOptions => null;
     public CompressionTransportOptions? CompressionOptions => null;
 
-    public NatsMessageTransport(INatsConnection connection, IMessageSerializer serializer, ILogger<NatsMessageTransport> logger, NatsTransportOptions? options = null)
+    public NatsMessageTransport(INatsConnection connection, IMessageSerializer serializer, ILogger<NatsMessageTransport> logger, NatsTransportOptions? options = null, IResiliencePipelineProvider? provider = null)
     {
         _connection = connection;
         _serializer = serializer;
@@ -43,10 +59,45 @@ public class NatsMessageTransport : IMessageTransport
         _subjectPrefix = (options?.SubjectPrefix ?? "catga").TrimEnd('.');
         _naming = options?.Naming;
         _jsContext = new NatsJSContext(_connection);
+        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
     }
 
-    public NatsMessageTransport(INatsConnection connection, IMessageSerializer serializer, ILogger<NatsMessageTransport> logger, Catga.Configuration.CatgaOptions globalOptions, NatsTransportOptions? options = null)
-        : this(connection, serializer, logger, options)
+    private void CleanupDedup(long nowTicks)
+    {
+        var evicted = 0;
+        foreach (var kv in _dedupCache)
+        {
+            if (nowTicks - kv.Value > _dedupTtl.Ticks)
+            {
+                if (_dedupCache.TryRemove(kv.Key, out _)) evicted++;
+            }
+        }
+        if (evicted > 0) CatgaDiagnostics.NatsDedupEvictions.Add(evicted);
+    }
+
+    private void EvictIfNeeded()
+    {
+        var evicted = 0;
+        while (_dedupCache.Count > _dedupCapacity && _dedupOrder.TryDequeue(out var old))
+        {
+            if (_dedupCache.TryRemove(old, out _)) evicted++;
+        }
+        if (evicted > 0) CatgaDiagnostics.NatsDedupEvictions.Add(evicted);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { _cts.Cancel(); } catch { }
+        if (_subscriptions.Count > 0)
+        {
+            try { await Task.WhenAll(_subscriptions.Values); } catch { /* ignore */ }
+            _subscriptions.Clear();
+        }
+        _cts.Dispose();
+    }
+
+    public NatsMessageTransport(INatsConnection connection, IMessageSerializer serializer, ILogger<NatsMessageTransport> logger, Catga.Configuration.CatgaOptions globalOptions, NatsTransportOptions? options = null, IResiliencePipelineProvider? provider = null)
+        : this(connection, serializer, logger, options, provider)
     {
         if (_naming == null)
             _naming = globalOptions?.EndpointNamingConvention;
@@ -55,8 +106,21 @@ public class NatsMessageTransport : IMessageTransport
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
     {
         var subject = GetSubjectCached<TMessage>();
-        var qos = (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
+        var qos = message is IEvent ev
+            ? ev.QoS
+            : (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
         var ctx = context ?? new TransportContext { MessageId = MessageExtensions.NewMessageId(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
+
+        using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Publish", ActivityKind.Producer);
+        if (activity != null)
+        {
+            activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, "nats");
+            activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, subject);
+            activity.SetTag(CatgaActivitySource.Tags.MessageType, TypeNameCache<TMessage>.Name);
+            activity.SetTag(CatgaActivitySource.Tags.MessageId, ctx.MessageId);
+            var qosString = qos switch { QualityOfService.AtMostOnce => "AtMostOnce", QualityOfService.AtLeastOnce => "AtLeastOnce", QualityOfService.ExactlyOnce => "ExactlyOnce", _ => "Unknown" };
+            activity.SetTag(CatgaActivitySource.Tags.QoS, qosString);
+        }
 
         var payload = _serializer.Serialize(message!, typeof(TMessage));
         var headers = new NatsHeaders
@@ -69,73 +133,195 @@ public class NatsMessageTransport : IMessageTransport
         if (ctx.CorrelationId.HasValue)
             headers["CorrelationId"] = ctx.CorrelationId.Value.ToString();
 
-        // Delegate QoS handling to NATS native capabilities
-        switch (qos)
+        #if NET8_0_OR_GREATER
+        var tag_component = new KeyValuePair<string, object?>("component", "Transport.NATS");
+        var tag_type = new KeyValuePair<string, object?>("message_type", TypeNameCache<TMessage>.Name);
+        var tag_dest = new KeyValuePair<string, object?>("destination", subject);
+        var tag_qos = new KeyValuePair<string, object?>("qos", ((int)qos).ToString());
+        #else
+        var metricTags = new TagList { { "component", "Transport.NATS" }, { "message_type", TypeNameCache<TMessage>.Name }, { "destination", subject }, { "qos", ((int)qos).ToString() } };
+        #endif
+
+        try
         {
-            case QualityOfService.AtMostOnce:
-                // NATS Core Pub/Sub: fire-and-forget, no ack, no persistence
-                await _connection.PublishAsync(subject, payload, headers: headers, cancellationToken: cancellationToken);
-                _logger.LogDebug("Published to NATS Core (QoS 0 - fire-and-forget): {MessageId}", ctx.MessageId);
-                break;
+            // Delegate QoS handling to NATS native capabilities
+            switch (qos)
+            {
+                case QualityOfService.AtMostOnce:
+                    // NATS Core Pub/Sub: fire-and-forget, no ack, no persistence
+                    await _provider.ExecuteTransportPublishAsync(ct =>
+                        _connection.PublishAsync(subject, payload, headers: headers, cancellationToken: ct),
+                        cancellationToken);
+                    _logger.LogDebug("Published to NATS Core (QoS 0 - fire-and-forget): {MessageId}", ctx.MessageId);
+                    break;
 
-            case QualityOfService.AtLeastOnce:
-                // JetStream: guaranteed delivery, may duplicate (consumer acks)
-                var ack1 = await _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: cancellationToken);
-                _logger.LogDebug("Published to JetStream (QoS 1 - at-least-once): {MessageId}, Seq: {Seq}, Duplicate: {Dup}", ctx.MessageId, ack1.Seq, ack1.Duplicate);
-                break;
+                case QualityOfService.AtLeastOnce:
+                    await EnsureStreamAsync(cancellationToken);
+                    // JetStream: guaranteed delivery, may duplicate (consumer acks)
+                    var ack1 = await _provider.ExecuteTransportPublishAsync(ct =>
+                        _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: ct),
+                        cancellationToken);
+                    _logger.LogDebug("Published to JetStream (QoS 1 - at-least-once): {MessageId}, Seq: {Seq}, Duplicate: {Dup}", ctx.MessageId, ack1.Seq, ack1.Duplicate);
+                    break;
 
-            case QualityOfService.ExactlyOnce:
-                // JetStream with MsgId deduplication: exactly-once using NATS native dedup window (default 2 minutes)
-                // Note: Application-level idempotency (via IdempotencyBehavior) provides additional business logic dedup
-                var ack2 = await _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: cancellationToken);
-                _logger.LogDebug("Published to JetStream (QoS 2 - exactly-once): {MessageId}, Seq: {Seq}, Duplicate: {Dup}", ctx.MessageId, ack2.Seq, ack2.Duplicate);
-                break;
+                case QualityOfService.ExactlyOnce:
+                    await EnsureStreamAsync(cancellationToken);
+                    // JetStream with MsgId deduplication: exactly-once using NATS native dedup window (default 2 minutes)
+                    // Note: Application-level idempotency (via IdempotencyBehavior) provides additional business logic dedup
+                    var ack2 = await _provider.ExecuteTransportPublishAsync(ct =>
+                        _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: ct),
+                        cancellationToken);
+                    _logger.LogDebug("Published to JetStream (QoS 2 - exactly-once): {MessageId}, Seq: {Seq}, Duplicate: {Dup}", ctx.MessageId, ack2.Seq, ack2.Duplicate);
+                    break;
+            }
+
+            #if NET8_0_OR_GREATER
+            CatgaDiagnostics.MessagesPublished.Add(1, tag_component, tag_type, tag_dest, tag_qos);
+            #else
+            CatgaDiagnostics.MessagesPublished.Add(1, metricTags);
+            #endif
+        }
+        catch (Exception ex)
+        {
+            #if NET8_0_OR_GREATER
+            CatgaDiagnostics.MessagesFailed.Add(1, tag_component, tag_dest);
+            #else
+            CatgaDiagnostics.MessagesFailed.Add(1, metricTags);
+            #endif
+            _logger.LogError(ex, "NATS publish failed for subject {Subject}, MessageId: {MessageId}", subject, ctx.MessageId);
+            throw;
         }
     }
 
     public Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
         => PublishAsync(message, context, cancellationToken);
 
-    public async Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(Func<TMessage, TransportContext, Task> handler, CancellationToken cancellationToken = default) where TMessage : class
+    public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(Func<TMessage, TransportContext, Task> handler, CancellationToken cancellationToken = default) where TMessage : class
     {
         var subject = GetSubjectCached<TMessage>();
-        await foreach (var msg in _connection.SubscribeAsync<byte[]>(subject, cancellationToken: cancellationToken))
+        var task = Task.Run(async () =>
         {
-            try
+            var ct = _cts.Token;
+            await foreach (var msg in _connection.SubscribeAsync<byte[]>(subject, cancellationToken: ct))
             {
-                if (msg.Data == null || msg.Data.Length == 0)
+                try
                 {
-                    _logger.LogWarning("Received empty message from subject {Subject}", subject);
-                    continue;
-                }
-                var message = (TMessage?)_serializer.Deserialize(msg.Data, typeof(TMessage));
-                if (message == null)
-                {
-                    _logger.LogWarning("Failed to deserialize message from subject {Subject}", subject);
-                    continue;
-                }
-                var sentAtValue = msg.Headers?["SentAt"];
-                DateTime? sentAt = null;
-                if (sentAtValue.HasValue && DateTime.TryParse(sentAtValue.Value.ToString(), out var parsed))
-                    sentAt = parsed;
-                long? messageId = null;
-                if (msg.Headers?["MessageId"] is var msgIdHeader && long.TryParse(msgIdHeader.ToString(), out var parsedMsgId))
-                    messageId = parsedMsgId;
+                    using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Receive", ActivityKind.Consumer);
+                    if (activity != null)
+                    {
+                        activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, "nats");
+                        activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, subject);
+                    }
+                    if (msg.Data == null || msg.Data.Length == 0)
+                    {
+                        _logger.LogWarning("Received empty message from subject {Subject}", subject);
+                        #if NET8_0_OR_GREATER
+                        CatgaDiagnostics.MessagesFailed.Add(1,
+                            new KeyValuePair<string, object?>("component", "Transport.NATS"),
+                            new KeyValuePair<string, object?>("destination", subject),
+                            new KeyValuePair<string, object?>("reason", "empty"));
+                        #else
+                        var failTags = new TagList { { "component", "Transport.NATS" }, { "destination", subject }, { "reason", "empty" } };
+                        CatgaDiagnostics.MessagesFailed.Add(1, failTags);
+                        #endif
+                        continue;
+                    }
+                    var message = (TMessage?)_serializer.Deserialize(msg.Data, typeof(TMessage));
+                    if (activity != null)
+                    {
+                        var headerType = msg.Headers?["MessageType"].ToString();
+                        if (!string.IsNullOrEmpty(headerType)) activity.SetTag(CatgaActivitySource.Tags.MessageType, headerType);
+                    }
+                    if (message == null)
+                    {
+                        _logger.LogWarning("Failed to deserialize message from subject {Subject}", subject);
+                        #if NET8_0_OR_GREATER
+                        CatgaDiagnostics.MessagesFailed.Add(1,
+                            new KeyValuePair<string, object?>("component", "Transport.NATS"),
+                            new KeyValuePair<string, object?>("destination", subject),
+                            new KeyValuePair<string, object?>("reason", "deserialize"));
+                        #else
+                        var failTags2 = new TagList { { "component", "Transport.NATS" }, { "destination", subject }, { "reason", "deserialize" } };
+                        CatgaDiagnostics.MessagesFailed.Add(1, failTags2);
+                        #endif
+                        continue;
+                    }
+                    var sentAtValue = msg.Headers?["SentAt"];
+                    DateTime? sentAt = null;
+                    if (sentAtValue.HasValue && DateTime.TryParse(sentAtValue.Value.ToString(), out var parsed))
+                        sentAt = parsed;
+                    long? messageId = null;
+                    if (msg.Headers?["MessageId"] is var msgIdHeader && long.TryParse(msgIdHeader.ToString(), out var parsedMsgId))
+                        messageId = parsedMsgId;
 
-                long? correlationId = null;
-                if (msg.Headers?["CorrelationId"] is var corrIdHeader && long.TryParse(corrIdHeader.ToString(), out var parsedCorrId))
-                    correlationId = parsedCorrId;
+                    long? correlationId = null;
+                    if (msg.Headers?["CorrelationId"] is var corrIdHeader && long.TryParse(corrIdHeader.ToString(), out var parsedCorrId))
+                        correlationId = parsedCorrId;
 
-                var context = new TransportContext
-                {
-                    MessageId = messageId,
-                    MessageType = msg.Headers?["MessageType"],
-                    CorrelationId = correlationId,
-                    SentAt = sentAt
-                };
-                await handler(message, context);
+                    // Dedup for QoS0 (AtMostOnce) and QoS2 (ExactlyOnce)
+                    int qosHeader = 0;
+                    if (msg.Headers?["QoS"] is var qosVal && int.TryParse(qosVal.ToString(), out var parsedQos))
+                        qosHeader = parsedQos;
+                    if ((qosHeader == (int)QualityOfService.ExactlyOnce || qosHeader == (int)QualityOfService.AtMostOnce) && messageId.HasValue)
+                    {
+                        var now = DateTime.UtcNow.Ticks;
+                        if (_dedupCache.TryGetValue(messageId.Value, out var ts))
+                        {
+                            if (now - ts <= _dedupTtl.Ticks)
+                            {
+                                _logger.LogDebug("Dropped duplicate message {MessageId} (QoS={QoS}) on subject {Subject}", messageId, qosHeader, subject);
+                                CatgaDiagnostics.NatsDedupDrops.Add(1);
+                                continue;
+                            }
+                            _dedupCache[messageId.Value] = now;
+                            _dedupOrder.Enqueue(messageId.Value);
+                        }
+                        else
+                        {
+                            if (_dedupCache.TryAdd(messageId.Value, now))
+                                _dedupOrder.Enqueue(messageId.Value);
+                        }
+                        if (_dedupCache.Count > _dedupCapacity)
+                        {
+                            CleanupDedup(now);
+                            EvictIfNeeded();
+                        }
+                    }
+
+                    var context = new TransportContext
+                    {
+                        MessageId = messageId,
+                        MessageType = msg.Headers?["MessageType"],
+                        CorrelationId = correlationId,
+                        SentAt = sentAt
+                    };
+                    await handler(message, context);
+                }
+                catch (Exception ex) { _logger.LogError(ex, "Error processing message from subject {Subject}", subject); }
             }
-            catch (Exception ex) { _logger.LogError(ex, "Error processing message from subject {Subject}", subject); }
+        }, cancellationToken);
+        _subscriptions[subject] = task;
+        return Task.CompletedTask;
+    }
+
+    private async Task EnsureStreamAsync(CancellationToken cancellationToken)
+    {
+        if (_jsStreamEnsured) return;
+        lock (_jsInitLock)
+        {
+            if (_jsStreamEnsured) return;
+            _jsStreamEnsured = true;
+        }
+        var name = ($"{_subjectPrefix}_STREAM").ToUpperInvariant();
+        var subjects = new[] { $"{_subjectPrefix}.>" };
+        var cfg = new StreamConfig(name, subjects: subjects);
+        try
+        {
+            await _jsContext!.CreateStreamAsync(cfg, cancellationToken);
+        }
+        catch (NatsJSApiException ex) when (ex.Error.Code == 400)
+        {
+            // stream exists, ignore
         }
     }
 

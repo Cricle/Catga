@@ -5,6 +5,7 @@ using Catga.Persistence;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
+using Catga.Resilience;
 
 namespace Catga.Persistence.Nats;
 
@@ -22,17 +23,20 @@ public sealed class NatsJSIdempotencyStore : NatsJSStoreBase, IIdempotencyStore
 {
     private readonly IMessageSerializer _serializer;
     private readonly TimeSpan _ttl;
+    private readonly IResiliencePipelineProvider _provider;
 
     public NatsJSIdempotencyStore(
         INatsConnection connection,
         IMessageSerializer serializer,
         string streamName = "CATGA_IDEMPOTENCY",
         TimeSpan? ttl = null,
-        NatsJSStoreOptions? options = null)
+        NatsJSStoreOptions? options = null,
+        IResiliencePipelineProvider? provider = null)
         : base(connection, streamName, options)
     {
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         _ttl = ttl ?? TimeSpan.FromHours(24);
+        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
     }
 
     protected override string[] GetSubjects() => new[] { $"{StreamName}.>" };
@@ -48,40 +52,43 @@ public sealed class NatsJSIdempotencyStore : NatsJSStoreBase, IIdempotencyStore
 
     public async Task<bool> HasBeenProcessedAsync(long messageId, CancellationToken cancellationToken = default)
     {
-        await EnsureInitializedAsync(cancellationToken);
-
-        var subject = $"{StreamName}.{messageId}";
-
-        try
+        return await _provider.ExecutePersistenceAsync(async ct =>
         {
-            // Try to get the last message for this subject
-            var consumerName = $"check-{messageId}-{Guid.NewGuid():N}";
-            var consumer = await JetStream.CreateOrUpdateConsumerAsync(
-                StreamName,
-                new ConsumerConfig
-                {
-                    Name = consumerName,
-                    FilterSubject = subject,
-                    AckPolicy = ConsumerConfigAckPolicy.None,
-                    DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject
-                },
-                cancellationToken);
+            await EnsureInitializedAsync(ct);
 
-            await foreach (var msg in consumer.FetchAsync<byte[]>(
-                new NatsJSFetchOpts { MaxMsgs = 1 },
-                cancellationToken: cancellationToken))
+            var subject = $"{StreamName}.{messageId}";
+
+            try
             {
-                // Message exists
-                return true;
-            }
+                // Try to get the last message for this subject
+                var consumerName = $"check-{messageId}-{Guid.NewGuid():N}";
+                var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                    StreamName,
+                    new ConsumerConfig
+                    {
+                        Name = consumerName,
+                        FilterSubject = subject,
+                        AckPolicy = ConsumerConfigAckPolicy.None,
+                        DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject
+                    },
+                    ct);
 
-            return false;
-        }
-        catch (NatsJSApiException ex) when (ex.Error.Code == 404)
-        {
-            // Consumer or stream doesn't exist
-            return false;
-        }
+                await foreach (var msg in consumer.FetchAsync<byte[]>(
+                    new NatsJSFetchOpts { MaxMsgs = 1 },
+                    cancellationToken: ct))
+                {
+                    // Message exists
+                    return true;
+                }
+
+                return false;
+            }
+            catch (NatsJSApiException ex) when (ex.Error.Code == 404)
+            {
+                // Consumer or stream doesn't exist
+                return false;
+            }
+        }, cancellationToken);
     }
 
     public async Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
@@ -89,75 +96,81 @@ public sealed class NatsJSIdempotencyStore : NatsJSStoreBase, IIdempotencyStore
         TResult? result = default,
         CancellationToken cancellationToken = default)
     {
-        await EnsureInitializedAsync(cancellationToken);
-
-        var subject = $"{StreamName}.{messageId}";
-        byte[] data;
-
-        if (result != null)
+        await _provider.ExecutePersistenceAsync(async ct =>
         {
-            data = _serializer.Serialize(result, typeof(TResult));
-        }
-        else
-        {
-            // Empty marker
-            data = Array.Empty<byte>();
-        }
+            await EnsureInitializedAsync(ct);
 
-        var headers = new NatsHeaders
-        {
-            ["HasResult"] = result != null ? "true" : "false"
-        };
+            var subject = $"{StreamName}.{messageId}";
+            byte[] data;
 
-        var ack = await JetStream.PublishAsync(subject, data, headers: headers, cancellationToken: cancellationToken);
+            if (result != null)
+            {
+                data = _serializer.Serialize(result, typeof(TResult));
+            }
+            else
+            {
+                // Empty marker
+                data = Array.Empty<byte>();
+            }
 
-        if (ack.Error != null)
-        {
-            throw new InvalidOperationException($"Failed to mark message as processed: {ack.Error.Description}");
-        }
+            var headers = new NatsHeaders
+            {
+                ["HasResult"] = result != null ? "true" : "false"
+            };
+
+            var ack = await JetStream.PublishAsync(subject, data, headers: headers, cancellationToken: ct);
+
+            if (ack.Error != null)
+            {
+                throw new InvalidOperationException($"Failed to mark message as processed: {ack.Error.Description}");
+            }
+        }, cancellationToken);
     }
 
     public async Task<TResult?> GetCachedResultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
         long messageId,
         CancellationToken cancellationToken = default)
     {
-        await EnsureInitializedAsync(cancellationToken);
-
-        var subject = $"{StreamName}.{messageId}";
-
-        try
+        return await _provider.ExecutePersistenceAsync(async ct =>
         {
-            var consumerName = $"get-{messageId}-{Guid.NewGuid():N}";
-            var consumer = await JetStream.CreateOrUpdateConsumerAsync(
-                StreamName,
-                new ConsumerConfig
-                {
-                    Name = consumerName,
-                    FilterSubject = subject,
-                    AckPolicy = ConsumerConfigAckPolicy.None,
-                    DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject
-                },
-                cancellationToken);
+            await EnsureInitializedAsync(ct);
 
-            await foreach (var msg in consumer.FetchAsync<byte[]>(
-                new NatsJSFetchOpts { MaxMsgs = 1 },
-                cancellationToken: cancellationToken))
+            var subject = $"{StreamName}.{messageId}";
+
+            try
             {
-                var hasResultHeader = msg.Headers?["HasResult"];
-                var hasResult = hasResultHeader.HasValue && hasResultHeader.ToString() == "true";
+                var consumerName = $"get-{messageId}-{Guid.NewGuid():N}";
+                var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                    StreamName,
+                    new ConsumerConfig
+                    {
+                        Name = consumerName,
+                        FilterSubject = subject,
+                        AckPolicy = ConsumerConfigAckPolicy.None,
+                        DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject
+                    },
+                    ct);
 
-                if (!hasResult || msg.Data == null || msg.Data.Length == 0)
-                    return default;
+                await foreach (var msg in consumer.FetchAsync<byte[]>(
+                    new NatsJSFetchOpts { MaxMsgs = 1 },
+                    cancellationToken: ct))
+                {
+                    var hasResultHeader = msg.Headers?["HasResult"];
+                    var hasResult = hasResultHeader.HasValue && hasResultHeader.ToString() == "true";
 
-                return (TResult?)_serializer.Deserialize(msg.Data, typeof(TResult));
+                    if (!hasResult || msg.Data == null || msg.Data.Length == 0)
+                        return default;
+
+                    return (TResult?)_serializer.Deserialize(msg.Data, typeof(TResult));
+                }
+
+                return default;
             }
-
-            return default;
-        }
-        catch (NatsJSApiException ex) when (ex.Error.Code == 404)
-        {
-            return default;
-        }
+            catch (NatsJSApiException ex) when (ex.Error.Code == 404)
+            {
+                return default;
+            }
+        }, cancellationToken);
     }
 }
 

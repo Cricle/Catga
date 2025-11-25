@@ -26,8 +26,6 @@ public abstract class MessageSerializerBase : IMessageSerializer
     /// <summary>
     /// Serialize to buffer writer (zero-allocation)
     /// </summary>
-    [RequiresDynamicCode("Serialization may use reflection for certain types")]
-    [RequiresUnreferencedCode("Serialization may require unreferenced code for certain types")]
     public abstract void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         T value,
         IBufferWriter<byte> bufferWriter);
@@ -35,8 +33,6 @@ public abstract class MessageSerializerBase : IMessageSerializer
     /// <summary>
     /// Deserialize from span (zero-copy)
     /// </summary>
-    [RequiresDynamicCode("Deserialization may use reflection for certain types")]
-    [RequiresUnreferencedCode("Deserialization may require unreferenced code for certain types")]
     public abstract T Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         ReadOnlySpan<byte> data);
 
@@ -49,8 +45,6 @@ public abstract class MessageSerializerBase : IMessageSerializer
     /// Serialize to byte[] using pooled buffer
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [RequiresDynamicCode("Serialization may use reflection for certain types")]
-    [RequiresUnreferencedCode("Serialization may require unreferenced code for certain types")]
     public virtual byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value)
     {
         using var writer = MemoryPoolManager.RentBufferWriter<byte>(GetSizeEstimate(value));
@@ -62,8 +56,6 @@ public abstract class MessageSerializerBase : IMessageSerializer
     /// Deserialize from byte[]
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [RequiresDynamicCode("Deserialization may use reflection for certain types")]
-    [RequiresUnreferencedCode("Deserialization may require unreferenced code for certain types")]
     public virtual T Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(byte[] data)
         => Deserialize<T>(data.AsSpan());
 
@@ -100,8 +92,6 @@ public static class SerializationHelper
     /// Serialize to Base64 string
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [RequiresDynamicCode("Serialization may use reflection for certain types")]
-    [RequiresUnreferencedCode("Serialization may require unreferenced code for certain types")]
     public static string Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         T obj,
         IMessageSerializer serializer)
@@ -115,8 +105,6 @@ public static class SerializationHelper
     /// Deserialize from Base64 string
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [RequiresDynamicCode("Deserialization may use reflection for certain types")]
-    [RequiresUnreferencedCode("Deserialization may require unreferenced code for certain types")]
     public static T? Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         string data,
         IMessageSerializer serializer)
@@ -132,8 +120,6 @@ public static class SerializationHelper
     /// <summary>
     /// Try deserialize
     /// </summary>
-    [RequiresDynamicCode("Deserialization may use reflection for certain types")]
-    [RequiresUnreferencedCode("Deserialization may require unreferenced code for certain types")]
     public static bool TryDeserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         string data,
         out T? result,

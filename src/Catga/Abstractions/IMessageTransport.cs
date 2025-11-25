@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
 using Catga.Abstractions;
+using MemoryPack;
 
 namespace Catga.Transport;
 
@@ -18,7 +19,8 @@ public interface IMessageTransport
 }
 
 /// <summary>Transport context - carries message metadata (zero-allocation struct)</summary>
-public readonly struct TransportContext
+[MemoryPackable]
+public readonly partial struct TransportContext
 {
     public long? MessageId { get; init; }
     public long? CorrelationId { get; init; }

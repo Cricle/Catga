@@ -116,7 +116,6 @@ Catga 是一个**高性能、零反射、AOT 兼容**的 .NET CQRS/Event Sourcin
   - RedisInboxStore
   - RedisIdempotencyStore
   - RedisDeadLetterQueue
-  - RedisEventStore
 - ✅ **NATS JetStream** - NATS 持久化
   - NatsJSOutboxStore
   - NatsJSInboxStore
@@ -624,10 +623,12 @@ builder.Services.AddNatsTransport("nats://localhost:4222", options =>
     options.MaxReconnectAttempts = 5;
 });
 
-builder.Services.AddNatsPersistence("nats://localhost:4222", options =>
+// NATS 持久化（使用已注册的 INatsConnection）
+builder.Services.AddNatsPersistence(options =>
 {
-    options.StreamName = "ORDERS";
-    options.SubjectPrefix = "orders";
+    options.EventStreamName = "ORDERS";
+    options.OutboxStreamName = "CATGA_OUTBOX";
+    options.InboxStreamName = "CATGA_INBOX";
 });
 ```
 
@@ -640,11 +641,18 @@ builder.Services.AddRedisTransport("localhost:6379", options =>
     options.ChannelPrefix = "catga:";
 });
 
-builder.Services.AddRedisPersistence("localhost:6379", options =>
-{
-    options.KeyPrefix = "catga:";
-    options.Database = 0;
-});
+// Redis 持久化（Outbox + Inbox），Idempotency 可单独调用 AddRedisIdempotencyStore
+builder.Services.AddRedisPersistence(
+    outbox =>
+    {
+        outbox.KeyPrefix = "outbox:";
+        outbox.Database = 0;
+    },
+    inbox =>
+    {
+        inbox.KeyPrefix = "inbox:";
+        inbox.Database = 0;
+    });
 ```
 
 ---
@@ -1234,7 +1242,7 @@ var failed = await _dlq.GetFailedMessagesAsync(100);
 
 ### Q5: 如何升级到新版本？
 
-**A**: 
+**A**:
 1. 检查 CHANGELOG.md
 2. 运行测试
 3. 关注 BREAKING CHANGES
@@ -1279,7 +1287,7 @@ builder.Services.AddCatga();
 
 ---
 
-**版本**: 0.1.0  
-**最后更新**: 2025-10-26  
+**版本**: 0.1.0
+**最后更新**: 2025-10-26
 **许可证**: MIT
 

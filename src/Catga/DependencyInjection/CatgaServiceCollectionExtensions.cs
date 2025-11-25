@@ -2,7 +2,11 @@ using System;
 using Catga;
 using Catga.Configuration;
 using Catga.Generated;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using Catga.Observability;
 using Catga.DependencyInjection;
+using Catga.Resilience;
 using Catga.DistributedId;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -20,6 +24,8 @@ public static class CatgaServiceCollectionExtensions
     public static CatgaServiceBuilder AddCatga(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+        var sw = Stopwatch.StartNew();
+        var tags = new TagList { { "component", "DI.Core" } };
 
         // Register Catga options
         var options = new CatgaOptions();
@@ -39,9 +45,21 @@ public static class CatgaServiceCollectionExtensions
 
         var builder = new CatgaServiceBuilder(services, options);
 
-        TryInvokeGeneratedRegistrations(services, options);
-
-        return builder;
+        try
+        {
+            TryInvokeGeneratedRegistrations(services, options);
+            sw.Stop();
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tags);
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            return builder;
+        }
+        catch
+        {
+            sw.Stop();
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tags);
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            throw;
+        }
     }
 
     private static int GetWorkerIdFromEnvironmentOrRandom(string envVarName)

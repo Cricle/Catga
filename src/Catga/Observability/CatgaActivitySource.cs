@@ -65,6 +65,7 @@ public static class CatgaActivitySource
         public const string Handler = "catga.handler";
         public const string StreamId = "catga.stream_id";
         public const string EventCount = "catga.event_count";
+        public const string PipelineBehaviorCount = "catga.pipeline.behavior_count";
     }
 
     /// <summary>Activity event names for timeline markers</summary>

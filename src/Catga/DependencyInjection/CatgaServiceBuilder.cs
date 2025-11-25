@@ -1,4 +1,5 @@
 using Catga.Configuration;
+using Catga.Resilience;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Catga.DependencyInjection;
@@ -192,6 +193,15 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
     public CatgaServiceBuilder UseDeadLetterQueue()
     {
         Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.ConditionalDeadLetterBehavior<,>));
+        return this;
+    }
+
+    /// <summary>
+    /// Enable Polly-based resilience (retry/timeout/circuit/bulkhead) with multi-TFM support
+    /// </summary>
+    public CatgaServiceBuilder UseResilience(Action<CatgaResilienceOptions>? configure = null)
+    {
+        Services.AddCatgaResilience(configure);
         return this;
     }
 

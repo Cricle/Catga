@@ -4,9 +4,13 @@ using Catga.Inbox;
 using Catga.Outbox;
 using Catga.Persistence;
 using Catga.Persistence.Stores;
+using Catga.DeadLetter;
+using Catga.Idempotency;
+using Catga.Persistence.Nats;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NATS.Client.Core;
+using Catga.Resilience;
 
 namespace Catga;
 
@@ -29,11 +33,64 @@ public static class NatsPersistenceServiceCollectionExtensions
         {
             var connection = sp.GetRequiredService<INatsConnection>();
             var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
 
             var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_EVENTS" };
             configure?.Invoke(options);
 
-            return new NatsJSEventStore(connection, serializer, streamName, options);
+            return new Catga.Persistence.NatsJSEventStore(connection, serializer, streamName, options, provider);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds NATS JetStream-based dead letter queue to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsDeadLetterQueue(
+        this IServiceCollection services,
+        string? streamName = null,
+        Action<NatsJSStoreOptions>? configure = null,
+        IResiliencePipelineProvider? resiliencePipelineProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<IDeadLetterQueue>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var provider = resiliencePipelineProvider ?? sp.GetRequiredService<IResiliencePipelineProvider>();
+
+            var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_DLQ" };
+            configure?.Invoke(options);
+
+            return new NatsJSDeadLetterQueue(connection, serializer, streamName ?? "CATGA_DLQ", options, provider);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds NATS JetStream-based idempotency store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsIdempotencyStore(
+        this IServiceCollection services,
+        string? streamName = null,
+        Action<NatsJSStoreOptions>? configure = null,
+        IResiliencePipelineProvider? resiliencePipelineProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<IIdempotencyStore>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var provider = resiliencePipelineProvider ?? sp.GetRequiredService<IResiliencePipelineProvider>();
+
+            var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_IDEMPOTENCY" };
+            configure?.Invoke(options);
+
+            return new NatsJSIdempotencyStore(connection, serializer, streamName ?? "CATGA_IDEMPOTENCY", null, options, provider);
         });
 
         return services;
@@ -53,11 +110,12 @@ public static class NatsPersistenceServiceCollectionExtensions
         {
             var connection = sp.GetRequiredService<INatsConnection>();
             var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
 
             var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_OUTBOX" };
             configure?.Invoke(options);
 
-            return new NatsJSOutboxStore(connection, serializer, streamName, options);
+            return new NatsJSOutboxStore(connection, serializer, streamName, options, provider);
         });
 
         return services;
@@ -77,11 +135,12 @@ public static class NatsPersistenceServiceCollectionExtensions
         {
             var connection = sp.GetRequiredService<INatsConnection>();
             var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
 
             var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_INBOX" };
             configure?.Invoke(options);
 
-            return new NatsJSInboxStore(connection, serializer, streamName, options);
+            return new NatsJSInboxStore(connection, serializer, streamName, options, provider);
         });
 
         return services;
@@ -102,6 +161,8 @@ public static class NatsPersistenceServiceCollectionExtensions
         services.AddNatsEventStore(options.EventStreamName);
         services.AddNatsOutboxStore(options.OutboxStreamName);
         services.AddNatsInboxStore(options.InboxStreamName);
+        services.AddNatsDeadLetterQueue();
+        services.AddNatsIdempotencyStore();
 
         return services;
     }

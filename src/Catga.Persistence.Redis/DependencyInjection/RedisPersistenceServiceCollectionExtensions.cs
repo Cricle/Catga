@@ -1,9 +1,14 @@
 using Catga.Inbox;
 using Catga.Outbox;
 using Catga.Persistence.Redis.Persistence;
+using Catga.Persistence.Redis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Catga.Abstractions;
+using Catga.Resilience;
+using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
+using Catga.Idempotency;
 
 namespace Catga.DependencyInjection;
 
@@ -23,7 +28,14 @@ public static class RedisPersistenceServiceCollectionExtensions
         configure?.Invoke(options);
 
         services.TryAddSingleton(options);
-        services.TryAddSingleton<IOutboxStore, RedisOutboxPersistence>();
+        services.TryAddSingleton<IOutboxStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var logger = sp.GetRequiredService<ILogger<RedisOutboxPersistence>>();
+            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
+            return new RedisOutboxPersistence(redis, serializer, logger, options, provider);
+        });
 
         return services;
     }
@@ -39,7 +51,14 @@ public static class RedisPersistenceServiceCollectionExtensions
         configure?.Invoke(options);
 
         services.TryAddSingleton(options);
-        services.TryAddSingleton<IInboxStore, RedisInboxPersistence>();
+        services.TryAddSingleton<IInboxStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var logger = sp.GetRequiredService<ILogger<RedisInboxPersistence>>();
+            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
+            return new RedisInboxPersistence(redis, serializer, logger, options, provider);
+        });
 
         return services;
     }
@@ -54,8 +73,31 @@ public static class RedisPersistenceServiceCollectionExtensions
     {
         services.AddRedisOutboxPersistence(configureOutbox);
         services.AddRedisInboxPersistence(configureInbox);
+        services.AddRedisIdempotencyStore();
+
+        return services;
+    }
+
+    /// <summary>
+    /// 添加 Redis 幂等性存储 (requires IMessageSerializer to be registered separately)
+    /// </summary>
+    public static IServiceCollection AddRedisIdempotencyStore(
+        this IServiceCollection services,
+        Action<RedisIdempotencyOptions>? configure = null)
+    {
+        var options = new RedisIdempotencyOptions();
+        configure?.Invoke(options);
+
+        services.TryAddSingleton(options);
+        services.TryAddSingleton<IIdempotencyStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var logger = sp.GetRequiredService<ILogger<RedisIdempotencyStore>>();
+            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
+            return new RedisIdempotencyStore(redis, serializer, logger, options, provider);
+        });
 
         return services;
     }
 }
-

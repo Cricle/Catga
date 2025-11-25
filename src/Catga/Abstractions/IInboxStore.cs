@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Catga.Inbox;
 
 /// <summary>
@@ -53,7 +55,8 @@ public interface IInboxStore
 /// <summary>
 /// Inbox message representation (100% AOT compatible)
 /// </summary>
-public class InboxMessage
+[MemoryPackable]
+public partial class InboxMessage
 {
     /// <summary>
     /// Unique message identifier (Snowflake ID)

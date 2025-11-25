@@ -34,7 +34,7 @@ public sealed class CatgaHealthCheck : IHealthCheck
             {
                 ["mediator_type"] = _mediator.GetType().Name,
                 ["uptime_seconds"] = (DateTime.UtcNow - _startTime).TotalSeconds,
-                ["framework_version"] = typeof(ICatgaMediator).Assembly.GetName().Version?.ToString() ?? "Unknown"
+                ["framework_version"] = "N/A"
             };
 
             // 检查 ActivitySource 是否活跃

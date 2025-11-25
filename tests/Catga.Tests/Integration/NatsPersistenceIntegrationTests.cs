@@ -11,6 +11,7 @@ using DotNet.Testcontainers.Containers;
 using FluentAssertions;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
+using MemoryPack;
 using Xunit;
 
 namespace Catga.Tests.Integration;
@@ -21,7 +22,7 @@ namespace Catga.Tests.Integration;
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Requires", "Docker")]
-public class NatsPersistenceIntegrationTests : IAsyncLifetime
+public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
 {
     private IContainer? _natsContainer;
     private NatsConnection? _natsConnection;
@@ -40,8 +41,13 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         _natsContainer = new ContainerBuilder()
             .WithImage("nats:latest")
             .WithPortBinding(4222, true)
+            .WithPortBinding(8222, true)
             .WithCommand("-js", "-m", "8222") // Enable JetStream and monitoring
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(4222))
+            // 使用 HTTP 监控端点作为就绪检查，避免容器内缺少 /bin/sh 或 nc 带来的探测失败
+            .WithWaitStrategy(Wait.ForUnixContainer()
+                .UntilHttpRequestIsSucceeded(r => r
+                    .ForPort(8222)
+                    .ForPath("/varz")))
             .Build();
 
         await _natsContainer.StartAsync();
@@ -104,7 +110,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var outbox = new NatsJSOutboxStore(
             _natsConnection!,
             _serializer!,
-            streamName: $"TEST_STREAM_{Guid.NewGuid():N}");
+            streamName: $"TEST_STREAM_{Guid.NewGuid():N}",
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
 
         var eventData = new TestEvent
         {
@@ -137,7 +145,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var outbox = new NatsJSOutboxStore(
             _natsConnection!,
             _serializer!,
-            streamName: streamName);
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
 
         // Add multiple messages
         for (int i = 0; i < 3; i++)
@@ -164,7 +174,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var outbox = new NatsJSOutboxStore(
             _natsConnection!,
             _serializer!,
-            streamName: streamName);
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
 
         var message = CreateOutboxMessage(2000L, OutboxStatus.Pending);
         await outbox.AddAsync(message);
@@ -189,7 +201,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var inbox = new NatsJSInboxStore(
             _natsConnection!,
             _serializer!,
-            streamName: streamName);
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
 
         var messageId = MessageExtensions.NewMessageId();
         var lockDuration = TimeSpan.FromMinutes(5);
@@ -209,7 +223,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var inbox = new NatsJSInboxStore(
             _natsConnection!,
             _serializer!,
-            streamName: streamName);
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
 
         var messageId = MessageExtensions.NewMessageId();
         var lockDuration = TimeSpan.FromMinutes(5);
@@ -234,7 +250,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var inbox = new NatsJSInboxStore(
             _natsConnection!,
             _serializer!,
-            streamName: streamName);
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
 
         var messageId = MessageExtensions.NewMessageId();
 
@@ -272,7 +290,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var inbox = new NatsJSInboxStore(
             _natsConnection!,
             _serializer!,
-            streamName: streamName);
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
 
         var messageId = MessageExtensions.NewMessageId();
 
@@ -311,7 +331,9 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var inbox = new NatsJSInboxStore(
             _natsConnection!,
             _serializer!,
-            streamName: streamName);
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
 
         var messageId = MessageExtensions.NewMessageId();
 
@@ -340,19 +362,21 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var eventStore = new NatsJSEventStore(
             _natsConnection!,
             _serializer!,
-            streamName: streamName);
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
 
         var streamId = $"order-{Guid.NewGuid()}";
 
         var events = new List<IEvent>
         {
-            new TestEvent
+            new EventStoreTestEvent
             {
                 MessageId = MessageExtensions.NewMessageId(),
                 Id = "event-1",
                 Data = "First event"
             },
-            new TestEvent
+            new EventStoreTestEvent
             {
                 MessageId = MessageExtensions.NewMessageId(),
                 Id = "event-2",
@@ -375,13 +399,15 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var eventStore = new NatsJSEventStore(
             _natsConnection!,
             _serializer!,
-            streamName: streamName);
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
 
         var streamId = $"order-{Guid.NewGuid()}";
 
         var events = new List<IEvent>
         {
-            new TestEvent
+            new EventStoreTestEvent
             {
                 MessageId = MessageExtensions.NewMessageId(),
                 Id = "read-1",
@@ -408,13 +434,15 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var eventStore = new NatsJSEventStore(
             _natsConnection!,
             _serializer!,
-            streamName: streamName);
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
 
         var streamId = $"order-{Guid.NewGuid()}";
 
         var events = new List<IEvent>
         {
-            new TestEvent
+            new EventStoreTestEvent
             {
                 MessageId = MessageExtensions.NewMessageId(),
                 Id = "version-test",
@@ -440,14 +468,16 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         var eventStore = new NatsJSEventStore(
             _natsConnection!,
             _serializer!,
-            streamName: streamName);
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
 
         var streamId = $"order-{Guid.NewGuid()}";
 
         // First append
         var events1 = new List<IEvent>
         {
-            new TestEvent
+            new EventStoreTestEvent
             {
                 MessageId = MessageExtensions.NewMessageId(),
                 Id = "concurrency-1",
@@ -460,7 +490,7 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
         // Act - Try to append with wrong expected version
         var events2 = new List<IEvent>
         {
-            new TestEvent
+            new EventStoreTestEvent
             {
                 MessageId = MessageExtensions.NewMessageId(),
                 Id = "concurrency-2",
@@ -502,7 +532,8 @@ public class NatsPersistenceIntegrationTests : IAsyncLifetime
 
     #region Test Models
 
-    private record TestEvent : IEvent
+    [MemoryPackable]
+    private partial record TestEvent : IEvent
     {
         public required long MessageId { get; init; }
         public required string Id { get; init; }

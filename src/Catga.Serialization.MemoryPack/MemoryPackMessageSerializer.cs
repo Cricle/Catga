@@ -26,8 +26,6 @@ public class MemoryPackMessageSerializer : MessageSerializerBase
     /// <summary>
     /// Serialize to buffer writer
     /// </summary>
-    [RequiresDynamicCode("MemoryPack serialization may use reflection for certain types")]
-    [RequiresUnreferencedCode("MemoryPack serialization may require unreferenced code for certain types")]
     public override void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         T value,
         IBufferWriter<byte> bufferWriter)
@@ -36,8 +34,6 @@ public class MemoryPackMessageSerializer : MessageSerializerBase
     /// <summary>
     /// Deserialize from span
     /// </summary>
-    [RequiresDynamicCode("MemoryPack deserialization may use reflection for certain types")]
-    [RequiresUnreferencedCode("MemoryPack deserialization may require unreferenced code for certain types")]
     public override T Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(
         ReadOnlySpan<byte> data)
         => MemoryPackSerializer.Deserialize<T>(data)!;

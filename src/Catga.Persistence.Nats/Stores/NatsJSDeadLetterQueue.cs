@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Core;
@@ -6,6 +7,7 @@ using Catga.Persistence;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
+using Catga.Resilience;
 
 namespace Catga.Persistence.Nats;
 
@@ -20,15 +22,18 @@ namespace Catga.Persistence.Nats;
 public sealed class NatsJSDeadLetterQueue : NatsJSStoreBase, IDeadLetterQueue
 {
     private readonly IMessageSerializer _serializer;
+    private readonly IResiliencePipelineProvider _provider;
 
     public NatsJSDeadLetterQueue(
         INatsConnection connection,
         IMessageSerializer serializer,
         string streamName = "CATGA_DLQ",
-        NatsJSStoreOptions? options = null)
+        NatsJSStoreOptions? options = null,
+        IResiliencePipelineProvider? provider = null)
         : base(connection, streamName, options)
     {
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
+        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
     }
 
     protected override string[] GetSubjects() => new[] { $"{StreamName.ToLowerInvariant()}.>" };
@@ -39,75 +44,81 @@ public sealed class NatsJSDeadLetterQueue : NatsJSStoreBase, IDeadLetterQueue
         int retryCount,
         CancellationToken cancellationToken = default) where TMessage : IMessage
     {
-        await EnsureInitializedAsync(cancellationToken);
-
-        var messageJson = _serializer.SerializeToJson(message);
-
-        var dlqMessage = new DeadLetterMessage
+        await _provider.ExecutePersistenceAsync(async ct =>
         {
-            MessageId = message.MessageId,
-            MessageType = TypeNameCache<TMessage>.Name,
-            MessageJson = messageJson,
-            ExceptionType = ExceptionTypeCache.GetTypeName(exception),
-            ExceptionMessage = exception.Message,
-            StackTrace = exception.StackTrace ?? string.Empty,
-            RetryCount = retryCount,
-            FailedAt = DateTime.UtcNow
-        };
+            await EnsureInitializedAsync(ct);
 
-        var subject = $"{StreamName.ToLowerInvariant()}.{message.MessageId}";
-        var data = _serializer.Serialize(dlqMessage, typeof(DeadLetterMessage));
+            var messageData = Convert.ToBase64String(_serializer.Serialize(message, typeof(TMessage)));
 
-        await JetStream.PublishAsync(subject, data, cancellationToken: cancellationToken);
+            var dlqMessage = new DeadLetterMessage
+            {
+                MessageId = message.MessageId,
+                MessageType = TypeNameCache<TMessage>.Name,
+                MessageJson = messageData,
+                ExceptionType = ExceptionTypeCache.GetTypeName(exception),
+                ExceptionMessage = exception.Message,
+                StackTrace = exception.StackTrace ?? string.Empty,
+                RetryCount = retryCount,
+                FailedAt = DateTime.UtcNow
+            };
+
+            var subject = $"{StreamName.ToLowerInvariant()}.{message.MessageId}";
+            var data = _serializer.Serialize(dlqMessage, typeof(DeadLetterMessage));
+
+            await JetStream.PublishAsync(subject, data, cancellationToken: ct);
+        }, cancellationToken);
     }
 
     public async Task<List<DeadLetterMessage>> GetFailedMessagesAsync(
         int maxCount = 100,
         CancellationToken cancellationToken = default)
     {
-        await EnsureInitializedAsync(cancellationToken);
-
-        var result = new List<DeadLetterMessage>();
-
-        try
+        return await _provider.ExecutePersistenceAsync(async ct =>
         {
-            var consumer = await JetStream.CreateOrUpdateConsumerAsync(
-                StreamName,
-                new ConsumerConfig
-                {
-                    Name = $"{StreamName}_reader",
-                    AckPolicy = ConsumerConfigAckPolicy.Explicit,
-                    MaxAckPending = maxCount
-                },
-                cancellationToken);
+            await EnsureInitializedAsync(ct);
 
-            var count = 0;
-            await foreach (var msg in consumer.FetchAsync<byte[]>(opts: new NatsJSFetchOpts { MaxMsgs = maxCount }, cancellationToken: cancellationToken))
+            var result = new List<DeadLetterMessage>();
+
+            try
             {
-                if (count >= maxCount)
-                    break;
-
-                try
-                {
-                    if (msg.Data != null)
+                var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                    StreamName,
+                    new ConsumerConfig
                     {
-                        var dlqMsg = (DeadLetterMessage)_serializer.Deserialize(msg.Data, typeof(DeadLetterMessage))!;
-                        result.Add(dlqMsg);
-                        await msg.AckAsync(cancellationToken: cancellationToken);
-                        count++;
+                        Name = $"{StreamName}_reader",
+                        AckPolicy = ConsumerConfigAckPolicy.Explicit,
+                        MaxAckPending = maxCount
+                    },
+                    ct);
+
+                var count = 0;
+                await foreach (var msg in consumer.FetchAsync<byte[]>(opts: new NatsJSFetchOpts { MaxMsgs = maxCount }, cancellationToken: ct))
+                {
+                    if (count >= maxCount)
+                        break;
+
+                    try
+                    {
+                        if (msg.Data != null)
+                        {
+                            var dlqMsg = (DeadLetterMessage)_serializer.Deserialize(msg.Data, typeof(DeadLetterMessage))!;
+                            result.Add(dlqMsg);
+                            await msg.AckAsync(cancellationToken: ct);
+                            count++;
+                        }
+                    }
+                    catch
+                    {
+                        await msg.NakAsync(cancellationToken: ct);
                     }
                 }
-                catch
-                {
-                    await msg.NakAsync(cancellationToken: cancellationToken);
-                }
             }
-        }
-        catch (NatsJSApiException)
-        {
-            // Consumer doesn't exist or stream is empty, return empty list
-        }
+            catch (NatsJSApiException)
+            {
+                // Consumer doesn't exist or stream is empty, return empty list
+            }
 
-        return result;
+            return result;
+        }, cancellationToken);
     }
 }

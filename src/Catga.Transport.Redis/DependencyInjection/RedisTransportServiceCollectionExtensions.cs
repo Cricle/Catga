@@ -3,6 +3,9 @@ using Catga.Transport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using StackExchange.Redis;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using Catga.Observability;
 
 namespace Catga;
 
@@ -19,38 +22,54 @@ public static class RedisTransportServiceCollectionExtensions
         Action<RedisTransportOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
-
-        // Configure options
-        var options = new RedisTransportOptions();
-        configure?.Invoke(options);
-
-        // Build ConfigurationOptions from RedisTransportOptions
-        var configOptions = CreateRedisConfiguration(options);
-
-        // Register ConnectionMultiplexer as singleton
-        services.TryAddSingleton<IConnectionMultiplexer>(sp =>
+        var sw = Stopwatch.StartNew();
+        var tags = new TagList { { "component", "DI.Transport.Redis" } };
+        try
         {
-            return ConnectionMultiplexer.Connect(configOptions);
-        });
+            // Configure options
+            var options = new RedisTransportOptions();
+            configure?.Invoke(options);
 
-        // Register Transport
-        services.TryAddSingleton<IMessageTransport>(sp =>
+            // Build ConfigurationOptions from RedisTransportOptions
+            var configOptions = CreateRedisConfiguration(options);
+
+            // Register ConnectionMultiplexer as singleton
+            services.TryAddSingleton<IConnectionMultiplexer>(sp =>
+            {
+                return ConnectionMultiplexer.Connect(configOptions);
+            });
+
+            // Register Transport
+            services.TryAddSingleton<IMessageTransport>(sp =>
+            {
+                var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+                var serializer = sp.GetRequiredService<IMessageSerializer>();
+                // Pass options so ChannelPrefix/Naming can take effect
+                var catgaOptions = sp.GetRequiredService<Catga.Configuration.CatgaOptions>();
+                if (options.Naming is null && catgaOptions.EndpointNamingConvention is not null)
+                    options.Naming = catgaOptions.EndpointNamingConvention;
+                var provider = sp.GetRequiredService<Catga.Resilience.IResiliencePipelineProvider>();
+                return new RedisMessageTransport(
+                    redis,
+                    serializer,
+                    options,
+                    options.ConsumerGroup,
+                    options.ConsumerName,
+                    provider);
+            });
+
+            sw.Stop();
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tags);
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            return services;
+        }
+        catch
         {
-            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
-            var serializer = sp.GetRequiredService<IMessageSerializer>();
-            // Pass options so ChannelPrefix/Naming can take effect
-            var catgaOptions = sp.GetRequiredService<Catga.Configuration.CatgaOptions>();
-            if (options.Naming is null && catgaOptions.EndpointNamingConvention is not null)
-                options.Naming = catgaOptions.EndpointNamingConvention;
-            return new RedisMessageTransport(
-                redis,
-                serializer,
-                options,
-                options.ConsumerGroup,
-                options.ConsumerName);
-        });
-
-        return services;
+            sw.Stop();
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tags);
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            throw;
+        }
     }
 
     /// <summary>
@@ -106,20 +125,36 @@ public static class RedisTransportServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(connectionMultiplexer);
-
-        services.TryAddSingleton(connectionMultiplexer);
-
-        services.TryAddSingleton<IMessageTransport>(sp =>
+        var sw = Stopwatch.StartNew();
+        var tags = new TagList { { "component", "DI.Transport.Redis" } };
+        try
         {
-            var serializer = sp.GetRequiredService<IMessageSerializer>();
-            return new RedisMessageTransport(
-                connectionMultiplexer,
-                serializer,
-                consumerGroup,
-                consumerName);
-        });
+            services.TryAddSingleton(connectionMultiplexer);
 
-        return services;
+            services.TryAddSingleton<IMessageTransport>(sp =>
+            {
+                var serializer = sp.GetRequiredService<IMessageSerializer>();
+                var provider = sp.GetRequiredService<Catga.Resilience.IResiliencePipelineProvider>();
+                return new RedisMessageTransport(
+                    connectionMultiplexer,
+                    serializer,
+                    consumerGroup,
+                    consumerName,
+                    provider);
+            });
+
+            sw.Stop();
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tags);
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            return services;
+        }
+        catch
+        {
+            sw.Stop();
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tags);
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            throw;
+        }
     }
 }
 

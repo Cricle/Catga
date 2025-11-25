@@ -58,43 +58,6 @@ public class TestMessageBuilder<TMessage> where TMessage : new()
     public TMessage Build()
     {
         var message = new TMessage();
-        
-        // 如果消息实现了 IMessage，并且属性可写，则设置值
-        if (message is IMessage msg)
-        {
-            var messageType = typeof(TMessage);
-            
-            // 尝试设置 MessageId（如果属性可写）
-            if (_messageId.HasValue)
-            {
-                var messageIdProp = messageType.GetProperty(nameof(IMessage.MessageId));
-                if (messageIdProp?.CanWrite == true)
-                {
-                    messageIdProp.SetValue(message, _messageId.Value);
-                }
-            }
-            
-            // 尝试设置 CorrelationId（如果属性可写）
-            if (_correlationId.HasValue)
-            {
-                var correlationIdProp = messageType.GetProperty(nameof(IMessage.CorrelationId));
-                if (correlationIdProp?.CanWrite == true)
-                {
-                    correlationIdProp.SetValue(message, _correlationId.Value);
-                }
-            }
-            
-            // 尝试设置 QoS（如果属性可写）
-            if (_qos.HasValue)
-            {
-                var qosProp = messageType.GetProperty(nameof(IMessage.QoS));
-                if (qosProp?.CanWrite == true)
-                {
-                    qosProp.SetValue(message, _qos.Value);
-                }
-            }
-        }
-        
         _configure?.Invoke(message);
         return message;
     }

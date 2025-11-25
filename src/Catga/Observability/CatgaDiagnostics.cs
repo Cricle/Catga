@@ -9,7 +9,7 @@ public static class CatgaDiagnostics
     public const string ActivitySourceName = "Catga";
     public const string MeterName = "Catga";
 
-    public static readonly ActivitySource ActivitySource = new(ActivitySourceName, "1.0.0");
+    public static ActivitySource ActivitySource => CatgaActivitySource.Source;
     public static readonly Meter Meter = new(MeterName, "1.0.0");
 
     // ===== Counters =====
@@ -17,6 +17,16 @@ public static class CatgaDiagnostics
     public static readonly Counter<long> MessagesPublished = Meter.CreateCounter<long>("catga.messages.published", "messages", "Total messages published");
     public static readonly Counter<long> MessagesFailed = Meter.CreateCounter<long>("catga.messages.failed", "messages", "Total messages failed");
     public static readonly Counter<long> MessagesRetried = Meter.CreateCounter<long>("catga.messages.retried", "messages", "Total messages retried");
+    public static readonly Counter<long> NatsDedupDrops = Meter.CreateCounter<long>("catga.nats.dedup.drops", "messages", "Duplicates dropped by NATS transport deduplication");
+    public static readonly Counter<long> NatsDedupEvictions = Meter.CreateCounter<long>("catga.nats.dedup.evictions", "items", "Dedup cache evictions in NATS transport");
+
+    // Resilience (generic across components)
+    public static readonly Counter<long> ResilienceRetries = Meter.CreateCounter<long>("catga.resilience.retries", "operations", "Total retries executed by resilience policies");
+    public static readonly Counter<long> ResilienceTimeouts = Meter.CreateCounter<long>("catga.resilience.timeouts", "operations", "Total timeouts triggered by resilience policies");
+    public static readonly Counter<long> ResilienceCircuitOpened = Meter.CreateCounter<long>("catga.resilience.circuit.opened", "events", "Circuit breaker opened events");
+    public static readonly Counter<long> ResilienceCircuitHalfOpened = Meter.CreateCounter<long>("catga.resilience.circuit.half_opened", "events", "Circuit breaker half-opened events");
+    public static readonly Counter<long> ResilienceCircuitClosed = Meter.CreateCounter<long>("catga.resilience.circuit.closed", "events", "Circuit breaker closed events");
+    public static readonly Counter<long> ResilienceBulkheadRejected = Meter.CreateCounter<long>("catga.resilience.bulkhead.rejected", "events", "Bulkhead (concurrency limiter) rejections");
 
     // Command counters
     public static readonly Counter<long> CommandsExecuted = Meter.CreateCounter<long>("catga.commands.executed", "commands", "Total commands executed");
@@ -31,6 +41,31 @@ public static class CatgaDiagnostics
     public static readonly Counter<long> EventsHandled = Meter.CreateCounter<long>("catga.events.handled", "events", "Total events handled");
     public static readonly Counter<long> EventsFailed = Meter.CreateCounter<long>("catga.events.failed", "events", "Total event handling failures");
 
+    // Event store counters
+    public static readonly Counter<long> EventStoreAppends = Meter.CreateCounter<long>("catga.eventstore.appends", "operations", "Total event store append operations");
+    public static readonly Counter<long> EventStoreReads = Meter.CreateCounter<long>("catga.eventstore.reads", "operations", "Total event store read operations");
+    public static readonly Counter<long> EventStoreFailures = Meter.CreateCounter<long>("catga.eventstore.failures", "operations", "Total event store failures");
+
+    // Inbox counters
+    public static readonly Counter<long> InboxLocksAcquired = Meter.CreateCounter<long>("catga.inbox.locks_acquired", "operations", "Total inbox locks acquired");
+    public static readonly Counter<long> InboxProcessed = Meter.CreateCounter<long>("catga.inbox.processed", "messages", "Total inbox messages marked as processed");
+    public static readonly Counter<long> InboxLocksReleased = Meter.CreateCounter<long>("catga.inbox.locks_released", "operations", "Total inbox locks released");
+
+    // Outbox counters
+    public static readonly Counter<long> OutboxAdded = Meter.CreateCounter<long>("catga.outbox.added", "messages", "Total messages added to outbox");
+    public static readonly Counter<long> OutboxPublished = Meter.CreateCounter<long>("catga.outbox.published", "messages", "Total outbox messages marked as published");
+    public static readonly Counter<long> OutboxFailed = Meter.CreateCounter<long>("catga.outbox.failed", "messages", "Total outbox messages marked as failed");
+
+    // Dead letter counters
+    public static readonly Counter<long> DeadLetters = Meter.CreateCounter<long>("catga.deadletter.messages", "messages", "Total messages sent to dead letter queue");
+
+    // Idempotency counters
+    public static readonly Counter<long> IdempotencyHits = Meter.CreateCounter<long>("catga.idempotency.hits", "operations", "Idempotency checks hit (processed)");
+    public static readonly Counter<long> IdempotencyMisses = Meter.CreateCounter<long>("catga.idempotency.misses", "operations", "Idempotency checks miss (not processed)");
+    public static readonly Counter<long> IdempotencyMarked = Meter.CreateCounter<long>("catga.idempotency.marked", "operations", "Messages marked as processed");
+    public static readonly Counter<long> IdempotencyCacheHits = Meter.CreateCounter<long>("catga.idempotency.cache_hits", "operations", "Cached result hits");
+    public static readonly Counter<long> IdempotencyCacheMisses = Meter.CreateCounter<long>("catga.idempotency.cache_misses", "operations", "Cached result misses");
+
     // ===== Histograms (for P50, P95, P99) =====
     public static readonly Histogram<double> MessageDuration = Meter.CreateHistogram<double>("catga.message.duration", "ms", "Message processing duration");
     public static readonly Histogram<double> CommandDuration = Meter.CreateHistogram<double>("catga.command.duration", "ms", "Command execution duration");
@@ -38,9 +73,19 @@ public static class CatgaDiagnostics
     public static readonly Histogram<double> EventDuration = Meter.CreateHistogram<double>("catga.event.duration", "ms", "Event handling duration");
     public static readonly Histogram<long> MessageSize = Meter.CreateHistogram<long>("catga.message.size", "bytes", "Message payload size");
 
+    // Event store duration
+    public static readonly Histogram<double> EventStoreAppendDuration = Meter.CreateHistogram<double>("catga.eventstore.append.duration", "ms", "Event store append duration");
+    public static readonly Histogram<double> EventStoreReadDuration = Meter.CreateHistogram<double>("catga.eventstore.read.duration", "ms", "Event store read duration");
+
     // Pipeline metrics
     public static readonly Histogram<double> PipelineDuration = Meter.CreateHistogram<double>("catga.pipeline.duration", "ms", "Pipeline execution duration");
     public static readonly Histogram<int> PipelineBehaviorCount = Meter.CreateHistogram<int>("catga.pipeline.behavior_count", "behaviors", "Number of behaviors in pipeline");
+    public static readonly Histogram<double> PipelineBehaviorDuration = Meter.CreateHistogram<double>("catga.pipeline.behavior.duration", "ms", "Single pipeline behavior execution duration");
+
+    // DI metrics
+    public static readonly Counter<long> DIRegistrationsCompleted = Meter.CreateCounter<long>("catga.di.registrations.completed", "registrations", "DI registrations completed");
+    public static readonly Counter<long> DIRegistrationsFailed = Meter.CreateCounter<long>("catga.di.registrations.failed", "registrations", "DI registrations failed");
+    public static readonly Histogram<double> DIRegistrationDuration = Meter.CreateHistogram<double>("catga.di.registration.duration", "ms", "DI registration duration");
 
     // ===== Gauges (ObservableGauge) =====
     private static long _activeMessages;

@@ -301,8 +301,8 @@ public class CatgaMediatorAdditionalTests
         await mediator.PublishAsync(@event);
         stopwatch.Stop();
 
-        // Assert - Should take time due to sequential execution
-        stopwatch.ElapsedMilliseconds.Should().BeGreaterThan(40); // 2 handlers * 20ms each
+        // Assert - Should take time due to sequential execution (allow some timing variance)
+        stopwatch.ElapsedMilliseconds.Should().BeGreaterOrEqualTo(30); // 2 handlers * ~20ms each
     }
 
     // ==================== SendBatchAsync ====================

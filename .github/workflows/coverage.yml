@@ -26,8 +26,16 @@ jobs:
     - name: Build solution
       run: dotnet build --no-restore --configuration Release
 
-    - name: Run tests with coverage
-      run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory ./coverage
+    - name: Run tests with coverage (unit + non-docker)
+      run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory ./coverage --filter "Requires!=Docker"
+
+    - name: Pre-pull Docker images
+      run: |
+        docker pull nats:latest
+        docker pull redis:7-alpine
+
+    - name: Run tests with coverage (docker)
+      run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory ./coverage --filter "Requires=Docker" --blame-hang --blame-hang-timeout "8m" --logger "console;verbosity=detailed"
 
     - name: Generate coverage report
       uses: danielpalme/ReportGenerator-GitHub-Action@5.2.0

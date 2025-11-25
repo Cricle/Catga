@@ -1,52 +1,67 @@
 using Catga.Common;
 using Catga.Core;
+using System.Diagnostics.Metrics;
+using Catga.Observability;
+using Catga.Resilience;
 
 namespace Catga.Outbox;
 
 /// <summary>In-memory outbox store (AOT compatible)</summary>
 public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
 {
-    public ValueTask AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
+    private readonly IResiliencePipelineProvider _provider;
+    public MemoryOutboxStore(IResiliencePipelineProvider? provider)
     {
-        ValidationHelper.ValidateNotNull(message);
-        ValidationHelper.ValidateMessageId(message.MessageId);
-        AddOrUpdateMessage(message.MessageId, message);
-        return default;
+        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
     }
+    public ValueTask AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
+        => _provider.ExecutePersistenceAsync(ct =>
+        {
+            ValidationHelper.ValidateNotNull(message);
+            ValidationHelper.ValidateMessageId(message.MessageId);
+            AddOrUpdateMessage(message.MessageId, message);
+            CatgaDiagnostics.OutboxAdded.Add(1);
+            return ValueTask.CompletedTask;
+        }, cancellationToken);
 
     public ValueTask<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(int maxCount = 100, CancellationToken cancellationToken = default)
-        => new(GetMessagesByPredicate(
-            message => message.Status == OutboxStatus.Pending && message.RetryCount < message.MaxRetries,
-            maxCount,
-            Comparer<OutboxMessage>.Create((a, b) => a.CreatedAt.CompareTo(b.CreatedAt))));
+        => _provider.ExecutePersistenceAsync(ct => new ValueTask<IReadOnlyList<OutboxMessage>>(
+            GetMessagesByPredicate(
+                message => message.Status == OutboxStatus.Pending && message.RetryCount < message.MaxRetries,
+                maxCount,
+                Comparer<OutboxMessage>.Create((a, b) => a.CreatedAt.CompareTo(b.CreatedAt)))), cancellationToken);
 
     public ValueTask MarkAsPublishedAsync(long messageId, CancellationToken cancellationToken = default)
-    {
-        if (TryGetMessage(messageId, out var message) && message != null)
+        => _provider.ExecutePersistenceAsync(ct =>
         {
-            message.Status = OutboxStatus.Published;
-            message.PublishedAt = DateTime.UtcNow;
-        }
-        return default;
-    }
+            if (TryGetMessage(messageId, out var message) && message != null)
+            {
+                message.Status = OutboxStatus.Published;
+                message.PublishedAt = DateTime.UtcNow;
+                CatgaDiagnostics.OutboxPublished.Add(1);
+            }
+            return ValueTask.CompletedTask;
+        }, cancellationToken);
 
     public ValueTask MarkAsFailedAsync(long messageId, string errorMessage, CancellationToken cancellationToken = default)
-    {
-        if (TryGetMessage(messageId, out var message) && message != null)
+        => _provider.ExecutePersistenceAsync(ct =>
         {
-            message.RetryCount++;
-            message.LastError = errorMessage;
-            message.Status = message.RetryCount >= message.MaxRetries ? OutboxStatus.Failed : OutboxStatus.Pending;
-        }
-        return default;
-    }
+            if (TryGetMessage(messageId, out var message) && message != null)
+            {
+                message.RetryCount++;
+                message.LastError = errorMessage;
+                message.Status = message.RetryCount >= message.MaxRetries ? OutboxStatus.Failed : OutboxStatus.Pending;
+                CatgaDiagnostics.OutboxFailed.Add(1);
+            }
+            return ValueTask.CompletedTask;
+        }, cancellationToken);
 
     public ValueTask DeletePublishedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
-        => DeleteExpiredMessagesAsync(
+        => _provider.ExecutePersistenceAsync(ct => DeleteExpiredMessagesAsync(
             retentionPeriod,
             m => m.PublishedAt,
             m => m.Status == OutboxStatus.Published,
-            cancellationToken);
+            ct), cancellationToken);
 
     public int GetMessageCountByStatus(OutboxStatus status) => GetCountByPredicate(m => m.Status == status);
 }

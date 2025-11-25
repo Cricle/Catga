@@ -1,7 +1,10 @@
+using System;
 using System.Collections.Concurrent;
 using Catga.Abstractions;
 using Catga.Core;
 using Microsoft.Extensions.Logging;
+using Catga.Observability;
+using System.Diagnostics.Metrics;
 
 namespace Catga.DeadLetter;
 
@@ -25,13 +28,13 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
 
     public Task SendAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, Exception exception, int retryCount, CancellationToken cancellationToken = default) where TMessage : IMessage
     {
-        var messageJson = _serializer.SerializeToJson(message);
+        var messageData = Convert.ToBase64String(_serializer.Serialize(message, typeof(TMessage)));
 
         var deadLetter = new DeadLetterMessage
         {
             MessageId = message.MessageId,
             MessageType = TypeNameCache<TMessage>.Name,
-            MessageJson = messageJson,
+            MessageJson = messageData,
             ExceptionType = ExceptionTypeCache.GetTypeName(exception),
             ExceptionMessage = exception.Message,
             StackTrace = exception.StackTrace ?? string.Empty,
@@ -40,6 +43,9 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
         };
 
         _deadLetters.Enqueue(deadLetter);
+
+        // Metrics: record dead-letter message
+        CatgaDiagnostics.DeadLetters.Add(1);
 
         while (_deadLetters.Count > _maxSize)
             _deadLetters.TryDequeue(out _);

@@ -13,7 +13,7 @@ public static class EventTypeRegistry
     private static readonly ConcurrentDictionary<string, Func<byte[], IMessageSerializer, IEvent?>> _deserializers = new();
     private static readonly ConcurrentDictionary<string, Func<object, IMessageSerializer, byte[]>> _serializers = new();
 
-    public static void Register<TEvent>() where TEvent : IEvent
+    public static void Register<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TEvent>() where TEvent : IEvent
     {
         var t = typeof(TEvent);
         var key = t.FullName!;

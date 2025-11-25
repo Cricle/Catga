@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Catga.Pipeline.Behaviors;
 
-public class ConditionalInboxBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+public class ConditionalInboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TRequest, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : class, IRequest<TResponse>
 {
     private readonly IServiceProvider _sp;

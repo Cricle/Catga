@@ -331,7 +331,25 @@ curl -X POST http://localhost:5000/api/users \
 
 ---
 
-## 📊 性能基准
+## 🛡️ Resilience (Polly)
+
+Catga 的弹性能力为“显式启用”模式：通过 `UseResilience` 注册 Polly 策略（Retry/Timeout/Circuit/Bulkhead）。未调用 `UseResilience` 时，DI 不会注册 `IResiliencePipelineProvider`（如需在测试中手动组合，可显式传入 Provider 实例）。详见文档：[`docs/Resilience.md`](./docs/Resilience.md)。
+
+启用弹性（net8+ 持久化舱壁将自动套用保守默认，除非显式覆盖）:
+```csharp
+builder.Services.AddCatga()
+    .UseResilience(o =>
+    {
+        o.TransportRetryCount = 3;
+        o.TransportRetryDelay = TimeSpan.FromMilliseconds(200);
+        // var c = Math.Max(Environment.ProcessorCount * 2, 16);
+        // o.PersistenceBulkheadConcurrency = c;
+        // o.PersistenceBulkheadQueueLimit = c;
+    });
+```
+
+
+## �📊 性能基准
 
 > 基于 BenchmarkDotNet (.NET 9.0, Release, AMD Ryzen 7 5800H)
 

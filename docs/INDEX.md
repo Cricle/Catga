@@ -33,6 +33,7 @@
 | [源生成器](./guides/source-generator.md) | 编译时代码生成 |
 | [错误处理](./guides/error-handling.md) | 自动错误处理和回滚 |
 | [配置选项](./articles/configuration.md) | 框架配置指南 |
+| [Resilience (Polly)](./Resilience.md) | 弹性策略（重试/超时/断路/舱壁） |
 
 ### 高级特性
 

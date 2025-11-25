@@ -24,13 +24,13 @@
 
 从这里开始学习 Catga！
 
-1. [📝 快速开始指南](./articles/getting-started.md)  
+1. [📝 快速开始指南](./articles/getting-started.md)
    5 分钟上手，从零开始构建第一个 CQRS 应用
 
-2. [💡 基础示例](./examples/basic-usage.md)  
+2. [💡 基础示例](./examples/basic-usage.md)
    命令、查询、事件的基础用法
 
-3. [🧠 CQRS 概念](./architecture/cqrs.md)  
+3. [🧠 CQRS 概念](./architecture/cqrs.md)
    理解命令查询职责分离模式
 
 ---
@@ -86,6 +86,7 @@
 | [依赖注入](./guides/auto-di-registration.md) | Handler 自动注册 |
 | [错误处理](./guides/error-handling.md) | 异常处理和回滚 |
 | [自定义错误处理](./guides/custom-error-handling.md) | 自定义错误策略 |
+| [Resilience (Polly)](./Resilience.md) | 弹性策略（重试/超时/断路/舱壁） |
 
 #### 高级功能
 
@@ -307,7 +308,7 @@ dotnet run
 #### 诊断规则
 
 - `CAT1001`: Handler 必须是 public
-- `CAT1002`: Handler 必须有无参构造函数  
+- `CAT1002`: Handler 必须有无参构造函数
 - `CAT2001`: Request 必须只有一个 Handler
 - `CAT2002`: Event 可以有多个 Handler
 - `CAT2003`: 检测到重复的 Request Handler

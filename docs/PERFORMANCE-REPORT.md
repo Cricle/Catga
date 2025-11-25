@@ -532,11 +532,7 @@ builder.Services.AddNatsTransport(options =>
     options.UseConnectionPooling = true; // 连接池
 });
 
-builder.Services.AddRedisEventStore(options =>
-{
-    options.MaxPipelineSize = 100;       // Pipeline 优化
-    options.EnableCompression = true;    // 减少网络 I/O
-});
+builder.Services.AddRedisPersistence();
 ```
 
 ### 2. Handler 优化技巧

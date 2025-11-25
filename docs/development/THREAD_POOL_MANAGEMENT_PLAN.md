@@ -1,5 +1,7 @@
 # 🔒 线程池管理与防护计划 v2.0
 
+> 注：自 Resilience 重构起，Catga 已采用 Polly v8 的并发限制（ConcurrencyLimiter）与断路器（CircuitBreaker），并通过 `IResiliencePipelineProvider` 统一执行（net6 使用 Polly v7 PolicyWrap）。本文档保留为历史设计记录，最新实践与指标/Tracing 请参阅《[Resilience (Polly)](../Resilience.md)》。
+
 ## 📊 现状分析
 
 ### 当前风险点

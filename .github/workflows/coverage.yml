@@ -43,7 +43,7 @@ jobs:
         reports: 'coverage/**/coverage.cobertura.xml'
         targetdir: 'coveragereport'
         reporttypes: 'HtmlInline;Cobertura;Badges'
-        assemblyfilters: '+Catga;+Catga.Nats;+Catga.Redis'
+        assemblyfilters: '+Catga*;-Catga.Tests'
 
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
@@ -86,3 +86,37 @@ jobs:
     - name: Run tests (non-docker)
       run: dotnet test --no-build --configuration Release --filter "Requires!=Docker"
 
+  docker-matrix:
+    name: Docker Tests (image matrix)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        redis_image: [redis:7-alpine, redis:7]
+        nats_image: [nats:latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build solution
+      run: dotnet build --no-restore --configuration Release
+
+    - name: Pre-pull Docker images
+      run: |
+        docker pull ${{ matrix.nats_image }}
+        docker pull ${{ matrix.redis_image }}
+
+    - name: Run Docker tests (matrix)
+      env:
+        TEST_NATS_IMAGE: ${{ matrix.nats_image }}
+        TEST_REDIS_IMAGE: ${{ matrix.redis_image }}
+      run: dotnet test --no-build --configuration Release --filter "Requires=Docker" --blame-hang --blame-hang-timeout "8m" --logger "console;verbosity=detailed"

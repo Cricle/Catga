@@ -105,7 +105,7 @@ public partial class CreateOrderCommand : IRequest<OrderResult>
 
 // 配置
 services.AddCatga()
-    .UseMemoryPackSerializer()  // AOT 友好的序列化器
+    .UseMemoryPack()  // AOT 友好的序列化器
     .AddGeneratedHandlers();
 ```
 
@@ -288,13 +288,13 @@ public static class ServiceCollectionExtensions
 #if AOT_BUILD
         // 生产 AOT 配置
         return services.AddCatga()
-            .UseMemoryPackSerializer()
+            .UseMemoryPack()
             .AddGeneratedHandlers();
 #else
-        // 开发配置 (更灵活)
-        return services.AddCatga()
-            .UseJsonSerializer()
-            .ScanCurrentAssembly();
+        // 开发配置 (更灵活)：示例使用自定义 JSON 序列化器手动注册
+        services.AddCatga();
+        services.AddSingleton<IMessageSerializer, CustomSerializer>();
+        return services.ScanCurrentAssembly();
 #endif
     }
 }

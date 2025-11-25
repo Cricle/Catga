@@ -3,7 +3,7 @@
 > **一站式序列化配置指南** - MemoryPack vs JSON 完整对比
 > 最后更新: 2025-10-14
 
-[返回主文档](../../README.md) · [快速参考](../../QUICK-REFERENCE.md) · [架构设计](../architecture/ARCHITECTURE.md)
+[返回主文档](../../README.md) · [架构设计](../architecture/ARCHITECTURE.md)
 
 ---
 
@@ -57,7 +57,7 @@ graph TD
 ### 安装
 
 ```bash
-# 1. 安装 Catga MemoryPack 扩展
+# 1. 安装 Catga MemoryPack 扩展（推荐）
 dotnet add package Catga.Serialization.MemoryPack
 
 # 2. 安装 MemoryPack 核心库
@@ -299,7 +299,7 @@ public partial record UpdateOrderCommand(string OrderId, string Status) : OrderC
 
 ---
 
-## 📝 JSON (可选)
+## 📝 JSON（自定义实现，作为参考）
 
 ### 何时使用 JSON？
 
@@ -316,19 +316,17 @@ public partial record UpdateOrderCommand(string OrderId, string Status) : OrderC
 
 ### 安装
 
-```bash
-dotnet add package Catga.Serialization.Json
-```
+不提供官方 JSON 包。建议基于 System.Text.Json（源生成）实现 `IMessageSerializer` 并手动注册。
 
 ### 基础使用（不推荐 AOT）
 
 ```csharp
 using Catga.DependencyInjection;
 
-// ⚠️ 警告: 使用反射，不支持 AOT
-builder.Services.AddCatga()
-    .UseJson()            // 默认配置
-    .ForProduction();
+// ⚠️ 不推荐：直接反射 JSON（AOT 不支持，示例仅用于说明）
+builder.Services.AddCatga();
+builder.Services.AddSingleton<IMessageSerializer, ReflectionJsonSerializer>();
+builder.Services.AddCatga().ForProduction();
 ```
 
 ### AOT 使用（推荐）
@@ -363,7 +361,7 @@ using System.Text.Json;
 builder.Services.AddCatga()
     .UseJson(new JsonSerializerOptions
     {
-        TypeInfoResolver = AppJsonContext.Default  // ← 使用 Source Generator
+        TypeInfoResolver = AppJsonContext.Default  // 使用 Source Generator
     })
     .ForProduction();
 ```
@@ -378,19 +376,20 @@ public record CreateOrder(string OrderId, decimal Amount)
 public record OrderResult(string OrderId, bool Success);
 ```
 
-### JSON 配置选项
+### JSON 配置选项（自定义实现示例）
 
 ```csharp
-builder.Services.AddCatga()
-    .UseJson(options =>
-    {
-        options.TypeInfoResolver = AppJsonContext.Default;  // AOT 必需
-        options.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-        options.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-        options.WriteIndented = false;  // 生产环境建议 false
-        options.AllowTrailingCommas = true;
-        options.ReadCommentHandling = JsonCommentHandling.Skip;
-    });
+var options = new JsonSerializerOptions
+{
+    TypeInfoResolver = AppJsonContext.Default,  // AOT 必需
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    WriteIndented = false,
+    AllowTrailingCommas = true,
+    ReadCommentHandling = JsonCommentHandling.Skip
+};
+builder.Services.AddCatga();
+builder.Services.AddSingleton<IMessageSerializer>(sp => new CustomSerializer(options));
 ```
 
 ### 性能对比
@@ -483,8 +482,8 @@ public record OrderItem(string ProductId, int Quantity, decimal Price);
 | **生产环境** | MemoryPack | `.UseMemoryPack()` |
 | **Native AOT** | MemoryPack | `.UseMemoryPack()` |
 | **高性能** | MemoryPack | `.UseMemoryPack()` |
-| **开发调试** | JSON | `.UseJson()` |
-| **跨语言** | JSON | `.UseJson(context)` |
+| **开发调试** | JSON（自定义） | `AddCatga()+AddSingleton<IMessageSerializer>` |
+| **跨语言** | JSON（自定义） | `AddCatga()+AddSingleton<IMessageSerializer>` |
 | **微服务** | MemoryPack | `.UseMemoryPack()` |
 
 ---
@@ -517,8 +516,9 @@ public partial record CreateOrder(string OrderId, decimal Amount)
 #### 步骤 3: 更新配置
 
 ```csharp
-// Before
-services.AddCatga().UseJson();
+// Before（自定义 JSON 注册）
+services.AddCatga();
+services.AddSingleton<IMessageSerializer, CustomSerializer>();
 
 // After
 services.AddCatga().UseMemoryPack();
@@ -539,11 +539,7 @@ dotnet publish -c Release -r linux-x64 --property:PublishAot=true
 
 ### 从 MemoryPack 迁移到 JSON
 
-#### 步骤 1: 安装 JSON
-
-```bash
-dotnet add package Catga.Serialization.Json
-```
+#### 步骤 1: 使用 System.Text.Json（源生成）实现自定义序列化器
 
 #### 步骤 2: 创建 JsonSerializerContext
 
@@ -560,11 +556,10 @@ public partial class AppJsonContext : JsonSerializerContext { }
 // Before
 services.AddCatga().UseMemoryPack();
 
-// After
-services.AddCatga().UseJson(new JsonSerializerOptions
-{
-    TypeInfoResolver = AppJsonContext.Default
-});
+// After（自定义注册）
+var options = new JsonSerializerOptions { TypeInfoResolver = AppJsonContext.Default };
+services.AddCatga();
+services.AddSingleton<IMessageSerializer>(sp => new CustomSerializer(options));
 ```
 
 #### 步骤 4: 移除 MemoryPack 属性（可选）
@@ -676,7 +671,7 @@ services.AddCatga().UseCustomSerializer();
    ```csharp
    // ❌ 错误: 不同服务使用不同序列化器
    ServiceA: UseMemoryPack()
-   ServiceB: UseJson()
+   ServiceB: 自定义 JSON
    // 无法互相通信！
    ```
 
@@ -693,14 +688,14 @@ services.AddCatga().UseCustomSerializer();
 
 3. **不要在 AOT 中使用反射 JSON**
    ```csharp
-   // ❌ AOT 不支持
-   services.AddCatga().UseJson();  // 默认使用反射
+   // ❌ AOT 不支持（反射路径）
+   builder.Services.AddCatga();
+   builder.Services.AddSingleton<IMessageSerializer, ReflectionJsonSerializer>();
 
-   // ✅ AOT 支持
-   services.AddCatga().UseJson(new JsonSerializerOptions
-   {
-       TypeInfoResolver = AppJsonContext.Default
-   });
+   // ✅ AOT 支持（源生成 + 手动注册）
+   var options = new JsonSerializerOptions { TypeInfoResolver = AppJsonContext.Default };
+   builder.Services.AddCatga();
+   builder.Services.AddSingleton<IMessageSerializer>(sp => new CustomSerializer(options));
    ```
 
 ---

@@ -18,7 +18,7 @@ Catga 的核心设计理念是 **专注、简洁、高性能**：
 
 ---
 
-## 📐 总体架构 (2025-10)
+## 总体架构 (2025-10)
 
 ### 当前层次结构
 
@@ -27,7 +27,7 @@ Catga 的核心设计理念是 **专注、简洁、高性能**：
 │        Your Application                 │ ← 业务逻辑 + Handlers
 ├─────────────────────────────────────────┤
 │   Catga.Serialization.MemoryPack        │ ← 序列化（推荐 - 100% AOT）
-│   Catga.Serialization.Json              │   或 JSON
+│   Custom JSON (IMessageSerializer)      │   可选（源生成）
 ├─────────────────────────────────────────┤
 │      Catga.InMemory (Production)        │ ← 核心实现
 │  • CatgaMediator                        │   - Mediator
@@ -74,13 +74,13 @@ Catga 的核心设计理念是 **专注、简洁、高性能**：
 
 **新增的组件** ✅:
 - `Catga.Serialization.MemoryPack` - 100% AOT 序列化
-- `Catga.Serialization.Json` - JSON 序列化
+- 自定义 JSON 序列化（实现 `IMessageSerializer`）
 - `CatgaServiceBuilder` - Fluent API
 - Roslyn 分析器 - 编译时检查
 
 ---
 
-## 🏗️ 核心模块
+## 核心模块
 
 ### 1. Catga (Core) - 抽象层
 
@@ -240,7 +240,7 @@ public class MissingMemoryPackableAttributeAnalyzer : DiagnosticAnalyzer
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class MissingSerializerRegistrationAnalyzer : DiagnosticAnalyzer
 {
-    // 编译时检查是否调用 UseMemoryPack() 或 UseJson()
+    // 编译时检查是否调用 UseMemoryPack() 或手动注册 IMessageSerializer
 }
 ```
 
@@ -271,15 +271,9 @@ public sealed class MemoryPackMessageSerializer : IMessageSerializer
 services.AddCatga().UseMemoryPack();
 ```
 
-**优势**:
-- ✅ 100% AOT 兼容
-- ✅ 5x 性能提升
-- ✅ 40% 更小的 payload
-- ✅ 零拷贝反序列化
-
-#### JSON (可选)
+#### 自定义 JSON 序列化
 ```csharp
-public sealed class JsonMessageSerializer : IMessageSerializer
+public sealed class CustomJsonMessageSerializer : IMessageSerializer
 {
     // 需要配置 JsonSerializerContext 才能 AOT
     public byte[] Serialize<T>(T message) { ... }
@@ -290,10 +284,11 @@ public sealed class JsonMessageSerializer : IMessageSerializer
 [JsonSerializable(typeof(CreateOrder))]
 public partial class AppJsonContext : JsonSerializerContext { }
 
-services.AddCatga().UseJson(new JsonSerializerOptions
+services.AddCatga();
+services.AddSingleton<IMessageSerializer>(sp => new CustomJsonMessageSerializer(new JsonSerializerOptions
 {
     TypeInfoResolver = AppJsonContext.Default
-});
+}));
 ```
 
 ---

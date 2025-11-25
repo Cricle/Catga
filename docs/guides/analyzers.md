@@ -19,13 +19,13 @@ var result = await mediator.SendAsync<CreateOrder, OrderResult>(cmd);
 
 **使用分析器**:
 ```csharp
-// ✅ 编译时就发现错误
+// 编译时就发现错误
 services.AddCatga();  // ← 编译警告: CATGA002
 //              ^^^^^
-// 💡 Quick Fix: 添加 .UseMemoryPack() 或手动注册 IMessageSerializer
+// 调用 .UseMemoryPack() 或手动注册 IMessageSerializer
 
-// ✅ 修复后
-services.AddCatga().UseMemoryPack();  // 编译通过 ✓
+// 修复后
+services.AddCatga().UseMemoryPack();  // 编译通过
 ```
 
 **收益**:
@@ -153,7 +153,7 @@ Catga 需要 `IMessageSerializer` 才能工作，忘记注册会导致运行时�
 // ❌ CATGA002: 缺少序列化器注册
 services.AddCatga();
 //              ^^^^^
-// 💡 调用 .UseMemoryPack() 或 .UseJson() 配置序列化器
+// 💡 调用 .UseMemoryPack() 或手动注册 IMessageSerializer
 ```
 
 **修复方式**:

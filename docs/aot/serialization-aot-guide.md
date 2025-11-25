@@ -4,7 +4,7 @@
 
 Catga 的核心库和生产实现 (`Catga` + `Catga.InMemory`) 已实现 **100% Native AOT 兼容**。
 
-可选的序列化库（如 `Catga.Serialization.Json`）需要额外配置才能实现 AOT 兼容。
+如果需要 JSON，请基于 System.Text.Json 源生成实现自定义 `IMessageSerializer` 并手动注册（不提供官方 JSON 包）。
 
 ## ✅ AOT 兼容状态
 
@@ -13,7 +13,7 @@ Catga 的核心库和生产实现 (`Catga` + `Catga.InMemory`) 已实现 **100% 
 | **Catga** | ✅ 100% 兼容 | 核心抽象和接口 |
 | **Catga.InMemory** | ✅ 100% 兼容 | 生产级实现（推荐） |
 | **Catga.SourceGenerator** | ✅ 100% 兼容 | 编译时代码生成 |
-| **Catga.Serialization.Json** | ⚠️ 需配置 | 需要 JsonSerializerContext |
+| **自定义 JSON** | ⚠️ 需配置 | 需要 JsonSerializerContext |
 | **Catga.Serialization.MemoryPack** | ✅ AOT 友好 | MemoryPack 本身支持 AOT |
 | **Catga.Persistence.Redis** | ⚠️ 需配置 | 需要 JsonSerializerContext |
 
@@ -37,13 +37,13 @@ public partial class CreateOrderCommand : IRequest<OrderCreatedEvent>
 
 // 配置
 services.AddCatga()
-    .UseMemoryPackSerializer()
+    .UseMemoryPack()
     .AddGeneratedHandlers();
 ```
 
 ✅ **完全 AOT 兼容，零配置！**
 
-### 方案 2: 使用 System.Text.Json + 源生成器
+### 方案 2: 使用 System.Text.Json + 源生成器（自定义实现）
 
 如果你更喜欢 JSON，需要配置源生成器：
 
@@ -64,9 +64,9 @@ var options = new JsonSerializerOptions
     TypeInfoResolver = CatgaJsonContext.Default
 };
 
-services.AddCatga()
-    .UseJsonSerializer(options) // 传入带 Context 的 options
-    .AddGeneratedHandlers();
+services.AddCatga();
+services.AddSingleton<IMessageSerializer>(sp => new CustomSerializer(options));
+services.AddCatga().AddGeneratedHandlers();
 ```
 
 ✅ **AOT 兼容，但需要手动配置**

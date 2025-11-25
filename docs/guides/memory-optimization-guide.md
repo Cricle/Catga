@@ -21,11 +21,11 @@
 ```csharp
 // 使用 MemoryPack (推荐 - 100% AOT 兼容)
 services.AddCatga()
-    .UseMemoryPackSerializer();
+    .UseMemoryPack();
 
-// 或使用 JSON (兼容性更好)
-services.AddCatga()
-    .UseJsonSerializer();
+// 或使用自定义 JSON（实现 IMessageSerializer 并手动注册）
+services.AddCatga();
+services.AddSingleton<IMessageSerializer, CustomSerializer>();
 ```
 
 ### 2. 零分配序列化
@@ -115,7 +115,7 @@ public partial class OrderCreatedEvent
 
 // 2. 注册序列化器
 services.AddCatga()
-    .UseMemoryPackSerializer();
+    .UseMemoryPack();
 
 // 3. 自动使用池化
 var bytes = serializer.Serialize(message);  // 内部使用 PooledBufferWriter
@@ -141,13 +141,13 @@ var bytes = serializer.Serialize(message);  // 内部使用 PooledBufferWriter
 [JsonSerializable(typeof(OrderCreatedEvent))]
 public partial class MyJsonContext : JsonSerializerContext { }
 
-// 2. 注册序列化器
-var options = new JsonSerializerOptions 
-{ 
+// 2. 注册自定义序列化器（示例）
+var options = new JsonSerializerOptions
+{
     TypeInfoResolver = MyJsonContext.Default  // AOT 优化
 };
-services.AddCatga()
-    .UseJsonSerializer(new JsonMessageSerializer(options));
+services.AddCatga();
+services.AddSingleton<IMessageSerializer>(sp => new CustomSerializer(options));
 ```
 
 ---
@@ -161,14 +161,14 @@ public async Task SendMessagePooled<T>(T message, IMessageSerializer serializer)
 {
     // 序列化到池化数组
     using var pooled = MemoryPoolManager.RentArray(4096);
-    
+
     // 使用 IBufferWriter 直接序列化
     using var writer = MemoryPoolManager.RentBufferWriter();
     serializer.Serialize(message, writer);
-    
+
     // 发送
     await transport.PublishAsync(writer.WrittenMemory);
-    
+
     // 离开作用域时自动归还
 }
 ```
@@ -177,22 +177,22 @@ public async Task SendMessagePooled<T>(T message, IMessageSerializer serializer)
 
 ```csharp
 public async Task WriteMessagesToStream<T>(
-    IEnumerable<T> messages, 
+    IEnumerable<T> messages,
     Stream stream,
     IMessageSerializer serializer)
 {
     // 获取池化写入器
     using var writer = MemoryPoolManager.RentBufferWriter(initialCapacity: 4096);
-    
+
     // 批量序列化
     foreach (var message in messages)
     {
         serializer.Serialize(message, writer);
     }
-    
+
     // 写入流
     await stream.WriteAsync(writer.WrittenMemory);
-    
+
     // 自动清理
 }
 ```
@@ -308,18 +308,18 @@ Intel Core i9-13900K, 1 CPU, 32 logical and 24 physical cores
 public partial class MyMessage { }
 
 services.AddCatga()
-    .UseMemoryPackSerializer();  // 零反射，100% AOT
+    .UseMemoryPack();  // 零反射，100% AOT
 
 // ✅ JsonMessageSerializer (泛型方法)
 [JsonSerializable(typeof(MyMessage))]
 public partial class MyJsonContext : JsonSerializerContext { }
 
-var options = new JsonSerializerOptions 
-{ 
-    TypeInfoResolver = MyJsonContext.Default 
+var options = new JsonSerializerOptions
+{
+    TypeInfoResolver = MyJsonContext.Default
 };
-services.AddCatga()
-    .UseJsonSerializer(new JsonMessageSerializer(options));
+services.AddCatga();
+services.AddSingleton<IMessageSerializer>(sp => new CustomSerializer(options));
 
 // ✅ 使用泛型方法
 var bytes = serializer.Serialize(message);  // AOT 安全
@@ -344,17 +344,17 @@ var msg = serializer.Deserialize<MyMessage>(bytes);  // AOT 安全
 **生产环境 (高性能)**:
 ```csharp
 services.AddCatga()
-    .UseMemoryPackSerializer();  // 最高性能 + 100% AOT
+    .UseMemoryPack();  // 最高性能 + 100% AOT
 ```
 
-**开发环境 (易调试)**:
+**开发环境 (可读性优先)**:
 ```csharp
-services.AddCatga()
-    .UseJsonSerializer();  // 可读性 + 工具支持
+services.AddCatga();
+services.AddSingleton<IMessageSerializer, CustomSerializer>();
 ```
 
 ---
 
-**最后更新**: 2024-01-20  
-**版本**: 2.0.0  
+**最后更新**: 2024-01-20
+**版本**: 2.0.0
 **维护者**: Catga Team

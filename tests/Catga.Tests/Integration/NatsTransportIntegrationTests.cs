@@ -27,8 +27,9 @@ public partial class NatsTransportIntegrationTests : IAsyncLifetime
     {
         if (!IsDockerRunning()) return;
 
+        var natsImage = Environment.GetEnvironmentVariable("TEST_NATS_IMAGE") ?? "nats:latest";
         _natsContainer = new ContainerBuilder()
-            .WithImage("nats:latest")
+            .WithImage(natsImage)
             .WithPortBinding(4222, true)
             .WithPortBinding(8222, true)
             .WithCommand("-js", "-m", "8222")

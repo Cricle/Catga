@@ -33,8 +33,9 @@ public partial class RedisTransportIntegrationTests : IAsyncLifetime
         }
 
         // 启动 Redis 容器
+        var redisImage = Environment.GetEnvironmentVariable("TEST_REDIS_IMAGE") ?? "redis:7-alpine";
         _redisContainer = new RedisBuilder()
-            .WithImage("redis:7-alpine")
+            .WithImage(redisImage)
             .Build();
 
         await _redisContainer.StartAsync();

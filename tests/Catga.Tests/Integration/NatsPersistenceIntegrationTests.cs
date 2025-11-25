@@ -38,8 +38,9 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
         }
 
         // 启动 NATS 容器 (with JetStream enabled)
+        var natsImage = Environment.GetEnvironmentVariable("TEST_NATS_IMAGE") ?? "nats:latest";
         _natsContainer = new ContainerBuilder()
-            .WithImage("nats:latest")
+            .WithImage(natsImage)
             .WithPortBinding(4222, true)
             .WithPortBinding(8222, true)
             .WithCommand("-js", "-m", "8222") // Enable JetStream and monitoring

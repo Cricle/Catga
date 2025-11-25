@@ -60,3 +60,29 @@ jobs:
         show_missing: true
         show_branch: true
 
+  smoke-matrix:
+    name: Non-Docker Tests (Windows/macOS)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build solution
+      run: dotnet build --no-restore --configuration Release
+
+    - name: Run tests (non-docker)
+      run: dotnet test --no-build --configuration Release --filter "Requires!=Docker"
+

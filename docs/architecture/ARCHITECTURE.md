@@ -3,11 +3,11 @@
 > **深入了解 Catga 的架构设计和实现原理**
 > 最后更新: 2025-10-14
 
-[返回主文档](../../README.md) · [职责边界](./RESPONSIBILITY-BOUNDARY.md) · [CQRS 模式](./cqrs.md)
+[返回主文档](../README.md) · [职责边界](./RESPONSIBILITY-BOUNDARY.md) · [CQRS 模式](./cqrs.md)
 
 ---
 
-## 🎯 设计理念
+## 设计理念
 
 Catga 的核心设计理念是 **专注、简洁、高性能**：
 
@@ -590,7 +590,7 @@ services.AddSingleton<IMessageTransport, CustomTransport>();
 - **[职责边界](./RESPONSIBILITY-BOUNDARY.md)** - Catga vs 其他组件
 - **[CQRS 模式](./cqrs.md)** - 命令查询职责分离
 - **[序列化指南](../guides/serialization.md)** - MemoryPack vs JSON
-- **[性能优化](../../REFLECTION_OPTIMIZATION_SUMMARY.md)** - 90x 性能提升
+- **[性能报告](../PERFORMANCE-REPORT.md)** - 关键性能与优化
 
 ---
 
@@ -638,6 +638,6 @@ metadata:
 
 **🏗️ 清晰的架构，卓越的性能**
 
-[返回主文档](../../README.md) · [快速开始](../../README.md#-30-秒快速开始) · [API 参考](../api/README.md)
+[返回主文档](../README.md) · [快速开始](../articles/getting-started.md) · [API 参考](../api/README.md)
 
 </div>

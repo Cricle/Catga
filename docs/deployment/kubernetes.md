@@ -3,11 +3,11 @@
 > **生产级 K8s 部署** - Catga + NATS + Redis 完整部署方案
 > 最后更新: 2025-10-14
 
-[返回主文档](../../README.md) · [文档索引](../INDEX.md) · [架构设计](../architecture/ARCHITECTURE.md)
+[返回主文档](../README.md) · [文档索引](../INDEX.md) · [架构设计](../architecture/ARCHITECTURE.md)
 
 ---
 
-## 🎯 本指南内容
+## 本指南内容
 
 本指南涵盖 Catga 应用在 Kubernetes 上的完整部署流程：
 
@@ -20,7 +20,7 @@
 
 ---
 
-## 📋 前置要求
+## 前置要求
 
 ### 本地开发
 
@@ -44,7 +44,7 @@ docker version
 
 ---
 
-## 🚀 快速开始
+## 快速开始
 
 ### 1. 使用 Helm 部署（推荐）
 
@@ -77,7 +77,7 @@ curl http://localhost:8080/health
 
 ---
 
-## 🏗️ 架构概览
+## 架构概览
 
 ### 组件关系图
 
@@ -145,7 +145,7 @@ graph TB
 
 ---
 
-## 📦 方式 1: Helm Chart 部署（推荐）
+## 方式 1: Helm Chart 部署（推荐）
 
 ### Helm Chart 结构
 
@@ -279,7 +279,7 @@ helm uninstall catga-prod -n catga-prod
 
 ---
 
-## 📄 方式 2: 原始 Manifest 部署
+## 方式 2: 原始 Manifest 部署
 
 ### 1. Deployment
 
@@ -459,7 +459,7 @@ kubectl apply -f k8s/
 
 ---
 
-## 🔧 NATS 集群部署
+## NATS 集群部署
 
 ### 使用 Helm
 
@@ -493,7 +493,7 @@ builder.Services.AddNatsTransport(options =>
 
 ---
 
-## 🔧 Redis 集群部署
+## Redis 集群部署
 
 ### 使用 Helm (Sentinel 模式)
 
@@ -526,7 +526,7 @@ builder.Services.AddRedisDistributedCache();
 
 ---
 
-## 📊 可观测性
+## 可观测性
 
 ### 1. OpenTelemetry Collector
 
@@ -634,7 +634,7 @@ builder.Services.AddOpenTelemetry()
 
 ---
 
-## 🔐 安全最佳实践
+## 安全最佳实践
 
 ### 1. Secret 管理
 
@@ -734,7 +734,7 @@ spec:
 
 ---
 
-## 🚀 CI/CD 集成
+## CI/CD 集成
 
 ### GitHub Actions 示例
 
@@ -774,7 +774,7 @@ jobs:
 
 ---
 
-## 📈 性能调优
+## 性能调优
 
 ### 资源配置建议
 
@@ -816,7 +816,7 @@ replicaCount: 10+
 
 ---
 
-## 🐛 故障排查
+## 故障排查
 
 ### 常见问题
 
@@ -845,7 +845,7 @@ redis-cli -h redis-master -p 6379 PING
 
 ---
 
-## 📚 相关资源
+## 相关资源
 
 - **[Helm Charts 仓库](https://github.com/catga/charts)**
 - **[K8s 官方文档](https://kubernetes.io/docs/)**
@@ -858,7 +858,6 @@ redis-cli -h redis-master -p 6379 PING
 
 **🚀 生产级 K8s 部署，让 Catga 飞起来！**
 
-[返回主文档](../../README.md) · [快速参考](../../QUICK-REFERENCE.md) · [架构设计](../architecture/ARCHITECTURE.md)
+[返回主文档](../README.md) · [文档索引](../INDEX.md) · [架构设计](../architecture/ARCHITECTURE.md)
 
 </div>
-

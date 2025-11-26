@@ -37,10 +37,10 @@ public enum QualityOfService
 {
     // NATS Core Pub/Sub: 无ACK，无持久化
     AtMostOnce = 0,
-    
+
     // NATS JetStream: 持久化 + ACK，可能重复
     AtLeastOnce = 1,
-    
+
     // NATS JetStream + MsgId去重: NATS去重窗口（2分钟）
     // + Catga IdempotencyBehavior: 持久化业务幂等（24小时+）
     ExactlyOnce = 2
@@ -59,14 +59,14 @@ switch (qos)
 
     case QualityOfService.AtLeastOnce:
         // 直接使用 JetStream（保证送达，可能重复）
-        await _jsContext.PublishAsync(subject, payload, 
+        await _jsContext.PublishAsync(subject, payload,
             opts: new NatsJSPubOpts { MsgId = messageId }, headers, ct);
         break;
 
     case QualityOfService.ExactlyOnce:
         // 传输层: NATS JetStream MsgId去重（2分钟窗口）
         // 应用层: Catga IdempotencyBehavior（持久化业务幂等）
-        await _jsContext.PublishAsync(subject, payload, 
+        await _jsContext.PublishAsync(subject, payload,
             opts: new NatsJSPubOpts { MsgId = messageId }, headers, ct);
         break;
 }
@@ -159,17 +159,17 @@ public class IdempotencyBehavior<TRequest, TResponse> : BaseBehavior<TRequest, T
         TRequest request, PipelineDelegate<TResponse> next, CancellationToken ct)
     {
         var messageId = TryGetMessageId(request);
-        
+
         // 检查持久化存储（Redis/DB）
         if (await _store.HasBeenProcessedAsync(messageId, ct))
             return await _store.GetCachedResultAsync<TResponse>(messageId, ct);
-        
+
         var result = await next();
-        
+
         // 仅缓存成功结果（失败结果允许重试）
         if (result.IsSuccess)
             await _store.MarkAsProcessedAsync(messageId, result.Value, ct);
-        
+
         return result;
     }
 }
@@ -190,16 +190,16 @@ public class RetryBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TRespon
     {
         var maxAttempts = _options.MaxRetryAttempts;
         var delay = _options.RetryDelayMs;
-        
+
         for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
             var result = await next();
             if (result.IsSuccess) return result;
-            
+
             if (attempt < maxAttempts)
                 await Task.Delay(delay * attempt, ct); // 指数退避
         }
-        
+
         return CatgaResult<TResponse>.Failure("Max retries exceeded");
     }
 }
@@ -219,13 +219,13 @@ public class OutboxBehavior<TRequest, TResponse> : BaseBehavior<TRequest, TRespo
         TRequest request, PipelineDelegate<TResponse> next, CancellationToken ct)
     {
         var result = await next();
-        
+
         if (result.IsSuccess && request is IOutboxMessage outboxMsg)
         {
             // 保存到Outbox表，后台发布者异步发送
             await _outboxStore.SaveAsync(outboxMsg, ct);
         }
-        
+
         return result;
     }
 }
@@ -244,19 +244,19 @@ public static class CatgaDiagnostics
 {
     public static readonly ActivitySource ActivitySource = new("Catga.CQRS");
     public static readonly Meter Meter = new("Catga.CQRS");
-    
-    public static readonly Counter<long> CommandsExecuted = 
+
+    public static readonly Counter<long> CommandsExecuted =
         Meter.CreateCounter<long>("catga.commands.executed");
-    public static readonly Histogram<double> CommandDuration = 
+    public static readonly Histogram<double> CommandDuration =
         Meter.CreateHistogram<double>("catga.commands.duration");
 }
 
 // 结构化日志（LoggerMessage自动生成）
 public static partial class CatgaLog
 {
-    [LoggerMessage(Level = LogLevel.Information, 
+    [LoggerMessage(Level = LogLevel.Information,
         Message = "Executing command {RequestType}, MessageId: {MessageId}")]
-    public static partial void CommandExecuting(ILogger logger, 
+    public static partial void CommandExecuting(ILogger logger,
         string requestType, string? messageId, string? correlationId);
 }
 ```
@@ -298,8 +298,8 @@ public static partial class CatgaLog
 
 ## 🔗 相关文档
 
-- [NATS Transport实现](../../src/Catga.Transport.Nats/README.md)
-- [K8s集成指南](../distributed/KUBERNETES.md)
-- [Pipeline Behaviors](../patterns/PIPELINE.md)
-- [幂等性设计](../patterns/IDEMPOTENCY.md)
+- [传输与持久化（架构总览）](./overview.md)
+- [K8s集成指南](../deployment/kubernetes.md)
+- [Pipeline Behaviors](./ARCHITECTURE.md#pipeline-behaviors)
+- [幂等性设计](./ARCHITECTURE.md#idempotency-store)
 

@@ -551,10 +551,10 @@ info: ✅ Rollback completed: Inventory released, Order deleted, Failure event p
 
 ## 🔗 相关资源
 
-- [SafeRequestHandler API](../api/handlers.md#saferequesthandler)
+- [SafeRequestHandler 指南](./custom-error-handling.md)
 - [错误处理基础](./error-handling.md)
 - [OrderSystem 完整示例](../../examples/OrderSystem.Api/Handlers/OrderCommandHandlers.cs)
-- [CatgaResult 文档](../api/results.md)
+- [错误处理与 CatgaResult](../guides/error-handling.md)
 
 ---
 

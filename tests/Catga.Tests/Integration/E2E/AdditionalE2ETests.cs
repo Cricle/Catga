@@ -26,7 +26,7 @@ namespace Catga.Tests.Integration.E2E;
 
 [Trait("Category", "Integration")]
 [Trait("Requires", "Docker")]
-public sealed class AdditionalE2ETests : IAsyncLifetime
+public sealed partial class AdditionalE2ETests : IAsyncLifetime
 {
     private IContainer? _natsContainer;
     private NatsConnection? _nats;

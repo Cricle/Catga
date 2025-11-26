@@ -33,7 +33,7 @@ public class BusinessScenarioBenchmarks
         services.AddScoped<IRequestHandler<ProcessPaymentCommand, ProcessPaymentResult>, ProcessPaymentHandler>();
         services.AddScoped<IRequestHandler<GetOrderQuery, GetOrderResult>, GetOrderQueryHandler>();
         services.AddScoped<IRequestHandler<GetUserOrdersQuery, GetUserOrdersResult>, GetUserOrdersQueryHandler>();
-        
+
         services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedEventHandler>();
         services.AddScoped<IEventHandler<OrderCreatedEvent>, SendEmailNotificationHandler>();
         services.AddScoped<IEventHandler<OrderCreatedEvent>, UpdateInventoryHandler>();
@@ -144,11 +144,47 @@ public class BusinessScenarioBenchmarks
         }
     }
 
+    [Benchmark(Description = "E-Commerce Scenario Batch (100 flows sequential)")]
+    public async Task ECommerceScenarioBatch()
+    {
+        for (int i = 0; i < 100; i++)
+        {
+            await RunECommerceFlow();
+        }
+    }
+
+    [Benchmark(Description = "E-Commerce Scenario Concurrent (100 flows)")]
+    public async Task ECommerceScenarioConcurrent()
+    {
+        var tasks = new Task[100];
+        for (int i = 0; i < 100; i++)
+        {
+            tasks[i] = RunECommerceFlow();
+        }
+        await Task.WhenAll(tasks);
+    }
+
+    private async Task RunECommerceFlow()
+    {
+        var createOrder = new CreateOrderCommand(123, 456, 2, 99.99m);
+        var orderResult = await _mediator.SendAsync<CreateOrderCommand, CreateOrderResult>(createOrder);
+        if (orderResult.IsSuccess && orderResult.Value != null)
+        {
+            var payment = new ProcessPaymentCommand(orderResult.Value.OrderId, 99.99m, "CreditCard");
+            var paymentResult = await _mediator.SendAsync<ProcessPaymentCommand, ProcessPaymentResult>(payment);
+            if (paymentResult.IsSuccess && paymentResult.Value != null)
+            {
+                var query = new GetOrderQuery(orderResult.Value.OrderId);
+                await _mediator.SendAsync<GetOrderQuery, GetOrderResult>(query);
+            }
+        }
+    }
+
     [Benchmark(Description = "High-Throughput Batch (100 Orders)")]
     public async Task HighThroughputBatch()
     {
         var tasks = new Task<CatgaResult<CreateOrderResult>>[100];
-        
+
         for (int i = 0; i < 100; i++)
         {
             var command = new CreateOrderCommand(
@@ -289,7 +325,7 @@ public class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, Proc
         // Simulate payment processing
         var paymentId = Random.Shared.Next(20000, 29999);
         var transactionId = Guid.NewGuid().ToString("N")[..16];
-        
+
         var result = new ProcessPaymentResult(
             PaymentId: paymentId,
             Success: true,

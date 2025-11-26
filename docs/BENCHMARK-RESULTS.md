@@ -16,7 +16,7 @@ Catga framework performance benchmarks focusing on **business scenarios** rather
 |----------|-------|-------|
 | **CQRS Core** | 5 | Command/Query/Event throughput |
 | **Concurrency** | 4 | High-concurrency stress testing |
-| **Business Scenarios** | 8 | Real-world e-commerce patterns |
+| **Business Scenarios** | 10 | Real-world e-commerce patterns |
 
 ---
 
@@ -70,6 +70,8 @@ Catga framework performance benchmarks focusing on **business scenarios** rather
 | Order Created Event | **914 ns** | 1032 B | Event with 3 handlers |
 | Complete Order Flow | **1.63 μs** | 1368 B | Command + Event flow |
 | E-Commerce Scenario | **1.80 μs** | 1112 B | Order + Payment + Query |
+| E-Commerce Scenario Batch (100 flows sequential) | **175.2 μs** | 108.6 KB | 100 flows sequential |
+| E-Commerce Scenario Concurrent (100 flows) | **171.6 μs** | 109.5 KB | 100 flows concurrent |
 | High-Throughput Batch | **52.7 μs** | 49.8 KB | 100 orders batch |
 
 ---
@@ -161,6 +163,6 @@ Catga demonstrates **production-ready performance** with:
 
 ---
 
-**Last Updated**: 2025-10-21
+**Last Updated**: 2025-11-26
 **Version**: 1.0.0
 

@@ -48,6 +48,11 @@ dotnet run -c Release --filter "*Concurrency*"
 
 # 零分配测试
 dotnet run -c Release --filter "*Allocation*"
+
+# 业务场景测试
+dotnet run -c Release --filter "*BusinessScenario*"
+dotnet run -c Release --filter "*ECommerceScenarioBatch*"
+dotnet run -c Release --filter "*ECommerceScenarioConcurrent*"
 ```
 
 ### 生成报告
@@ -138,6 +143,18 @@ dotnet run -c Release --project benchmarks/Catga.Benchmarks --memory
 
 #### PipelineBenchmarks.cs
 - Pipeline 行为开销
+
+#### BusinessScenarioBenchmarks.cs
+- Create Order (Command)
+- Process Payment (Command)
+- Get Order (Query)
+- Get User Orders (Query)
+- Order Created Event (3 handlers)
+- Complete Order Flow (Command + Event)
+- E-Commerce Scenario (Order + Payment + Query)
+- E-Commerce Scenario Batch (100 flows sequential)
+- E-Commerce Scenario Concurrent (100 flows)
+- High-Throughput Batch (100 Orders)
 
 ## 🎯 性能目标与实际表现
 

@@ -43,7 +43,7 @@
         ]
       }
     ],
-    "output": "_site",
+    "dest": "_site",
     "globalMetadata": {
       "_appTitle": "Catga Documentation",
       "_appName": "Catga",

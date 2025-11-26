@@ -3,6 +3,8 @@ name: Tests
 on:
   push:
     branches: [ main, master ]
+    tags:
+      - 'v*.*.*'
   pull_request:
     branches: [ main, master ]
 
@@ -82,3 +84,141 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  smoke-windows:
+    if: startsWith(github.ref, 'refs/tags/v')
+    name: Non-Docker Tests (Windows)
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      runner: windows-latest
+      test_filter: 'Requires!=Docker'
+      enable_docker: false
+      upload_artifacts: true
+
+  smoke-macos:
+    if: startsWith(github.ref, 'refs/tags/v')
+    name: Non-Docker Tests (macOS)
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      runner: macos-latest
+      test_filter: 'Requires!=Docker'
+      enable_docker: false
+      upload_artifacts: true
+
+  docker-redis7-alpine:
+    if: startsWith(github.ref, 'refs/tags/v')
+    name: Docker Tests (redis:7-alpine)
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      runner: ubuntu-latest
+      test_filter: 'Requires=Docker'
+      enable_docker: true
+      nats_image: 'nats:latest'
+      redis_image: 'redis:7-alpine'
+      upload_artifacts: true
+
+  docker-redis7:
+    if: startsWith(github.ref, 'refs/tags/v')
+    name: Docker Tests (redis:7)
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      runner: ubuntu-latest
+      test_filter: 'Requires=Docker'
+      enable_docker: true
+      nats_image: 'nats:latest'
+      redis_image: 'redis:7'
+      upload_artifacts: true
+
+  build-and-pack:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [smoke-windows, smoke-macos, docker-redis7-alpine, docker-redis7]
+    name: Build and Create NuGet Packages
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build solution
+      run: dotnet build --no-restore --configuration Release /p:Version=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Run tests (unit + non-docker)
+      run: dotnet test --no-build --configuration Release --verbosity normal --filter "Requires!=Docker"
+
+    - name: Pre-pull Docker images
+      run: |
+        docker pull nats:latest
+        docker pull redis:7-alpine
+
+    - name: Run tests (docker)
+      run: dotnet test --no-build --configuration Release --verbosity normal --filter "Requires=Docker" --blame-hang --blame-hang-timeout "8m" --logger "console;verbosity=detailed"
+
+    - name: Pack Catga
+      run: dotnet pack src/Catga/Catga.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.AspNetCore
+      run: dotnet pack src/Catga.AspNetCore/Catga.AspNetCore.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Hosting.Aspire
+      run: dotnet pack src/Catga.Hosting.Aspire/Catga.Hosting.Aspire.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Persistence.InMemory
+      run: dotnet pack src/Catga.Persistence.InMemory/Catga.Persistence.InMemory.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Persistence.Nats
+      run: dotnet pack src/Catga.Persistence.Nats/Catga.Persistence.Nats.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Persistence.Redis
+      run: dotnet pack src/Catga.Persistence.Redis/Catga.Persistence.Redis.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Serialization.MemoryPack
+      run: dotnet pack src/Catga.Serialization.MemoryPack/Catga.Serialization.MemoryPack.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.SourceGenerator
+      run: dotnet pack src/Catga.SourceGenerator/Catga.SourceGenerator.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Testing
+      run: dotnet pack src/Catga.Testing/Catga.Testing.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Transport.InMemory
+      run: dotnet pack src/Catga.Transport.InMemory/Catga.Transport.InMemory.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Transport.Nats
+      run: dotnet pack src/Catga.Transport.Nats/Catga.Transport.Nats.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Pack Catga.Transport.Redis
+      run: dotnet pack src/Catga.Transport.Redis/Catga.Transport.Redis.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Upload NuGet packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget-packages
+        path: ./artifacts/*.nupkg
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ./artifacts/*.nupkg
+        generate_release_notes: true
+        draft: false
+        prerelease: false
+
+    - name: Publish to NuGet.org
+      if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
+      run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+    - name: Publish to GitHub Packages
+      run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json --skip-duplicate

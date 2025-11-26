@@ -23,18 +23,19 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build DocFX site (Docker)
+      - name: Install DocFX (Chocolatey)
         run: |
-          docker run --rm \
-            -v "${{ github.workspace }}:/work" \
-            -w /work \
-            docascode/docfx:2.77 \
-            docfx --warningsAsErrors docfx.json
+          choco install docfx -y
+          refreshenv
+
+      - name: Build DocFX site
+        run: |
+          docfx docfx.json --warningsAsErrors
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

@@ -41,14 +41,14 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
         if (!IsDockerRunning()) return;
 
         // Start NATS (JetStream + monitoring)
+        // Avoid relying on nc/bash/wget in base image; wait on log message instead.
         _natsContainer = new ContainerBuilder()
-            .WithImage("nats:latest")
+            .WithImage("nats:2.10-alpine")
             .WithPortBinding(4222, true)
             .WithPortBinding(8222, true)
             .WithCommand("-js", "-m", "8222")
             .WithWaitStrategy(Wait.ForUnixContainer()
-                .UntilHttpRequestIsSucceeded(r => r.ForPort(8222).ForPath("/varz"))
-                .UntilPortIsAvailable(4222))
+                .UntilMessageIsLogged("Server is ready"))
             .Build();
         await _natsContainer.StartAsync();
 

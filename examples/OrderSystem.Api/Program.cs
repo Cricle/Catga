@@ -21,6 +21,7 @@ builder.AddServiceDefaults();
 // 生产环境：通过 CATGA_WORKER_ID 环境变量配置
 var catgaBuilder = builder.Services
     .AddCatga(o => o.EndpointNamingConvention = Catga.Generated.EndpointNaming.GetConvention())
+    .WithTracing()
     .UseMemoryPack()
     .UseInbox()
     .UseOutbox()

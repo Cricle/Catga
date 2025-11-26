@@ -1,4 +1,5 @@
 using System;
+using Catga.Transport;
 namespace Catga.Transport;
 
 /// <summary>
@@ -153,5 +154,15 @@ public sealed class RedisTransportOptions
     /// Default database index (default: 0)
     /// </summary>
     public int DefaultDatabase { get; set; } = 0;
+
+    /// <summary>
+    /// Optional auto-batching configuration. When null, auto-batching is disabled by default.
+    /// </summary>
+    public BatchTransportOptions? Batch { get; set; }
+
+    /// <summary>
+    /// Upper bound on pending queue length when auto-batching is enabled. Oldest items will be dropped when exceeded.
+    /// </summary>
+    public int MaxQueueLength { get; set; } = 10000;
 }
 

@@ -305,6 +305,51 @@ dotnet run
 | [分析器使用](./guides/analyzers.md) | 诊断规则 |
 | [Grafana Dashboard](./development/GRAFANA_UPDATE_SUMMARY.md) | 监控仪表板 |
 
+#### ⚙️ 快速开启追踪与自动批量
+
+开启与关闭都很简单，默认全部关闭，零额外开销。
+
+- 启用追踪（OpenTelemetry 集成，W3C trace 头自动传播）
+
+```csharp
+builder.Services.AddCatga().WithTracing();
+```
+
+- 启用 NATS 传输自动批量（数量/时间阈值，默认关闭）
+
+```csharp
+builder.Services.AddNatsTransport(o =>
+{
+    o.Batch = new BatchTransportOptions
+    {
+        EnableAutoBatching = true,
+        MaxBatchSize = 100,
+        BatchTimeout = TimeSpan.FromMilliseconds(50)
+    };
+    o.MaxQueueLength = 5000; // 背压上限，超限丢弃最旧
+});
+```
+
+- 启用 Redis 传输自动批量（Pub/Sub 与 Streams，默认关闭）
+
+```csharp
+builder.Services.AddRedisTransport(o =>
+{
+    o.Batch = new BatchTransportOptions
+    {
+        EnableAutoBatching = true,
+        MaxBatchSize = 100,
+        BatchTimeout = TimeSpan.FromMilliseconds(50)
+    };
+    o.MaxQueueLength = 5000;
+});
+```
+
+提示：
+
+- 未调用 `.WithTracing()` 时，不会创建 Activity，也不会注入/读取 `traceparent`/`tracestate`。
+- NATS 通过消息头传播 W3C 追踪；Redis 的头传播仅在 Streams 路径写入字段（Pub/Sub 无原生头）。
+
 #### 诊断规则
 
 - `CAT1001`: Handler 必须是 public

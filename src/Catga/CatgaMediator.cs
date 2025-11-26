@@ -43,34 +43,8 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         var reqType = TypeNameCache<TRequest>.Name;
         var message = request as IMessage;
 
-        // Optimize: Create activity only if there are active listeners
-        using var activity = CatgaActivitySource.Source.HasListeners()
-            ? CatgaActivitySource.Source.StartActivity(
-                $"Command: {reqType}",  // Use cached reqType instead of TypeNameCache lookup
-                ActivityKind.Internal)
-            : null;
-
-        // Set Catga-specific tags for Jaeger (only if activity was created)
-        if (activity != null)
-        {
-            activity.SetTag(CatgaActivitySource.Tags.CatgaType, "command");
-            activity.SetTag(CatgaActivitySource.Tags.RequestType, reqType);
-            activity.SetTag(CatgaActivitySource.Tags.MessageType, reqType);
-
-            if (message != null)
-            {
-                activity.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);
-                if (message.CorrelationId.HasValue)
-                {
-                    var correlationId = message.CorrelationId.Value;
-                    activity.SetTag(CatgaActivitySource.Tags.CorrelationId, correlationId);
-                    // ✅ Avoid boxing: format long directly to stack-allocated buffer
-                    Span<char> buffer = stackalloc char[20];
-                    correlationId.TryFormat(buffer, out int written);
-                    activity.SetBaggage(CatgaActivitySource.Tags.CorrelationId, new string(buffer[..written]));
-                }
-            }
-        }
+        // Minimal hooks: no-op unless tracing/metrics explicitly enabled
+        using var activity = Observability.ObservabilityHooks.StartCommand(reqType, message);
 
         CatgaLog.CommandExecuting(_logger, reqType, message?.MessageId, message?.CorrelationId);
 
@@ -84,7 +58,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
                 // Fast path: Singleton handler found, but still need scope for behaviors
                 using var singletonScope = _serviceProvider.CreateScope();
                 return await ExecuteRequestWithMetricsAsync(singletonHandler, request,
-                    singletonScope.ServiceProvider, activity, message, reqType, startTimestamp, cancellationToken);
+                    singletonScope.ServiceProvider, activity as Activity, message, reqType, startTimestamp, cancellationToken);
             }
 
             // Standard path: Scoped/Transient handler
@@ -94,31 +68,17 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
             var handler = _handlerCache.GetRequestHandler<IRequestHandler<TRequest, TResponse>>(scopedProvider);
             if (handler == null)
             {
-#if NET8_0_OR_GREATER
-                CatgaDiagnostics.CommandsExecuted.Add(1,
-                    new KeyValuePair<string, object?>("request_type", reqType),
-                    new KeyValuePair<string, object?>("success", "false"));
-#else
-                var _tags_nohandler = new TagList { { "request_type", reqType }, { "success", "false" } };
-                CatgaDiagnostics.CommandsExecuted.Add(1, _tags_nohandler);
-#endif
+                Observability.ObservabilityHooks.RecordCommandError(reqType, new HandlerNotFoundException(reqType), activity);
                 return CatgaResult<TResponse>.Failure($"No handler for {reqType}", new HandlerNotFoundException(reqType));
             }
 
             return await ExecuteRequestWithMetricsAsync(handler, request,
-                scopedProvider, activity, message, reqType, startTimestamp, cancellationToken);
+                scopedProvider, activity as Activity, message, reqType, startTimestamp, cancellationToken);
         }
         catch (Exception ex)
         {
-#if NET8_0_OR_GREATER
-            CatgaDiagnostics.CommandsExecuted.Add(1,
-                new KeyValuePair<string, object?>("request_type", reqType),
-                new KeyValuePair<string, object?>("success", "false"));
-#else
-            var _tags_catch = new TagList { { "request_type", reqType }, { "success", "false" } };
-            CatgaDiagnostics.CommandsExecuted.Add(1, _tags_catch);
-#endif
-            RecordException(activity, ex);
+            Observability.ObservabilityHooks.RecordCommandError(reqType, ex, activity);
+            RecordException(activity as Activity, ex);
             CatgaLog.CommandFailed(_logger, ex, reqType, message?.MessageId, ex.Message);
             return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PipelineFailed, isRetryable: false));
         }
@@ -153,15 +113,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
             ?? behaviors.ToArray();
 
         // Record pipeline behavior count
-        {
-#if NET8_0_OR_GREATER
-            CatgaDiagnostics.PipelineBehaviorCount.Record(behaviorsList.Count,
-                new KeyValuePair<string, object?>("request_type", reqType));
-#else
-            var _tags_behavior_count = new TagList { { "request_type", reqType } };
-            CatgaDiagnostics.PipelineBehaviorCount.Record(behaviorsList.Count, _tags_behavior_count);
-#endif
-        }
+        Observability.ObservabilityHooks.RecordPipelineBehaviorCount(reqType, behaviorsList.Count);
 
         // Measure pipeline execution duration separately
         var pipelineStart = Stopwatch.GetTimestamp();
@@ -170,46 +122,14 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
             : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
         var pipelineElapsedTicks = Stopwatch.GetTimestamp() - pipelineStart;
         var pipelineDurationMs = pipelineElapsedTicks * 1000.0 / Stopwatch.Frequency;
-        {
-#if NET8_0_OR_GREATER
-            CatgaDiagnostics.PipelineDuration.Record(pipelineDurationMs,
-                new KeyValuePair<string, object?>("request_type", reqType));
-#else
-            var _tags_pipeline_dur = new TagList { { "request_type", reqType } };
-            CatgaDiagnostics.PipelineDuration.Record(pipelineDurationMs, _tags_pipeline_dur);
-#endif
-        }
+        Observability.ObservabilityHooks.RecordPipelineDuration(reqType, pipelineDurationMs);
 
         // Record metrics and logs
         var duration = GetElapsedMilliseconds(startTimestamp);
-        var successValue = result.IsSuccess ? "true" : "false";  // Avoid ToString() allocation
-#if NET8_0_OR_GREATER
-        CatgaDiagnostics.CommandsExecuted.Add(1,
-            new KeyValuePair<string, object?>("request_type", reqType),
-            new KeyValuePair<string, object?>("success", successValue));
-        CatgaDiagnostics.CommandDuration.Record(duration,
-            new KeyValuePair<string, object?>("request_type", reqType));
-#else
-        var _tags_executed = new TagList { { "request_type", reqType }, { "success", successValue } };
-        var _tags_duration = new TagList { { "request_type", reqType } };
-        CatgaDiagnostics.CommandsExecuted.Add(1, _tags_executed);
-        CatgaDiagnostics.CommandDuration.Record(duration, _tags_duration);
-#endif
+        Observability.ObservabilityHooks.RecordCommandResult(reqType, result.IsSuccess, duration, activity);
         CatgaLog.CommandExecuted(_logger, reqType, message?.MessageId, duration, result.IsSuccess);
-
-        // Set activity tags
-        activity?.SetTag(CatgaActivitySource.Tags.Success, result.IsSuccess);
-        activity?.SetTag(CatgaActivitySource.Tags.PipelineBehaviorCount, behaviorsList.Count);
-        activity?.SetTag(CatgaActivitySource.Tags.Duration, duration);
-
-        if (result.IsSuccess)
-            activity?.SetStatus(ActivityStatusCode.Ok);
-        else
-        {
-            activity?.SetTag(CatgaActivitySource.Tags.Error, result.Error ?? "Unknown error");
-            activity?.SetStatus(ActivityStatusCode.Error, result.Error);
+        if (!result.IsSuccess)
             CatgaLog.CommandFailed(_logger, result.Exception, reqType, message?.MessageId, result.Error ?? "Unknown");
-        }
 
         return result;
     }
@@ -228,38 +148,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         var eventType = TypeNameCache<TEvent>.Name;
         var message = @event as IMessage;
 
-        // Optimize: Create activity only if there are active listeners
-        using var activity = CatgaActivitySource.Source.HasListeners()
-            ? CatgaActivitySource.Source.StartActivity(
-                $"Event: {eventType}",
-                ActivityKind.Producer)
-            : null;
-
-        // Set Catga-specific tags for Jaeger (only if activity was created)
-        if (activity != null)
-        {
-            activity.SetTag(CatgaActivitySource.Tags.CatgaType, "event");
-            activity.SetTag(CatgaActivitySource.Tags.EventType, eventType);
-            activity.SetTag(CatgaActivitySource.Tags.EventName, eventType);
-            activity.SetTag(CatgaActivitySource.Tags.MessageType, eventType);
-
-            if (message != null)
-            {
-                activity.SetTag(CatgaActivitySource.Tags.MessageId, message.MessageId);
-                if (message.CorrelationId.HasValue)
-                {
-                    var correlationId = message.CorrelationId.Value;
-                    activity.SetTag(CatgaActivitySource.Tags.CorrelationId, correlationId);
-                    // ✅ Avoid boxing: format long directly to stack-allocated buffer
-                    Span<char> buffer = stackalloc char[20];
-                    correlationId.TryFormat(buffer, out int written);
-                    activity.SetBaggage(CatgaActivitySource.Tags.CorrelationId, new string(buffer[..written]));
-                }
-            }
-        }
-
-        // Record event publication timeline event
-        activity?.AddActivityEvent(CatgaActivitySource.Events.EventPublished, ("event.type", eventType));
+        using var activity = Observability.ObservabilityHooks.StartEventPublish(eventType, message);
 
         CatgaLog.EventPublishing(_logger, eventType, message?.MessageId);
 
@@ -283,20 +172,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
             return;
         }
 
-        // ✅ Use TagList (stack allocated) + avoid int.ToString() allocation
-        Span<char> countBuffer = stackalloc char[10];
-        handlerList.Count.TryFormat(countBuffer, out int charsWritten);
-        var handlerCount = new string(countBuffer[..charsWritten]);
-        {
-#if NET8_0_OR_GREATER
-            CatgaDiagnostics.EventsPublished.Add(1,
-                new KeyValuePair<string, object?>("event_type", eventType),
-                new KeyValuePair<string, object?>("handler_count", handlerCount));
-#else
-            var _tags_event = new TagList { { "event_type", eventType }, { "handler_count", handlerCount } };
-            CatgaDiagnostics.EventsPublished.Add(1, _tags_event);
-#endif
-        }
+        Observability.ObservabilityHooks.RecordEventPublished(eventType, handlerList.Count);
 
         if (handlerList.Count == 1)
         {

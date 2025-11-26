@@ -1,4 +1,5 @@
 using Catga.Configuration;
+using Catga.Observability;
 using Catga.Resilience;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -100,6 +101,7 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
         {
             // Register distributed tracing behavior for rich trace data in Jaeger
             Services.AddSingleton(typeof(Catga.Pipeline.Behaviors.DistributedTracingBehavior<,>));
+            ObservabilityHooks.Enable();
         }
 
         return this;

@@ -47,14 +47,15 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
             .WithPortBinding(8222, true)
             .WithCommand("-js", "-m", "8222")
             .WithWaitStrategy(Wait.ForUnixContainer()
-                .UntilHttpRequestIsSucceeded(r => r.ForPort(8222).ForPath("/varz")))
+                .UntilHttpRequestIsSucceeded(r => r.ForPort(8222).ForPath("/varz"))
+                .UntilPortIsAvailable(4222))
             .Build();
         await _natsContainer.StartAsync();
 
         var natsPort = _natsContainer.GetMappedPublicPort(4222);
         var natsOpts = new NatsOpts { Url = $"nats://localhost:{natsPort}", ConnectTimeout = TimeSpan.FromSeconds(10) };
         _natsConnection = new NatsConnection(natsOpts);
-        await _natsConnection.ConnectAsync();
+        await ConnectWithRetryAsync(_natsConnection);
 
         // Start Redis
         _redisContainer = new RedisBuilder()
@@ -98,6 +99,23 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
             return p?.ExitCode == 0;
         }
         catch { return false; }
+    }
+
+    private static async Task ConnectWithRetryAsync(NatsConnection connection, int attempts = 10, int delayMs = 500)
+    {
+        for (int i = 0; i < attempts; i++)
+        {
+            try
+            {
+                await connection.ConnectAsync();
+                return;
+            }
+            catch
+            {
+                if (i == attempts - 1) throw;
+                await Task.Delay(delayMs);
+            }
+        }
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using Catga.Configuration;
 using Catga.Observability;
 using Catga.Resilience;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Catga.DependencyInjection;
 
@@ -204,6 +205,31 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
     public CatgaServiceBuilder UseResilience(Action<CatgaResilienceOptions>? configure = null)
     {
         Services.AddCatgaResilience(configure);
+        return this;
+    }
+
+    /// <summary>
+    /// Enable mediator-level auto-batching (default off). When enabled, requests of the same type are queued and flushed by size/time thresholds.
+    /// Execution is wrapped by the mediator resilience pipeline.
+    /// </summary>
+    public CatgaServiceBuilder UseMediatorAutoBatching(Action<Catga.Pipeline.MediatorBatchOptions>? configure = null)
+    {
+        var options = new Catga.Pipeline.MediatorBatchOptions();
+        configure?.Invoke(options);
+
+        // Expose options to behaviors via DI
+        Services.AddSingleton(options);
+
+        if (options.EnableAutoBatching)
+        {
+            // Ensure a resilience provider exists without duplicating PollyBehavior registrations
+            Services.TryAddSingleton<CatgaResilienceOptions>(_ => new CatgaResilienceOptions());
+            Services.TryAddSingleton<IResiliencePipelineProvider>(sp => new DefaultResiliencePipelineProvider(sp.GetRequiredService<CatgaResilienceOptions>()));
+
+            // Register batching behavior
+            Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.AutoBatchingBehavior<,>));
+        }
+
         return this;
     }
 

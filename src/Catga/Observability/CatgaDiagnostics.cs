@@ -82,6 +82,10 @@ public static class CatgaDiagnostics
     public static readonly Histogram<int> PipelineBehaviorCount = Meter.CreateHistogram<int>("catga.pipeline.behavior_count", "behaviors", "Number of behaviors in pipeline");
     public static readonly Histogram<double> PipelineBehaviorDuration = Meter.CreateHistogram<double>("catga.pipeline.behavior.duration", "ms", "Single pipeline behavior execution duration");
 
+    public static readonly Histogram<int> MediatorBatchSize = Meter.CreateHistogram<int>("catga.mediator.batch.size", "items", "Mediator batch size");
+    public static readonly Histogram<double> MediatorBatchFlushDuration = Meter.CreateHistogram<double>("catga.mediator.batch.flush.duration", "ms", "Mediator batch flush duration");
+    public static readonly Histogram<int> MediatorBatchQueueLength = Meter.CreateHistogram<int>("catga.mediator.batch.queue_length", "items", "Mediator batch queue length");
+
     // DI metrics
     public static readonly Counter<long> DIRegistrationsCompleted = Meter.CreateCounter<long>("catga.di.registrations.completed", "registrations", "DI registrations completed");
     public static readonly Counter<long> DIRegistrationsFailed = Meter.CreateCounter<long>("catga.di.registrations.failed", "registrations", "DI registrations failed");

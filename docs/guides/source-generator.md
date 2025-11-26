@@ -245,9 +245,9 @@ services.AddScoped<IRequestHandler<ExternalCommand, ExternalResponse>, ExternalH
 
 ## 🔗 Related
 
-- [Getting Started Guide](GETTING_STARTED.md)
-- [AOT Compatibility](../aot/README.md)
-- [SimpleWebApi Example](../../examples/SimpleWebApi/)
+- [Getting Started Guide](../articles/getting-started.md)
+- [AOT Compatibility](../aot/serialization-aot-guide.md)
+- [OrderSystem Example](../../examples/OrderSystem.Api/README.md)
 
 ## 🤝 Contributing
 

@@ -12,7 +12,7 @@
 
 **纳秒级延迟 · 百万QPS · 零反射 · 源生成 · 生产就绪**
 
-[📚 完整文档索引](./INDEX.md) · [🚀 快速开始](./articles/getting-started.md) · [📊 性能基准](./BENCHMARK-RESULTS.md) · [💻 示例](../examples/)
+[📚 完整文档索引](./INDEX.md) · [🚀 快速开始](./articles/getting-started.md) · [📊 性能基准](./BENCHMARK-RESULTS.md) · [💻 示例](./examples/basic-usage.md)
 
 </div>
 
@@ -252,8 +252,8 @@ public class OrderTests : IDisposable
 
 | 示例 | 说明 | 特性 |
 |------|------|------|
-| [OrderSystem.Api](../examples/OrderSystem.Api/) | 电商订单系统 | 完整业务流程、分布式部署 |
-| [OrderSystem.AppHost](../examples/OrderSystem.AppHost/) | .NET Aspire 编排 | 云原生开发 |
+| [OrderSystem.Api](../examples/OrderSystem.Api/README.md) | 电商订单系统 | 完整业务流程、分布式部署 |
+| [OrderSystem.AppHost](../examples/OrderSystem.AppHost/README.md) | .NET Aspire 编排 | 云原生开发 |
 
 **运行示例**:
 
@@ -323,7 +323,7 @@ dotnet run
 <summary>❓ 如何开始学习 Catga？</summary>
 
 1. 阅读 [快速开始指南](./articles/getting-started.md)
-2. 运行 [OrderSystem 示例](../examples/OrderSystem.Api/)
+2. 运行 [OrderSystem 示例](../examples/OrderSystem.Api/README.md)
 3. 查看 [CQRS 概念](./architecture/cqrs.md)
 
 </details>
@@ -476,7 +476,7 @@ docs/
 
 ## 🌟 开始你的 Catga 之旅
 
-[📝 快速开始](./articles/getting-started.md) · [📚 完整文档](./INDEX.md) · [💻 查看示例](../examples/) · [⭐ GitHub](https://github.com/Cricle/Catga)
+[📝 快速开始](./articles/getting-started.md) · [📚 完整文档](./INDEX.md) · [💻 查看示例](./examples/basic-usage.md) · [⭐ GitHub](https://github.com/Cricle/Catga)
 
 **如果觉得有用，请给个 ⭐ Star！**
 

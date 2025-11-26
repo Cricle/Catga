@@ -351,7 +351,7 @@ W3C Trace Context 建议 Baggage 总大小 < **512 bytes**
 ## 📚 相关文档
 
 - [Jaeger 完整指南](./JAEGER-COMPLETE-GUIDE.md)
-- [OpenTelemetry 最佳实践](./OPENTELEMETRY-BEST-PRACTICES.md)
+- [OpenTelemetry 集成](../articles/opentelemetry-integration.md)
 - [W3C Trace Context 规范](https://www.w3.org/TR/trace-context/)
 
 ---

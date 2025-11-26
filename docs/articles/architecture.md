@@ -194,6 +194,6 @@ Extend Catga through:
 ## Next Steps
 
 - [Configuration Guide](configuration.md) - Detailed configuration
-- [Transport Layer](transport-layer.md) - Transport options
-- [Persistence Layer](persistence-layer.md) - Persistence strategies
+- [Transport Configuration](configuration.md#transport-configuration) - Transport options
+- [Persistence Configuration](configuration.md#persistence-configuration) - Persistence strategies
 

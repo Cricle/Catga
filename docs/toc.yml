@@ -1,7 +1,6 @@
-- name: Articles
-  href: articles/
+- name: Getting Started
+  href: articles/getting-started.md
 - name: API Documentation
-  href: ../api/
+  href: api/README.md
 - name: GitHub
-  href: https://github.com/your-org/Catga
-
+  href: https://github.com/Cricle/Catga

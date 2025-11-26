@@ -291,7 +291,7 @@ services.AddCatga(options =>
 
 ## Next Steps
 
-- [Transport Layer](transport-layer.md) - Detailed transport comparison
-- [Persistence Layer](persistence-layer.md) - Persistence strategies
+- [Transport Configuration](#transport-configuration) - Detailed transport options
+- [Persistence Configuration](#persistence-configuration) - Persistence strategies
 - [Native AOT Deployment](aot-deployment.md) - Deploy with Native AOT
 

@@ -156,7 +156,7 @@
 
 - 📖 **完整的中文文档**
   - README.md - 30 秒快速开始
-  - QUICK-REFERENCE.md - 5 分钟速查手册
+  - INDEX.md - 5 分钟速查手册
   - 架构设计文档
   - API 参考文档
   - 部署指南 (K8s, Docker)

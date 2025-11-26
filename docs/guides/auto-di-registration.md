@@ -277,7 +277,7 @@ services.AddGeneratedServices();
 
 **🚀 Zero Configuration DI - Just Implement and Go!**
 
-[Back to Guides](../README.md) · [OrderSystem Example](../../examples/OrderSystem.Api/)
+[Back to Guides](../README.md) · [OrderSystem Example](../../examples/OrderSystem.Api/README.md)
 
 </div>
 

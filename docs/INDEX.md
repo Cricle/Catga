@@ -214,8 +214,8 @@ public class OrderTests : IDisposable
 
 | 示例 | 说明 | 特性 |
 |------|------|------|
-| [OrderSystem.Api](../examples/OrderSystem.Api/) | 电商订单系统 | 完整业务流程、分布式部署 |
-| [OrderSystem.AppHost](../examples/OrderSystem.AppHost/) | .NET Aspire 编排 | 云原生开发 |
+| [OrderSystem.Api](../examples/OrderSystem.Api/README.md) | 电商订单系统 | 完整业务流程、分布式部署 |
+| [OrderSystem.AppHost](../examples/OrderSystem.AppHost/README.md) | .NET Aspire 编排 | 云原生开发 |
 
 ### 示例代码
 

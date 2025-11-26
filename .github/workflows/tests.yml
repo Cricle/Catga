@@ -27,3 +27,14 @@ jobs:
       redis_image: 'redis:7-alpine'
       results_dir: 'tests/Catga.Tests/TestResults'
       upload_artifacts: true
+
+  coverage:
+    needs: unit
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      runner: ubuntu-latest
+      collect_coverage: true
+      enable_docker: false
+      coverage_dir: 'coverage'
+      results_dir: 'tests/Catga.Tests/TestResults'
+      upload_artifacts: true

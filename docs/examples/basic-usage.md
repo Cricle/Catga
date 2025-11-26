@@ -4,13 +4,14 @@
 
 ## 目录
 
-- [简单的命令](#简单的命令)
-- [查询数据](#查询数据)
-- [发布事件](#发布事件)
-- [错误处理](#错误处理)
+- [简单的命令](#simple-command)
+- [查询数据](#query-data)
+- [发布事件](#publish-event)
+- [错误处理](#error-handling)
 - [Pipeline Behaviors](#pipeline-behaviors)
 
-## 简单的命令
+<a id="simple-command"></a>
+## 简单的命令 {#simple-command}
 
 ### 1. 定义命令和响应
 
@@ -193,7 +194,8 @@ namespace MyApp.Controllers
 }
 ```
 
-## 查询数据
+<a id="query-data"></a>
+## 查询数据 {#query-data}
 
 ### 1. 定义查询
 
@@ -273,7 +275,8 @@ public async Task<IActionResult> GetOrder(string orderId)
 }
 ```
 
-## 发布事件
+<a id="publish-event"></a>
+## 发布事件 {#publish-event}
 
 ### 1. 定义事件
 
@@ -380,7 +383,8 @@ public async Task<CatgaResult<CreateOrderResult>> HandleAsync(
 }
 ```
 
-## 错误处理
+<a id="error-handling"></a>
+## 错误处理 {#error-handling}
 
 ### 方式 1: 返回失败结果
 

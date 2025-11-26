@@ -4,19 +4,20 @@
 
 ## 📋 目录
 
-- [框架概述](#框架概述)
-- [核心概念](#核心概念)
-- [架构设计](#架构设计)
-- [使用示例](#使用示例)
-- [重要注意事项](#重要注意事项)
-- [最佳实践](#最佳实践)
-- [常见错误](#常见错误)
-- [性能优化](#性能优化)
-- [故障排查](#故障排查)
+- [框架概述](#overview)
+- [核心概念](#core-concepts)
+- [架构设计](#architecture)
+- [使用示例](#examples)
+- [重要注意事项](#important-notes)
+- [最佳实践](#best-practices)
+- [常见错误](#common-errors)
+- [性能优化](#performance-optimization)
+- [故障排查](#troubleshooting)
 
 ---
 
-## 框架概述
+<a id="overview"></a>
+## 框架概述 {#overview}
 
 ### 什么是 Catga？
 
@@ -59,7 +60,8 @@ Catga 是一个现代化、高性能的 .NET CQRS/Event Sourcing 框架，具有
 
 ---
 
-## 核心概念
+<a id="core-concepts"></a>
+## 核心概念 {#core-concepts}
 
 ### 1. CQRS (Command Query Responsibility Segregation)
 
@@ -187,7 +189,8 @@ public interface IInboxStore
 
 ---
 
-## 架构设计
+<a id="architecture"></a>
+## 架构设计 {#architecture}
 
 ### 项目结构
 
@@ -245,7 +248,8 @@ Catga.Persistence.Nats      ←┘
 
 ---
 
-## 使用示例
+<a id="examples"></a>
+## 使用示例 {#examples}
 
 ### 1. 基本配置
 
@@ -492,7 +496,8 @@ builder.Services.AddCatgaHandlers(); // Source Generator 自动生成的扩展�
 
 ---
 
-## 重要注意事项
+<a id="important-notes"></a>
+## 重要注意事项 {#important-notes}
 
 ### ⚠️ 关键约束
 
@@ -604,7 +609,8 @@ builder.Services.AddCatgaHandlers(); // Source Generator 自动生成的扩展�
 
 ---
 
-## 最佳实践
+<a id="best-practices"></a>
+## 最佳实践 {#best-practices}
 
 ### 1. 命名规范
 
@@ -794,7 +800,8 @@ builder.Services.AddCatga(options =>
 
 ---
 
-## 常见错误
+<a id="common-errors"></a>
+## 常见错误 {#common-errors}
 
 ### ❌ 错误 1: 直接使用 JsonSerializer
 
@@ -882,7 +889,8 @@ public class OrderCreatedEventHandler2 : IEventHandler<OrderCreatedEvent> { }
 
 ---
 
-## 性能优化
+<a id="performance-optimization"></a>
+## 性能优化 {#performance-optimization}
 
 ### 1. 批量发布
 
@@ -951,7 +959,8 @@ builder.Services.AddRedisTransport(options =>
 
 ---
 
-## 故障排查
+<a id="troubleshooting"></a>
+## 故障排查 {#troubleshooting}
 
 ### 问题 1: 消息没有被处理
 

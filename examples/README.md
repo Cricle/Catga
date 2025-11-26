@@ -3,7 +3,7 @@
 > **30 秒上手，3 行代码** - 通过实际示例学习 Catga
 > 最后更新: 2025-10-14
 
-[返回主文档](../README.md) · [快速参考](../QUICK-REFERENCE.md) · [完整文档](../docs/README.md)
+[返回主文档](../docs/README.md) · [文档索引](../docs/INDEX.md) · [完整文档](../docs/README.md)
 
 ---
 
@@ -155,7 +155,7 @@ builder.Build().Run();
 
 ## 📚 相关文档
 
-- **[快速参考](../QUICK-REFERENCE.md)** - 5 分钟速查手册
+- **[文档索引](../docs/INDEX.md)** - 5 分钟速查手册
 - **[架构设计](../docs/architecture/ARCHITECTURE.md)** - 深入理解 Catga
 - **[序列化指南](../docs/guides/serialization.md)** - MemoryPack vs JSON
 - **[分析器指南](../docs/guides/analyzers.md)** - 编译时检查
@@ -183,6 +183,6 @@ A: MemoryPack（推荐，100% AOT）或 JSON（人类可读）
 
 **🚀 从示例开始，30 秒上手 Catga！**
 
-[返回主文档](../README.md) · [快速参考](../QUICK-REFERENCE.md) · [完整文档](../docs/README.md)
+[返回主文档](../docs/README.md) · [文档索引](../docs/INDEX.md) · [完整文档](../docs/README.md)
 
 </div>

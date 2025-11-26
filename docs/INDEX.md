@@ -40,7 +40,7 @@
 | 文档 | 说明 |
 |------|------|
 | [分布式事务](./patterns/DISTRIBUTED-TRANSACTION-V2.md) | Outbox/Inbox 模式 |
-| [事件溯源](./architecture/ARCHITECTURE.md#event-sourcing) | Event Sourcing 实现 |
+| [事件溯源](./architecture/ARCHITECTURE.md) | Event Sourcing 实现 |
 | [分布式追踪](./observability/DISTRIBUTED-TRACING-GUIDE.md) | OpenTelemetry 集成 |
 | [Jaeger 完整指南](./observability/JAEGER-COMPLETE-GUIDE.md) | 分布式追踪可视化 |
 | [监控指标](./production/MONITORING-GUIDE.md) | Prometheus + Grafana |
@@ -51,7 +51,7 @@
 | 文档 | 说明 | 性能 |
 |------|------|------|
 | [JSON 序列化](./guides/serialization.md) | System.Text.Json | 兼容性好 |
-| [MemoryPack](./guides/serialization.md#memorypack) | 二进制序列化 | ⚡ 最快 |
+| [MemoryPack](./guides/serialization.md) | 二进制序列化 | ⚡ 最快 |
 | [AOT 序列化指南](./aot/serialization-aot-guide.md) | Native AOT 支持 | 💡 重要 |
 
 ### 部署运维

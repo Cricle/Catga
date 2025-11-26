@@ -35,7 +35,15 @@ jobs:
 
       - name: Build DocFX site
         run: |
-          docfx docfx.json --warningsAsErrors
+          docfx docfx.json --warningsAsErrors | Tee-Object -FilePath docfx.log
+
+      - name: Upload docfx.log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docfx-log
+          path: docfx.log
+          if-no-files-found: ignore
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

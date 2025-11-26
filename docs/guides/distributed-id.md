@@ -216,8 +216,8 @@ while (true)
 
     // 2. 计算新状态（本地计算，无锁）
     var timestamp = GetCurrentTimestamp();
-    var newSequence = (timestamp == lastTimestamp) 
-        ? (lastSequence + 1) & _layout.SequenceMask 
+    var newSequence = (timestamp == lastTimestamp)
+        ? (lastSequence + 1) & _layout.SequenceMask
         : 0;
     var newState = PackState(timestamp, newSequence);
 
@@ -573,9 +573,8 @@ A: 最多 1024 个节点（Worker ID: 0-1023）
 
 - [Snowflake 算法详解](https://en.wikipedia.org/wiki/Snowflake_ID)
 - [Twitter Snowflake](https://github.com/twitter-archive/snowflake)
-- [Catga 架构文档](../Architecture.md)
+- [Catga 架构文档](../architecture/ARCHITECTURE.md)
 
 ---
 
 **🎉 享受简单、强大的分布式 ID 生成！**
-

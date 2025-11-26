@@ -242,7 +242,6 @@ taskkill /PID <pid> /F
 
 ## 📚 Related Documentation
 
-- [Graceful Lifecycle](README-GRACEFUL.md) - Shutdown & recovery
 - [OrderSystem.Api](../OrderSystem.Api/README.md) - Service implementation
 - [Aspire Documentation](https://learn.microsoft.com/dotnet/aspire/)
 
@@ -254,6 +253,6 @@ taskkill /PID <pid> /F
 
 `dotnet run` → Redis + NATS + 3-replica API + Dashboard
 
-[Main README](../../README.md) · [OrderSystem.Api](../OrderSystem.Api/)
+[Main README](../../docs/README.md) · [OrderSystem.Api](../OrderSystem.Api/README.md)
 
 </div>

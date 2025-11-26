@@ -206,11 +206,11 @@
 
 ## 贡献指南
 
-请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解如何贡献代码。
+请查看 [CONTRIBUTING.md](./development/CONTRIBUTING.md) 了解如何贡献代码。
 
 ## License
 
-[MIT](LICENSE) © 2025 Catga Contributors
+[MIT](https://github.com/Cricle/Catga/blob/master/LICENSE) © 2025 Catga Contributors
 
 ---
 

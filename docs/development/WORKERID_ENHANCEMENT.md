@@ -277,10 +277,10 @@ Console.WriteLine($"Sequence: {metadata.Sequence}");
 
 ## 📚 相关文档
 
-- [分布式部署指南](examples/OrderSystem.Api/DISTRIBUTED-DEPLOYMENT.md)
-- [OrderSystem 功能清单](examples/OrderSystem.Api/FEATURES.md)
-- [OrderSystem README](examples/OrderSystem.Api/README.md)
-- [Snowflake ID 算法](docs/guides/distributed-id.md)
+- [分布式部署指南](../../examples/OrderSystem.Api/DISTRIBUTED-DEPLOYMENT.md)
+- [OrderSystem 功能清单](../../examples/OrderSystem.Api/FEATURES.md)
+- [OrderSystem README](../../examples/OrderSystem.Api/README.md)
+- [Snowflake ID 算法](../guides/distributed-id.md)
 
 ---
 

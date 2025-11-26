@@ -1,35 +1,11 @@
 {
-  "metadata": [
-    {
-      "src": [
-        {
-          "src": "src",
-          "files": [
-            "Catga/Catga.csproj",
-            "Catga.AspNetCore/Catga.AspNetCore.csproj",
-            "Catga.Transport.InMemory/Catga.Transport.InMemory.csproj",
-            "Catga.Transport.Nats/Catga.Transport.Nats.csproj",
-            "Catga.Transport.Redis/Catga.Transport.Redis.csproj",
-            "Catga.Persistence.InMemory/Catga.Persistence.InMemory.csproj",
-            "Catga.Persistence.Nats/Catga.Persistence.Nats.csproj",
-            "Catga.Persistence.Redis/Catga.Persistence.Redis.csproj",
-            "Catga.Serialization.MemoryPack/Catga.Serialization.MemoryPack.csproj"
-          ]
-        }
-      ],
-      "dest": "api",
-      "properties": {
-        "TargetFramework": "net9.0"
-      }
-    }
-  ],
+  "metadata": [],
   "build": {
+    "markdownEngineName": "markdig",
+    "markdownEngineProperties": {
+      "noYamlHeader": true
+    },
     "content": [
-      {
-        "files": [
-          "api/**.yml"
-        ]
-      },
       {
         "files": [
           "docs/**.md",
@@ -61,6 +37,7 @@
           "scripts/**"
         ],
         "exclude": [
+          "docs/web/**.md",
           "examples/**.md",
           "scripts/**.md"
         ]

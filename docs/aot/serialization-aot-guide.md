@@ -154,7 +154,7 @@ dotnet publish -c Release
 
 ## 📚 更多资源
 
-- [Catga 反射优化总结](../../REFLECTION_OPTIMIZATION_SUMMARY.md)
+- [性能报告](../PERFORMANCE-REPORT.md)
 - [源生成器使用指南](../guides/source-generator-usage.md)
 - [Native AOT 最佳实践](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
 - [System.Text.Json 源生成器](https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/source-generation)

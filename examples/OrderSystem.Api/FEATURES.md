@@ -367,5 +367,5 @@ This example demonstrates **100%** of Catga's core features:
 
 ---
 
-**Have questions?** Check the [main documentation](../../docs/) or open an issue!
+**Have questions?** Check the [main documentation](../../docs/README.md) or open an issue!
 

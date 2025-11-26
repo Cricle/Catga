@@ -410,10 +410,10 @@ dotnet run
 
 ## 📚 相关资源
 
-- [Catga 快速开始](../../docs/QUICK-START.md)
+- [Catga 快速开始](../../docs/articles/getting-started.md)
 - [SafeRequestHandler 指南](../../docs/guides/custom-error-handling.md)
-- [Source Generator 文档](../../docs/source-generators/)
-- [性能基准测试](../../docs/benchmarks/)
+- [Source Generator 文档](../../docs/guides/source-generator.md)
+- [性能基准测试](../../docs/BENCHMARK-RESULTS.md)
 
 ## 🎓 学习路径
 

@@ -23,7 +23,7 @@ public class MyCommandTests : IDisposable
     public MyCommandTests()
     {
         _fixture = new CatgaTestFixture();
-        
+
         // 注册你的 Handler
         _fixture.RegisterRequestHandler<MyCommand, MyResponse, MyCommandHandler>();
     }
@@ -58,7 +58,7 @@ public class MyTests
     {
         var fixture = new CatgaTestFixture();
         var handler = new TrackableHandler<MyCommand, MyResponse>();
-        
+
         fixture.ConfigureServices(services =>
         {
             services.AddSingleton<IRequestHandler<MyCommand, MyResponse>>(handler);
@@ -182,7 +182,7 @@ var fixture = new CatgaTestFixture()
     {
         // 添加自定义服务
         services.AddSingleton<IMyService, MyServiceMock>();
-        
+
         // 覆盖默认服务
         services.AddScoped<IMessageTransport, MyCustomTransport>();
     });
@@ -253,8 +253,8 @@ sw.Elapsed.Should().BeGreaterThanOrEqualTo(TimeSpan.FromSeconds(1));
 ## 📖 示例
 
 完整的测试示例请参考：
-- [tests/Catga.Tests/](../../tests/Catga.Tests/) - 项目测试
-- [examples/OrderSystem.Api/](../../examples/OrderSystem.Api/) - 实际应用测试
+- [项目测试 (GitHub)](https://github.com/Cricle/Catga/tree/master/tests/Catga.Tests) - 项目测试
+- [OrderSystem.Api 示例](../../examples/OrderSystem.Api/README.md) - 实际应用测试
 
 ## 🤝 贡献
 
@@ -262,5 +262,5 @@ sw.Elapsed.Should().BeGreaterThanOrEqualTo(TimeSpan.FromSeconds(1));
 
 ## 📄 许可证
 
-MIT License - 详见 [LICENSE](../../LICENSE)
+MIT License - 详见 [LICENSE](https://github.com/Cricle/Catga/blob/master/LICENSE)
 

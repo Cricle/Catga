@@ -4,13 +4,13 @@
 
 ## 📋 目录
 
-- [快速开始](#quickstart)
-- [核心概念](#core-concepts)
-- [序列化器选择](#serializer-choice)
-- [池化内存管理](#pooled-memory)
-- [最佳实践](#best-practices)
-- [性能基准](#benchmarks)
-- [AOT 兼容性](#aot-compat)
+- 快速开始
+- 核心概念
+- 序列化器选择
+- 池化内存管理
+- 最佳实践
+- 性能基准
+- AOT 兼容性
 
 ---
 

@@ -8,7 +8,7 @@
 
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![Native AOT](https://img.shields.io/badge/Native-AOT-success?logo=dotnet)](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Cricle/Catga/blob/master/LICENSE)
 
 **纳秒级延迟 · 百万QPS · 零反射 · 源生成 · 生产就绪**
 
@@ -142,7 +142,7 @@
 | 文档 | 说明 |
 |------|------|
 | [分布式事务](./patterns/DISTRIBUTED-TRANSACTION-V2.md) | Outbox/Inbox 模式 |
-| [事件溯源](./architecture/ARCHITECTURE.md#event-sourcing) | Event Sourcing 实现 |
+| [事件溯源](./architecture/ARCHITECTURE.md) | Event Sourcing 实现 |
 | [分布式追踪](./observability/DISTRIBUTED-TRACING-GUIDE.md) | OpenTelemetry 集成 |
 | [Jaeger 完整指南](./observability/JAEGER-COMPLETE-GUIDE.md) | 分布式追踪可视化 |
 | [监控指标](./production/MONITORING-GUIDE.md) | Prometheus + Grafana |

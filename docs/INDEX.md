@@ -1,4 +1,4 @@
-# 📚 Catga 文档中心
+# 📚 Catga 文档中心 {#top}
 
 <div align="center">
 
@@ -347,6 +347,6 @@ var result = await mediator.SendAsync(new CreateOrderCommand("PROD-001", 5));
 
 Made with ❤️ by the Catga Team
 
-[返回顶部](#-catga-文档中心)
+[返回顶部](#top)
 
 </div>

@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="MemoryPack" />
   </ItemGroup>
 
 </Project>

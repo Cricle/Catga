@@ -6,13 +6,14 @@ using StackExchange.Redis;
 using Catga.Resilience;
 using System.Diagnostics;
 using Catga.Observability;
+using MemoryPack;
 
 namespace Catga.Persistence.Redis;
 
 /// <summary>
 /// Redis idempotency store - production-grade high-performance (uses injected IMessageSerializer)
 /// </summary>
-public class RedisIdempotencyStore : RedisStoreBase, IIdempotencyStore
+public partial class RedisIdempotencyStore : RedisStoreBase, IIdempotencyStore
 {
     private readonly ILogger<RedisIdempotencyStore> _logger;
     private readonly TimeSpan _defaultExpiry;
@@ -117,7 +118,8 @@ public class RedisIdempotencyStore : RedisStoreBase, IIdempotencyStore
     /// <summary>
     /// Idempotency entry
     /// </summary>
-    private class IdempotencyEntry
+    [MemoryPackable]
+    private partial class IdempotencyEntry
     {
         public long MessageId { get; set; }
         public DateTime ProcessedAt { get; set; }
@@ -125,4 +127,3 @@ public class RedisIdempotencyStore : RedisStoreBase, IIdempotencyStore
         public byte[]? ResultBytes { get; set; }
     }
 }
-

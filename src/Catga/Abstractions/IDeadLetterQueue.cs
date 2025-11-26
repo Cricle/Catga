@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
+using MemoryPack;
 
 namespace Catga.DeadLetter;
 
@@ -29,15 +30,15 @@ public interface IDeadLetterQueue
 /// <summary>
 /// Dead letter message envelope (zero-allocation struct)
 /// </summary>
-public readonly struct DeadLetterMessage
+[MemoryPackable]
+public partial struct DeadLetterMessage
 {
-    public required long MessageId { get; init; }
-    public required string MessageType { get; init; }
-    public required string MessageJson { get; init; }
-    public required string ExceptionType { get; init; }
-    public required string ExceptionMessage { get; init; }
-    public required string StackTrace { get; init; }
-    public int RetryCount { get; init; }
-    public DateTime FailedAt { get; init; }
+    public required long MessageId { get; set; }
+    public required string MessageType { get; set; }
+    public required string MessageJson { get; set; }
+    public required string ExceptionType { get; set; }
+    public required string ExceptionMessage { get; set; }
+    public required string StackTrace { get; set; }
+    public int RetryCount { get; set; }
+    public DateTime FailedAt { get; set; }
 }
-

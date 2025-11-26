@@ -6,7 +6,7 @@
 
 **纳秒级延迟 · 百万QPS · 零反射 · 源生成 · 生产就绪**
 
-[GitHub](https://github.com/Cricle/Catga) · [快速开始](./articles/getting-started.md) · [API 文档](./api/README.md) · [示例](../examples/)
+[GitHub](https://github.com/Cricle/Catga) · [快速开始](./articles/getting-started.md) · [API 文档](./api/README.md) · [示例](./examples/basic-usage.md)
 
 </div>
 
@@ -218,6 +218,10 @@ public class OrderTests : IDisposable
 | [OrderSystem.AppHost](../examples/OrderSystem.AppHost/) | .NET Aspire 编排 | 云原生开发 |
 
 ### 示例代码
+
+#### E2E 实战场景
+
+- [分布式与集群 E2E 场景](./examples/e2e-scenarios.md)
 
 ```csharp
 // 1️⃣ 定义消息

@@ -529,7 +529,7 @@ dotnet run -c Release --project YourProject.csproj
 | [错误处理](../guides/error-handling.md) | 异常处理和回滚 | 20 min |
 | [性能优化](../guides/memory-optimization-guide.md) | 零分配技巧 | 1 hour |
 | [分布式部署](../deployment/kubernetes.md) | K8s 部署 | 2 hours |
-| [OrderSystem 示例](../../examples/OrderSystem.Api/) | 完整电商系统 | 2 hours |
+| [OrderSystem 示例](../../examples/OrderSystem.Api/README.md) | 完整电商系统 | 2 hours |
 
 ---
 
@@ -591,7 +591,7 @@ return CatgaResult<User>.Failure("User not found");
 
 查看完整的生产级别示例:
 
-- **OrderSystem**: [examples/OrderSystem.Api](../../examples/OrderSystem.Api/)
+- **OrderSystem**: [examples/OrderSystem.Api](../../examples/OrderSystem.Api/README.md)
   - 完整的电商订单系统
   - 分布式部署 (3 节点集群)
   - 监控和追踪
@@ -614,6 +614,6 @@ return CatgaResult<User>.Failure("User not found");
 
 现在开始构建你的高性能 CQRS 应用吧！
 
-[查看完整文档](../README.md) · [查看示例](../../examples/) · [性能基准](../BENCHMARK-RESULTS.md)
+[查看完整文档](../README.md) · [查看示例](../examples/basic-usage.md) · [性能基准](../BENCHMARK-RESULTS.md)
 
 </div>

@@ -60,63 +60,42 @@ jobs:
         show_missing: true
         show_branch: true
 
-  smoke-matrix:
-    name: Non-Docker Tests (Windows/macOS)
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, macos-latest]
+  smoke-windows:
+    name: Non-Docker Tests (Windows)
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      runner: windows-latest
+      test_filter: 'Requires!=Docker'
+      enable_docker: false
+      upload_artifacts: false
 
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  smoke-macos:
+    name: Non-Docker Tests (macOS)
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      runner: macos-latest
+      test_filter: 'Requires!=Docker'
+      enable_docker: false
+      upload_artifacts: false
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '9.0.x'
+  docker-redis7-alpine:
+    name: Docker Tests (redis:7-alpine)
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      runner: ubuntu-latest
+      test_filter: 'Requires=Docker'
+      enable_docker: true
+      nats_image: 'nats:latest'
+      redis_image: 'redis:7-alpine'
+      upload_artifacts: false
 
-    - name: Restore dependencies
-      run: dotnet restore
-
-    - name: Build solution
-      run: dotnet build --no-restore --configuration Release
-
-    - name: Run tests (non-docker)
-      run: dotnet test --no-build --configuration Release --filter "Requires!=Docker"
-
-  docker-matrix:
-    name: Docker Tests (image matrix)
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        redis_image: [redis:7-alpine, redis:7]
-        nats_image: [nats:latest]
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '9.0.x'
-
-    - name: Restore dependencies
-      run: dotnet restore
-
-    - name: Build solution
-      run: dotnet build --no-restore --configuration Release
-
-    - name: Pre-pull Docker images
-      run: |
-        docker pull ${{ matrix.nats_image }}
-        docker pull ${{ matrix.redis_image }}
-
-    - name: Run Docker tests (matrix)
-      env:
-        TEST_NATS_IMAGE: ${{ matrix.nats_image }}
-        TEST_REDIS_IMAGE: ${{ matrix.redis_image }}
-      run: dotnet test --no-build --configuration Release --filter "Requires=Docker" --blame-hang --blame-hang-timeout "8m" --logger "console;verbosity=detailed"
+  docker-redis7:
+    name: Docker Tests (redis:7)
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      runner: ubuntu-latest
+      test_filter: 'Requires=Docker'
+      enable_docker: true
+      nats_image: 'nats:latest'
+      redis_image: 'redis:7'
+      upload_artifacts: false

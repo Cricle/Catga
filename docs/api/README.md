@@ -40,5 +40,5 @@
 ## 快速链接
 
 - [快速开始](../articles/getting-started.md)
-- [使用示例](../examples/)
+- [使用示例](../examples/basic-usage.md)
 

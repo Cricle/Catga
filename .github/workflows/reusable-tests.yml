@@ -1,0 +1,116 @@
+name: Reusable .NET Tests
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: "Runner label (ubuntu-latest/windows-latest/macos-latest)"
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+      test_filter:
+        description: "VSTest filter expression (e.g., Category=Integration or Requires=Docker)"
+        required: false
+        type: string
+        default: ''
+      enable_docker:
+        description: "Whether to require Docker and pre-pull images"
+        required: false
+        type: boolean
+        default: false
+      collect_coverage:
+        description: "Collect coverage using XPlat Code Coverage and generate report"
+        required: false
+        type: boolean
+        default: false
+      nats_image:
+        description: "Docker image for NATS"
+        required: false
+        type: string
+        default: 'nats:latest'
+      redis_image:
+        description: "Docker image for Redis"
+        required: false
+        type: string
+        default: 'redis:7-alpine'
+      results_dir:
+        description: "Directory to store test result TRX files"
+        required: false
+        type: string
+        default: 'tests/Catga.Tests/TestResults'
+      coverage_dir:
+        description: "Directory to store raw coverage outputs"
+        required: false
+        type: string
+        default: 'coverage'
+      upload_artifacts:
+        description: "Upload artifacts (test results and coverage report)"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  test:
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: dotnet restore Catga.sln
+
+      - name: Build (Release)
+        run: dotnet build --no-restore -c Release Catga.sln
+
+      - name: Check & prepare Docker
+        if: ${{ inputs.enable_docker }}
+        run: |
+          docker info
+          docker pull ${{ inputs.nats_image }}
+          docker pull ${{ inputs.redis_image }}
+
+      - name: Run tests
+        if: ${{ !inputs.collect_coverage }}
+        shell: bash
+        env:
+          TEST_NATS_IMAGE: ${{ inputs.nats_image }}
+          TEST_REDIS_IMAGE: ${{ inputs.redis_image }}
+        run: |
+          FILTER_ARG=""
+          if [ -n "${{ inputs.test_filter }}" ]; then FILTER_ARG="--filter \"${{ inputs.test_filter }}\""; fi
+          dotnet test --no-build -c Release $FILTER_ARG --logger "trx;LogFileName=test.trx" --results-directory "${{ inputs.results_dir }}"
+
+      - name: Run tests with coverage
+        if: ${{ inputs.collect_coverage }}
+        shell: bash
+        env:
+          TEST_NATS_IMAGE: ${{ inputs.nats_image }}
+          TEST_REDIS_IMAGE: ${{ inputs.redis_image }}
+        run: |
+          FILTER_ARG=""
+          if [ -n "${{ inputs.test_filter }}" ]; then FILTER_ARG="--filter \"${{ inputs.test_filter }}\""; fi
+          dotnet test --no-build -c Release $FILTER_ARG --collect:"XPlat Code Coverage" --results-directory "${{ inputs.coverage_dir }}" --logger "trx;LogFileName=test.trx"
+
+      - name: Generate coverage report
+        if: ${{ inputs.collect_coverage }}
+        uses: danielpalme/ReportGenerator-GitHub-Action@5.2.0
+        with:
+          reports: '${{ inputs.coverage_dir }}/**/coverage.cobertura.xml'
+          targetdir: 'coveragereport'
+          reporttypes: 'HtmlInline;Cobertura;Badges'
+          assemblyfilters: '+Catga*;-Catga.Tests'
+
+      - name: Upload artifacts
+        if: ${{ inputs.upload_artifacts }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.collect_coverage && 'coverage-report' || 'test-results' }}
+          path: |
+            ${{ inputs.collect_coverage && 'coveragereport/**' || '' }}
+            ${{ inputs.collect_coverage && format('{0}/**/coverage.cobertura.xml', inputs.coverage_dir) || '' }}
+            ${{ inputs.results_dir }}/**/*.trx

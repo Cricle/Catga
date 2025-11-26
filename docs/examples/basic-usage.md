@@ -495,11 +495,11 @@ builder.Services.AddCatga(options =>
 
 ## 完整示例
 
-参考 [examples](../../examples/) 文件夹中的完整示例项目。
+参考 [examples](../../examples/README.md) 文件夹中的完整示例项目。
 
 ## 相关文档
 
-- [API 参考](../api/)
-- [高级用法](advanced-usage.md)
-- [最佳实践](../guides/best-practices.md)
+- [API 参考](../api/README.md)
+- [高级用法](../guides/source-generator-usage.md)
+- [最佳实践](../guides/memory-optimization-guide.md)
 

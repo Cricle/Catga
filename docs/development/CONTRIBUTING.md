@@ -254,7 +254,7 @@ dotnet run -c Release --project benchmarks/Catga.Benchmarks
 新功能需要更新文档：
 
 1. **README.md** - 主要特性
-2. **QUICK-REFERENCE.md** - 快速参考
+2. **INDEX.md** - 文档索引与快速导航
 3. **docs/** - 详细指南
 
 文档格式：

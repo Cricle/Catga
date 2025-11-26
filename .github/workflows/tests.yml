@@ -1,0 +1,29 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  unit:
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      runner: ubuntu-latest
+      test_filter: 'Category!=Integration'
+      enable_docker: false
+      results_dir: 'tests/Catga.Tests/TestResults'
+      upload_artifacts: true
+
+  integration:
+    needs: unit
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      runner: ubuntu-latest
+      test_filter: 'Category=Integration'
+      enable_docker: true
+      nats_image: 'nats:latest'
+      redis_image: 'redis:7-alpine'
+      results_dir: 'tests/Catga.Tests/TestResults'
+      upload_artifacts: true

@@ -38,3 +38,47 @@ jobs:
       coverage_dir: 'coverage'
       results_dir: 'tests/Catga.Tests/TestResults'
       upload_artifacts: true
+
+  docfx:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    needs: [unit, integration]
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install DocFX (Chocolatey)
+        run: |
+          choco install docfx -y
+          refreshenv
+
+      - name: Build DocFX site
+        run: |
+          docfx docfx.json --warningsAsErrors | Tee-Object -FilePath docfx.log
+
+      - name: Upload docfx.log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docfx-log
+          path: docfx.log
+          if-no-files-found: ignore
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

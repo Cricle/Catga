@@ -40,10 +40,15 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
     {
         if (!IsDockerRunning()) return;
 
+        // Resolve images (allow override via env vars) and ensure they are locally available to avoid long pulls
+        var natsImage = ResolveImage("TEST_NATS_IMAGE", "nats:2.10-alpine");
+        var redisImage = ResolveImage("TEST_REDIS_IMAGE", "redis:7-alpine");
+        if (natsImage is null || redisImage is null) return;
+
         // Start NATS (JetStream + monitoring)
         // Avoid relying on nc/bash/wget in base image; wait on log message instead.
         _natsContainer = new ContainerBuilder()
-            .WithImage("nats:2.10-alpine")
+            .WithImage(natsImage)
             .WithPortBinding(4222, true)
             .WithPortBinding(8222, true)
             .WithCommand("-js", "-m", "8222")
@@ -59,7 +64,7 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
 
         // Start Redis
         _redisContainer = new RedisBuilder()
-            .WithImage("redis:7-alpine")
+            .WithImage(redisImage)
             .Build();
         await _redisContainer.StartAsync();
         _redis = await ConnectionMultiplexer.ConnectAsync(_redisContainer.GetConnectionString());
@@ -96,6 +101,31 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
                 CreateNoWindow = true
             });
             p?.WaitForExit(5000);
+            return p?.ExitCode == 0;
+        }
+        catch { return false; }
+    }
+
+    private static string? ResolveImage(string envVar, string defaultImage)
+    {
+        var img = Environment.GetEnvironmentVariable(envVar) ?? defaultImage;
+        return IsImageAvailable(img) ? img : null;
+    }
+
+    private static bool IsImageAvailable(string image)
+    {
+        try
+        {
+            var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "docker",
+                Arguments = $"image inspect {image}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            p?.WaitForExit(3000);
             return p?.ExitCode == 0;
         }
         catch { return false; }

@@ -85,6 +85,7 @@ public static class CatgaDiagnostics
     public static readonly Histogram<int> MediatorBatchSize = Meter.CreateHistogram<int>("catga.mediator.batch.size", "items", "Mediator batch size");
     public static readonly Histogram<double> MediatorBatchFlushDuration = Meter.CreateHistogram<double>("catga.mediator.batch.flush.duration", "ms", "Mediator batch flush duration");
     public static readonly Histogram<int> MediatorBatchQueueLength = Meter.CreateHistogram<int>("catga.mediator.batch.queue_length", "items", "Mediator batch queue length");
+    public static readonly Counter<long> MediatorBatchOverflow = Meter.CreateCounter<long>("catga.mediator.batch.overflow", "items", "Mediator batch queue overflow drops");
 
     // DI metrics
     public static readonly Counter<long> DIRegistrationsCompleted = Meter.CreateCounter<long>("catga.di.registrations.completed", "registrations", "DI registrations completed");

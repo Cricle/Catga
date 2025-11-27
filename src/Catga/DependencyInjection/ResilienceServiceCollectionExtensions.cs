@@ -31,8 +31,9 @@ public static class ResilienceServiceCollectionExtensions
                 options.PersistenceBulkheadQueueLimit = c;
             }
 #endif
-            services.TryAddSingleton(options);
-            services.TryAddSingleton<IResiliencePipelineProvider>(sp => new DefaultResiliencePipelineProvider(options));
+            // Use AddSingleton (not TryAdd) so that explicit UseResilience registrations override any prior defaults
+            services.AddSingleton(options);
+            services.AddSingleton<IResiliencePipelineProvider>(sp => new DefaultResiliencePipelineProvider(options));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(PollyBehavior<,>));
 
             sw.Stop();

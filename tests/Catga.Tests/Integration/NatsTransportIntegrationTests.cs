@@ -27,7 +27,9 @@ public partial class NatsTransportIntegrationTests : IAsyncLifetime
     {
         if (!IsDockerRunning()) return;
 
-        var natsImage = Environment.GetEnvironmentVariable("TEST_NATS_IMAGE") ?? "nats:latest";
+        var natsImage = ResolveImage("TEST_NATS_IMAGE", "nats:latest");
+        if (natsImage is null) return;
+
         _natsContainer = new ContainerBuilder()
             .WithImage(natsImage)
             .WithPortBinding(4222, true)
@@ -42,7 +44,7 @@ public partial class NatsTransportIntegrationTests : IAsyncLifetime
         await _natsContainer.StartAsync();
 
         var port = _natsContainer.GetMappedPublicPort(4222);
-        _connection = new NatsConnection(new NatsOpts { Url = $"nats://localhost:{port}" });
+        _connection = new NatsConnection(new NatsOpts { Url = $"nats://localhost:{port}", ConnectTimeout = TimeSpan.FromSeconds(10) });
         await _connection.ConnectAsync();
 
         _transport = new NatsMessageTransport(_connection, new MemoryPackMessageSerializer(),
@@ -71,6 +73,31 @@ public partial class NatsTransportIntegrationTests : IAsyncLifetime
                 CreateNoWindow = true
             });
             p?.WaitForExit(5000);
+            return p?.ExitCode == 0;
+        }
+        catch { return false; }
+    }
+
+    private static string? ResolveImage(string envVar, string defaultImage)
+    {
+        var img = Environment.GetEnvironmentVariable(envVar) ?? defaultImage;
+        return IsImageAvailable(img) ? img : null;
+    }
+
+    private static bool IsImageAvailable(string image)
+    {
+        try
+        {
+            var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "docker",
+                Arguments = $"image inspect {image}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            p?.WaitForExit(3000);
             return p?.ExitCode == 0;
         }
         catch { return false; }

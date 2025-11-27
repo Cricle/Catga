@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Linq;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.Pipeline;
@@ -26,16 +27,14 @@ public sealed class AutoBatchingBehavior<
 
     private readonly MediatorBatchOptions _options;
     private readonly IResiliencePipelineProvider _provider;
+    private readonly IMediatorBatchOptionsProvider? _optionsProvider;
 
     public AutoBatchingBehavior(ILogger<AutoBatchingBehavior<TRequest, TResponse>> logger, MediatorBatchOptions options, IResiliencePipelineProvider provider, IHostApplicationLifetime appLifetime)
         : base(logger)
     {
         _options = options ?? new MediatorBatchOptions();
         _provider = provider;
-        if (_options.EnableAutoBatching)
-        {
-            EnsureAggregatorInitialized(_options, _provider, Logger, appLifetime.ApplicationStopping);
-        }
+        EnsureAggregatorInitialized(_options, _provider, Logger, appLifetime.ApplicationStopping, _optionsProvider);
     }
 
     // Fallback for environments without IHostApplicationLifetime (unit tests, simple ServiceCollection)
@@ -44,15 +43,41 @@ public sealed class AutoBatchingBehavior<
     {
         _options = options ?? new MediatorBatchOptions();
         _provider = provider;
+        EnsureAggregatorInitialized(_options, _provider, Logger, CancellationToken.None, _optionsProvider);
+    }
+
+    // Preferred constructor when IMediatorBatchOptionsProvider is registered via DI
+    public AutoBatchingBehavior(ILogger<AutoBatchingBehavior<TRequest, TResponse>> logger, MediatorBatchOptions options, IResiliencePipelineProvider provider, IHostApplicationLifetime appLifetime, IMediatorBatchOptionsProvider optionsProvider)
+        : base(logger)
+    {
+        _options = options ?? new MediatorBatchOptions();
+        _provider = provider;
+        _optionsProvider = optionsProvider;
         if (_options.EnableAutoBatching)
         {
-            EnsureAggregatorInitialized(_options, _provider, Logger, CancellationToken.None);
+            EnsureAggregatorInitialized(_options, _provider, Logger, appLifetime.ApplicationStopping, _optionsProvider);
+        }
+    }
+
+    // Preferred constructor without IHostApplicationLifetime
+    public AutoBatchingBehavior(ILogger<AutoBatchingBehavior<TRequest, TResponse>> logger, MediatorBatchOptions options, IResiliencePipelineProvider provider, IMediatorBatchOptionsProvider optionsProvider)
+        : base(logger)
+    {
+        _options = options ?? new MediatorBatchOptions();
+        _provider = provider;
+        _optionsProvider = optionsProvider;
+        if (_options.EnableAutoBatching)
+        {
+            EnsureAggregatorInitialized(_options, _provider, Logger, CancellationToken.None, _optionsProvider);
         }
     }
 
     public override async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
-        if (!_options.EnableAutoBatching || _options.MaxBatchSize <= 1)
+        // Determine effective options: per-type overrides via provider, fallback to global
+        var effective = _optionsProvider != null ? _optionsProvider.GetEffective<TRequest>(_options) : _options;
+
+        if (!effective.EnableAutoBatching || effective.MaxBatchSize <= 1)
         {
             return await next();
         }
@@ -64,18 +89,27 @@ public sealed class AutoBatchingBehavior<
             return await tcs.Task;
         }
 
-        var aggregator = _aggregator!; // initialized in ctor when enabled
+        var aggregator = _aggregator; // may be null if disabled for this type
+        if (aggregator is null)
+        {
+            return await next();
+        }
         return await aggregator.EnqueueAsync(request, next, cancellationToken);
     }
 
-    private static void EnsureAggregatorInitialized(MediatorBatchOptions options, IResiliencePipelineProvider provider, ILogger logger, CancellationToken stop)
+    private static void EnsureAggregatorInitialized(MediatorBatchOptions options, IResiliencePipelineProvider provider, ILogger logger, CancellationToken stop, IMediatorBatchOptionsProvider? optionsProvider)
     {
         if (_aggregator != null) return;
         lock (_initLock)
         {
             if (_aggregator == null)
             {
-                _aggregator = new Aggregator(options, provider, logger, stop);
+                var effective = optionsProvider != null ? optionsProvider.GetEffective<TRequest>(options) : options;
+                var selector = optionsProvider != null ? optionsProvider.GetKeySelectorOrDefault<TRequest>() : null;
+                if (effective.EnableAutoBatching && effective.MaxBatchSize > 1)
+                {
+                    _aggregator = new Aggregator(effective, provider, logger, stop, selector);
+                }
             }
         }
     }
@@ -89,13 +123,15 @@ public sealed class AutoBatchingBehavior<
         private readonly Timer _timer;
         private readonly CancellationToken _stop;
         private readonly CancellationTokenRegistration _stopReg;
+        private readonly Func<TRequest, string?>? _keySelector;
 
-        public Aggregator(MediatorBatchOptions options, IResiliencePipelineProvider provider, ILogger logger, CancellationToken stop)
+        public Aggregator(MediatorBatchOptions options, IResiliencePipelineProvider provider, ILogger logger, CancellationToken stop, Func<TRequest, string?>? keySelector)
         {
             _options = options;
             _provider = provider;
             _logger = logger;
             _stop = stop;
+            _keySelector = keySelector;
             var ms = Math.Max(1.0, options.BatchTimeout.TotalMilliseconds);
             var jitter = 1.0 + (Random.Shared.NextDouble() * 0.2 - 0.1);
             var period = TimeSpan.FromMilliseconds(Math.Max(1, ms * jitter));
@@ -108,7 +144,19 @@ public sealed class AutoBatchingBehavior<
             var tcs = new TaskCompletionSource<CatgaResult<TResponse>>(TaskCreationOptions.RunContinuationsAsynchronously);
             var entry = new Entry(request, next, tcs, ct);
 
-            var key = (request is Catga.Abstractions.IBatchKeyProvider kp && !string.IsNullOrEmpty(kp.BatchKey)) ? kp.BatchKey! : "_";
+            string key;
+            if (_keySelector != null)
+            {
+                key = _keySelector(request) ?? "_";
+            }
+            else if (request is Catga.Abstractions.IBatchKeyProvider kp && !string.IsNullOrEmpty(kp.BatchKey))
+            {
+                key = kp.BatchKey!;
+            }
+            else
+            {
+                key = "_";
+            }
             var shard = _shards.GetOrAdd(key, k => new Shard(k, _options, _provider, _logger));
             var newCount = shard.Enqueue(entry);
             if (newCount >= _options.MaxBatchSize) _ = Task.Run(shard.FlushAsync);
@@ -119,10 +167,52 @@ public sealed class AutoBatchingBehavior<
         private void OnTimer(object? state)
         {
             if (_stop.IsCancellationRequested) return;
+            // Cleanup idle shards by TTL and enforce max shard limit
+            var nowTicks = DateTime.UtcNow.Ticks;
             foreach (var kv in _shards)
             {
                 var shard = kv.Value;
-                if (shard.Count > 0) _ = Task.Run(shard.FlushAsync);
+                if (shard.Count > 0)
+                {
+                    _ = Task.Run(shard.FlushAsync);
+                }
+                else
+                {
+                    if (nowTicks - shard.LastSeenTicks >= _options.ShardIdleTtl.Ticks)
+                    {
+                        _shards.TryRemove(kv.Key, out _);
+                    }
+                }
+            }
+
+            var limit = _options.MaxShards;
+            if (limit > 0)
+            {
+                var current = _shards.Count;
+                if (current > limit)
+                {
+                    var over = current - limit;
+                    if (over > 0)
+                    {
+                        var idle = new List<KeyValuePair<string, long>>();
+                        foreach (var kv in _shards)
+                        {
+                            var s = kv.Value;
+                            if (s.Count == 0)
+                            {
+                                idle.Add(new KeyValuePair<string, long>(kv.Key, s.LastSeenTicks));
+                            }
+                        }
+                        if (idle.Count > 0)
+                        {
+                            foreach (var candidate in idle.OrderBy(p => p.Value))
+                            {
+                                if (over == 0) break;
+                                if (_shards.TryRemove(candidate.Key, out _)) over--;
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -135,6 +225,7 @@ public sealed class AutoBatchingBehavior<
             private readonly ILogger _logger;
             private int _count;
             private int _flushing;
+            private long _lastSeenTicks;
 
             public Shard(string key, MediatorBatchOptions options, IResiliencePipelineProvider provider, ILogger logger)
             {
@@ -142,20 +233,25 @@ public sealed class AutoBatchingBehavior<
                 _options = options;
                 _provider = provider;
                 _logger = logger;
+                _lastSeenTicks = DateTime.UtcNow.Ticks;
             }
 
             public int Count => Volatile.Read(ref _count);
+            public long LastSeenTicks => Volatile.Read(ref _lastSeenTicks);
 
             public int Enqueue(Entry entry)
             {
                 var newCount = Interlocked.Increment(ref _count);
                 _queue.Enqueue(entry);
+                Volatile.Write(ref _lastSeenTicks, DateTime.UtcNow.Ticks);
                 if (newCount > _options.MaxQueueLength)
                 {
                     if (_queue.TryDequeue(out var dropped))
                     {
                         Interlocked.Decrement(ref _count);
                         dropped.TrySetFailure(CatgaResult<TResponse>.Failure("Mediator batch queue overflow"));
+                        if (ObservabilityHooks.IsEnabled) ObservabilityHooks.RecordMediatorBatchOverflow();
+                        _logger.LogWarning("Mediator batch queue overflow for {RequestType} shard {Key}", typeof(TRequest).Name, _key);
                     }
                 }
                 return newCount;
@@ -174,16 +270,17 @@ public sealed class AutoBatchingBehavior<
                     }
                     if (batch.Count == 0) return;
                     var start = Stopwatch.GetTimestamp();
+                    Volatile.Write(ref _lastSeenTicks, DateTime.UtcNow.Ticks);
                     try
                     {
                         await _provider.ExecuteMediatorAsync(async ct =>
                         {
-                            foreach (var e in batch)
+                            async Task ExecuteEntryCoreAsync(Entry e)
                             {
                                 if (e.CancellationToken.IsCancellationRequested)
                                 {
                                     e.TrySetCanceled(e.CancellationToken);
-                                    continue;
+                                    return;
                                 }
                                 try
                                 {
@@ -197,14 +294,46 @@ public sealed class AutoBatchingBehavior<
                                     e.TrySetFailure(CatgaResult<TResponse>.Failure("Auto-batch execution error", wrapped));
                                 }
                             }
+
+                            if (_options.FlushDegree <= 0)
+                            {
+                                foreach (var e in batch)
+                                {
+                                    await ExecuteEntryCoreAsync(e);
+                                }
+                            }
+                            else
+                            {
+                                var degree = Math.Max(1, _options.FlushDegree);
+                                using var semaphore = new SemaphoreSlim(degree, degree);
+                                var tasks = new List<Task>(batch.Count);
+
+                                foreach (var e in batch)
+                                {
+                                    tasks.Add(RunWithSemaphoreAsync(e));
+                                }
+
+                                await Task.WhenAll(tasks);
+
+                                async Task RunWithSemaphoreAsync(Entry e)
+                                {
+                                    await semaphore.WaitAsync(CancellationToken.None);
+                                    try
+                                    {
+                                        await ExecuteEntryCoreAsync(e);
+                                    }
+                                    finally
+                                    {
+                                        semaphore.Release();
+                                    }
+                                }
+                            }
                         }, CancellationToken.None);
                         if (ObservabilityHooks.IsEnabled)
                         {
                             var elapsed = Stopwatch.GetTimestamp() - start;
                             var durationMs = elapsed * 1000.0 / Stopwatch.Frequency;
-                            CatgaDiagnostics.MediatorBatchSize.Record(batch.Count);
-                            CatgaDiagnostics.MediatorBatchQueueLength.Record(Count);
-                            CatgaDiagnostics.MediatorBatchFlushDuration.Record(durationMs);
+                            ObservabilityHooks.RecordMediatorBatchMetrics(batch.Count, Count, durationMs);
                         }
                     }
                     catch (Exception ex)
@@ -219,9 +348,7 @@ public sealed class AutoBatchingBehavior<
                         {
                             var elapsed = Stopwatch.GetTimestamp() - start;
                             var durationMs = elapsed * 1000.0 / Stopwatch.Frequency;
-                            CatgaDiagnostics.MediatorBatchSize.Record(batch.Count);
-                            CatgaDiagnostics.MediatorBatchQueueLength.Record(Count);
-                            CatgaDiagnostics.MediatorBatchFlushDuration.Record(durationMs);
+                            ObservabilityHooks.RecordMediatorBatchMetrics(batch.Count, Count, durationMs);
                         }
                     }
                 }

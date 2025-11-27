@@ -39,7 +39,8 @@ public sealed partial class AdditionalE2ETests : IAsyncLifetime
         if (!IsDockerRunning()) return;
 
         // NATS with JetStream
-        var natsImage = Environment.GetEnvironmentVariable("TEST_NATS_IMAGE") ?? "nats:latest";
+        var natsImage = ResolveImage("TEST_NATS_IMAGE", "nats:latest");
+        if (natsImage is null) return;
         _natsContainer = new ContainerBuilder()
             .WithImage(natsImage)
             .WithPortBinding(4222, true)
@@ -53,7 +54,8 @@ public sealed partial class AdditionalE2ETests : IAsyncLifetime
         await _nats.ConnectAsync();
 
         // Redis 7
-        var redisImage = Environment.GetEnvironmentVariable("TEST_REDIS_IMAGE") ?? "redis:7-alpine";
+        var redisImage = ResolveImage("TEST_REDIS_IMAGE", "redis:7-alpine");
+        if (redisImage is null) return;
         _redisContainer = new RedisBuilder().WithImage(redisImage).Build();
         await _redisContainer.StartAsync();
         _redis = await ConnectionMultiplexer.ConnectAsync(_redisContainer.GetConnectionString());
@@ -196,6 +198,31 @@ public sealed partial class AdditionalE2ETests : IAsyncLifetime
                 CreateNoWindow = true
             });
             p?.WaitForExit(5000);
+            return p?.ExitCode == 0;
+        }
+        catch { return false; }
+    }
+
+    private static string? ResolveImage(string envVar, string defaultImage)
+    {
+        var img = Environment.GetEnvironmentVariable(envVar) ?? defaultImage;
+        return IsImageAvailable(img) ? img : null;
+    }
+
+    private static bool IsImageAvailable(string image)
+    {
+        try
+        {
+            var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "docker",
+                Arguments = $"image inspect {image}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            p?.WaitForExit(3000);
             return p?.ExitCode == 0;
         }
         catch { return false; }

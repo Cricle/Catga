@@ -148,4 +148,19 @@ public static class ObservabilityHooks
         CatgaDiagnostics.EventsPublished.Add(1, _tags_event);
 #endif
     }
+
+    // ---- Mediator Auto-Batching ----
+    public static void RecordMediatorBatchMetrics(int batchSize, int queueLength, double flushDurationMs)
+    {
+        if (!_enabled) return;
+        CatgaDiagnostics.MediatorBatchSize.Record(batchSize);
+        CatgaDiagnostics.MediatorBatchQueueLength.Record(queueLength);
+        CatgaDiagnostics.MediatorBatchFlushDuration.Record(flushDurationMs);
+    }
+
+    public static void RecordMediatorBatchOverflow()
+    {
+        if (!_enabled) return;
+        CatgaDiagnostics.MediatorBatchOverflow.Add(1);
+    }
 }

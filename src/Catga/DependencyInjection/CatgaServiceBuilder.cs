@@ -220,13 +220,14 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
         // Expose options to behaviors via DI
         Services.AddSingleton(options);
 
+        // Ensure default provider exists for per-type overrides fallback
+        Services.TryAddSingleton<Catga.Pipeline.IMediatorBatchOptionsProvider, Catga.Pipeline.DefaultMediatorBatchOptionsProvider>();
+
         if (options.EnableAutoBatching)
         {
-            // Ensure a resilience provider exists without duplicating PollyBehavior registrations
             Services.TryAddSingleton<CatgaResilienceOptions>(_ => new CatgaResilienceOptions());
             Services.TryAddSingleton<IResiliencePipelineProvider>(sp => new DefaultResiliencePipelineProvider(sp.GetRequiredService<CatgaResilienceOptions>()));
 
-            // Register batching behavior
             Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.AutoBatchingBehavior<,>));
         }
 

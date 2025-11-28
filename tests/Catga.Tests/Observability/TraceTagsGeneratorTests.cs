@@ -1,11 +1,13 @@
 using System.Diagnostics;
+using System.Linq;
 using Catga.Abstractions;
+using Catga.Core;
 using FluentAssertions;
 using Xunit;
 
 namespace Catga.Tests.Observability;
 
-public class TraceTagsGeneratorTests
+public partial class TraceTagsGeneratorTests
 {
     [Fact]
     public void TypeLevel_DefaultPrefix_For_Request_ShouldBe_catga_req()
@@ -16,8 +18,11 @@ public class TraceTagsGeneratorTests
         enricher.Enrich(act);
         act.Stop();
 
-        act.Tags.Should().Contain(t => t.Key == "catga.req.Id" && t.Value?.ToString() == req.Id.ToString());
-        act.Tags.Should().Contain(t => t.Key == "catga.req.Name" && t.Value?.ToString() == req.Name);
+        var objs1 = new Dictionary<string, object?>();
+        foreach (var kv in act.EnumerateTagObjects()) objs1[kv.Key] = kv.Value;
+        objs1.Should().ContainKey("catga.req.Id");
+        objs1["catga.req.Id"].Should().Be(req.Id);
+        act.Tags.Should().Contain(t => t.Key == "catga.req.Name" && t.Value == req.Name);
     }
 
     [Fact]
@@ -29,8 +34,11 @@ public class TraceTagsGeneratorTests
         enricher.Enrich(act);
         act.Stop();
 
-        act.Tags.Should().Contain(t => t.Key == "catga.res.Code" && t.Value?.ToString() == res.Code.ToString());
-        act.Tags.Should().Contain(t => t.Key == "catga.res.Message" && t.Value?.ToString() == res.Message);
+        var objs2 = new Dictionary<string, object?>();
+        foreach (var kv in act.EnumerateTagObjects()) objs2[kv.Key] = kv.Value;
+        objs2.Should().ContainKey("catga.res.Code");
+        objs2["catga.res.Code"].Should().Be(res.Code);
+        act.Tags.Should().Contain(t => t.Key == "catga.res.Message" && t.Value == res.Message);
     }
 
     [Fact]
@@ -42,7 +50,10 @@ public class TraceTagsGeneratorTests
         enricher.Enrich(act);
         act.Stop();
 
-        act.Tags.Should().Contain(t => t.Key == "catga.req.Visible" && t.Value?.ToString() == req.Visible.ToString());
+        var objs3 = new Dictionary<string, object?>();
+        foreach (var kv in act.EnumerateTagObjects()) objs3[kv.Key] = kv.Value;
+        objs3.Should().ContainKey("catga.req.Visible");
+        objs3["catga.req.Visible"].Should().Be(req.Visible);
         act.Tags.Should().NotContain(t => t.Key == "catga.req.Sensitive");
     }
 
@@ -55,7 +66,10 @@ public class TraceTagsGeneratorTests
         enricher.Enrich(act);
         act.Stop();
 
-        act.Tags.Should().Contain(t => t.Key == "catga.res.Code" && t.Value?.ToString() == res.Code.ToString());
+        var objs4 = new Dictionary<string, object?>();
+        foreach (var kv in act.EnumerateTagObjects()) objs4[kv.Key] = kv.Value;
+        objs4.Should().ContainKey("catga.res.Code");
+        objs4["catga.res.Code"].Should().Be(res.Code);
         act.Tags.Should().NotContain(t => t.Key == "catga.res.Note");
     }
 
@@ -69,9 +83,13 @@ public class TraceTagsGeneratorTests
         act.Stop();
 
         // X uses custom name, Y uses prefix
-        act.Tags.Should().Contain(t => t.Key == "custom.x" && t.Value?.ToString() == req.X.ToString());
-        act.Tags.Should().NotContain(t => t.Key == "catga.req.X");
-        act.Tags.Should().Contain(t => t.Key == "catga.req.Y" && t.Value?.ToString() == req.Y.ToString());
+        var objs5 = new Dictionary<string, object?>();
+        foreach (var kv in act.EnumerateTagObjects()) objs5[kv.Key] = kv.Value;
+        objs5.Should().ContainKey("custom.x");
+        objs5["custom.x"].Should().Be(req.X);
+        objs5.Should().NotContainKey("catga.req.X");
+        objs5.Should().ContainKey("catga.req.Y");
+        objs5["catga.req.Y"].Should().Be(req.Y);
     }
 
     // -------- Test Types (partial so generator can emit) --------
@@ -82,6 +100,8 @@ public class TraceTagsGeneratorTests
     {
         public int Id { get; init; } = 123;
         public string Name { get; init; } = "abc";
+        public long MessageId { get; init; } = MessageExtensions.NewMessageId();
+        public long? CorrelationId { get; init; }
     }
 
     [TraceTags]
@@ -90,6 +110,11 @@ public class TraceTagsGeneratorTests
     [TraceTags(Prefix = "catga.req.", Exclude = new[] { nameof(Req_Exclude.Sensitive) })]
     public partial record Req_Exclude(int Visible, string Sensitive)
         : IRequest<Res_Default>;
+    public partial record Req_Exclude
+    {
+        public long MessageId { get; init; } = MessageExtensions.NewMessageId();
+        public long? CorrelationId { get; init; }
+    }
 
     [TraceTags(AllPublic = false, Include = new[] { nameof(Res_IncludeOnly.Code) })]
     public partial record Res_IncludeOnly(int Code, string Note);
@@ -98,4 +123,9 @@ public class TraceTagsGeneratorTests
     public partial record Req_PropertyOverride(
         [property: TraceTag("custom.x")] int X,
         int Y) : IRequest<Res_Default>;
+    public partial record Req_PropertyOverride
+    {
+        public long MessageId { get; init; } = MessageExtensions.NewMessageId();
+        public long? CorrelationId { get; init; }
+    }
 }

@@ -1,14 +1,16 @@
 using System.Diagnostics;
+using System.Linq;
 using Catga;
 using Catga.Abstractions;
 using Catga.Observability;
+using Catga.Core;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Catga.Tests.Observability;
 
-public class TraceTagsAdvancedTests
+public partial class TraceTagsAdvancedTests
 {
     [Fact]
     public void Nullables_Should_Write_Tags_With_Null_Values()
@@ -19,11 +21,12 @@ public class TraceTagsAdvancedTests
         enricher.Enrich(act);
         act.Stop();
 
-        var tags = act.Tags.ToDictionary(t => t.Key, t => t.Value);
-        tags.Should().ContainKey("catga.res.Name");
-        tags["catga.res.Name"].Should().BeNull();
-        tags.Should().ContainKey("catga.res.Count");
-        tags["catga.res.Count"].Should().BeNull();
+        var tags = new Dictionary<string, string?>();
+        foreach (var kv in act.Tags)
+            tags[kv.Key] = kv.Value;
+        // Activity.SetTag(key, null) removes the tag; assert absence
+        tags.Should().NotContainKey("catga.res.Name");
+        tags.Should().NotContainKey("catga.res.Count");
     }
 
     [Fact]
@@ -35,10 +38,15 @@ public class TraceTagsAdvancedTests
         enricher.Enrich(act);
         act.Stop();
 
-        var tags = act.Tags.ToDictionary(t => t.Key, t => t.Value);
-        tags.Should().Contain(new KeyValuePair<string, object?>("catga.res.I", 7));
-        tags.Should().Contain(new KeyValuePair<string, object?>("catga.res.L", 99L));
-        tags.Should().Contain(new KeyValuePair<string, object?>("catga.res.B", true));
+        var objs = new Dictionary<string, object?>();
+        foreach (var kv in act.EnumerateTagObjects())
+            objs[kv.Key] = kv.Value;
+        objs.Should().ContainKey("catga.res.I");
+        objs["catga.res.I"].Should().Be(7);
+        objs.Should().ContainKey("catga.res.L");
+        objs["catga.res.L"].Should().Be(99L);
+        objs.Should().ContainKey("catga.res.B");
+        objs["catga.res.B"].Should().Be(true);
     }
 
     [Fact]
@@ -50,8 +58,13 @@ public class TraceTagsAdvancedTests
         enricher.Enrich(act);
         act.Stop();
 
-        act.Tags.Should().Contain(t => t.Key == "catga.res.X" && t.Value?.ToString() == "3");
-        act.Tags.Should().Contain(t => t.Key == "catga.res.Y" && t.Value?.ToString() == "4");
+        var objs = new Dictionary<string, object?>();
+        foreach (var kv in act.EnumerateTagObjects())
+            objs[kv.Key] = kv.Value;
+        objs.Should().ContainKey("catga.res.X");
+        objs["catga.res.X"].Should().Be(3);
+        objs.Should().ContainKey("catga.res.Y");
+        objs["catga.res.Y"].Should().Be(4);
     }
 
     [Fact]
@@ -63,10 +76,12 @@ public class TraceTagsAdvancedTests
         enricher.Enrich(act);
         act.Stop();
 
-        var tags = act.Tags.ToDictionary(t => t.Key, t => t.Value);
-        tags.Should().ContainKey("x.keep");
-        tags.Should().NotContainKey("catga.req.Y");
-        tags.Should().ContainKey("catga.req.Z");
+        var objs = new Dictionary<string, object?>();
+        foreach (var kv in act.EnumerateTagObjects())
+            objs[kv.Key] = kv.Value;
+        objs.Should().ContainKey("x.keep");
+        objs.Should().NotContainKey("catga.req.Y");
+        objs.Should().ContainKey("catga.req.Z");
     }
 
     [Fact]
@@ -82,17 +97,19 @@ public class TraceTagsAdvancedTests
         var mediator = sp.GetRequiredService<ICatgaMediator>();
 
         Activity? captured = null;
+        using var parent = new Activity("TestScope").Start();
         using var listener = new ActivityListener
         {
             ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            ActivityStarted = a => { if (a.OperationName.StartsWith("Catga.Handle.")) captured = a; }
+            ActivityStarted = a => { if (a.OperationName.StartsWith("Catga.Handle.") && a.ParentId == parent.Id) captured = a; }
         };
         ActivitySource.AddActivityListener(listener);
 
         var result = await mediator.SendAsync<Ping, Pong>(new Ping());
         result.IsSuccess.Should().BeTrue();
-        captured.Should().BeNull(); // no activity created without WithTracing(true)
+        captured.Should().BeNull(); // no activity created without WithTracing(true) for this scope
+        parent.Stop();
     }
 
     // ---------- Test types ----------
@@ -111,6 +128,12 @@ public class TraceTagsAdvancedTests
         [property: TraceTag("x.keep")] int X,
         int Y,
         int Z) : IRequest<Res_Primitives>;
+
+    public partial record Req_Override
+    {
+        public long MessageId { get; init; } = MessageExtensions.NewMessageId();
+        public long? CorrelationId { get; init; }
+    }
 
     [TraceTags]
     public partial record Ping : IRequest<Pong>

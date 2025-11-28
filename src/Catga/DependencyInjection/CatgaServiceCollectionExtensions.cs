@@ -34,9 +34,6 @@ public static class CatgaServiceCollectionExtensions
 
         var builder = new CatgaServiceBuilder(services, options);
 
-        // Apply source-generated bootstrap (handlers, services, mediator batch profiles, endpoint naming)
-        Catga.Generated.GeneratedBootstrapRegistry.Apply(services, options);
-
         sw.Stop();
         var totalMilliseconds = sw.Elapsed.TotalMilliseconds;
         var tag = new KeyValuePair<string, object?>("component", "DI.Core");

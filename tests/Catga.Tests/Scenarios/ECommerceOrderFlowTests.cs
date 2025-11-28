@@ -69,17 +69,24 @@ public class ECommerceOrderFlowTests
         {
             ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            ActivityStopped = a => { if (a.OperationName.Contains("CreateOrderCommand")) act = a; }
+            ActivityStopped = a =>
+            {
+                if (a.OperationName.Contains("CreateOrderCommand") && a.Tags.Any(t => t.Key.StartsWith("catga.req.") || t.Key.StartsWith("catga.res.")))
+                    act = a;
+            }
         };
         ActivitySource.AddActivityListener(listener);
 
         var res = await _mediator.SendAsync<CreateOrderCommand, OrderCreatedResult>(cmd);
         res.IsSuccess.Should().BeTrue();
         act.Should().NotBeNull();
-        act!.Tags.Should().Contain(t => t.Key == "catga.req.product_id" && (string?)t.Value == productId);
-        act!.Tags.Should().Contain(t => t.Key == "catga.req.quantity");
-        act!.Tags.Should().Contain(t => t.Key == "catga.req.amount");
-        act!.Tags.Should().Contain(t => t.Key == "catga.res.order_id");
+        var objs1 = new Dictionary<string, object?>();
+        foreach (var kv in act!.EnumerateTagObjects()) objs1[kv.Key] = kv.Value;
+        objs1.Should().ContainKey("catga.req.product_id");
+        objs1["catga.req.product_id"].Should().Be(productId);
+        objs1.Should().ContainKey("catga.req.quantity");
+        objs1.Should().ContainKey("catga.req.amount");
+        objs1.Should().ContainKey("catga.res.order_id");
     }
 
     [Fact]
@@ -93,17 +100,25 @@ public class ECommerceOrderFlowTests
         {
             ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            ActivityStopped = a => { if (a.OperationName.Contains("ReserveInventoryCommand")) act = a; }
+            ActivityStopped = a =>
+            {
+                if (a.OperationName.Contains("ReserveInventoryCommand") && a.Tags.Any(t => t.Key.StartsWith("catga.req.") || t.Key.StartsWith("catga.res.")))
+                    act = a;
+            }
         };
         ActivitySource.AddActivityListener(listener);
 
+        // ensure inventory exists for product X
+        _serviceProvider.GetRequiredService<InMemoryInventoryService>().AddStock("X", 10);
         var res = await _mediator.SendAsync<ReserveInventoryCommand, InventoryReservedResult>(cmd);
         res.IsSuccess.Should().BeTrue();
         act.Should().NotBeNull();
-        act!.Tags.Should().Contain(t => t.Key == "catga.req.order_id");
-        act!.Tags.Should().Contain(t => t.Key == "catga.req.product_id");
-        act!.Tags.Should().Contain(t => t.Key == "catga.req.quantity");
-        act!.Tags.Should().Contain(t => t.Key == "catga.res.reservation_id");
+        var objs2 = new Dictionary<string, object?>();
+        foreach (var kv in act!.EnumerateTagObjects()) objs2[kv.Key] = kv.Value;
+        objs2.Should().ContainKey("catga.req.order_id");
+        objs2.Should().ContainKey("catga.req.product_id");
+        objs2.Should().ContainKey("catga.req.quantity");
+        objs2.Should().ContainKey("catga.res.reservation_id");
     }
 
     [Fact]
@@ -117,16 +132,22 @@ public class ECommerceOrderFlowTests
         {
             ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            ActivityStopped = a => { if (a.OperationName.Contains("ShipOrderCommand")) act = a; }
+            ActivityStopped = a =>
+            {
+                if (a.OperationName.Contains("ShipOrderCommand") && a.Tags.Any(t => t.Key.StartsWith("catga.req.") || t.Key.StartsWith("catga.res.")))
+                    act = a;
+            }
         };
         ActivitySource.AddActivityListener(listener);
 
         var res = await _mediator.SendAsync<ShipOrderCommand, ShipmentResult>(cmd);
         res.IsSuccess.Should().BeTrue();
         act.Should().NotBeNull();
-        act!.Tags.Should().Contain(t => t.Key == "catga.req.order_id");
-        act!.Tags.Should().Contain(t => t.Key == "catga.req.address");
-        act!.Tags.Should().Contain(t => t.Key == "catga.res.tracking");
+        var objs3 = new Dictionary<string, object?>();
+        foreach (var kv in act!.EnumerateTagObjects()) objs3[kv.Key] = kv.Value;
+        objs3.Should().ContainKey("catga.req.order_id");
+        objs3.Should().ContainKey("catga.req.address");
+        objs3.Should().ContainKey("catga.res.tracking");
     }
 
     [Fact]
@@ -140,16 +161,22 @@ public class ECommerceOrderFlowTests
         {
             ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            ActivityStopped = a => { if (a.OperationName.Contains("CancelOrderCommand")) act = a; }
+            ActivityStopped = a =>
+            {
+                if (a.OperationName.Contains("CancelOrderCommand") && a.Tags.Any(t => t.Key.StartsWith("catga.req.") || t.Key.StartsWith("catga.res.")))
+                    act = a;
+            }
         };
         ActivitySource.AddActivityListener(listener);
 
         var res = await _mediator.SendAsync<CancelOrderCommand, OrderCancelledResult>(cmd);
         res.IsSuccess.Should().BeTrue();
         act.Should().NotBeNull();
-        act!.Tags.Should().Contain(t => t.Key == "catga.req.order_id");
-        act!.Tags.Should().Contain(t => t.Key == "catga.req.reason");
-        act!.Tags.Should().Contain(t => t.Key == "catga.res.order_id");
+        var objs4 = new Dictionary<string, object?>();
+        foreach (var kv in act!.EnumerateTagObjects()) objs4[kv.Key] = kv.Value;
+        objs4.Should().ContainKey("catga.req.order_id");
+        objs4.Should().ContainKey("catga.req.reason");
+        objs4.Should().ContainKey("catga.res.order_id");
     }
 
     [Fact]
@@ -163,18 +190,24 @@ public class ECommerceOrderFlowTests
         {
             ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            ActivityStopped = a => { if (a.OperationName.Contains("GetOrderQuery")) act = a; }
+            ActivityStopped = a =>
+            {
+                if (a.OperationName.Contains("GetOrderQuery") && a.Tags.Any(t => t.Key.StartsWith("catga.req.") || t.Key.StartsWith("catga.res.")))
+                    act = a;
+            }
         };
         ActivitySource.AddActivityListener(listener);
 
         var res = await _mediator.SendAsync<GetOrderQuery, OrderDetails>(qry);
         res.IsSuccess.Should().BeTrue();
         act.Should().NotBeNull();
-        act!.Tags.Should().Contain(t => t.Key == "catga.req.order_id");
-        act!.Tags.Should().Contain(t => t.Key == "catga.res.order_id");
-        act!.Tags.Should().Contain(t => t.Key == "catga.res.status");
-        act!.Tags.Should().Contain(t => t.Key == "catga.res.product_id");
-        act!.Tags.Should().Contain(t => t.Key == "catga.res.amount");
+        var objs5 = new Dictionary<string, object?>();
+        foreach (var kv in act!.EnumerateTagObjects()) objs5[kv.Key] = kv.Value;
+        objs5.Should().ContainKey("catga.req.order_id");
+        objs5.Should().ContainKey("catga.res.order_id");
+        objs5.Should().ContainKey("catga.res.status");
+        objs5.Should().ContainKey("catga.res.product_id");
+        objs5.Should().ContainKey("catga.res.amount");
     }
 
     [Fact]
@@ -190,7 +223,7 @@ public class ECommerceOrderFlowTests
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
             ActivityStopped = a =>
             {
-                if (a.OperationName.StartsWith("Catga.Handle.") && a.Tags.Any())
+                if (a.OperationName.Contains("ProcessPaymentCommand") && a.Tags.Any(t => t.Key.StartsWith("catga.req.") || t.Key.StartsWith("catga.res.")))
                     captured = a;
             }
         };
@@ -201,10 +234,14 @@ public class ECommerceOrderFlowTests
 
         result.IsSuccess.Should().BeTrue();
         captured.Should().NotBeNull();
-        captured!.Tags.Should().Contain(t => t.Key == "catga.req.OrderId" && t.Value?.ToString() == orderId.ToString());
-        captured!.Tags.Should().Contain(t => t.Key == "catga.req.Amount");
-        captured!.Tags.Should().Contain(t => t.Key == "catga.res.TransactionId");
-        captured!.Tags.Should().Contain(t => t.Key == "catga.res.Amount" && t.Value?.ToString() == amount.ToString());
+        var objs6 = new Dictionary<string, object?>();
+        foreach (var kv in captured!.EnumerateTagObjects()) objs6[kv.Key] = kv.Value;
+        objs6.Should().ContainKey("catga.req.OrderId");
+        objs6["catga.req.OrderId"].Should().Be(orderId);
+        objs6.Should().ContainKey("catga.req.Amount");
+        objs6.Should().ContainKey("catga.res.TransactionId");
+        objs6.Should().ContainKey("catga.res.Amount");
+        objs6["catga.res.Amount"].Should().Be(amount);
     }
 
     #region 完整订单流程 - 成功路径

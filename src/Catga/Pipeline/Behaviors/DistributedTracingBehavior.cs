@@ -21,6 +21,9 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
         var requestType = typeof(TRequest).Name;
         var activityName = $"Catga.Handle.{requestType}";
 
+        // Capture parent activity (started by ObservabilityHooks in mediator when tracing enabled)
+        var parent = Activity.Current;
+
         using var activity = CatgaActivitySource.Source.StartActivity(
             activityName,
             ActivityKind.Internal);
@@ -51,7 +54,13 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
 
         // Zero-GC enrichment via interface (source-generated or manual)
         if (request is Catga.Abstractions.IActivityTagProvider requestEnricher)
+        {
+            // Enrich current behavior activity
             requestEnricher.Enrich(activity);
+            // Also enrich parent command activity for high-level assertions/visualization
+            if (parent != null)
+                requestEnricher.Enrich(parent);
+        }
 
         var startTimestamp = Stopwatch.GetTimestamp();
 
@@ -74,7 +83,11 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
 
                 // Enrich response if it implements enrichment interface
                 if (result.Value is Catga.Abstractions.IActivityTagProvider responseEnricher)
+                {
                     responseEnricher.Enrich(activity);
+                    if (parent != null)
+                        responseEnricher.Enrich(parent);
+                }
             }
             else
             {

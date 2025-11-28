@@ -29,20 +29,5 @@ public abstract class BaseBehavior<[DynamicallyAccessedMembers(DynamicallyAccess
     protected static long? TryGetCorrelationId(TRequest request)
         => request is IMessage message ? message.CorrelationId : null;
 
-    protected static long GetCorrelationId(TRequest request, IDistributedIdGenerator idGenerator)
-    {
-        var correlationId = TryGetCorrelationId(request);
-        return correlationId ?? idGenerator.NextId();
-    }
-
-    protected void LogSuccess(long messageId, long durationMs)
-        => Logger.LogDebug("{BehaviorType} succeeded for {RequestType} [MessageId={MessageId}, Duration={Duration}ms]",
-            GetType().Name, GetRequestName(), messageId, durationMs);
-
-    protected void LogFailure(long messageId, Exception ex)
-        => Logger.LogError(ex, "{BehaviorType} failed for {RequestType} [MessageId={MessageId}]",
-            GetType().Name, GetRequestName(), messageId);
-
-    protected void LogInformation(string message, params object[] args) => Logger.LogInformation(message, args);
-    protected void LogWarning(string message, params object[] args) => Logger.LogWarning(message, args);
+    protected static long GetCorrelationId(TRequest request, IDistributedIdGenerator idGenerator) => TryGetCorrelationId(request) ?? idGenerator.NextId();
 }

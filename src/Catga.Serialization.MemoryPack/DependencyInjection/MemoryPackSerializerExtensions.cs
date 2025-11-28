@@ -1,5 +1,4 @@
 using Catga.Abstractions;
-using Catga.Configuration;
 using Catga.Serialization.MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -15,12 +14,6 @@ public static class MemoryPackSerializerExtensions
     /// Use MemoryPack serializer (recommended for Native AOT)
     /// </summary>
     /// <remarks>
-    /// MemoryPack provides:
-    /// - ✅ 100% AOT compatible (no reflection)
-    /// - ✅ 5x faster than JSON
-    /// - ✅ 40% smaller payload
-    /// - ✅ Zero-copy deserialization
-    ///
     /// All message types must be annotated with [MemoryPackable]:
     /// <code>
     /// [MemoryPackable]

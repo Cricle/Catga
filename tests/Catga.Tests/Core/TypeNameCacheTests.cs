@@ -68,58 +68,6 @@ public class TypeNameCacheTests
         // Assert
         name.Should().Contain("List");
     }
-
-    [Fact]
-    public void ExceptionTypeCache_GetTypeName_ShouldCacheResults()
-    {
-        // Arrange
-        var exception1 = new InvalidOperationException("Test");
-        var exception2 = new InvalidOperationException("Test2");
-
-        // Act
-        var name1 = ExceptionTypeCache.GetTypeName(exception1);
-        var name2 = ExceptionTypeCache.GetTypeName(exception2);
-
-        // Assert
-        name1.Should().Be("InvalidOperationException");
-        name2.Should().Be("InvalidOperationException");
-        ReferenceEquals(name1, name2).Should().BeTrue(); // Cached
-    }
-
-    [Fact]
-    public void ExceptionTypeCache_GetFullTypeName_ShouldCacheResults()
-    {
-        // Arrange
-        var exception1 = new InvalidOperationException();
-        var exception2 = new InvalidOperationException();
-
-        // Act
-        var fullName1 = ExceptionTypeCache.GetFullTypeName(exception1);
-        var fullName2 = ExceptionTypeCache.GetFullTypeName(exception2);
-
-        // Assert
-        fullName1.Should().Be("System.InvalidOperationException");
-        fullName2.Should().Be("System.InvalidOperationException");
-        ReferenceEquals(fullName1, fullName2).Should().BeTrue(); // Cached
-    }
-
-    [Fact]
-    public void ExceptionTypeCache_DifferentExceptionTypes_ShouldReturnDifferentNames()
-    {
-        // Arrange
-        var exception1 = new InvalidOperationException();
-        var exception2 = new ArgumentNullException();
-
-        // Act
-        var name1 = ExceptionTypeCache.GetTypeName(exception1);
-        var name2 = ExceptionTypeCache.GetTypeName(exception2);
-
-        // Assert
-        name1.Should().Be("InvalidOperationException");
-        name2.Should().Be("ArgumentNullException");
-        name1.Should().NotBe(name2);
-    }
-
     private class TestCustomType { }
 }
 

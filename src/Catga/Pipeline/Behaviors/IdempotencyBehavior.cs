@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Pipeline.Behaviors;
 
 /// <summary>Idempotency behavior</summary>
-public class IdempotencyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
+public partial class IdempotencyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
     private readonly IIdempotencyStore _store;
 
@@ -24,7 +24,7 @@ public class IdempotencyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessed
         // Check if already processed (optimize: removed unnecessary ResultMetadata allocation)
         if (await _store.HasBeenProcessedAsync(id, cancellationToken))
         {
-            LogInformation("Message {MessageId} already processed - returning cached result", id);
+            AlreadyProcessed(Logger, id);
             var cachedResult = await _store.GetCachedResultAsync<TResponse>(id, cancellationToken);
             return CatgaResult<TResponse>.Success(cachedResult ?? default!);  // No metadata allocation
         }
@@ -36,4 +36,9 @@ public class IdempotencyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessed
 
         return result;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Message {MessageId} already processed - returning cached result")]
+    static partial void AlreadyProcessed(ILogger logger, long messageId);
+
 }
+

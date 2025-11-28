@@ -1,5 +1,3 @@
-using System;
-
 namespace Catga.Pipeline;
 
 public sealed class DefaultMediatorBatchOptionsProvider : IMediatorBatchOptionsProvider
@@ -11,19 +9,21 @@ public sealed class DefaultMediatorBatchOptionsProvider : IMediatorBatchOptionsP
         _global = global ?? new MediatorBatchOptions();
     }
 
-    public bool TryGet<TRequest>(out MediatorBatchOptions options)
+    public bool TryGet<TRequest>(out MediatorBatchOptions? options)
     {
-        if (MediatorBatchProfiles.TryGetOptionsTransformer(typeof(TRequest), out var transformer))
-        {
-            options = transformer(_global);
-            return true;
-        }
-        options = default!;
-        return false;
+        options = MediatorBatchProfiles<TRequest>.OptionsTransformers?.Invoke(_global);
+        return options != null;
     }
 
     public bool TryGetKeySelector<TRequest>(out Func<TRequest, string?> keySelector)
     {
-        return MediatorBatchProfiles.TryGetKeySelector<TRequest>(out keySelector!);
+        var selector = MediatorBatchProfiles<TRequest>.KeySelector;
+        if (selector is null)
+        {
+            keySelector = default!;
+            return false;
+        }
+        keySelector = selector;
+        return true;
     }
 }

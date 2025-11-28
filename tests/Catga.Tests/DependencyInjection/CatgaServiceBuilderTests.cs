@@ -313,7 +313,10 @@ public class CatgaServiceBuilderTests
         // Assert
         services.Should().Contain(sd =>
             sd.ServiceType.IsGenericType &&
-            sd.ServiceType.GetGenericTypeDefinition().Name.Contains("DistributedTracingBehavior"));
+            sd.ServiceType.GetGenericTypeDefinition().Name.Contains("IPipelineBehavior") &&
+            sd.ImplementationType != null &&
+            sd.ImplementationType.IsGenericType &&
+            sd.ImplementationType.GetGenericTypeDefinition().Name.Contains("DistributedTracingBehavior"));
     }
 
     [Fact]

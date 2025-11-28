@@ -1,9 +1,6 @@
-using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Diagnostics.Metrics;
-using System.Collections.Generic;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.Idempotency;
@@ -11,11 +8,11 @@ using Catga.Observability;
 using Catga.Resilience;
 using Catga.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Runtime.CompilerServices;
+
+using Polly;
 #if NET8_0_OR_GREATER
-using Polly;
 using Polly.Retry;
-#else
-using Polly;
 #endif
 
 namespace Catga.Transport;
@@ -95,8 +92,10 @@ public class InMemoryMessageTransport : IMessageTransport
                     catch (Exception ex)
                     {
                         // QoS 0: Discard on failure, log but don't throw
-                        if (_logger != null)
+                        if (_logger is not null)
+                        {
                             CatgaLog.InMemoryQoS0ProcessingFailed(_logger, ex, ctx.MessageId, logicalName);
+                        }
                     }
                     break;
 
@@ -157,7 +156,6 @@ public class InMemoryMessageTransport : IMessageTransport
             }
 
             sw.Stop();
-#if NET8_0_OR_GREATER
             CatgaDiagnostics.MessagesPublished.Add(1,
                 new KeyValuePair<string, object?>("message_type", logicalName),
                 new KeyValuePair<string, object?>("qos", qosString),
@@ -165,18 +163,6 @@ public class InMemoryMessageTransport : IMessageTransport
                 new KeyValuePair<string, object?>("destination", logicalName));
             CatgaDiagnostics.MessageDuration.Record(sw.Elapsed.TotalMilliseconds,
                 new KeyValuePair<string, object?>("message_type", logicalName));
-#else
-            var publishedTags = new TagList
-            {
-                { "message_type", logicalName },
-                { "qos", qosString },
-                { "component", "Transport.InMemory" },
-                { "destination", logicalName }
-            };
-            var durationTags = new TagList { { "message_type", logicalName } };
-            CatgaDiagnostics.MessagesPublished.Add(1, publishedTags);
-            CatgaDiagnostics.MessageDuration.Record(sw.Elapsed.TotalMilliseconds, durationTags);
-#endif
         }
         catch (Exception ex)
         {
@@ -193,12 +179,12 @@ public class InMemoryMessageTransport : IMessageTransport
         }
     }
 
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    private static async Task ExecuteHandlersAsync<TMessage>(IReadOnlyList<Delegate> handlers, TMessage message, TransportContext context) where TMessage : class
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static async Task ExecuteHandlersAsync<TMessage>(IReadOnlyList<Func<TMessage, TransportContext, Task>> handlers, TMessage message, TransportContext context) where TMessage : class
     {
         var tasks = new Task[handlers.Count];
         for (int i = 0; i < handlers.Count; i++)
-            tasks[i] = ((Func<TMessage, TransportContext, Task>)handlers[i])(message, context);
+            tasks[i] = handlers[i](message, context);
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
     }
@@ -224,7 +210,7 @@ public class InMemoryMessageTransport : IMessageTransport
     public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
         => PublishBatchAsync(messages, context, cancellationToken);
 
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void RecordException(Activity? activity, Exception ex)
     {
         activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
@@ -232,8 +218,6 @@ public class InMemoryMessageTransport : IMessageTransport
         activity?.AddTag("exception.type", typeName);
         activity?.AddTag("exception.message", ex.Message);
     }
-
-    // No resources to dispose
 }
 
 /// <summary>Options for configuring InMemory transport</summary>
@@ -255,19 +239,19 @@ public class InMemoryTransportOptions
 /// </summary>
 internal static class TypedSubscribers<TMessage> where TMessage : class
 {
-    private static ImmutableList<Delegate> _handlers = ImmutableList<Delegate>.Empty;
+    private static ImmutableList<Func<TMessage, TransportContext, Task>> _handlers = ImmutableList<Func<TMessage, TransportContext, Task>>.Empty;
 
     /// <summary>
     /// Get current handlers snapshot (lock-free read via Volatile)
     /// </summary>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    public static ImmutableList<Delegate> GetHandlers() =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ImmutableList<Func<TMessage, TransportContext, Task>> GetHandlers() =>
         Volatile.Read(ref _handlers);
 
     /// <summary>
     /// Add handler (lock-free using CAS loop like SnowflakeIdGenerator)
     /// </summary>
-    public static void AddHandler(Delegate handler)
+    public static void AddHandler(Func<TMessage, TransportContext, Task> handler)
     {
         while (true)
         {

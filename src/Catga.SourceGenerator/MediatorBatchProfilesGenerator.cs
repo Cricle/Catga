@@ -103,8 +103,7 @@ public sealed class MediatorBatchProfilesGenerator : IIncrementalGenerator
         sb.AppendLine("        [ModuleInitializer]");
         sb.AppendLine("        internal static void Initialize()");
         sb.AppendLine("        {");
-        sb.AppendLine("            global::Catga.Generated.GeneratedBootstrapRegistry.Register(static services =>");
-        sb.AppendLine("            {");
+        sb.AppendLine("            // Auto-register mediator batch profiles at module init");
         if (infos.Count == 0)
         {
             sb.AppendLine("                // No mediator batch profiles discovered");
@@ -155,7 +154,7 @@ public sealed class MediatorBatchProfilesGenerator : IIncrementalGenerator
                 }
             }
         }
-        sb.AppendLine("            });");
+        // no-op wrapper removed; direct registration executed at module load
         sb.AppendLine("        }");
         sb.AppendLine("    }");
         sb.AppendLine("}");

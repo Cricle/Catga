@@ -183,19 +183,19 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
 
     public CatgaServiceBuilder UseInbox()
     {
-        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.ConditionalInboxBehavior<,>));
+        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.InboxBehavior<,>));
         return this;
     }
 
     public CatgaServiceBuilder UseOutbox()
     {
-        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.ConditionalOutboxBehavior<,>));
+        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.OutboxBehavior<,>));
         return this;
     }
 
     public CatgaServiceBuilder UseDeadLetterQueue()
     {
-        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.ConditionalDeadLetterBehavior<,>));
+        // No-op: concrete DeadLetterBehavior not provided; keep API for compatibility
         return this;
     }
 

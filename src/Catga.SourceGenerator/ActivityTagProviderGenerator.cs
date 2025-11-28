@@ -27,12 +27,16 @@ public sealed class ActivityTagProviderGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(candidates, static (spc, items) =>
         {
             var list = items!.OfType<TypeInfo>().ToList();
+            var used = new HashSet<string>(StringComparer.Ordinal);
             foreach (var info in list)
             {
+                var hint = $"CatgaGenerated.ActivityTags.{info.HintName}.g.cs";
+                if (!used.Add(hint))
+                    continue; // skip duplicates from multiple partial declarations
+
                 var src = GenerateSource(info);
                 if (!string.IsNullOrEmpty(src))
                 {
-                    var hint = $"CatgaGenerated.ActivityTags.{info.HintName}.g.cs";
                     spc.AddSource(hint, SourceText.From(src!, Encoding.UTF8));
                 }
             }
@@ -89,18 +93,20 @@ public sealed class ActivityTagProviderGenerator : IIncrementalGenerator
                 prefix = pfx;
 
             // Named arguments: Prefix, AllPublic, Include, Exclude
-            foreach (var (key, value) in typeAttr.NamedArguments)
+            foreach (var kv in typeAttr.NamedArguments)
             {
+                var key = kv.Key;
+                var value = kv.Value;
                 if (key == "Prefix" && value.Value is string pv)
                     prefix = pv;
                 else if (key == "AllPublic" && value.Value is bool b)
                     allPublic = b;
-                else if (key == "Include" && value.Values is { Count: > 0 })
+                else if (key == "Include" && value.Values.Length > 0)
                 {
                     foreach (var v in value.Values)
                         if (v.Value is string sv && !string.IsNullOrWhiteSpace(sv)) include.Add(sv);
                 }
-                else if (key == "Exclude" && value.Values is { Count: > 0 })
+                else if (key == "Exclude" && value.Values.Length > 0)
                 {
                     foreach (var v in value.Values)
                         if (v.Value is string sv && !string.IsNullOrWhiteSpace(sv)) exclude.Add(sv);
@@ -149,9 +155,39 @@ public sealed class ActivityTagProviderGenerator : IIncrementalGenerator
 
         var nsName = symbol.ContainingNamespace?.ToDisplayString() ?? "";
         var isStruct = symbol.IsValueType;
+        var isRecord = symbol.IsRecord;
         var typeName = symbol.Name; // no generics supported here
-        var hintName = (string.IsNullOrEmpty(nsName) ? typeName : nsName + "." + typeName).Replace('<', '_').Replace('>', '_');
-        return new TypeInfo(nsName, typeName, isStruct, hintName, props);
+        // Build containing type chain for nested types
+        var containers = new List<ContainerInfo>();
+        var ct = symbol.ContainingType;
+        while (ct != null)
+        {
+            var acc = ct.DeclaredAccessibility switch
+            {
+                Accessibility.Public => "public ",
+                Accessibility.Internal => "internal ",
+                Accessibility.Protected => "protected ",
+                Accessibility.Private => "private ",
+                Accessibility.ProtectedOrInternal => "protected internal ",
+                Accessibility.ProtectedAndInternal => "private protected ",
+                _ => string.Empty
+            };
+            containers.Insert(0, new ContainerInfo(ct.Name, ct.IsValueType, ct.IsRecord, acc));
+            ct = ct.ContainingType;
+        }
+        var namePath = containers.Count == 0 ? typeName : string.Join(".", containers.Select(c => c.Name)) + "." + typeName;
+        var hintName = (string.IsNullOrEmpty(nsName) ? namePath : nsName + "." + namePath).Replace('<', '_').Replace('>', '_');
+        var accessibility = symbol.DeclaredAccessibility switch
+        {
+            Accessibility.Public => "public ",
+            Accessibility.Internal => "internal ",
+            Accessibility.Protected => "protected ",
+            Accessibility.Private => "private ",
+            Accessibility.ProtectedOrInternal => "protected internal ",
+            Accessibility.ProtectedAndInternal => "private protected ",
+            _ => string.Empty
+        };
+        return new TypeInfo(nsName, typeName, isStruct, isRecord, hintName, props, accessibility, containers);
     }
 
     private static string GenerateSource(TypeInfo info)
@@ -165,8 +201,19 @@ public sealed class ActivityTagProviderGenerator : IIncrementalGenerator
             sb.AppendLine();
         }
 
-        var typeKeyword = info.IsStruct ? "struct" : "class";
-        sb.Append("partial ").Append(typeKeyword).Append(' ').Append(info.TypeName)
+        // Ensure partial declaration matches original accessibility and kind (record/class, struct)
+        // If nested, generate partial wrappers for containing types
+        foreach (var c in info.Containers)
+        {
+            string ck = c.IsRecord ? (c.IsStruct ? "record struct" : "record") : (c.IsStruct ? "struct" : "class");
+            sb.Append(c.Accessibility).Append("partial ").Append(ck).Append(' ').Append(c.Name).AppendLine()
+              .AppendLine("{");
+        }
+        string accessibility = info.Accessibility;
+        string kind = info.IsRecord
+            ? (info.IsStruct ? "record struct" : "record")
+            : (info.IsStruct ? "struct" : "class");
+        sb.Append(accessibility).Append("partial ").Append(kind).Append(' ').Append(info.TypeName)
           .Append(" : global::Catga.Abstractions.IActivityTagProvider")
           .AppendLine()
           .AppendLine("{")
@@ -175,7 +222,8 @@ public sealed class ActivityTagProviderGenerator : IIncrementalGenerator
 
         foreach (var p in info.Properties)
         {
-            var tagName = !string.IsNullOrEmpty(p.ExplicitName) ? p.ExplicitName : $"catga.req.{p.Name}";
+            var tn = p.ExplicitName;
+            var tagName = string.IsNullOrEmpty(tn) ? $"catga.req.{p.Name}" : tn!;
             // Generate minimally allocating SetTag
             sb.Append("        activity?.SetTag(\"").Append(Escape(tagName)).Append("\", ");
             // Use typed literal for common primitives to avoid boxing where possible is not necessary since Activity.SetTag accepts object?;
@@ -184,18 +232,22 @@ public sealed class ActivityTagProviderGenerator : IIncrementalGenerator
 
         sb.AppendLine("    }");
         sb.AppendLine("}");
+        for (int i = 0; i < info.Containers.Count; i++) sb.AppendLine("}");
         return sb.ToString();
     }
 
     private static string Escape(string s) => s.Replace("\\", "\\\\").Replace("\"", "\\\"");
 
-    private sealed record TypeInfo(string Namespace, string TypeName, bool IsStruct, string HintName, List<PropertyInfo> Properties)
+    private sealed record TypeInfo(string Namespace, string TypeName, bool IsStruct, bool IsRecord, string HintName, List<PropertyInfo> Properties, string Accessibility, List<ContainerInfo> Containers)
     {
         public string Namespace { get; } = Namespace;
         public string TypeName { get; } = TypeName;
         public bool IsStruct { get; } = IsStruct;
+        public bool IsRecord { get; } = IsRecord;
         public string HintName { get; } = HintName;
         public List<PropertyInfo> Properties { get; } = Properties;
+        public string Accessibility { get; } = Accessibility;
+        public List<ContainerInfo> Containers { get; } = Containers;
     }
 
     private sealed record PropertyInfo(string Name, ITypeSymbol Type, string? ExplicitName)
@@ -203,5 +255,13 @@ public sealed class ActivityTagProviderGenerator : IIncrementalGenerator
         public string Name { get; } = Name;
         public ITypeSymbol Type { get; } = Type;
         public string? ExplicitName { get; } = ExplicitName;
+    }
+
+    private sealed record ContainerInfo(string Name, bool IsStruct, bool IsRecord, string Accessibility)
+    {
+        public string Name { get; } = Name;
+        public bool IsStruct { get; } = IsStruct;
+        public bool IsRecord { get; } = IsRecord;
+        public string Accessibility { get; } = Accessibility;
     }
 }

@@ -14,8 +14,7 @@ public static class MemoryPoolManager
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static PooledArray<T> RentArray<T>(int minimumLength)
     {
-        if (minimumLength <= 0)
-            throw new ArgumentOutOfRangeException(nameof(minimumLength));
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(minimumLength, 0, nameof(minimumLength));
 
         return new PooledArray<T>(ArrayPool<T>.Shared.Rent(minimumLength), minimumLength);
     }
@@ -26,8 +25,7 @@ public static class MemoryPoolManager
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static PooledBufferWriter<T> RentBufferWriter<T>(int initialCapacity = 256)
     {
-        if (initialCapacity <= 0)
-            throw new ArgumentOutOfRangeException(nameof(initialCapacity));
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(initialCapacity, 0, nameof(initialCapacity));
 
         return new PooledBufferWriter<T>(initialCapacity, ArrayPool<T>.Shared);
     }

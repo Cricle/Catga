@@ -35,12 +35,12 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
     private readonly IMessageSerializer _serializer;
     private readonly ILogger<NatsMessageTransport> _logger;
     private readonly string _subjectPrefix;
-    private Func<Type, string>? _naming;
-    private INatsJSContext? _jsContext;
+    private readonly Func<Type, string>? _naming;
+    private readonly NatsJSContext? _jsContext;
     private readonly IResiliencePipelineProvider _provider;
     private readonly ConcurrentDictionary<string, Task> _subscriptions = new();
     private volatile bool _jsStreamEnsured;
-    private readonly object _jsInitLock = new();
+    private readonly Lock _jsInitLock = new();
     private readonly ConcurrentDictionary<long, long> _dedupCache = new();
     private readonly ConcurrentQueue<long> _dedupOrder = new();
     private const int _dedupCapacity = 10000;
@@ -51,7 +51,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
     private readonly NatsTransportOptions? _options;
     private readonly ConcurrentQueue<(string Subject, byte[] Payload, NatsHeaders Headers, QualityOfService QoS)> _batchQueue = new();
     private int _batchQueueCount;
-    private Timer? _flushTimer;
+    private readonly Timer? _flushTimer;
     private readonly object _flushLock = new();
 
     public string Name => "NATS";
@@ -119,8 +119,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
     public NatsMessageTransport(INatsConnection connection, IMessageSerializer serializer, ILogger<NatsMessageTransport> logger, CatgaOptions globalOptions, NatsTransportOptions? options = null, IResiliencePipelineProvider? provider = null)
         : this(connection, serializer, logger, options, provider)
     {
-        if (_naming == null)
-            _naming = globalOptions?.EndpointNamingConvention;
+        _naming ??= globalOptions?.EndpointNamingConvention;
     }
 
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
@@ -275,7 +274,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                         }
                         continue;
                     }
-                    var message = (TMessage?)_serializer.Deserialize(msg.Data, typeof(TMessage));
+                    var message = _serializer.Deserialize<TMessage>(msg.Data);
                     if (activity != null)
                     {
                         var headerType = msg.Headers?["MessageType"].ToString();
@@ -411,23 +410,23 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
             list.Add(item);
         }
 
-        foreach (var item in list)
+        foreach (var (Subject, Payload, Headers, QoS) in list)
         {
             try
             {
-                switch (item.QoS)
+                switch (QoS)
                 {
                     case QualityOfService.AtMostOnce:
                         await _provider.ExecuteTransportPublishAsync(ct =>
-                            _connection.PublishAsync(item.Subject, item.Payload, headers: item.Headers, cancellationToken: ct),
+                            _connection.PublishAsync(Subject, Payload, headers: Headers, cancellationToken: ct),
                             _cts.Token);
                         break;
                     case QualityOfService.AtLeastOnce:
                     case QualityOfService.ExactlyOnce:
                         await EnsureStreamAsync(_cts.Token);
                         var ack = await _provider.ExecuteTransportPublishAsync(ct =>
-                            _jsContext!.PublishAsync(subject: item.Subject, data: item.Payload,
-                                opts: new NatsJSPubOpts { MsgId = item.Headers["MessageId"].ToString() }, headers: item.Headers, cancellationToken: ct),
+                            _jsContext!.PublishAsync(subject: Subject, data: Payload,
+                                opts: new NatsJSPubOpts { MsgId = Headers["MessageId"].ToString() }, headers: Headers, cancellationToken: ct),
                             _cts.Token);
                         CatgaLog.NatsBatchPublishedJetStream(_logger, ack.Seq, ack.Duplicate);
                         break;
@@ -435,10 +434,10 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
             }
             catch (Exception ex)
             {
-                CatgaLog.NatsBatchPublishFailed(_logger, ex, item.Subject);
+                CatgaLog.NatsBatchPublishFailed(_logger, ex, Subject);
                 CatgaDiagnostics.MessagesFailed.Add(1,
                     new KeyValuePair<string, object?>("component", "Transport.NATS"),
-                    new KeyValuePair<string, object?>("destination", item.Subject),
+                    new KeyValuePair<string, object?>("destination", Subject),
                     new KeyValuePair<string, object?>("reason", "batch_item"));
             }
         }

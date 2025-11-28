@@ -173,82 +173,6 @@ public class BaseBehaviorTests
         _mockIdGenerator.Received(1).NextId();
     }
 
-
-    // ==================== Logging Methods ====================
-
-    [Fact]
-    public void LogSuccess_ShouldLogDebugMessage()
-    {
-        // Arrange
-        var behavior = new TestBehavior(_mockLogger);
-
-        // Act
-        behavior.PublicLogSuccess(12345, 100);
-
-        // Assert
-        _mockLogger.Received(1).Log(
-            LogLevel.Debug,
-            Arg.Any<EventId>(),
-            Arg.Any<object>(),
-            null,
-            Arg.Any<Func<object, Exception?, string>>());
-    }
-
-    [Fact]
-    public void LogFailure_ShouldLogErrorMessage()
-    {
-        // Arrange
-        var behavior = new TestBehavior(_mockLogger);
-        var exception = new InvalidOperationException("Test error");
-
-        // Act
-        behavior.PublicLogFailure(12345, exception);
-
-        // Assert
-        _mockLogger.Received(1).Log(
-            LogLevel.Error,
-            Arg.Any<EventId>(),
-            Arg.Any<object>(),
-            exception,
-            Arg.Any<Func<object, Exception?, string>>());
-    }
-
-    [Fact]
-    public void LogWarning_ShouldLogWarningMessage()
-    {
-        // Arrange
-        var behavior = new TestBehavior(_mockLogger);
-
-        // Act
-        behavior.PublicLogWarning("Warning: {Message}", "Test warning");
-
-        // Assert
-        _mockLogger.Received(1).Log(
-            LogLevel.Warning,
-            Arg.Any<EventId>(),
-            Arg.Any<object>(),
-            null,
-            Arg.Any<Func<object, Exception?, string>>());
-    }
-
-    [Fact]
-    public void LogInformation_ShouldLogInformationMessage()
-    {
-        // Arrange
-        var behavior = new TestBehavior(_mockLogger);
-
-        // Act
-        behavior.PublicLogInformation("Info: {Message}", "Test info");
-
-        // Assert
-        _mockLogger.Received(1).Log(
-            LogLevel.Information,
-            Arg.Any<EventId>(),
-            Arg.Any<object>(),
-            null,
-            Arg.Any<Func<object, Exception?, string>>());
-    }
-
     // ==================== Integration Tests ====================
 
     [Fact]
@@ -350,42 +274,6 @@ public class BaseBehaviorTests
         _mockIdGenerator.DidNotReceive().NextId();
     }
 
-    [Fact]
-    public void LogSuccess_WithZeroDuration_ShouldLog()
-    {
-        // Arrange
-        var behavior = new TestBehavior(_mockLogger);
-
-        // Act
-        behavior.PublicLogSuccess(12345, 0);
-
-        // Assert
-        _mockLogger.Received(1).Log(
-            LogLevel.Debug,
-            Arg.Any<EventId>(),
-            Arg.Any<object>(),
-            null,
-            Arg.Any<Func<object, Exception?, string>>());
-    }
-
-    [Fact]
-    public void LogWarning_WithNoArgs_ShouldLog()
-    {
-        // Arrange
-        var behavior = new TestBehavior(_mockLogger);
-
-        // Act
-        behavior.PublicLogWarning("Simple warning");
-
-        // Assert
-        _mockLogger.Received(1).Log(
-            LogLevel.Warning,
-            Arg.Any<EventId>(),
-            Arg.Any<object>(),
-            null,
-            Arg.Any<Func<object, Exception?, string>>());
-    }
-
     // ==================== Test Helpers ====================
 
     public class TestBehavior : BaseBehavior<TestRequest, TestResponse>
@@ -408,10 +296,6 @@ public class BaseBehaviorTests
         public long? PublicTryGetCorrelationId(TestRequest request) => TryGetCorrelationId(request);
         public long PublicGetCorrelationId(TestRequest request, IDistributedIdGenerator idGenerator) =>
             GetCorrelationId(request, idGenerator);
-        public void PublicLogSuccess(long messageId, long durationMs) => LogSuccess(messageId, durationMs);
-        public void PublicLogFailure(long messageId, Exception ex) => LogFailure(messageId, ex);
-        public void PublicLogInformation(string message, params object[] args) => LogInformation(message, args);
-        public void PublicLogWarning(string message, params object[] args) => LogWarning(message, args);
         public ILogger PublicLogger => Logger;
     }
 

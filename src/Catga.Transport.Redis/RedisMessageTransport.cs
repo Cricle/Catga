@@ -134,12 +134,17 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                     CommandFlags.FireAndForget)),
                 cancellationToken);
             if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesPublished.Add(1, tag_component, tag_type, tag_dest);
+            System.Diagnostics.Activity.Current?.AddActivityEvent("Redis.Publish.Sent",
+                ("channel", subject));
         }
         catch (Exception)
         {
             if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesFailed.Add(1,
                 new KeyValuePair<string, object?>("component", "Transport.Redis"),
                 new KeyValuePair<string, object?>("destination", subject));
+            System.Diagnostics.Activity.Current?.SetError(System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(new Exception()).SourceException ?? new Exception("Publish failed"));
+            System.Diagnostics.Activity.Current?.AddActivityEvent("Redis.Publish.Failed",
+                ("channel", subject));
             throw;
         }
     }
@@ -199,12 +204,17 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                     flags: CommandFlags.DemandMaster)),
                 cancellationToken);
             if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesPublished.Add(1, tag_component, tag_type, tag_dest);
+            System.Diagnostics.Activity.Current?.AddActivityEvent("Redis.Stream.Added",
+                ("stream", streamKey));
         }
         catch (Exception)
         {
             if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesFailed.Add(1,
                 new KeyValuePair<string, object?>("component", "Transport.Redis"),
                 new KeyValuePair<string, object?>("destination", streamKey));
+            System.Diagnostics.Activity.Current?.SetError(System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(new Exception()).SourceException ?? new Exception("Stream add failed"));
+            System.Diagnostics.Activity.Current?.AddActivityEvent("Redis.Stream.Failed",
+                ("stream", streamKey));
             throw;
         }
     }
@@ -232,7 +242,11 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
             try
             {
                 var (message, ctx) = DeserializeMessage<TMessage>(channelMessage.Message!);
+                activity?.AddActivityEvent("Redis.Receive.Deserialized",
+                    ("message.type", TypeNameCache<TMessage>.Name));
                 await handler(message, ctx ?? new TransportContext());
+                activity?.AddActivityEvent("Redis.Receive.Processed",
+                    ("channel", subject));
             }
             catch (Exception ex)
             {
@@ -324,6 +338,12 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
             }
         }
         _batchQueue.Enqueue((isStream, destination, payload, traceParent, traceState));
+        if (!isStream)
+            System.Diagnostics.Activity.Current?.AddActivityEvent("Redis.Publish.Enqueued",
+                ("channel", destination));
+        else
+            System.Diagnostics.Activity.Current?.AddActivityEvent("Redis.Stream.Enqueued",
+                ("stream", destination));
         if (newCount >= batch.MaxBatchSize)
             TryFlushBatchImmediate(batch);
     }
@@ -354,7 +374,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
             Interlocked.Decrement(ref _batchQueueCount);
             list.Add(item);
         }
-
+        using var batchSpan = ObservabilityHooks.IsEnabled ? CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Batch.Flush", ActivityKind.Producer) : null;
         foreach (var item in list)
         {
             try
@@ -363,6 +383,8 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                 {
                     await _provider.ExecuteTransportPublishAsync(ct => new ValueTask(
                         _subscriber.PublishAsync(RedisChannel.Literal(item.Destination), item.Payload, CommandFlags.FireAndForget)), _cts.Token);
+                    batchSpan?.AddActivityEvent("Redis.Batch.PubSub.Sent",
+                        ("channel", item.Destination));
                 }
                 else
                 {
@@ -371,6 +393,8 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                     if (!string.IsNullOrEmpty(item.TraceState)) entries.Add(new NameValueEntry("tracestate", item.TraceState));
                     await _provider.ExecuteTransportSendAsync(ct => new ValueTask(
                         _db.StreamAddAsync(item.Destination, entries.ToArray(), flags: CommandFlags.DemandMaster)), _cts.Token);
+                    batchSpan?.AddActivityEvent("Redis.Batch.Stream.Added",
+                        ("stream", item.Destination));
                 }
             }
             catch (Exception ex)
@@ -383,6 +407,9 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                         new KeyValuePair<string, object?>("destination", item.Destination),
                         new KeyValuePair<string, object?>("reason", "batch_item"));
                 }
+                batchSpan?.SetError(ex);
+                batchSpan?.AddActivityEvent("Redis.Batch.ItemFailed",
+                    ("destination", item.Destination));
             }
         }
     }

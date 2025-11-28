@@ -76,9 +76,15 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                 {
                     throw new InvalidOperationException($"Failed to publish event: {ack.Error.Description}");
                 }
+                activity?.AddActivityEvent("EventStore.Append.Item",
+                    ("stream", streamId),
+                    ("event.type", eventType.Name));
             }
             CatgaDiagnostics.EventStoreAppends.Add(events.Count);
             CatgaDiagnostics.EventStoreAppendDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+            activity?.AddActivityEvent("EventStore.Append.Done",
+                ("stream", streamId),
+                ("count", events.Count));
         }, cancellationToken);
     }
 
@@ -133,6 +139,9 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                                 Timestamp = msg.Metadata?.Timestamp.UtcDateTime ?? DateTime.UtcNow,
                                 EventType = @event.GetType().Name
                             });
+                            activity?.AddActivityEvent("EventStore.Read.Item",
+                                ("stream", streamId),
+                                ("version", version));
                         }
 
                         if (storedEvents.Count >= maxCount) break;
@@ -149,6 +158,11 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                     Events = Array.Empty<StoredEvent>()
                 };
             }
+            catch (Exception ex)
+            {
+                activity?.SetError(ex);
+                throw;
+            }
 
             var finalVersion = storedEvents.Count > 0 ? storedEvents[^1].Version : -1;
 
@@ -160,6 +174,9 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
             };
             CatgaDiagnostics.EventStoreReads.Add(1);
             CatgaDiagnostics.EventStoreReadDuration.Record((double)((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency));
+            activity?.AddActivityEvent("EventStore.Read.Done",
+                ("stream", streamId),
+                ("count", storedEvents.Count));
             return result;
         }, cancellationToken);
     }

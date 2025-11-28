@@ -49,6 +49,12 @@ on:
         type: boolean
         default: true
 
+      artifact_name:
+        description: "Optional custom artifact name to avoid conflicts across jobs"
+        required: false
+        type: string
+        default: ''
+
 jobs:
   test:
     runs-on: ${{ inputs.runner }}
@@ -109,8 +115,9 @@ jobs:
         if: ${{ inputs.upload_artifacts }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.collect_coverage && 'coverage-report' || 'test-results' }}
+          name: ${{ inputs.artifact_name != '' && inputs.artifact_name || (inputs.collect_coverage && 'coverage-report' || 'test-results') }}
           path: |
             ${{ inputs.collect_coverage && 'coveragereport/**' || '' }}
             ${{ inputs.collect_coverage && format('{0}/**/coverage.cobertura.xml', inputs.coverage_dir) || '' }}
             ${{ inputs.results_dir }}/**/*.trx
+          if-no-files-found: warn

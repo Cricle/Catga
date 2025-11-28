@@ -17,6 +17,7 @@ jobs:
       enable_docker: false
       results_dir: 'tests/Catga.Tests/TestResults'
       upload_artifacts: true
+      artifact_name: test-results-${{ github.job }}-${{ github.run_attempt }}
 
   integration:
     needs: unit
@@ -29,6 +30,7 @@ jobs:
       redis_image: 'redis:7-alpine'
       results_dir: 'tests/Catga.Tests/TestResults'
       upload_artifacts: true
+      artifact_name: test-results-${{ github.job }}-${{ github.run_attempt }}
 
   coverage:
     needs: unit
@@ -40,6 +42,7 @@ jobs:
       coverage_dir: 'coverage'
       results_dir: 'tests/Catga.Tests/TestResults'
       upload_artifacts: true
+      artifact_name: coverage-report-${{ github.job }}-${{ github.run_attempt }}
 
   docfx:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
@@ -94,6 +97,7 @@ jobs:
       test_filter: 'Requires!=Docker'
       enable_docker: false
       upload_artifacts: true
+      artifact_name: test-results-${{ github.job }}-${{ github.run_attempt }}
 
   smoke-macos:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -104,6 +108,7 @@ jobs:
       test_filter: 'Requires!=Docker'
       enable_docker: false
       upload_artifacts: true
+      artifact_name: test-results-${{ github.job }}-${{ github.run_attempt }}
 
   docker-redis7-alpine:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -116,6 +121,7 @@ jobs:
       nats_image: 'nats:latest'
       redis_image: 'redis:7-alpine'
       upload_artifacts: true
+      artifact_name: test-results-${{ github.job }}-${{ github.run_attempt }}
 
   docker-redis7:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -128,6 +134,7 @@ jobs:
       nats_image: 'nats:latest'
       redis_image: 'redis:7'
       upload_artifacts: true
+      artifact_name: test-results-${{ github.job }}-${{ github.run_attempt }}
 
   build-and-pack:
     if: startsWith(github.ref, 'refs/tags/v')

@@ -62,7 +62,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
             var subject = $"{StreamName}.{streamId}";
             foreach (var @event in events)
             {
-                var eventType = @event.GetType();
+                var eventType = GetRuntimeTypeForSerialization(@event);
                 var data = _serializer.Serialize(@event, eventType);
                 var typeFull = eventType.AssemblyQualifiedName ?? eventType.FullName!;
                 var headers = new NatsHeaders
@@ -217,8 +217,6 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         }, cancellationToken);
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2057", Justification = "Runtime type resolution is used only if registry misses type (tests).")]
-    [UnconditionalSuppressMessage("Trimming", "IL2072", Justification = "Deserialize with runtime Type only when registry is missing.")]
     private IEvent DeserializeEventFromMessage(NatsJSMsg<byte[]> msg)
     {
         // 从 headers 获取事件类型（优先使用 AssemblyQualifiedName）
@@ -226,7 +224,20 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         if (string.IsNullOrEmpty(eventTypeName))
             throw new InvalidOperationException("Event type not found in message headers");
 
-        var t = Type.GetType(eventTypeName!, throwOnError: false) ?? throw new InvalidOperationException($"Unknown event type: {eventTypeName}. Ensure it is included in compilation for registration.");
+        var t = GetEventTypeFromHeader(eventTypeName!);
         return (IEvent?)_serializer.Deserialize(msg.Data!, t) ?? throw new InvalidOperationException($"Fail to deserialize type {t}");
     }
+
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
+    private static Type GetEventTypeFromHeader(string typeName)
+    {
+        var t = Type.GetType(typeName, throwOnError: false);
+        if (t is null)
+            throw new InvalidOperationException($"Unknown event type: {typeName}. Ensure it is preserved during trimming or registered in the event type registry.");
+        return t;
+    }
+
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
+    private static Type GetRuntimeTypeForSerialization(object instance)
+        => instance.GetType();
 }

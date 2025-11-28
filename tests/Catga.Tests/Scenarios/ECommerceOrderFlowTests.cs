@@ -500,9 +500,12 @@ public partial record ReserveInventoryCommand(
     public long? CorrelationId { get; init; }
 }
 
+[
+    TraceTags(Prefix = "catga.req.")
+]
 public partial record ProcessPaymentCommand(
-    [property: TraceTag("catga.req.order_id")] long OrderId,
-    [property: TraceTag("catga.req.amount")] decimal Amount) : IRequest<PaymentResult>
+    long OrderId,
+    decimal Amount) : IRequest<PaymentResult>
 {
     public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     public long? CorrelationId { get; init; }
@@ -535,7 +538,10 @@ public partial record GetOrderQuery([property: TraceTag("catga.req.order_id")] l
 
 public partial record OrderCreatedResult([property: TraceTag("catga.res.order_id")] long OrderId, string ProductId, int Quantity);
 public partial record InventoryReservedResult([property: TraceTag("catga.res.reservation_id")] long ReservationId);
-public partial record PaymentResult([property: TraceTag("catga.res.txn_id")] string TransactionId, [property: TraceTag("catga.res.amount")] decimal Amount);
+[
+    TraceTags(Prefix = "catga.res.")
+]
+public partial record PaymentResult(string TransactionId, decimal Amount);
 public partial record ShipmentResult([property: TraceTag("catga.res.tracking")] string TrackingNumber);
 public partial record OrderCancelledResult([property: TraceTag("catga.res.order_id")] long OrderId);
 public partial record OrderDetails(

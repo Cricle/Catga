@@ -74,8 +74,72 @@ public sealed class ActivityTagProviderGenerator : IIncrementalGenerator
             }
         }
 
+        // Type-level [TraceTags] support
+        var typeAttr = symbol.GetAttributes().FirstOrDefault(a => a.AttributeClass?.Name == "TraceTagsAttribute");
+        if (typeAttr is not null)
+        {
+            // Defaults
+            string? prefix = null;
+            bool allPublic = true;
+            var include = new List<string>();
+            var exclude = new HashSet<string>();
+
+            // Constructor: (string? prefix)
+            if (typeAttr.ConstructorArguments.Length >= 1 && typeAttr.ConstructorArguments[0].Value is string pfx && !string.IsNullOrWhiteSpace(pfx))
+                prefix = pfx;
+
+            // Named arguments: Prefix, AllPublic, Include, Exclude
+            foreach (var (key, value) in typeAttr.NamedArguments)
+            {
+                if (key == "Prefix" && value.Value is string pv)
+                    prefix = pv;
+                else if (key == "AllPublic" && value.Value is bool b)
+                    allPublic = b;
+                else if (key == "Include" && value.Values is { Count: > 0 })
+                {
+                    foreach (var v in value.Values)
+                        if (v.Value is string sv && !string.IsNullOrWhiteSpace(sv)) include.Add(sv);
+                }
+                else if (key == "Exclude" && value.Values is { Count: > 0 })
+                {
+                    foreach (var v in value.Values)
+                        if (v.Value is string sv && !string.IsNullOrWhiteSpace(sv)) exclude.Add(sv);
+                }
+            }
+
+            // Infer default prefix when not specified
+            bool ImplementsIRequest(INamedTypeSymbol i)
+            {
+                var name = i.Name;
+                var ns = i.ContainingNamespace?.ToDisplayString();
+                return ns == "Catga.Abstractions" && name == "IRequest" && (i.TypeArguments.Length == 0 || i.TypeArguments.Length == 1);
+            }
+            if (string.IsNullOrWhiteSpace(prefix))
+                prefix = symbol.AllInterfaces.Any(ImplementsIRequest) ? "catga.req." : "catga.res.";
+
+            var properties = symbol.GetMembers().OfType<IPropertySymbol>().Where(p => !p.IsStatic);
+            IEnumerable<IPropertySymbol> selected;
+            if (include.Count > 0)
+                selected = properties.Where(p => include.Contains(p.Name));
+            else if (allPublic)
+                selected = properties;
+            else
+                selected = Array.Empty<IPropertySymbol>();
+
+            if (exclude.Count > 0)
+                selected = selected.Where(p => !exclude.Contains(p.Name));
+
+            // Deduplicate by property name: explicit property-level tags win
+            var taken = new HashSet<string>(props.Select(p => p.Name));
+            foreach (var p in selected)
+            {
+                if (!taken.Contains(p.Name))
+                    props.Add(new PropertyInfo(p.Name, p.Type, prefix + p.Name));
+            }
+        }
+
         if (props.Count == 0)
-            return null; // Only generate for types that actually opt-in
+            return null; // Only generate for types that actually opt-in (property-level or type-level)
 
         var nsName = symbol.ContainingNamespace?.ToDisplayString() ?? "";
         var isStruct = symbol.IsValueType;

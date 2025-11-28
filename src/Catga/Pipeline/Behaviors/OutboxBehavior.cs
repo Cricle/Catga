@@ -58,6 +58,9 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
 
             await _persistence.AddAsync(outboxMessage, cancellationToken);
             CatgaLog.OutboxSaved(_logger, messageId, _persistence.GetType().Name);
+            System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.Saved",
+                ("message.id", messageId),
+                ("store", _persistence.GetType().Name));
 
             var result = await next();
 
@@ -76,11 +79,15 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
                     await _transport.PublishAsync<TRequest>(request, context, cancellationToken);
                     await _persistence.MarkAsPublishedAsync(messageId, cancellationToken);
                     CatgaLog.OutboxPublished(_logger, messageId, _transport.Name);
+                    System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.Published",
+                        ("message.id", messageId),
+                        ("transport", _transport.Name));
                 }
                 catch (Exception ex)
                 {
                     await _persistence.MarkAsFailedAsync(messageId, ex.Message, cancellationToken);
                     CatgaLog.OutboxPublishFailed(_logger, ex, messageId);
+                    System.Diagnostics.Activity.Current?.SetError(ex);
                 }
             }
 
@@ -89,6 +96,7 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
         catch (Exception ex)
         {
             CatgaLog.OutboxBehaviorError(_logger, ex, TypeNameCache<TRequest>.Name);
+            System.Diagnostics.Activity.Current?.SetError(ex);
             return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PersistenceFailed, isRetryable: true));
         }
     }

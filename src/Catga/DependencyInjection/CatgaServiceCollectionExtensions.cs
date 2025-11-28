@@ -32,6 +32,9 @@ public static class CatgaServiceCollectionExtensions
         // Users can override this by calling .UseWorkerId(n) or .UseWorkerIdFromEnvironment()
         services.TryAddSingleton<IDistributedIdGenerator>(sp => new SnowflakeIdGenerator(GetWorkerIdFromEnvironmentOrRandom("CATGA_WORKER_ID")));
 
+        // Enable observability hooks by default (no-op unless a listener is registered)
+        ObservabilityHooks.Enable();
+
         Catga.Generated.GeneratedBootstrapRegistry.Apply(services);
         var conv = Catga.Generated.GeneratedBootstrapRegistry.EndpointConvention;
         if (conv is not null && options.EndpointNamingConvention is null)

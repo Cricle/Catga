@@ -7,6 +7,7 @@ using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Catga.Core;
 
 namespace Catga.Persistence;
 
@@ -18,17 +19,20 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
 {
     private readonly IMessageSerializer _serializer;
     private readonly IResiliencePipelineProvider _provider;
+    private readonly IEventTypeRegistry _registry;
 
     public NatsJSEventStore(
         INatsConnection connection,
         IMessageSerializer serializer,
         string? streamName = null,
         NatsJSStoreOptions? options = null,
-        IResiliencePipelineProvider? provider = null)
+        IResiliencePipelineProvider? provider = null,
+        IEventTypeRegistry? registry = null)
         : base(connection, streamName ?? "CATGA_EVENTS", options)
     {
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         _provider = provider ?? throw new ArgumentNullException(nameof(provider));
+        _registry = registry ?? new DefaultEventTypeRegistry();
     }
 
     protected override string[] GetSubjects() => new[] { $"{StreamName}.>" };
@@ -62,9 +66,11 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
             var subject = $"{StreamName}.{streamId}";
             foreach (var @event in events)
             {
-                var eventType = GetRuntimeTypeForSerialization(@event);
-                var data = _serializer.Serialize(@event, eventType);
-                var typeFull = eventType.AssemblyQualifiedName ?? eventType.FullName!;
+                var runtimeType = GetRuntimeTypeForSerialization(@event);
+                var typeFull = runtimeType.AssemblyQualifiedName ?? runtimeType.FullName!;
+                _registry.Register(typeFull, runtimeType);
+                var resolvedType = _registry.Resolve(typeFull)!;
+                var data = _serializer.Serialize(@event, resolvedType);
                 var headers = new NatsHeaders
                 {
                     ["EventType"] = typeFull
@@ -78,7 +84,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                 }
                 activity?.AddActivityEvent("EventStore.Append.Item",
                     ("stream", streamId),
-                    ("event.type", eventType.Name));
+                    ("event.type", resolvedType.Name));
             }
             CatgaDiagnostics.EventStoreAppends.Add(events.Count);
             CatgaDiagnostics.EventStoreAppendDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
@@ -241,20 +247,17 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         if (string.IsNullOrEmpty(eventTypeName))
             throw new InvalidOperationException("Event type not found in message headers");
 
-        var t = GetEventTypeFromHeader(eventTypeName!);
+        var t = _registry.Resolve(eventTypeName!)
+            ?? throw new InvalidOperationException($"Unknown event type: {eventTypeName}. Ensure it is preserved during trimming or registered in the event type registry.");
         return (IEvent?)_serializer.Deserialize(msg.Data!, t) ?? throw new InvalidOperationException($"Fail to deserialize type {t}");
     }
 
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
     private static Type GetEventTypeFromHeader(string typeName)
     {
-        var t = Type.GetType(typeName, throwOnError: false);
-        if (t is null)
-            throw new InvalidOperationException($"Unknown event type: {typeName}. Ensure it is preserved during trimming or registered in the event type registry.");
-        return t;
+        throw new UnreachableException("This overload should not be called");
     }
 
-    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
     private static Type GetRuntimeTypeForSerialization(object instance)
         => instance.GetType();
 }

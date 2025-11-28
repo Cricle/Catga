@@ -101,6 +101,8 @@ public static class CatgaActivitySource
         activity.SetTag("exception.message", exception.Message);
         activity.SetTag("exception.type", exception.GetType().FullName);
         activity.SetTag("exception.stacktrace", exception.StackTrace);
+        var category = GetErrorCategory(exception);
+        activity.SetTag("catga.error.category", category);
         activity.SetStatus(ActivityStatusCode.Error, exception.Message);
     }
 
@@ -113,5 +115,26 @@ public static class CatgaActivitySource
             activityTags[key] = value;
         }
         activity.AddEvent(new ActivityEvent(name, tags: activityTags));
+    }
+
+    private static string GetErrorCategory(Exception ex)
+    {
+        if (ex is OperationCanceledException) return "cancellation";
+        if (ex is TimeoutException) return "timeout";
+        if (ex is UnauthorizedAccessException || ex.GetType().Name.IndexOf("Authorization", StringComparison.OrdinalIgnoreCase) >= 0) return "authorization";
+
+        var typeName = ex.GetType().FullName ?? ex.GetType().Name;
+        if (typeName.IndexOf("Concurrency", StringComparison.OrdinalIgnoreCase) >= 0) return "concurrency";
+        if (typeName.IndexOf("Json", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            typeName.IndexOf("Serialization", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            typeName.IndexOf("MemoryPack", StringComparison.OrdinalIgnoreCase) >= 0) return "serialization";
+        if (typeName.IndexOf("HttpRequest", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            typeName.IndexOf("Socket", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            typeName.IndexOf("Network", StringComparison.OrdinalIgnoreCase) >= 0) return "network";
+        if (typeName.IndexOf("Redis", StringComparison.OrdinalIgnoreCase) >= 0) return "persistence";
+        if (typeName.IndexOf("Nats", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            typeName.IndexOf("JetStream", StringComparison.OrdinalIgnoreCase) >= 0) return "transport";
+        if (ex is ArgumentException || ex is FormatException) return "validation";
+        return "unknown";
     }
 }

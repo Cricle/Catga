@@ -5,6 +5,8 @@ using Catga.DistributedId;
 using Catga.Observability;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Diagnostics;
+using Catga.Abstractions;
+using Catga.Core;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -34,6 +36,8 @@ public static class CatgaServiceCollectionExtensions
 
         // Enable observability hooks by default (no-op unless a listener is registered)
         ObservabilityHooks.Enable();
+
+        services.TryAddSingleton<IEventTypeRegistry, DefaultEventTypeRegistry>();
 
         Catga.Generated.GeneratedBootstrapRegistry.Apply(services);
         var conv = Catga.Generated.GeneratedBootstrapRegistry.EndpointConvention;

@@ -55,11 +55,13 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
         // Zero-GC enrichment via interface (source-generated or manual)
         if (request is Catga.Abstractions.IActivityTagProvider requestEnricher)
         {
-            // Enrich current behavior activity
             requestEnricher.Enrich(activity);
-            // Also enrich parent command activity for high-level assertions/visualization
+            activity.SetTag("catga.enriched.request", true);
             if (parent != null)
+            {
                 requestEnricher.Enrich(parent);
+                parent.SetTag("catga.enriched.request", true);
+            }
         }
 
         var startTimestamp = Stopwatch.GetTimestamp();
@@ -85,8 +87,12 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
                 if (result.Value is Catga.Abstractions.IActivityTagProvider responseEnricher)
                 {
                     responseEnricher.Enrich(activity);
+                    activity.SetTag("catga.enriched.response", true);
                     if (parent != null)
+                    {
                         responseEnricher.Enrich(parent);
+                        parent.SetTag("catga.enriched.response", true);
+                    }
                 }
             }
             else

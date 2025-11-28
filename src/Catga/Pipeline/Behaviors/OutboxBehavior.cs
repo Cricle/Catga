@@ -40,18 +40,20 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
     {
         if (request is not IEvent) return await next();
 
-        var messageId = MessageHelper.GetOrGenerateMessageId(request, _idGenerator);
+        var messageId = request is IMessage idMsg && idMsg.MessageId != 0
+            ? idMsg.MessageId
+            : _idGenerator.NextId();
 
         try
         {
             var outboxMessage = new OutboxMessage
             {
                 MessageId = messageId,
-                MessageType = MessageHelper.GetMessageType<TRequest>(),
+                MessageType = TypeNameCache<TRequest>.FullName,
                 Payload = _serializer.Serialize(request),
                 CreatedAt = DateTime.UtcNow,
                 Status = OutboxStatus.Pending,
-                CorrelationId = MessageHelper.GetCorrelationId(request)
+                CorrelationId = request is IMessage corrMsg ? corrMsg.CorrelationId : null
             };
 
             await _persistence.AddAsync(outboxMessage, cancellationToken);

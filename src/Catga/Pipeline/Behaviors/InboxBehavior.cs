@@ -88,10 +88,10 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
                 var inboxMessage = new InboxMessage
                 {
                     MessageId = id,
-                    MessageType = MessageHelper.GetMessageType<TRequest>(),
+                    MessageType = TypeNameCache<TRequest>.FullName,
                     Payload = _serializer.Serialize(request),
                     ProcessingResult = _serializer.Serialize(result),
-                    CorrelationId = MessageHelper.GetCorrelationId(request)
+                    CorrelationId = request is IMessage corrMsg ? corrMsg.CorrelationId : null
                 };
                 await _persistence.MarkAsProcessedAsync(inboxMessage, cancellationToken);
                 CatgaLog.InboxProcessed(_logger, id);

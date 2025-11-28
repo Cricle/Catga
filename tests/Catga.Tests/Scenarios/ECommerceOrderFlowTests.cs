@@ -59,6 +59,125 @@ public class ECommerceOrderFlowTests
     }
 
     [Fact]
+    public async Task Tracing_CreateOrder_ShouldInclude_Request_And_Response_Tags()
+    {
+        var productId = "TRACE-PROD";
+        var cmd = new CreateOrderCommand(productId, 2, 10.5m) { CorrelationId = MessageExtensions.NewMessageId() };
+
+        Activity? act = null;
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = a => { if (a.OperationName.Contains("CreateOrderCommand")) act = a; }
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        var res = await _mediator.SendAsync<CreateOrderCommand, OrderCreatedResult>(cmd);
+        res.IsSuccess.Should().BeTrue();
+        act.Should().NotBeNull();
+        act!.Tags.Should().Contain(t => t.Key == "catga.req.product_id" && (string?)t.Value == productId);
+        act!.Tags.Should().Contain(t => t.Key == "catga.req.quantity");
+        act!.Tags.Should().Contain(t => t.Key == "catga.req.amount");
+        act!.Tags.Should().Contain(t => t.Key == "catga.res.order_id");
+    }
+
+    [Fact]
+    public async Task Tracing_ReserveInventory_ShouldInclude_Request_And_Response_Tags()
+    {
+        var create = await _mediator.SendAsync<CreateOrderCommand, OrderCreatedResult>(new CreateOrderCommand("X", 1, 1m));
+        var cmd = new ReserveInventoryCommand(create.Value!.OrderId, "X", 1) { CorrelationId = MessageExtensions.NewMessageId() };
+
+        Activity? act = null;
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = a => { if (a.OperationName.Contains("ReserveInventoryCommand")) act = a; }
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        var res = await _mediator.SendAsync<ReserveInventoryCommand, InventoryReservedResult>(cmd);
+        res.IsSuccess.Should().BeTrue();
+        act.Should().NotBeNull();
+        act!.Tags.Should().Contain(t => t.Key == "catga.req.order_id");
+        act!.Tags.Should().Contain(t => t.Key == "catga.req.product_id");
+        act!.Tags.Should().Contain(t => t.Key == "catga.req.quantity");
+        act!.Tags.Should().Contain(t => t.Key == "catga.res.reservation_id");
+    }
+
+    [Fact]
+    public async Task Tracing_ShipOrder_ShouldInclude_Request_And_Response_Tags()
+    {
+        var create = await _mediator.SendAsync<CreateOrderCommand, OrderCreatedResult>(new CreateOrderCommand("Y", 1, 1m));
+        var cmd = new ShipOrderCommand(create.Value!.OrderId, "ADDR") { CorrelationId = MessageExtensions.NewMessageId() };
+
+        Activity? act = null;
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = a => { if (a.OperationName.Contains("ShipOrderCommand")) act = a; }
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        var res = await _mediator.SendAsync<ShipOrderCommand, ShipmentResult>(cmd);
+        res.IsSuccess.Should().BeTrue();
+        act.Should().NotBeNull();
+        act!.Tags.Should().Contain(t => t.Key == "catga.req.order_id");
+        act!.Tags.Should().Contain(t => t.Key == "catga.req.address");
+        act!.Tags.Should().Contain(t => t.Key == "catga.res.tracking");
+    }
+
+    [Fact]
+    public async Task Tracing_CancelOrder_ShouldInclude_Request_And_Response_Tags()
+    {
+        var create = await _mediator.SendAsync<CreateOrderCommand, OrderCreatedResult>(new CreateOrderCommand("Z", 1, 1m));
+        var cmd = new CancelOrderCommand(create.Value!.OrderId, "Reason") { CorrelationId = MessageExtensions.NewMessageId() };
+
+        Activity? act = null;
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = a => { if (a.OperationName.Contains("CancelOrderCommand")) act = a; }
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        var res = await _mediator.SendAsync<CancelOrderCommand, OrderCancelledResult>(cmd);
+        res.IsSuccess.Should().BeTrue();
+        act.Should().NotBeNull();
+        act!.Tags.Should().Contain(t => t.Key == "catga.req.order_id");
+        act!.Tags.Should().Contain(t => t.Key == "catga.req.reason");
+        act!.Tags.Should().Contain(t => t.Key == "catga.res.order_id");
+    }
+
+    [Fact]
+    public async Task Tracing_GetOrderQuery_ShouldInclude_Request_And_Response_Tags()
+    {
+        var create = await _mediator.SendAsync<CreateOrderCommand, OrderCreatedResult>(new CreateOrderCommand("Q", 1, 2m));
+        var qry = new GetOrderQuery(create.Value!.OrderId);
+
+        Activity? act = null;
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = a => { if (a.OperationName.Contains("GetOrderQuery")) act = a; }
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        var res = await _mediator.SendAsync<GetOrderQuery, OrderDetails>(qry);
+        res.IsSuccess.Should().BeTrue();
+        act.Should().NotBeNull();
+        act!.Tags.Should().Contain(t => t.Key == "catga.req.order_id");
+        act!.Tags.Should().Contain(t => t.Key == "catga.res.order_id");
+        act!.Tags.Should().Contain(t => t.Key == "catga.res.status");
+        act!.Tags.Should().Contain(t => t.Key == "catga.res.product_id");
+        act!.Tags.Should().Contain(t => t.Key == "catga.res.amount");
+    }
+
+    [Fact]
     public async Task Tracing_ShouldInclude_Request_And_Response_Tags()
     {
         var orderId = 123456L;
@@ -82,10 +201,10 @@ public class ECommerceOrderFlowTests
 
         result.IsSuccess.Should().BeTrue();
         captured.Should().NotBeNull();
-        captured!.Tags.Should().Contain(t => t.Key == "catga.req.order_id" && t.Value?.ToString() == orderId.ToString());
-        captured!.Tags.Should().Contain(t => t.Key == "catga.req.amount");
-        captured!.Tags.Should().Contain(t => t.Key == "catga.res.txn_id");
-        captured!.Tags.Should().Contain(t => t.Key == "catga.res.amount" && t.Value?.ToString() == amount.ToString());
+        captured!.Tags.Should().Contain(t => t.Key == "catga.req.OrderId" && t.Value?.ToString() == orderId.ToString());
+        captured!.Tags.Should().Contain(t => t.Key == "catga.req.Amount");
+        captured!.Tags.Should().Contain(t => t.Key == "catga.res.TransactionId");
+        captured!.Tags.Should().Contain(t => t.Key == "catga.res.Amount" && t.Value?.ToString() == amount.ToString());
     }
 
     #region 完整订单流程 - 成功路径

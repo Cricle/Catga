@@ -117,14 +117,20 @@ public sealed class ActivityTagProviderGenerator : IIncrementalGenerator
             if (string.IsNullOrWhiteSpace(prefix))
                 prefix = symbol.AllInterfaces.Any(ImplementsIRequest) ? "catga.req." : "catga.res.";
 
-            var properties = symbol.GetMembers().OfType<IPropertySymbol>().Where(p => !p.IsStatic);
+            var allProps = symbol.GetMembers().OfType<IPropertySymbol>().Where(p => !p.IsStatic);
             IEnumerable<IPropertySymbol> selected;
             if (include.Count > 0)
-                selected = properties.Where(p => include.Contains(p.Name));
+            {
+                selected = allProps.Where(p => include.Contains(p.Name));
+            }
             else if (allPublic)
-                selected = properties;
+            {
+                selected = allProps.Where(p => p.DeclaredAccessibility == Accessibility.Public);
+            }
             else
+            {
                 selected = Array.Empty<IPropertySymbol>();
+            }
 
             if (exclude.Count > 0)
                 selected = selected.Where(p => !exclude.Contains(p.Name));

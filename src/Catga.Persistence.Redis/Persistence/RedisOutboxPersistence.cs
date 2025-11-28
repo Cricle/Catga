@@ -61,7 +61,6 @@ public class RedisOutboxPersistence : IOutboxStore
             var db = _redis.GetDatabase();
             var key = GetMessageKey(message.MessageId);
 
-            // 序列化消息
             var data = _serializer.Serialize(message, typeof(OutboxMessage));
 
             // 使用 Redis 事务保证原子性
@@ -81,6 +80,9 @@ public class RedisOutboxPersistence : IOutboxStore
             {
                 CatgaLog.OutboxAdded(_logger, message.MessageId);
                 CatgaDiagnostics.OutboxAdded.Add(1);
+                System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.Added",
+                    ("message.id", message.MessageId),
+                    ("bytes", data.Length));
             }
             else
             {
@@ -104,7 +106,10 @@ public class RedisOutboxPersistence : IOutboxStore
                 take: maxCount);
 
             if (messageIds.Length == 0)
+            {
+                System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.GetPending.Empty");
                 return (IReadOnlyList<OutboxMessage>)Array.Empty<OutboxMessage>();
+            }
 
             var messages = new List<OutboxMessage>(messageIds.Length);
 
@@ -139,6 +144,8 @@ public class RedisOutboxPersistence : IOutboxStore
                 }
             }
 
+            System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.GetPending.Done",
+                ("count", messages.Count));
             return (IReadOnlyList<OutboxMessage>)messages;
         }, cancellationToken);
     }
@@ -180,6 +187,8 @@ public class RedisOutboxPersistence : IOutboxStore
 
             CatgaLog.OutboxMarkedPublished(_logger, messageId);
             CatgaDiagnostics.OutboxPublished.Add(1);
+            System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.MarkPublished",
+                ("message.id", messageId));
         }, cancellationToken);
     }
 
@@ -218,6 +227,9 @@ public class RedisOutboxPersistence : IOutboxStore
 
                 CatgaLog.OutboxMessageFailedAfterRetries(_logger, messageId, message.RetryCount, errorMessage);
                 CatgaDiagnostics.OutboxFailed.Add(1);
+                System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.MarkFailed.Final",
+                    ("message.id", messageId),
+                    ("retry", message.RetryCount));
             }
             else
             {
@@ -226,6 +238,10 @@ public class RedisOutboxPersistence : IOutboxStore
                 await db.StringSetAsync(key, _serializer.Serialize(message, typeof(OutboxMessage)));
 
                 CatgaLog.OutboxMessageRetry(_logger, messageId, message.RetryCount, message.MaxRetries, errorMessage);
+                System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.MarkFailed.Retry",
+                    ("message.id", messageId),
+                    ("retry", message.RetryCount),
+                    ("max", message.MaxRetries));
             }
         }, cancellationToken);
     }
@@ -248,6 +264,8 @@ public class RedisOutboxPersistence : IOutboxStore
             if (removed > 0)
             {
                 CatgaLog.OutboxCleanup(_logger, removed);
+                System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.Cleanup",
+                    ("removed", removed));
             }
         }, cancellationToken);
     }

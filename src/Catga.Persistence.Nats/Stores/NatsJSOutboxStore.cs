@@ -43,15 +43,23 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
 
             var subject = $"{StreamName}.{message.MessageId}";
             var data = _serializer.Serialize(message, typeof(OutboxMessage));
-
-            var ack = await JetStream.PublishAsync(subject, data, cancellationToken: ct);
-
-            if (ack.Error != null)
+            try
             {
-                throw new InvalidOperationException($"Failed to add outbox message: {ack.Error.Description}");
+                var ack = await JetStream.PublishAsync(subject, data, cancellationToken: ct);
+                if (ack.Error != null)
+                {
+                    throw new InvalidOperationException($"Failed to add outbox message: {ack.Error.Description}");
+                }
+                activity?.AddActivityEvent("Outbox.Added",
+                    ("message.id", message.MessageId),
+                    ("bytes", data.Length));
+                CatgaDiagnostics.OutboxAdded.Add(1);
             }
-
-            CatgaDiagnostics.OutboxAdded.Add(1);
+            catch (Exception ex)
+            {
+                activity?.SetError(ex);
+                throw;
+            }
         }, cancellationToken);
     }
 
@@ -90,6 +98,8 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                             outboxMsg.RetryCount < outboxMsg.MaxRetries)
                         {
                             messages.Add(outboxMsg);
+                            activity?.AddActivityEvent("Outbox.GetPending.Item",
+                                ("message.id", outboxMsg.MessageId));
                             if (messages.Count >= maxCount) break;
                         }
                     }
@@ -98,13 +108,15 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
             catch (NatsJSApiException ex) when (ex.Error.Code == 404)
             {
                 // Stream doesn't exist yet
+                activity?.AddActivityEvent("Outbox.GetPending.NotFound");
             }
 
             if (messages.Count > 1)
             {
                 messages.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
             }
-
+            activity?.AddActivityEvent("Outbox.GetPending.Done",
+                ("count", messages.Count));
             return (IReadOnlyList<OutboxMessage>)messages;
         }, cancellationToken);
     }
@@ -157,6 +169,8 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                             // 5. Acknowledge the old message
                             await msg.AckAsync(cancellationToken: ct);
                             CatgaDiagnostics.OutboxPublished.Add(1);
+                            activity?.AddActivityEvent("Outbox.MarkPublished",
+                                ("message.id", messageId));
                             break;
                         }
                     }
@@ -169,6 +183,8 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
             {
                 // Message not found - it may have been already processed or deleted
                 // This is not an error condition for idempotency
+                activity?.AddActivityEvent("Outbox.MarkPublished.NotFound",
+                    ("message.id", messageId));
             }
         }, cancellationToken);
     }
@@ -229,6 +245,10 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                             // 5. Acknowledge the old message (removes it from stream with Limits retention)
                             await msg.AckAsync(cancellationToken: ct);
                             CatgaDiagnostics.OutboxFailed.Add(1);
+                            activity?.AddActivityEvent("Outbox.MarkFailed.Updated",
+                                ("message.id", messageId),
+                                ("retry", outboxMsg.RetryCount),
+                                ("status", (int)outboxMsg.Status));
                             break;
                         }
                     }
@@ -241,6 +261,8 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
             {
                 // Message not found - it may have been already processed or deleted
                 // This is not an error condition for idempotency
+                activity?.AddActivityEvent("Outbox.MarkFailed.NotFound",
+                    ("message.id", messageId));
             }
         }, cancellationToken);
     }

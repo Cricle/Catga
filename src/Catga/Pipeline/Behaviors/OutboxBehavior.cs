@@ -46,11 +46,12 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
 
         try
         {
+            var payload = _serializer.Serialize(request);
             var outboxMessage = new OutboxMessage
             {
                 MessageId = messageId,
                 MessageType = TypeNameCache<TRequest>.FullName,
-                Payload = _serializer.Serialize(request),
+                Payload = payload,
                 CreatedAt = DateTime.UtcNow,
                 Status = OutboxStatus.Pending,
                 CorrelationId = request is IMessage corrMsg ? corrMsg.CorrelationId : null
@@ -58,6 +59,9 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
 
             await _persistence.AddAsync(outboxMessage, cancellationToken);
             CatgaLog.OutboxSaved(_logger, messageId, _persistence.GetType().Name);
+            System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.Serialized",
+                ("message.id", messageId),
+                ("payload.size", payload.Length));
             System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.Saved",
                 ("message.id", messageId),
                 ("store", _persistence.GetType().Name));

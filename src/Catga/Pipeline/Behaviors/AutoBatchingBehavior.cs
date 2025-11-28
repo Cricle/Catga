@@ -282,6 +282,9 @@ public sealed class AutoBatchingBehavior<
                         dropped.TrySetFailure(CatgaResult<TResponse>.Failure("Mediator batch queue overflow"));
                         if (ObservabilityHooks.IsEnabled) ObservabilityHooks.RecordMediatorBatchOverflow();
                         CatgaLog.MediatorBatchOverflow(_logger, typeof(TRequest).Name, _key);
+                        System.Diagnostics.Activity.Current?.AddActivityEvent("Mediator.Batch.Overflow",
+                            ("request.type", typeof(TRequest).Name),
+                            ("key", _key));
                     }
                 }
                 return newCount;
@@ -292,6 +295,7 @@ public sealed class AutoBatchingBehavior<
                 if (Interlocked.Exchange(ref _flushing, 1) == 1) return;
                 try
                 {
+                    using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Mediator.Batch.Flush", ActivityKind.Internal);
                     var batch = new List<Entry>(_options.MaxBatchSize);
                     while (batch.Count < _options.MaxBatchSize && _queue.TryDequeue(out var item))
                     {
@@ -301,6 +305,8 @@ public sealed class AutoBatchingBehavior<
                     if (batch.Count == 0) return;
                     var start = Stopwatch.GetTimestamp();
                     Volatile.Write(ref _lastSeenTicks, DateTime.UtcNow.Ticks);
+                    activity?.AddActivityEvent("Mediator.Batch.Collected",
+                        ("count", batch.Count));
                     try
                     {
                         await _provider.ExecuteMediatorAsync(async ct =>
@@ -374,12 +380,21 @@ public sealed class AutoBatchingBehavior<
                         {
                             e.TrySetFailure(CatgaResult<TResponse>.Failure("Auto-batch flush error", wrapped));
                         }
+                        activity?.SetError(ex);
                         if (ObservabilityHooks.IsEnabled)
                         {
                             var elapsed = Stopwatch.GetTimestamp() - start;
                             var durationMs = elapsed * 1000.0 / Stopwatch.Frequency;
                             ObservabilityHooks.RecordMediatorBatchMetrics(batch.Count, Count, durationMs);
                         }
+                    }
+                    finally
+                    {
+                        var elapsed = Stopwatch.GetTimestamp() - start;
+                        var durationMs = elapsed * 1000.0 / Stopwatch.Frequency;
+                        activity?.AddActivityEvent("Mediator.Batch.Done",
+                            ("count", batch.Count),
+                            ("duration.ms", durationMs));
                     }
                 }
                 finally

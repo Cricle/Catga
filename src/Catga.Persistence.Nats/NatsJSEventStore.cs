@@ -47,50 +47,68 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         {
             var start = Stopwatch.GetTimestamp();
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.Append", ActivityKind.Producer);
-            ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
-            ArgumentNullException.ThrowIfNull(events);
-
-            await EnsureInitializedAsync(ct);
-
-            if (events.Count == 0) return;
-
-            // Get current version for optimistic concurrency
-            var currentVersion = await GetVersionAsync(streamId, ct);
-
-            if (expectedVersion != -1 && currentVersion != expectedVersion)
+            try
             {
-                throw new ConcurrencyException(streamId, expectedVersion, currentVersion);
-            }
+                ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
+                ArgumentNullException.ThrowIfNull(events);
 
-            // Publish events to JetStream with type information in headers
-            var subject = $"{StreamName}.{streamId}";
-            foreach (var @event in events)
-            {
-                var runtimeType = GetRuntimeTypeForSerialization(@event);
-                var typeFull = runtimeType.AssemblyQualifiedName ?? runtimeType.FullName!;
-                _registry.Register(typeFull, runtimeType);
-                var resolvedType = _registry.Resolve(typeFull)!;
-                var data = _serializer.Serialize(@event, resolvedType);
-                var headers = new NatsHeaders
+                await EnsureInitializedAsync(ct);
+
+                if (events.Count == 0) return;
+
+                // Get current version for optimistic concurrency
+                var currentVersion = await GetVersionAsync(streamId, ct);
+
+                if (expectedVersion != -1 && currentVersion != expectedVersion)
                 {
-                    ["EventType"] = typeFull
-                };
-
-                var ack = await JetStream.PublishAsync(subject, data, headers: headers, cancellationToken: ct);
-
-                if (ack.Error != null)
-                {
-                    throw new InvalidOperationException($"Failed to publish event: {ack.Error.Description}");
+                    var ex = new ConcurrencyException(streamId, expectedVersion, currentVersion);
+                    activity?.AddActivityEvent("EventStore.Append.ConcurrencyMismatch",
+                        ("stream", streamId),
+                        ("expected", expectedVersion),
+                        ("current", currentVersion));
+                    activity?.SetError(ex);
+                    throw ex;
                 }
-                activity?.AddActivityEvent("EventStore.Append.Item",
+
+                // Publish events to JetStream with type information in headers
+                var subject = $"{StreamName}.{streamId}";
+                foreach (var @event in events)
+                {
+                    var runtimeType = GetRuntimeTypeForSerialization(@event);
+                    var typeFull = runtimeType.AssemblyQualifiedName ?? runtimeType.FullName!;
+                    _registry.Register(typeFull, runtimeType);
+                    var resolvedType = _registry.Resolve(typeFull)!;
+                    var data = _serializer.Serialize(@event, resolvedType);
+                    var headers = new NatsHeaders
+                    {
+                        ["EventType"] = typeFull
+                    };
+
+                    var ack = await JetStream.PublishAsync(subject, data, headers: headers, cancellationToken: ct);
+
+                    if (ack.Error != null)
+                    {
+                        var ex = new InvalidOperationException($"Failed to publish event: {ack.Error.Description}");
+                        activity?.SetError(ex);
+                        throw ex;
+                    }
+                    activity?.AddActivityEvent("EventStore.Append.Item",
+                        ("stream", streamId),
+                        ("event.type", resolvedType.Name),
+                        ("seq", (long)ack.Seq),
+                        ("dup", ack.Duplicate));
+                }
+                CatgaDiagnostics.EventStoreAppends.Add(events.Count);
+                CatgaDiagnostics.EventStoreAppendDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+                activity?.AddActivityEvent("EventStore.Append.Done",
                     ("stream", streamId),
-                    ("event.type", resolvedType.Name));
+                    ("count", events.Count));
             }
-            CatgaDiagnostics.EventStoreAppends.Add(events.Count);
-            CatgaDiagnostics.EventStoreAppendDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
-            activity?.AddActivityEvent("EventStore.Append.Done",
-                ("stream", streamId),
-                ("count", events.Count));
+            catch (Exception ex)
+            {
+                activity?.SetError(ex);
+                throw;
+            }
         }, cancellationToken);
     }
 

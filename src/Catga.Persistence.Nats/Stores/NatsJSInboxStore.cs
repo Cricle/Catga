@@ -69,7 +69,18 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
             var ack = await JetStream.PublishAsync(subject, data, cancellationToken: ct);
 
             var ok = ack.Error == null;
-            if (ok) CatgaDiagnostics.InboxLocksAcquired.Add(1);
+            if (ok)
+            {
+                CatgaDiagnostics.InboxLocksAcquired.Add(1);
+                activity?.AddActivityEvent("Inbox.TryLock.Ok",
+                    ("message.id", messageId),
+                    ("lock.seconds", (int)lockDuration.TotalSeconds));
+            }
+            else
+            {
+                activity?.AddActivityEvent("Inbox.TryLock.Failed",
+                    ("message.id", messageId));
+            }
             return ok;
         }, cancellationToken);
     }
@@ -94,6 +105,9 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
 
             await JetStream.PublishAsync(subject, data, cancellationToken: ct);
             CatgaDiagnostics.InboxProcessed.Add(1);
+            activity?.AddActivityEvent("Inbox.MarkProcessed",
+                ("message.id", message.MessageId),
+                ("bytes", data.Length));
         }, cancellationToken);
     }
 
@@ -107,7 +121,11 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
             await EnsureInitializedAsync(ct);
 
             var message = await GetMessageAsync(messageId, ct);
-            return message?.Status == InboxStatus.Processed;
+            var exists = message?.Status == InboxStatus.Processed;
+            activity?.AddActivityEvent("Inbox.HasBeenProcessed",
+                ("message.id", messageId),
+                ("exists", exists));
+            return exists;
         }, cancellationToken);
     }
 
@@ -117,10 +135,21 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
     {
         return await _provider.ExecutePersistenceAsync(async ct =>
         {
+            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.GetProcessedResult", ActivityKind.Internal);
             await EnsureInitializedAsync(ct);
 
             var message = await GetMessageAsync(messageId, ct);
-            return message?.Status == InboxStatus.Processed ? message.ProcessingResult : null;
+            if (message?.Status == InboxStatus.Processed)
+            {
+                var bytes = message.ProcessingResult;
+                activity?.AddActivityEvent("Inbox.GetProcessedResult.Hit",
+                    ("message.id", messageId),
+                    ("bytes", bytes?.Length ?? 0));
+                return bytes;
+            }
+            activity?.AddActivityEvent("Inbox.GetProcessedResult.Miss",
+                ("message.id", messageId));
+            return null;
         }, cancellationToken);
     }
 
@@ -144,6 +173,8 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
 
                 await JetStream.PublishAsync(subject, data, cancellationToken: ct);
                 CatgaDiagnostics.InboxLocksReleased.Add(1);
+                activity?.AddActivityEvent("Inbox.ReleaseLock",
+                    ("message.id", messageId));
             }
         }, cancellationToken);
     }
@@ -152,7 +183,12 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)
     {
-        await _provider.ExecutePersistenceAsync(ct => new ValueTask(), cancellationToken);
+        await _provider.ExecutePersistenceAsync(ct =>
+        {
+            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.DeleteProcessed", ActivityKind.Internal);
+            activity?.AddActivityEvent("Inbox.DeleteProcessed.Noop");
+            return new ValueTask();
+        }, cancellationToken);
     }
 
     private async Task<InboxMessage?> GetMessageAsync(long messageId, CancellationToken cancellationToken)

@@ -295,9 +295,13 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                         }
                         continue;
                     }
+                    var deserStart = Stopwatch.GetTimestamp();
                     var message = _serializer.Deserialize<TMessage>(msg.Data);
+                    var deserMs = (Stopwatch.GetTimestamp() - deserStart) * 1000.0 / Stopwatch.Frequency;
                     activity?.AddActivityEvent("NATS.Receive.Deserialized",
-                        ("message.type", typeof(TMessage).Name));
+                        ("message.type", typeof(TMessage).Name),
+                        ("duration.ms", deserMs),
+                        ("payload.size", msg.Data.Length));
                     if (activity != null)
                     {
                         var headerType = msg.Headers?["MessageType"].ToString();
@@ -367,7 +371,12 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                         CorrelationId = correlationId,
                         SentAt = sentAt
                     };
+                    var handlerStart = Stopwatch.GetTimestamp();
                     await handler(message, context);
+                    var handlerMs = (Stopwatch.GetTimestamp() - handlerStart) * 1000.0 / Stopwatch.Frequency;
+                    activity?.AddActivityEvent("NATS.Receive.Handler",
+                        ("subject", subject),
+                        ("duration.ms", handlerMs));
                     activity?.AddActivityEvent("NATS.Receive.Processed",
                         ("subject", subject));
                 }

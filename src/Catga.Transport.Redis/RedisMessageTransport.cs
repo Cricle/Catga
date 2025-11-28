@@ -241,10 +241,18 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
             }
             try
             {
+                var deserStart = Stopwatch.GetTimestamp();
                 var (message, ctx) = DeserializeMessage<TMessage>(channelMessage.Message!);
+                var deserMs = (Stopwatch.GetTimestamp() - deserStart) * 1000.0 / Stopwatch.Frequency;
                 activity?.AddActivityEvent("Redis.Receive.Deserialized",
-                    ("message.type", TypeNameCache<TMessage>.Name));
+                    ("message.type", TypeNameCache<TMessage>.Name),
+                    ("duration.ms", deserMs));
+                var handlerStart = Stopwatch.GetTimestamp();
                 await handler(message, ctx ?? new TransportContext());
+                var handlerMs = (Stopwatch.GetTimestamp() - handlerStart) * 1000.0 / Stopwatch.Frequency;
+                activity?.AddActivityEvent("Redis.Receive.Handler",
+                    ("channel", subject),
+                    ("duration.ms", handlerMs));
                 activity?.AddActivityEvent("Redis.Receive.Processed",
                     ("channel", subject));
             }

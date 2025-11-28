@@ -64,8 +64,12 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
                         var result = _serializer.Deserialize<CatgaResult<TResponse>>(cachedBytes);
                         if (result != default)
                         {
+                            System.Diagnostics.Activity.Current?.AddActivityEvent("Inbox.Cache.Hit",
+                                ("message.id", id),
+                                ("bytes", cachedBytes.Length));
                             System.Diagnostics.Activity.Current?.AddActivityEvent("Inbox.CachedResultReturned",
-                                ("message.id", id));
+                                ("message.id", id),
+                                ("success", result.IsSuccess));
                             return result;
                         }
                     }
@@ -73,6 +77,11 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
                     {
                         // fall through
                     }
+                }
+                else
+                {
+                    System.Diagnostics.Activity.Current?.AddActivityEvent("Inbox.Cache.Miss",
+                        ("message.id", id));
                 }
                 CatgaLog.InboxCachedResultDeserializeFailed(_logger, id);
                 return CatgaResult<TResponse>.Success(default!);
@@ -91,20 +100,31 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
                     IsRetryable = true
                 });
             }
+            else
+            {
+                System.Diagnostics.Activity.Current?.AddActivityEvent("Inbox.LockAcquired",
+                    ("message.id", id));
+            }
 
             try
             {
                 var result = await next();
+                var requestBytes = _serializer.Serialize(request);
+                var resultBytes = _serializer.Serialize(result);
                 var inboxMessage = new InboxMessage
                 {
                     MessageId = id,
                     MessageType = TypeNameCache<TRequest>.FullName,
-                    Payload = _serializer.Serialize(request),
-                    ProcessingResult = _serializer.Serialize(result),
+                    Payload = requestBytes,
+                    ProcessingResult = resultBytes,
                     CorrelationId = request is IMessage corrMsg ? corrMsg.CorrelationId : null
                 };
                 await _persistence.MarkAsProcessedAsync(inboxMessage, cancellationToken);
                 CatgaLog.InboxProcessed(_logger, id);
+                System.Diagnostics.Activity.Current?.AddActivityEvent("Inbox.Serialized",
+                    ("message.id", id),
+                    ("request.size", requestBytes.Length),
+                    ("result.size", resultBytes.Length));
                 System.Diagnostics.Activity.Current?.AddActivityEvent("Inbox.Processed",
                     ("message.id", id));
                 return result;

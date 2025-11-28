@@ -1,10 +1,13 @@
 using Catga;
 using Catga.Abstractions;
 using Catga.Core;
+using Catga.Observability;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using System.Diagnostics;
+using System.Linq;
 
 namespace Catga.Tests.Scenarios;
 
@@ -30,7 +33,7 @@ public class ECommerceOrderFlowTests
 
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddCatga();
+        services.AddCatga().WithTracing(true);
 
         // 注册订单相关Handler
         services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderCommandHandler>();
@@ -53,6 +56,36 @@ public class ECommerceOrderFlowTests
 
         _serviceProvider = services.BuildServiceProvider();
         _mediator = _serviceProvider.GetRequiredService<ICatgaMediator>();
+    }
+
+    [Fact]
+    public async Task Tracing_ShouldInclude_Request_And_Response_Tags()
+    {
+        var orderId = 123456L;
+        var amount = 42.5m;
+
+        Activity? captured = null;
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = a =>
+            {
+                if (a.OperationName.StartsWith("Catga.Handle.") && a.Tags.Any())
+                    captured = a;
+            }
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        var cmd = new ProcessPaymentCommand(orderId, amount) { CorrelationId = MessageExtensions.NewMessageId() };
+        var result = await _mediator.SendAsync<ProcessPaymentCommand, PaymentResult>(cmd);
+
+        result.IsSuccess.Should().BeTrue();
+        captured.Should().NotBeNull();
+        captured!.Tags.Should().Contain(t => t.Key == "catga.req.order_id" && t.Value?.ToString() == orderId.ToString());
+        captured!.Tags.Should().Contain(t => t.Key == "catga.req.amount");
+        captured!.Tags.Should().Contain(t => t.Key == "catga.res.txn_id");
+        captured!.Tags.Should().Contain(t => t.Key == "catga.res.amount" && t.Value?.ToString() == amount.ToString());
     }
 
     #region 完整订单流程 - 成功路径
@@ -449,37 +482,49 @@ public class ECommerceOrderFlowTests
 
 #region 领域消息定义 - Commands
 
-public record CreateOrderCommand(string ProductId, int Quantity, decimal Amount) : IRequest<OrderCreatedResult>
+public partial record CreateOrderCommand(
+    [property: TraceTag("catga.req.product_id")] string ProductId,
+    [property: TraceTag("catga.req.quantity")] int Quantity,
+    [property: TraceTag("catga.req.amount")] decimal Amount) : IRequest<OrderCreatedResult>
 {
     public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     public long? CorrelationId { get; init; }
 }
 
-public record ReserveInventoryCommand(long OrderId, string ProductId, int Quantity) : IRequest<InventoryReservedResult>
+public partial record ReserveInventoryCommand(
+    [property: TraceTag("catga.req.order_id")] long OrderId,
+    [property: TraceTag("catga.req.product_id")] string ProductId,
+    [property: TraceTag("catga.req.quantity")] int Quantity) : IRequest<InventoryReservedResult>
 {
     public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     public long? CorrelationId { get; init; }
 }
 
-public record ProcessPaymentCommand(long OrderId, decimal Amount) : IRequest<PaymentResult>
+public partial record ProcessPaymentCommand(
+    [property: TraceTag("catga.req.order_id")] long OrderId,
+    [property: TraceTag("catga.req.amount")] decimal Amount) : IRequest<PaymentResult>
 {
     public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     public long? CorrelationId { get; init; }
 }
 
-public record ShipOrderCommand(long OrderId, string Address) : IRequest<ShipmentResult>
+public partial record ShipOrderCommand(
+    [property: TraceTag("catga.req.order_id")] long OrderId,
+    [property: TraceTag("catga.req.address")] string Address) : IRequest<ShipmentResult>
 {
     public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     public long? CorrelationId { get; init; }
 }
 
-public record CancelOrderCommand(long OrderId, string Reason) : IRequest<OrderCancelledResult>
+public partial record CancelOrderCommand(
+    [property: TraceTag("catga.req.order_id")] long OrderId,
+    [property: TraceTag("catga.req.reason")] string Reason) : IRequest<OrderCancelledResult>
 {
     public long MessageId { get; init; } = MessageExtensions.NewMessageId();
     public long? CorrelationId { get; init; }
 }
 
-public record GetOrderQuery(long OrderId) : IRequest<OrderDetails>
+public partial record GetOrderQuery([property: TraceTag("catga.req.order_id")] long OrderId) : IRequest<OrderDetails>
 {
     public long MessageId { get; init; } = MessageExtensions.NewMessageId();
 }
@@ -488,12 +533,16 @@ public record GetOrderQuery(long OrderId) : IRequest<OrderDetails>
 
 #region 领域消息定义 - Results
 
-public record OrderCreatedResult(long OrderId, string ProductId, int Quantity);
-public record InventoryReservedResult(long ReservationId);
-public record PaymentResult(string TransactionId, decimal Amount);
-public record ShipmentResult(string TrackingNumber);
-public record OrderCancelledResult(long OrderId);
-public record OrderDetails(long OrderId, OrderStatus Status, string ProductId, decimal Amount);
+public partial record OrderCreatedResult([property: TraceTag("catga.res.order_id")] long OrderId, string ProductId, int Quantity);
+public partial record InventoryReservedResult([property: TraceTag("catga.res.reservation_id")] long ReservationId);
+public partial record PaymentResult([property: TraceTag("catga.res.txn_id")] string TransactionId, [property: TraceTag("catga.res.amount")] decimal Amount);
+public partial record ShipmentResult([property: TraceTag("catga.res.tracking")] string TrackingNumber);
+public partial record OrderCancelledResult([property: TraceTag("catga.res.order_id")] long OrderId);
+public partial record OrderDetails(
+    [property: TraceTag("catga.res.order_id")] long OrderId,
+    [property: TraceTag("catga.res.status")] OrderStatus Status,
+    [property: TraceTag("catga.res.product_id")] string ProductId,
+    [property: TraceTag("catga.res.amount")] decimal Amount);
 
 public enum OrderStatus
 {

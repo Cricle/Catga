@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
 
 namespace Catga.SourceGenerator;
@@ -47,15 +48,8 @@ public sealed class ActivityTagProviderGenerator : IIncrementalGenerator
         if (symbol.IsAbstract)
             return null;
 
-        bool IsRequestInterface(INamedTypeSymbol i)
-        {
-            var name = i.Name;
-            var ns = i.ContainingNamespace?.ToDisplayString();
-            return ns == "Catga.Abstractions" && name == "IRequest" && (i.TypeArguments.Length == 0 || i.TypeArguments.Length == 1);
-        }
-
-        // Only for IRequest / IRequest<T>
-        if (!symbol.AllInterfaces.Any(IsRequestInterface))
+        // Only generate if the original type is declared as 'partial' to avoid merge errors
+        if (!typeDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
             return null;
 
         // Avoid generics for simplicity (can be added later)
@@ -81,7 +75,7 @@ public sealed class ActivityTagProviderGenerator : IIncrementalGenerator
         }
 
         if (props.Count == 0)
-            return null;
+            return null; // Only generate for types that actually opt-in
 
         var nsName = symbol.ContainingNamespace?.ToDisplayString() ?? "";
         var isStruct = symbol.IsValueType;

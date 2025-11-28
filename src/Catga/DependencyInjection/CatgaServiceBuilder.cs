@@ -101,7 +101,7 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
         if (enabled)
         {
             // Register distributed tracing behavior for rich trace data in Jaeger
-            Services.AddSingleton(typeof(Catga.Pipeline.Behaviors.DistributedTracingBehavior<,>));
+            Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.DistributedTracingBehavior<,>));
             ObservabilityHooks.Enable();
         }
 

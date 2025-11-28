@@ -43,7 +43,7 @@ jobs:
       results_dir: 'tests/Catga.Tests/TestResults'
       upload_artifacts: true
       artifact_name: coverage-report-coverage-${{ github.run_attempt }}
-      test_filter: '(Requires!=Docker)&(Category!=Integration)&!(FullyQualifiedName~Catga.Tests.Integration)'
+      test_filter: '(Requires!=Docker) and (Category!=Integration) and not (FullyQualifiedName~Catga.Tests.Integration)'
 
   docfx:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')

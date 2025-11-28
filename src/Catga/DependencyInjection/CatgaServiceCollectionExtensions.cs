@@ -32,6 +32,10 @@ public static class CatgaServiceCollectionExtensions
         // Users can override this by calling .UseWorkerId(n) or .UseWorkerIdFromEnvironment()
         services.TryAddSingleton<IDistributedIdGenerator>(sp => new SnowflakeIdGenerator(GetWorkerIdFromEnvironmentOrRandom("CATGA_WORKER_ID")));
 
+        Catga.Generated.GeneratedBootstrapRegistry.Apply(services);
+        var conv = Catga.Generated.GeneratedBootstrapRegistry.EndpointConvention;
+        if (conv is not null && options.EndpointNamingConvention is null)
+            options.EndpointNamingConvention = conv;
         var builder = new CatgaServiceBuilder(services, options);
 
         sw.Stop();

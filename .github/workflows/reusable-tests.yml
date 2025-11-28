@@ -87,9 +87,11 @@ jobs:
           TEST_NATS_IMAGE: ${{ inputs.nats_image }}
           TEST_REDIS_IMAGE: ${{ inputs.redis_image }}
         run: |
-          FILTER_ARG=""
-          if [ -n "${{ inputs.test_filter }}" ]; then FILTER_ARG="--filter \"${{ inputs.test_filter }}\""; fi
-          dotnet test --no-build -c Release $FILTER_ARG --logger "trx;LogFileName=test.trx" --results-directory "${{ inputs.results_dir }}"
+          if [ -n "${{ inputs.test_filter }}" ]; then
+            dotnet test --no-build -c Release --filter "${{ inputs.test_filter }}" --logger "trx;LogFileName=test.trx" --results-directory "${{ inputs.results_dir }}"
+          else
+            dotnet test --no-build -c Release --logger "trx;LogFileName=test.trx" --results-directory "${{ inputs.results_dir }}"
+          fi
 
       - name: Run tests with coverage
         if: ${{ inputs.collect_coverage }}
@@ -98,9 +100,11 @@ jobs:
           TEST_NATS_IMAGE: ${{ inputs.nats_image }}
           TEST_REDIS_IMAGE: ${{ inputs.redis_image }}
         run: |
-          FILTER_ARG=""
-          if [ -n "${{ inputs.test_filter }}" ]; then FILTER_ARG="--filter \"${{ inputs.test_filter }}\""; fi
-          dotnet test --no-build -c Release $FILTER_ARG --collect:"XPlat Code Coverage" --results-directory "${{ inputs.coverage_dir }}" --logger "trx;LogFileName=test.trx"
+          if [ -n "${{ inputs.test_filter }}" ]; then
+            dotnet test --no-build -c Release --filter "${{ inputs.test_filter }}" --collect:"XPlat Code Coverage" --results-directory "${{ inputs.coverage_dir }}" --logger "trx;LogFileName=test.trx"
+          else
+            dotnet test --no-build -c Release --collect:"XPlat Code Coverage" --results-directory "${{ inputs.coverage_dir }}" --logger "trx;LogFileName=test.trx"
+          fi
 
       - name: Generate coverage report
         if: ${{ inputs.collect_coverage }}

@@ -1,5 +1,3 @@
-using System;
-
 namespace Catga.Resilience;
 
 public static class ResilienceKeys

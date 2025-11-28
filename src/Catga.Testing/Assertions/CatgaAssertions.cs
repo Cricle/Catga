@@ -35,7 +35,7 @@ public class CatgaResultAssertions<T> : ReferenceTypeAssertions<CatgaResult<T>, 
         Execute.Assertion
             .ForCondition(Subject.IsSuccess)
             .BecauseOf(because, becauseArgs)
-            .FailWith("Expected {context:result} to be successful{reason}, but it was a failure with error: {0}.", 
+            .FailWith("Expected {context:result} to be successful{reason}, but it was a failure with error: {0}.",
                 Subject.Error);
 
         return new AndConstraint<CatgaResultAssertions<T>>(this);
@@ -66,7 +66,7 @@ public class CatgaResultAssertions<T> : ReferenceTypeAssertions<CatgaResult<T>, 
             .Then
             .ForCondition(Subject.Error?.Contains(expectedError) == true)
             .BecauseOf(because, becauseArgs)
-            .FailWith("Expected {context:result} to have error containing {0}{reason}, but found {1}.", 
+            .FailWith("Expected {context:result} to have error containing {0}{reason}, but found {1}.",
                 expectedError, Subject.Error);
 
         return new AndConstraint<CatgaResultAssertions<T>>(this);
@@ -84,7 +84,7 @@ public class CatgaResultAssertions<T> : ReferenceTypeAssertions<CatgaResult<T>, 
             .Then
             .ForCondition(EqualityComparer<T>.Default.Equals(Subject.Value, expectedValue))
             .BecauseOf(because, becauseArgs)
-            .FailWith("Expected {context:result} to have value {0}{reason}, but found {1}.", 
+            .FailWith("Expected {context:result} to have value {0}{reason}, but found {1}.",
                 expectedValue, Subject.Value);
 
         return new AndConstraint<CatgaResultAssertions<T>>(this);

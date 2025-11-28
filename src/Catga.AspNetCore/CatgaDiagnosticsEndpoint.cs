@@ -21,7 +21,7 @@ public static class CatgaDiagnosticsEndpoint
     /// 诊断端点主要用于开发和调试环境，不建议在生产环境启用。
     /// 注意：ASP.NET Core Minimal APIs 在参数绑定中使用反射，不建议在 Native AOT 场景使用。
     /// </remarks>
-    #pragma warning disable IL2026, IL3050 // Diagnostic endpoints are not AOT-compatible; suppress warnings for development-only endpoints
+#pragma warning disable IL2026, IL3050 // Diagnostic endpoints are not AOT-compatible; suppress warnings for development-only endpoints
     public static IEndpointRouteBuilder MapCatgaDiagnostics(
         this IEndpointRouteBuilder endpoints,
         string pathPrefix = "/catga")
@@ -56,7 +56,7 @@ public static class CatgaDiagnosticsEndpoint
 
         return endpoints;
     }
-    #pragma warning restore IL2026, IL3050
+#pragma warning restore IL2026, IL3050
 
     private static IResult GetDashboard()
     {

@@ -121,6 +121,8 @@ public sealed class AutoBatchingBehavior<
         private readonly IResiliencePipelineProvider _provider;
         private readonly ILogger _logger;
         private readonly Timer _timer;
+        private readonly TimeSpan _period;
+        private int _timerActive;
         private readonly CancellationToken _stop;
         private readonly CancellationTokenRegistration _stopReg;
         private readonly Func<TRequest, string?>? _keySelector;
@@ -134,8 +136,9 @@ public sealed class AutoBatchingBehavior<
             _keySelector = keySelector;
             var ms = Math.Max(1.0, options.BatchTimeout.TotalMilliseconds);
             var jitter = 1.0 + (Random.Shared.NextDouble() * 0.2 - 0.1);
-            var period = TimeSpan.FromMilliseconds(Math.Max(1, ms * jitter));
-            _timer = new Timer(OnTimer, null, period, period);
+            _period = TimeSpan.FromMilliseconds(Math.Max(1, ms * jitter));
+            _timer = new Timer(OnTimer, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            _timerActive = 0;
             _stopReg = _stop.Register(static s => ((Timer)s!).Dispose(), _timer);
         }
 
@@ -160,58 +163,85 @@ public sealed class AutoBatchingBehavior<
             var shard = _shards.GetOrAdd(key, k => new Shard(k, _options, _provider, _logger));
             var newCount = shard.Enqueue(entry);
             if (newCount >= _options.MaxBatchSize) _ = Task.Run(shard.FlushAsync);
+            else EnsureTimerActive();
 
             return new ValueTask<CatgaResult<TResponse>>(tcs.Task);
         }
 
+        private void EnsureTimerActive()
+        {
+            if (Volatile.Read(ref _timerActive) == 1) return;
+            if (Interlocked.Exchange(ref _timerActive, 1) == 0)
+            {
+                try { _timer.Change(_period, _period); }
+                catch { /* ignore disposal races */ }
+            }
+        }
+
         private void OnTimer(object? state)
         {
-            if (_stop.IsCancellationRequested) return;
-            // Cleanup idle shards by TTL and enforce max shard limit
-            var nowTicks = DateTime.UtcNow.Ticks;
-            foreach (var kv in _shards)
+            try
             {
-                var shard = kv.Value;
-                if (shard.Count > 0)
+                if (_stop.IsCancellationRequested) return;
+                // Cleanup idle shards by TTL and enforce max shard limit
+                var nowTicks = DateTime.UtcNow.Ticks;
+                foreach (var kv in _shards)
                 {
-                    _ = Task.Run(shard.FlushAsync);
-                }
-                else
-                {
-                    if (nowTicks - shard.LastSeenTicks >= _options.ShardIdleTtl.Ticks)
+                    var shard = kv.Value;
+                    if (shard.Count > 0)
                     {
-                        _shards.TryRemove(kv.Key, out _);
+                        _ = Task.Run(shard.FlushAsync);
+                    }
+                    else
+                    {
+                        if (nowTicks - shard.LastSeenTicks >= _options.ShardIdleTtl.Ticks)
+                        {
+                            _shards.TryRemove(kv.Key, out _);
+                        }
+                    }
+                }
+
+                var limit = _options.MaxShards;
+                if (limit > 0)
+                {
+                    var current = _shards.Count;
+                    if (current > limit)
+                    {
+                        var over = current - limit;
+                        if (over > 0)
+                        {
+                            var idle = new List<KeyValuePair<string, long>>();
+                            foreach (var kv in _shards)
+                            {
+                                var s = kv.Value;
+                                if (s.Count == 0)
+                                {
+                                    idle.Add(new KeyValuePair<string, long>(kv.Key, s.LastSeenTicks));
+                                }
+                            }
+                            if (idle.Count > 0)
+                            {
+                                foreach (var candidate in idle.OrderBy(p => p.Value))
+                                {
+                                    if (over == 0) break;
+                                    if (_shards.TryRemove(candidate.Key, out _)) over--;
+                                }
+                            }
+                        }
                     }
                 }
             }
-
-            var limit = _options.MaxShards;
-            if (limit > 0)
+            catch (Exception ex)
             {
-                var current = _shards.Count;
-                if (current > limit)
+                CatgaLog.MediatorBatchTimerError(_logger, ex, typeof(TRequest).Name);
+            }
+            finally
+            {
+                if (_shards.IsEmpty)
                 {
-                    var over = current - limit;
-                    if (over > 0)
-                    {
-                        var idle = new List<KeyValuePair<string, long>>();
-                        foreach (var kv in _shards)
-                        {
-                            var s = kv.Value;
-                            if (s.Count == 0)
-                            {
-                                idle.Add(new KeyValuePair<string, long>(kv.Key, s.LastSeenTicks));
-                            }
-                        }
-                        if (idle.Count > 0)
-                        {
-                            foreach (var candidate in idle.OrderBy(p => p.Value))
-                            {
-                                if (over == 0) break;
-                                if (_shards.TryRemove(candidate.Key, out _)) over--;
-                            }
-                        }
-                    }
+                    try { _timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan); }
+                    catch { /* ignore disposal races */ }
+                    Interlocked.Exchange(ref _timerActive, 0);
                 }
             }
         }
@@ -251,7 +281,7 @@ public sealed class AutoBatchingBehavior<
                         Interlocked.Decrement(ref _count);
                         dropped.TrySetFailure(CatgaResult<TResponse>.Failure("Mediator batch queue overflow"));
                         if (ObservabilityHooks.IsEnabled) ObservabilityHooks.RecordMediatorBatchOverflow();
-                        _logger.LogWarning("Mediator batch queue overflow for {RequestType} shard {Key}", typeof(TRequest).Name, _key);
+                        CatgaLog.MediatorBatchOverflow(_logger, typeof(TRequest).Name, _key);
                     }
                 }
                 return newCount;
@@ -289,7 +319,7 @@ public sealed class AutoBatchingBehavior<
                                 }
                                 catch (Exception ex)
                                 {
-                                    _logger.LogError(ex, "Mediator auto-batch entry failed for {RequestType}", typeof(TRequest).Name);
+                                    CatgaLog.MediatorBatchEntryError(_logger, ex, typeof(TRequest).Name);
                                     var wrapped = new Catga.Exceptions.CatgaException("Auto-batch execution error", ex);
                                     e.TrySetFailure(CatgaResult<TResponse>.Failure("Auto-batch execution error", wrapped));
                                 }
@@ -338,7 +368,7 @@ public sealed class AutoBatchingBehavior<
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Mediator auto-batch flush failed for {RequestType}", typeof(TRequest).Name);
+                        CatgaLog.MediatorBatchFlushError(_logger, ex, typeof(TRequest).Name);
                         var wrapped = new Catga.Exceptions.CatgaException("Auto-batch flush error", ex);
                         foreach (var e in batch)
                         {

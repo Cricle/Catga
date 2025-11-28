@@ -106,38 +106,22 @@ public sealed class InMemoryEventStore : IEventStore
 
                 var elapsed = Stopwatch.GetTimestamp() - startTimestamp;
                 var durationMs = elapsed * 1000.0 / Stopwatch.Frequency;
-#if NET8_0_OR_GREATER
                 var tag_component = new KeyValuePair<string, object?>("component", "EventStore.InMemory");
                 CatgaDiagnostics.EventStoreAppends.Add(1, tag_component);
                 CatgaDiagnostics.EventStoreAppendDuration.Record(durationMs, tag_component);
-#else
-                var tags = new TagList { { "component", "EventStore.InMemory" } };
-                CatgaDiagnostics.EventStoreAppends.Add(1, tags);
-                CatgaDiagnostics.EventStoreAppendDuration.Record(durationMs, tags);
-#endif
             }
             catch (InvalidOperationException)
             {
-#if NET8_0_OR_GREATER
                 CatgaDiagnostics.EventStoreFailures.Add(1,
                     new KeyValuePair<string, object?>("component", "EventStore.InMemory"),
                     new KeyValuePair<string, object?>("reason", "concurrency"));
-#else
-                var failureTags = new TagList { { "component", "EventStore.InMemory" }, { "reason", "concurrency" } };
-                CatgaDiagnostics.EventStoreFailures.Add(1, failureTags);
-#endif
                 throw new ConcurrencyException(streamId, expectedVersion, stream.Version);
             }
             catch
             {
-#if NET8_0_OR_GREATER
                 CatgaDiagnostics.EventStoreFailures.Add(1,
                     new KeyValuePair<string, object?>("component", "EventStore.InMemory"),
                     new KeyValuePair<string, object?>("reason", "exception"));
-#else
-                var failureTags = new TagList { { "component", "EventStore.InMemory" }, { "reason", "exception" } };
-                CatgaDiagnostics.EventStoreFailures.Add(1, failureTags);
-#endif
                 throw;
             }
             return ValueTask.CompletedTask;
@@ -170,15 +154,9 @@ public sealed class InMemoryEventStore : IEventStore
 
                 var elapsedEmpty = Stopwatch.GetTimestamp() - startTimestamp;
                 var durationMsEmpty = elapsedEmpty * 1000.0 / Stopwatch.Frequency;
-#if NET8_0_OR_GREATER
                 var tag_component = new KeyValuePair<string, object?>("component", "EventStore.InMemory");
                 CatgaDiagnostics.EventStoreReads.Add(1, tag_component);
                 CatgaDiagnostics.EventStoreReadDuration.Record(durationMsEmpty, tag_component);
-#else
-                var emptyTags = new TagList { { "component", "EventStore.InMemory" } };
-                CatgaDiagnostics.EventStoreReads.Add(1, emptyTags);
-                CatgaDiagnostics.EventStoreReadDuration.Record(durationMsEmpty, emptyTags);
-#endif
                 return new ValueTask<EventStream>(emptyResult);
             }
 
@@ -194,15 +172,9 @@ public sealed class InMemoryEventStore : IEventStore
 
             var elapsed = Stopwatch.GetTimestamp() - startTimestamp;
             var durationMs = elapsed * 1000.0 / Stopwatch.Frequency;
-#if NET8_0_OR_GREATER
             var tag_component2 = new KeyValuePair<string, object?>("component", "EventStore.InMemory");
             CatgaDiagnostics.EventStoreReads.Add(1, tag_component2);
             CatgaDiagnostics.EventStoreReadDuration.Record(durationMs, tag_component2);
-#else
-            var tags2 = new TagList { { "component", "EventStore.InMemory" } };
-            CatgaDiagnostics.EventStoreReads.Add(1, tags2);
-            CatgaDiagnostics.EventStoreReadDuration.Record(durationMs, tags2);
-#endif
             return new ValueTask<EventStream>(result);
         }, cancellationToken);
     }
@@ -230,13 +202,6 @@ public sealed class InMemoryEventStore : IEventStore
     public int StreamCount => _streams.Count;
 
     /// <summary>Get event count for a stream (for testing)</summary>
-    public int GetEventCount(string streamId)
-    {
-        if (_streams.TryGetValue(streamId, out var stream))
-        {
-            return (int)(stream.Version + 1);
-        }
-        return 0;
-    }
+    public int GetEventCount(string streamId) => _streams.TryGetValue(streamId, out var stream) ? (int)(stream.Version + 1) : 0;
 }
 

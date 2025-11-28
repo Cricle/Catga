@@ -17,7 +17,8 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
     public ValueTask<bool> TryLockMessageAsync(long messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
         => _provider.ExecutePersistenceAsync(ct =>
         {
-            ValidationHelper.ValidateMessageId(messageId);
+            if (messageId == 0)
+                throw new ArgumentException("MessageId must be > 0", nameof(messageId));
 
             if (TryGetMessage(messageId, out var existingMessage) && existingMessage != null)
             {
@@ -34,7 +35,7 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
             {
                 MessageId = messageId,
                 MessageType = string.Empty,
-                Payload = string.Empty,
+                Payload = Array.Empty<byte>(),
                 Status = InboxStatus.Processing,
                 LockExpiresAt = DateTime.UtcNow.Add(lockDuration)
             };
@@ -47,7 +48,7 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
     public ValueTask MarkAsProcessedAsync(InboxMessage message, CancellationToken cancellationToken = default)
         => _provider.ExecutePersistenceAsync(ct =>
         {
-            ValidationHelper.ValidateNotNull(message);
+            ArgumentNullException.ThrowIfNull(message);
 
             if (TryGetMessage(message.MessageId, out var existing) && existing != null)
             {
@@ -76,8 +77,8 @@ public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
         => _provider.ExecutePersistenceAsync(ct => new ValueTask<bool>(
             TryGetMessage(messageId, out var message) && message != null && message.Status == InboxStatus.Processed), cancellationToken);
 
-    public ValueTask<string?> GetProcessedResultAsync(long messageId, CancellationToken cancellationToken = default)
-        => _provider.ExecutePersistenceAsync(ct => new ValueTask<string?>(
+    public ValueTask<byte[]?> GetProcessedResultAsync(long messageId, CancellationToken cancellationToken = default)
+        => _provider.ExecutePersistenceAsync(ct => new ValueTask<byte[]?>(
             TryGetMessage(messageId, out var message) && message != null && message.Status == InboxStatus.Processed ? message.ProcessingResult : null), cancellationToken);
 
     public ValueTask ReleaseLockAsync(long messageId, CancellationToken cancellationToken = default)

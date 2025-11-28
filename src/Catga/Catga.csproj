@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net9.0;net8.0;net6.0</TargetFrameworks>
+		<TargetFrameworks>net9.0;net8.0</TargetFrameworks>
 		<LangVersion>latest</LangVersion>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
@@ -11,14 +11,11 @@
 	<AssemblyVersion>0.1.0.0</AssemblyVersion>
 	<FileVersion>0.1.0.0</FileVersion>
 
-		<!-- AOT Compatibility (only for net7.0+) -->
+		<!-- AOT Compatibility (net7.0+) -->
 		<IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
 		<IsTrimmable>true</IsTrimmable>
-		<EnableTrimAnalyzer Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">true</EnableTrimAnalyzer>
-		<EnableSingleFileAnalyzer Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">true</EnableSingleFileAnalyzer>
-
-		<!-- Suppress TFM support warnings for net6.0 (Microsoft.Extensions 9.0 packages) -->
-		<SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
 
 		<EnableSourceLink>false</EnableSourceLink>
 		<EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
@@ -31,6 +28,10 @@
 		<PackageReference Include="Polly" />
 		<PackageReference Include="Polly.RateLimiting" Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))" />
 		<PackageReference Include="MemoryPack" />
+		<PackageReference Include="PolySharp">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
 	  	<None Include="../Catga.SourceGenerator/bin/$(Configuration)/netstandard2.0/Catga.SourceGenerator.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
 	</ItemGroup>
 

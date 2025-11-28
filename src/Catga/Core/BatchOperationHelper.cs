@@ -30,8 +30,8 @@ public static class BatchOperationHelper
         Func<T, Task> operation,
         int chunkSize = DefaultChunkSize)
     {
-        ValidationHelper.ValidateNotNull(items);
-        ValidationHelper.ValidateNotNull(operation);
+        ArgumentNullException.ThrowIfNull(items);
+        ArgumentNullException.ThrowIfNull(operation);
 
         // Fast path: if already ICollection, use Count directly
         if (items is ICollection<T> collection)
@@ -117,8 +117,8 @@ public static class BatchOperationHelper
         Func<T, TParam, Task> operation,
         int chunkSize = DefaultChunkSize)
     {
-        ValidationHelper.ValidateNotNull(items);
-        ValidationHelper.ValidateNotNull(operation);
+        ArgumentNullException.ThrowIfNull(items);
+        ArgumentNullException.ThrowIfNull(operation);
 
         if (items is ICollection<T> collection)
         {
@@ -205,8 +205,8 @@ public static class BatchOperationHelper
         int maxConcurrency,
         CancellationToken cancellationToken = default)
     {
-        ValidationHelper.ValidateNotNull(items);
-        ValidationHelper.ValidateNotNull(operation);
+        ArgumentNullException.ThrowIfNull(items);
+        ArgumentNullException.ThrowIfNull(operation);
 
         if (maxConcurrency <= 0)
             throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0");

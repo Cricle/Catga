@@ -359,11 +359,11 @@ public sealed partial class AdditionalE2ETests : IAsyncLifetime
             {
                 MessageId = id,
                 MessageType = typeof(DlqMessage).FullName!,
-                Payload = Convert.ToBase64String(_serializer.Serialize(msg, typeof(DlqMessage))),
+                Payload = _serializer.Serialize(msg, typeof(DlqMessage)),
                 Status = InboxStatus.Processed,
                 ReceivedAt = DateTime.UtcNow,
                 ProcessedAt = DateTime.UtcNow,
-                ProcessingResult = "ok"
+                ProcessingResult = System.Text.Encoding.UTF8.GetBytes("ok")
             });
             tcs.TrySetResult();
         });
@@ -377,7 +377,7 @@ public sealed partial class AdditionalE2ETests : IAsyncLifetime
         {
             MessageId = messageId,
             MessageType = typeof(DlqMessage).FullName!,
-            Payload = Convert.ToBase64String(_serializer.Serialize(ev, typeof(DlqMessage))),
+            Payload = _serializer.Serialize(ev, typeof(DlqMessage)),
             Status = OutboxStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };

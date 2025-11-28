@@ -227,7 +227,7 @@ public class CatgaMediatorBoundaryTests
         services.AddScoped<IRequestHandler<TestCommand, TestResponse>, TestCommandHandler>();
 
         var provider = services.BuildServiceProvider();
-        
+
         // Act & Assert - Using ServiceProvider.Dispose indirectly tests resource cleanup
         Action act = () =>
         {
@@ -235,7 +235,7 @@ public class CatgaMediatorBoundaryTests
             var mediator = scope.ServiceProvider.GetRequiredService<ICatgaMediator>();
             // Mediator will be disposed when scope is disposed
         };
-        
+
         act.Should().NotThrow();
     }
 

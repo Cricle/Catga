@@ -1,11 +1,11 @@
+using Catga.Configuration;
+using Catga.Observability;
+using Catga.Resilience;
 using Catga.Transport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Catga.Abstractions;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using Catga.Observability;
 
 namespace Catga;
 
@@ -26,8 +26,8 @@ public static class InMemoryTransportServiceCollectionExtensions
             services.TryAddSingleton<IMessageTransport>(sp =>
             {
                 var logger = sp.GetService<ILogger<InMemoryMessageTransport>>();
-                var global = sp.GetRequiredService<Catga.Configuration.CatgaOptions>();
-                var provider = sp.GetRequiredService<Catga.Resilience.IResiliencePipelineProvider>();
+                var global = sp.GetRequiredService<CatgaOptions>();
+                var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
                 return new InMemoryMessageTransport(new InMemoryTransportOptions(), logger, global, provider);
             });
 

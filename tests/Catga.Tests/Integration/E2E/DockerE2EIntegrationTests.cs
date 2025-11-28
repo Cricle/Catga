@@ -175,10 +175,10 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
             {
                 MessageId = id,
                 MessageType = typeof(TestEvent).FullName!,
-                Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(msg)),
+                Payload = _serializer!.Serialize(msg),
                 Status = InboxStatus.Processing,
                 ReceivedAt = DateTime.UtcNow,
-                ProcessingResult = "ok"
+                ProcessingResult = System.Text.Encoding.UTF8.GetBytes("ok")
             };
             await inbox.MarkAsProcessedAsync(inboxMessage);
 
@@ -194,7 +194,7 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
         {
             MessageId = messageId,
             MessageType = typeof(TestEvent).FullName!,
-            Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(ev)),
+            Payload = _serializer!.Serialize(ev),
             Status = OutboxStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
@@ -240,11 +240,11 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
             {
                 MessageId = id,
                 MessageType = typeof(TestEvent).FullName!,
-                Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(msg)),
+                Payload = _serializer!.Serialize(msg),
                 Status = InboxStatus.Processed,
                 ReceivedAt = DateTime.UtcNow,
                 ProcessedAt = DateTime.UtcNow,
-                ProcessingResult = "ok"
+                ProcessingResult = System.Text.Encoding.UTF8.GetBytes("ok")
             });
             if (Volatile.Read(ref received) == total) tcs.TrySetResult();
         });
@@ -284,11 +284,11 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
             {
                 MessageId = msg.MessageId,
                 MessageType = typeof(TestEvent).FullName!,
-                Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(msg)),
+                Payload = _serializer!.Serialize(msg),
                 Status = InboxStatus.Processed,
                 ReceivedAt = DateTime.UtcNow,
                 ProcessedAt = DateTime.UtcNow,
-                ProcessingResult = "ok"
+                ProcessingResult = System.Text.Encoding.UTF8.GetBytes("ok")
             });
             tcs.TrySetResult();
         });
@@ -368,11 +368,11 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
             {
                 MessageId = msg.MessageId,
                 MessageType = typeof(TestEvent).FullName!,
-                Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(msg)),
+                Payload = _serializer!.Serialize(msg),
                 Status = InboxStatus.Processed,
                 ReceivedAt = DateTime.UtcNow,
                 ProcessedAt = DateTime.UtcNow,
-                ProcessingResult = "ok"
+                ProcessingResult = System.Text.Encoding.UTF8.GetBytes("ok")
             });
             tcs.TrySetResult();
         });

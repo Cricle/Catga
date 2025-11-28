@@ -7,14 +7,8 @@ using Polly.RateLimiting;
 using System.Threading.RateLimiting;
 #else
 using Polly;
-using Polly.CircuitBreaker;
-using Polly.Timeout;
-using Polly.Retry;
 #endif
-using System;
 using System.Diagnostics;
-using System.Threading;
-using System.Threading.Tasks;
 using Catga.Observability;
 
 namespace Catga.Resilience;
@@ -160,46 +154,46 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
 #else
     private static Polly.Wrap.AsyncPolicyWrap BuildMediatorV7(CatgaResilienceOptions o)
     {
-        var bulkhead = Polly.Policy.BulkheadAsync(o.MediatorBulkheadConcurrency, o.MediatorBulkheadQueueLimit);
-        var circuit = Polly.Policy.Handle<Exception>()
+        var bulkhead = Policy.BulkheadAsync(o.MediatorBulkheadConcurrency, o.MediatorBulkheadQueueLimit);
+        var circuit = Policy.Handle<Exception>()
             .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30),
                 onBreak: (ex, dt) => { CatgaDiagnostics.ResilienceCircuitOpened.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Mediator)); var a = Activity.Current; if (a != null) a.AddEvent(new ActivityEvent("resilience.circuit.open", tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Mediator })); },
                 onReset: () => { CatgaDiagnostics.ResilienceCircuitClosed.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Mediator)); var a = Activity.Current; if (a != null) a.AddEvent(new ActivityEvent("resilience.circuit.closed", tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Mediator })); },
                 onHalfOpen: () => { CatgaDiagnostics.ResilienceCircuitHalfOpened.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Mediator)); var a = Activity.Current; if (a != null) a.AddEvent(new ActivityEvent("resilience.circuit.halfopen", tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Mediator })); });
-        var timeout = Polly.Policy.TimeoutAsync(o.MediatorTimeout, Polly.Timeout.TimeoutStrategy.Optimistic,
+        var timeout = Policy.TimeoutAsync(o.MediatorTimeout, Polly.Timeout.TimeoutStrategy.Optimistic,
             (ctx, ts, task) => { CatgaDiagnostics.ResilienceTimeouts.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Mediator)); return Task.CompletedTask; });
-        var retry = Polly.Policy.NoOpAsync(); // 默认命令不重试，查询稍后在行为里覆盖
-        return Polly.Policy.WrapAsync(bulkhead, circuit, timeout, retry);
+        var retry = Policy.NoOpAsync(); // 默认命令不重试，查询稍后在行为里覆盖
+        return Policy.WrapAsync(bulkhead, circuit, timeout, retry);
     }
 
     private static Polly.Wrap.AsyncPolicyWrap BuildTransportV7(CatgaResilienceOptions o)
     {
-        var bulkhead = Polly.Policy.BulkheadAsync(o.TransportBulkheadConcurrency, o.TransportBulkheadQueueLimit);
-        var circuit = Polly.Policy.Handle<Exception>()
+        var bulkhead = Policy.BulkheadAsync(o.TransportBulkheadConcurrency, o.TransportBulkheadQueueLimit);
+        var circuit = Policy.Handle<Exception>()
             .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30),
                 onBreak: (ex, dt) => { CatgaDiagnostics.ResilienceCircuitOpened.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.TransportPublish)); var a = Activity.Current; if (a != null) a.AddEvent(new ActivityEvent("resilience.circuit.open", tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.TransportPublish })); },
                 onReset: () => { CatgaDiagnostics.ResilienceCircuitClosed.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.TransportPublish)); var a = Activity.Current; if (a != null) a.AddEvent(new ActivityEvent("resilience.circuit.closed", tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.TransportPublish })); },
                 onHalfOpen: () => { CatgaDiagnostics.ResilienceCircuitHalfOpened.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.TransportPublish)); var a = Activity.Current; if (a != null) a.AddEvent(new ActivityEvent("resilience.circuit.halfopen", tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.TransportPublish })); });
-        var timeout = Polly.Policy.TimeoutAsync(o.TransportTimeout, Polly.Timeout.TimeoutStrategy.Optimistic,
+        var timeout = Policy.TimeoutAsync(o.TransportTimeout, Polly.Timeout.TimeoutStrategy.Optimistic,
             (ctx, ts, task) => { CatgaDiagnostics.ResilienceTimeouts.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.TransportPublish)); var a = Activity.Current; if (a != null) a.AddEvent(new ActivityEvent("resilience.timeout", tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.TransportPublish })); return Task.CompletedTask; });
-        var retry = Polly.Policy.Handle<Exception>()
+        var retry = Policy.Handle<Exception>()
             .WaitAndRetryAsync(
                 o.TransportRetryCount,
                 attempt => TimeSpan.FromMilliseconds(o.TransportRetryDelay.TotalMilliseconds * Math.Pow(2, attempt)),
                 (ex, delay, attempt, ctx) => { CatgaDiagnostics.ResilienceRetries.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.TransportPublish)); var a = Activity.Current; if (a != null) a.AddEvent(new ActivityEvent("resilience.retry", tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.TransportPublish, ["attempt"] = attempt })); });
-        return Polly.Policy.WrapAsync(bulkhead, circuit, timeout, retry);
+        return Policy.WrapAsync(bulkhead, circuit, timeout, retry);
     }
 
     private static Polly.Wrap.AsyncPolicyWrap BuildPersistenceV7(CatgaResilienceOptions o)
     {
-        var timeout = Polly.Policy.TimeoutAsync(o.PersistenceTimeout, Polly.Timeout.TimeoutStrategy.Optimistic,
+        var timeout = Policy.TimeoutAsync(o.PersistenceTimeout, Polly.Timeout.TimeoutStrategy.Optimistic,
             (ctx, ts, task) => { CatgaDiagnostics.ResilienceTimeouts.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Persistence)); var a = Activity.Current; if (a != null) a.AddEvent(new ActivityEvent("resilience.timeout", tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence })); return Task.CompletedTask; });
-        var retry = Polly.Policy.Handle<Exception>()
+        var retry = Policy.Handle<Exception>()
             .WaitAndRetryAsync(
                 o.PersistenceRetryCount,
                 attempt => TimeSpan.FromMilliseconds(o.PersistenceRetryDelay.TotalMilliseconds * Math.Pow(2, attempt)),
                 (ex, delay, attempt, ctx) => { CatgaDiagnostics.ResilienceRetries.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Persistence)); var a = Activity.Current; if (a != null) a.AddEvent(new ActivityEvent("resilience.retry", tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence, ["attempt"] = attempt })); });
-        return Polly.Policy.WrapAsync(timeout, retry);
+        return Policy.WrapAsync(timeout, retry);
     }
 #endif
 

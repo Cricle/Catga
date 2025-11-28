@@ -1,11 +1,12 @@
 using Catga.Abstractions;
+using Catga.Configuration;
+using Catga.Observability;
+using Catga.Resilience;
 using Catga.Transport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using StackExchange.Redis;
 using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using Catga.Observability;
 
 namespace Catga;
 
@@ -23,21 +24,15 @@ public static class RedisTransportServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         var sw = Stopwatch.StartNew();
-        var tags = new TagList { { "component", "DI.Transport.Redis" } };
+        var tag = new KeyValuePair<string, object?>("component", "DI.Transport.Redis");
         try
         {
             // Configure options
             var options = new RedisTransportOptions();
             configure?.Invoke(options);
 
-            // Build ConfigurationOptions from RedisTransportOptions
-            var configOptions = CreateRedisConfiguration(options);
-
-            // Register ConnectionMultiplexer as singleton
-            services.TryAddSingleton<IConnectionMultiplexer>(sp =>
-            {
-                return ConnectionMultiplexer.Connect(configOptions);
-            });
+            if (options.RegistConnection)
+                services.TryAddSingleton<IConnectionMultiplexer>(sp => ConnectionMultiplexer.Connect(options.ConfigurationOptions ?? new ConfigurationOptions()));
 
             // Register Transport
             services.TryAddSingleton<IMessageTransport>(sp =>
@@ -45,10 +40,10 @@ public static class RedisTransportServiceCollectionExtensions
                 var redis = sp.GetRequiredService<IConnectionMultiplexer>();
                 var serializer = sp.GetRequiredService<IMessageSerializer>();
                 // Pass options so ChannelPrefix/Naming can take effect
-                var catgaOptions = sp.GetRequiredService<Catga.Configuration.CatgaOptions>();
+                var catgaOptions = sp.GetRequiredService<CatgaOptions>();
                 if (options.Naming is null && catgaOptions.EndpointNamingConvention is not null)
                     options.Naming = catgaOptions.EndpointNamingConvention;
-                var provider = sp.GetRequiredService<Catga.Resilience.IResiliencePipelineProvider>();
+                var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
                 return new RedisMessageTransport(
                     redis,
                     serializer,
@@ -59,59 +54,19 @@ public static class RedisTransportServiceCollectionExtensions
             });
 
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tag);
             return services;
         }
         catch
         {
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tag);
             throw;
         }
-    }
-
-    /// <summary>
-    /// Create Redis ConfigurationOptions from RedisTransportOptions
-    /// </summary>
-    private static ConfigurationOptions CreateRedisConfiguration(RedisTransportOptions options)
-    {
-        var config = ConfigurationOptions.Parse(options.ConnectionString);
-
-        // Connection settings
-        config.ConnectTimeout = options.ConnectTimeout;
-        config.SyncTimeout = options.SyncTimeout;
-        config.AsyncTimeout = options.AsyncTimeout;
-        config.AbortOnConnectFail = options.AbortOnConnectFail;
-        config.ClientName = options.ClientName;
-        config.AllowAdmin = options.AllowAdmin;
-
-        // Performance settings
-        config.KeepAlive = options.KeepAlive;
-        config.ConnectRetry = options.ConnectRetry;
-        // Note: RespectAsyncTimeout is a typo in some versions, using the correct property name
-
-        // Database
-        config.DefaultDatabase = options.DefaultDatabase;
-
-        // SSL/TLS
-        if (options.UseSsl)
+        finally
         {
-            config.Ssl = true;
-            if (!string.IsNullOrEmpty(options.SslHost))
-            {
-                config.SslHost = options.SslHost;
-            }
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tag);
         }
-
-        // Sentinel mode
-        if (options.Mode == RedisMode.Sentinel && !string.IsNullOrEmpty(options.SentinelServiceName))
-        {
-            config.ServiceName = options.SentinelServiceName;
-        }
-
-        return config;
     }
 
     /// <summary>
@@ -126,7 +81,7 @@ public static class RedisTransportServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(connectionMultiplexer);
         var sw = Stopwatch.StartNew();
-        var tags = new TagList { { "component", "DI.Transport.Redis" } };
+        var tag = new KeyValuePair<string, object?>("component", "DI.Transport.Redis");
         try
         {
             services.TryAddSingleton(connectionMultiplexer);
@@ -134,7 +89,7 @@ public static class RedisTransportServiceCollectionExtensions
             services.TryAddSingleton<IMessageTransport>(sp =>
             {
                 var serializer = sp.GetRequiredService<IMessageSerializer>();
-                var provider = sp.GetRequiredService<Catga.Resilience.IResiliencePipelineProvider>();
+                var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
                 return new RedisMessageTransport(
                     connectionMultiplexer,
                     serializer,
@@ -144,16 +99,18 @@ public static class RedisTransportServiceCollectionExtensions
             });
 
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tag);
             return services;
         }
         catch
         {
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tag);
             throw;
+        }
+        finally
+        {
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tag);
         }
     }
 }

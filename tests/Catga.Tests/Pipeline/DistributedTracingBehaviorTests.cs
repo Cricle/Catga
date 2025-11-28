@@ -16,11 +16,7 @@ namespace Catga.Tests.Pipeline;
 [Collection("DistributedTracingBehaviorTests")]
 public class DistributedTracingBehaviorTests
 {
-    public DistributedTracingBehaviorTests()
-    {
-        // 设置自定义序列化器以支持Activity Payload Capture
-        ActivityPayloadCapture.CustomSerializer = obj => System.Text.Json.JsonSerializer.Serialize(obj);
-    }
+    public DistributedTracingBehaviorTests() { }
 
     #region Basic Tracing Tests
 

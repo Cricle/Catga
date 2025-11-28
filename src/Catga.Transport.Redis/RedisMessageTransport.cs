@@ -1,18 +1,13 @@
-using System;
 using Catga.Abstractions;
 using Catga.Core;
-using Catga.Transport;
+using Catga.Observability;
+using Catga.Resilience;
 using StackExchange.Redis;
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using System.Collections.Generic;
-using System.Threading;
-using Catga.Observability;
-using Catga.Resilience;
 
 namespace Catga.Transport;
 
@@ -118,13 +113,9 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
         }
 
         // Metrics tags
-#if NET8_0_OR_GREATER
         var tag_component = new KeyValuePair<string, object?>("component", "Transport.Redis");
         var tag_type = new KeyValuePair<string, object?>("message_type", TypeNameCache<TMessage>.Name);
         var tag_dest = new KeyValuePair<string, object?>("destination", subject);
-#else
-        var tags_pub = new TagList { { "component", "Transport.Redis" }, { "message_type", TypeNameCache<TMessage>.Name }, { "destination", subject } };
-#endif
 
         // Optional auto-batching for Pub/Sub
         if (_options?.Batch is { EnableAutoBatching: true } batchOptions)
@@ -142,22 +133,13 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                     payload,
                     CommandFlags.FireAndForget)),
                 cancellationToken);
-            #if NET8_0_OR_GREATER
             if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesPublished.Add(1, tag_component, tag_type, tag_dest);
-            #else
-            if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesPublished.Add(1, tags_pub);
-            #endif
         }
         catch (Exception)
         {
-#if NET8_0_OR_GREATER
             if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesFailed.Add(1,
                 new KeyValuePair<string, object?>("component", "Transport.Redis"),
                 new KeyValuePair<string, object?>("destination", subject));
-#else
-            var fail = new TagList { { "component", "Transport.Redis" }, { "destination", subject } };
-            if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesFailed.Add(1, fail);
-#endif
             throw;
         }
     }
@@ -182,14 +164,9 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
             activity.SetTag(CatgaActivitySource.Tags.MessageType, TypeNameCache<TMessage>.Name);
         }
 
-        #if NET8_0_OR_GREATER
         var tag_component = new KeyValuePair<string, object?>("component", "Transport.Redis");
         var tag_type = new KeyValuePair<string, object?>("message_type", TypeNameCache<TMessage>.Name);
         var tag_dest = new KeyValuePair<string, object?>("destination", streamKey);
-        #else
-        var tags_stream = new TagList { { "component", "Transport.Redis" }, { "message_type", TypeNameCache<TMessage>.Name }, { "destination", streamKey } };
-        #endif
-
         // Optional auto-batching for Streams
         string? tp = null, ts = null;
         if (ObservabilityHooks.IsEnabled)
@@ -221,22 +198,13 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                     }.Where(e => e.Name.HasValue).ToArray(),
                     flags: CommandFlags.DemandMaster)),
                 cancellationToken);
-            #if NET8_0_OR_GREATER
             if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesPublished.Add(1, tag_component, tag_type, tag_dest);
-            #else
-            if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesPublished.Add(1, tags_stream);
-            #endif
         }
         catch (Exception)
         {
-#if NET8_0_OR_GREATER
             if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesFailed.Add(1,
                 new KeyValuePair<string, object?>("component", "Transport.Redis"),
                 new KeyValuePair<string, object?>("destination", streamKey));
-#else
-            var fail2 = new TagList { { "component", "Transport.Redis" }, { "destination", streamKey } };
-            if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesFailed.Add(1, fail2);
-#endif
             throw;
         }
     }
@@ -270,14 +238,9 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
             {
                 activity?.SetError(ex);
                 // Log error and count failure
-                #if NET8_0_OR_GREATER
                 if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesFailed.Add(1,
                     new KeyValuePair<string, object?>("component", "Transport.Redis"),
                     new KeyValuePair<string, object?>("destination", subject));
-                #else
-                var failTags = new TagList { { "component", "Transport.Redis" }, { "destination", subject } };
-                if (ObservabilityHooks.IsEnabled) CatgaDiagnostics.MessagesFailed.Add(1, failTags);
-                #endif
             }
         });
     }
@@ -415,17 +378,11 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                 // count failure only if tracing enabled
                 if (ObservabilityHooks.IsEnabled)
                 {
-    #if NET8_0_OR_GREATER
                     CatgaDiagnostics.MessagesFailed.Add(1,
                         new KeyValuePair<string, object?>("component", "Transport.Redis"),
                         new KeyValuePair<string, object?>("destination", item.Destination),
                         new KeyValuePair<string, object?>("reason", "batch_item"));
-    #else
-                    var failTags = new TagList { { "component", "Transport.Redis" }, { "destination", item.Destination }, { "reason", "batch_item" } };
-                    CatgaDiagnostics.MessagesFailed.Add(1, failTags);
-    #endif
                 }
-                // log and continue
             }
         }
     }

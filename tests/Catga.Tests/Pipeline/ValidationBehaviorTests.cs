@@ -54,7 +54,7 @@ public class ValidationBehaviorTests
         // Arrange
         var validator = Substitute.For<IValidator<TestRequest>>();
         validator.ValidateAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new List<string>()));
+            .Returns(ValueTask.FromResult(new List<string>()));
 
         var behavior = new ValidationBehavior<TestRequest, TestResponse>(
             new[] { validator }, _mockLogger);
@@ -79,7 +79,7 @@ public class ValidationBehaviorTests
         // Arrange
         var validator = Substitute.For<IValidator<TestRequest>>();
         validator.ValidateAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new List<string> { "Field is required" }));
+            .Returns(ValueTask.FromResult(new List<string> { "Field is required" }));
 
         var behavior = new ValidationBehavior<TestRequest, TestResponse>(
             new[] { validator }, _mockLogger);
@@ -109,11 +109,11 @@ public class ValidationBehaviorTests
         var validator3 = Substitute.For<IValidator<TestRequest>>();
 
         validator1.ValidateAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new List<string>()));
+            .Returns(ValueTask.FromResult(new List<string>()));
         validator2.ValidateAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new List<string>()));
+            .Returns(ValueTask.FromResult(new List<string>()));
         validator3.ValidateAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new List<string>()));
+            .Returns(ValueTask.FromResult(new List<string>()));
 
         var behavior = new ValidationBehavior<TestRequest, TestResponse>(
             new[] { validator1, validator2, validator3 }, _mockLogger);
@@ -141,9 +141,9 @@ public class ValidationBehaviorTests
         var validator2 = Substitute.For<IValidator<TestRequest>>();
 
         validator1.ValidateAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new List<string> { "Error 1", "Error 2" }));
+            .Returns(ValueTask.FromResult(new List<string> { "Error 1", "Error 2" }));
         validator2.ValidateAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new List<string> { "Error 3" }));
+            .Returns(ValueTask.FromResult(new List<string> { "Error 3" }));
 
         var behavior = new ValidationBehavior<TestRequest, TestResponse>(
             new[] { validator1, validator2 }, _mockLogger);
@@ -167,9 +167,9 @@ public class ValidationBehaviorTests
         var validator2 = Substitute.For<IValidator<TestRequest>>();
 
         validator1.ValidateAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new List<string>())); // Valid
+            .Returns(ValueTask.FromResult(new List<string>())); // Valid
         validator2.ValidateAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new List<string> { "Validation error" })); // Invalid
+            .Returns(ValueTask.FromResult(new List<string> { "Validation error" })); // Invalid
 
         var behavior = new ValidationBehavior<TestRequest, TestResponse>(
             new[] { validator1, validator2 }, _mockLogger);
@@ -199,7 +199,7 @@ public class ValidationBehaviorTests
 
         var validator = Substitute.For<IValidator<TestRequest>>();
         validator.ValidateAsync(Arg.Any<TestRequest>(), cancellationToken)
-            .Returns(Task.FromResult(new List<string>()));
+            .Returns(ValueTask.FromResult(new List<string>()));
 
         var behavior = new ValidationBehavior<TestRequest, TestResponse>(
             new[] { validator }, _mockLogger);
@@ -225,7 +225,7 @@ public class ValidationBehaviorTests
         // Arrange
         var validator = Substitute.For<IValidator<TestRequest>>();
         validator.ValidateAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new List<string> { "Single error message" }));
+            .Returns(ValueTask.FromResult(new List<string> { "Single error message" }));
 
         var behavior = new ValidationBehavior<TestRequest, TestResponse>(
             new[] { validator }, _mockLogger);
@@ -248,7 +248,7 @@ public class ValidationBehaviorTests
         // Arrange
         var validator = Substitute.For<IValidator<TestRequest>>();
         validator.ValidateAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new List<string> { "Error 1", "Error 2", "Error 3" }));
+            .Returns(ValueTask.FromResult(new List<string> { "Error 1", "Error 2", "Error 3" }));
 
         var behavior = new ValidationBehavior<TestRequest, TestResponse>(
             new[] { validator }, _mockLogger);
@@ -274,7 +274,7 @@ public class ValidationBehaviorTests
         // Arrange
         var validator = Substitute.For<IValidator<TestRequest>>();
         validator.ValidateAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new List<string> { "Error" }));
+            .Returns(ValueTask.FromResult(new List<string> { "Error" }));
 
         var behavior = new ValidationBehavior<TestRequest, TestResponse>(
             new[] { validator }, _mockLogger);

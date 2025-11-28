@@ -410,8 +410,8 @@ public class BaseBehaviorTests
             GetCorrelationId(request, idGenerator);
         public void PublicLogSuccess(long messageId, long durationMs) => LogSuccess(messageId, durationMs);
         public void PublicLogFailure(long messageId, Exception ex) => LogFailure(messageId, ex);
-        public void PublicLogWarning(string message, params object[] args) => LogWarning(message, args);
         public void PublicLogInformation(string message, params object[] args) => LogInformation(message, args);
+        public void PublicLogWarning(string message, params object[] args) => LogWarning(message, args);
         public ILogger PublicLogger => Logger;
     }
 

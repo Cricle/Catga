@@ -79,12 +79,12 @@ public class RedisOutboxPersistence : IOutboxStore
 
             if (committed)
             {
-                _logger.LogDebug("Added message {MessageId} to outbox persistence", message.MessageId);
+                CatgaLog.OutboxAdded(_logger, message.MessageId);
                 CatgaDiagnostics.OutboxAdded.Add(1);
             }
             else
             {
-                _logger.LogWarning("Failed to add message {MessageId} to outbox (transaction failed)", message.MessageId);
+                CatgaLog.OutboxAddFailed(_logger, message.MessageId);
             }
         }, cancellationToken);
     }
@@ -135,7 +135,7 @@ public class RedisOutboxPersistence : IOutboxStore
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to deserialize outbox message {MessageId}", messageIds[i]);
+                    CatgaLog.OutboxDeserializeFailed(_logger, ex, (long)messageIds[i]!);
                 }
             }
 
@@ -155,7 +155,7 @@ public class RedisOutboxPersistence : IOutboxStore
             var data = await db.StringGetAsync(key);
             if (!data.HasValue)
             {
-                _logger.LogWarning("Message {MessageId} not found in outbox", messageId);
+                CatgaLog.OutboxMessageNotFound(_logger, messageId);
                 return;
             }
 
@@ -178,7 +178,7 @@ public class RedisOutboxPersistence : IOutboxStore
                     (int)TimeSpan.FromHours(24).TotalSeconds
                 });
 
-            _logger.LogDebug("Marked message {MessageId} as published", messageId);
+            CatgaLog.OutboxMarkedPublished(_logger, messageId);
             CatgaDiagnostics.OutboxPublished.Add(1);
         }, cancellationToken);
     }
@@ -216,8 +216,7 @@ public class RedisOutboxPersistence : IOutboxStore
                 _ = transaction.SortedSetRemoveAsync(_pendingSetKey, messageId);
                 await transaction.ExecuteAsync();
 
-                _logger.LogWarning("Message {MessageId} failed after {RetryCount} retries: {Error}",
-                    messageId, message.RetryCount, errorMessage);
+                CatgaLog.OutboxMessageFailedAfterRetries(_logger, messageId, message.RetryCount, errorMessage);
                 CatgaDiagnostics.OutboxFailed.Add(1);
             }
             else
@@ -226,8 +225,7 @@ public class RedisOutboxPersistence : IOutboxStore
                 message.Status = OutboxStatus.Pending;
                 await db.StringSetAsync(key, _serializer.Serialize(message, typeof(OutboxMessage)));
 
-                _logger.LogDebug("Message {MessageId} failed (retry {RetryCount}/{MaxRetries}): {Error}",
-                    messageId, message.RetryCount, message.MaxRetries, errorMessage);
+                CatgaLog.OutboxMessageRetry(_logger, messageId, message.RetryCount, message.MaxRetries, errorMessage);
             }
         }, cancellationToken);
     }
@@ -249,7 +247,7 @@ public class RedisOutboxPersistence : IOutboxStore
 
             if (removed > 0)
             {
-                _logger.LogInformation("Cleaned up {Count} old outbox entries", removed);
+                CatgaLog.OutboxCleanup(_logger, removed);
             }
         }, cancellationToken);
     }

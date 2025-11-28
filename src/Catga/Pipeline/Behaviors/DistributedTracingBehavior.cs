@@ -49,8 +49,9 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
                 ("CorrelationId", message.CorrelationId));
         }
 
-        // Capture request payload for Jaeger UI (debug-only, graceful degradation on AOT)
-        ActivityPayloadCapture.CaptureRequest(activity, request);
+        // Zero-GC enrichment via interface (source-generated or manual)
+        if (request is Catga.Abstractions.IActivityTagProvider requestEnricher)
+            requestEnricher.Enrich(activity);
 
         var startTimestamp = Stopwatch.GetTimestamp();
 
@@ -71,8 +72,9 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
                 activity.AddActivityEvent("Command.Succeeded",
                     ("Duration", $"{durationMs:F2}ms"));
 
-                // Capture response payload for Jaeger UI (debug-only, graceful degradation on AOT)
-                ActivityPayloadCapture.CaptureResponse(activity, result.Value);
+                // Enrich response if it implements enrichment interface
+                if (result.Value is Catga.Abstractions.IActivityTagProvider responseEnricher)
+                    responseEnricher.Enrich(activity);
             }
             else
             {

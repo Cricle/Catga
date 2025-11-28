@@ -14,11 +14,7 @@ public static class MessageExtensions
 
     // Lazy-initialized SnowflakeIdGenerator (workerId from environment or random)
     // This is used as fallback when DI is not available and no custom generator is set
-    private static readonly Lazy<IDistributedIdGenerator> DefaultGenerator = new(() =>
-    {
-        var workerId = GetWorkerId("CATGA_WORKER_ID");
-        return new SnowflakeIdGenerator(workerId);
-    });
+    private static readonly Lazy<IDistributedIdGenerator> DefaultGenerator = new(() => new SnowflakeIdGenerator(GetWorkerId("CATGA_WORKER_ID")));
 
     /// <summary>
     /// Gets the current ID generator (custom or default)
@@ -33,10 +29,7 @@ public static class MessageExtensions
     /// This is useful when you need to set a specific WorkerId without using DI.
     /// Example: MessageExtensions.SetIdGenerator(new SnowflakeIdGenerator(workerId: 1))
     /// </remarks>
-    public static void SetIdGenerator(IDistributedIdGenerator? generator)
-    {
-        _customGenerator = generator;
-    }
+    public static void SetIdGenerator(IDistributedIdGenerator? generator) => _customGenerator = generator;
 
     /// <summary>
     /// Configure ID generator with a specific WorkerId.

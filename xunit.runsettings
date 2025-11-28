@@ -1,0 +1,10 @@
+<RunSettings>
+  <RunConfiguration>
+    <TargetFrameworkVersion>net9.0</TargetFrameworkVersion>
+  </RunConfiguration>
+  <xUnit>
+    <ParallelizeTestAssemblies>false</ParallelizeTestAssemblies>
+    <ParallelizeTestCollections>false</ParallelizeTestCollections>
+    <MaxParallelThreads>1</MaxParallelThreads>
+  </xUnit>
+</RunSettings>

@@ -9,6 +9,7 @@ using Catga.Core;
 using Catga.Idempotency;
 using Catga.Observability;
 using Catga.Resilience;
+using Catga.Configuration;
 using Microsoft.Extensions.Logging;
 #if NET8_0_OR_GREATER
 using Polly;
@@ -40,7 +41,7 @@ public class InMemoryMessageTransport : IMessageTransport
     public InMemoryMessageTransport(
         InMemoryTransportOptions? options,
         ILogger<InMemoryMessageTransport>? logger,
-        Catga.Configuration.CatgaOptions globalOptions,
+        CatgaOptions globalOptions,
         IResiliencePipelineProvider provider)
         : this(options, logger, provider)
     {
@@ -94,9 +95,8 @@ public class InMemoryMessageTransport : IMessageTransport
                     catch (Exception ex)
                     {
                         // QoS 0: Discard on failure, log but don't throw
-                        _logger?.LogWarning(ex,
-                            "QoS 0 message processing failed, discarding. MessageId: {MessageId}, Type: {MessageType}",
-                            ctx.MessageId, logicalName);
+                        if (_logger != null)
+                            CatgaLog.InMemoryQoS0ProcessingFailed(_logger, ex, ctx.MessageId, logicalName);
                     }
                     break;
 
@@ -180,15 +180,10 @@ public class InMemoryMessageTransport : IMessageTransport
         }
         catch (Exception ex)
         {
-#if NET8_0_OR_GREATER
             CatgaDiagnostics.MessagesFailed.Add(1,
                 new KeyValuePair<string, object?>("message_type", logicalName),
                 new KeyValuePair<string, object?>("component", "Transport.InMemory"),
                 new KeyValuePair<string, object?>("destination", logicalName));
-#else
-            var failedTags = new TagList { { "message_type", logicalName }, { "component", "Transport.InMemory" }, { "destination", logicalName } };
-            CatgaDiagnostics.MessagesFailed.Add(1, failedTags);
-#endif
             RecordException(activity, ex);
             throw;
         }
@@ -233,7 +228,8 @@ public class InMemoryMessageTransport : IMessageTransport
     private static void RecordException(Activity? activity, Exception ex)
     {
         activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-        activity?.AddTag("exception.type", ExceptionTypeCache.GetFullTypeName(ex));
+        var typeName = ex.GetType().FullName ?? ex.GetType().Name;
+        activity?.AddTag("exception.type", typeName);
         activity?.AddTag("exception.message", ex.Message);
     }
 

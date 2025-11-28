@@ -212,9 +212,9 @@ public class CatgaExceptionTests
     public void Details_WhenSet_ShouldReturnDetails()
     {
         // Act
-        var exception = new CatgaException("Error") 
-        { 
-            Details = new Dictionary<string, string> { ["key"] = "value" } 
+        var exception = new CatgaException("Error")
+        {
+            Details = new Dictionary<string, string> { ["key"] = "value" }
         };
 
         // Assert

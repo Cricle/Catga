@@ -44,16 +44,9 @@ public static class PipelineExecutor
         // Measure single behavior duration
         var start = Stopwatch.GetTimestamp();
         var result = await behavior.HandleAsync(context.Request, next, context.CancellationToken);
-        var elapsed = Stopwatch.GetTimestamp() - start;
-        var durationMs = elapsed * 1000.0 / Stopwatch.Frequency;
-#if NET8_0_OR_GREATER
-        CatgaDiagnostics.PipelineBehaviorDuration.Record(durationMs,
+        CatgaDiagnostics.PipelineBehaviorDuration.Record((double)((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency),
             new KeyValuePair<string, object?>("request_type", TypeNameCache<TRequest>.Name),
             new KeyValuePair<string, object?>("behavior_type", behavior.GetType().Name));
-#else
-        var tags = new TagList { { "request_type", TypeNameCache<TRequest>.Name }, { "behavior_type", behavior.GetType().Name } };
-        CatgaDiagnostics.PipelineBehaviorDuration.Record(durationMs, tags);
-#endif
         return result;
     }
 

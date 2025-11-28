@@ -2,14 +2,13 @@ using Catga.Abstractions;
 using Catga.DeadLetter;
 using Catga.EventSourcing;
 using Catga.Inbox;
+using Catga.Observability;
 using Catga.Outbox;
 using Catga.Persistence.Stores;
+using Catga.Resilience;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using Catga.Observability;
-using Catga.Resilience;
 
 namespace Catga.DependencyInjection;
 
@@ -26,7 +25,7 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         var sw = Stopwatch.StartNew();
-        var tags = new TagList { { "component", "DI.Persistence.InMemory.EventStore" } };
+        var tag = new KeyValuePair<string, object?>("component", "DI.Persistence.InMemory.EventStore");
         try
         {
             services.TryAddSingleton<IEventStore>(sp =>
@@ -35,16 +34,18 @@ public static class InMemoryPersistenceServiceCollectionExtensions
                 return new InMemoryEventStore(provider);
             });
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tag);
             return services;
         }
         catch
         {
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tag);
             throw;
+        }
+        finally
+        {
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tag);
         }
     }
 
@@ -55,7 +56,7 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         var sw = Stopwatch.StartNew();
-        var tags = new TagList { { "component", "DI.Persistence.InMemory.Outbox" } };
+        var tag = new KeyValuePair<string, object?>("component", "DI.Persistence.InMemory.Outbox");
         try
         {
             services.TryAddSingleton<IOutboxStore>(sp =>
@@ -64,16 +65,18 @@ public static class InMemoryPersistenceServiceCollectionExtensions
                 return new MemoryOutboxStore(provider);
             });
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tag);
             return services;
         }
         catch
         {
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tag);
             throw;
+        }
+        finally
+        {
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tag);
         }
     }
 
@@ -84,7 +87,7 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         var sw = Stopwatch.StartNew();
-        var tags = new TagList { { "component", "DI.Persistence.InMemory.Inbox" } };
+        var tag = new KeyValuePair<string, object?>("component", "DI.Persistence.InMemory.Inbox");
         try
         {
             services.TryAddSingleton<IInboxStore>(sp =>
@@ -93,16 +96,18 @@ public static class InMemoryPersistenceServiceCollectionExtensions
                 return new MemoryInboxStore(provider);
             });
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tag);
             return services;
         }
         catch
         {
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tag);
             throw;
+        }
+        finally
+        {
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tag);
         }
     }
 
@@ -117,7 +122,7 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         var sw = Stopwatch.StartNew();
-        var tags = new TagList { { "component", "DI.Persistence.InMemory.DLQ" } };
+        var tag = new KeyValuePair<string, object?>("component", "DI.Persistence.InMemory.DLQ");
         try
         {
             services.TryAddSingleton<IDeadLetterQueue>(sp =>
@@ -127,16 +132,18 @@ public static class InMemoryPersistenceServiceCollectionExtensions
                 return new InMemoryDeadLetterQueue(logger, serializer, maxSize);
             });
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tag);
             return services;
         }
         catch
         {
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tag);
             throw;
+        }
+        finally
+        {
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tag);
         }
     }
 

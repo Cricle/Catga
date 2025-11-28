@@ -33,7 +33,7 @@ public interface IInboxStore
     /// <summary>
     /// Get processing result for a message (if available)
     /// </summary>
-    public ValueTask<string?> GetProcessedResultAsync(
+    public ValueTask<byte[]?> GetProcessedResultAsync(
         long messageId,
         CancellationToken cancellationToken = default);
 
@@ -71,7 +71,7 @@ public partial class InboxMessage
     /// <summary>
     /// Serialized message payload (Base64-encoded, format depends on registered IMessageSerializer)
     /// </summary>
-    public required string Payload { get; set; }
+    public required byte[] Payload { get; set; }
 
     /// <summary>
     /// When the message was received
@@ -86,7 +86,7 @@ public partial class InboxMessage
     /// <summary>
     /// Processing result (Base64-encoded, format depends on registered IMessageSerializer)
     /// </summary>
-    public string? ProcessingResult { get; set; }
+    public byte[]? ProcessingResult { get; set; }
 
     /// <summary>
     /// Message status

@@ -17,8 +17,9 @@ public class MemoryOutboxStore : BaseMemoryStore<OutboxMessage>, IOutboxStore
     public ValueTask AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
         => _provider.ExecutePersistenceAsync(ct =>
         {
-            ValidationHelper.ValidateNotNull(message);
-            ValidationHelper.ValidateMessageId(message.MessageId);
+            ArgumentNullException.ThrowIfNull(message);
+            if (message.MessageId == 0)
+                throw new ArgumentException("MessageId must be > 0", nameof(message.MessageId));
             AddOrUpdateMessage(message.MessageId, message);
             CatgaDiagnostics.OutboxAdded.Add(1);
             return ValueTask.CompletedTask;

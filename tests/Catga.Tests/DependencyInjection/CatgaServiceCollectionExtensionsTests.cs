@@ -29,7 +29,7 @@ public class CatgaServiceCollectionExtensionsTests
         // Assert
         builder.Should().NotBeNull();
         builder.Should().BeOfType<CatgaServiceBuilder>();
-        
+
         // Verify services are registered
         services.Should().Contain(sd => sd.ServiceType == typeof(CatgaOptions));
         services.Should().Contain(sd => sd.ServiceType == typeof(ICatgaMediator));
@@ -330,7 +330,7 @@ public class CatgaServiceCollectionExtensionsTests
         // Act
         ICatgaMediator? mediator1;
         ICatgaMediator? mediator2;
-        
+
         using (var scope1 = provider.CreateScope())
         {
             mediator1 = scope1.ServiceProvider.GetRequiredService<ICatgaMediator>();
@@ -356,7 +356,7 @@ public class CatgaServiceCollectionExtensionsTests
         // Act
         IDistributedIdGenerator? idGen1;
         IDistributedIdGenerator? idGen2;
-        
+
         using (var scope1 = provider.CreateScope())
         {
             idGen1 = scope1.ServiceProvider.GetRequiredService<IDistributedIdGenerator>();

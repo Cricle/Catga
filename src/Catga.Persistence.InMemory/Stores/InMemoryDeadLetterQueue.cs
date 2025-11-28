@@ -35,7 +35,7 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
             MessageId = message.MessageId,
             MessageType = TypeNameCache<TMessage>.Name,
             MessageJson = messageData,
-            ExceptionType = ExceptionTypeCache.GetTypeName(exception),
+            ExceptionType = exception.GetType().Name,
             ExceptionMessage = exception.Message,
             StackTrace = exception.StackTrace ?? string.Empty,
             RetryCount = retryCount,
@@ -50,7 +50,7 @@ public class InMemoryDeadLetterQueue : IDeadLetterQueue
         while (_deadLetters.Count > _maxSize)
             _deadLetters.TryDequeue(out _);
 
-        _logger.LogWarning("Message sent to dead letter queue: {MessageType} {MessageId}, retries: {RetryCount}", deadLetter.MessageType, deadLetter.MessageId, retryCount);
+        CatgaLog.MessageMovedToDLQ(_logger, deadLetter.MessageType, deadLetter.MessageId, deadLetter.ExceptionMessage, retryCount);
 
         return Task.CompletedTask;
     }

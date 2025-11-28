@@ -33,8 +33,8 @@ public class LoggingBehaviorSimpleTests
         // Arrange
         var request = new TestRequest { MessageId = 123, Data = "test" };
         var expectedResponse = new TestResponse { Result = "success" };
-        
-        PipelineDelegate<TestResponse> next = () => 
+
+        PipelineDelegate<TestResponse> next = () =>
             ValueTask.FromResult(CatgaResult<TestResponse>.Success(expectedResponse));
 
         // Act
@@ -51,7 +51,7 @@ public class LoggingBehaviorSimpleTests
         // Arrange
         var request = new TestRequest { MessageId = 456, Data = "test" };
         var response = new TestResponse { Result = "result-456" };
-        PipelineDelegate<TestResponse> next = () => 
+        PipelineDelegate<TestResponse> next = () =>
             ValueTask.FromResult(CatgaResult<TestResponse>.Success(response));
 
         // Act
@@ -70,8 +70,8 @@ public class LoggingBehaviorSimpleTests
         // Arrange
         var request = new TestRequest { MessageId = 789, Data = "test" };
         var errorMessage = "Test error";
-        
-        PipelineDelegate<TestResponse> next = () => 
+
+        PipelineDelegate<TestResponse> next = () =>
             ValueTask.FromResult(CatgaResult<TestResponse>.Failure(errorMessage));
 
         // Act
@@ -88,8 +88,8 @@ public class LoggingBehaviorSimpleTests
         // Arrange
         var request = new TestRequest { MessageId = 111, Data = "test" };
         var errorInfo = ErrorInfo.Validation("Validation failed");
-        
-        PipelineDelegate<TestResponse> next = () => 
+
+        PipelineDelegate<TestResponse> next = () =>
             ValueTask.FromResult(CatgaResult<TestResponse>.Failure(errorInfo));
 
         // Act
@@ -109,7 +109,7 @@ public class LoggingBehaviorSimpleTests
         // Arrange
         var request = new TestRequest { MessageId = 222, Data = "test" };
         var exception = new InvalidOperationException("Test exception");
-        
+
         PipelineDelegate<TestResponse> next = () => throw exception;
 
         // Act
@@ -127,7 +127,7 @@ public class LoggingBehaviorSimpleTests
         // Arrange
         var request = new TestRequest { MessageId = 333, Data = "test" };
         var exception = new ArgumentException("Invalid argument");
-        
+
         PipelineDelegate<TestResponse> next = () => throw exception;
 
         // Act
@@ -146,7 +146,7 @@ public class LoggingBehaviorSimpleTests
         var request = new TestRequest { MessageId = 444, Data = "test" };
         var cts = new CancellationTokenSource();
         cts.Cancel();
-        
+
         PipelineDelegate<TestResponse> next = () => throw new OperationCanceledException(cts.Token);
 
         // Act
@@ -181,10 +181,10 @@ public class LoggingBehaviorSimpleTests
         // Assert
         result1.IsSuccess.Should().BeTrue();
         result1.Value!.Result.Should().Be("1");
-        
+
         result2.IsSuccess.Should().BeTrue();
         result2.Value!.Result.Should().Be("2");
-        
+
         result3.IsSuccess.Should().BeTrue();
         result3.Value!.Result.Should().Be("3");
     }
@@ -198,8 +198,8 @@ public class LoggingBehaviorSimpleTests
         var request = new StringRequest { MessageId = 555, Data = "test" };
         var behavior = new LoggingBehavior<StringRequest, string>(
             Substitute.For<ILogger<LoggingBehavior<StringRequest, string>>>());
-        
-        PipelineDelegate<string> next = () => 
+
+        PipelineDelegate<string> next = () =>
             ValueTask.FromResult(CatgaResult<string>.Success("string-result"));
 
         // Act
@@ -217,8 +217,8 @@ public class LoggingBehaviorSimpleTests
         var request = new IntRequest { MessageId = 666, Data = "test" };
         var behavior = new LoggingBehavior<IntRequest, int>(
             Substitute.For<ILogger<LoggingBehavior<IntRequest, int>>>());
-        
-        PipelineDelegate<int> next = () => 
+
+        PipelineDelegate<int> next = () =>
             ValueTask.FromResult(CatgaResult<int>.Success(42));
 
         // Act
@@ -236,7 +236,7 @@ public class LoggingBehaviorSimpleTests
     {
         // Arrange
         var request = new TestRequest { MessageId = 777, Data = "test" };
-        
+
         PipelineDelegate<TestResponse> next = async () =>
         {
             await Task.Delay(50); // Simulate work

@@ -98,12 +98,14 @@ public class InboxBehaviorTests
         var request = new TestRequest { MessageId = 123 };
         var cachedResponse = new TestResponse { Result = "Cached" };
         var cachedResult = CatgaResult<TestResponse>.Success(cachedResponse);
-        var serializedResult = System.Text.Json.JsonSerializer.Serialize(cachedResult);
+        var serializedBytes = new byte[] { 1, 2, 3 };
 
         _mockStore.HasBeenProcessedAsync(123, Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(true));
         _mockStore.GetProcessedResultAsync(123, Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult<string?>(serializedResult));
+            .Returns(ValueTask.FromResult<byte[]?>(serializedBytes));
+        _mockSerializer.Deserialize<CatgaResult<TestResponse>>(serializedBytes)
+            .Returns(cachedResult);
 
         PipelineDelegate<TestResponse> next = () => throw new InvalidOperationException("Should not be called");
 
@@ -125,7 +127,7 @@ public class InboxBehaviorTests
         _mockStore.HasBeenProcessedAsync(456, Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(true));
         _mockStore.GetProcessedResultAsync(456, Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult<string?>(string.Empty));
+            .Returns(ValueTask.FromResult<byte[]?>(Array.Empty<byte>()));
 
         PipelineDelegate<TestResponse> next = () => throw new InvalidOperationException("Should not be called");
 
@@ -146,7 +148,7 @@ public class InboxBehaviorTests
         _mockStore.HasBeenProcessedAsync(789, Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(true));
         _mockStore.GetProcessedResultAsync(789, Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult<string?>("invalid json"));
+            .Returns(ValueTask.FromResult<byte[]?>(new byte[] { 0xFF }));
 
         PipelineDelegate<TestResponse> next = () => throw new InvalidOperationException("Should not be called");
 

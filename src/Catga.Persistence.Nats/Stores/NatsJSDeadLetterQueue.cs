@@ -55,7 +55,7 @@ public sealed class NatsJSDeadLetterQueue : NatsJSStoreBase, IDeadLetterQueue
                 MessageId = message.MessageId,
                 MessageType = TypeNameCache<TMessage>.Name,
                 MessageJson = messageData,
-                ExceptionType = ExceptionTypeCache.GetTypeName(exception),
+                ExceptionType = exception.GetType().Name,
                 ExceptionMessage = exception.Message,
                 StackTrace = exception.StackTrace ?? string.Empty,
                 RetryCount = retryCount,

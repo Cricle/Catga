@@ -62,7 +62,7 @@ public class RedisInboxPersistence : RedisStoreBase, IInboxStore
             {
                 MessageId = messageId,
                 MessageType = "", // 稍后更新
-                Payload = "", // 稍后更新
+                Payload = Array.Empty<byte>(), // 稍后更新
                 Status = InboxStatus.Processing,
                 LockExpiresAt = DateTime.UtcNow.Add(lockDuration)
             };
@@ -84,12 +84,12 @@ public class RedisInboxPersistence : RedisStoreBase, IInboxStore
 
             if (locked)
             {
-                _logger.LogDebug("Locked message {MessageId} for processing", messageId);
+                CatgaLog.InboxLocked(_logger, messageId);
                 CatgaDiagnostics.InboxLocksAcquired.Add(1);
             }
             else
             {
-                _logger.LogDebug("Message {MessageId} already processed or locked", messageId);
+                CatgaLog.InboxAlreadyProcessedOrLocked(_logger, messageId);
             }
 
             return locked;
@@ -115,7 +115,7 @@ public class RedisInboxPersistence : RedisStoreBase, IInboxStore
             // 保存已处理消息（保留 24 小时用于幂等性检查）
             await db.StringSetAsync(key, data, TimeSpan.FromHours(24));
 
-            _logger.LogDebug("Marked message {MessageId} as processed", message.MessageId);
+            CatgaLog.InboxMarkedProcessed(_logger, message.MessageId);
             CatgaDiagnostics.InboxProcessed.Add(1);
         }, cancellationToken);
     }
@@ -135,7 +135,7 @@ public class RedisInboxPersistence : RedisStoreBase, IInboxStore
         }, cancellationToken);
     }
 
-    public async ValueTask<string?> GetProcessedResultAsync(
+    public async ValueTask<byte[]?> GetProcessedResultAsync(
         long messageId,
         CancellationToken cancellationToken = default)
     {
@@ -167,7 +167,7 @@ public class RedisInboxPersistence : RedisStoreBase, IInboxStore
             // 删除锁定
             await db.KeyDeleteAsync(key);
 
-            _logger.LogDebug("Released lock on message {MessageId}", messageId);
+            CatgaLog.InboxReleasedLock(_logger, messageId);
             CatgaDiagnostics.InboxLocksReleased.Add(1);
         }, cancellationToken);
     }
@@ -180,7 +180,7 @@ public class RedisInboxPersistence : RedisStoreBase, IInboxStore
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Redis.Inbox.DeleteProcessed", ActivityKind.Internal);
             // Redis 使用 TTL 自动清理，这里不需要额外操作
-            _logger.LogDebug("Redis inbox uses TTL for cleanup");
+            CatgaLog.InboxTTL(_logger);
             return ValueTask.CompletedTask;
         }, cancellationToken);
     }

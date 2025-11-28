@@ -4,6 +4,7 @@ using Catga.Abstractions;
 using Catga.Core;
 using Catga.Inbox;
 using Microsoft.Extensions.Logging;
+using Catga.Observability;
 
 namespace Catga.Pipeline.Behaviors;
 
@@ -39,7 +40,7 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
 
         if (!messageId.HasValue)
         {
-            _logger.LogDebug("No MessageId found for {RequestType}, skipping inbox check", TypeNameCache<TRequest>.Name);
+            CatgaLog.InboxNoMessageId(_logger, TypeNameCache<TRequest>.Name);
             return await next();
         }
 
@@ -50,19 +51,29 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
             var hasBeenProcessed = await _persistence.HasBeenProcessedAsync(id, cancellationToken);
             if (hasBeenProcessed)
             {
-                _logger.LogInformation("Message {MessageId} has already been processed, returning cached result", id);
-                var cachedResult = await _persistence.GetProcessedResultAsync(id, cancellationToken);
-                if (!string.IsNullOrEmpty(cachedResult) &&
-                    SerializationHelper.TryDeserialize<CatgaResult<TResponse>>(cachedResult, out var result, _serializer))
-                    return result;
-                _logger.LogWarning("Failed to deserialize cached result for message {MessageId}, returning default success", id);
+                CatgaLog.InboxAlreadyProcessed(_logger, id);
+                var cachedBytes = await _persistence.GetProcessedResultAsync(id, cancellationToken);
+                if (cachedBytes != null && cachedBytes.Length > 0)
+                {
+                    try
+                    {
+                        var result = _serializer.Deserialize<CatgaResult<TResponse>>(cachedBytes);
+                        if (result != default)
+                            return result;
+                    }
+                    catch
+                    {
+                        // fall through
+                    }
+                }
+                CatgaLog.InboxCachedResultDeserializeFailed(_logger, id);
                 return CatgaResult<TResponse>.Success(default!);
             }
 
             var lockAcquired = await _persistence.TryLockMessageAsync(id, _lockDuration, cancellationToken);
             if (!lockAcquired)
             {
-                _logger.LogWarning("Failed to acquire lock for message {MessageId}, another instance may be processing it", id);
+                CatgaLog.InboxLockFailed(_logger, id);
                 return CatgaResult<TResponse>.Failure(new ErrorInfo
                 {
                     Code = ErrorCodes.LockFailed,
@@ -78,24 +89,24 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
                 {
                     MessageId = id,
                     MessageType = MessageHelper.GetMessageType<TRequest>(),
-                    Payload = SerializationHelper.Serialize(request, _serializer),
-                    ProcessingResult = SerializationHelper.Serialize(result, _serializer),
+                    Payload = _serializer.Serialize(request),
+                    ProcessingResult = _serializer.Serialize(result),
                     CorrelationId = MessageHelper.GetCorrelationId(request)
                 };
                 await _persistence.MarkAsProcessedAsync(inboxMessage, cancellationToken);
-                _logger.LogDebug("Marked message {MessageId} as processed in inbox", id);
+                CatgaLog.InboxProcessed(_logger, id);
                 return result;
             }
             catch (Exception ex)
             {
                 await _persistence.ReleaseLockAsync(id, cancellationToken);
-                _logger.LogError(ex, "Error processing message {MessageId} in inbox", id);
+                CatgaLog.InboxProcessingError(_logger, ex, id);
                 return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PersistenceFailed, isRetryable: true));
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in inbox behavior for message {MessageId}", id);
+            CatgaLog.InboxBehaviorError(_logger, ex, id);
             return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PersistenceFailed, isRetryable: true));
         }
     }

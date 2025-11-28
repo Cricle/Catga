@@ -1,15 +1,10 @@
-using System;
 using Catga;
 using Catga.Configuration;
-using Catga.Generated;
-using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using Catga.Observability;
 using Catga.DependencyInjection;
-using Catga.Resilience;
 using Catga.DistributedId;
-using Microsoft.Extensions.DependencyInjection;
+using Catga.Observability;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using System.Diagnostics;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -25,11 +20,9 @@ public static class CatgaServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         var sw = Stopwatch.StartNew();
-        var tags = new TagList { { "component", "DI.Core" } };
 
         // Register Catga options
         var options = new CatgaOptions();
-        TrySetGeneratedEndpointNaming(options);
         services.TryAddSingleton(options);
 
         // Register core services
@@ -37,28 +30,29 @@ public static class CatgaServiceCollectionExtensions
 
         // Register default SnowflakeIdGenerator with WorkerId from environment or random
         // Users can override this by calling .UseWorkerId(n) or .UseWorkerIdFromEnvironment()
-        services.TryAddSingleton<IDistributedIdGenerator>(sp =>
-        {
-            var workerId = GetWorkerIdFromEnvironmentOrRandom("CATGA_WORKER_ID");
-            return new SnowflakeIdGenerator(workerId);
-        });
+        services.TryAddSingleton<IDistributedIdGenerator>(sp => new SnowflakeIdGenerator(GetWorkerIdFromEnvironmentOrRandom("CATGA_WORKER_ID")));
 
         var builder = new CatgaServiceBuilder(services, options);
 
+        // Apply source-generated bootstrap (handlers, services, mediator batch profiles, endpoint naming)
+        Catga.Generated.GeneratedBootstrapRegistry.Apply(services, options);
+
+        sw.Stop();
+        var totalMilliseconds = sw.Elapsed.TotalMilliseconds;
+        var tag = new KeyValuePair<string, object?>("component", "DI.Core");
         try
         {
-            TryInvokeGeneratedRegistrations(services, options);
-            sw.Stop();
-            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tag);
             return builder;
         }
         catch
         {
-            sw.Stop();
-            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tag);
             throw;
+        }
+        finally
+        {
+            CatgaDiagnostics.DIRegistrationDuration.Record(totalMilliseconds, tag);
         }
     }
 
@@ -86,16 +80,5 @@ public static class CatgaServiceCollectionExtensions
         configure(builder.Options);
 
         return builder;
-    }
-
-    private static void TryInvokeGeneratedRegistrations(IServiceCollection services, CatgaOptions options)
-    {
-        // Reflection-free bootstrap: apply registrations and endpoint naming
-        GeneratedBootstrapRegistry.Apply(services, options);
-    }
-
-    private static void TrySetGeneratedEndpointNaming(CatgaOptions options)
-    {
-        // Intentionally left blank: naming is applied via GeneratedBootstrapRegistry.Apply
     }
 }

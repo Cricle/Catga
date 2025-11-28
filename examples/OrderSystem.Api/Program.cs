@@ -48,22 +48,6 @@ else
 
 catgaBuilder.ForDevelopment();
 
-// Configure ActivityPayloadCapture for Jaeger tracing (Required for AOT compatibility)
-// This serializer will be used to capture request/response/event payloads in Activity tags
-ActivityPayloadCapture.CustomSerializer = obj =>
-{
-    try
-    {
-        // Try MemoryPack serialization (AOT-safe for types with [MemoryPackable])
-        var bytes = MemoryPackSerializer.Serialize(obj.GetType(), obj);
-        return Convert.ToBase64String(bytes);
-    }
-    catch
-    {
-        // Fallback to ToString for non-MemoryPackable types
-        return obj.ToString() ?? $"<{obj.GetType().Name}>";
-    }
-};
 builder.Services.AddInMemoryTransport();
 
 // Register handlers/services explicitly via generated methods (no reflection)

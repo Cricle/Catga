@@ -69,7 +69,7 @@ public partial class RedisIdempotencyStore : RedisStoreBase, IIdempotencyStore
             var bytes = Serializer.Serialize(entry, typeof(IdempotencyEntry));
             await db.StringSetAsync(key, bytes, _defaultExpiry);
 
-            _logger.LogDebug("Marked message {MessageId} as processed in Redis", messageId);
+            CatgaLog.IdempotencyMarkedProcessed(_logger, messageId);
             CatgaDiagnostics.IdempotencyMarked.Add(1);
         }, cancellationToken);
     }
@@ -103,8 +103,7 @@ public partial class RedisIdempotencyStore : RedisStoreBase, IIdempotencyStore
             var expectedType = typeof(TResult).AssemblyQualifiedName;
             if (entry.ResultType != expectedType)
             {
-                _logger.LogWarning("Type mismatch for message {MessageId}: expected {Expected}, got {Actual}",
-                    messageId, expectedType, entry.ResultType);
+                CatgaLog.IdempotencyTypeMismatch(_logger, messageId, expectedType, entry.ResultType);
                 CatgaDiagnostics.IdempotencyCacheMisses.Add(1);
                 return default(TResult?);
             }

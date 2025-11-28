@@ -1,14 +1,12 @@
 using Catga.Abstractions;
 using Catga.EventSourcing;
-using Catga.Core;
+using Catga.Observability;
+using Catga.Resilience;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
-using Catga.Resilience;
 using System.Diagnostics;
-using Catga.Observability;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Catga.Persistence;
 
@@ -64,8 +62,9 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
             var subject = $"{StreamName}.{streamId}";
             foreach (var @event in events)
             {
-                var data = SerializeEvent(@event);
-                var typeFull = @event.GetType().AssemblyQualifiedName ?? @event.GetType().FullName!;
+                var eventType = @event.GetType();
+                var data = _serializer.Serialize(@event, eventType);
+                var typeFull = eventType.AssemblyQualifiedName ?? eventType.FullName!;
                 var headers = new NatsHeaders
                 {
                     ["EventType"] = typeFull
@@ -79,8 +78,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                 }
             }
             CatgaDiagnostics.EventStoreAppends.Add(events.Count);
-            var elapsed = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
-            CatgaDiagnostics.EventStoreAppendDuration.Record(elapsed);
+            CatgaDiagnostics.EventStoreAppendDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
         }, cancellationToken);
     }
 
@@ -161,8 +159,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                 Events = storedEvents
             };
             CatgaDiagnostics.EventStoreReads.Add(1);
-            var elapsed = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
-            CatgaDiagnostics.EventStoreReadDuration.Record(elapsed);
+            CatgaDiagnostics.EventStoreReadDuration.Record((double)((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency));
             return result;
         }, cancellationToken);
     }
@@ -220,29 +217,6 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         }, cancellationToken);
     }
 
-    /// <summary>
-    /// 直接序列化事件对象，不使用 Envelope 包装
-    /// 注意：事件类型信息通过 JetStream headers 传递
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [UnconditionalSuppressMessage("Trimming", "IL2072", Justification = "Fallback uses runtime Type only when registry is missing (primarily test scenarios). AOT-safe main path uses generated registry.")]
-    private byte[] SerializeEvent(IEvent @event)
-    {
-        var t = @event.GetType();
-        var typeName = t.FullName!;
-        if (Catga.Generated.EventTypeRegistry.TrySerialize(typeName, @event, _serializer, out var data))
-            return data;
-        // Fallback: direct serialize with runtime type for non-registered events (e.g., test-local types)
-        return _serializer.Serialize(@event, t);
-    }
-
-    /// <summary>
-    /// 从 NATS 消息反序列化事件（从 headers 读取类型信息）
-    /// </summary>
-    /// <remarks>
-    /// 使用非泛型 Deserialize(byte[], Type) 方法避免反射调用泛型方法。
-    /// Type 参数已标记 DynamicallyAccessedMembers，提供更好的 AOT 兼容性提示。
-    /// </remarks>
     [UnconditionalSuppressMessage("Trimming", "IL2057", Justification = "Runtime type resolution is used only if registry misses type (tests).")]
     [UnconditionalSuppressMessage("Trimming", "IL2072", Justification = "Deserialize with runtime Type only when registry is missing.")]
     private IEvent DeserializeEventFromMessage(NatsJSMsg<byte[]> msg)
@@ -252,14 +226,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         if (string.IsNullOrEmpty(eventTypeName))
             throw new InvalidOperationException("Event type not found in message headers");
 
-        if (Catga.Generated.EventTypeRegistry.TryDeserialize(eventTypeName!, msg.Data!, _serializer, out var evt))
-            return evt!;
-
-        // Fallback: try resolve runtime type (requires AssemblyQualifiedName for best results)
-        var t = Type.GetType(eventTypeName!, throwOnError: false);
-        if (t == null)
-            throw new InvalidOperationException($"Unknown event type: {eventTypeName}. Ensure it is included in compilation for registration.");
-        var obj = _serializer.Deserialize(msg.Data!, t);
-        return (IEvent?)obj ?? throw new InvalidOperationException($"Failed to deserialize event as {t.FullName}");
+        var t = Type.GetType(eventTypeName!, throwOnError: false) ?? throw new InvalidOperationException($"Unknown event type: {eventTypeName}. Ensure it is included in compilation for registration.");
+        return (IEvent?)_serializer.Deserialize(msg.Data!, t) ?? throw new InvalidOperationException($"Fail to deserialize type {t}");
     }
 }

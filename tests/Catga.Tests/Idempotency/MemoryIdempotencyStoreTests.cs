@@ -15,7 +15,7 @@ public class MemoryIdempotencyStoreTests
     public MemoryIdempotencyStoreTests()
     {
         _mockSerializer = Substitute.For<IMessageSerializer>();
-        
+
         // Setup default serializer behavior
         _mockSerializer.Serialize(Arg.Any<object>(), Arg.Any<Type>())
             .Returns(callInfo =>
@@ -23,7 +23,7 @@ public class MemoryIdempotencyStoreTests
                 var obj = callInfo.ArgAt<object>(0);
                 return Encoding.UTF8.GetBytes(obj?.ToString() ?? "null");
             });
-        
+
         _mockSerializer.Deserialize(Arg.Any<byte[]>(), Arg.Any<Type>())
             .Returns(callInfo =>
             {
@@ -204,7 +204,7 @@ public class MemoryIdempotencyStoreTests
         var messageId = 777L;
         var expectedResult = "cached-result";
         var serializedBytes = Encoding.UTF8.GetBytes(expectedResult);
-        
+
         _mockSerializer.Serialize(expectedResult, typeof(string)).Returns(serializedBytes);
         _mockSerializer.Deserialize(serializedBytes, typeof(string)).Returns(expectedResult);
 
@@ -386,7 +386,7 @@ public class MemoryIdempotencyStoreTests
         // Arrange & Act
         var messageId1 = 5000L;
         var messageId2 = 5001L;
-        
+
         await _store.MarkAsProcessedAsync(messageId1, "result1");
         await _store.MarkAsProcessedAsync(messageId2, "result2");
 

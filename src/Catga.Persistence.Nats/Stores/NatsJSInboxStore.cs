@@ -59,7 +59,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
             {
                 MessageId = messageId,
                 MessageType = string.Empty,
-                Payload = string.Empty
+                Payload = Array.Empty<byte>()
             };
 
             message.Status = InboxStatus.Processing;
@@ -111,7 +111,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         }, cancellationToken);
     }
 
-    public async ValueTask<string?> GetProcessedResultAsync(
+    public async ValueTask<byte[]?> GetProcessedResultAsync(
         long messageId,
         CancellationToken cancellationToken = default)
     {

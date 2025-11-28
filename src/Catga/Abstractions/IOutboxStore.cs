@@ -60,9 +60,9 @@ public partial class OutboxMessage
     public required string MessageType { get; init; }
 
     /// <summary>
-    /// Serialized message payload (Base64-encoded, format depends on registered IMessageSerializer)
+    /// Serialized message payload (binary, format depends on registered IMessageSerializer)
     /// </summary>
-    public required string Payload { get; init; }
+    public required byte[] Payload { get; init; }
 
     /// <summary>
     /// When the message was created

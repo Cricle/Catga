@@ -39,7 +39,7 @@ public static class ErrorCodes
 /// <summary>
 /// Error information - structured error without exception allocation
 /// </summary>
-public readonly record struct ErrorInfo
+public readonly struct ErrorInfo
 {
     /// <summary>Error code (e.g., CATGA_1001)</summary>
     public required string Code { get; init; }

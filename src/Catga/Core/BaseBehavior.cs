@@ -43,6 +43,6 @@ public abstract class BaseBehavior<[DynamicallyAccessedMembers(DynamicallyAccess
         => Logger.LogError(ex, "{BehaviorType} failed for {RequestType} [MessageId={MessageId}]",
             GetType().Name, GetRequestName(), messageId);
 
-    protected void LogWarning(string message, params object[] args) => Logger.LogWarning(message, args);
     protected void LogInformation(string message, params object[] args) => Logger.LogInformation(message, args);
+    protected void LogWarning(string message, params object[] args) => Logger.LogWarning(message, args);
 }

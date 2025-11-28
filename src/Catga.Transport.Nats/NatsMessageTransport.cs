@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
+using Catga.Configuration;
 
 namespace Catga.Transport.Nats;
 
@@ -106,7 +107,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         try { _cts.Cancel(); } catch { }
-        if (_subscriptions.Count > 0)
+        if (!_subscriptions.IsEmpty)
         {
             try { await Task.WhenAll(_subscriptions.Values); } catch { /* ignore */ }
             _subscriptions.Clear();
@@ -115,7 +116,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
         _cts.Dispose();
     }
 
-    public NatsMessageTransport(INatsConnection connection, IMessageSerializer serializer, ILogger<NatsMessageTransport> logger, Catga.Configuration.CatgaOptions globalOptions, NatsTransportOptions? options = null, IResiliencePipelineProvider? provider = null)
+    public NatsMessageTransport(INatsConnection connection, IMessageSerializer serializer, ILogger<NatsMessageTransport> logger, CatgaOptions globalOptions, NatsTransportOptions? options = null, IResiliencePipelineProvider? provider = null)
         : this(connection, serializer, logger, options, provider)
     {
         if (_naming == null)
@@ -160,14 +161,10 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                 headers["tracestate"] = current.TraceStateString;
         }
 
-#if NET8_0_OR_GREATER
         var tag_component = new KeyValuePair<string, object?>("component", "Transport.NATS");
         var tag_type = new KeyValuePair<string, object?>("message_type", TypeNameCache<TMessage>.Name);
         var tag_dest = new KeyValuePair<string, object?>("destination", subject);
         var tag_qos = new KeyValuePair<string, object?>("qos", ((int)qos).ToString());
-#else
-        var metricTags = new TagList { { "component", "Transport.NATS" }, { "message_type", TypeNameCache<TMessage>.Name }, { "destination", subject }, { "qos", ((int)qos).ToString() } };
-#endif
 
         // Optional auto-batching
         if (_options?.Batch is { EnableAutoBatching: true } batchOptions)
@@ -186,7 +183,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                     await _provider.ExecuteTransportPublishAsync(ct =>
                         _connection.PublishAsync(subject, payload, headers: headers, cancellationToken: ct),
                         cancellationToken);
-                    _logger.LogDebug("Published to NATS Core (QoS 0 - fire-and-forget): {MessageId}", ctx.MessageId);
+                    CatgaLog.NatsPublishedCore(_logger, ctx.MessageId);
                     break;
 
                 case QualityOfService.AtLeastOnce:
@@ -195,7 +192,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                     var ack1 = await _provider.ExecuteTransportPublishAsync(ct =>
                         _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: ct),
                         cancellationToken);
-                    _logger.LogDebug("Published to JetStream (QoS 1 - at-least-once): {MessageId}, Seq: {Seq}, Duplicate: {Dup}", ctx.MessageId, ack1.Seq, ack1.Duplicate);
+                    CatgaLog.NatsPublishedQoS1(_logger, ctx.MessageId, ack1.Seq, ack1.Duplicate);
                     break;
 
                 case QualityOfService.ExactlyOnce:
@@ -205,34 +202,25 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                     var ack2 = await _provider.ExecuteTransportPublishAsync(ct =>
                         _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: ct),
                         cancellationToken);
-                    _logger.LogDebug("Published to JetStream (QoS 2 - exactly-once): {MessageId}, Seq: {Seq}, Duplicate: {Dup}", ctx.MessageId, ack2.Seq, ack2.Duplicate);
+                    CatgaLog.NatsPublishedQoS2(_logger, ctx.MessageId, ack2.Seq, ack2.Duplicate);
                     break;
             }
 
             if (ObservabilityHooks.IsEnabled)
             {
-#if NET8_0_OR_GREATER
                 CatgaDiagnostics.MessagesPublished.Add(1, tag_component, tag_type, tag_dest, tag_qos);
-#else
-                CatgaDiagnostics.MessagesPublished.Add(1, metricTags);
-#endif
             }
         }
         catch (Exception ex)
         {
             if (ObservabilityHooks.IsEnabled)
             {
-#if NET8_0_OR_GREATER
                 CatgaDiagnostics.MessagesFailed.Add(1,
                     new KeyValuePair<string, object?>("component", "Transport.NATS"),
                     new KeyValuePair<string, object?>("destination", subject),
                     new KeyValuePair<string, object?>("reason", "publish"));
-#else
-                var failTags = new TagList { { "component", "Transport.NATS" }, { "destination", subject }, { "reason", "publish" } };
-                CatgaDiagnostics.MessagesFailed.Add(1, failTags);
-#endif
             }
-            _logger.LogError(ex, "NATS publish failed for subject {Subject}, MessageId: {MessageId}", subject, ctx.MessageId);
+            CatgaLog.NatsPublishFailed(_logger, ex, subject, ctx.MessageId);
             throw;
         }
     }
@@ -252,7 +240,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                 {
                     // Try to restore parent from W3C headers if present
                     Activity? activity;
-                    var tp = msg.Headers? ["traceparent"].ToString();
+                    var tp = msg.Headers?["traceparent"].ToString();
                     if (ObservabilityHooks.IsEnabled && !string.IsNullOrEmpty(tp))
                     {
                         var ts = msg.Headers?["tracestate"].ToString();
@@ -277,18 +265,13 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                     }
                     if (msg.Data == null || msg.Data.Length == 0)
                     {
-                        _logger.LogWarning("Received empty message from subject {Subject}", subject);
+                        CatgaLog.NatsEmptyMessage(_logger, subject);
                         if (ObservabilityHooks.IsEnabled)
                         {
-#if NET8_0_OR_GREATER
                             CatgaDiagnostics.MessagesFailed.Add(1,
                                 new KeyValuePair<string, object?>("component", "Transport.NATS"),
                                 new KeyValuePair<string, object?>("destination", subject),
                                 new KeyValuePair<string, object?>("reason", "empty"));
-#else
-                            var failTags = new TagList { { "component", "Transport.NATS" }, { "destination", subject }, { "reason", "empty" } };
-                            CatgaDiagnostics.MessagesFailed.Add(1, failTags);
-#endif
                         }
                         continue;
                     }
@@ -300,18 +283,13 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                     }
                     if (message == null)
                     {
-                        _logger.LogWarning("Failed to deserialize message from subject {Subject}", subject);
+                        CatgaLog.NatsDeserializeFailed(_logger, subject);
                         if (ObservabilityHooks.IsEnabled)
                         {
-#if NET8_0_OR_GREATER
                             CatgaDiagnostics.MessagesFailed.Add(1,
                                 new KeyValuePair<string, object?>("component", "Transport.NATS"),
                                 new KeyValuePair<string, object?>("destination", subject),
                                 new KeyValuePair<string, object?>("reason", "deserialize"));
-#else
-                            var failTags2 = new TagList { { "component", "Transport.NATS" }, { "destination", subject }, { "reason", "deserialize" } };
-                            CatgaDiagnostics.MessagesFailed.Add(1, failTags2);
-#endif
                         }
                         continue;
                     }
@@ -338,7 +316,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                         {
                             if (now - ts <= _dedupTtl.Ticks)
                             {
-                                _logger.LogDebug("Dropped duplicate message {MessageId} (QoS={QoS}) on subject {Subject}", messageId, qosHeader, subject);
+                                CatgaLog.NatsDroppedDuplicate(_logger, messageId, qosHeader, subject);
                                 CatgaDiagnostics.NatsDedupDrops.Add(1);
                                 continue;
                             }
@@ -366,7 +344,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                     };
                     await handler(message, context);
                 }
-                catch (Exception ex) { _logger.LogError(ex, "Error processing message from subject {Subject}", subject); }
+                catch (Exception ex) { CatgaLog.NatsProcessingError(_logger, ex, subject); }
             }
         }, cancellationToken);
         _subscriptions[subject] = task;
@@ -451,22 +429,17 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                             _jsContext!.PublishAsync(subject: item.Subject, data: item.Payload,
                                 opts: new NatsJSPubOpts { MsgId = item.Headers["MessageId"].ToString() }, headers: item.Headers, cancellationToken: ct),
                             _cts.Token);
-                        _logger.LogDebug("Published batch item to JetStream: Seq={Seq}, Dup={Dup}", ack.Seq, ack.Duplicate);
+                        CatgaLog.NatsBatchPublishedJetStream(_logger, ack.Seq, ack.Duplicate);
                         break;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "NATS batch publish failed for subject {Subject}", item.Subject);
-#if NET8_0_OR_GREATER
+                CatgaLog.NatsBatchPublishFailed(_logger, ex, item.Subject);
                 CatgaDiagnostics.MessagesFailed.Add(1,
                     new KeyValuePair<string, object?>("component", "Transport.NATS"),
                     new KeyValuePair<string, object?>("destination", item.Subject),
                     new KeyValuePair<string, object?>("reason", "batch_item"));
-#else
-                var failTags = new TagList { { "component", "Transport.NATS" }, { "destination", item.Subject }, { "reason", "batch_item" } };
-                CatgaDiagnostics.MessagesFailed.Add(1, failTags);
-#endif
             }
         }
     }

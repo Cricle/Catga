@@ -275,7 +275,7 @@ public class MemoryPoolManagerTests
                 {
                     using var pooled = MemoryPoolManager.RentArray<byte>(1024);
                     var span = pooled.Span;
-                    
+
                     // Write some data
                     for (int k = 0; k < span.Length; k++)
                     {

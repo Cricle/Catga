@@ -38,32 +38,32 @@ public class AutoBatchingBenchmarks
         _medUnkeyedSeq_WithRes = _spUnkeyedSeq_WithRes.GetRequiredService<ICatgaMediator>();
     }
 
-internal sealed class NoopResiliencePipelineProvider : Catga.Resilience.IResiliencePipelineProvider
-{
-    public ValueTask<T> ExecuteMediatorAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
-        => action(cancellationToken);
+    internal sealed class NoopResiliencePipelineProvider : Catga.Resilience.IResiliencePipelineProvider
+    {
+        public ValueTask<T> ExecuteMediatorAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
+            => action(cancellationToken);
 
-    public ValueTask ExecuteMediatorAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
-        => action(cancellationToken);
+        public ValueTask ExecuteMediatorAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
+            => action(cancellationToken);
 
-    public ValueTask<T> ExecuteTransportPublishAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
-        => action(cancellationToken);
+        public ValueTask<T> ExecuteTransportPublishAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
+            => action(cancellationToken);
 
-    public ValueTask ExecuteTransportPublishAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
-        => action(cancellationToken);
+        public ValueTask ExecuteTransportPublishAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
+            => action(cancellationToken);
 
-    public ValueTask<T> ExecuteTransportSendAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
-        => action(cancellationToken);
+        public ValueTask<T> ExecuteTransportSendAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
+            => action(cancellationToken);
 
-    public ValueTask ExecuteTransportSendAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
-        => action(cancellationToken);
+        public ValueTask ExecuteTransportSendAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
+            => action(cancellationToken);
 
-    public ValueTask<T> ExecutePersistenceAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
-        => action(cancellationToken);
+        public ValueTask<T> ExecutePersistenceAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
+            => action(cancellationToken);
 
-    public ValueTask ExecutePersistenceAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
-        => action(cancellationToken);
-}
+        public ValueTask ExecutePersistenceAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
+            => action(cancellationToken);
+    }
 
     [Benchmark(Baseline = true, Description = "Unkeyed Sequential (FlushDegree=0) - No Resilience")]
     public async Task Unkeyed_Sequential_NoResilience()

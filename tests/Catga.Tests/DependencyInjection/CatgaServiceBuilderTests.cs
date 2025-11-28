@@ -311,8 +311,8 @@ public class CatgaServiceBuilderTests
         builder.WithTracing(true);
 
         // Assert
-        services.Should().Contain(sd => 
-            sd.ServiceType.IsGenericType && 
+        services.Should().Contain(sd =>
+            sd.ServiceType.IsGenericType &&
             sd.ServiceType.GetGenericTypeDefinition().Name.Contains("DistributedTracingBehavior"));
     }
 

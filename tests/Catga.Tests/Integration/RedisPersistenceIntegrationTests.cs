@@ -103,7 +103,7 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
         {
             MessageId = MessageExtensions.NewMessageId(),
             MessageType = typeof(TestEvent).FullName!,
-            Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
+            Payload = _serializer!.Serialize(eventData),
             Status = OutboxStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
@@ -248,7 +248,7 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
         {
             MessageId = MessageId,
             MessageType = typeof(TestEvent).FullName!,
-            Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
+            Payload = _serializer!.Serialize(eventData),
             Status = InboxStatus.Processing,
             ReceivedAt = DateTime.UtcNow
         };
@@ -282,7 +282,7 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
         {
             MessageId = MessageId,
             MessageType = typeof(TestEvent).FullName!,
-            Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
+            Payload = _serializer!.Serialize(eventData),
             Status = InboxStatus.Processed,
             ReceivedAt = DateTime.UtcNow,
             ProcessedAt = DateTime.UtcNow
@@ -352,7 +352,7 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
         {
             MessageId = messageId,
             MessageType = typeof(TestEvent).FullName!,
-            Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
+            Payload = _serializer!.Serialize(eventData),
             Status = status,
             CreatedAt = DateTime.UtcNow,
             PublishedAt = status == OutboxStatus.Published ? DateTime.UtcNow : null

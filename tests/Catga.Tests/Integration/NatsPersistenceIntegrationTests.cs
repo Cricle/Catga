@@ -44,7 +44,7 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
             .WithPortBinding(4222, true)
             .WithPortBinding(8222, true)
             .WithCommand("-js", "-m", "8222") // Enable JetStream and monitoring
-            // 使用 HTTP 监控端点作为就绪检查，避免容器内缺少 /bin/sh 或 nc 带来的探测失败
+                                              // 使用 HTTP 监控端点作为就绪检查，避免容器内缺少 /bin/sh 或 nc 带来的探测失败
             .WithWaitStrategy(Wait.ForUnixContainer()
                 .UntilHttpRequestIsSucceeded(r => r
                     .ForPort(8222)
@@ -126,7 +126,7 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
         {
             MessageId = MessageExtensions.NewMessageId(),
             MessageType = typeof(TestEvent).FullName!,
-            Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
+            Payload = _serializer!.Serialize(eventData),
             Status = OutboxStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
@@ -271,7 +271,7 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
         {
             MessageId = messageId,
             MessageType = typeof(TestEvent).FullName!,
-            Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
+            Payload = _serializer!.Serialize(eventData),
             Status = InboxStatus.Processing,
             ReceivedAt = DateTime.UtcNow
         };
@@ -308,7 +308,7 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
         {
             MessageId = messageId,
             MessageType = typeof(TestEvent).FullName!,
-            Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
+            Payload = _serializer!.Serialize(eventData),
             Status = InboxStatus.Processed,
             ReceivedAt = DateTime.UtcNow,
             ProcessedAt = DateTime.UtcNow
@@ -522,7 +522,7 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
         {
             MessageId = messageId,
             MessageType = typeof(TestEvent).FullName!,
-            Payload = System.Text.Encoding.UTF8.GetString(_serializer!.Serialize(eventData)),
+            Payload = _serializer!.Serialize(eventData),
             Status = status,
             CreatedAt = DateTime.UtcNow,
             PublishedAt = status == OutboxStatus.Published ? DateTime.UtcNow : null

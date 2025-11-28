@@ -5,6 +5,7 @@ using Catga.DistributedId;
 using Catga.Outbox;
 using Catga.Transport;
 using Microsoft.Extensions.Logging;
+using Catga.Observability;
 
 namespace Catga.Pipeline.Behaviors;
 
@@ -47,14 +48,14 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
             {
                 MessageId = messageId,
                 MessageType = MessageHelper.GetMessageType<TRequest>(),
-                Payload = SerializationHelper.Serialize(request, _serializer),
+                Payload = _serializer.Serialize(request),
                 CreatedAt = DateTime.UtcNow,
                 Status = OutboxStatus.Pending,
                 CorrelationId = MessageHelper.GetCorrelationId(request)
             };
 
             await _persistence.AddAsync(outboxMessage, cancellationToken);
-            _logger.LogDebug("[Outbox] Saved message {MessageId} to {Store}", messageId, _persistence.GetType().Name);
+            CatgaLog.OutboxSaved(_logger, messageId, _persistence.GetType().Name);
 
             var result = await next();
 
@@ -72,12 +73,12 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
 
                     await _transport.PublishAsync<TRequest>(request, context, cancellationToken);
                     await _persistence.MarkAsPublishedAsync(messageId, cancellationToken);
-                    _logger.LogInformation("[Outbox] Published message {MessageId} via {Transport}", messageId, _transport.Name);
+                    CatgaLog.OutboxPublished(_logger, messageId, _transport.Name);
                 }
                 catch (Exception ex)
                 {
                     await _persistence.MarkAsFailedAsync(messageId, ex.Message, cancellationToken);
-                    _logger.LogError(ex, "[Outbox] Failed to publish message {MessageId}, marked for retry", messageId);
+                    CatgaLog.OutboxPublishFailed(_logger, ex, messageId);
                 }
             }
 
@@ -85,7 +86,7 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[Outbox] Error in outbox behavior for {RequestType}", TypeNameCache<TRequest>.Name);
+            CatgaLog.OutboxBehaviorError(_logger, ex, TypeNameCache<TRequest>.Name);
             return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PersistenceFailed, isRetryable: true));
         }
     }

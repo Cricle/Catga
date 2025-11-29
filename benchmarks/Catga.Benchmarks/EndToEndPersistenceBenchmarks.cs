@@ -67,6 +67,11 @@ public class EndToEndPersistenceBenchmarks
     [GlobalSetup]
     public void Setup()
     {
+        if (string.Equals(Environment.GetEnvironmentVariable("E2E_SKIP"), "true", StringComparison.OrdinalIgnoreCase))
+        {
+            _skip = true;
+            return;
+        }
         var services = new ServiceCollection();
         services.AddLogging(b => b.SetMinimumLevel(LogLevel.Warning));
         var builder = services.AddCatga().UseMemoryPack();

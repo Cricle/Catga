@@ -16,6 +16,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using StackExchange.Redis;
+using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Containers;
 
 namespace Catga.Benchmarks;
 
@@ -28,6 +30,7 @@ public class EndToEndTransportBenchmarks
     private IMessageTransport _transport = null!;
     private INatsConnection? _nats;
     private IConnectionMultiplexer? _redis;
+    private IContainer? _container;
     private ActivityListener? _listener;
     private volatile int _received;
     private volatile int _target;
@@ -66,6 +69,11 @@ public class EndToEndTransportBenchmarks
     [GlobalSetup]
     public void Setup()
     {
+        if (string.Equals(Environment.GetEnvironmentVariable("E2E_SKIP"), "true", StringComparison.OrdinalIgnoreCase))
+        {
+            _skip = true;
+            return;
+        }
         var services = new ServiceCollection();
         services.AddLogging(b => b.SetMinimumLevel(LogLevel.Warning));
         var builder = services.AddCatga().UseMemoryPack().UseResilience();
@@ -83,9 +91,25 @@ public class EndToEndTransportBenchmarks
 
         try
         {
+            var useContainers = string.Equals(Environment.GetEnvironmentVariable("E2E_CONTAINERS"), "true", StringComparison.OrdinalIgnoreCase);
             if (Broker == "nats")
             {
-                var url = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
+                string url;
+                if (useContainers)
+                {
+                    _container = new ContainerBuilder()
+                        .WithImage("nats:latest")
+                        .WithPortBinding(4222, true)
+                        .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(4222))
+                        .Build();
+                    _container.StartAsync().GetAwaiter().GetResult();
+                    var port = _container.GetMappedPublicPort(4222);
+                    url = $"nats://localhost:{port}";
+                }
+                else
+                {
+                    url = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
+                }
                 _nats = new NatsConnection(new NatsOpts { Url = url, ConnectTimeout = TimeSpan.FromSeconds(5) });
                 _nats.ConnectAsync().GetAwaiter().GetResult();
                 services.AddSingleton<INatsConnection>(_nats);
@@ -110,8 +134,23 @@ public class EndToEndTransportBenchmarks
             }
             else
             {
-                var url = Environment.GetEnvironmentVariable("REDIS_URL") ?? "localhost:6379";
-                _redis = ConnectionMultiplexer.Connect(url);
+                string conn;
+                if (useContainers)
+                {
+                    _container = new ContainerBuilder()
+                        .WithImage("redis:latest")
+                        .WithPortBinding(6379, true)
+                        .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(6379))
+                        .Build();
+                    _container.StartAsync().GetAwaiter().GetResult();
+                    var port = _container.GetMappedPublicPort(6379);
+                    conn = $"localhost:{port}";
+                }
+                else
+                {
+                    conn = Environment.GetEnvironmentVariable("REDIS_URL") ?? "localhost:6379";
+                }
+                _redis = ConnectionMultiplexer.Connect(conn);
                 _ = _redis.GetDatabase().Ping();
                 services.AddSingleton<IConnectionMultiplexer>(_redis);
                 services.AddRedisTransport(o =>
@@ -217,6 +256,7 @@ public class EndToEndTransportBenchmarks
         _listener?.Dispose();
         try { _nats?.DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { }
         try { _redis?.Dispose(); } catch { }
+        try { _container?.DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { }
     }
 }
 

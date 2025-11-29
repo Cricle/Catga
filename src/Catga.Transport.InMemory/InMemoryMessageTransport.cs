@@ -76,6 +76,7 @@ public class InMemoryMessageTransport : IMessageTransport
         activity?.SetTag(CatgaActivitySource.Tags.QoS, qosString);
         activity?.SetTag(CatgaActivitySource.Tags.MessagingSystem, "inmemory");
         activity?.SetTag(CatgaActivitySource.Tags.MessagingDestination, logicalName);
+        activity?.SetTag(CatgaActivitySource.Tags.MessagingOperation, "publish");
 
         CatgaDiagnostics.IncrementActiveMessages();
         try
@@ -97,6 +98,9 @@ public class InMemoryMessageTransport : IMessageTransport
                             CatgaLog.InMemoryQoS0ProcessingFailed(_logger, ex, ctx.MessageId, logicalName);
                         }
                     }
+                    System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.InMemoryPublishSent,
+                        ("destination", logicalName),
+                        ("qos", qosString));
                     break;
 
                 case QualityOfService.AtLeastOnce:
@@ -152,6 +156,9 @@ public class InMemoryMessageTransport : IMessageTransport
 
                     if (ctx.MessageId.HasValue)
                         _idempotencyStore.MarkAsProcessed(ctx.MessageId.Value);
+                    System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.InMemoryPublishSent,
+                        ("destination", logicalName),
+                        ("qos", qosString));
                     break;
             }
 
@@ -184,9 +191,27 @@ public class InMemoryMessageTransport : IMessageTransport
     {
         var tasks = new Task[handlers.Count];
         for (int i = 0; i < handlers.Count; i++)
-            tasks[i] = handlers[i](message, context);
+            tasks[i] = InvokeHandlerWithEvent(handlers[i], message, context);
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
+    }
+
+    private static async Task InvokeHandlerWithEvent<TMessage>(Func<TMessage, TransportContext, Task> handler, TMessage message, TransportContext context) where TMessage : class
+    {
+        var start = Stopwatch.GetTimestamp();
+        try
+        {
+            await handler(message, context).ConfigureAwait(false);
+            var ms = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
+            System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.InMemoryReceiveHandler,
+                ("duration.ms", ms));
+            System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.InMemoryReceiveProcessed);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Activity.Current?.SetError(ex);
+            throw;
+        }
     }
 
 

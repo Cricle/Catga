@@ -135,6 +135,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
         {
             activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, "nats");
             activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, subject);
+            activity.SetTag(CatgaActivitySource.Tags.MessagingOperation, "publish");
             activity.SetTag(CatgaActivitySource.Tags.MessageType, TypeNameCache<TMessage>.Name);
             activity.SetTag(CatgaActivitySource.Tags.MessageId, ctx.MessageId);
             var qosString = qos switch { QualityOfService.AtMostOnce => "AtMostOnce", QualityOfService.AtLeastOnce => "AtLeastOnce", QualityOfService.ExactlyOnce => "ExactlyOnce", _ => "Unknown" };
@@ -169,7 +170,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
         if (_options?.Batch is { EnableAutoBatching: true } batchOptions)
         {
             Enqueue(subject, payload, headers, qos, batchOptions);
-            System.Diagnostics.Activity.Current?.AddActivityEvent("NATS.Publish.Enqueued",
+            System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.NatsPublishEnqueued,
                 ("subject", subject),
                 ("qos", (int)qos));
             return; // queued for background flush
@@ -186,7 +187,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                         _connection.PublishAsync(subject, payload, headers: headers, cancellationToken: ct),
                         cancellationToken);
                     CatgaLog.NatsPublishedCore(_logger, ctx.MessageId);
-                    System.Diagnostics.Activity.Current?.AddActivityEvent("NATS.Publish.Sent",
+                    System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.NatsPublishSent,
                         ("subject", subject),
                         ("qos", (int)qos));
                     break;
@@ -198,7 +199,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                         _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: ct),
                         cancellationToken);
                     CatgaLog.NatsPublishedQoS1(_logger, ctx.MessageId, ack1.Seq, ack1.Duplicate);
-                    System.Diagnostics.Activity.Current?.AddActivityEvent("NATS.Publish.Sent",
+                    System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.NatsPublishSent,
                         ("subject", subject),
                         ("qos", (int)qos),
                         ("seq", (long)ack1.Seq),
@@ -213,7 +214,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                         _jsContext!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: ct),
                         cancellationToken);
                     CatgaLog.NatsPublishedQoS2(_logger, ctx.MessageId, ack2.Seq, ack2.Duplicate);
-                    System.Diagnostics.Activity.Current?.AddActivityEvent("NATS.Publish.Sent",
+                    System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.NatsPublishSent,
                         ("subject", subject),
                         ("qos", (int)qos),
                         ("seq", (long)ack2.Seq),
@@ -237,7 +238,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
             }
             CatgaLog.NatsPublishFailed(_logger, ex, subject, ctx.MessageId);
             System.Diagnostics.Activity.Current?.SetError(ex);
-            System.Diagnostics.Activity.Current?.AddActivityEvent("NATS.Publish.Failed",
+            System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.NatsPublishFailed,
                 ("subject", subject));
             throw;
         }
@@ -280,11 +281,12 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                     {
                         activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, "nats");
                         activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, subject);
+                        activity.SetTag(CatgaActivitySource.Tags.MessagingOperation, "receive");
                     }
                     if (msg.Data == null || msg.Data.Length == 0)
                     {
                         CatgaLog.NatsEmptyMessage(_logger, subject);
-                        activity?.AddActivityEvent("NATS.Receive.Empty",
+                        activity?.AddActivityEvent(CatgaActivitySource.Events.NatsReceiveEmpty,
                             ("subject", subject));
                         if (ObservabilityHooks.IsEnabled)
                         {
@@ -298,7 +300,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                     var deserStart = Stopwatch.GetTimestamp();
                     var message = _serializer.Deserialize<TMessage>(msg.Data);
                     var deserMs = (Stopwatch.GetTimestamp() - deserStart) * 1000.0 / Stopwatch.Frequency;
-                    activity?.AddActivityEvent("NATS.Receive.Deserialized",
+                    activity?.AddActivityEvent(CatgaActivitySource.Events.NatsReceiveDeserialized,
                         ("message.type", typeof(TMessage).Name),
                         ("duration.ms", deserMs),
                         ("payload.size", msg.Data.Length));
@@ -344,7 +346,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                             {
                                 CatgaLog.NatsDroppedDuplicate(_logger, messageId, qosHeader, subject);
                                 CatgaDiagnostics.NatsDedupDrops.Add(1);
-                                activity?.AddActivityEvent("NATS.Receive.DroppedDuplicate",
+                                activity?.AddActivityEvent(CatgaActivitySource.Events.NatsReceiveDroppedDuplicate,
                                     ("message.id", messageId),
                                     ("qos", qosHeader));
                                 continue;
@@ -374,10 +376,10 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                     var handlerStart = Stopwatch.GetTimestamp();
                     await handler(message, context);
                     var handlerMs = (Stopwatch.GetTimestamp() - handlerStart) * 1000.0 / Stopwatch.Frequency;
-                    activity?.AddActivityEvent("NATS.Receive.Handler",
+                    activity?.AddActivityEvent(CatgaActivitySource.Events.NatsReceiveHandler,
                         ("subject", subject),
                         ("duration.ms", handlerMs));
-                    activity?.AddActivityEvent("NATS.Receive.Processed",
+                    activity?.AddActivityEvent(CatgaActivitySource.Events.NatsReceiveProcessed,
                         ("subject", subject));
                 }
                 catch (Exception ex) { CatgaLog.NatsProcessingError(_logger, ex, subject); activity?.SetError(ex); }
@@ -467,7 +469,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                                 opts: new NatsJSPubOpts { MsgId = Headers["MessageId"].ToString() }, headers: Headers, cancellationToken: ct),
                             _cts.Token);
                         CatgaLog.NatsBatchPublishedJetStream(_logger, ack.Seq, ack.Duplicate);
-                        batchSpan?.AddActivityEvent("NATS.Batch.ItemSent",
+                        batchSpan?.AddActivityEvent(CatgaActivitySource.Events.NatsBatchItemSent,
                             ("subject", Subject),
                             ("qos", (int)QoS),
                             ("seq", (long)ack.Seq),
@@ -483,7 +485,7 @@ public class NatsMessageTransport : IMessageTransport, IAsyncDisposable
                     new KeyValuePair<string, object?>("destination", Subject),
                     new KeyValuePair<string, object?>("reason", "batch_item"));
                 batchSpan?.SetError(ex);
-                batchSpan?.AddActivityEvent("NATS.Batch.ItemFailed",
+                batchSpan?.AddActivityEvent(CatgaActivitySource.Events.NatsBatchItemFailed,
                     ("subject", Subject));
             }
         }

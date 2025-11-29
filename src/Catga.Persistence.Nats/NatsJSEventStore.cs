@@ -151,7 +151,14 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                 {
                     if (msg.Data != null && msg.Data.Length > 0)
                     {
+                        var deserStart = Stopwatch.GetTimestamp();
                         var @event = DeserializeEventFromMessage(msg);
+                        var deserMs = (Stopwatch.GetTimestamp() - deserStart) * 1000.0 / Stopwatch.Frequency;
+                        activity?.AddActivityEvent("EventStore.Read.Deserialized",
+                            ("stream", streamId),
+                            ("event.type", @event.GetType().Name),
+                            ("duration.ms", deserMs),
+                            ("payload.size", msg.Data.Length));
                         var version = (long)(msg.Metadata?.Sequence.Stream ?? 0UL) - 1; // Convert to 0-based
 
                         if (version >= fromVersion)
@@ -245,6 +252,8 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                 CatgaDiagnostics.EventStoreReads.Add(1);
                 var elapsedNone = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
                 CatgaDiagnostics.EventStoreReadDuration.Record(elapsedNone);
+                activity?.AddActivityEvent("EventStore.GetVersion.None",
+                    ("stream", streamId));
                 return verNone;
             }
             catch (NatsJSApiException ex) when (ex.Error.Code == 404)
@@ -253,6 +262,8 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                 CatgaDiagnostics.EventStoreReads.Add(1);
                 var elapsed = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
                 CatgaDiagnostics.EventStoreReadDuration.Record(elapsed);
+                activity?.AddActivityEvent("EventStore.GetVersion.NotFound",
+                    ("stream", streamId));
                 return ver;
             }
         }, cancellationToken);

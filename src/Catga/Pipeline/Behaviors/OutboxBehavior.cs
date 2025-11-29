@@ -59,10 +59,10 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
 
             await _persistence.AddAsync(outboxMessage, cancellationToken);
             CatgaLog.OutboxSaved(_logger, messageId, _persistence.GetType().Name);
-            System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.Serialized",
+            System.Diagnostics.Activity.Current?.AddActivityEvent(Catga.Observability.CatgaActivitySource.Events.OutboxSerialized,
                 ("message.id", messageId),
                 ("payload.size", payload.Length));
-            System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.Saved",
+            System.Diagnostics.Activity.Current?.AddActivityEvent(Catga.Observability.CatgaActivitySource.Events.OutboxSaved,
                 ("message.id", messageId),
                 ("store", _persistence.GetType().Name));
 
@@ -83,7 +83,7 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
                     await _transport.PublishAsync<TRequest>(request, context, cancellationToken);
                     await _persistence.MarkAsPublishedAsync(messageId, cancellationToken);
                     CatgaLog.OutboxPublished(_logger, messageId, _transport.Name);
-                    System.Diagnostics.Activity.Current?.AddActivityEvent("Outbox.Published",
+                    System.Diagnostics.Activity.Current?.AddActivityEvent(Catga.Observability.CatgaActivitySource.Events.OutboxPublished,
                         ("message.id", messageId),
                         ("transport", _transport.Name));
                 }

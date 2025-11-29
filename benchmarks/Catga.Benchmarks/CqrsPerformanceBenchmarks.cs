@@ -6,6 +6,9 @@ using Catga.Core;
 using Catga.DependencyInjection;
 using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics;
+using Catga.Observability;
+using Catga.Resilience;
 
 namespace Catga.Benchmarks;
 
@@ -22,22 +25,56 @@ public class CqrsPerformanceBenchmarks
     private BenchCommand _command = null!;
     private BenchQuery _query = null!;
     private BenchEvent _event = null!;
+    private ActivityListener? _listener;
+
+    [Params(false, true)]
+    public bool TracingEnabled { get; set; }
+
+    [Params(false, true)]
+    public bool ResilienceEnabled { get; set; }
+
+    [Params(0, 512, 4096)]
+    public int PayloadBytes { get; set; }
+
+    [Params(0, 1, 5)]
+    public int HandlerDelayMs { get; set; }
 
     [GlobalSetup]
     public void Setup()
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddCatga().UseMemoryPack(); // Add serializer for CATGA002
+        var builder = services.AddCatga().UseMemoryPack();
+        if (ResilienceEnabled)
+        {
+            builder.UseResilience();
+        }
+        else
+        {
+            services.AddSingleton<IResiliencePipelineProvider, NoopResiliencePipelineProvider>();
+        }
         services.AddScoped<IRequestHandler<BenchCommand, BenchCommandResult>, BenchCommandHandler>();
         services.AddScoped<IRequestHandler<BenchQuery, BenchQueryResult>, BenchQueryHandler>();
         services.AddScoped<IEventHandler<BenchEvent>, BenchEventHandler>();
 
         _serviceProvider = services.BuildServiceProvider();
         _mediator = _serviceProvider.GetRequiredService<ICatgaMediator>();
-        _command = new BenchCommand(123, "test-data");
+        BenchRuntime.HandlerDelayMs = HandlerDelayMs;
+        BenchRuntime.Payload = PayloadBytes > 0 ? new string('x', PayloadBytes) : string.Empty;
+        _command = new BenchCommand(123, BenchRuntime.Payload);
         _query = new BenchQuery(456);
         _event = new BenchEvent(789, "event-data");
+
+        if (TracingEnabled)
+        {
+            _listener = new ActivityListener
+            {
+                ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
+                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+                ActivityStopped = _ => { }
+            };
+            ActivitySource.AddActivityListener(_listener);
+        }
     }
 
     [Benchmark(Baseline = true, Description = "Send Command (single)")]
@@ -83,6 +120,7 @@ public class CqrsPerformanceBenchmarks
         {
             disposable.Dispose();
         }
+        _listener?.Dispose();
     }
 }
 
@@ -109,8 +147,17 @@ public class BenchCommandHandler : IRequestHandler<BenchCommand, BenchCommandRes
         BenchCommand request,
         CancellationToken cancellationToken = default)
     {
+        if (BenchRuntime.HandlerDelayMs > 0)
+            return HandleWithDelayAsync(request, cancellationToken);
         var result = new BenchCommandResult(request.Id, $"Processed: {request.Data}");
         return Task.FromResult(CatgaResult<BenchCommandResult>.Success(result));
+    }
+
+    private static async Task<CatgaResult<BenchCommandResult>> HandleWithDelayAsync(BenchCommand request, CancellationToken ct)
+    {
+        await Task.Delay(BenchRuntime.HandlerDelayMs, ct);
+        var result = new BenchCommandResult(request.Id, $"Processed: {request.Data}");
+        return CatgaResult<BenchCommandResult>.Success(result);
     }
 }
 
@@ -129,8 +176,17 @@ public class BenchEventHandler : IEventHandler<BenchEvent>
 {
     public Task HandleAsync(BenchEvent @event, CancellationToken cancellationToken = default)
     {
-        // Minimal processing
+        if (BenchRuntime.HandlerDelayMs > 0)
+            return Task.Delay(BenchRuntime.HandlerDelayMs, cancellationToken);
         return Task.CompletedTask;
     }
 }
+
+internal static class BenchRuntime
+{
+    public static int HandlerDelayMs;
+    public static string Payload = string.Empty;
+}
+
+
 

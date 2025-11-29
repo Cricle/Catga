@@ -7,6 +7,9 @@ using Catga.Pipeline;
 using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
+using Catga.Observability;
+using Catga.Resilience;
 
 namespace Catga.Benchmarks;
 
@@ -20,13 +23,48 @@ public class BusinessScenarioBenchmarks
 {
     private IServiceProvider _serviceProvider = null!;
     private ICatgaMediator _mediator = null!;
+    private ActivityListener? _listener;
+
+    [Params(false, true)]
+    public bool TracingEnabled { get; set; }
+
+    [Params(false, true)]
+    public bool ResilienceEnabled { get; set; }
+
+    [Params(false, true)]
+    public bool EnableAutoBatching { get; set; }
+
+    [Params(0, 1, 5)]
+    public int HandlerDelayMs { get; set; }
+
+    [Params(1, 16, 128)]
+    public int ConcurrentFlows { get; set; }
 
     [GlobalSetup]
     public void Setup()
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Warning));
-        services.AddCatga().UseMemoryPack();
+        var builder = services.AddCatga().UseMemoryPack();
+        if (ResilienceEnabled)
+        {
+            builder.UseResilience();
+        }
+        else
+        {
+            services.AddSingleton<IResiliencePipelineProvider, NoopResiliencePipelineProvider>();
+        }
+        if (EnableAutoBatching)
+        {
+            builder.UseMediatorAutoBatching(o =>
+            {
+                o.EnableAutoBatching = true;
+                o.MaxBatchSize = 32;
+                o.MaxQueueLength = 20_000;
+                o.BatchTimeout = TimeSpan.FromMilliseconds(5);
+                o.FlushDegree = Math.Max(Environment.ProcessorCount / 4, 1);
+            });
+        }
 
         // Register handlers
         services.AddScoped<IRequestHandler<CreateOrderCommand, CreateOrderResult>, CreateOrderHandler>();
@@ -41,6 +79,18 @@ public class BusinessScenarioBenchmarks
 
         _serviceProvider = services.BuildServiceProvider();
         _mediator = _serviceProvider.GetRequiredService<ICatgaMediator>();
+        BenchScenarioRuntime.DelayMs = HandlerDelayMs;
+
+        if (TracingEnabled)
+        {
+            _listener = new ActivityListener
+            {
+                ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
+                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+                ActivityStopped = _ => { }
+            };
+            ActivitySource.AddActivityListener(_listener);
+        }
     }
 
     [Benchmark(Baseline = true, Description = "Create Order (Command)")]
@@ -156,8 +206,8 @@ public class BusinessScenarioBenchmarks
     [Benchmark(Description = "E-Commerce Scenario Concurrent (100 flows)")]
     public async Task ECommerceScenarioConcurrent()
     {
-        var tasks = new Task[100];
-        for (int i = 0; i < 100; i++)
+        var tasks = new Task[ConcurrentFlows];
+        for (int i = 0; i < ConcurrentFlows; i++)
         {
             tasks[i] = RunECommerceFlow();
         }
@@ -206,6 +256,7 @@ public class BusinessScenarioBenchmarks
         {
             disposable.Dispose();
         }
+        _listener?.Dispose();
     }
 }
 
@@ -245,6 +296,23 @@ public partial record ProcessPaymentResult(
 );
 
 #endregion
+
+internal static class BenchScenarioRuntime
+{
+    public static int DelayMs;
+}
+
+internal sealed class NoopResiliencePipelineProvider : IResiliencePipelineProvider
+{
+    public ValueTask<T> ExecuteMediatorAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken) => action(cancellationToken);
+    public ValueTask ExecuteMediatorAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken) => action(cancellationToken);
+    public ValueTask<T> ExecuteTransportPublishAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken) => action(cancellationToken);
+    public ValueTask ExecuteTransportPublishAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken) => action(cancellationToken);
+    public ValueTask<T> ExecuteTransportSendAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken) => action(cancellationToken);
+    public ValueTask ExecuteTransportSendAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken) => action(cancellationToken);
+    public ValueTask<T> ExecutePersistenceAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken) => action(cancellationToken);
+    public ValueTask ExecutePersistenceAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken) => action(cancellationToken);
+}
 
 #region Queries
 
@@ -304,7 +372,8 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, CreateOrde
         CreateOrderCommand request,
         CancellationToken cancellationToken = default)
     {
-        // Simulate business logic: validate, create order
+        if (BenchScenarioRuntime.DelayMs > 0)
+            return HandleWithDelayAsync(request, cancellationToken);
         var orderId = Random.Shared.Next(10000, 99999);
         var result = new CreateOrderResult(
             OrderId: orderId,
@@ -314,6 +383,14 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, CreateOrde
 
         return Task.FromResult(CatgaResult<CreateOrderResult>.Success(result));
     }
+
+    private static async Task<CatgaResult<CreateOrderResult>> HandleWithDelayAsync(CreateOrderCommand request, CancellationToken ct)
+    {
+        await Task.Delay(BenchScenarioRuntime.DelayMs, ct);
+        var orderId = Random.Shared.Next(10000, 99999);
+        var result = new CreateOrderResult(orderId, "Created", request.TotalAmount);
+        return CatgaResult<CreateOrderResult>.Success(result);
+    }
 }
 
 public class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, ProcessPaymentResult>
@@ -322,7 +399,8 @@ public class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, Proc
         ProcessPaymentCommand request,
         CancellationToken cancellationToken = default)
     {
-        // Simulate payment processing
+        if (BenchScenarioRuntime.DelayMs > 0)
+            return HandleWithDelayAsync(request, cancellationToken);
         var paymentId = Random.Shared.Next(20000, 29999);
         var transactionId = Guid.NewGuid().ToString("N")[..16];
 
@@ -333,6 +411,15 @@ public class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, Proc
         );
 
         return Task.FromResult(CatgaResult<ProcessPaymentResult>.Success(result));
+    }
+
+    private static async Task<CatgaResult<ProcessPaymentResult>> HandleWithDelayAsync(ProcessPaymentCommand request, CancellationToken ct)
+    {
+        await Task.Delay(BenchScenarioRuntime.DelayMs, ct);
+        var paymentId = Random.Shared.Next(20000, 29999);
+        var transactionId = Guid.NewGuid().ToString("N")[..16];
+        var result = new ProcessPaymentResult(paymentId, true, transactionId);
+        return CatgaResult<ProcessPaymentResult>.Success(result);
     }
 }
 
@@ -346,7 +433,8 @@ public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, GetOrderResul
         GetOrderQuery request,
         CancellationToken cancellationToken = default)
     {
-        // Simulate database query
+        if (BenchScenarioRuntime.DelayMs > 0)
+            return HandleWithDelayAsync(request, cancellationToken);
         var result = new GetOrderResult(
             OrderId: request.OrderId,
             UserId: 123,
@@ -356,6 +444,13 @@ public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, GetOrderResul
 
         return Task.FromResult(CatgaResult<GetOrderResult>.Success(result));
     }
+
+    private static async Task<CatgaResult<GetOrderResult>> HandleWithDelayAsync(GetOrderQuery request, CancellationToken ct)
+    {
+        await Task.Delay(BenchScenarioRuntime.DelayMs, ct);
+        var result = new GetOrderResult(request.OrderId, 123, "Completed", 99.99m);
+        return CatgaResult<GetOrderResult>.Success(result);
+    }
 }
 
 public class GetUserOrdersQueryHandler : IRequestHandler<GetUserOrdersQuery, GetUserOrdersResult>
@@ -364,7 +459,8 @@ public class GetUserOrdersQueryHandler : IRequestHandler<GetUserOrdersQuery, Get
         GetUserOrdersQuery request,
         CancellationToken cancellationToken = default)
     {
-        // Simulate aggregate query
+        if (BenchScenarioRuntime.DelayMs > 0)
+            return HandleWithDelayAsync(request, cancellationToken);
         var result = new GetUserOrdersResult(
             UserId: request.UserId,
             TotalOrders: 15,
@@ -372,6 +468,13 @@ public class GetUserOrdersQueryHandler : IRequestHandler<GetUserOrdersQuery, Get
         );
 
         return Task.FromResult(CatgaResult<GetUserOrdersResult>.Success(result));
+    }
+
+    private static async Task<CatgaResult<GetUserOrdersResult>> HandleWithDelayAsync(GetUserOrdersQuery request, CancellationToken ct)
+    {
+        await Task.Delay(BenchScenarioRuntime.DelayMs, ct);
+        var result = new GetUserOrdersResult(request.UserId, 15, 1299.85m);
+        return CatgaResult<GetUserOrdersResult>.Success(result);
     }
 }
 
@@ -383,7 +486,8 @@ public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent>
 {
     public Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
     {
-        // Simulate updating order status
+        if (BenchScenarioRuntime.DelayMs > 0)
+            return Task.Delay(BenchScenarioRuntime.DelayMs, cancellationToken);
         return Task.CompletedTask;
     }
 }
@@ -392,7 +496,8 @@ public class SendEmailNotificationHandler : IEventHandler<OrderCreatedEvent>
 {
     public Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
     {
-        // Simulate sending email
+        if (BenchScenarioRuntime.DelayMs > 0)
+            return Task.Delay(BenchScenarioRuntime.DelayMs, cancellationToken);
         return Task.CompletedTask;
     }
 }
@@ -401,7 +506,8 @@ public class UpdateInventoryHandler : IEventHandler<OrderCreatedEvent>
 {
     public Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
     {
-        // Simulate updating inventory
+        if (BenchScenarioRuntime.DelayMs > 0)
+            return Task.Delay(BenchScenarioRuntime.DelayMs, cancellationToken);
         return Task.CompletedTask;
     }
 }
@@ -410,7 +516,8 @@ public class PaymentProcessedEventHandler : IEventHandler<PaymentProcessedEvent>
 {
     public Task HandleAsync(PaymentProcessedEvent @event, CancellationToken cancellationToken = default)
     {
-        // Simulate updating payment records
+        if (BenchScenarioRuntime.DelayMs > 0)
+            return Task.Delay(BenchScenarioRuntime.DelayMs, cancellationToken);
         return Task.CompletedTask;
     }
 }

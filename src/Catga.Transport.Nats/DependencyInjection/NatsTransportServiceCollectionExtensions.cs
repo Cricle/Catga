@@ -49,5 +49,37 @@ public static class NatsTransportServiceCollectionExtensions
             CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tag);
         }
     }
+
+    public static IServiceCollection AddNatsTransport(this IServiceCollection services, NatsTransportOptions options)
+    {
+        var sw = Stopwatch.StartNew();
+        var tag = new KeyValuePair<string, object?>("component", "DI.Transport.NATS");
+        try
+        {
+            ArgumentNullException.ThrowIfNull(services);
+            options ??= new NatsTransportOptions();
+            services.TryAddSingleton(options);
+
+            services.TryAddSingleton<IMessageTransport>(sp => new NatsMessageTransport(sp.GetRequiredService<INatsConnection>(),
+                                                                                       sp.GetRequiredService<IMessageSerializer>(),
+                                                                                       sp.GetRequiredService<ILogger<NatsMessageTransport>>(),
+                                                                                       sp.GetRequiredService<CatgaOptions>(),
+                                                                                       options,
+                                                                                       sp.GetRequiredService<IResiliencePipelineProvider>()));
+            sw.Stop();
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tag);
+            return services;
+        }
+        catch
+        {
+            sw.Stop();
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tag);
+            throw;
+        }
+        finally
+        {
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tag);
+        }
+    }
 }
 

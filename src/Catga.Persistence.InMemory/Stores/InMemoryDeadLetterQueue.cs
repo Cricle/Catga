@@ -1,10 +1,8 @@
-using System;
-using System.Collections.Concurrent;
 using Catga.Abstractions;
 using Catga.Core;
-using Microsoft.Extensions.Logging;
 using Catga.Observability;
-using System.Diagnostics.Metrics;
+using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 
 namespace Catga.DeadLetter;
 

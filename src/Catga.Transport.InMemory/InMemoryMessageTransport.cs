@@ -26,21 +26,18 @@ public class InMemoryMessageTransport : IMessageTransport
     private Func<Type, string>? _naming;
 
     public InMemoryMessageTransport(
-        InMemoryTransportOptions? options = null,
         ILogger<InMemoryMessageTransport>? logger = null,
         IResiliencePipelineProvider? provider = null)
     {
         _logger = logger;
-        options ??= new InMemoryTransportOptions();
         _provider = provider ?? throw new ArgumentNullException(nameof(provider));
     }
 
     public InMemoryMessageTransport(
-        InMemoryTransportOptions? options,
         ILogger<InMemoryMessageTransport>? logger,
         CatgaOptions globalOptions,
         IResiliencePipelineProvider provider)
-        : this(options, logger, provider)
+        : this(logger, provider)
     {
         _naming = globalOptions?.EndpointNamingConvention;
     }
@@ -243,19 +240,6 @@ public class InMemoryMessageTransport : IMessageTransport
         activity?.AddTag("exception.type", typeName);
         activity?.AddTag("exception.message", ex.Message);
     }
-}
-
-/// <summary>Options for configuring InMemory transport</summary>
-public class InMemoryTransportOptions
-{
-    /// <summary>Maximum number of concurrent message processing tasks (default: CPU cores * 2, min 16)</summary>
-    public int MaxConcurrency { get; set; } = Math.Max(Environment.ProcessorCount * 2, 16);
-
-    /// <summary>Circuit breaker: consecutive failure threshold before opening (default: 5)</summary>
-    public int CircuitBreakerThreshold { get; set; } = 5;
-
-    /// <summary>Circuit breaker: duration to keep circuit open (default: 30 seconds)</summary>
-    public TimeSpan CircuitBreakerDuration { get; set; } = TimeSpan.FromSeconds(30);
 }
 
 /// <summary>

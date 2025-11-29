@@ -1,13 +1,10 @@
-using Catga.EventSourcing;
-using Catga.Core;
-using System.Collections.Concurrent;
-using System.Runtime.CompilerServices;
-using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using System.Collections.Generic;
 using Catga.Abstractions;
+using Catga.EventSourcing;
 using Catga.Observability;
 using Catga.Resilience;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace Catga.Persistence.Stores;
 
@@ -170,11 +167,9 @@ public sealed class InMemoryEventStore : IEventStore
                 Events = events
             };
 
-            var elapsed = Stopwatch.GetTimestamp() - startTimestamp;
-            var durationMs = elapsed * 1000.0 / Stopwatch.Frequency;
-            var tag_component2 = new KeyValuePair<string, object?>("component", "EventStore.InMemory");
-            CatgaDiagnostics.EventStoreReads.Add(1, tag_component2);
-            CatgaDiagnostics.EventStoreReadDuration.Record(durationMs, tag_component2);
+            var tag = new KeyValuePair<string, object?>("component", "EventStore.InMemory");
+            CatgaDiagnostics.EventStoreReads.Add(1, tag);
+            CatgaDiagnostics.EventStoreReadDuration.Record((double)((Stopwatch.GetTimestamp() - startTimestamp) * 1000.0 / Stopwatch.Frequency), tag);
             return new ValueTask<EventStream>(result);
         }, cancellationToken);
     }

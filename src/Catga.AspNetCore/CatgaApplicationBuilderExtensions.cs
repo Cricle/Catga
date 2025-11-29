@@ -1,6 +1,5 @@
 using Catga.AspNetCore;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -17,13 +16,6 @@ public static class CatgaApplicationBuilderExtensions
     {
         var options = new CatgaAspNetCoreOptions();
         configure?.Invoke(options);
-
-        // 映射诊断仪表板端点
-        if (options.EnableDashboard && app is IEndpointRouteBuilder endpoints)
-        {
-            endpoints.MapCatgaDiagnostics(options.DashboardPathPrefix);
-        }
-
         return app;
     }
 }

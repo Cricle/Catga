@@ -1,9 +1,7 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Threading;
-using System.Threading.Tasks;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.Resilience;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Catga.Pipeline.Behaviors;
 

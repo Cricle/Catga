@@ -38,13 +38,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
             OnRejected = _ =>
             {
                 CatgaDiagnostics.ResilienceBulkheadRejected.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Mediator));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceBulkheadRejected,
-                        tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Mediator }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceBulkheadRejected, ResilienceKeys.Mediator);
                 return default;
             }
         });
@@ -56,37 +50,19 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
             OnOpened = _ =>
             {
                 CatgaDiagnostics.ResilienceCircuitOpened.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Mediator));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceCircuitOpen,
-                        tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Mediator }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceCircuitOpen, ResilienceKeys.Mediator);
                 return default;
             },
             OnHalfOpened = _ =>
             {
                 CatgaDiagnostics.ResilienceCircuitHalfOpened.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Mediator));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceCircuitHalfOpen,
-                        tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Mediator }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceCircuitHalfOpen, ResilienceKeys.Mediator);
                 return default;
             },
             OnClosed = _ =>
             {
                 CatgaDiagnostics.ResilienceCircuitClosed.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Mediator));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceCircuitClosed,
-                        tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Mediator }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceCircuitClosed, ResilienceKeys.Mediator);
                 return default;
             }
         });
@@ -96,13 +72,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
             OnTimeout = _ =>
             {
                 CatgaDiagnostics.ResilienceTimeouts.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Mediator));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceTimeout,
-                        tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Mediator }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceTimeout, ResilienceKeys.Mediator);
                 return default;
             }
         });
@@ -122,13 +92,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
             OnRejected = _ =>
             {
                 CatgaDiagnostics.ResilienceBulkheadRejected.Add(1, new KeyValuePair<string, object?>("component", component));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceBulkheadRejected,
-                        tags: new ActivityTagsCollection { ["component"] = component }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceBulkheadRejected, component);
                 return default;
             }
         });
@@ -140,37 +104,19 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
             OnOpened = _ =>
             {
                 CatgaDiagnostics.ResilienceCircuitOpened.Add(1, new KeyValuePair<string, object?>("component", component));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceCircuitOpen,
-                        tags: new ActivityTagsCollection { ["component"] = component }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceCircuitOpen, component);
                 return default;
             },
             OnHalfOpened = _ =>
             {
                 CatgaDiagnostics.ResilienceCircuitHalfOpened.Add(1, new KeyValuePair<string, object?>("component", component));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceCircuitHalfOpen,
-                        tags: new ActivityTagsCollection { ["component"] = component }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceCircuitHalfOpen, component);
                 return default;
             },
             OnClosed = _ =>
             {
                 CatgaDiagnostics.ResilienceCircuitClosed.Add(1, new KeyValuePair<string, object?>("component", component));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceCircuitClosed,
-                        tags: new ActivityTagsCollection { ["component"] = component }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceCircuitClosed, component);
                 return default;
             }
         });
@@ -180,13 +126,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
             OnTimeout = _ =>
             {
                 CatgaDiagnostics.ResilienceTimeouts.Add(1, new KeyValuePair<string, object?>("component", component));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceTimeout,
-                        tags: new ActivityTagsCollection { ["component"] = component }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceTimeout, component);
                 return default;
             }
         });
@@ -200,13 +140,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
             OnRetry = args =>
             {
                 CatgaDiagnostics.ResilienceRetries.Add(1, new KeyValuePair<string, object?>("component", component));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceRetry,
-                        tags: new ActivityTagsCollection { ["component"] = component, ["attempt"] = args.AttemptNumber }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceRetry, component, args.AttemptNumber);
                 return default;
             }
         });
@@ -228,13 +162,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 OnRejected = _ =>
                 {
                     CatgaDiagnostics.ResilienceBulkheadRejected.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Persistence));
-                    var a = Activity.Current;
-                    if (a != null)
-                    {
-                        a.AddEvent(new ActivityEvent(
-                            CatgaActivitySource.Events.ResilienceBulkheadRejected,
-                            tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence }));
-                    }
+                    AddResilienceEvent(CatgaActivitySource.Events.ResilienceBulkheadRejected, ResilienceKeys.Persistence);
                     return default;
                 }
             });
@@ -247,37 +175,19 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
             OnOpened = _ =>
             {
                 CatgaDiagnostics.ResilienceCircuitOpened.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Persistence));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceCircuitOpen,
-                        tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceCircuitOpen, ResilienceKeys.Persistence);
                 return default;
             },
             OnHalfOpened = _ =>
             {
                 CatgaDiagnostics.ResilienceCircuitHalfOpened.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Persistence));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceCircuitHalfOpen,
-                        tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceCircuitHalfOpen, ResilienceKeys.Persistence);
                 return default;
             },
             OnClosed = _ =>
             {
                 CatgaDiagnostics.ResilienceCircuitClosed.Add(1, new KeyValuePair<string, object?>("component", ResilienceKeys.Persistence));
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceCircuitClosed,
-                        tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceCircuitClosed, ResilienceKeys.Persistence);
                 return default;
             }
         });
@@ -287,13 +197,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
             OnTimeout = _ =>
             {
                 CatgaDiagnostics.ResilienceTimeouts.Add(1);
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceTimeout,
-                        tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceTimeout, ResilienceKeys.Persistence);
                 return default;
             }
         });
@@ -307,13 +211,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
             OnRetry = args =>
             {
                 CatgaDiagnostics.ResilienceRetries.Add(1);
-                var a = Activity.Current;
-                if (a != null)
-                {
-                    a.AddEvent(new ActivityEvent(
-                        CatgaActivitySource.Events.ResilienceRetry,
-                        tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence, ["attempt"] = args.AttemptNumber }));
-                }
+                AddResilienceEvent(CatgaActivitySource.Events.ResilienceRetry, ResilienceKeys.Persistence, args.AttemptNumber);
                 return default;
             }
         });
@@ -327,7 +225,11 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
 
     public async ValueTask ExecuteMediatorAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
     {
-        await _mediator.ExecuteAsync(async ct => { await action(ct); return 0; }, cancellationToken);
+        await _mediator.ExecuteAsync(async ct =>
+        {
+            await action(ct);
+            return 0;
+        }, cancellationToken);
     }
 
     public async ValueTask<T> ExecuteTransportPublishAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
@@ -337,7 +239,11 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
 
     public async ValueTask ExecuteTransportPublishAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
     {
-        await _transportPublish.ExecuteAsync(async ct => { await action(ct); return 0; }, cancellationToken);
+        await _transportPublish.ExecuteAsync(async ct =>
+        {
+            await action(ct);
+            return 0;
+        }, cancellationToken);
     }
 
     public async ValueTask<T> ExecuteTransportSendAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
@@ -347,16 +253,33 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
 
     public async ValueTask ExecuteTransportSendAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
     {
-        await _transportSend.ExecuteAsync(async ct => { await action(ct); return 0; }, cancellationToken);
+        await _transportSend.ExecuteAsync(async ct =>
+        {
+            await action(ct);
+            return 0;
+        }, cancellationToken);
     }
 
-    public async ValueTask<T> ExecutePersistenceAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
-    {
-        return await _persistence.ExecuteAsync(async ct => await action(ct), cancellationToken);
-    }
+    public async ValueTask<T> ExecutePersistenceAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken) => await _persistence.ExecuteAsync(async ct => await action(ct), cancellationToken);
 
-    public async ValueTask ExecutePersistenceAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
+    public async ValueTask ExecutePersistenceAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken) => await _persistence.ExecuteAsync(async ct => { await action(ct); return 0; }, cancellationToken);
+
+    private static void AddResilienceEvent(string eventName, string component, int? attempt = null)
     {
-        await _persistence.ExecuteAsync(async ct => { await action(ct); return 0; }, cancellationToken);
+        var current = Activity.Current;
+        if (current is null) return;
+
+        if (attempt.HasValue)
+        {
+            current.AddEvent(new ActivityEvent(
+                eventName,
+                tags: new ActivityTagsCollection { ["component"] = component, ["attempt"] = attempt.Value }));
+        }
+        else
+        {
+            current.AddEvent(new ActivityEvent(
+                eventName,
+                tags: new ActivityTagsCollection { ["component"] = component }));
+        }
     }
 }

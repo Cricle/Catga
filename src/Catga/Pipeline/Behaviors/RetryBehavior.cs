@@ -65,8 +65,7 @@ public partial class RetryBehavior<[DynamicallyAccessedMembers(DynamicallyAccess
                 }
 
                 LogRetry(Logger, attempt, max, GetRequestName());
-                object state = $"Retry {attempt}/{max} for {GetRequestName()}";
-                Logger.Log(LogLevel.Warning, default, state, ex, static (object s, Exception? e) => s?.ToString() ?? string.Empty);
+                Logger.Log(LogLevel.Warning, default, $"Retry {attempt}/{max} for {GetRequestName()}", ex, static (object s, Exception? e) => s?.ToString() ?? string.Empty);
 
                 if (_options.RetryDelayMs > 0)
                     await Task.Delay(_options.RetryDelayMs, cancellationToken);

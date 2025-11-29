@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Catga.DistributedId;
 
 /// <summary>
@@ -112,7 +114,7 @@ public readonly struct SnowflakeBitLayout
     /// <summary>
     /// Convert DateTime to epoch milliseconds (DRY helper)
     /// </summary>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static long ToEpochMilliseconds(DateTime epoch) =>
         new DateTimeOffset(epoch.ToUniversalTime()).ToUnixTimeMilliseconds();
 

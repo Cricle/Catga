@@ -1,6 +1,4 @@
 using Catga.Common;
-using Catga.Core;
-using System.Diagnostics.Metrics;
 using Catga.Observability;
 using Catga.Resilience;
 

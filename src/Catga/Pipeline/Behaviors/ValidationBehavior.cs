@@ -24,11 +24,8 @@ public partial class ValidationBehavior<[System.Diagnostics.CodeAnalysis.Dynamic
 
         if (errors.Count > 0)
         {
-            var messageId = TryGetMessageId(request)?.ToString() ?? "N/A";
-
-            // Manual string concatenation instead of string.Join
             var errorMessage = errors.Count == 1 ? errors[0] : string.Join(";", errors);
-
+            var messageId = TryGetMessageId(request)?.ToString() ?? "N/A";
             LogValidationFailed(Logger, GetRequestName(), messageId, errorMessage);
 
             return CatgaResult<TResponse>.Failure(ErrorInfo.Validation("Validation failed", errorMessage));

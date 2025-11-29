@@ -1,4 +1,5 @@
 using Catga.Abstractions;
+using Catga.Configuration;
 using Catga.Core;
 using Catga.Exceptions;
 using Catga.Observability;
@@ -8,8 +9,6 @@ using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Linq;
-using Catga.Configuration;
 
 namespace Catga;
 
@@ -39,11 +38,6 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         _ = options;
     }
 
-    public void Dispose()
-    {
-        // No-op: mediator does not own external resources; kept for test compatibility
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public async ValueTask<CatgaResult<TResponse>> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
     {
@@ -55,7 +49,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
         if (request is null)
         {
-            var ex = new Catga.Exceptions.CatgaException("Request is null");
+            var ex = new CatgaException("Request is null");
             ObservabilityHooks.RecordCommandError(reqType, ex, activity);
             CatgaLog.CommandFailed(_logger, ex, reqType, null, "Request is null");
             return CatgaResult<TResponse>.Failure(ex.Message, ex);
@@ -163,7 +157,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
         using var activity = ObservabilityHooks.StartEventPublish(eventType, @event);
 
-        CatgaLog.EventPublishing(_logger, eventType, @event?.MessageId);
+        CatgaLog.EventPublishing(_logger, eventType, @event.MessageId);
 
         using var scope = _serviceProvider.CreateScope();
         var scopedProvider = scope.ServiceProvider;
@@ -174,14 +168,14 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         {
             if (dispatchedTask != null)
                 await dispatchedTask.ConfigureAwait(false);
-            CatgaLog.EventPublished(_logger, eventType, @event?.MessageId, 0);
+            CatgaLog.EventPublished(_logger, eventType, @event.MessageId, 0);
             return;
         }
 
         var handlerList = scopedProvider.GetServices<IEventHandler<TEvent>>().ToList();
         if (handlerList.Count == 0)
         {
-            CatgaLog.EventPublished(_logger, eventType, @event?.MessageId, 0);
+            CatgaLog.EventPublished(_logger, eventType, @event.MessageId, 0);
             return;
         }
 
@@ -190,7 +184,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         if (handlerList.Count == 1)
         {
             await HandleEventSafelyAsync(handlerList[0], @event, cancellationToken);
-            CatgaLog.EventPublished(_logger, eventType, @event?.MessageId, 1);
+            CatgaLog.EventPublished(_logger, eventType, @event.MessageId, 1);
             return;
         }
 
@@ -307,6 +301,11 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         var typeName = ex.GetType().FullName ?? ex.GetType().Name;
         activity?.AddTag("exception.type", typeName);
         activity?.AddTag("exception.message", ex.Message);
+    }
+
+    public void Dispose()
+    {
+        // No-op: retained for back-compatibility with tests that call Dispose()
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

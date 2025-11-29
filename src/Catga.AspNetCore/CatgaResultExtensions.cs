@@ -1,5 +1,6 @@
 using Catga.Core;
 using Microsoft.AspNetCore.Http;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -45,7 +46,7 @@ public static class CatgaResultExtensions
         return result.ToHttpResult();
     }
 
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This API may perform reflection on supplied parameters which may be trimmed if not referenced directly.")]
+    [RequiresUnreferencedCode("This API may perform reflection on supplied parameters which may be trimmed if not referenced directly.")]
     public static IResult ToCreatedResult<T>(this CatgaResult<T> result, string routeName, object? routeValues = null)
     {
         if (result.IsSuccess)

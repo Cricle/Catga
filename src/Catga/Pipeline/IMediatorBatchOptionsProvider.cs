@@ -1,5 +1,3 @@
-using System;
-
 namespace Catga.Pipeline;
 
 public interface IMediatorBatchOptionsProvider

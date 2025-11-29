@@ -107,6 +107,8 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Outbox_AddAsync_ShouldPersistToJetStream()
     {
+        if (_natsConnection is null) return;
+
         // Arrange
         var outbox = new NatsJSOutboxStore(
             _natsConnection!,
@@ -141,6 +143,8 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Outbox_GetPendingMessagesAsync_ShouldReturnMessages()
     {
+        if (_natsConnection is null) return;
+
         // Arrange
         var streamName = $"TEST_OUTBOX_{Guid.NewGuid():N}";
         var outbox = new NatsJSOutboxStore(
@@ -170,6 +174,8 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Outbox_MarkAsPublishedAsync_ShouldUpdateStatus()
     {
+        if (_natsConnection is null) return;
+
         // Arrange
         var streamName = $"TEST_OUTBOX_{Guid.NewGuid():N}";
         var outbox = new NatsJSOutboxStore(
@@ -197,6 +203,8 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Inbox_TryLockMessageAsync_FirstTime_ShouldSucceed()
     {
+        if (_natsConnection is null) return;
+
         // Arrange
         var streamName = $"TEST_INBOX_{Guid.NewGuid():N}";
         var inbox = new NatsJSInboxStore(
@@ -219,6 +227,8 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Inbox_TryLockMessageAsync_Duplicate_ShouldFail()
     {
+        if (_natsConnection is null) return;
+
         // Arrange
         var streamName = $"TEST_INBOX_{Guid.NewGuid():N}";
         var inbox = new NatsJSInboxStore(
@@ -246,6 +256,8 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Inbox_MarkAsProcessedAsync_ShouldPersist()
     {
+        if (_natsConnection is null) return;
+
         // Arrange
         var streamName = $"TEST_INBOX_{Guid.NewGuid():N}";
         var inbox = new NatsJSInboxStore(
@@ -286,6 +298,8 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Inbox_HasBeenProcessedAsync_ShouldDetectProcessed()
     {
+        if (_natsConnection is null) return;
+
         // Arrange
         var streamName = $"TEST_INBOX_{Guid.NewGuid():N}";
         var inbox = new NatsJSInboxStore(
@@ -327,6 +341,8 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Inbox_ReleaseLockAsync_ShouldRemoveLock()
     {
+        if (_natsConnection is null) return;
+
         // Arrange
         var streamName = $"TEST_INBOX_{Guid.NewGuid():N}";
         var inbox = new NatsJSInboxStore(
@@ -358,6 +374,8 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task EventStore_AppendAsync_ShouldPersistEvents()
     {
+        if (_natsConnection is null) return;
+
         // Arrange
         var streamName = $"TEST_EVENTS_{Guid.NewGuid():N}";
         var eventStore = new NatsJSEventStore(
@@ -395,6 +413,8 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task EventStore_ReadAsync_ShouldRetrieveEvents()
     {
+        if (_natsConnection is null) return;
+
         // Arrange
         var streamName = $"TEST_EVENTS_{Guid.NewGuid():N}";
         var eventStore = new NatsJSEventStore(
@@ -430,6 +450,8 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task EventStore_GetVersionAsync_ShouldReturnVersion()
     {
+        if (_natsConnection is null) return;
+
         // Arrange
         var streamName = $"TEST_EVENTS_{Guid.NewGuid():N}";
         var eventStore = new NatsJSEventStore(
@@ -464,6 +486,8 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task EventStore_ConcurrencyCheck_ShouldThrowOnVersionMismatch()
     {
+        if (_natsConnection is null) return;
+
         // Arrange
         var streamName = $"TEST_EVENTS_{Guid.NewGuid():N}";
         var eventStore = new NatsJSEventStore(

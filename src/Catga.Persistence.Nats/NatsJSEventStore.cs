@@ -62,7 +62,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                 if (expectedVersion != -1 && currentVersion != expectedVersion)
                 {
                     var ex = new ConcurrencyException(streamId, expectedVersion, currentVersion);
-                    activity?.AddActivityEvent("EventStore.Append.ConcurrencyMismatch",
+                    activity?.AddActivityEvent(CatgaActivitySource.Events.EventStoreAppendConcurrencyMismatch,
                         ("stream", streamId),
                         ("expected", expectedVersion),
                         ("current", currentVersion));
@@ -92,7 +92,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                         activity?.SetError(ex);
                         throw ex;
                     }
-                    activity?.AddActivityEvent("EventStore.Append.Item",
+                    activity?.AddActivityEvent(CatgaActivitySource.Events.EventStoreAppendItem,
                         ("stream", streamId),
                         ("event.type", resolvedType.Name),
                         ("seq", (long)ack.Seq),
@@ -100,7 +100,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                 }
                 CatgaDiagnostics.EventStoreAppends.Add(events.Count);
                 CatgaDiagnostics.EventStoreAppendDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
-                activity?.AddActivityEvent("EventStore.Append.Done",
+                activity?.AddActivityEvent(CatgaActivitySource.Events.EventStoreAppendDone,
                     ("stream", streamId),
                     ("count", events.Count));
             }
@@ -154,7 +154,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                         var deserStart = Stopwatch.GetTimestamp();
                         var @event = DeserializeEventFromMessage(msg);
                         var deserMs = (Stopwatch.GetTimestamp() - deserStart) * 1000.0 / Stopwatch.Frequency;
-                        activity?.AddActivityEvent("EventStore.Read.Deserialized",
+                        activity?.AddActivityEvent(CatgaActivitySource.Events.EventStoreReadDeserialized,
                             ("stream", streamId),
                             ("event.type", @event.GetType().Name),
                             ("duration.ms", deserMs),
@@ -170,7 +170,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                                 Timestamp = msg.Metadata?.Timestamp.UtcDateTime ?? DateTime.UtcNow,
                                 EventType = @event.GetType().Name
                             });
-                            activity?.AddActivityEvent("EventStore.Read.Item",
+                            activity?.AddActivityEvent(CatgaActivitySource.Events.EventStoreReadItem,
                                 ("stream", streamId),
                                 ("version", version));
                         }
@@ -205,7 +205,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
             };
             CatgaDiagnostics.EventStoreReads.Add(1);
             CatgaDiagnostics.EventStoreReadDuration.Record((double)((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency));
-            activity?.AddActivityEvent("EventStore.Read.Done",
+            activity?.AddActivityEvent(CatgaActivitySource.Events.EventStoreReadDone,
                 ("stream", streamId),
                 ("count", storedEvents.Count));
             return result;
@@ -252,7 +252,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                 CatgaDiagnostics.EventStoreReads.Add(1);
                 var elapsedNone = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
                 CatgaDiagnostics.EventStoreReadDuration.Record(elapsedNone);
-                activity?.AddActivityEvent("EventStore.GetVersion.None",
+                activity?.AddActivityEvent(CatgaActivitySource.Events.EventStoreGetVersionNone,
                     ("stream", streamId));
                 return verNone;
             }
@@ -262,7 +262,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                 CatgaDiagnostics.EventStoreReads.Add(1);
                 var elapsed = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
                 CatgaDiagnostics.EventStoreReadDuration.Record(elapsed);
-                activity?.AddActivityEvent("EventStore.GetVersion.NotFound",
+                activity?.AddActivityEvent(CatgaActivitySource.Events.EventStoreGetVersionNotFound,
                     ("stream", streamId));
                 return ver;
             }

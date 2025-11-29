@@ -90,6 +90,8 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Outbox_AddAsync_ShouldPersistMessage()
     {
+        if (_redis is null) return;
+
         // Arrange
         var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var eventData = new TestEvent
@@ -121,6 +123,8 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Outbox_GetPendingMessagesAsync_ShouldReturnPendingOnly()
     {
+        if (_redis is null) return;
+
         // Arrange
         var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
 
@@ -143,6 +147,8 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Outbox_MarkAsPublishedAsync_ShouldUpdateStatus()
     {
+        if (_redis is null) return;
+
         // Arrange
         var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var message = CreateOutboxMessage(3001L, OutboxStatus.Pending);
@@ -163,6 +169,8 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Outbox_BatchOperations_ShouldHandleMultipleMessages()
     {
+        if (_redis is null) return;
+
         // Arrange
         var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var messages = Enumerable.Range(1, 20).Select(i =>
@@ -190,6 +198,8 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Inbox_TryLockMessageAsync_FirstTime_ShouldSucceed()
     {
+        if (_redis is null) return;
+
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var MessageId = MessageExtensions.NewMessageId();
@@ -211,6 +221,8 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Inbox_TryLockMessageAsync_Duplicate_ShouldFail()
     {
+        if (_redis is null) return;
+
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var MessageId = MessageExtensions.NewMessageId();
@@ -230,6 +242,8 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Inbox_MarkAsProcessedAsync_ShouldUpdateMessage()
     {
+        if (_redis is null) return;
+
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var MessageId = MessageExtensions.NewMessageId();
@@ -267,6 +281,8 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Inbox_HasBeenProcessedAsync_ShouldDetectProcessed()
     {
+        if (_redis is null) return;
+
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var MessageId = MessageExtensions.NewMessageId();
@@ -300,6 +316,8 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Inbox_ReleaseLockAsync_ShouldRemoveLock()
     {
+        if (_redis is null) return;
+
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var MessageId = MessageExtensions.NewMessageId();
@@ -318,6 +336,8 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Inbox_ConcurrentLocking_OnlyOneSucceeds()
     {
+        if (_redis is null) return;
+
         // Arrange
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
         var MessageId = MessageExtensions.NewMessageId();

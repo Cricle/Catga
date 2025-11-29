@@ -50,7 +50,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                 {
                     throw new InvalidOperationException($"Failed to add outbox message: {ack.Error.Description}");
                 }
-                activity?.AddActivityEvent("Outbox.Added",
+                activity?.AddActivityEvent(CatgaActivitySource.Events.OutboxAdded,
                     ("message.id", message.MessageId),
                     ("bytes", data.Length));
                 CatgaDiagnostics.OutboxAdded.Add(1);
@@ -98,7 +98,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                             outboxMsg.RetryCount < outboxMsg.MaxRetries)
                         {
                             messages.Add(outboxMsg);
-                            activity?.AddActivityEvent("Outbox.GetPending.Item",
+                            activity?.AddActivityEvent(CatgaActivitySource.Events.OutboxGetPendingItem,
                                 ("message.id", outboxMsg.MessageId));
                             if (messages.Count >= maxCount) break;
                         }
@@ -108,14 +108,14 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
             catch (NatsJSApiException ex) when (ex.Error.Code == 404)
             {
                 // Stream doesn't exist yet
-                activity?.AddActivityEvent("Outbox.GetPending.NotFound");
+                activity?.AddActivityEvent(CatgaActivitySource.Events.OutboxGetPendingNotFound);
             }
 
             if (messages.Count > 1)
             {
                 messages.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
             }
-            activity?.AddActivityEvent("Outbox.GetPending.Done",
+            activity?.AddActivityEvent(CatgaActivitySource.Events.OutboxGetPendingDone,
                 ("count", messages.Count));
             return (IReadOnlyList<OutboxMessage>)messages;
         }, cancellationToken);
@@ -169,7 +169,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                             // 5. Acknowledge the old message
                             await msg.AckAsync(cancellationToken: ct);
                             CatgaDiagnostics.OutboxPublished.Add(1);
-                            activity?.AddActivityEvent("Outbox.MarkPublished",
+                            activity?.AddActivityEvent(CatgaActivitySource.Events.OutboxMarkPublished,
                                 ("message.id", messageId));
                             break;
                         }
@@ -183,7 +183,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
             {
                 // Message not found - it may have been already processed or deleted
                 // This is not an error condition for idempotency
-                activity?.AddActivityEvent("Outbox.MarkPublished.NotFound",
+                activity?.AddActivityEvent(CatgaActivitySource.Events.OutboxMarkPublishedNotFound,
                     ("message.id", messageId));
             }
         }, cancellationToken);
@@ -245,7 +245,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                             // 5. Acknowledge the old message (removes it from stream with Limits retention)
                             await msg.AckAsync(cancellationToken: ct);
                             CatgaDiagnostics.OutboxFailed.Add(1);
-                            activity?.AddActivityEvent("Outbox.MarkFailed.Updated",
+                            activity?.AddActivityEvent(CatgaActivitySource.Events.OutboxMarkFailedUpdated,
                                 ("message.id", messageId),
                                 ("retry", outboxMsg.RetryCount),
                                 ("status", (int)outboxMsg.Status));
@@ -261,7 +261,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
             {
                 // Message not found - it may have been already processed or deleted
                 // This is not an error condition for idempotency
-                activity?.AddActivityEvent("Outbox.MarkFailed.NotFound",
+                activity?.AddActivityEvent(CatgaActivitySource.Events.OutboxMarkFailedNotFound,
                     ("message.id", messageId));
             }
         }, cancellationToken);

@@ -25,6 +25,8 @@ public static class PipelineExecutor
             var startTicks = Stopwatch.GetTimestamp();
             try
             {
+                span?.AddActivityEvent(CatgaActivitySource.Events.PipelineHandlerStart,
+                    ("handler", handler.GetType().Name));
                 var result = await handler.HandleAsync(request, cancellationToken);
                 if (span != null)
                 {
@@ -33,6 +35,10 @@ public static class PipelineExecutor
                     span.SetTag(CatgaActivitySource.Tags.HandlerType, handler.GetType().Name);
                     span.SetTag(CatgaActivitySource.Tags.Duration, durationMs);
                     span.SetTag(CatgaActivitySource.Tags.Success, result.IsSuccess);
+                    span.AddActivityEvent(CatgaActivitySource.Events.PipelineHandlerDone,
+                        ("handler", handler.GetType().Name),
+                        ("duration.ms", durationMs),
+                        ("success", result.IsSuccess));
                 }
                 return result;
             }
@@ -66,6 +72,8 @@ public static class PipelineExecutor
             var handlerStart = Stopwatch.GetTimestamp();
             try
             {
+                handlerSpan?.AddActivityEvent(CatgaActivitySource.Events.PipelineHandlerStart,
+                    ("handler", context.Handler.GetType().Name));
                 var result = await context.Handler.HandleAsync(context.Request, context.CancellationToken);
                 if (handlerSpan != null)
                 {
@@ -74,6 +82,10 @@ public static class PipelineExecutor
                     handlerSpan.SetTag(CatgaActivitySource.Tags.HandlerType, context.Handler.GetType().Name);
                     handlerSpan.SetTag(CatgaActivitySource.Tags.Duration, durationMs);
                     handlerSpan.SetTag(CatgaActivitySource.Tags.Success, result.IsSuccess);
+                    handlerSpan.AddActivityEvent(CatgaActivitySource.Events.PipelineHandlerDone,
+                        ("handler", context.Handler.GetType().Name),
+                        ("duration.ms", durationMs),
+                        ("success", result.IsSuccess));
                 }
                 return result;
             }
@@ -94,6 +106,8 @@ public static class PipelineExecutor
             span = CatgaActivitySource.Source.StartActivity($"Pipeline.Behavior: {behavior.GetType().Name}", ActivityKind.Internal);
             span?.SetTag(CatgaActivitySource.Tags.RequestType, TypeNameCache<TRequest>.Name);
             span?.SetTag("catga.behavior.type", behavior.GetType().Name);
+            span?.AddActivityEvent(CatgaActivitySource.Events.PipelineBehaviorStart,
+                ("behavior", behavior.GetType().Name));
         }
 
         try
@@ -107,6 +121,10 @@ public static class PipelineExecutor
             {
                 span.SetTag(CatgaActivitySource.Tags.Duration, elapsedMs);
                 span.SetTag(CatgaActivitySource.Tags.Success, result.IsSuccess);
+                span.AddActivityEvent(CatgaActivitySource.Events.PipelineBehaviorDone,
+                    ("behavior", behavior.GetType().Name),
+                    ("duration.ms", elapsedMs),
+                    ("success", result.IsSuccess));
             }
             return result;
         }

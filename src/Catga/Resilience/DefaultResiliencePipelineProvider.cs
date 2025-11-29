@@ -42,7 +42,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.bulkhead.rejected",
+                        CatgaActivitySource.Events.ResilienceBulkheadRejected,
                         tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Mediator }));
                 }
                 return default;
@@ -60,7 +60,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.circuit.open",
+                        CatgaActivitySource.Events.ResilienceCircuitOpen,
                         tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Mediator }));
                 }
                 return default;
@@ -72,7 +72,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.circuit.halfopen",
+                        CatgaActivitySource.Events.ResilienceCircuitHalfOpen,
                         tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Mediator }));
                 }
                 return default;
@@ -84,7 +84,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.circuit.closed",
+                        CatgaActivitySource.Events.ResilienceCircuitClosed,
                         tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Mediator }));
                 }
                 return default;
@@ -100,7 +100,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.timeout",
+                        CatgaActivitySource.Events.ResilienceTimeout,
                         tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Mediator }));
                 }
                 return default;
@@ -126,7 +126,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.bulkhead.rejected",
+                        CatgaActivitySource.Events.ResilienceBulkheadRejected,
                         tags: new ActivityTagsCollection { ["component"] = component }));
                 }
                 return default;
@@ -144,7 +144,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.circuit.open",
+                        CatgaActivitySource.Events.ResilienceCircuitOpen,
                         tags: new ActivityTagsCollection { ["component"] = component }));
                 }
                 return default;
@@ -156,7 +156,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.circuit.halfopen",
+                        CatgaActivitySource.Events.ResilienceCircuitHalfOpen,
                         tags: new ActivityTagsCollection { ["component"] = component }));
                 }
                 return default;
@@ -168,7 +168,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.circuit.closed",
+                        CatgaActivitySource.Events.ResilienceCircuitClosed,
                         tags: new ActivityTagsCollection { ["component"] = component }));
                 }
                 return default;
@@ -184,7 +184,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.timeout",
+                        CatgaActivitySource.Events.ResilienceTimeout,
                         tags: new ActivityTagsCollection { ["component"] = component }));
                 }
                 return default;
@@ -204,7 +204,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.retry",
+                        CatgaActivitySource.Events.ResilienceRetry,
                         tags: new ActivityTagsCollection { ["component"] = component, ["attempt"] = args.AttemptNumber }));
                 }
                 return default;
@@ -232,7 +232,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                     if (a != null)
                     {
                         a.AddEvent(new ActivityEvent(
-                            "resilience.bulkhead.rejected",
+                            CatgaActivitySource.Events.ResilienceBulkheadRejected,
                             tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence }));
                     }
                     return default;
@@ -251,7 +251,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.circuit.open",
+                        CatgaActivitySource.Events.ResilienceCircuitOpen,
                         tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence }));
                 }
                 return default;
@@ -263,7 +263,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.circuit.halfopen",
+                        CatgaActivitySource.Events.ResilienceCircuitHalfOpen,
                         tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence }));
                 }
                 return default;
@@ -275,7 +275,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.circuit.closed",
+                        CatgaActivitySource.Events.ResilienceCircuitClosed,
                         tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence }));
                 }
                 return default;
@@ -291,7 +291,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.timeout",
+                        CatgaActivitySource.Events.ResilienceTimeout,
                         tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence }));
                 }
                 return default;
@@ -311,7 +311,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 if (a != null)
                 {
                     a.AddEvent(new ActivityEvent(
-                        "resilience.retry",
+                        CatgaActivitySource.Events.ResilienceRetry,
                         tags: new ActivityTagsCollection { ["component"] = ResilienceKeys.Persistence, ["attempt"] = args.AttemptNumber }));
                 }
                 return default;

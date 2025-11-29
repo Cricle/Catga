@@ -111,6 +111,54 @@ public static class CatgaActivitySource
         public const string OutboxSerialized = "Outbox.Serialized";
         public const string OutboxSaved = "Outbox.Saved";
         public const string OutboxPublished = "Outbox.Published";
+
+        // Outbox persistence (stores)
+        public const string OutboxAdded = "Outbox.Added";
+        public const string OutboxGetPendingItem = "Outbox.GetPending.Item";
+        public const string OutboxGetPendingNotFound = "Outbox.GetPending.NotFound";
+        public const string OutboxGetPendingDone = "Outbox.GetPending.Done";
+        public const string OutboxGetPendingEmpty = "Outbox.GetPending.Empty";
+        public const string OutboxMarkPublished = "Outbox.MarkPublished";
+        public const string OutboxMarkPublishedNotFound = "Outbox.MarkPublished.NotFound";
+        public const string OutboxMarkFailedUpdated = "Outbox.MarkFailed.Updated";
+        public const string OutboxMarkFailedNotFound = "Outbox.MarkFailed.NotFound";
+        public const string OutboxMarkFailedFinal = "Outbox.MarkFailed.Final";
+        public const string OutboxMarkFailedRetry = "Outbox.MarkFailed.Retry";
+        public const string OutboxCleanup = "Outbox.Cleanup";
+
+        // Inbox persistence
+        public const string InboxTryLockOk = "Inbox.TryLock.Ok";
+        public const string InboxTryLockFailed = "Inbox.TryLock.Failed";
+        public const string InboxMarkProcessed = "Inbox.MarkProcessed";
+        public const string InboxHasBeenProcessed = "Inbox.HasBeenProcessed";
+        public const string InboxGetProcessedResultHit = "Inbox.GetProcessedResult.Hit";
+        public const string InboxGetProcessedResultMiss = "Inbox.GetProcessedResult.Miss";
+        public const string InboxReleaseLock = "Inbox.ReleaseLock";
+        public const string InboxDeleteProcessedNoop = "Inbox.DeleteProcessed.Noop";
+
+        // EventStore
+        public const string EventStoreAppendConcurrencyMismatch = "EventStore.Append.ConcurrencyMismatch";
+        public const string EventStoreAppendItem = "EventStore.Append.Item";
+        public const string EventStoreAppendDone = "EventStore.Append.Done";
+        public const string EventStoreReadDeserialized = "EventStore.Read.Deserialized";
+        public const string EventStoreReadItem = "EventStore.Read.Item";
+        public const string EventStoreReadDone = "EventStore.Read.Done";
+        public const string EventStoreGetVersionNone = "EventStore.GetVersion.None";
+        public const string EventStoreGetVersionNotFound = "EventStore.GetVersion.NotFound";
+
+        // Pipeline
+        public const string PipelineBehaviorStart = "Pipeline.Behavior.Start";
+        public const string PipelineBehaviorDone = "Pipeline.Behavior.Done";
+        public const string PipelineHandlerStart = "Pipeline.Handler.Start";
+        public const string PipelineHandlerDone = "Pipeline.Handler.Done";
+
+        // Resilience
+        public const string ResilienceBulkheadRejected = "resilience.bulkhead.rejected";
+        public const string ResilienceCircuitOpen = "resilience.circuit.open";
+        public const string ResilienceCircuitHalfOpen = "resilience.circuit.halfopen";
+        public const string ResilienceCircuitClosed = "resilience.circuit.closed";
+        public const string ResilienceTimeout = "resilience.timeout";
+        public const string ResilienceRetry = "resilience.retry";
     }
 
     /// <summary>Mark activity as success with optional result</summary>

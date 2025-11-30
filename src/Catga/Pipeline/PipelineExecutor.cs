@@ -4,6 +4,7 @@ using Catga.Observability;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Diagnostics.Metrics;
 
 namespace Catga.Pipeline;
 
@@ -114,9 +115,12 @@ public static class PipelineExecutor
         {
             var result = await behavior.HandleAsync(context.Request, next, context.CancellationToken);
             var elapsedMs = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
-            CatgaDiagnostics.PipelineBehaviorDuration.Record(elapsedMs,
-                new KeyValuePair<string, object?>("request_type", TypeNameCache<TRequest>.Name),
-                new KeyValuePair<string, object?>("behavior_type", behavior.GetType().Name));
+            var tags = new TagList
+            {
+                new("request_type", TypeNameCache<TRequest>.Name),
+                new("behavior_type", behavior.GetType().Name)
+            };
+            CatgaDiagnostics.PipelineBehaviorDuration.Record(elapsedMs, tags);
             if (span != null)
             {
                 span.SetTag(CatgaActivitySource.Tags.Duration, elapsedMs);

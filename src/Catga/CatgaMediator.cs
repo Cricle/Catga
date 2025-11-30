@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Buffers;
 
 namespace Catga;
 
@@ -64,7 +65,16 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
             if (singletonHandler != null)
             {
-                // Fast path: Singleton handler found, but still need scope for behaviors
+                // Ultra fast-path: if there are no pipeline behaviors, skip scope creation entirely
+                var behaviorsEnum = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>().GetEnumerator();
+                try
+                {
+                    if (!behaviorsEnum.MoveNext())
+                        return await ExecuteRequestDirectAsync(singletonHandler, request, cancellationToken).ConfigureAwait(false);
+                }
+                finally { behaviorsEnum.Dispose(); }
+
+                // Behaviors exist: create scope so they can resolve scoped dependencies
                 using var singletonScope = _serviceProvider.CreateScope();
                 return await ExecuteRequestWithMetricsAsync(singletonHandler, request,
                     singletonScope.ServiceProvider, activity as Activity, request, reqType, startTimestamp, cancellationToken);
@@ -172,42 +182,83 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
             return;
         }
 
-        var handlerList = scopedProvider.GetServices<IEventHandler<TEvent>>().ToList();
-        if (handlerList.Count == 0)
+        // Enumerate handlers without allocating a List
+        var handlersEnumerable = scopedProvider.GetServices<IEventHandler<TEvent>>();
+        var pool = ArrayPool<IEventHandler<TEvent>>.Shared;
+        var arr = pool.Rent(8);
+        var count = 0;
+        try
         {
-            CatgaLog.EventPublished(_logger, eventType, @event.MessageId, 0);
-            return;
+            foreach (var h in handlersEnumerable)
+            {
+                if (count == arr.Length)
+                {
+                    var bigger = pool.Rent(arr.Length * 2);
+                    Array.Copy(arr, 0, bigger, 0, arr.Length);
+                    pool.Return(arr, clearArray: true);
+                    arr = bigger;
+                }
+                arr[count++] = h;
+            }
+
+            if (count == 0)
+            {
+                CatgaLog.EventPublished(_logger, eventType, @event.MessageId, 0);
+                return;
+            }
+
+            ObservabilityHooks.RecordEventPublished(eventType, count);
+
+            if (count == 1)
+            {
+                await HandleEventSafelyAsync(arr[0], @event, cancellationToken).ConfigureAwait(false);
+                CatgaLog.EventPublished(_logger, eventType, @event.MessageId, 1);
+                return;
+            }
+
+            // Batch processing with pooled Task arrays
+            var chunkSize = BatchOperationHelper.DefaultChunkSize;
+            if (count <= chunkSize)
+            {
+                var taskPool = ArrayPool<Task>.Shared;
+                var tasks = taskPool.Rent(count);
+                try
+                {
+                    for (int i = 0; i < count; i++)
+                        tasks[i] = HandleEventSafelyAsync(arr[i], @event, cancellationToken);
+                    await Task.WhenAll(tasks.AsSpan(0, count).ToArray()).ConfigureAwait(false);
+                }
+                finally
+                {
+                    taskPool.Return(tasks, clearArray: true);
+                }
+            }
+            else
+            {
+                var taskPool = ArrayPool<Task>.Shared;
+                for (int offset = 0; offset < count; offset += chunkSize)
+                {
+                    var take = Math.Min(chunkSize, count - offset);
+                    var tasks = taskPool.Rent(take);
+                    try
+                    {
+                        for (int i = 0; i < take; i++)
+                            tasks[i] = HandleEventSafelyAsync(arr[offset + i], @event, cancellationToken);
+                        await Task.WhenAll(tasks.AsSpan(0, take).ToArray()).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        taskPool.Return(tasks, clearArray: true);
+                    }
+                }
+            }
+
+            CatgaLog.EventPublished(_logger, eventType, @event?.MessageId, count);
         }
-
-        ObservabilityHooks.RecordEventPublished(eventType, handlerList.Count);
-
-        if (handlerList.Count == 1)
+        finally
         {
-            await HandleEventSafelyAsync(handlerList[0], @event, cancellationToken);
-            CatgaLog.EventPublished(_logger, eventType, @event.MessageId, 1);
-            return;
+            pool.Return(arr, clearArray: true);
         }
-
-        // Batch processing
-        if (handlerList.Count <= BatchOperationHelper.DefaultChunkSize)
-        {
-            // Small batch: execute all at once (fast path)
-            var tasks = new Task[handlerList.Count];
-            for (var i = 0; i < handlerList.Count; i++)
-                tasks[i] = HandleEventSafelyAsync(handlerList[i], @event, cancellationToken);
-
-            await Task.WhenAll(tasks).ConfigureAwait(false);
-        }
-        else
-        {
-            // Large batch: use chunked processing to prevent thread pool starvation
-            await BatchOperationHelper.ExecuteBatchAsync(
-                handlerList,
-                handler => HandleEventSafelyAsync(handler, @event, cancellationToken),
-                chunkSize: BatchOperationHelper.DefaultChunkSize).ConfigureAwait(false);
-        }
-
-        CatgaLog.EventPublished(_logger, eventType, @event?.MessageId, handlerList.Count);
     }
 
     private async Task HandleEventSafelyAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(IEventHandler<TEvent> handler, TEvent @event, CancellationToken cancellationToken) where TEvent : IEvent

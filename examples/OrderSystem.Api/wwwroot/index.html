@@ -23,9 +23,9 @@
                         <span class="text-sm text-gray-500">Catga Demo</span>
                     </div>
                     <div class="flex items-center space-x-4">
-                        <a href="/debug" target="_blank"
+                        <a href="/demo/compare" target="_blank"
                            class="px-3 py-2 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition">
-                            🐛 调试器
+                            🧭 流程对比
                         </a>
                         <a href="/swagger" target="_blank"
                            class="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition">
@@ -49,6 +49,16 @@
                             :class="currentTab === 'orders' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
                             class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
                         📦 订单列表
+                    </button>
+                    <button @click="currentTab = 'manual'"
+                            :class="currentTab === 'manual' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
+                        🧪 手动操作
+                    </button>
+                    <button @click="currentTab = 'health'"
+                            :class="currentTab === 'health' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
+                        🩺 系统健康
                     </button>
                 </nav>
             </div>
@@ -179,7 +189,6 @@
                                             <span>📦 <span x-text="order.items.length"></span> 件商品</span>
                                             <span>📅 <span x-text="new Date(order.createdAt).toLocaleString()"></span></span>
                                         </div>
-                                        <!-- Items -->
                                         <div class="mt-2 text-xs text-gray-400">
                                             <template x-for="item in order.items" :key="item.productId">
                                                 <span class="mr-2" x-text="`${item.productName} x${item.quantity}`"></span>
@@ -195,6 +204,122 @@
                             </div>
                         </template>
                     </div>
+                </div>
+            </div>
+
+            <!-- Manual Operations Tab -->
+            <div x-show="currentTab === 'manual'" x-cloak class="fade-in space-y-6">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-gray-900">手动创建订单</h2>
+                        <button @click="submitManual()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">提交创建</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">客户ID</label>
+                            <input x-model="manualOrder.customerId" class="w-full border rounded px-3 py-2" placeholder="如 DEMO-CUST-UI">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">收货地址</label>
+                            <input x-model="manualOrder.shippingAddress" class="w-full border rounded px-3 py-2" placeholder="详细地址">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">支付方式</label>
+                            <input x-model="manualOrder.paymentMethod" class="w-full border rounded px-3 py-2" placeholder="如 Alipay 或 FAIL-CreditCard">
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-sm font-semibold text-gray-900">商品明细</h3>
+                            <button @click="addItem()" class="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200">+ 添加商品</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-gray-600">商品ID</th>
+                                        <th class="px-3 py-2 text-left text-gray-600">名称</th>
+                                        <th class="px-3 py-2 text-left text-gray-600">数量</th>
+                                        <th class="px-3 py-2 text-left text-gray-600">单价</th>
+                                        <th class="px-3 py-2"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="(it, idx) in manualOrder.items" :key="idx">
+                                        <tr class="border-b">
+                                            <td class="px-3 py-2"><input x-model="it.productId" class="w-full border rounded px-2 py-1"></td>
+                                            <td class="px-3 py-2"><input x-model="it.productName" class="w-full border rounded px-2 py-1"></td>
+                                            <td class="px-3 py-2 w-24"><input type="number" min="1" x-model.number="it.quantity" class="w-full border rounded px-2 py-1"></td>
+                                            <td class="px-3 py-2 w-28"><input type="number" step="0.01" x-model.number="it.unitPrice" class="w-full border rounded px-2 py-1"></td>
+                                            <td class="px-3 py-2 text-right"><button @click="removeItem(idx)" class="text-red-600 hover:text-red-700">删除</button></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div x-show="manualResult" x-cloak class="mt-4 bg-gray-50 border rounded p-4">
+                        <p class="text-sm font-semibold text-gray-700 mb-2">执行结果：</p>
+                        <pre class="text-xs overflow-x-auto" x-text="JSON.stringify(manualResult, null, 2)"></pre>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-base font-semibold text-gray-900 mb-3">按ID取消订单</h3>
+                        <div class="flex space-x-2">
+                            <input x-model="cancelOrderId" class="flex-1 border rounded px-3 py-2" placeholder="订单ID">
+                            <input x-model="cancelReason" class="flex-1 border rounded px-3 py-2" placeholder="取消原因">
+                            <button @click="cancelById()" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">取消</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-base font-semibold text-gray-900 mb-3">按ID查询订单</h3>
+                        <div class="flex space-x-2 mb-3">
+                            <input x-model="orderLookupId" class="flex-1 border rounded px-3 py-2" placeholder="订单ID">
+                            <button @click="getOrderById()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">查询</button>
+                        </div>
+                        <div x-show="orderLookupResult" x-cloak class="bg-gray-50 border rounded p-3">
+                            <pre class="text-xs overflow-x-auto" x-text="JSON.stringify(orderLookupResult, null, 2)"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Health Tab -->
+            <div x-show="currentTab === 'health'" x-cloak class="fade-in">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-gray-900">系统健康</h2>
+                        <button @click="checkHealth()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">刷新</button>
+                    </div>
+                    <template x-if="!healthData">
+                        <p class="text-gray-500">点击“刷新”获取健康状态</p>
+                    </template>
+                    <template x-if="healthData">
+                        <div>
+                            <div class="mb-3">
+                                <span class="text-sm mr-2">总体状态：</span>
+                                <span class="px-2 py-1 text-xs font-medium rounded"
+                                      :class="healthData.status === 'Healthy' ? 'bg-green-100 text-green-800' : (healthData.status === 'Degraded' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800')"
+                                      x-text="healthData.status"></span>
+                            </div>
+                            <div class="divide-y">
+                                <template x-for="c in healthData.checks">
+                                    <div class="py-2 flex items-center justify-between">
+                                        <div class="text-sm text-gray-700" x-text="c.name"></div>
+                                        <div class="text-sm">
+                                            <span class="px-2 py-1 text-xs font-medium rounded"
+                                                  :class="c.status === 'Healthy' ? 'bg-green-100 text-green-800' : (c.status === 'Degraded' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800')"
+                                                  x-text="c.status"></span>
+                                            <span class="ml-2 text-gray-400" x-text="c.duration"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
         </main>
@@ -224,9 +349,72 @@
                 successResult: null,
                 failureResult: null,
                 toast: { show: false, message: '', type: 'success' },
+                manualOrder: {
+                    customerId: 'DEMO-CUST-UI',
+                    shippingAddress: '北京市 海淀区 XXX 路 123 号',
+                    paymentMethod: 'Alipay',
+                    items: [
+                        { productId: 'SKU-100', productName: '示例商品A', quantity: 1, unitPrice: 99 },
+                        { productId: 'SKU-200', productName: '示例商品B', quantity: 2, unitPrice: 49 }
+                    ]
+                },
+                manualResult: null,
+                orderLookupId: '',
+                orderLookupResult: null,
+                cancelOrderId: '',
+                cancelReason: '用户主动取消',
+                healthData: null,
 
                 async init() {
                     await this.loadOrders();
+                },
+
+                addItem() {
+                    this.manualOrder.items.push({ productId: '', productName: '', quantity: 1, unitPrice: 0 });
+                },
+                removeItem(i) {
+                    this.manualOrder.items.splice(i, 1);
+                },
+
+                async submitManual() {
+                    try {
+                        const body = {
+                            customerId: this.manualOrder.customerId,
+                            items: this.manualOrder.items.map(i => ({
+                                productId: i.productId,
+                                productName: i.productName,
+                                quantity: Number(i.quantity),
+                                unitPrice: Number(i.unitPrice)
+                            })),
+                            shippingAddress: this.manualOrder.shippingAddress,
+                            paymentMethod: this.manualOrder.paymentMethod
+                        };
+                        const response = await fetch('/api/orders', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(body)
+                        });
+                        const result = await response.json();
+                        this.manualResult = result;
+                        if (response.ok) {
+                            const order = {
+                                orderId: result.orderId,
+                                customerId: body.customerId,
+                                items: body.items,
+                                totalAmount: result.totalAmount ?? body.items.reduce((s, x) => s + x.quantity * x.unitPrice, 0),
+                                status: 'Pending',
+                                createdAt: result.createdAt || new Date().toISOString()
+                            };
+                            this.orders = [order, ...this.orders];
+                            this.saveOrders();
+                            this.showToast('✅ 订单创建成功', 'success');
+                            this.currentTab = 'orders';
+                        } else {
+                            this.showToast(result?.error ?? '❌ 创建失败', 'error');
+                        }
+                    } catch (error) {
+                        this.showToast('❌ 请求失败', 'error');
+                    }
                 },
 
                 async runSuccessDemo() {
@@ -318,6 +506,46 @@
                         }
                     } catch (error) {
                         this.showToast('请求失败', 'error');
+                    }
+                },
+
+                async cancelById() {
+                    if (!this.cancelOrderId) return;
+                    try {
+                        const response = await fetch('/api/orders/cancel', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ orderId: this.cancelOrderId, reason: this.cancelReason })
+                        });
+                        if (response.ok) {
+                            this.orders = this.orders.map(o => o.orderId === this.cancelOrderId ? { ...o, status: 'Cancelled' } : o);
+                            this.saveOrders();
+                            this.showToast('订单已取消', 'success');
+                        } else {
+                            const error = await response.text();
+                            this.showToast(`取消失败: ${error}`, 'error');
+                        }
+                    } catch (error) {
+                        this.showToast('请求失败', 'error');
+                    }
+                },
+
+                async getOrderById() {
+                    if (!this.orderLookupId) return;
+                    try {
+                        const response = await fetch(`/api/orders/${encodeURIComponent(this.orderLookupId)}`);
+                        this.orderLookupResult = response.ok ? await response.json() : { error: await response.text() };
+                    } catch (error) {
+                        this.orderLookupResult = { error: '请求失败' };
+                    }
+                },
+
+                async checkHealth() {
+                    try {
+                        const response = await fetch('/health');
+                        this.healthData = await response.json();
+                    } catch (error) {
+                        this.healthData = { status: 'Unknown', checks: [] };
                     }
                 },
 

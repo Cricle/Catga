@@ -1,6 +1,7 @@
 using Catga.Abstractions;
 using Catga.Core;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 
 namespace Catga.Observability;
 
@@ -47,26 +48,36 @@ public static class ObservabilityHooks
     public static void RecordPipelineBehaviorCount(string requestType, int count)
     {
         if (!_enabled) return;
-        CatgaDiagnostics.PipelineBehaviorCount.Record(count,
-            new KeyValuePair<string, object?>("request_type", requestType));
+        var tags = new TagList
+        {
+            new("request_type", requestType)
+        };
+        CatgaDiagnostics.PipelineBehaviorCount.Record(count, tags);
     }
 
     public static void RecordPipelineDuration(string requestType, double durationMs)
     {
         if (!_enabled) return;
-        CatgaDiagnostics.PipelineDuration.Record(durationMs,
-            new KeyValuePair<string, object?>("request_type", requestType));
+        var tags = new TagList
+        {
+            new("request_type", requestType)
+        };
+        CatgaDiagnostics.PipelineDuration.Record(durationMs, tags);
     }
 
     public static void RecordCommandResult(string requestType, bool success, double durationMs, IDisposable? handle)
     {
         if (!_enabled) return;
         var successValue = success ? "true" : "false";
-        CatgaDiagnostics.CommandsExecuted.Add(1,
-            new KeyValuePair<string, object?>("request_type", requestType),
-            new KeyValuePair<string, object?>("success", successValue));
-        CatgaDiagnostics.CommandDuration.Record(durationMs,
-            new KeyValuePair<string, object?>("request_type", requestType));
+        var tags = new TagList
+        {
+            new("request_type", requestType),
+            new("success", successValue)
+        };
+        CatgaDiagnostics.CommandsExecuted.Add(1, tags);
+
+        var dTags = new TagList { new("request_type", requestType) };
+        CatgaDiagnostics.CommandDuration.Record(durationMs, dTags);
         if (handle is Activity a)
         {
             a.SetTag(CatgaActivitySource.Tags.Success, success);
@@ -78,9 +89,12 @@ public static class ObservabilityHooks
     public static void RecordCommandError(string requestType, Exception ex, IDisposable? handle)
     {
         if (!_enabled) return;
-        CatgaDiagnostics.CommandsExecuted.Add(1,
-            new KeyValuePair<string, object?>("request_type", requestType),
-            new KeyValuePair<string, object?>("success", "false"));
+        var tags = new TagList
+        {
+            new("request_type", requestType),
+            new("success", "false")
+        };
+        CatgaDiagnostics.CommandsExecuted.Add(1, tags);
         if (handle is Activity a)
         {
             a.SetStatus(ActivityStatusCode.Error, ex.Message);
@@ -117,9 +131,12 @@ public static class ObservabilityHooks
         Span<char> countBuffer = stackalloc char[10];
         handlerCount.TryFormat(countBuffer, out var charsWritten);
         var handlerCountStr = new string(countBuffer[..charsWritten]);
-        CatgaDiagnostics.EventsPublished.Add(1,
-            new KeyValuePair<string, object?>("event_type", eventType),
-            new KeyValuePair<string, object?>("handler_count", handlerCountStr));
+        var tags = new TagList
+        {
+            new("event_type", eventType),
+            new("handler_count", handlerCountStr)
+        };
+        CatgaDiagnostics.EventsPublished.Add(1, tags);
     }
 
     // ---- Mediator Auto-Batching ----

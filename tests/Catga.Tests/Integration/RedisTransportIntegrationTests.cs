@@ -25,13 +25,6 @@ public partial class RedisTransportIntegrationTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        // 跳过测试如果 Docker 未运行
-        if (!IsDockerRunning())
-        {
-            // Docker 未运行时，测试会在后续操作时自动失败并跳过
-            return;
-        }
-
         // 启动 Redis 容器
         var redisImage = Environment.GetEnvironmentVariable("TEST_REDIS_IMAGE") ?? "redis:7-alpine";
         _redisContainer = new RedisBuilder()

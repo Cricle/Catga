@@ -1,19 +1,55 @@
 using Catga;
 using Catga.AspNetCore;
-using Catga.AspNetCore.Extensions;
 using Catga.DependencyInjection;
 using Catga.Abstractions;
 using Catga.Observability;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using OrderSystem.Api.Domain;
-using OrderSystem.Api.Messages;
 using OrderSystem.Api.Handlers;
-using OrderSystem.Api.Services;
 using OrderSystem.Api.Infrastructure;
-using MemoryPack;
+using OrderSystem.Api.Infrastructure.Caching;
+using OrderSystem.Api.Messages;
+using OrderSystem.Api.Services;
+using Serilog;
+using Serilog.Events;
+using Serilog.Sinks.SystemConsole.Themes;
+using System.Diagnostics.Metrics;
+using System.Reflection;
 
-var builder = WebApplication.CreateBuilder(args);
+// Configure Serilog for structured logging
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+    .Enrich.FromLogContext()
+    .WriteTo.Console(
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}",
+        theme: AnsiConsoleTheme.Code)
+    .CreateBootstrapLogger();
 
-builder.AddServiceDefaults();
+try
+{
+    Log.Information("🚀 Starting OrderSystem API...");
+
+    var builder = WebApplication.CreateBuilder(args);
+
+    // Configure Serilog
+    builder.Host.UseSerilog((context, services, configuration) => configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .WriteTo.Console());
+
+    builder.AddServiceDefaults();
+
+    // Add configuration
+    builder.Configuration
+        .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+        .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+        .AddEnvironmentVariables();
 
 // 分布式/集群配置：支持通过命令行参数或环境变量设置 WorkerId
 // 单机开发：dotnet run
@@ -23,6 +59,7 @@ var catgaBuilder = builder.Services
     .AddCatga(o => o.EndpointNamingConvention = Catga.Generated.EndpointNaming.GetConvention())
     .WithTracing()
     .UseMemoryPack()
+    .UseResilience()
     .UseInbox()
     .UseOutbox()
     .UseDeadLetterQueue();
@@ -49,21 +86,87 @@ else
 catgaBuilder.ForDevelopment();
 
 builder.Services.AddInMemoryTransport();
+builder.Services.AddInMemoryPersistence();
 
-// Register handlers/services explicitly via generated methods (no reflection)
+// Configure OpenTelemetry
+var serviceName = "OrderSystem.Api";
+var serviceVersion = "1.0.0";
+
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracerProviderBuilder =>
+        tracerProviderBuilder
+            .AddSource(serviceName)
+            .ConfigureResource(resource => resource
+                .AddService(serviceName, serviceVersion: serviceVersion))
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter())
+    .WithMetrics(metricsProviderBuilder =>
+        metricsProviderBuilder
+            .ConfigureResource(resource => resource
+                .AddService(serviceName, serviceVersion: serviceVersion))
+            .AddAspNetCoreInstrumentation()
+            .AddRuntimeInstrumentation()
+            .AddOtlpExporter());
+
+// Add health checks
+builder.Services.AddHealthChecks();
+
+// Register application services
 builder.Services.AddGeneratedHandlers();
 builder.Services.AddGeneratedServices();
-builder.Services.AddOrderSystemServices();
+
+// Add OrderSystem services with configuration
+builder.Services.AddOrderSystemServices(builder.Configuration);
+builder.Services.AddOrderSystemHandlers();
+
+// Add request logging
+builder.Services.AddHttpLogging(options =>
+{
+    options.LoggingFields = Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.All;
+    options.RequestBodyLogLimit = 4096;
+    options.ResponseBodyLogLimit = 4096;
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// Configure the HTTP request pipeline
+app.UseSerilogRequestLogging(options =>
+{
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
+        diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
+        diagnosticContext.Set("RemoteIpAddress", httpContext.Connection.RemoteIpAddress?.ToString());
+    };
+});
+
+app.UseHttpLogging();
 app.MapDefaultEndpoints();
 
-// Use CorrelationId middleware (must be before routing)
-app.UseCorrelationId();
+// Add health check endpoint
+app.MapHealthChecks("/health", new()
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration
+            })
+        });
+        await context.Response.WriteAsync(result);
+    }
+}).AllowAnonymous();
 
 if (app.Environment.IsDevelopment())
 {
@@ -151,5 +254,15 @@ foreach (var u in app.Urls) { firstUrl = u; break; }
 app.Logger.LogInformation($"🚀 OrderSystem started | UI: {firstUrl} | Swagger: /swagger | Jaeger: http://localhost:16686");
 
 app.Run();
+
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application start-up failed");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
 
 public partial class Program { }

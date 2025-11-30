@@ -145,9 +145,6 @@ public static class Extensions
             Predicate = r => r.Tags.Contains("ready")
         });
 
-        // Combined health check
-        app.MapHealthChecks("/health");
-
         return app;
     }
 }

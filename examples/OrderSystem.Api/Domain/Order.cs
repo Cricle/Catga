@@ -11,7 +11,13 @@ public enum OrderStatus
     Pending,
 
     /// <summary>Order cancelled by user or system</summary>
-    Cancelled
+    Cancelled,
+
+    /// <summary>Order confirmed and ready</summary>
+    Confirmed,
+
+    /// <summary>Order failed during processing</summary>
+    Failed
 
     // 💡 扩展指南：添加更多状态
     // Confirmed,    // 订单已确认
@@ -31,47 +37,66 @@ public partial record Order
     public string OrderId { get; init; } = string.Empty;
 
     /// <summary>Customer who placed the order</summary>
-    public string CustomerId { get; init; } = string.Empty;
+    public string CustomerId { get; set; } = null!;
 
     /// <summary>List of ordered items</summary>
-    public List<OrderItem> Items { get; init; } = new();
+    public List<OrderItem> Items { get; set; } = new();
 
     /// <summary>Total order amount</summary>
-    public decimal TotalAmount { get; init; }
+    public decimal TotalAmount { get; set; }
 
     /// <summary>Current order status</summary>
-    public OrderStatus Status { get; init; }
+    public OrderStatus Status { get; set; }
 
     /// <summary>Order creation timestamp</summary>
     public DateTime CreatedAt { get; init; }
 
     /// <summary>Last update timestamp</summary>
-    public DateTime? UpdatedAt { get; init; }
+    public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>Timestamp when order was cancelled</summary>
+    public DateTime? CancelledAt { get; set; }
+
+    /// <summary>Reason for cancellation</summary>
+    public string? CancellationReason { get; set; }
+
+    /// <summary>Reason for failure</summary>
+    public string? FailureReason { get; set; }
 
     /// <summary>Shipping address</summary>
-    public string? ShippingAddress { get; init; }
+    /// <summary>Shipping address</summary>
+    public string ShippingAddress { get; set; } = null!;
 
     /// <summary>Payment method</summary>
-    public string? PaymentMethod { get; init; }
+    public string PaymentMethod { get; set; } = null!;
 }
 
 /// <summary>
 /// Order item - represents a single line in the order
 /// </summary>
 [MemoryPackable]
-public partial record OrderItem
+public partial record struct OrderItem
 {
+    // Explicit parameterless constructor required for structs with initializers (CS8983)
+    public OrderItem()
+    {
+        ProductId = string.Empty;
+        ProductName = string.Empty;
+        Quantity = 0;
+        UnitPrice = 0m;
+    }
+
     /// <summary>Product identifier</summary>
-    public string ProductId { get; init; } = string.Empty;
+    public string ProductId { get; set; } = string.Empty;
 
     /// <summary>Product name (denormalized for performance)</summary>
-    public string ProductName { get; init; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
 
     /// <summary>Quantity ordered</summary>
-    public int Quantity { get; init; }
+    public int Quantity { get; set; }
 
     /// <summary>Unit price at the time of order</summary>
-    public decimal UnitPrice { get; init; }
+    public decimal UnitPrice { get; set; }
 
     /// <summary>Calculated subtotal (Quantity * UnitPrice)</summary>
     public decimal Subtotal => Quantity * UnitPrice;

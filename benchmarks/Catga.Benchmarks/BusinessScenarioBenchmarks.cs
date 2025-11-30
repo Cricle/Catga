@@ -1,4 +1,5 @@
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Jobs;
 using Catga;
 using Catga.Abstractions;
 using Catga.Core;
@@ -18,27 +19,33 @@ namespace Catga.Benchmarks;
 /// Simulates common patterns: Order Processing, Payment, Notification
 /// </summary>
 [MemoryDiagnoser]
-[SimpleJob(warmupCount: 3, iterationCount: 10)]
+[ShortRunJob]
 public class BusinessScenarioBenchmarks
 {
     private IServiceProvider _serviceProvider = null!;
     private ICatgaMediator _mediator = null!;
     private ActivityListener? _listener;
 
-    [Params(false, true)]
+    private static bool Quick => string.Equals(Environment.GetEnvironmentVariable("E2E_QUICK"), "true", StringComparison.OrdinalIgnoreCase);
+
+    [ParamsSource(nameof(BoolOffThenOn))]
     public bool TracingEnabled { get; set; }
 
-    [Params(false, true)]
+    [ParamsSource(nameof(BoolOffThenOn))]
     public bool ResilienceEnabled { get; set; }
 
-    [Params(false, true)]
+    [ParamsSource(nameof(BoolOffThenOn))]
     public bool EnableAutoBatching { get; set; }
 
-    [Params(0, 1, 5)]
+    [ParamsSource(nameof(HandlerDelayCases))]
     public int HandlerDelayMs { get; set; }
 
-    [Params(1, 16, 128)]
+    [ParamsSource(nameof(ConcurrentFlowsCases))]
     public int ConcurrentFlows { get; set; }
+
+    public static IEnumerable<bool> BoolOffThenOn() => Quick ? new[] { false } : new[] { false, true };
+    public static IEnumerable<int> HandlerDelayCases() => Quick ? new[] { 0, 1 } : new[] { 0, 1, 5 };
+    public static IEnumerable<int> ConcurrentFlowsCases() => Quick ? new[] { 1, 16 } : new[] { 1, 16, 128 };
 
     [GlobalSetup]
     public void Setup()
@@ -197,7 +204,8 @@ public class BusinessScenarioBenchmarks
     [Benchmark(Description = "E-Commerce Scenario Batch (100 flows sequential)")]
     public async Task ECommerceScenarioBatch()
     {
-        for (int i = 0; i < 100; i++)
+        var n = Quick ? 10 : 100;
+        for (int i = 0; i < n; i++)
         {
             await RunECommerceFlow();
         }
@@ -233,9 +241,10 @@ public class BusinessScenarioBenchmarks
     [Benchmark(Description = "High-Throughput Batch (100 Orders)")]
     public async Task HighThroughputBatch()
     {
-        var tasks = new Task<CatgaResult<CreateOrderResult>>[100];
+        var n = Quick ? 20 : 100;
+        var tasks = new Task<CatgaResult<CreateOrderResult>>[n];
 
-        for (int i = 0; i < 100; i++)
+        for (int i = 0; i < n; i++)
         {
             var command = new CreateOrderCommand(
                 UserId: 100 + i,

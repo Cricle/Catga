@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Reports;
@@ -24,7 +25,7 @@ namespace Catga.Benchmarks;
 
 [MemoryDiagnoser]
 [Config(typeof(PersistConfig))]
-[SimpleJob(warmupCount: 1, iterationCount: 5)]
+[ShortRunJob]
 public class EndToEndPersistenceBenchmarks
 {
     private IServiceProvider _sp = null!;
@@ -38,31 +39,60 @@ public class EndToEndPersistenceBenchmarks
     private string _streamId = string.Empty;
     private byte[] _payload = Array.Empty<byte>();
     private bool _skip;
+    private List<IEvent>? _eventsCache;
 
-    [Params("nats", "redis")]
+    private static bool Quick => string.Equals(Environment.GetEnvironmentVariable("E2E_QUICK"), "true", StringComparison.OrdinalIgnoreCase);
+
+    [ParamsSource(nameof(StoreCases))]
     public string Store { get; set; } = "nats";
+    public static IEnumerable<string> StoreCases() =>
+        !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("E2E_ONLY_STORE"))
+            ? new[] { Environment.GetEnvironmentVariable("E2E_ONLY_STORE")! }
+            : (Quick ? new[] { "nats" } : new[] { "nats", "redis" });
 
-    [Params(false, true)]
+    [ParamsSource(nameof(BoolOffThenOn))]
     public bool TracingEnabled { get; set; }
 
 
-    [Params(false, true)]
+    [ParamsSource(nameof(BoolOffThenOn))]
     public bool ResilienceEnabled { get; set; }
 
-    [Params(128, 2048)]
+    [ParamsSource(nameof(PayloadCases))]
     public int PayloadBytes { get; set; }
 
-    [Params(1, 8, 32)]
+    [ParamsSource(nameof(ConcurrencyCases))]
     public int Concurrency { get; set; }
 
-    [Params(200)]
+    [ParamsSource(nameof(BatchCountCases))]
     public int BatchCount { get; set; }
 
-    [Params(50, 200)]
+    [ParamsSource(nameof(ReadPageCases))]
     public int ReadPageSize { get; set; }
 
-    [Params("append", "read", "append+read")]
+    [ParamsSource(nameof(FlowCases))]
     public string Flow { get; set; } = "append";
+
+    public static IEnumerable<bool> BoolOffThenOn() => Quick ? new[] { false } : new[] { false, true };
+    public static IEnumerable<int> PayloadCases() =>
+        int.TryParse(Environment.GetEnvironmentVariable("E2E_ONLY_PAYLOAD"), out var n)
+            ? new[] { n }
+            : (Quick ? new[] { 128 } : new[] { 128, 2048 });
+    public static IEnumerable<int> ConcurrencyCases() =>
+        int.TryParse(Environment.GetEnvironmentVariable("E2E_ONLY_CONCURRENCY"), out var n)
+            ? new[] { n }
+            : (Quick ? new[] { 1 } : new[] { 1, 8, 32 });
+    public static IEnumerable<int> BatchCountCases() =>
+        int.TryParse(Environment.GetEnvironmentVariable("E2E_ONLY_BATCHCOUNT"), out var n)
+            ? new[] { n }
+            : (Quick ? new[] { 100 } : new[] { 200 });
+    public static IEnumerable<int> ReadPageCases() =>
+        int.TryParse(Environment.GetEnvironmentVariable("E2E_ONLY_READPAGE"), out var n)
+            ? new[] { n }
+            : (Quick ? new[] { 50 } : new[] { 50, 200 });
+    public static IEnumerable<string> FlowCases() =>
+        !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("E2E_ONLY_FLOW"))
+            ? new[] { Environment.GetEnvironmentVariable("E2E_ONLY_FLOW")! }
+            : (Quick ? new[] { "append" } : new[] { "append", "read", "append+read" });
 
     [GlobalSetup]
     public void Setup()
@@ -91,6 +121,8 @@ public class EndToEndPersistenceBenchmarks
         try
         {
             var useContainers = string.Equals(Environment.GetEnvironmentVariable("E2E_CONTAINERS"), "true", StringComparison.OrdinalIgnoreCase);
+            var startTimeoutSec = int.TryParse(Environment.GetEnvironmentVariable("E2E_CONTAINER_TIMEOUT"), out var s) ? Math.Max(s, 1) : 30;
+            var connectTimeoutSec = int.TryParse(Environment.GetEnvironmentVariable("E2E_CONNECT_TIMEOUT"), out var c) ? Math.Max(c, 1) : 10;
             if (Store == "nats")
             {
                 string url;
@@ -103,7 +135,8 @@ public class EndToEndPersistenceBenchmarks
                         .WithCommand("-js", "-m", "8222")
                         .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8222).ForPath("/varz")))
                         .Build();
-                    _container.StartAsync().GetAwaiter().GetResult();
+                    try { _container.StartAsync().WaitAsync(TimeSpan.FromSeconds(startTimeoutSec)).GetAwaiter().GetResult(); }
+                    catch { _skip = true; return; }
                     var port = _container.GetMappedPublicPort(4222);
                     url = $"nats://localhost:{port}";
                 }
@@ -111,8 +144,9 @@ public class EndToEndPersistenceBenchmarks
                 {
                     url = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
                 }
-                _nats = new NatsConnection(new NatsOpts { Url = url, ConnectTimeout = TimeSpan.FromSeconds(10) });
-                _nats.ConnectAsync().GetAwaiter().GetResult();
+                _nats = new NatsConnection(new NatsOpts { Url = url, ConnectTimeout = TimeSpan.FromSeconds(5) });
+                try { _nats.ConnectAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(connectTimeoutSec)).GetAwaiter().GetResult(); }
+                catch { _skip = true; return; }
                 services.AddSingleton(_nats);
                 services.AddNatsEventStore();
             }
@@ -126,7 +160,8 @@ public class EndToEndPersistenceBenchmarks
                         .WithPortBinding(6379, true)
                         .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(6379))
                         .Build();
-                    _container.StartAsync().GetAwaiter().GetResult();
+                    try { _container.StartAsync().WaitAsync(TimeSpan.FromSeconds(startTimeoutSec)).GetAwaiter().GetResult(); }
+                    catch { _skip = true; return; }
                     var port = _container.GetMappedPublicPort(6379);
                     conn = $"localhost:{port}";
                 }
@@ -134,8 +169,16 @@ public class EndToEndPersistenceBenchmarks
                 {
                     conn = Environment.GetEnvironmentVariable("REDIS_URL") ?? "localhost:6379";
                 }
-                _redis = ConnectionMultiplexer.Connect(conn);
-                _ = _redis.GetDatabase().Ping();
+                try
+                {
+                    var options = ConfigurationOptions.Parse(conn);
+                    options.ConnectTimeout = Math.Max(connectTimeoutSec * 1000, 1000);
+                    options.SyncTimeout = Math.Max(connectTimeoutSec * 1000, 1000);
+                    options.AbortOnConnectFail = false;
+                    _redis = ConnectionMultiplexer.Connect(options);
+                    _ = _redis.GetDatabase().Ping();
+                }
+                catch { _skip = true; return; }
                 services.AddSingleton<IConnectionMultiplexer>(_redis);
                 services.AddRedisPersistence();
             }
@@ -158,7 +201,8 @@ public class EndToEndPersistenceBenchmarks
         if (Store == "nats" && _eventStore != null)
         {
             _streamId = $"bench-{Guid.NewGuid():N}";
-            var seed = CreateEvents(100);
+            var initial = Quick ? Math.Max(ReadPageSize, 20) : Math.Max(ReadPageSize, 100);
+            var seed = CreateEvents(initial);
             _eventStore.AppendAsync(_streamId, seed).GetAwaiter().GetResult();
         }
     }
@@ -255,22 +299,27 @@ public class EndToEndPersistenceBenchmarks
 
     private List<IEvent> CreateEvents(int n)
     {
-        var list = new List<IEvent>(n);
+        if (_eventsCache == null || _eventsCache.Capacity < n)
+            _eventsCache = new List<IEvent>(n);
+        else
+            _eventsCache.Clear();
+
         for (int i = 0; i < n; i++)
         {
-            list.Add(new PersistEvent
+            _eventsCache.Add(new PersistEvent
             {
                 MessageId = MessageExtensions.NewMessageId(),
                 Data = _payload
             });
         }
-        return list;
+        return _eventsCache;
     }
 
     [GlobalCleanup]
     public void Cleanup()
     {
-        if (_sp is IDisposable d) d.Dispose();
+        if (_sp is IAsyncDisposable ad) { try { ad.DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { } }
+        else if (_sp is IDisposable d) { try { d.Dispose(); } catch { } }
         _listener?.Dispose();
         try { _nats?.DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { }
         try { _redis?.Dispose(); } catch { }

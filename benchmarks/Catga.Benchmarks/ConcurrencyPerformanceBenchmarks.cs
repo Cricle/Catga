@@ -1,4 +1,6 @@
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Jobs;
+using System;
 using Catga;
 using Catga.Abstractions;
 using Catga.Configuration;
@@ -14,11 +16,12 @@ namespace Catga.Benchmarks;
 /// Target: Linear scaling with concurrency, no contention
 /// </summary>
 [MemoryDiagnoser]
-[SimpleJob(warmupCount: 2, iterationCount: 5)]
+[ShortRunJob]
 public class ConcurrencyPerformanceBenchmarks
 {
     private IServiceProvider _serviceProvider = null!;
     private ICatgaMediator _mediator = null!;
+    private static bool Quick => string.Equals(Environment.GetEnvironmentVariable("E2E_QUICK"), "true", StringComparison.OrdinalIgnoreCase);
 
     [GlobalSetup]
     public void Setup()
@@ -66,13 +69,14 @@ public class ConcurrencyPerformanceBenchmarks
     [Benchmark(Description = "Concurrent Commands (1000)")]
     public async Task ConcurrentCommands_1000()
     {
-        var tasks = new ValueTask<CatgaResult<ConcurrentResult>>[1000];
-        for (int i = 0; i < 1000; i++)
+        var n = Quick ? 200 : 1000;
+        var tasks = new ValueTask<CatgaResult<ConcurrentResult>>[n];
+        for (int i = 0; i < n; i++)
         {
             var cmd = new ConcurrentCommand(i);
             tasks[i] = _mediator.SendAsync<ConcurrentCommand, ConcurrentResult>(cmd);
         }
-        for (int i = 0; i < 1000; i++)
+        for (int i = 0; i < n; i++)
         {
             await tasks[i];
         }

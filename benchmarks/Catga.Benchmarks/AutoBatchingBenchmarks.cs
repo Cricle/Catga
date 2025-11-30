@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Jobs;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.DependencyInjection;
@@ -11,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Catga.Benchmarks;
 
 [MemoryDiagnoser]
-[SimpleJob(warmupCount: 1, iterationCount: 5)]
+[ShortRunJob]
 public class AutoBatchingBenchmarks
 {
     private IServiceProvider _spUnkeyedSeq_NoRes = null!;

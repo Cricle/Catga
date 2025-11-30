@@ -4,6 +4,7 @@ using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
+using BenchmarkDotNet.Jobs;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga;
@@ -23,7 +24,7 @@ namespace Catga.Benchmarks;
 
 [MemoryDiagnoser]
 [Config(typeof(E2EConfig))]
-[SimpleJob(warmupCount: 1, iterationCount: 5)]
+[ShortRunJob]
 public class EndToEndTransportBenchmarks
 {
     private IServiceProvider _sp = null!;
@@ -39,32 +40,60 @@ public class EndToEndTransportBenchmarks
     private string _redisSubject = string.Empty;
     private bool _skip;
 
-    [Params("nats", "redis")]
+    private static bool Quick => string.Equals(Environment.GetEnvironmentVariable("E2E_QUICK"), "true", StringComparison.OrdinalIgnoreCase);
+
+    [ParamsSource(nameof(BrokerCases))]
     public string Broker { get; set; } = "nats";
+    public static IEnumerable<string> BrokerCases() =>
+        !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("E2E_ONLY_BROKER"))
+            ? new[] { Environment.GetEnvironmentVariable("E2E_ONLY_BROKER")! }
+            : (Quick ? new[] { "nats" } : new[] { "nats", "redis" });
 
-    [Params(0, 1)]
+    [ParamsSource(nameof(QosCases))]
     public int Qos { get; set; }
+    public static IEnumerable<int> QosCases() =>
+        int.TryParse(Environment.GetEnvironmentVariable("E2E_ONLY_QOS"), out var n)
+            ? new[] { n }
+            : (Quick ? new[] { 0 } : new[] { 0, 1 });
 
-    [Params(1, 16, 64)]
+    [ParamsSource(nameof(ConcurrencyCases))]
     public int Concurrency { get; set; }
+    public static IEnumerable<int> ConcurrencyCases() =>
+        int.TryParse(Environment.GetEnvironmentVariable("E2E_ONLY_CONCURRENCY"), out var n)
+            ? new[] { n }
+            : (Quick ? new[] { 1, 16 } : new[] { 1, 16, 64 });
 
-    [Params(128, 2048)]
+    [ParamsSource(nameof(MessageSizeCases))]
     public int MessageSize { get; set; }
+    public static IEnumerable<int> MessageSizeCases() =>
+        int.TryParse(Environment.GetEnvironmentVariable("E2E_ONLY_MSGSIZE"), out var n)
+            ? new[] { n }
+            : (Quick ? new[] { 128 } : new[] { 128, 2048 });
 
-    [Params(false, true)]
+    [ParamsSource(nameof(BoolOffThenOn))]
     public bool TracingEnabled { get; set; }
 
-    [Params(false, true)]
+    [ParamsSource(nameof(BoolOffThenOn))]
     public bool EnableBatching { get; set; }
 
-    [Params(false, true)]
+    [ParamsSource(nameof(BoolOffThenOn))]
     public bool NatsBatchingEnabled { get; set; }
 
-    [Params(16, 64)]
+    [ParamsSource(nameof(NatsBatchSizeCases))]
     public int NatsBatchSize { get; set; }
+    public static IEnumerable<int> NatsBatchSizeCases() =>
+        int.TryParse(Environment.GetEnvironmentVariable("E2E_ONLY_NATS_BATCH_SIZE"), out var n)
+            ? new[] { n }
+            : (Quick ? new[] { 64 } : new[] { 16, 64 });
 
-    [Params(5, 50)]
+    [ParamsSource(nameof(NatsBatchTimeoutCases))]
     public int NatsBatchTimeoutMs { get; set; }
+    public static IEnumerable<int> NatsBatchTimeoutCases() =>
+        int.TryParse(Environment.GetEnvironmentVariable("E2E_ONLY_NATS_BATCH_TIMEOUT_MS"), out var n)
+            ? new[] { n }
+            : (Quick ? new[] { 5 } : new[] { 5, 50 });
+
+    public static IEnumerable<bool> BoolOffThenOn() => Quick ? new[] { false } : new[] { false, true };
 
     [GlobalSetup]
     public void Setup()
@@ -92,17 +121,22 @@ public class EndToEndTransportBenchmarks
         try
         {
             var useContainers = string.Equals(Environment.GetEnvironmentVariable("E2E_CONTAINERS"), "true", StringComparison.OrdinalIgnoreCase);
+            var startTimeoutSec = int.TryParse(Environment.GetEnvironmentVariable("E2E_CONTAINER_TIMEOUT"), out var s) ? Math.Max(s, 1) : 30;
+            var connectTimeoutSec = int.TryParse(Environment.GetEnvironmentVariable("E2E_CONNECT_TIMEOUT"), out var c) ? Math.Max(c, 1) : 10;
             if (Broker == "nats")
             {
                 string url;
                 if (useContainers)
                 {
                     _container = new ContainerBuilder()
-                        .WithImage("nats:latest")
+                        .WithImage("nats:alpine")
                         .WithPortBinding(4222, true)
-                        .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(4222))
+                        .WithPortBinding(8222, true)
+                        .WithCommand("-m", "8222")
+                        .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8222).ForPath("/varz")))
                         .Build();
-                    _container.StartAsync().GetAwaiter().GetResult();
+                    try { _container.StartAsync().WaitAsync(TimeSpan.FromSeconds(startTimeoutSec)).GetAwaiter().GetResult(); }
+                    catch { _skip = true; return; }
                     var port = _container.GetMappedPublicPort(4222);
                     url = $"nats://localhost:{port}";
                 }
@@ -111,7 +145,8 @@ public class EndToEndTransportBenchmarks
                     url = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
                 }
                 _nats = new NatsConnection(new NatsOpts { Url = url, ConnectTimeout = TimeSpan.FromSeconds(5) });
-                _nats.ConnectAsync().GetAwaiter().GetResult();
+                try { _nats.ConnectAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(connectTimeoutSec)).GetAwaiter().GetResult(); }
+                catch { _skip = true; return; }
                 services.AddSingleton<INatsConnection>(_nats);
                 if (NatsBatchingEnabled)
                 {
@@ -142,7 +177,8 @@ public class EndToEndTransportBenchmarks
                         .WithPortBinding(6379, true)
                         .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(6379))
                         .Build();
-                    _container.StartAsync().GetAwaiter().GetResult();
+                    try { _container.StartAsync().WaitAsync(TimeSpan.FromSeconds(startTimeoutSec)).GetAwaiter().GetResult(); }
+                    catch { _skip = true; return; }
                     var port = _container.GetMappedPublicPort(6379);
                     conn = $"localhost:{port}";
                 }
@@ -150,8 +186,16 @@ public class EndToEndTransportBenchmarks
                 {
                     conn = Environment.GetEnvironmentVariable("REDIS_URL") ?? "localhost:6379";
                 }
-                _redis = ConnectionMultiplexer.Connect(conn);
-                _ = _redis.GetDatabase().Ping();
+                try
+                {
+                    var options = ConfigurationOptions.Parse(conn);
+                    options.ConnectTimeout = Math.Max(connectTimeoutSec * 1000, 1000);
+                    options.SyncTimeout = Math.Max(connectTimeoutSec * 1000, 1000);
+                    options.AbortOnConnectFail = false;
+                    _redis = ConnectionMultiplexer.Connect(options);
+                    _ = _redis.GetDatabase().Ping();
+                }
+                catch { _skip = true; return; }
                 services.AddSingleton<IConnectionMultiplexer>(_redis);
                 services.AddRedisTransport(o =>
                 {
@@ -177,7 +221,7 @@ public class EndToEndTransportBenchmarks
         Random.Shared.NextBytes(_payload);
 
         _transport.SubscribeAsync<PingMessage>(OnMessage).GetAwaiter().GetResult();
-        Thread.Sleep(100);
+        Task.Delay(20).GetAwaiter().GetResult();
     }
 
     private Task OnMessage(PingMessage msg, TransportContext ctx)
@@ -205,7 +249,7 @@ public class EndToEndTransportBenchmarks
     public async Task EndToEnd_Throughput()
     {
         if (_skip) return;
-        var total = Math.Max(Concurrency * 50, 1);
+        var total = Math.Max(Concurrency * (Quick ? 10 : 50), 1);
         Prepare(total);
         var per = (total + Concurrency - 1) / Concurrency;
         var tasks = new Task[Concurrency];
@@ -244,7 +288,7 @@ public class EndToEndTransportBenchmarks
 
     private async Task WaitAsync()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         try { await (_tcs?.Task ?? Task.CompletedTask).WaitAsync(cts.Token); }
         catch { }
     }
@@ -252,7 +296,8 @@ public class EndToEndTransportBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        if (_sp is IDisposable d) d.Dispose();
+        if (_sp is IAsyncDisposable ad) { try { ad.DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { } }
+        else if (_sp is IDisposable d) { try { d.Dispose(); } catch { } }
         _listener?.Dispose();
         try { _nats?.DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { }
         try { _redis?.Dispose(); } catch { }

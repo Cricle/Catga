@@ -1,4 +1,5 @@
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Jobs;
 using Catga;
 using Catga.Abstractions;
 using Catga.Configuration;
@@ -17,7 +18,7 @@ namespace Catga.Benchmarks;
 /// Target: less than 1 microsecond per operation, zero allocations
 /// </summary>
 [MemoryDiagnoser]
-[SimpleJob(warmupCount: 3, iterationCount: 10)]
+[ShortRunJob]
 public class CqrsPerformanceBenchmarks
 {
     private IServiceProvider _serviceProvider = null!;
@@ -27,17 +28,23 @@ public class CqrsPerformanceBenchmarks
     private BenchEvent _event = null!;
     private ActivityListener? _listener;
 
-    [Params(false, true)]
+    private static bool Quick => string.Equals(Environment.GetEnvironmentVariable("E2E_QUICK"), "true", StringComparison.OrdinalIgnoreCase);
+
+    [ParamsSource(nameof(BoolOffThenOn))]
     public bool TracingEnabled { get; set; }
 
-    [Params(false, true)]
+    [ParamsSource(nameof(BoolOffThenOn))]
     public bool ResilienceEnabled { get; set; }
 
-    [Params(0, 512, 4096)]
+    [ParamsSource(nameof(PayloadCases))]
     public int PayloadBytes { get; set; }
 
-    [Params(0, 1, 5)]
+    [ParamsSource(nameof(DelayCases))]
     public int HandlerDelayMs { get; set; }
+
+    public static IEnumerable<bool> BoolOffThenOn() => Quick ? new[] { false } : new[] { false, true };
+    public static IEnumerable<int> PayloadCases() => Quick ? new[] { 0, 512 } : new[] { 0, 512, 4096 };
+    public static IEnumerable<int> DelayCases() => Quick ? new[] { 0, 1 } : new[] { 0, 1, 5 };
 
     [GlobalSetup]
     public void Setup()

@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Catga.Abstractions;
@@ -12,52 +11,28 @@ using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis.Scheduling;
 
-/// <summary>
-/// Redis-based message scheduler using Sorted Sets.
-/// AOT-compatible, low-allocation implementation.
-/// </summary>
-public sealed partial class RedisMessageScheduler : IMessageScheduler, IHostedService, IDisposable
+/// <summary>Redis-based message scheduler using Sorted Sets.</summary>
+public sealed partial class RedisMessageScheduler(IConnectionMultiplexer redis, IMessageSerializer serializer, ICatgaMediator mediator, IOptions<MessageSchedulerOptions> options, ILogger<RedisMessageScheduler> logger, IEventTypeRegistry? typeRegistry = null)
+    : IMessageScheduler, IHostedService, IDisposable
 {
-    private readonly IConnectionMultiplexer _redis;
-    private readonly IMessageSerializer _serializer;
-    private readonly ICatgaMediator _mediator;
-    private readonly IEventTypeRegistry? _typeRegistry;
-    private readonly MessageSchedulerOptions _options;
-    private readonly ILogger<RedisMessageScheduler> _logger;
+    private readonly MessageSchedulerOptions _opts = options.Value;
     private readonly CancellationTokenSource _cts = new();
-    private Task? _processingTask;
-
-    private const string ScheduleSetKey = "catga:schedules";
-    private const string MessageKeyPrefix = "catga:scheduled:";
-
-    public RedisMessageScheduler(
-        IConnectionMultiplexer redis,
-        IMessageSerializer serializer,
-        ICatgaMediator mediator,
-        IOptions<MessageSchedulerOptions> options,
-        ILogger<RedisMessageScheduler> logger,
-        IEventTypeRegistry? typeRegistry = null)
-    {
-        _redis = redis;
-        _serializer = serializer;
-        _mediator = mediator;
-        _typeRegistry = typeRegistry;
-        _options = options.Value;
-        _logger = logger;
-    }
+    private Task? _task;
+    private const string SetKey = "catga:schedules";
+    private const string KeyPrefix = "catga:scheduled:";
 
     public async ValueTask<ScheduledMessageHandle> ScheduleAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
         TMessage message,
         DateTimeOffset deliverAt,
         CancellationToken ct = default) where TMessage : class, IMessage
     {
-        var db = _redis.GetDatabase();
+        var db = redis.GetDatabase();
         var scheduleId = GenerateScheduleId();
         var messageType = typeof(TMessage).FullName ?? typeof(TMessage).Name;
         var score = deliverAt.ToUnixTimeMilliseconds();
 
         // Serialize message
-        var messageBytes = _serializer.Serialize(message);
+        var messageBytes = serializer.Serialize(message);
 
         // Store scheduled message info
         var info = new ScheduledMessageData
@@ -71,15 +46,15 @@ public sealed partial class RedisMessageScheduler : IMessageScheduler, IHostedSe
         };
 
         var infoBytes = MemoryPackSerializer.Serialize(info);
-        var messageKey = string.Concat(MessageKeyPrefix, scheduleId);
+        var messageKey = string.Concat(KeyPrefix, scheduleId);
 
         // Transaction: store message and add to sorted set
         var tran = db.CreateTransaction();
         _ = tran.StringSetAsync(messageKey, infoBytes);
-        _ = tran.SortedSetAddAsync(ScheduleSetKey, scheduleId, score);
+        _ = tran.SortedSetAddAsync(SetKey, scheduleId, score);
         await tran.ExecuteAsync();
 
-        LogMessageScheduled(_logger, scheduleId, messageType, deliverAt);
+        LogMessageScheduled(logger, scheduleId, messageType, deliverAt);
 
         return new ScheduledMessageHandle
         {
@@ -99,24 +74,24 @@ public sealed partial class RedisMessageScheduler : IMessageScheduler, IHostedSe
 
     public async ValueTask<bool> CancelAsync(string scheduleId, CancellationToken ct = default)
     {
-        var db = _redis.GetDatabase();
-        var messageKey = string.Concat(MessageKeyPrefix, scheduleId);
+        var db = redis.GetDatabase();
+        var messageKey = string.Concat(KeyPrefix, scheduleId);
 
         var tran = db.CreateTransaction();
         _ = tran.KeyDeleteAsync(messageKey);
-        _ = tran.SortedSetRemoveAsync(ScheduleSetKey, scheduleId);
+        _ = tran.SortedSetRemoveAsync(SetKey, scheduleId);
         var success = await tran.ExecuteAsync();
 
         if (success)
-            LogMessageCancelled(_logger, scheduleId);
+            LogMessageCancelled(logger, scheduleId);
 
         return success;
     }
 
     public async ValueTask<ScheduledMessageInfo?> GetAsync(string scheduleId, CancellationToken ct = default)
     {
-        var db = _redis.GetDatabase();
-        var messageKey = string.Concat(MessageKeyPrefix, scheduleId);
+        var db = redis.GetDatabase();
+        var messageKey = string.Concat(KeyPrefix, scheduleId);
         var data = await db.StringGetAsync(messageKey);
 
         if (data.IsNullOrEmpty)
@@ -142,9 +117,9 @@ public sealed partial class RedisMessageScheduler : IMessageScheduler, IHostedSe
         int limit = 100,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var db = _redis.GetDatabase();
+        var db = redis.GetDatabase();
         var entries = await db.SortedSetRangeByScoreAsync(
-            ScheduleSetKey,
+            SetKey,
             double.NegativeInfinity,
             double.PositiveInfinity,
             take: limit);
@@ -160,17 +135,17 @@ public sealed partial class RedisMessageScheduler : IMessageScheduler, IHostedSe
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _processingTask = ProcessDueMessagesAsync(_cts.Token);
-        LogSchedulerStarted(_logger);
+        _task = ProcessDueMessagesAsync(_cts.Token);
+        LogSchedulerStarted(logger);
         return Task.CompletedTask;
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         _cts.Cancel();
-        if (_processingTask != null)
-            await _processingTask;
-        LogSchedulerStopped(_logger);
+        if (_task != null)
+            await _task;
+        LogSchedulerStopped(logger);
     }
 
     private async Task ProcessDueMessagesAsync(CancellationToken ct)
@@ -180,7 +155,7 @@ public sealed partial class RedisMessageScheduler : IMessageScheduler, IHostedSe
             try
             {
                 await ProcessBatchAsync(ct);
-                await Task.Delay(_options.PollingInterval, ct);
+                await Task.Delay(_opts.PollingInterval, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -188,7 +163,7 @@ public sealed partial class RedisMessageScheduler : IMessageScheduler, IHostedSe
             }
             catch (Exception ex)
             {
-                LogProcessingError(_logger, ex);
+                LogProcessingError(logger, ex);
                 await Task.Delay(TimeSpan.FromSeconds(5), ct);
             }
         }
@@ -196,15 +171,15 @@ public sealed partial class RedisMessageScheduler : IMessageScheduler, IHostedSe
 
     private async Task ProcessBatchAsync(CancellationToken ct)
     {
-        var db = _redis.GetDatabase();
+        var db = redis.GetDatabase();
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         // Get due messages
         var dueIds = await db.SortedSetRangeByScoreAsync(
-            ScheduleSetKey,
+            SetKey,
             double.NegativeInfinity,
             now,
-            take: _options.BatchSize);
+            take: _opts.BatchSize);
 
         if (dueIds.Length == 0)
             return;
@@ -218,14 +193,14 @@ public sealed partial class RedisMessageScheduler : IMessageScheduler, IHostedSe
 
     private async Task DeliverMessageAsync(IDatabase db, string scheduleId, CancellationToken ct)
     {
-        var messageKey = string.Concat(MessageKeyPrefix, scheduleId);
+        var messageKey = string.Concat(KeyPrefix, scheduleId);
 
         try
         {
             var data = await db.StringGetAsync(messageKey);
             if (data.IsNullOrEmpty)
             {
-                await db.SortedSetRemoveAsync(ScheduleSetKey, scheduleId);
+                await db.SortedSetRemoveAsync(SetKey, scheduleId);
                 return;
             }
 
@@ -234,15 +209,15 @@ public sealed partial class RedisMessageScheduler : IMessageScheduler, IHostedSe
                 return;
 
             // Deserialize and dispatch message - use type registry for AOT compatibility
-            var messageType = _typeRegistry?.Resolve(info.MessageType);
+            var messageType = typeRegistry?.Resolve(info.MessageType);
             if (messageType == null)
             {
-                LogMessageTypeNotFound(_logger, scheduleId, info.MessageType);
+                LogMessageTypeNotFound(logger, scheduleId, info.MessageType);
                 await MarkAsFailedAsync(db, scheduleId, messageKey, info, "Message type not found");
                 return;
             }
 
-            var message = _serializer.Deserialize(info.MessageData, messageType);
+            var message = serializer.Deserialize(info.MessageData, messageType);
             if (message == null)
             {
                 await MarkAsFailedAsync(db, scheduleId, messageKey, info, "Deserialization failed");
@@ -251,21 +226,21 @@ public sealed partial class RedisMessageScheduler : IMessageScheduler, IHostedSe
 
             // Dispatch based on message type
             if (message is IEvent evt)
-                await _mediator.PublishAsync(evt, ct);
+                await mediator.PublishAsync(evt, ct);
             else if (message is IRequest req)
-                await _mediator.SendAsync(req, ct);
+                await mediator.SendAsync(req, ct);
 
             // Remove from schedule
             var tran = db.CreateTransaction();
             _ = tran.KeyDeleteAsync(messageKey);
-            _ = tran.SortedSetRemoveAsync(ScheduleSetKey, scheduleId);
+            _ = tran.SortedSetRemoveAsync(SetKey, scheduleId);
             await tran.ExecuteAsync();
 
-            LogMessageDelivered(_logger, scheduleId, info.MessageType);
+            LogMessageDelivered(logger, scheduleId, info.MessageType);
         }
         catch (Exception ex)
         {
-            LogDeliveryError(_logger, scheduleId, ex);
+            LogDeliveryError(logger, scheduleId, ex);
             // Retry logic handled by updating retry count
         }
     }
@@ -276,7 +251,7 @@ public sealed partial class RedisMessageScheduler : IMessageScheduler, IHostedSe
         info.LastError = error;
         var infoBytes = MemoryPackSerializer.Serialize(info);
         await db.StringSetAsync(messageKey, infoBytes);
-        await db.SortedSetRemoveAsync(ScheduleSetKey, scheduleId);
+        await db.SortedSetRemoveAsync(SetKey, scheduleId);
     }
 
     private static string GenerateScheduleId()

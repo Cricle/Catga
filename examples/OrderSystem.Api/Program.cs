@@ -347,41 +347,28 @@ app.MapGet("/demo/compare", () => Results.Ok(new
 
 app.MapGet("/demo/flow-info", () => Results.Ok(new
 {
-    Title = "Flow Orchestration - Simple Saga Pattern",
-    Description = "Catga Flow provides fluent, simple saga orchestration with automatic compensation on failure",
+    Title = "Flow - Simple Saga Pattern",
+    Description = "Auto-compensate on failure in reverse order",
     Endpoints = new[]
     {
-        new { Method = "POST", Path = "/demo/flow/order-success", Description = "All steps succeed - no compensation" },
+        new { Method = "POST", Path = "/demo/flow/order-success", Description = "All steps succeed" },
         new { Method = "POST", Path = "/demo/flow/order-failure", Description = "Payment fails - auto compensation" }
     },
     Features = new[]
     {
-        "✨ Fluent API - simple, readable, chainable",
-        "✨ Automatic reverse-order compensation on failure",
-        "✨ Zero reflection, AOT compatible",
-        "✨ Supports typed results and void steps"
+        "✨ Minimal API - no step names needed",
+        "✨ Auto reverse-order compensation",
+        "✨ Built-in Activity tracing",
+        "✨ AOT compatible"
     },
     CodeExample = @"
-// Simple, fluent Flow API
 var result = await Flow.Create(""CreateOrder"")
-    .Step(""CheckInventory"",
-        () => inventoryService.CheckStockAsync(items))
-    .Step(""CreateOrder"",
-        () => orderRepository.SaveAsync(order),
-        () => orderRepository.DeleteAsync(order.Id))  // Compensation
-    .Step(""ReserveInventory"",
-        () => inventoryService.ReserveAsync(items),
-        () => inventoryService.ReleaseAsync(items))   // Compensation
-    .Step(""ProcessPayment"",
-        () => paymentService.ChargeAsync(amount),
-        () => paymentService.RefundAsync(amount))     // Compensation
+    .Step(() => repo.SaveAsync(order), () => repo.DeleteAsync(order.Id))
+    .Step(() => inventory.ReserveAsync(items), () => inventory.ReleaseAsync(items))
+    .Step(() => payment.ChargeAsync(amount), () => payment.RefundAsync(amount))
     .ExecuteAsync();
 
-// On failure, compensations execute in reverse order automatically
-if (!result.IsSuccess)
-{
-    Console.WriteLine($""Failed at {result.FailedStep}: {result.Error}"");
-}
+if (!result.IsSuccess) Console.WriteLine(result.Error);
 "
 })).WithName("DemoFlowInfo").WithTags("Flow Demo");
 

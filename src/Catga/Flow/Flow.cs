@@ -1,183 +1,111 @@
 using System.Diagnostics;
-using Catga.Abstractions;
 using Catga.Core;
 
 namespace Catga.Flow;
 
 /// <summary>
-/// Simple, fluent Flow orchestration for Saga pattern.
-/// Automatically compensates on failure in reverse order.
+/// Simple Flow for Saga pattern. Auto-compensates on failure.
 /// </summary>
 /// <example>
-/// var result = await Flow.Create("CreateOrder", mediator)
-///     .Step("CreateOrder",
-///         () => mediator.SendAsync&lt;CreateOrderCmd, Order&gt;(cmd),
-///         order => mediator.SendAsync(new CancelOrderCmd(order.Id)))
-///     .Step("ReserveStock",
-///         () => inventoryService.ReserveAsync(items),
-///         () => inventoryService.ReleaseAsync(items))
-///     .Step("ProcessPayment",
-///         () => paymentService.ChargeAsync(amount),
-///         () => paymentService.RefundAsync(amount))
+/// await Flow.Create("CreateOrder")
+///     .Step(() => repo.SaveAsync(order), () => repo.DeleteAsync(order.Id))
+///     .Step(() => inventory.ReserveAsync(items), () => inventory.ReleaseAsync(items))
+///     .Step(() => payment.ChargeAsync(amount), () => payment.RefundAsync(amount))
 ///     .ExecuteAsync();
 /// </example>
 public sealed class Flow
 {
     private readonly string _name;
-    private readonly ICatgaMediator? _mediator;
-    private readonly List<FlowStep> _steps = [];
     private readonly Activity? _activity;
+    private readonly List<(Func<Task<object?>> Execute, Func<object?, Task>? Compensate)> _steps = [];
 
-    private Flow(string name, ICatgaMediator? mediator = null)
+    private Flow(string name)
     {
         _name = name;
-        _mediator = mediator;
         _activity = Activity.Current?.Source.StartActivity($"Flow:{name}");
-        _activity?.SetTag("flow.name", name);
     }
 
-    /// <summary>
-    /// Creates a new Flow.
-    /// </summary>
-    public static Flow Create(string name, ICatgaMediator? mediator = null) => new(name, mediator);
+    public static Flow Create(string name) => new(name);
 
-    /// <summary>
-    /// Adds a step with typed result and compensation.
-    /// </summary>
-    public Flow Step<T>(
-        string name,
-        Func<Task<T>> execute,
-        Func<T, Task>? compensate = null)
+    /// <summary>Step with result and compensation.</summary>
+    public Flow Step<T>(Func<Task<T>> execute, Func<T, Task>? compensate = null)
     {
-        _steps.Add(new FlowStep
-        {
-            Name = name,
-            Execute = async () =>
-            {
-                var result = await execute();
-                return result;
-            },
-            Compensate = compensate != null
-                ? async (result) => await compensate((T)result!)
-                : null
-        });
+        _steps.Add((
+            async () => await execute(),
+            compensate != null ? async r => await compensate((T)r!) : null
+        ));
         return this;
     }
 
-    /// <summary>
-    /// Adds a step with CatgaResult and compensation.
-    /// </summary>
-    public Flow Step<T>(
-        string name,
-        Func<Task<CatgaResult<T>>> execute,
-        Func<T, Task>? compensate = null)
+    /// <summary>Step with CatgaResult.</summary>
+    public Flow Step<T>(Func<Task<CatgaResult<T>>> execute, Func<T, Task>? compensate = null)
     {
-        _steps.Add(new FlowStep
-        {
-            Name = name,
-            Execute = async () =>
+        _steps.Add((
+            async () =>
             {
-                var result = await execute();
-                if (!result.IsSuccess)
-                    throw new FlowStepException(name, result.Error ?? "Step failed");
-                return result.Value;
+                var r = await execute();
+                return r.IsSuccess ? r.Value : throw new InvalidOperationException(r.Error);
             },
-            Compensate = compensate != null
-                ? async (result) => await compensate((T)result!)
-                : null
-        });
+            compensate != null ? async r => await compensate((T)r!) : null
+        ));
         return this;
     }
 
-    /// <summary>
-    /// Adds a step without result (void action).
-    /// </summary>
-    public Flow Step(
-        string name,
-        Func<Task> execute,
-        Func<Task>? compensate = null)
+    /// <summary>Step without result.</summary>
+    public Flow Step(Func<Task> execute, Func<Task>? compensate = null)
     {
-        _steps.Add(new FlowStep
-        {
-            Name = name,
-            Execute = async () =>
+        _steps.Add((
+            async () => { await execute(); return null; },
+            compensate != null ? async _ => await compensate() : null
+        ));
+        return this;
+    }
+
+    /// <summary>Step with CatgaResult (no value).</summary>
+    public Flow Step(Func<Task<CatgaResult>> execute, Func<Task>? compensate = null)
+    {
+        _steps.Add((
+            async () =>
             {
-                await execute();
+                var r = await execute();
+                if (!r.IsSuccess) throw new InvalidOperationException(r.Error);
                 return null;
             },
-            Compensate = compensate != null
-                ? async (_) => await compensate()
-                : null
-        });
+            compensate != null ? async _ => await compensate() : null
+        ));
         return this;
     }
 
-    /// <summary>
-    /// Adds a step with CatgaResult (no value).
-    /// </summary>
-    public Flow Step(
-        string name,
-        Func<Task<CatgaResult>> execute,
-        Func<Task>? compensate = null)
-    {
-        _steps.Add(new FlowStep
-        {
-            Name = name,
-            Execute = async () =>
-            {
-                var result = await execute();
-                if (!result.IsSuccess)
-                    throw new FlowStepException(name, result.Error ?? "Step failed");
-                return null;
-            },
-            Compensate = compensate != null
-                ? async (_) => await compensate()
-                : null
-        });
-        return this;
-    }
-
-    /// <summary>
-    /// Executes the flow. On failure, compensates in reverse order.
-    /// </summary>
+    /// <summary>Execute flow. On failure, compensate in reverse order.</summary>
     public async Task<FlowResult> ExecuteAsync(CancellationToken ct = default)
     {
-        var startTime = DateTime.UtcNow;
-        var completedSteps = new Stack<(FlowStep Step, object? Result)>();
+        var completed = new Stack<(Func<object?, Task>? Compensate, object? Result)>();
+        var sw = Stopwatch.StartNew();
 
         try
         {
-            foreach (var step in _steps)
+            for (int i = 0; i < _steps.Count; i++)
             {
                 ct.ThrowIfCancellationRequested();
-
-                _activity?.AddEvent(new ActivityEvent($"Step:{step.Name}"));
-
-                var result = await step.Execute();
-                completedSteps.Push((step, result));
+                _activity?.AddEvent(new ActivityEvent($"Step{i + 1}"));
+                var result = await _steps[i].Execute();
+                completed.Push((_steps[i].Compensate, result));
             }
 
             _activity?.SetStatus(ActivityStatusCode.Ok);
-            return FlowResult.Ok(_name, _steps.Count, DateTime.UtcNow - startTime);
-        }
-        catch (FlowStepException ex)
-        {
-            _activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            await CompensateAsync(completedSteps, ct);
-            return FlowResult.Failed(_name, ex.StepName, ex.Message, completedSteps.Count, DateTime.UtcNow - startTime);
+            return new FlowResult(true, _steps.Count, sw.Elapsed);
         }
         catch (OperationCanceledException)
         {
+            await CompensateAsync(completed);
             _activity?.SetStatus(ActivityStatusCode.Error, "Cancelled");
-            await CompensateAsync(completedSteps, ct);
-            return FlowResult.Cancelled(_name, completedSteps.Count, DateTime.UtcNow - startTime);
+            return new FlowResult(false, completed.Count, sw.Elapsed) { IsCancelled = true };
         }
         catch (Exception ex)
         {
+            await CompensateAsync(completed);
             _activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            await CompensateAsync(completedSteps, ct);
-            var failedStep = _steps.Count > completedSteps.Count ? _steps[completedSteps.Count].Name : "Unknown";
-            return FlowResult.Failed(_name, failedStep, ex.Message, completedSteps.Count, DateTime.UtcNow - startTime);
+            return new FlowResult(false, completed.Count, sw.Elapsed, ex.Message);
         }
         finally
         {
@@ -185,48 +113,37 @@ public sealed class Flow
         }
     }
 
-    /// <summary>
-    /// Executes the flow and returns a typed result from the last step.
-    /// </summary>
+    /// <summary>Execute flow and return last step result.</summary>
     public async Task<FlowResult<T>> ExecuteAsync<T>(CancellationToken ct = default)
     {
-        var startTime = DateTime.UtcNow;
-        var completedSteps = new Stack<(FlowStep Step, object? Result)>();
+        var completed = new Stack<(Func<object?, Task>? Compensate, object? Result)>();
+        var sw = Stopwatch.StartNew();
         object? lastResult = default;
 
         try
         {
-            foreach (var step in _steps)
+            for (int i = 0; i < _steps.Count; i++)
             {
                 ct.ThrowIfCancellationRequested();
-
-                _activity?.AddEvent(new ActivityEvent($"Step:{step.Name}"));
-
-                lastResult = await step.Execute();
-                completedSteps.Push((step, lastResult));
+                _activity?.AddEvent(new ActivityEvent($"Step{i + 1}"));
+                lastResult = await _steps[i].Execute();
+                completed.Push((_steps[i].Compensate, lastResult));
             }
 
             _activity?.SetStatus(ActivityStatusCode.Ok);
-            return FlowResult<T>.Ok((T)lastResult!, _name, _steps.Count, DateTime.UtcNow - startTime);
-        }
-        catch (FlowStepException ex)
-        {
-            _activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            await CompensateAsync(completedSteps, ct);
-            return FlowResult<T>.Failed(_name, ex.StepName, ex.Message, completedSteps.Count, DateTime.UtcNow - startTime);
+            return new FlowResult<T>(true, (T)lastResult!, _steps.Count, sw.Elapsed);
         }
         catch (OperationCanceledException)
         {
+            await CompensateAsync(completed);
             _activity?.SetStatus(ActivityStatusCode.Error, "Cancelled");
-            await CompensateAsync(completedSteps, ct);
-            return FlowResult<T>.Cancelled(_name, completedSteps.Count, DateTime.UtcNow - startTime);
+            return new FlowResult<T>(false, default, completed.Count, sw.Elapsed) { IsCancelled = true };
         }
         catch (Exception ex)
         {
+            await CompensateAsync(completed);
             _activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            await CompensateAsync(completedSteps, ct);
-            var failedStep = _steps.Count > completedSteps.Count ? _steps[completedSteps.Count].Name : "Unknown";
-            return FlowResult<T>.Failed(_name, failedStep, ex.Message, completedSteps.Count, DateTime.UtcNow - startTime);
+            return new FlowResult<T>(false, default, completed.Count, sw.Elapsed, ex.Message);
         }
         finally
         {
@@ -234,126 +151,24 @@ public sealed class Flow
         }
     }
 
-    private static async Task CompensateAsync(
-        Stack<(FlowStep Step, object? Result)> completedSteps,
-        CancellationToken ct)
+    private static async Task CompensateAsync(Stack<(Func<object?, Task>? Compensate, object? Result)> completed)
     {
-        while (completedSteps.TryPop(out var item))
+        while (completed.TryPop(out var item))
         {
-            if (item.Step.Compensate == null) continue;
-
-            try
-            {
-                await item.Step.Compensate(item.Result);
-            }
-            catch
-            {
-                // Log but continue compensating
-            }
+            if (item.Compensate == null) continue;
+            try { await item.Compensate(item.Result); } catch { }
         }
     }
-
-    private sealed class FlowStep
-    {
-        public required string Name { get; init; }
-        public required Func<Task<object?>> Execute { get; init; }
-        public Func<object?, Task>? Compensate { get; init; }
-    }
 }
 
-/// <summary>
-/// Flow execution result.
-/// </summary>
-public readonly record struct FlowResult
+/// <summary>Flow result.</summary>
+public readonly record struct FlowResult(bool IsSuccess, int CompletedSteps, TimeSpan Duration, string? Error = null)
 {
-    public bool IsSuccess { get; init; }
     public bool IsCancelled { get; init; }
-    public string FlowName { get; init; }
-    public string? FailedStep { get; init; }
-    public string? Error { get; init; }
-    public int CompletedSteps { get; init; }
-    public TimeSpan Duration { get; init; }
-
-    public static FlowResult Ok(string flowName, int steps, TimeSpan duration) => new()
-    {
-        IsSuccess = true,
-        FlowName = flowName,
-        CompletedSteps = steps,
-        Duration = duration
-    };
-
-    public static FlowResult Failed(string flowName, string failedStep, string error, int completedSteps, TimeSpan duration) => new()
-    {
-        IsSuccess = false,
-        FlowName = flowName,
-        FailedStep = failedStep,
-        Error = error,
-        CompletedSteps = completedSteps,
-        Duration = duration
-    };
-
-    public static FlowResult Cancelled(string flowName, int completedSteps, TimeSpan duration) => new()
-    {
-        IsSuccess = false,
-        IsCancelled = true,
-        FlowName = flowName,
-        CompletedSteps = completedSteps,
-        Duration = duration
-    };
 }
 
-/// <summary>
-/// Flow execution result with value.
-/// </summary>
-public readonly record struct FlowResult<T>
+/// <summary>Flow result with value.</summary>
+public readonly record struct FlowResult<T>(bool IsSuccess, T? Value, int CompletedSteps, TimeSpan Duration, string? Error = null)
 {
-    public bool IsSuccess { get; init; }
     public bool IsCancelled { get; init; }
-    public T? Value { get; init; }
-    public string FlowName { get; init; }
-    public string? FailedStep { get; init; }
-    public string? Error { get; init; }
-    public int CompletedSteps { get; init; }
-    public TimeSpan Duration { get; init; }
-
-    public static FlowResult<T> Ok(T value, string flowName, int steps, TimeSpan duration) => new()
-    {
-        IsSuccess = true,
-        Value = value,
-        FlowName = flowName,
-        CompletedSteps = steps,
-        Duration = duration
-    };
-
-    public static FlowResult<T> Failed(string flowName, string failedStep, string error, int completedSteps, TimeSpan duration) => new()
-    {
-        IsSuccess = false,
-        FlowName = flowName,
-        FailedStep = failedStep,
-        Error = error,
-        CompletedSteps = completedSteps,
-        Duration = duration
-    };
-
-    public static FlowResult<T> Cancelled(string flowName, int completedSteps, TimeSpan duration) => new()
-    {
-        IsSuccess = false,
-        IsCancelled = true,
-        FlowName = flowName,
-        CompletedSteps = completedSteps,
-        Duration = duration
-    };
-}
-
-/// <summary>
-/// Exception thrown when a flow step fails.
-/// </summary>
-public sealed class FlowStepException : Exception
-{
-    public string StepName { get; }
-
-    public FlowStepException(string stepName, string message) : base(message)
-    {
-        StepName = stepName;
-    }
 }

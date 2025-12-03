@@ -156,35 +156,25 @@ OrderSystem.Api/
 ### 1. Flow 服务编排 - 自动补偿（推荐）
 
 ```csharp
-// 简洁的 Fluent API
+// 简洁 Flow API - 失败时自动逆序补偿
 var result = await Flow.Create("CreateOrder")
-    .Step("CreateOrder",
-        async () => {
-            await _orderRepository.SaveAsync(order, ct);
-            return order;
-        },
-        async _ => {  // Compensation
-            order.Status = OrderStatus.Failed;
-            await _orderRepository.UpdateAsync(order, ct);
-        })
-    .Step("ReserveInventory",
-        () => _inventoryService.ReserveStockAsync(order.OrderId, items, ct),
-        _ => _inventoryService.ReleaseStockAsync(order.OrderId, items, ct))
-    .Step("ProcessPayment",
-        () => _paymentService.ProcessPaymentAsync(order.OrderId, amount, method, ct),
-        _ => _paymentService.RefundAsync(order.OrderId, ct))
+    .Step(() => orderRepository.SaveAsync(order),
+          () => orderRepository.DeleteAsync(order.Id))  // Compensation
+    .Step(() => inventoryService.ReserveAsync(items),
+          () => inventoryService.ReleaseAsync(items))   // Compensation
+    .Step(() => paymentService.ChargeAsync(amount),
+          () => paymentService.RefundAsync(amount))     // Compensation
     .ExecuteAsync();
 
-if (result.IsSuccess)
-    return CatgaResult<OrderCreatedResult>.Success(result.Value!);
-else
-    return CatgaResult<OrderCreatedResult>.Failure(result.Error!);
+if (result.IsSuccess) return Success(result.Value!);
+else return Failure(result.Error!);
 ```
 
 **关键点**：
-- ✅ Fluent API，简洁直观
-- ✅ 失败时自动逆序执行补偿（RefundPayment → ReleaseInventory → DeleteOrder）
-- ✅ 完全 AOT 兼容，零运行时反射
+- ✅ 最简 API，无需 step 名称
+- ✅ 失败时自动逆序补偿
+- ✅ 内置链路跟踪 (Activity)
+- ✅ AOT 兼容
 
 ### 2. SafeRequestHandler - 自动异常处理 + 回滚
 

@@ -83,85 +83,44 @@ public sealed partial class CreateOrderFlowHandler : IRequestHandler<CreateOrder
             PaymentMethod = request.PaymentMethod
         };
 
-        // Simple, fluent Flow API with automatic compensation
+        // Simple Flow API with automatic compensation
         var flowResult = await Flow.Create($"CreateOrder-{request.CustomerId}")
-            .Step("CheckInventory",
-                async () => await _inventoryService.CheckStockAsync(request.Items, ct))
-            .Step("CreateOrder",
-                async () =>
-                {
-                    await _orderRepository.SaveAsync(order, ct);
-                    return order;
-                },
-                async _ =>
-                {
-                    LogCompensation(_logger, "MarkOrderFailed", order.OrderId);
-                    order.Status = OrderStatus.Failed;
-                    order.FailureReason = "Flow compensation";
-                    await _orderRepository.UpdateAsync(order, ct);
-                })
-            .Step("ReserveInventory",
-                async () => await _inventoryService.ReserveStockAsync(order.OrderId, request.Items, ct),
-                async _ =>
-                {
-                    LogCompensation(_logger, "ReleaseInventory", order.OrderId);
-                    await _inventoryService.ReleaseStockAsync(order.OrderId, request.Items, ct);
-                })
-            .Step("ProcessPayment",
-                async () => await _paymentService.ProcessPaymentAsync(order.OrderId, totalAmount, request.PaymentMethod, ct),
-                async _ =>
-                {
-                    LogCompensation(_logger, "RefundPayment", order.OrderId);
-                    _logger.LogWarning("🔄 Refunding payment for order {OrderId}", order.OrderId);
-                })
-            .Step("ConfirmOrder",
-                async () =>
-                {
-                    order.Status = OrderStatus.Confirmed;
-                    order.UpdatedAt = DateTime.UtcNow;
-                    await _orderRepository.UpdateAsync(order, ct);
-                    await _mediator.PublishAsync(new OrderCreatedEvent(
-                        order.OrderId, order.CustomerId, order.Items,
-                        order.TotalAmount, order.CreatedAt), ct);
-                    return new OrderCreatedResult(order.OrderId, totalAmount, order.CreatedAt);
-                })
+            .Step(async () => await _inventoryService.CheckStockAsync(request.Items, ct))
+            .Step(async () => { await _orderRepository.SaveAsync(order, ct); return order; },
+                async _ => { order.Status = OrderStatus.Failed; await _orderRepository.UpdateAsync(order, ct); })
+            .Step(async () => await _inventoryService.ReserveStockAsync(order.OrderId, request.Items, ct),
+                async _ => await _inventoryService.ReleaseStockAsync(order.OrderId, request.Items, ct))
+            .Step(async () => await _paymentService.ProcessPaymentAsync(order.OrderId, totalAmount, request.PaymentMethod, ct),
+                async _ => _logger.LogWarning("🔄 Refunding payment for order {OrderId}", order.OrderId))
+            .Step(async () =>
+            {
+                order.Status = OrderStatus.Confirmed;
+                await _orderRepository.UpdateAsync(order, ct);
+                await _mediator.PublishAsync(new OrderCreatedEvent(
+                    order.OrderId, order.CustomerId, order.Items, order.TotalAmount, order.CreatedAt), ct);
+                return new OrderCreatedResult(order.OrderId, totalAmount, order.CreatedAt);
+            })
             .ExecuteAsync<OrderCreatedResult>(ct);
 
         if (flowResult.IsSuccess)
         {
-            LogFlowSuccess(_logger, order.OrderId, totalAmount, flowResult.CompletedSteps);
-            _orderCreatedCounter.Add(1, new TagList
-            {
-                new("status", "success"),
-                new("payment_method", request.PaymentMethod)
-            });
+            LogFlowSuccess(_logger, order.OrderId, totalAmount);
+            _orderCreatedCounter.Add(1, new TagList { new("status", "success") });
             return CatgaResult<OrderCreatedResult>.Success(flowResult.Value!);
         }
 
-        // Flow failed - compensation already executed automatically
-        LogFlowFailed(_logger, request.CustomerId, flowResult.FailedStep ?? "Unknown", flowResult.Error ?? "Unknown");
-        _orderCreatedCounter.Add(1, new TagList
-        {
-            new("status", "failed"),
-            new("failed_step", flowResult.FailedStep ?? "Unknown")
-        });
-
-        return CatgaResult<OrderCreatedResult>.Failure(
-            $"Order creation failed at '{flowResult.FailedStep}': {flowResult.Error}");
+        LogFlowFailed(_logger, request.CustomerId, flowResult.CompletedSteps, flowResult.Error ?? "Unknown");
+        _orderCreatedCounter.Add(1, new TagList { new("status", "failed") });
+        return CatgaResult<OrderCreatedResult>.Failure(flowResult.Error ?? "Flow failed");
     }
 
     [LoggerMessage(Level = LogLevel.Information,
         Message = "🚀 Starting order Flow for customer {CustomerId} with {ItemCount} items")]
     static partial void LogFlowStarted(ILogger logger, string customerId, int itemCount);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "🔄 COMPENSATION: {Action} for order {OrderId}")]
-    static partial void LogCompensation(ILogger logger, string action, string orderId);
+    [LoggerMessage(Level = LogLevel.Information, Message = "✅ Order Flow completed: {OrderId}, Amount: {Amount:C}")]
+    static partial void LogFlowSuccess(ILogger logger, string orderId, decimal amount);
 
-    [LoggerMessage(Level = LogLevel.Information,
-        Message = "✅ Order Flow completed: {OrderId}, Amount: {Amount:C}, Steps: {StepCount}")]
-    static partial void LogFlowSuccess(ILogger logger, string orderId, decimal amount, int stepCount);
-
-    [LoggerMessage(Level = LogLevel.Error,
-        Message = "❌ Order Flow failed for {CustomerId} at step '{FailedStep}': {Error}")]
-    static partial void LogFlowFailed(ILogger logger, string customerId, string failedStep, string error);
+    [LoggerMessage(Level = LogLevel.Error, Message = "❌ Order Flow failed for {CustomerId} at step {Step}: {Error}")]
+    static partial void LogFlowFailed(ILogger logger, string customerId, int step, string error);
 }

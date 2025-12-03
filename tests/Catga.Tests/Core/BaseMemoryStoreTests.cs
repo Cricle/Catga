@@ -156,9 +156,10 @@ public class BaseMemoryStoreTests
         store.AddOrUpdate(recentMessage.Id, recentMessage);
 
         // Act
-        await store.DeleteExpiredAsync(
+        await store.DeleteExpiredWithTimestampAsync(
             retentionPeriod: TimeSpan.FromHours(1),
-            predicate: m => m.Timestamp < DateTime.UtcNow.AddHours(-1));
+            timestampSelector: m => m.Timestamp,
+            statusFilter: _ => true);
 
         // Assert
         store.TryGet("old", out _).Should().BeFalse();
@@ -166,7 +167,7 @@ public class BaseMemoryStoreTests
     }
 
     [Fact]
-    public async Task ExecuteIfExistsAsync_WhenExists_ShouldExecuteAction()
+    public void ExecuteIfExistsAsync_WhenExists_ShouldExecuteAction()
     {
         // Arrange
         var store = new TestMemoryStore();
@@ -174,7 +175,7 @@ public class BaseMemoryStoreTests
         store.AddOrUpdate(message.Id, message);
 
         // Act
-        await store.ExecuteIfExistsPublic(message.Id, m => m.Data = "modified");
+        store.ExecuteIfExistsPublic(message.Id, m => m.Data = "modified");
         store.TryGet(message.Id, out var retrieved);
 
         // Assert
@@ -182,44 +183,14 @@ public class BaseMemoryStoreTests
     }
 
     [Fact]
-    public async Task ExecuteIfExistsAsync_WhenNotExists_ShouldNotThrow()
+    public void ExecuteIfExistsAsync_WhenNotExists_ShouldNotThrow()
     {
         // Arrange
         var store = new TestMemoryStore();
 
-        // Act
-        Func<Task> act = async () => await store.ExecuteIfExistsPublic("non-existent", m => m.Data = "test");
-
-        // Assert
-        await act.Should().NotThrowAsync();
-    }
-
-    [Fact]
-    public async Task GetValueIfExistsAsync_WhenExists_ShouldReturnValue()
-    {
-        // Arrange
-        var store = new TestMemoryStore();
-        var message = new TestMessage { Id = "1", Data = "test data" };
-        store.AddOrUpdate(message.Id, message);
-
-        // Act
-        var result = await store.GetValueIfExistsPublic(message.Id, m => m.Data);
-
-        // Assert
-        result.Should().Be("test data");
-    }
-
-    [Fact]
-    public async Task GetValueIfExistsAsync_WhenNotExists_ShouldReturnDefault()
-    {
-        // Arrange
-        var store = new TestMemoryStore();
-
-        // Act
-        var result = await store.GetValueIfExistsPublic("non-existent", m => m.Data);
-
-        // Assert
-        result.Should().BeNull();
+        // Act & Assert
+        var act = () => store.ExecuteIfExistsPublic("non-existent", m => m.Data = "test");
+        act.Should().NotThrow();
     }
 
     [Fact]
@@ -256,14 +227,9 @@ public class BaseMemoryStoreTests
         public List<TestMessage> GetByPredicate(Func<TestMessage, bool> predicate, int maxCount, IComparer<TestMessage>? comparer = null)
             => GetMessagesByPredicate(predicate, maxCount, comparer);
         public new int GetCountByPredicate(Func<TestMessage, bool> predicate) => base.GetCountByPredicate(predicate);
-        public ValueTask DeleteExpiredAsync(TimeSpan retentionPeriod, Func<TestMessage, bool> predicate, CancellationToken ct = default)
-            => DeleteMessagesByPredicateAsync(predicate, ct);
-
         public ValueTask DeleteExpiredWithTimestampAsync(TimeSpan retentionPeriod, Func<TestMessage, DateTime?> timestampSelector, Func<TestMessage, bool> statusFilter, CancellationToken ct = default)
             => DeleteExpiredMessagesAsync(retentionPeriod, timestampSelector, statusFilter, ct);
-        public Task ExecuteIfExistsPublic(string id, Action<TestMessage> action) => ExecuteIfExistsAsync(StringToLong(id), action);
-        public Task<TResult?> GetValueIfExistsPublic<TResult>(string id, Func<TestMessage, TResult?> selector)
-            => GetValueIfExistsAsync(StringToLong(id), selector);
+        public void ExecuteIfExistsPublic(string id, Action<TestMessage> action) => ExecuteIfExistsAsync(StringToLong(id), action);
     }
 
     private class TestMessage

@@ -1,4 +1,3 @@
-using System.Buffers;
 using Catga.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -6,50 +5,19 @@ using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis.Locking;
 
-/// <summary>
-/// Redis-based distributed lock using SET NX with expiry.
-/// AOT-compatible, low-allocation implementation.
-/// </summary>
-public sealed partial class RedisDistributedLock : IDistributedLock
+/// <summary>Redis-based distributed lock.</summary>
+public sealed partial class RedisDistributedLock(IConnectionMultiplexer redis, IOptions<DistributedLockOptions> options, ILogger<RedisDistributedLock> logger) : IDistributedLock
 {
-    private readonly IConnectionMultiplexer _redis;
-    private readonly DistributedLockOptions _options;
-    private readonly ILogger<RedisDistributedLock> _logger;
-
-    // Lua script for atomic lock release (only release if we own it)
-    private const string ReleaseLockScript = """
-        if redis.call('get', KEYS[1]) == ARGV[1] then
-            return redis.call('del', KEYS[1])
-        else
-            return 0
-        end
-        """;
-
-    // Lua script for atomic lock extension
-    private const string ExtendLockScript = """
-        if redis.call('get', KEYS[1]) == ARGV[1] then
-            return redis.call('pexpire', KEYS[1], ARGV[2])
-        else
-            return 0
-        end
-        """;
-
-    public RedisDistributedLock(
-        IConnectionMultiplexer redis,
-        IOptions<DistributedLockOptions> options,
-        ILogger<RedisDistributedLock> logger)
-    {
-        _redis = redis;
-        _options = options.Value;
-        _logger = logger;
-    }
+    private readonly DistributedLockOptions _opts = options.Value;
+    private const string ReleaseScript = "if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end";
+    private const string ExtendScript = "if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('pexpire',KEYS[1],ARGV[2]) else return 0 end";
 
     public async ValueTask<ILockHandle?> TryAcquireAsync(
         string resource,
         TimeSpan expiry,
         CancellationToken ct = default)
     {
-        var db = _redis.GetDatabase();
+        var db = redis.GetDatabase();
         var key = GetKey(resource);
         var lockId = GenerateLockId();
         var expiresAt = DateTimeOffset.UtcNow.Add(expiry);
@@ -64,7 +32,7 @@ public sealed partial class RedisDistributedLock : IDistributedLock
 
         if (acquired)
         {
-            LogLockAcquired(_logger, resource, lockId, expiry.TotalSeconds);
+            LogLockAcquired(logger, resource, lockId, expiry.TotalSeconds);
             return new RedisLockHandle(this, db, key, resource, lockId, expiresAt);
         }
 
@@ -78,7 +46,7 @@ public sealed partial class RedisDistributedLock : IDistributedLock
         CancellationToken ct = default)
     {
         var deadline = DateTimeOffset.UtcNow.Add(waitTimeout);
-        var retryInterval = _options.RetryInterval;
+        var retryInterval = _opts.RetryInterval;
 
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -95,18 +63,18 @@ public sealed partial class RedisDistributedLock : IDistributedLock
                 await Task.Delay(delay, ct);
         }
 
-        LogLockTimeout(_logger, resource, waitTimeout.TotalSeconds);
+        LogLockTimeout(logger, resource, waitTimeout.TotalSeconds);
         throw new LockAcquisitionException(resource, waitTimeout);
     }
 
     public async ValueTask<bool> IsLockedAsync(string resource, CancellationToken ct = default)
     {
-        var db = _redis.GetDatabase();
+        var db = redis.GetDatabase();
         var key = GetKey(resource);
         return await db.KeyExistsAsync(key);
     }
 
-    private string GetKey(string resource) => string.Concat(_options.KeyPrefix, resource);
+    private string GetKey(string resource) => string.Concat(_opts.KeyPrefix, resource);
 
     private static string GenerateLockId()
     {
@@ -121,25 +89,25 @@ public sealed partial class RedisDistributedLock : IDistributedLock
         try
         {
             var result = await db.ScriptEvaluateAsync(
-                ReleaseLockScript,
+                ReleaseScript,
                 [key],
                 [lockId]);
 
             if ((long)result! == 1)
-                LogLockReleased(_logger, key, lockId);
+                LogLockReleased(logger, key, lockId);
             else
-                LogLockAlreadyReleased(_logger, key, lockId);
+                LogLockAlreadyReleased(logger, key, lockId);
         }
         catch (Exception ex)
         {
-            LogLockReleaseError(_logger, key, lockId, ex);
+            LogLockReleaseError(logger, key, lockId, ex);
         }
     }
 
     internal async ValueTask<bool> ExtendLockAsync(IDatabase db, string key, string lockId, TimeSpan extension)
     {
         var result = await db.ScriptEvaluateAsync(
-            ExtendLockScript,
+            ExtendScript,
             [key],
             [lockId, (long)extension.TotalMilliseconds]);
 

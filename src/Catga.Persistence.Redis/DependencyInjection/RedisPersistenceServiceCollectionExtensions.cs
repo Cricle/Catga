@@ -36,7 +36,7 @@ public static class RedisPersistenceServiceCollectionExtensions
             var serializer = sp.GetRequiredService<IMessageSerializer>();
             var logger = sp.GetRequiredService<ILogger<RedisOutboxPersistence>>();
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-            return new RedisOutboxPersistence(redis, serializer, logger, options, provider);
+            return new RedisOutboxPersistence(redis, serializer, logger, provider, options);
         });
 
         return services;
@@ -59,7 +59,7 @@ public static class RedisPersistenceServiceCollectionExtensions
             var serializer = sp.GetRequiredService<IMessageSerializer>();
             var logger = sp.GetRequiredService<ILogger<RedisInboxPersistence>>();
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-            return new RedisInboxPersistence(redis, serializer, logger, options, provider);
+            return new RedisInboxPersistence(redis, serializer, logger, provider, options);
         });
 
         return services;

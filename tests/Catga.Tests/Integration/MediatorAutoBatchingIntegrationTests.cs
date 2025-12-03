@@ -49,8 +49,9 @@ public class MediatorAutoBatchingIntegrationTests
         }
     }
 
-    //[Fact]
-    public async Task ResilienceBulkhead_LimitsConcurrentFlushes_AcrossShards()
+    // Disabled: Flaky test due to timing issues
+    // [Fact]
+    private async Task ResilienceBulkhead_LimitsConcurrentFlushes_AcrossShards()
     {
         var services = new ServiceCollection();
         services.AddLogging();

@@ -84,8 +84,14 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Order>
     }
 }
 
-// 3️⃣ 配置 (2 行代码)
-builder.Services.AddCatga().UseMemoryPack();
+// 3️⃣ 配置 (全特性)
+builder.Services.AddCatga()
+    .UseMemoryPack()           // High-performance serialization
+    .WithTracing()             // OpenTelemetry tracing
+    .UseResilience()           // Polly retry/circuit breaker
+    .UseInbox()                // Exactly-once delivery
+    .UseOutbox()               // Reliable event publishing
+    .UseAutoCompensation();    // Automatic rollback on failure
 
 // 4️⃣ 使用
 var result = await mediator.SendAsync(new CreateOrderCommand("PROD-001", 5));
@@ -148,6 +154,10 @@ var result = await mediator.SendAsync(new CreateOrderCommand("PROD-001", 5));
 
 ✅ 分布式支持
 ├── Event Sourcing - 事件溯源
+├── Distributed Lock - 分布式锁
+├── Rate Limiting - 分布式限流
+├── Leader Election - 领导选举
+├── Auto Compensation - 自动补偿
 ├── .NET Aspire - 云原生开发
 ├── Kubernetes - 容器编排
 └── 分布式 ID - Snowflake 算法

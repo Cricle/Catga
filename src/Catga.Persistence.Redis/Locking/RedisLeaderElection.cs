@@ -1,0 +1,324 @@
+using System.Runtime.CompilerServices;
+using Catga.Abstractions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using StackExchange.Redis;
+
+namespace Catga.Persistence.Redis.Locking;
+
+/// <summary>
+/// Redis-backed leader election using atomic operations.
+/// Provides distributed leader election for cluster coordination.
+/// </summary>
+public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
+{
+    private readonly IConnectionMultiplexer _redis;
+    private readonly LeaderElectionOptions _options;
+    private readonly ILogger<RedisLeaderElection> _logger;
+    private readonly Timer _renewTimer;
+    private readonly Dictionary<string, RedisLeadershipHandle> _activeLeaderships = new();
+    private readonly object _lock = new();
+
+    public RedisLeaderElection(
+        IConnectionMultiplexer redis,
+        IOptions<LeaderElectionOptions> options,
+        ILogger<RedisLeaderElection> logger)
+    {
+        _redis = redis;
+        _options = options.Value;
+        _logger = logger;
+
+        // Start renewal timer
+        _renewTimer = new Timer(
+            RenewLeaderships,
+            null,
+            _options.RenewInterval,
+            _options.RenewInterval);
+    }
+
+    public async ValueTask<ILeadershipHandle?> TryAcquireLeadershipAsync(
+        string electionId,
+        CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var key = _options.KeyPrefix + electionId;
+        var leaderValue = BuildLeaderValue();
+        var expiry = _options.LeaseDuration;
+
+        // Try to set if not exists
+        var acquired = await db.StringSetAsync(
+            key,
+            leaderValue,
+            expiry,
+            When.NotExists);
+
+        if (acquired)
+        {
+            LogLeadershipAcquired(_logger, electionId, _options.NodeId);
+            var handle = new RedisLeadershipHandle(this, electionId, _options.NodeId, DateTimeOffset.UtcNow);
+
+            lock (_lock)
+            {
+                _activeLeaderships[electionId] = handle;
+            }
+
+            return handle;
+        }
+
+        // Check if we already hold leadership (re-entrant)
+        var current = await db.StringGetAsync(key);
+        if (current.HasValue && current.ToString().StartsWith(_options.NodeId + "|"))
+        {
+            // Extend our existing leadership
+            await db.KeyExpireAsync(key, expiry);
+
+            lock (_lock)
+            {
+                if (_activeLeaderships.TryGetValue(electionId, out var existing))
+                    return existing;
+            }
+        }
+
+        return null;
+    }
+
+    public async ValueTask<ILeadershipHandle> AcquireLeadershipAsync(
+        string electionId,
+        TimeSpan timeout,
+        CancellationToken ct = default)
+    {
+        var deadline = DateTimeOffset.UtcNow.Add(timeout);
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var handle = await TryAcquireLeadershipAsync(electionId, ct);
+            if (handle != null)
+                return handle;
+
+            // Wait and retry
+            var remaining = deadline - DateTimeOffset.UtcNow;
+            var delay = TimeSpan.FromMilliseconds(Math.Min(500, remaining.TotalMilliseconds));
+            if (delay > TimeSpan.Zero)
+                await Task.Delay(delay, ct);
+        }
+
+        throw new TimeoutException($"Failed to acquire leadership for '{electionId}' within {timeout}");
+    }
+
+    public async ValueTask<bool> IsLeaderAsync(string electionId, CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var key = _options.KeyPrefix + electionId;
+
+        var current = await db.StringGetAsync(key);
+        return current.HasValue && current.ToString().StartsWith(_options.NodeId + "|");
+    }
+
+    public async ValueTask<LeaderInfo?> GetLeaderAsync(string electionId, CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var key = _options.KeyPrefix + electionId;
+
+        var current = await db.StringGetAsync(key);
+        if (!current.HasValue)
+            return null;
+
+        return ParseLeaderValue(current.ToString());
+    }
+
+    public async IAsyncEnumerable<LeadershipChange> WatchAsync(
+        string electionId,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var key = _options.KeyPrefix + electionId;
+        LeaderInfo? lastLeader = null;
+
+        while (!ct.IsCancellationRequested)
+        {
+            var current = await db.StringGetAsync(key);
+            LeaderInfo? currentLeader = current.HasValue ? ParseLeaderValue(current.ToString()) : null;
+
+            if (!Equals(lastLeader, currentLeader))
+            {
+                var changeType = (lastLeader, currentLeader) switch
+                {
+                    (null, not null) => LeadershipChangeType.Elected,
+                    (not null, null) => LeadershipChangeType.Lost,
+                    _ => LeadershipChangeType.Elected // Leader changed
+                };
+
+                yield return new LeadershipChange
+                {
+                    Type = changeType,
+                    PreviousLeader = lastLeader,
+                    NewLeader = currentLeader,
+                    Timestamp = DateTimeOffset.UtcNow
+                };
+
+                lastLeader = currentLeader;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(1), ct);
+        }
+    }
+
+    internal async ValueTask ResignAsync(string electionId)
+    {
+        var db = _redis.GetDatabase();
+        var key = _options.KeyPrefix + electionId;
+
+        // Only delete if we are the leader
+        var script = """
+            local current = redis.call('GET', KEYS[1])
+            if current and string.find(current, ARGV[1], 1, true) == 1 then
+                return redis.call('DEL', KEYS[1])
+            end
+            return 0
+            """;
+
+        await db.ScriptEvaluateAsync(script, new RedisKey[] { key }, new RedisValue[] { _options.NodeId + "|" });
+
+        lock (_lock)
+        {
+            _activeLeaderships.Remove(electionId);
+        }
+
+        LogLeadershipResigned(_logger, electionId, _options.NodeId);
+    }
+
+    internal async ValueTask ExtendAsync(string electionId)
+    {
+        var db = _redis.GetDatabase();
+        var key = _options.KeyPrefix + electionId;
+
+        // Only extend if we are the leader
+        var script = """
+            local current = redis.call('GET', KEYS[1])
+            if current and string.find(current, ARGV[1], 1, true) == 1 then
+                return redis.call('PEXPIRE', KEYS[1], ARGV[2])
+            end
+            return 0
+            """;
+
+        var result = await db.ScriptEvaluateAsync(
+            script,
+            new RedisKey[] { key },
+            new RedisValue[] { _options.NodeId + "|", (long)_options.LeaseDuration.TotalMilliseconds });
+
+        if ((int)result == 0)
+        {
+            // Lost leadership
+            lock (_lock)
+            {
+                if (_activeLeaderships.TryGetValue(electionId, out var handle))
+                {
+                    handle.MarkLost();
+                    _activeLeaderships.Remove(electionId);
+                }
+            }
+        }
+    }
+
+    private void RenewLeaderships(object? state)
+    {
+        List<string> elections;
+        lock (_lock)
+        {
+            elections = _activeLeaderships.Keys.ToList();
+        }
+
+        foreach (var electionId in elections)
+        {
+            _ = ExtendAsync(electionId);
+        }
+    }
+
+    private string BuildLeaderValue()
+    {
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        return $"{_options.NodeId}|{timestamp}|{_options.Endpoint ?? ""}";
+    }
+
+    private static LeaderInfo ParseLeaderValue(string value)
+    {
+        var parts = value.Split('|');
+        return new LeaderInfo
+        {
+            NodeId = parts[0],
+            AcquiredAt = DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(parts[1])),
+            Endpoint = parts.Length > 2 && !string.IsNullOrEmpty(parts[2]) ? parts[2] : null
+        };
+    }
+
+    public void Dispose()
+    {
+        _renewTimer.Dispose();
+
+        // Resign all leaderships
+        lock (_lock)
+        {
+            foreach (var electionId in _activeLeaderships.Keys.ToList())
+            {
+                _ = ResignAsync(electionId);
+            }
+        }
+    }
+
+    #region Logging
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Leadership acquired: {ElectionId} (node: {NodeId})")]
+    private static partial void LogLeadershipAcquired(ILogger logger, string electionId, string nodeId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Leadership resigned: {ElectionId} (node: {NodeId})")]
+    private static partial void LogLeadershipResigned(ILogger logger, string electionId, string nodeId);
+
+    #endregion
+
+    private sealed class RedisLeadershipHandle : ILeadershipHandle
+    {
+        private readonly RedisLeaderElection _parent;
+        private bool _isLeader = true;
+
+        public string ElectionId { get; }
+        public string NodeId { get; }
+        public DateTimeOffset AcquiredAt { get; }
+        public bool IsLeader => _isLeader;
+
+        public event Action? OnLeadershipLost;
+
+        public RedisLeadershipHandle(
+            RedisLeaderElection parent,
+            string electionId,
+            string nodeId,
+            DateTimeOffset acquiredAt)
+        {
+            _parent = parent;
+            ElectionId = electionId;
+            NodeId = nodeId;
+            AcquiredAt = acquiredAt;
+        }
+
+        public async ValueTask ExtendAsync(CancellationToken ct = default)
+        {
+            await _parent.ExtendAsync(ElectionId);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (_isLeader)
+            {
+                await _parent.ResignAsync(ElectionId);
+                _isLeader = false;
+            }
+        }
+
+        internal void MarkLost()
+        {
+            _isLeader = false;
+            OnLeadershipLost?.Invoke();
+        }
+    }
+}

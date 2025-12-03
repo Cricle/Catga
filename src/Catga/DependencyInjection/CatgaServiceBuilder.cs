@@ -200,6 +200,16 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
     }
 
     /// <summary>
+    /// Enable automatic compensation for commands marked with [Compensatable] or [OnFailure].
+    /// On failure, compensation events/commands are automatically published.
+    /// </summary>
+    public CatgaServiceBuilder UseAutoCompensation()
+    {
+        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.CompensationBehavior<,>));
+        return this;
+    }
+
+    /// <summary>
     /// Enable Polly-based resilience (retry/timeout/circuit/bulkhead) with multi-TFM support
     /// </summary>
     public CatgaServiceBuilder UseResilience(Action<CatgaResilienceOptions>? configure = null)

@@ -2,6 +2,8 @@ using Catga.Inbox;
 using Catga.Outbox;
 using Catga.Persistence.Redis.Persistence;
 using Catga.Persistence.Redis;
+using Catga.Persistence.Redis.Locking;
+using Catga.Persistence.Redis.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Catga.Abstractions;
@@ -97,6 +99,40 @@ public static class RedisPersistenceServiceCollectionExtensions
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
             return new RedisIdempotencyStore(redis, serializer, logger, options, provider);
         });
+
+        return services;
+    }
+
+    /// <summary>
+    /// 添加 Redis 分布式限流器
+    /// </summary>
+    public static IServiceCollection AddRedisRateLimiter(
+        this IServiceCollection services,
+        Action<DistributedRateLimiterOptions>? configure = null)
+    {
+        services.Configure<DistributedRateLimiterOptions>(options =>
+        {
+            configure?.Invoke(options);
+        });
+
+        services.TryAddSingleton<IDistributedRateLimiter, RedisRateLimiter>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// 添加 Redis Leader Election
+    /// </summary>
+    public static IServiceCollection AddRedisLeaderElection(
+        this IServiceCollection services,
+        Action<LeaderElectionOptions>? configure = null)
+    {
+        services.Configure<LeaderElectionOptions>(options =>
+        {
+            configure?.Invoke(options);
+        });
+
+        services.TryAddSingleton<ILeaderElection, RedisLeaderElection>();
 
         return services;
     }

@@ -58,3 +58,41 @@ public interface IReliableEvent : IEvent
     public new QualityOfService QoS => QualityOfService.AtLeastOnce;
 }
 
+/// <summary>Delayed message interface for scheduled delivery.</summary>
+public interface IDelayedMessage : IMessage
+{
+    /// <summary>Absolute time when message should be delivered. Takes precedence over Delay.</summary>
+    DateTimeOffset? ScheduledAt => null;
+
+    /// <summary>Relative delay from now. Ignored if ScheduledAt is set.</summary>
+    TimeSpan? Delay => null;
+
+    /// <summary>Computed delivery time.</summary>
+    DateTimeOffset DeliverAt => ScheduledAt ?? (Delay.HasValue ? DateTimeOffset.UtcNow.Add(Delay.Value) : DateTimeOffset.UtcNow);
+}
+
+/// <summary>Delayed request with response.</summary>
+public interface IDelayedRequest<TResponse> : IRequest<TResponse>, IDelayedMessage { }
+
+/// <summary>Delayed request without response.</summary>
+public interface IDelayedRequest : IRequest, IDelayedMessage { }
+
+/// <summary>Delayed event.</summary>
+public interface IDelayedEvent : IEvent, IDelayedMessage { }
+
+/// <summary>Priority levels for message processing.</summary>
+public enum MessagePriority : byte
+{
+    Low = 0,
+    Normal = 1,
+    High = 2,
+    Critical = 3
+}
+
+/// <summary>Prioritized message interface.</summary>
+public interface IPrioritizedMessage : IMessage
+{
+    /// <summary>Message priority. Higher priority messages are processed first.</summary>
+    MessagePriority Priority => MessagePriority.Normal;
+}
+

@@ -76,7 +76,7 @@ public class CatgaMediatorAdditionalTests
         var sp = services.BuildServiceProvider();
 
         // Act - Pass null options
-        var mediator = new CatgaMediator(sp, sp.GetRequiredService<ILogger<CatgaMediator>>(), options: null);
+        var mediator = new CatgaMediator(sp, sp.GetRequiredService<ILogger<CatgaMediator>>(), options: null!);
         var command = new TestCommand { Data = "test" };
         var result = await mediator.SendAsync<TestCommand, TestResponse>(command);
 

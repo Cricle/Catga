@@ -34,7 +34,7 @@ public class AutoBatchingBehaviorTests
 
         var provider = new DefaultMediatorBatchOptionsProvider(global);
         provider.TryGet<ProviderMergeReq>(out var effective).Should().BeTrue();
-        effective.MaxBatchSize.Should().Be(5);
+        effective!.MaxBatchSize.Should().Be(5);
         effective.MaxQueueLength.Should().Be(1000);
         effective.MaxShards.Should().Be(999);
     }

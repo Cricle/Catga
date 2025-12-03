@@ -51,42 +51,58 @@ try
         .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
         .AddEnvironmentVariables();
 
-// 分布式/集群配置：支持通过命令行参数或环境变量设置 WorkerId
-// 单机开发：dotnet run
-// 多节点开发：dotnet run -- 1 (节点1), dotnet run -- 2 (节点2), ...
-// 生产环境：通过 CATGA_WORKER_ID 环境变量配置
+// ============================================================
+// Catga Full Feature Configuration
+// ============================================================
+// Distributed/Cluster: Set WorkerId via args or environment
+// Single node: dotnet run
+// Multi-node: dotnet run -- 1 (node1), dotnet run -- 2 (node2)
+// Production: Set CATGA_WORKER_ID environment variable
+// ============================================================
+
 var catgaBuilder = builder.Services
     .AddCatga(o => o.EndpointNamingConvention = Catga.Generated.EndpointNaming.GetConvention())
-    .WithTracing()
-    .UseMemoryPack()
-    .UseResilience()
-    .UseInbox()
-    .UseOutbox()
-    .UseDeadLetterQueue();
+    .WithTracing()                    // OpenTelemetry distributed tracing
+    .WithLogging()                    // Structured logging
+    .UseMemoryPack()                  // High-performance serialization
+    .UseResilience()                  // Polly retry/circuit breaker
+    .UseInbox()                       // Exactly-once delivery
+    .UseOutbox()                      // Reliable event publishing
+    .UseDeadLetterQueue()             // Failed message handling
+    .UseAutoCompensation();           // Automatic compensation on failure
 
 if (args.Length > 0 && int.TryParse(args[0], out var workerId))
 {
-    // 从命令行参数获取 WorkerId（便于本地多节点测试）
     catgaBuilder.UseWorkerId(workerId);
     builder.WebHost.UseUrls($"http://localhost:{5000 + workerId}");
     Console.WriteLine($"[OrderSystem] 🌐 Using WorkerId from args: {workerId}, Port: {5000 + workerId}");
 }
 else if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CATGA_WORKER_ID")))
 {
-    // 从环境变量获取 WorkerId（生产/容器环境）
     catgaBuilder.UseWorkerIdFromEnvironment();
     Console.WriteLine("[OrderSystem] 🌐 Using WorkerId from environment variable");
 }
 else
 {
-    // 开发环境默认：使用随机 WorkerId（单节点场景）
     Console.WriteLine("[OrderSystem] ⚙️ Single-node development mode (random WorkerId)");
 }
 
 catgaBuilder.ForDevelopment();
 
+// Transport and Persistence
 builder.Services.AddInMemoryTransport();
 builder.Services.AddInMemoryPersistence();
+
+// Register compensation publisher for automatic rollback
+builder.Services.AddSingleton<Catga.Pipeline.Behaviors.ICompensationPublisher<OrderSystem.Api.Messages.CreateOrderCommand>,
+    OrderSystem.Api.Services.CreateOrderCompensation>();
+
+// Register distributed services (rate limiter and leader election are optional)
+builder.Services.AddSingleton<IInventoryService, OrderSystem.Api.Services.DistributedInventoryService>();
+builder.Services.AddSingleton<IPaymentService, OrderSystem.Api.Services.SimulatedPaymentService>();
+
+// Register leader election background service
+builder.Services.AddHostedService<OrderSystem.Api.Handlers.LeaderElectionBackgroundService>();
 
 // Configure OpenTelemetry
 var serviceName = "OrderSystem.Api";

@@ -1,40 +1,24 @@
+using System.Diagnostics;
 using Catga.Abstractions;
+using Catga.Observability;
 using Catga.Outbox;
-using Catga.Persistence;
+using Catga.Resilience;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using Catga.Resilience;
-using System.Diagnostics;
-using Catga.Observability;
 
 namespace Catga.Persistence.Stores;
 
-/// <summary>
-/// NATS JetStream-based outbox store for reliable message publishing
-/// </summary>
-public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
+/// <summary>NATS JetStream-based outbox store.</summary>
+public sealed class NatsJSOutboxStore(INatsConnection connection, IMessageSerializer serializer, IResiliencePipelineProvider provider, string? streamName = null, NatsJSStoreOptions? options = null)
+    : NatsJSStoreBase(connection, streamName ?? "CATGA_OUTBOX", options), IOutboxStore
 {
-    private readonly IMessageSerializer _serializer;
-    private readonly IResiliencePipelineProvider _provider;
-
-    public NatsJSOutboxStore(
-        INatsConnection connection,
-        IMessageSerializer serializer,
-        string? streamName = null,
-        NatsJSStoreOptions? options = null,
-        IResiliencePipelineProvider? provider = null)
-        : base(connection, streamName ?? "CATGA_OUTBOX", options)
-    {
-        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
-        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
-    }
 
     protected override string[] GetSubjects() => new[] { $"{StreamName}.>" };
 
     public async ValueTask AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
     {
-        await _provider.ExecutePersistenceAsync(async ct =>
+        await provider.ExecutePersistenceAsync(async ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Outbox.Add", ActivityKind.Producer);
             ArgumentNullException.ThrowIfNull(message);
@@ -42,7 +26,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
             await EnsureInitializedAsync(ct);
 
             var subject = $"{StreamName}.{message.MessageId}";
-            var data = _serializer.Serialize(message, typeof(OutboxMessage));
+            var data = serializer.Serialize(message, typeof(OutboxMessage));
             try
             {
                 var ack = await JetStream.PublishAsync(subject, data, cancellationToken: ct);
@@ -67,7 +51,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
         int maxCount = 100,
         CancellationToken cancellationToken = default)
     {
-        return await _provider.ExecutePersistenceAsync(async ct =>
+        return await provider.ExecutePersistenceAsync(async ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Outbox.GetPending", ActivityKind.Internal);
             await EnsureInitializedAsync(ct);
@@ -92,7 +76,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                 {
                     if (msg.Data != null && msg.Data.Length > 0)
                     {
-                        var outboxMsg = (OutboxMessage?)_serializer.Deserialize(msg.Data, typeof(OutboxMessage));
+                        var outboxMsg = (OutboxMessage?)serializer.Deserialize(msg.Data, typeof(OutboxMessage));
                         if (outboxMsg != null &&
                             outboxMsg.Status == OutboxStatus.Pending &&
                             outboxMsg.RetryCount < outboxMsg.MaxRetries)
@@ -123,7 +107,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
 
     public async ValueTask MarkAsPublishedAsync(long messageId, CancellationToken cancellationToken = default)
     {
-        await _provider.ExecutePersistenceAsync(async ct =>
+        await provider.ExecutePersistenceAsync(async ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Outbox.MarkPublished", ActivityKind.Internal);
             await EnsureInitializedAsync(ct);
@@ -150,7 +134,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                     if (msg.Data != null && msg.Data.Length > 0)
                     {
                         // 2. Deserialize existing message
-                        var outboxMsg = (OutboxMessage?)_serializer.Deserialize(msg.Data, typeof(OutboxMessage));
+                        var outboxMsg = (OutboxMessage?)serializer.Deserialize(msg.Data, typeof(OutboxMessage));
                         if (outboxMsg != null && outboxMsg.MessageId == messageId)
                         {
                             // 3. Update status and timestamp
@@ -158,7 +142,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                             outboxMsg.PublishedAt = DateTime.UtcNow;
 
                             // 4. Re-publish with updated data
-                            var updatedData = _serializer.Serialize(outboxMsg, typeof(OutboxMessage));
+                            var updatedData = serializer.Serialize(outboxMsg, typeof(OutboxMessage));
                             var ack = await JetStream.PublishAsync(subject, updatedData, cancellationToken: ct);
 
                             if (ack.Error != null)
@@ -194,7 +178,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
         string errorMessage,
         CancellationToken cancellationToken = default)
     {
-        await _provider.ExecutePersistenceAsync(async ct =>
+        await provider.ExecutePersistenceAsync(async ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Outbox.MarkFailed", ActivityKind.Internal);
             ArgumentNullException.ThrowIfNull(errorMessage);
@@ -223,7 +207,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                     if (msg.Data != null && msg.Data.Length > 0)
                     {
                         // 2. Deserialize existing message
-                        var outboxMsg = (OutboxMessage?)_serializer.Deserialize(msg.Data, typeof(OutboxMessage));
+                        var outboxMsg = (OutboxMessage?)serializer.Deserialize(msg.Data, typeof(OutboxMessage));
                         if (outboxMsg != null && outboxMsg.MessageId == messageId)
                         {
                             // 3. Update fields
@@ -234,7 +218,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
                                 : OutboxStatus.Pending;
 
                             // 4. Re-publish with updated data
-                            var updatedData = _serializer.Serialize(outboxMsg, typeof(OutboxMessage));
+                            var updatedData = serializer.Serialize(outboxMsg, typeof(OutboxMessage));
                             var ack = await JetStream.PublishAsync(subject, updatedData, cancellationToken: ct);
 
                             if (ack.Error != null)
@@ -271,7 +255,7 @@ public sealed class NatsJSOutboxStore : NatsJSStoreBase, IOutboxStore
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)
     {
-        await _provider.ExecutePersistenceAsync(ct => new ValueTask(), cancellationToken);
+        await provider.ExecutePersistenceAsync(ct => new ValueTask(), cancellationToken);
     }
 
 }

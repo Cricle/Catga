@@ -1,62 +1,24 @@
+using System.Runtime.CompilerServices;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using System.Runtime.CompilerServices;
 
 namespace Catga.Persistence;
 
-/// <summary>
-/// Base class for NATS JetStream-based stores with simplified initialization
-/// </summary>
-/// <remarks>
-/// Ensures stream existence by attempting CreateStreamAsync on each EnsureInitializedAsync call, ignoring 'already exists' error.
-/// </remarks>
-public abstract class NatsJSStoreBase
+/// <summary>Base class for NATS JetStream stores.</summary>
+public abstract class NatsJSStoreBase(INatsConnection connection, string streamName, NatsJSStoreOptions? options = null)
 {
-    protected readonly INatsConnection Connection;
-    protected readonly INatsJSContext JetStream;
-    protected readonly string StreamName;
-    protected readonly NatsJSStoreOptions Options;
+    protected readonly INatsJSContext JetStream = new NatsJSContext(connection);
+    protected readonly string StreamName = streamName;
+    protected readonly NatsJSStoreOptions Options = options ?? new() { StreamName = streamName };
 
-    protected NatsJSStoreBase(
-        INatsConnection connection,
-        string streamName,
-        NatsJSStoreOptions? options = null)
-    {
-        Connection = connection ?? throw new ArgumentNullException(nameof(connection));
-        StreamName = streamName;
-        Options = options ?? new NatsJSStoreOptions { StreamName = streamName };
-        JetStream = new NatsJSContext(connection);
-    }
-
-    /// <summary>
-    /// Get the subjects pattern for this store
-    /// </summary>
     protected abstract string[] GetSubjects();
+    protected virtual StreamConfig CreateStreamConfig() => Options.CreateStreamConfig(StreamName, GetSubjects());
 
-    /// <summary>
-    /// Create the JetStream configuration for this store using options
-    /// </summary>
-    protected virtual StreamConfig CreateStreamConfig()
-    {
-        return Options.CreateStreamConfig(StreamName, GetSubjects());
-    }
-
-    /// <summary>
-    /// Ensures the JetStream is initialized.
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected async ValueTask EnsureInitializedAsync(CancellationToken cancellationToken = default)
+    protected async ValueTask EnsureInitializedAsync(CancellationToken ct = default)
     {
-        // 直接尝试创建 Stream；若已存在则忽略
-        var config = CreateStreamConfig();
-        try
-        {
-            await JetStream.CreateStreamAsync(config, cancellationToken);
-        }
-        catch (NatsJSApiException ex) when (ex.Error.Code == 400)
-        {
-            // Stream already exists, ignore
-        }
+        try { await JetStream.CreateStreamAsync(CreateStreamConfig(), ct); }
+        catch (NatsJSApiException ex) when (ex.Error.Code == 400) { }
     }
 }

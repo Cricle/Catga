@@ -1,40 +1,18 @@
-using System;
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.DeadLetter;
-using Catga.Persistence;
+using Catga.Resilience;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using Catga.Resilience;
 
 namespace Catga.Persistence.Nats;
 
-/// <summary>
-/// NATS JetStream-based dead letter queue (lock-free, uses JetStream)
-/// </summary>
-/// <remarks>
-/// Lock-free: NATS JetStream handles all concurrency internally.
-/// Uses dedicated stream for dead letter messages.
-/// AOT-compatible: uses IMessageSerializer interface.
-/// </remarks>
-public sealed class NatsJSDeadLetterQueue : NatsJSStoreBase, IDeadLetterQueue
+/// <summary>NATS JetStream-based dead letter queue.</summary>
+public sealed class NatsJSDeadLetterQueue(INatsConnection connection, IMessageSerializer serializer, IResiliencePipelineProvider provider, string streamName = "CATGA_DLQ", NatsJSStoreOptions? options = null)
+    : NatsJSStoreBase(connection, streamName, options), IDeadLetterQueue
 {
-    private readonly IMessageSerializer _serializer;
-    private readonly IResiliencePipelineProvider _provider;
-
-    public NatsJSDeadLetterQueue(
-        INatsConnection connection,
-        IMessageSerializer serializer,
-        string streamName = "CATGA_DLQ",
-        NatsJSStoreOptions? options = null,
-        IResiliencePipelineProvider? provider = null)
-        : base(connection, streamName, options)
-    {
-        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
-        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
-    }
 
     protected override string[] GetSubjects() => new[] { $"{StreamName.ToLowerInvariant()}.>" };
 
@@ -44,11 +22,11 @@ public sealed class NatsJSDeadLetterQueue : NatsJSStoreBase, IDeadLetterQueue
         int retryCount,
         CancellationToken cancellationToken = default) where TMessage : IMessage
     {
-        await _provider.ExecutePersistenceAsync(async ct =>
+        await provider.ExecutePersistenceAsync(async ct =>
         {
             await EnsureInitializedAsync(ct);
 
-            var messageData = Convert.ToBase64String(_serializer.Serialize(message, typeof(TMessage)));
+            var messageData = Convert.ToBase64String(serializer.Serialize(message, typeof(TMessage)));
 
             var dlqMessage = new DeadLetterMessage
             {
@@ -63,7 +41,7 @@ public sealed class NatsJSDeadLetterQueue : NatsJSStoreBase, IDeadLetterQueue
             };
 
             var subject = $"{StreamName.ToLowerInvariant()}.{message.MessageId}";
-            var data = _serializer.Serialize(dlqMessage, typeof(DeadLetterMessage));
+            var data = serializer.Serialize(dlqMessage, typeof(DeadLetterMessage));
 
             await JetStream.PublishAsync(subject, data, cancellationToken: ct);
         }, cancellationToken);
@@ -73,7 +51,7 @@ public sealed class NatsJSDeadLetterQueue : NatsJSStoreBase, IDeadLetterQueue
         int maxCount = 100,
         CancellationToken cancellationToken = default)
     {
-        return await _provider.ExecutePersistenceAsync(async ct =>
+        return await provider.ExecutePersistenceAsync(async ct =>
         {
             await EnsureInitializedAsync(ct);
 
@@ -101,7 +79,7 @@ public sealed class NatsJSDeadLetterQueue : NatsJSStoreBase, IDeadLetterQueue
                     {
                         if (msg.Data != null)
                         {
-                            var dlqMsg = (DeadLetterMessage)_serializer.Deserialize(msg.Data, typeof(DeadLetterMessage))!;
+                            var dlqMsg = (DeadLetterMessage)serializer.Deserialize(msg.Data, typeof(DeadLetterMessage))!;
                             result.Add(dlqMsg);
                             await msg.AckAsync(cancellationToken: ct);
                             count++;

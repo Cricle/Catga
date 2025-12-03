@@ -1,43 +1,18 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Idempotency;
-using Catga.Persistence;
+using Catga.Resilience;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using Catga.Resilience;
 
 namespace Catga.Persistence.Nats;
 
-/// <summary>
-/// NATS JetStream-based idempotency store (lock-free, distributed)
-/// Uses JetStream for better compatibility and performance
-/// </summary>
-/// <remarks>
-/// Lock-free: NATS JetStream handles all concurrency internally.
-/// Suitable for distributed systems.
-/// AOT-compatible: uses IMessageSerializer interface.
-/// Uses JetStream instead of KeyValue Store for consistency with other NATS stores.
-/// </remarks>
-public sealed class NatsJSIdempotencyStore : NatsJSStoreBase, IIdempotencyStore
+/// <summary>NATS JetStream-based idempotency store.</summary>
+public sealed class NatsJSIdempotencyStore(INatsConnection connection, IMessageSerializer serializer, IResiliencePipelineProvider provider, string streamName = "CATGA_IDEMPOTENCY", TimeSpan? ttl = null, NatsJSStoreOptions? options = null)
+    : NatsJSStoreBase(connection, streamName, options), IIdempotencyStore
 {
-    private readonly IMessageSerializer _serializer;
-    private readonly TimeSpan _ttl;
-    private readonly IResiliencePipelineProvider _provider;
-
-    public NatsJSIdempotencyStore(
-        INatsConnection connection,
-        IMessageSerializer serializer,
-        string streamName = "CATGA_IDEMPOTENCY",
-        TimeSpan? ttl = null,
-        NatsJSStoreOptions? options = null,
-        IResiliencePipelineProvider? provider = null)
-        : base(connection, streamName, options)
-    {
-        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
-        _ttl = ttl ?? TimeSpan.FromHours(24);
-        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
-    }
+    private readonly TimeSpan _ttl = ttl ?? TimeSpan.FromHours(24);
 
     protected override string[] GetSubjects() => new[] { $"{StreamName}.>" };
 
@@ -52,7 +27,7 @@ public sealed class NatsJSIdempotencyStore : NatsJSStoreBase, IIdempotencyStore
 
     public async Task<bool> HasBeenProcessedAsync(long messageId, CancellationToken cancellationToken = default)
     {
-        return await _provider.ExecutePersistenceAsync(async ct =>
+        return await provider.ExecutePersistenceAsync(async ct =>
         {
             await EnsureInitializedAsync(ct);
 
@@ -96,7 +71,7 @@ public sealed class NatsJSIdempotencyStore : NatsJSStoreBase, IIdempotencyStore
         TResult? result = default,
         CancellationToken cancellationToken = default)
     {
-        await _provider.ExecutePersistenceAsync(async ct =>
+        await provider.ExecutePersistenceAsync(async ct =>
         {
             await EnsureInitializedAsync(ct);
 
@@ -105,7 +80,7 @@ public sealed class NatsJSIdempotencyStore : NatsJSStoreBase, IIdempotencyStore
 
             if (result != null)
             {
-                data = _serializer.Serialize(result, typeof(TResult));
+                data = serializer.Serialize(result, typeof(TResult));
             }
             else
             {
@@ -131,7 +106,7 @@ public sealed class NatsJSIdempotencyStore : NatsJSStoreBase, IIdempotencyStore
         long messageId,
         CancellationToken cancellationToken = default)
     {
-        return await _provider.ExecutePersistenceAsync(async ct =>
+        return await provider.ExecutePersistenceAsync(async ct =>
         {
             await EnsureInitializedAsync(ct);
 
@@ -161,7 +136,7 @@ public sealed class NatsJSIdempotencyStore : NatsJSStoreBase, IIdempotencyStore
                     if (!hasResult || msg.Data == null || msg.Data.Length == 0)
                         return default;
 
-                    return (TResult?)_serializer.Deserialize(msg.Data, typeof(TResult));
+                    return (TResult?)serializer.Deserialize(msg.Data, typeof(TResult));
                 }
 
                 return default;

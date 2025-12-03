@@ -64,7 +64,7 @@ public static class NatsPersistenceServiceCollectionExtensions
             var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_DLQ" };
             configure?.Invoke(options);
 
-            return new NatsJSDeadLetterQueue(connection, serializer, streamName ?? "CATGA_DLQ", options, provider);
+            return new NatsJSDeadLetterQueue(connection, serializer, provider, streamName ?? "CATGA_DLQ", options);
         });
 
         return services;
@@ -90,7 +90,7 @@ public static class NatsPersistenceServiceCollectionExtensions
             var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_IDEMPOTENCY" };
             configure?.Invoke(options);
 
-            return new NatsJSIdempotencyStore(connection, serializer, streamName ?? "CATGA_IDEMPOTENCY", null, options, provider);
+            return new NatsJSIdempotencyStore(connection, serializer, provider, streamName ?? "CATGA_IDEMPOTENCY", null, options);
         });
 
         return services;
@@ -115,7 +115,7 @@ public static class NatsPersistenceServiceCollectionExtensions
             var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_OUTBOX" };
             configure?.Invoke(options);
 
-            return new NatsJSOutboxStore(connection, serializer, streamName, options, provider);
+            return new NatsJSOutboxStore(connection, serializer, provider, streamName, options);
         });
 
         return services;
@@ -140,7 +140,7 @@ public static class NatsPersistenceServiceCollectionExtensions
             var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_INBOX" };
             configure?.Invoke(options);
 
-            return new NatsJSInboxStore(connection, serializer, streamName, options, provider);
+            return new NatsJSInboxStore(connection, serializer, provider, streamName, options);
         });
 
         return services;

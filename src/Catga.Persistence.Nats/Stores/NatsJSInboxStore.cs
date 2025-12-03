@@ -1,33 +1,18 @@
+using System.Diagnostics;
 using Catga.Abstractions;
 using Catga.Inbox;
+using Catga.Observability;
+using Catga.Resilience;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using Catga.Resilience;
-using System.Diagnostics;
-using Catga.Observability;
 
 namespace Catga.Persistence.Stores;
 
-/// <summary>
-/// NATS JetStream-based inbox store for idempotent message processing
-/// </summary>
-public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
+/// <summary>NATS JetStream-based inbox store.</summary>
+public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSerializer serializer, IResiliencePipelineProvider provider, string? streamName = null, NatsJSStoreOptions? options = null)
+    : NatsJSStoreBase(connection, streamName ?? "CATGA_INBOX", options), IInboxStore
 {
-    private readonly IMessageSerializer _serializer;
-    private readonly IResiliencePipelineProvider _provider;
-
-    public NatsJSInboxStore(
-        INatsConnection connection,
-        IMessageSerializer serializer,
-        string? streamName = null,
-        NatsJSStoreOptions? options = null,
-        IResiliencePipelineProvider? provider = null)
-        : base(connection, streamName ?? "CATGA_INBOX", options)
-    {
-        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
-        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
-    }
 
     protected override string[] GetSubjects() => [$"{StreamName}.>"];
 
@@ -36,7 +21,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         TimeSpan lockDuration,
         CancellationToken cancellationToken = default)
     {
-        return await _provider.ExecutePersistenceAsync(async ct =>
+        return await provider.ExecutePersistenceAsync(async ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.TryLock", ActivityKind.Internal);
             await EnsureInitializedAsync(ct);
@@ -65,7 +50,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
             message.Status = InboxStatus.Processing;
             message.LockExpiresAt = DateTime.UtcNow.Add(lockDuration);
 
-            var data = _serializer.Serialize(message, typeof(InboxMessage));
+            var data = serializer.Serialize(message, typeof(InboxMessage));
             var ack = await JetStream.PublishAsync(subject, data, cancellationToken: ct);
 
             var ok = ack.Error == null;
@@ -89,7 +74,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         InboxMessage message,
         CancellationToken cancellationToken = default)
     {
-        await _provider.ExecutePersistenceAsync(async ct =>
+        await provider.ExecutePersistenceAsync(async ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.MarkProcessed", ActivityKind.Internal);
             ArgumentNullException.ThrowIfNull(message);
@@ -101,7 +86,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
             message.LockExpiresAt = null;
 
             var subject = $"{StreamName}.{message.MessageId}";
-            var data = _serializer.Serialize(message, typeof(InboxMessage));
+            var data = serializer.Serialize(message, typeof(InboxMessage));
 
             await JetStream.PublishAsync(subject, data, cancellationToken: ct);
             CatgaDiagnostics.InboxProcessed.Add(1);
@@ -115,7 +100,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         long messageId,
         CancellationToken cancellationToken = default)
     {
-        return await _provider.ExecutePersistenceAsync(async ct =>
+        return await provider.ExecutePersistenceAsync(async ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.HasBeenProcessed", ActivityKind.Internal);
             await EnsureInitializedAsync(ct);
@@ -133,7 +118,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         long messageId,
         CancellationToken cancellationToken = default)
     {
-        return await _provider.ExecutePersistenceAsync(async ct =>
+        return await provider.ExecutePersistenceAsync(async ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.GetProcessedResult", ActivityKind.Internal);
             await EnsureInitializedAsync(ct);
@@ -157,7 +142,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         long messageId,
         CancellationToken cancellationToken = default)
     {
-        await _provider.ExecutePersistenceAsync(async ct =>
+        await provider.ExecutePersistenceAsync(async ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.ReleaseLock", ActivityKind.Internal);
             await EnsureInitializedAsync(ct);
@@ -169,7 +154,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
                 message.LockExpiresAt = null;
 
                 var subject = $"{StreamName}.{messageId}";
-                var data = _serializer.Serialize(message, typeof(InboxMessage));
+                var data = serializer.Serialize(message, typeof(InboxMessage));
 
                 await JetStream.PublishAsync(subject, data, cancellationToken: ct);
                 CatgaDiagnostics.InboxLocksReleased.Add(1);
@@ -183,7 +168,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)
     {
-        await _provider.ExecutePersistenceAsync(ct =>
+        await provider.ExecutePersistenceAsync(ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.DeleteProcessed", ActivityKind.Internal);
             activity?.AddActivityEvent(CatgaActivitySource.Events.InboxDeleteProcessedNoop);
@@ -213,7 +198,7 @@ public sealed class NatsJSInboxStore : NatsJSStoreBase, IInboxStore
             {
                 if (msg.Data != null && msg.Data.Length > 0)
                 {
-                    return (InboxMessage?)_serializer.Deserialize(msg.Data, typeof(InboxMessage));
+                    return (InboxMessage?)serializer.Deserialize(msg.Data, typeof(InboxMessage));
                 }
             }
         }

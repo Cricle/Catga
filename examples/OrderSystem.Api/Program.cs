@@ -347,8 +347,8 @@ app.MapGet("/demo/compare", () => Results.Ok(new
 
 app.MapGet("/demo/flow-info", () => Results.Ok(new
 {
-    Title = "Flow Orchestration - Zero-Cost Automatic Compensation",
-    Description = "Catga Flow provides saga-like orchestration with automatic compensation on failure",
+    Title = "Flow Orchestration - Simple Saga Pattern",
+    Description = "Catga Flow provides fluent, simple saga orchestration with automatic compensation on failure",
     Endpoints = new[]
     {
         new { Method = "POST", Path = "/demo/flow/order-success", Description = "All steps succeed - no compensation" },
@@ -356,33 +356,32 @@ app.MapGet("/demo/flow-info", () => Results.Ok(new
     },
     Features = new[]
     {
-        "✨ AsyncLocal context - implicit propagation, no manual passing",
+        "✨ Fluent API - simple, readable, chainable",
         "✨ Automatic reverse-order compensation on failure",
         "✨ Zero reflection, AOT compatible",
-        "✨ Integrates with existing Pipeline (retry, timeout, outbox)"
+        "✨ Supports typed results and void steps"
     },
     CodeExample = @"
-// Use Flow in Handler
-await using var flow = mediator.BeginFlow(""CreateOrder"");
+// Simple, fluent Flow API
+var result = await Flow.Create(""CreateOrder"")
+    .Step(""CheckInventory"",
+        () => inventoryService.CheckStockAsync(items))
+    .Step(""CreateOrder"",
+        () => orderRepository.SaveAsync(order),
+        () => orderRepository.DeleteAsync(order.Id))  // Compensation
+    .Step(""ReserveInventory"",
+        () => inventoryService.ReserveAsync(items),
+        () => inventoryService.ReleaseAsync(items))   // Compensation
+    .Step(""ProcessPayment"",
+        () => paymentService.ChargeAsync(amount),
+        () => paymentService.RefundAsync(amount))     // Compensation
+    .ExecuteAsync();
 
-// Step 1: Create order
-await orderRepository.SaveAsync(order, ct);
-flow.RegisterCompensation(async ct => {
-    order.Status = OrderStatus.Failed;
-    await orderRepository.UpdateAsync(order, ct);
-}, ""DeleteOrder"");
-
-// Step 2: Reserve inventory
-await inventoryService.ReserveStockAsync(orderId, items, ct);
-flow.RegisterCompensation(async ct => {
-    await inventoryService.ReleaseStockAsync(orderId, items, ct);
-}, ""ReleaseInventory"");
-
-// Step 3: Process payment
-await paymentService.ProcessPaymentAsync(orderId, amount, method, ct);
-
-flow.Commit(); // Success - no compensation
-// If any step fails before Commit, DisposeAsync auto-compensates in reverse order
+// On failure, compensations execute in reverse order automatically
+if (!result.IsSuccess)
+{
+    Console.WriteLine($""Failed at {result.FailedStep}: {result.Error}"");
+}
 "
 })).WithName("DemoFlowInfo").WithTags("Flow Demo");
 

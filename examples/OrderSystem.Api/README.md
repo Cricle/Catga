@@ -156,49 +156,34 @@ OrderSystem.Api/
 ### 1. Flow 服务编排 - 自动补偿（推荐）
 
 ```csharp
-// 在 Handler 中使用 Flow 编排多个步骤
-public async Task<CatgaResult<OrderCreatedResult>> HandleAsync(
-    CreateOrderFlowCommand request, CancellationToken ct)
-{
-    await using var flow = _mediator.BeginFlow("CreateOrder");
+// 简洁的 Fluent API
+var result = await Flow.Create("CreateOrder")
+    .Step("CreateOrder",
+        async () => {
+            await _orderRepository.SaveAsync(order, ct);
+            return order;
+        },
+        async _ => {  // Compensation
+            order.Status = OrderStatus.Failed;
+            await _orderRepository.UpdateAsync(order, ct);
+        })
+    .Step("ReserveInventory",
+        () => _inventoryService.ReserveStockAsync(order.OrderId, items, ct),
+        _ => _inventoryService.ReleaseStockAsync(order.OrderId, items, ct))
+    .Step("ProcessPayment",
+        () => _paymentService.ProcessPaymentAsync(order.OrderId, amount, method, ct),
+        _ => _paymentService.RefundAsync(order.OrderId, ct))
+    .ExecuteAsync();
 
-    // Step 1: 创建订单
-    var order = new Order { ... };
-    await _orderRepository.SaveAsync(order, ct);
-
-    // 注册补偿：失败时标记订单为失败
-    flow.RegisterCompensation(async ct => {
-        order.Status = OrderStatus.Failed;
-        await _orderRepository.UpdateAsync(order, ct);
-    }, "DeleteOrder");
-
-    // Step 2: 预留库存
-    await _inventoryService.ReserveStockAsync(order.OrderId, request.Items, ct);
-
-    // 注册补偿：失败时释放库存
-    flow.RegisterCompensation(async ct => {
-        await _inventoryService.ReleaseStockAsync(order.OrderId, request.Items, ct);
-    }, "ReleaseInventory");
-
-    // Step 3: 处理支付
-    var paymentResult = await _paymentService.ProcessPaymentAsync(
-        order.OrderId, totalAmount, request.PaymentMethod, ct);
-
-    if (!paymentResult.IsSuccess)
-        throw new FlowExecutionException("ProcessPayment", paymentResult.Error!, flow.StepCount);
-
-    // 成功 - 不执行补偿
-    flow.Commit();
-    return CatgaResult<OrderCreatedResult>.Success(new OrderCreatedResult(...));
-
-    // 任何步骤失败，DisposeAsync 时自动逆序执行补偿
-}
+if (result.IsSuccess)
+    return CatgaResult<OrderCreatedResult>.Success(result.Value!);
+else
+    return CatgaResult<OrderCreatedResult>.Failure(result.Error!);
 ```
 
 **关键点**：
-- ✅ 使用 delegate 注册补偿，简洁直观
-- ✅ AsyncLocal 隐式传递，用户无感知
-- ✅ 失败时自动逆序执行补偿（ReleaseInventory → DeleteOrder）
+- ✅ Fluent API，简洁直观
+- ✅ 失败时自动逆序执行补偿（RefundPayment → ReleaseInventory → DeleteOrder）
 - ✅ 完全 AOT 兼容，零运行时反射
 
 ### 2. SafeRequestHandler - 自动异常处理 + 回滚

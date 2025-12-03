@@ -1,14 +1,20 @@
-# OrderSystem.Api - Catga 框架示例
+# OrderSystem.Api - Catga 框架完整示例
 
-一个简洁而完整的订单系统示例，展示 Catga 框架的核心特性。
+一个完整的订单系统示例，展示 Catga 框架的**所有核心特性**。
 
 ## 🎯 核心特性演示
 
-- ✅ **SafeRequestHandler** - 自动异常处理，无需手动 try-catch
-- ✅ **自动回滚** - 失败时自动回滚已完成的操作
-- ✅ **事件驱动** - 事件发布/订阅，解耦业务逻辑
-- ✅ **Source Generator** - 零反射，AOT 兼容，自动注册
-- ✅ **时间旅行调试** - 回放执行过程，观察状态变化
+| 特性 | 说明 | Demo 端点 |
+|------|------|-----------|
+| ✅ **Flow 服务编排** | 自动补偿，零配置 Saga | `/demo/flow-success`, `/demo/flow-failure` |
+| ✅ **SafeRequestHandler** | 自动异常处理 | `/demo/order-success`, `/demo/order-failure` |
+| ✅ **事件驱动** | 多处理器并行执行 | `/demo/events` |
+| ✅ **批处理** | 高效批量请求 | `/demo/batch` |
+| ✅ **Source Generator** | 零反射，AOT 兼容 | 自动注册 |
+| ✅ **分布式 ID** | Snowflake 算法 | 多节点模式 |
+| ✅ **Outbox/Inbox** | 可靠消息传递 | 配置启用 |
+| ✅ **死信队列** | 失败消息处理 | 配置启用 |
+| ✅ **OpenTelemetry** | 分布式追踪 | Jaeger 集成 |
 
 ## 🚀 快速开始
 
@@ -54,11 +60,38 @@ dotnet run --project examples/OrderSystem.Api -- 3
 
 ### 运行 Demo
 
+#### 方式 1: 使用 Swagger UI
+打开 http://localhost:5000/swagger，找到对应的 Demo 端点执行。
+
+#### 方式 2: 使用 curl
+
+```bash
+# Flow 编排 - 成功场景
+curl -X POST http://localhost:5000/demo/flow-success
+
+# Flow 编排 - 失败场景（自动补偿）
+curl -X POST http://localhost:5000/demo/flow-failure
+
+# 传统订单 - 成功
+curl -X POST http://localhost:5000/demo/order-success
+
+# 传统订单 - 失败（自动回滚）
+curl -X POST http://localhost:5000/demo/order-failure
+
+# 事件发布（多处理器并行）
+curl -X POST http://localhost:5000/demo/events
+
+# 批处理
+curl -X POST http://localhost:5000/demo/batch
+
+# Flow 功能说明
+curl http://localhost:5000/demo/flow-info
+```
+
+#### 方式 3: 使用 Web UI
 1. 打开 http://localhost:5000
 2. 切换到 **"Demo 演示"** 标签
-3. 点击 **"运行 Demo"** 按钮：
-   - **成功场景**：创建订单 → 所有步骤成功
-   - **失败场景**：支付验证失败 → 自动回滚所有操作
+3. 点击对应按钮执行
 
 ## 🛡️ Resilience (Polly)
 

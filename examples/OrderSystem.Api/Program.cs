@@ -2,6 +2,7 @@ using Catga;
 using Catga.AspNetCore;
 using Catga.DependencyInjection;
 using Catga.Abstractions;
+using Catga.Flow;
 using Catga.Observability;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -264,6 +265,198 @@ app.MapGet("/demo/compare", () => Results.Ok(new
     Features = new[] { "✨ Automatic error handling", "✨ Custom rollback logic",
                        "✨ Rich metadata", "✨ Event-driven architecture" }
 })).WithName("DemoComparison").WithTags("Demo");
+
+// ============================================================
+// Flow Orchestration Demo - Automatic Compensation
+// ============================================================
+
+app.MapPost("/demo/flow-success", async (ICatgaMediator m) =>
+{
+    var items = new List<OrderItem>
+    {
+        new() { ProductId = "FLOW-001", ProductName = "Surface Pro", Quantity = 1, UnitPrice = 8999m },
+        new() { ProductId = "FLOW-002", ProductName = "Surface Pen", Quantity = 2, UnitPrice = 799m }
+    };
+    var orderId = $"FLOW-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..32];
+    var steps = new List<string>();
+
+    var result = await m.RunFlowAsync("CreateOrderFlow", async flow =>
+    {
+        // Step 1: Reserve Inventory
+        steps.Add("1. 📦 Reserving inventory...");
+        var inventory = await flow.ExecuteAsync<ReserveInventoryCommand, ReserveInventoryResult>(
+            new ReserveInventoryCommand(orderId, items));
+
+        if (!inventory.IsSuccess)
+            throw new FlowExecutionException("ReserveInventory", inventory.Error!, flow.StepCount);
+
+        steps.Add($"   ✅ Reserved: {inventory.Value!.ReservationId}");
+        flow.RegisterCompensation(new ReleaseInventoryCommand(inventory.Value.ReservationId));
+
+        // Step 2: Process Payment
+        steps.Add("2. 💳 Processing payment...");
+        var payment = await flow.ExecuteAsync<ProcessPaymentCommand, ProcessPaymentResult>(
+            new ProcessPaymentCommand(orderId, 10597m, "Alipay"));
+
+        if (!payment.IsSuccess)
+            throw new FlowExecutionException("ProcessPayment", payment.Error!, flow.StepCount);
+
+        steps.Add($"   ✅ Payment: {payment.Value!.PaymentId}");
+        flow.RegisterCompensation(new RefundPaymentCommand(payment.Value.PaymentId));
+
+        steps.Add("3. ✅ Flow completed successfully!");
+        return new { OrderId = orderId, PaymentId = payment.Value.PaymentId };
+    });
+
+    return Results.Ok(new
+    {
+        Success = result.IsSuccess,
+        OrderId = result.Value?.OrderId,
+        PaymentId = result.Value?.PaymentId,
+        Steps = steps,
+        Message = "✅ Flow orchestration completed - no compensation needed",
+        Duration = result.Duration.TotalMilliseconds
+    });
+}).WithName("DemoFlowSuccess").WithTags("Flow Demo");
+
+app.MapPost("/demo/flow-failure", async (ICatgaMediator m) =>
+{
+    var items = new List<OrderItem>
+    {
+        new() { ProductId = "FLOW-003", ProductName = "Xbox Series X", Quantity = 1, UnitPrice = 3999m }
+    };
+    var orderId = $"FLOW-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..32];
+    var steps = new List<string>();
+
+    var result = await m.RunFlowAsync("CreateOrderFlow", async flow =>
+    {
+        // Step 1: Reserve Inventory (success)
+        steps.Add("1. 📦 Reserving inventory...");
+        var inventory = await flow.ExecuteAsync<ReserveInventoryCommand, ReserveInventoryResult>(
+            new ReserveInventoryCommand(orderId, items));
+
+        if (!inventory.IsSuccess)
+            throw new FlowExecutionException("ReserveInventory", inventory.Error!, flow.StepCount);
+
+        steps.Add($"   ✅ Reserved: {inventory.Value!.ReservationId}");
+        flow.RegisterCompensation(new ReleaseInventoryCommand(inventory.Value.ReservationId));
+
+        // Step 2: Process Payment (FAIL)
+        steps.Add("2. 💳 Processing payment...");
+        var payment = await flow.ExecuteAsync<ProcessPaymentCommand, ProcessPaymentResult>(
+            new ProcessPaymentCommand(orderId, 3999m, "FAIL-CreditCard")); // Will fail
+
+        if (!payment.IsSuccess)
+        {
+            steps.Add($"   ❌ Payment FAILED: {payment.Error}");
+            steps.Add("3. 🔄 COMPENSATION: Releasing inventory...");
+            throw new FlowExecutionException("ProcessPayment", payment.Error!, flow.StepCount);
+        }
+
+        return new { OrderId = orderId };
+    });
+
+    return Results.Ok(new
+    {
+        Success = result.IsSuccess,
+        Error = result.Error,
+        FailedAtStep = result.FailedAtStep,
+        Steps = steps,
+        Message = "❌ Flow failed - automatic compensation executed in reverse order",
+        Duration = result.Duration.TotalMilliseconds,
+        Explanation = "Payment failed → Inventory automatically released (compensation)"
+    });
+}).WithName("DemoFlowFailure").WithTags("Flow Demo");
+
+app.MapGet("/demo/flow-info", () => Results.Ok(new
+{
+    Title = "Flow Orchestration - Zero-Cost Automatic Compensation",
+    Description = "Catga Flow provides saga-like orchestration with automatic compensation on failure",
+    Endpoints = new[]
+    {
+        new { Method = "POST", Path = "/demo/flow-success", Description = "All steps succeed - no compensation" },
+        new { Method = "POST", Path = "/demo/flow-failure", Description = "Payment fails - inventory auto-released" }
+    },
+    Features = new[]
+    {
+        "✨ [Compensation] attribute - declarative compensation binding",
+        "✨ AsyncLocal context - implicit propagation, no manual passing",
+        "✨ Automatic reverse-order compensation on failure",
+        "✨ Source Generator - zero reflection, AOT compatible",
+        "✨ Integrates with existing Pipeline (retry, timeout, outbox)"
+    },
+    CodeExample = @"
+// 1. Define command with compensation
+[Compensation(typeof(ReleaseInventoryCommand))]
+public record ReserveInventoryCommand(...) : IRequest<ReserveInventoryResult>;
+
+// 2. Use Flow in business code
+await using var flow = mediator.BeginFlow(""CreateOrder"");
+var inventory = await flow.ExecuteAsync<ReserveInventoryCommand, ReserveInventoryResult>(cmd);
+flow.RegisterCompensation(new ReleaseInventoryCommand(inventory.Value.ReservationId));
+var payment = await flow.ExecuteAsync<ProcessPaymentCommand, ProcessPaymentResult>(cmd);
+flow.Commit(); // Success - no compensation
+// If any step fails, Dispose auto-compensates in reverse order
+"
+})).WithName("DemoFlowInfo").WithTags("Flow Demo");
+
+// ============================================================
+// Batch Processing Demo
+// ============================================================
+
+app.MapPost("/demo/batch", async (ICatgaMediator m) =>
+{
+    var queries = Enumerable.Range(1, 5)
+        .Select(i => new GetOrderQuery($"BATCH-ORDER-{i:D3}"))
+        .ToList();
+
+    var results = await m.SendBatchAsync<GetOrderQuery, Order?>(queries);
+
+    return Results.Ok(new
+    {
+        Title = "Batch Processing Demo",
+        BatchSize = queries.Count,
+        Results = results.Select((r, i) => new
+        {
+            Query = queries[i].OrderId,
+            Found = r.IsSuccess && r.Value != null,
+            Error = r.Error
+        }),
+        Message = "Batch processing executes multiple requests efficiently"
+    });
+}).WithName("DemoBatch").WithTags("Advanced Demo");
+
+// ============================================================
+// Event Publishing Demo
+// ============================================================
+
+app.MapPost("/demo/events", async (ICatgaMediator m) =>
+{
+    var orderId = $"EVT-{DateTime.UtcNow:yyyyMMddHHmmss}";
+
+    // Publish event - all handlers execute in parallel
+    await m.PublishAsync(new OrderCreatedEvent(
+        orderId,
+        "DEMO-CUST",
+        new List<OrderItem> { new() { ProductId = "P1", ProductName = "Demo", Quantity = 1, UnitPrice = 99m } },
+        99m,
+        DateTime.UtcNow));
+
+    return Results.Ok(new
+    {
+        Title = "Event Publishing Demo",
+        EventType = nameof(OrderCreatedEvent),
+        OrderId = orderId,
+        Message = "Event published - multiple handlers executed in parallel",
+        Handlers = new[]
+        {
+            "OrderCreatedNotificationHandler - sends notifications",
+            "OrderCreatedAnalyticsHandler - updates analytics",
+            "OrderCreatedInventoryHandler - updates inventory",
+            "OrderCreatedAuditHandler - creates audit log"
+        }
+    });
+}).WithName("DemoEvents").WithTags("Advanced Demo");
 
 string firstUrl = "http://localhost:5000";
 foreach (var u in app.Urls) { firstUrl = u; break; }

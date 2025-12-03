@@ -4,11 +4,16 @@ using Catga.EventSourcing;
 using Catga.Inbox;
 using Catga.Observability;
 using Catga.Outbox;
+using Catga.Persistence.InMemory.Stores;
 using Catga.Persistence.Stores;
 using Catga.Resilience;
+using Catga.Scheduling;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Diagnostics;
+using Catga.Idempotency;
+using Catga.Persistence.InMemory.Locking;
+using Microsoft.Extensions.Options;
 
 namespace Catga.DependencyInjection;
 
@@ -148,10 +153,73 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Adds complete InMemory persistence (EventStore + Outbox + Inbox + DeadLetterQueue) to the service collection.
+    /// Adds InMemory idempotency store to the service collection.
     /// </summary>
-    /// <param name="services">The service collection</param>
-    /// <param name="deadLetterMaxSize">Maximum number of dead letters to keep (default: 1000)</param>
+    public static IServiceCollection AddInMemoryIdempotencyStore(this IServiceCollection services, TimeSpan? retentionPeriod = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<IIdempotencyStore>(sp =>
+            new InMemoryIdempotencyStore(sp.GetRequiredService<IMessageSerializer>(), retentionPeriod));
+        return services;
+    }
+
+    /// <summary>
+    /// Adds InMemory rate limiter to the service collection.
+    /// </summary>
+    public static IServiceCollection AddInMemoryRateLimiter(this IServiceCollection services, int limit = 100, TimeSpan? window = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<IDistributedRateLimiter>(new InMemoryRateLimiter(limit, window));
+        return services;
+    }
+
+    /// <summary>
+    /// Adds InMemory leader election to the service collection.
+    /// </summary>
+    public static IServiceCollection AddInMemoryLeaderElection(this IServiceCollection services, string? nodeId = null, TimeSpan? leaseDuration = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<ILeaderElection>(new InMemoryLeaderElection(nodeId, leaseDuration));
+        return services;
+    }
+
+    /// <summary>
+    /// Adds InMemory message scheduler to the service collection.
+    /// </summary>
+    public static IServiceCollection AddInMemoryMessageScheduler(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<IMessageScheduler>(sp => new InMemoryMessageScheduler(sp.GetRequiredService<ICatgaMediator>()));
+        return services;
+    }
+
+    /// <summary>
+    /// Adds InMemory snapshot store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddInMemorySnapshotStore(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<ISnapshotStore, InMemorySnapshotStore>();
+        return services;
+    }
+
+    /// <summary>
+    /// Adds InMemory distributed lock to the service collection.
+    /// </summary>
+    public static IServiceCollection AddInMemoryDistributedLock(this IServiceCollection services, Action<DistributedLockOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        if (configure != null)
+            services.Configure(configure);
+        else
+            services.TryAddSingleton(Options.Create(new DistributedLockOptions()));
+        services.TryAddSingleton<IDistributedLock, InMemoryDistributedLock>();
+        return services;
+    }
+
+    /// <summary>
+    /// Adds complete InMemory persistence (all stores) to the service collection.
+    /// </summary>
     public static IServiceCollection AddInMemoryPersistence(
         this IServiceCollection services,
         int deadLetterMaxSize = 1000)
@@ -162,6 +230,9 @@ public static class InMemoryPersistenceServiceCollectionExtensions
         services.AddInMemoryOutboxStore();
         services.AddInMemoryInboxStore();
         services.AddInMemoryDeadLetterQueue(deadLetterMaxSize);
+        services.AddInMemoryIdempotencyStore();
+        services.AddInMemorySnapshotStore();
+        services.AddInMemoryDistributedLock();
 
         return services;
     }

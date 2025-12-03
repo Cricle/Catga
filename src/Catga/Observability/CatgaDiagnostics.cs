@@ -66,6 +66,30 @@ public static class CatgaDiagnostics
     public static readonly Counter<long> IdempotencyCacheHits = Meter.CreateCounter<long>("catga.idempotency.cache_hits", "operations", "Cached result hits");
     public static readonly Counter<long> IdempotencyCacheMisses = Meter.CreateCounter<long>("catga.idempotency.cache_misses", "operations", "Cached result misses");
 
+    // Distributed lock counters
+    public static readonly Counter<long> LocksAcquired = Meter.CreateCounter<long>("catga.lock.acquired", "operations", "Distributed locks acquired");
+    public static readonly Counter<long> LocksReleased = Meter.CreateCounter<long>("catga.lock.released", "operations", "Distributed locks released");
+    public static readonly Counter<long> LocksFailed = Meter.CreateCounter<long>("catga.lock.failed", "operations", "Distributed lock acquisition failures");
+    public static readonly Counter<long> LocksTimeout = Meter.CreateCounter<long>("catga.lock.timeout", "operations", "Distributed lock acquisition timeouts");
+
+    // Rate limiter counters
+    public static readonly Counter<long> RateLimitAcquired = Meter.CreateCounter<long>("catga.ratelimit.acquired", "operations", "Rate limit permits acquired");
+    public static readonly Counter<long> RateLimitRejected = Meter.CreateCounter<long>("catga.ratelimit.rejected", "operations", "Rate limit rejections");
+
+    // Leader election counters
+    public static readonly Counter<long> LeaderElected = Meter.CreateCounter<long>("catga.leader.elected", "events", "Leader election events");
+    public static readonly Counter<long> LeaderLost = Meter.CreateCounter<long>("catga.leader.lost", "events", "Leadership lost events");
+    public static readonly Counter<long> LeaderExtended = Meter.CreateCounter<long>("catga.leader.extended", "operations", "Leadership lease extensions");
+
+    // Compensation counters
+    public static readonly Counter<long> CompensationPublished = Meter.CreateCounter<long>("catga.compensation.published", "events", "Compensation events published");
+    public static readonly Counter<long> CompensationFailed = Meter.CreateCounter<long>("catga.compensation.failed", "events", "Compensation failures");
+
+    // Scheduler counters
+    public static readonly Counter<long> ScheduledMessages = Meter.CreateCounter<long>("catga.scheduler.scheduled", "messages", "Messages scheduled");
+    public static readonly Counter<long> ScheduledDelivered = Meter.CreateCounter<long>("catga.scheduler.delivered", "messages", "Scheduled messages delivered");
+    public static readonly Counter<long> ScheduledCancelled = Meter.CreateCounter<long>("catga.scheduler.cancelled", "messages", "Scheduled messages cancelled");
+
     // ===== Histograms (for P50, P95, P99) =====
     public static readonly Histogram<double> MessageDuration = Meter.CreateHistogram<double>("catga.message.duration", "ms", "Message processing duration");
     public static readonly Histogram<double> CommandDuration = Meter.CreateHistogram<double>("catga.command.duration", "ms", "Command execution duration");
@@ -76,6 +100,13 @@ public static class CatgaDiagnostics
     // Event store duration
     public static readonly Histogram<double> EventStoreAppendDuration = Meter.CreateHistogram<double>("catga.eventstore.append.duration", "ms", "Event store append duration");
     public static readonly Histogram<double> EventStoreReadDuration = Meter.CreateHistogram<double>("catga.eventstore.read.duration", "ms", "Event store read duration");
+
+    // Distributed lock duration
+    public static readonly Histogram<double> LockAcquireDuration = Meter.CreateHistogram<double>("catga.lock.acquire.duration", "ms", "Lock acquisition duration");
+    public static readonly Histogram<double> LockHoldDuration = Meter.CreateHistogram<double>("catga.lock.hold.duration", "ms", "Lock hold duration");
+
+    // Rate limiter duration
+    public static readonly Histogram<double> RateLimitWaitDuration = Meter.CreateHistogram<double>("catga.ratelimit.wait.duration", "ms", "Rate limit wait duration");
 
     // Pipeline metrics
     public static readonly Histogram<double> PipelineDuration = Meter.CreateHistogram<double>("catga.pipeline.duration", "ms", "Pipeline execution duration");

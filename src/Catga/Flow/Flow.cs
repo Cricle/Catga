@@ -147,6 +147,13 @@ public sealed class FlowExecutor
 
             return result with { FlowId = flowId };
         }
+        catch (Exception ex)
+        {
+            state.Status = FlowStatus.Failed;
+            state.Error = ex.Message;
+            await _store.UpdateAsync(state, CancellationToken.None);
+            return new FlowResult(false, state.Step, TimeSpan.Zero, ex.Message) { FlowId = flowId };
+        }
         finally
         {
             cts.Cancel();

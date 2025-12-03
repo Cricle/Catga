@@ -218,10 +218,219 @@ public class InMemoryFlowStoreTests
         succeeded.Should().Be(1);
     }
 
-    private static FlowState CreateState(string id) => new()
+    #region TDD: Additional Edge Cases
+
+    [Fact]
+    public async Task UpdateAsync_NonExistingFlow_ReturnsFalse()
+    {
+        var state = new FlowState
+        {
+            Id = "non-existing",
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 1,
+            Version = 0
+        };
+
+        var result = await _store.UpdateAsync(state);
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task HeartbeatAsync_NonExistingFlow_ReturnsFalse()
+    {
+        var result = await _store.HeartbeatAsync("non-existing", "node-1", 0);
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TryClaimAsync_NoFlowsOfType_ReturnsNull()
+    {
+        var claimed = await _store.TryClaimAsync("NonExistingType", "node-1", 60000);
+
+        claimed.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TryClaimAsync_FailedFlow_ReturnsNull()
+    {
+        var state = CreateState("flow-1");
+        state.Status = FlowStatus.Failed;
+        state.HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeMilliseconds();
+        await _store.CreateAsync(state);
+
+        var claimed = await _store.TryClaimAsync("TestFlow", "node-2", 60000);
+
+        claimed.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_SetsInitialVersion()
+    {
+        var state = CreateState("flow-1");
+        state.Version = 999; // Should be ignored
+
+        await _store.CreateAsync(state);
+
+        var stored = await _store.GetAsync("flow-1");
+        stored!.Version.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_IncrementsVersion()
+    {
+        var state = CreateState("flow-1");
+        await _store.CreateAsync(state);
+
+        for (int i = 1; i <= 5; i++)
+        {
+            var current = await _store.GetAsync("flow-1");
+            current!.Step = i;
+            await _store.UpdateAsync(current);
+            current.Version.Should().Be(i);
+        }
+    }
+
+    [Fact]
+    public async Task TryClaimAsync_MultipleAbandonedFlows_ClaimsOne()
+    {
+        // Create multiple abandoned flows
+        for (int i = 1; i <= 5; i++)
+        {
+            var state = CreateState($"flow-{i}");
+            state.HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeMilliseconds();
+            state.Owner = "crashed-node";
+            await _store.CreateAsync(state);
+        }
+
+        var claimed = await _store.TryClaimAsync("TestFlow", "new-node", 60000);
+
+        claimed.Should().NotBeNull();
+        claimed!.Owner.Should().Be("new-node");
+    }
+
+    [Fact]
+    public async Task HeartbeatAsync_UpdatesHeartbeatTime()
+    {
+        var state = CreateState("flow-1");
+        state.Owner = "node-1";
+        var oldHeartbeat = state.HeartbeatAt;
+        await _store.CreateAsync(state);
+
+        await Task.Delay(10);
+        await _store.HeartbeatAsync("flow-1", "node-1", 0);
+
+        var stored = await _store.GetAsync("flow-1");
+        stored!.HeartbeatAt.Should().BeGreaterThan(oldHeartbeat);
+    }
+
+    [Fact]
+    public async Task GetAsync_ReturnsCurrentVersion()
+    {
+        var state = CreateState("flow-1");
+        await _store.CreateAsync(state);
+
+        // Update multiple times
+        for (int i = 0; i < 3; i++)
+        {
+            var current = await _store.GetAsync("flow-1");
+            current!.Step = i + 1;
+            await _store.UpdateAsync(current);
+        }
+
+        var final = await _store.GetAsync("flow-1");
+        final!.Version.Should().Be(3);
+        final.Step.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task TryClaimAsync_JustExpired_ClaimsSuccessfully()
+    {
+        var state = CreateState("flow-1");
+        // Heartbeat exactly at timeout boundary
+        state.HeartbeatAt = DateTimeOffset.UtcNow.AddMilliseconds(-100).ToUnixTimeMilliseconds();
+        state.Owner = "node-1";
+        await _store.CreateAsync(state);
+
+        var claimed = await _store.TryClaimAsync("TestFlow", "node-2", 50); // 50ms timeout
+
+        claimed.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task TryClaimAsync_NotYetExpired_ReturnsNull()
+    {
+        var state = CreateState("flow-1");
+        state.HeartbeatAt = DateTimeOffset.UtcNow.AddMilliseconds(-10).ToUnixTimeMilliseconds();
+        state.Owner = "node-1";
+        await _store.CreateAsync(state);
+
+        var claimed = await _store.TryClaimAsync("TestFlow", "node-2", 1000); // 1s timeout
+
+        claimed.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_PreservesData()
+    {
+        var state = CreateState("flow-1");
+        state.Data = new byte[] { 1, 2, 3, 4, 5 };
+        await _store.CreateAsync(state);
+
+        var current = await _store.GetAsync("flow-1");
+        current!.Step = 10;
+        await _store.UpdateAsync(current);
+
+        var stored = await _store.GetAsync("flow-1");
+        stored!.Data.Should().BeEquivalentTo(new byte[] { 1, 2, 3, 4, 5 });
+    }
+
+    [Fact]
+    public async Task ConcurrentCreates_OnlyOneSucceeds()
+    {
+        var tasks = Enumerable.Range(1, 10)
+            .Select(async _ =>
+            {
+                var state = CreateState("same-id");
+                return await _store.CreateAsync(state);
+            })
+            .ToList();
+
+        var results = await Task.WhenAll(tasks);
+        var succeeded = results.Count(r => r);
+
+        succeeded.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task MultipleFlowTypes_IndependentClaims()
+    {
+        // Create flows of different types
+        var state1 = CreateState("flow-1", "TypeA");
+        state1.HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeMilliseconds();
+        await _store.CreateAsync(state1);
+
+        var state2 = CreateState("flow-2", "TypeB");
+        state2.HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeMilliseconds();
+        await _store.CreateAsync(state2);
+
+        var claimedA = await _store.TryClaimAsync("TypeA", "node-1", 60000);
+        var claimedB = await _store.TryClaimAsync("TypeB", "node-1", 60000);
+
+        claimedA.Should().NotBeNull();
+        claimedA!.Id.Should().Be("flow-1");
+        claimedB.Should().NotBeNull();
+        claimedB!.Id.Should().Be("flow-2");
+    }
+
+    #endregion
+
+    private static FlowState CreateState(string id, string type = "TestFlow") => new()
     {
         Id = id,
-        Type = "TestFlow",
+        Type = type,
         Status = FlowStatus.Running,
         Step = 0,
         Version = 0,

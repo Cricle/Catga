@@ -197,6 +197,10 @@ app.UseStaticFiles();
 app.MapCatgaRequest<CreateOrderCommand, OrderCreatedResult>("/api/orders")
     .WithName("CreateOrder").WithTags("Orders");
 
+// Flow orchestration version - automatic compensation on failure
+app.MapCatgaRequest<CreateOrderFlowCommand, OrderCreatedResult>("/api/orders/flow")
+    .WithName("CreateOrderFlow").WithTags("Orders", "Flow");
+
 app.MapPost("/api/orders/cancel", async (CancelOrderCommand cmd, ICatgaMediator m) =>
 {
     var result = await m.SendAsync(cmd);
@@ -246,24 +250,89 @@ app.MapPost("/demo/order-failure", async (ICatgaMediator m) =>
     });
 }).WithName("DemoOrderFailure").WithTags("Demo");
 
+// ============================================================
+// Flow Orchestration Demo - Real Handler with Automatic Compensation
+// ============================================================
+
+app.MapPost("/demo/flow/order-success", async (ICatgaMediator m) =>
+{
+    var items = new List<OrderItem>
+    {
+        new() { ProductId = "FLOW-001", ProductName = "Surface Pro 9", Quantity = 1, UnitPrice = 8999m },
+        new() { ProductId = "FLOW-002", ProductName = "Surface Pen", Quantity = 2, UnitPrice = 799m }
+    };
+
+    var result = await m.SendAsync<CreateOrderFlowCommand, OrderCreatedResult>(
+        new("FLOW-CUST-001", items, "Flow Success Street, Beijing", "Alipay"));
+
+    return Results.Ok(new
+    {
+        result.IsSuccess,
+        OrderId = result.Value?.OrderId,
+        TotalAmount = result.Value?.TotalAmount,
+        Message = result.IsSuccess
+            ? "✅ Flow orchestration completed successfully - no compensation needed"
+            : $"❌ Flow failed: {result.Error}",
+        FlowSteps = new[]
+        {
+            "1. ✅ CheckInventory - Stock available",
+            "2. ✅ CreateOrder - Order saved (compensation registered)",
+            "3. ✅ ReserveInventory - Stock reserved (compensation registered)",
+            "4. ✅ ProcessPayment - Payment processed (compensation registered)",
+            "5. ✅ ConfirmOrder - Order confirmed"
+        }
+    });
+}).WithName("DemoFlowOrderSuccess").WithTags("Flow Demo");
+
+app.MapPost("/demo/flow/order-failure", async (ICatgaMediator m) =>
+{
+    var items = new List<OrderItem>
+    {
+        new() { ProductId = "FLOW-003", ProductName = "Xbox Series X", Quantity = 1, UnitPrice = 3999m },
+        new() { ProductId = "FLOW-004", ProductName = "Xbox Controller", Quantity = 2, UnitPrice = 499m }
+    };
+
+    // Use FAIL- prefix to trigger payment failure
+    var result = await m.SendAsync<CreateOrderFlowCommand, OrderCreatedResult>(
+        new("FLOW-CUST-002", items, "Flow Failure Road, Shanghai", "FAIL-CreditCard"));
+
+    return Results.Ok(new
+    {
+        result.IsSuccess,
+        result.Error,
+        Message = "❌ Flow failed at payment step - automatic compensation executed in reverse order",
+        FlowSteps = new[]
+        {
+            "1. ✅ CheckInventory - Stock available",
+            "2. ✅ CreateOrder - Order saved (compensation registered)",
+            "3. ✅ ReserveInventory - Stock reserved (compensation registered)",
+            "4. ❌ ProcessPayment - FAILED (payment declined)",
+            "--- AUTOMATIC COMPENSATION (reverse order) ---",
+            "🔄 ReleaseInventory - Stock released",
+            "🔄 DeleteOrder - Order marked as failed"
+        },
+        Explanation = "Payment failed → Flow automatically executed compensations in reverse order"
+    });
+}).WithName("DemoFlowOrderFailure").WithTags("Flow Demo");
+
 app.MapGet("/demo/compare", () => Results.Ok(new
 {
-    Title = "Order Creation Flow Comparison",
-    SuccessFlow = new
+    Title = "Traditional vs Flow Orchestration Comparison",
+    Traditional = new
     {
-        Endpoint = "POST /demo/order-success",
-        Steps = new[] { "1. ✅ Check stock", "2. ✅ Save order", "3. ✅ Reserve inventory",
-                        "4. ✅ Validate payment", "5. ✅ Publish event" }
+        Endpoints = new[] { "POST /demo/order-success", "POST /demo/order-failure" },
+        Description = "Manual try-catch with explicit HandleOrderFailure calls",
+        Pros = new[] { "Full control", "Explicit error handling" },
+        Cons = new[] { "Verbose code", "Easy to miss rollback", "Hard to maintain" }
     },
-    FailureFlow = new
+    FlowOrchestration = new
     {
-        Endpoint = "POST /demo/order-failure",
-        Steps = new[] { "1. ✅ Check stock", "2. ✅ Save order", "3. ✅ Reserve inventory",
-                        "4. ❌ Validate payment (FAILED)", "5. 🔄 Rollback: Release inventory",
-                        "6. 🔄 Rollback: Delete order" }
+        Endpoints = new[] { "POST /demo/flow/order-success", "POST /demo/flow/order-failure" },
+        Description = "Automatic compensation in reverse order on any failure",
+        Pros = new[] { "Zero boilerplate", "Automatic rollback", "Declarative", "AOT compatible" },
+        Cons = new[] { "Learning curve" }
     },
-    Features = new[] { "✨ Automatic error handling", "✨ Custom rollback logic",
-                       "✨ Rich metadata", "✨ Event-driven architecture" }
+    Recommendation = "Use Flow for multi-step operations requiring rollback on failure"
 })).WithName("DemoComparison").WithTags("Demo");
 
 // ============================================================

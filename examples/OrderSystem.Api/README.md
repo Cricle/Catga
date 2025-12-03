@@ -66,18 +66,24 @@ dotnet run --project examples/OrderSystem.Api -- 3
 #### 方式 2: 使用 curl
 
 ```bash
-# Flow 编排 - 成功场景
-curl -X POST http://localhost:5000/demo/flow-success
+# ===== Flow 自动编排（真实 Handler）=====
+# Flow 订单 - 成功（5步全部完成）
+curl -X POST http://localhost:5000/demo/flow/order-success
 
-# Flow 编排 - 失败场景（自动补偿）
-curl -X POST http://localhost:5000/demo/flow-failure
+# Flow 订单 - 失败（支付失败，自动逆序补偿）
+curl -X POST http://localhost:5000/demo/flow/order-failure
 
+# ===== 传统方式（手动 try-catch）=====
 # 传统订单 - 成功
 curl -X POST http://localhost:5000/demo/order-success
 
-# 传统订单 - 失败（自动回滚）
+# 传统订单 - 失败（手动回滚）
 curl -X POST http://localhost:5000/demo/order-failure
 
+# ===== 对比说明 =====
+curl http://localhost:5000/demo/compare
+
+# ===== 其他功能 =====
 # 事件发布（多处理器并行）
 curl -X POST http://localhost:5000/demo/events
 

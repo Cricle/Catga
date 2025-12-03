@@ -180,7 +180,7 @@ public sealed class FlowContext : IAsyncDisposable
     }
 
     /// <summary>
-    /// Manually registers a compensation action.
+    /// Manually registers a compensation action using a command.
     /// Use when the command doesn't implement ICompensatable.
     /// </summary>
     public void RegisterCompensation<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TCompensation>(TCompensation compensation)
@@ -192,6 +192,21 @@ public sealed class FlowContext : IAsyncDisposable
             StepIndex = _stepIndex,
             CommandTypeName = $"Manual:{typeof(TCompensation).Name}",
             CompensationAction = async ct => await mediator.SendAsync(compensation, ct),
+            ExecutedAt = DateTime.UtcNow
+        });
+    }
+
+    /// <summary>
+    /// Manually registers a compensation action using a delegate.
+    /// Use for inline compensation logic without creating a command.
+    /// </summary>
+    public void RegisterCompensation(Func<CancellationToken, Task> compensationAction, string? name = null)
+    {
+        _compensations.Push(new CompensationRecord
+        {
+            StepIndex = _stepIndex,
+            CommandTypeName = name ?? $"Inline:{_stepIndex}",
+            CompensationAction = compensationAction,
             ExecutedAt = DateTime.UtcNow
         });
     }

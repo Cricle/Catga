@@ -6,137 +6,51 @@ using Catga.Scheduling;
 
 namespace Catga.Persistence.InMemory.Stores;
 
-/// <summary>
-/// In-memory message scheduler for development and testing.
-/// Thread-safe implementation with automatic delivery.
-/// </summary>
-public sealed class InMemoryMessageScheduler : IMessageScheduler, IDisposable
+/// <summary>In-memory message scheduler with automatic delivery.</summary>
+public sealed class InMemoryMessageScheduler(ICatgaMediator mediator) : IMessageScheduler, IDisposable
 {
-    private readonly ConcurrentDictionary<string, ScheduledEntry> _messages = new();
-    private readonly ICatgaMediator _mediator;
-    private readonly Timer _timer;
-
-    public InMemoryMessageScheduler(ICatgaMediator mediator)
-    {
-        _mediator = mediator;
-        _timer = new Timer(ProcessDueMessages, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-    }
+    private readonly ConcurrentDictionary<string, (IMessage Msg, DateTimeOffset At, DateTimeOffset Created, string Type)> _msgs = new();
+    private readonly Timer _timer = new(s => ((InMemoryMessageScheduler)s!).ProcessDue(), null, 1000, 1000);
 
     public ValueTask<ScheduledMessageHandle> ScheduleAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
-        TMessage message,
-        DateTimeOffset deliverAt,
-        CancellationToken ct = default) where TMessage : class, IMessage
+        TMessage message, DateTimeOffset deliverAt, CancellationToken ct = default) where TMessage : class, IMessage
     {
         var id = Guid.NewGuid().ToString("N");
-        var typeName = TypeNameCache<TMessage>.Name;
-        _messages[id] = new ScheduledEntry(message, deliverAt, DateTime.UtcNow, typeName, ScheduledMessageStatus.Pending);
-
-        return ValueTask.FromResult(new ScheduledMessageHandle
-        {
-            ScheduleId = id,
-            DeliverAt = deliverAt,
-            MessageType = typeName
-        });
+        var type = typeof(TMessage).Name;
+        _msgs[id] = (message, deliverAt, DateTimeOffset.UtcNow, type);
+        return ValueTask.FromResult(new ScheduledMessageHandle { ScheduleId = id, DeliverAt = deliverAt, MessageType = type });
     }
 
     public ValueTask<ScheduledMessageHandle> ScheduleAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
-        TMessage message,
-        TimeSpan delay,
-        CancellationToken ct = default) where TMessage : class, IMessage
-    {
-        return ScheduleAsync(message, DateTimeOffset.UtcNow + delay, ct);
-    }
+        TMessage message, TimeSpan delay, CancellationToken ct = default) where TMessage : class, IMessage
+        => ScheduleAsync(message, DateTimeOffset.UtcNow + delay, ct);
 
     public ValueTask<bool> CancelAsync(string scheduleId, CancellationToken ct = default)
-    {
-        if (_messages.TryGetValue(scheduleId, out var entry) && entry.Status == ScheduledMessageStatus.Pending)
-        {
-            return ValueTask.FromResult(_messages.TryRemove(scheduleId, out _));
-        }
-        return ValueTask.FromResult(false);
-    }
+        => ValueTask.FromResult(_msgs.TryRemove(scheduleId, out _));
 
     public ValueTask<ScheduledMessageInfo?> GetAsync(string scheduleId, CancellationToken ct = default)
-    {
-        if (_messages.TryGetValue(scheduleId, out var entry))
-        {
-            return ValueTask.FromResult<ScheduledMessageInfo?>(new ScheduledMessageInfo
-            {
-                ScheduleId = scheduleId,
-                DeliverAt = entry.DeliverAt,
-                CreatedAt = entry.CreatedAt,
-                MessageType = entry.MessageType,
-                Status = entry.Status
-            });
-        }
-        return ValueTask.FromResult<ScheduledMessageInfo?>(null);
-    }
+        => ValueTask.FromResult(_msgs.TryGetValue(scheduleId, out var e)
+            ? new ScheduledMessageInfo { ScheduleId = scheduleId, DeliverAt = e.At, CreatedAt = e.Created, MessageType = e.Type, Status = ScheduledMessageStatus.Pending }
+            : (ScheduledMessageInfo?)null);
 
-    public async IAsyncEnumerable<ScheduledMessageInfo> ListPendingAsync(
-        int limit = 100,
-        [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<ScheduledMessageInfo> ListPendingAsync(int limit = 100, [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var count = 0;
-        foreach (var kvp in _messages)
+        var n = 0;
+        foreach (var (k, v) in _msgs)
         {
-            if (ct.IsCancellationRequested || count >= limit) yield break;
-            if (kvp.Value.Status == ScheduledMessageStatus.Pending)
-            {
-                count++;
-                yield return new ScheduledMessageInfo
-                {
-                    ScheduleId = kvp.Key,
-                    DeliverAt = kvp.Value.DeliverAt,
-                    CreatedAt = kvp.Value.CreatedAt,
-                    MessageType = kvp.Value.MessageType,
-                    Status = kvp.Value.Status
-                };
-            }
+            if (ct.IsCancellationRequested || n++ >= limit) yield break;
+            yield return new() { ScheduleId = k, DeliverAt = v.At, CreatedAt = v.Created, MessageType = v.Type, Status = ScheduledMessageStatus.Pending };
         }
         await Task.CompletedTask;
     }
 
-    private void ProcessDueMessages(object? state)
+    private void ProcessDue()
     {
         var now = DateTimeOffset.UtcNow;
-        foreach (var kvp in _messages)
-        {
-            if (kvp.Value.DeliverAt <= now && kvp.Value.Status == ScheduledMessageStatus.Pending)
-            {
-                if (_messages.TryRemove(kvp.Key, out var entry))
-                {
-                    _ = DeliverAsync(entry);
-                }
-            }
-        }
-    }
-
-    private async Task DeliverAsync(ScheduledEntry entry)
-    {
-        try
-        {
-            if (entry.Message is IEvent evt)
-            {
-                await _mediator.PublishAsync(evt);
-            }
-        }
-        catch
-        {
-            // Log error in production
-        }
+        foreach (var (k, v) in _msgs)
+            if (v.At <= now && _msgs.TryRemove(k, out var e) && e.Msg is IEvent evt)
+                _ = mediator.PublishAsync(evt);
     }
 
     public void Dispose() => _timer.Dispose();
-
-    private readonly record struct ScheduledEntry(
-        IMessage Message,
-        DateTimeOffset DeliverAt,
-        DateTimeOffset CreatedAt,
-        string MessageType,
-        ScheduledMessageStatus Status);
-
-    private static class TypeNameCache<T>
-    {
-        public static readonly string Name = typeof(T).Name;
-    }
 }

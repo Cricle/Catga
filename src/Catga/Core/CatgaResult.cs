@@ -1,16 +1,13 @@
 using Catga.Exceptions;
-using MemoryPack;
 
 namespace Catga.Core;
 
 /// <summary>Catga operation result with value (zero-allocation struct for performance)</summary>
-[MemoryPackable]
-public partial record struct CatgaResult<T>
+public record struct CatgaResult<T>
 {
     public bool IsSuccess { get; init; }
     public T? Value { get; init; }
     public string? Error { get; init; }
-    [MemoryPackIgnore]
     public CatgaException? Exception { get; init; }
 
     /// <summary>Error code (e.g., CATGA_1001)</summary>
@@ -34,12 +31,10 @@ public partial record struct CatgaResult<T>
 }
 
 /// <summary>Catga operation result without value (zero-allocation struct for performance)</summary>
-[MemoryPackable]
-public partial record struct CatgaResult
+public record struct CatgaResult
 {
     public bool IsSuccess { get; init; }
     public string? Error { get; init; }
-    [MemoryPackIgnore]
     public CatgaException? Exception { get; init; }
 
     /// <summary>Error code (e.g., CATGA_1001)</summary>

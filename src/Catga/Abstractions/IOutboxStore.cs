@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
-using MemoryPack;
 
 namespace Catga.Outbox;
 
@@ -46,8 +45,7 @@ public interface IOutboxStore
 /// <summary>
 /// Outbox message representation (100% AOT compatible)
 /// </summary>
-[MemoryPackable]
-public partial class OutboxMessage
+public class OutboxMessage
 {
     /// <summary>
     /// Unique message identifier (Snowflake ID)

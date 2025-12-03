@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using MemoryPack;
 
 namespace Catga.EventSourcing;
 
@@ -26,8 +25,7 @@ public interface ISnapshotStore
 }
 
 /// <summary>Snapshot with metadata.</summary>
-[MemoryPackable]
-public readonly partial record struct Snapshot<TAggregate> where TAggregate : class
+public readonly record struct Snapshot<TAggregate> where TAggregate : class
 {
     /// <summary>Stream identifier.</summary>
     public required string StreamId { get; init; }

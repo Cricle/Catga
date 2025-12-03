@@ -278,13 +278,13 @@ public sealed class Flow
         }
         catch (OperationCanceledException)
         {
-            await CompensateAsync(completedCount, ct);
+            await CompensateFromAsync(completedCount, startStep, ct);
             _activity?.SetStatus(ActivityStatusCode.Error, "Cancelled");
             return new FlowResult(false, completedCount, sw.Elapsed) { IsCancelled = true };
         }
         catch (Exception ex)
         {
-            await CompensateAsync(completedCount, CancellationToken.None);
+            await CompensateFromAsync(completedCount, startStep, CancellationToken.None);
             _activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return new FlowResult(false, completedCount, sw.Elapsed, ex.Message);
         }
@@ -297,6 +297,16 @@ public sealed class Flow
     private async Task CompensateAsync(int completedCount, CancellationToken ct)
     {
         for (int i = completedCount - 1; i >= 0; i--)
+        {
+            var compensate = _steps[i].Compensate;
+            if (compensate == null) continue;
+            try { await compensate(ct); } catch { }
+        }
+    }
+
+    private async Task CompensateFromAsync(int completedCount, int startStep, CancellationToken ct)
+    {
+        for (int i = completedCount - 1; i >= startStep; i--)
         {
             var compensate = _steps[i].Compensate;
             if (compensate == null) continue;

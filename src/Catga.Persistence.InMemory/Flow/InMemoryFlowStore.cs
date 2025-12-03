@@ -32,9 +32,9 @@ public sealed class InMemoryFlowStore : IFlowStore
         if (!_flows.TryGetValue(state.Id, out var entry))
             return ValueTask.FromResult(false);
 
-        // CAS: check version
-        var oldVersion = entry.Version;
-        if (Interlocked.CompareExchange(ref entry.Version, oldVersion + 1, oldVersion) != oldVersion)
+        // CAS: check version - compare state.Version with entry.Version
+        var expectedVersion = state.Version;
+        if (Interlocked.CompareExchange(ref entry.Version, expectedVersion + 1, expectedVersion) != expectedVersion)
             return ValueTask.FromResult(false);
 
         // Update fields

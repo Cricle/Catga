@@ -84,29 +84,31 @@ public sealed partial class CreateOrderFlowHandler : IRequestHandler<CreateOrder
         };
 
         // Simple Flow API with automatic compensation
+        OrderCreatedResult? result = null;
         var flowResult = await Flow.Create($"CreateOrder-{request.CustomerId}")
-            .Step(async () => await _inventoryService.CheckStockAsync(request.Items, ct))
-            .Step(async () => { await _orderRepository.SaveAsync(order, ct); return order; },
-                async _ => { order.Status = OrderStatus.Failed; await _orderRepository.UpdateAsync(order, ct); })
-            .Step(async () => await _inventoryService.ReserveStockAsync(order.OrderId, request.Items, ct),
-                async _ => await _inventoryService.ReleaseStockAsync(order.OrderId, request.Items, ct))
-            .Step(async () => await _paymentService.ProcessPaymentAsync(order.OrderId, totalAmount, request.PaymentMethod, ct),
-                async _ => _logger.LogWarning("🔄 Refunding payment for order {OrderId}", order.OrderId))
-            .Step(async () =>
+            .Step(async c => { await _inventoryService.CheckStockAsync(request.Items, c); },
+                null)
+            .Step(async c => { await _orderRepository.SaveAsync(order, c); },
+                async c => { order.Status = OrderStatus.Failed; await _orderRepository.UpdateAsync(order, c); })
+            .Step(async c => { await _inventoryService.ReserveStockAsync(order.OrderId, request.Items, c); },
+                async c => { await _inventoryService.ReleaseStockAsync(order.OrderId, request.Items, c); })
+            .Step(async c => { await _paymentService.ProcessPaymentAsync(order.OrderId, totalAmount, request.PaymentMethod, c); },
+                c => { _logger.LogWarning("Refunding payment for order {OrderId}", order.OrderId); return Task.CompletedTask; })
+            .Step(async c =>
             {
                 order.Status = OrderStatus.Confirmed;
-                await _orderRepository.UpdateAsync(order, ct);
+                await _orderRepository.UpdateAsync(order, c);
                 await _mediator.PublishAsync(new OrderCreatedEvent(
-                    order.OrderId, order.CustomerId, order.Items, order.TotalAmount, order.CreatedAt), ct);
-                return new OrderCreatedResult(order.OrderId, totalAmount, order.CreatedAt);
+                    order.OrderId, order.CustomerId, order.Items, order.TotalAmount, order.CreatedAt), c);
+                result = new OrderCreatedResult(order.OrderId, totalAmount, order.CreatedAt);
             })
-            .ExecuteAsync<OrderCreatedResult>(ct);
+            .ExecuteAsync(ct);
 
         if (flowResult.IsSuccess)
         {
             LogFlowSuccess(_logger, order.OrderId, totalAmount);
             _orderCreatedCounter.Add(1, new TagList { new("status", "success") });
-            return CatgaResult<OrderCreatedResult>.Success(flowResult.Value!);
+            return CatgaResult<OrderCreatedResult>.Success(result!);
         }
 
         LogFlowFailed(_logger, request.CustomerId, flowResult.CompletedSteps, flowResult.Error ?? "Unknown");

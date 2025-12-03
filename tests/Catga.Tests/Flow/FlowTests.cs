@@ -1,4 +1,3 @@
-using Catga.Core;
 using FluentAssertions;
 
 namespace Catga.Tests.Flow;
@@ -13,13 +12,12 @@ public class FlowTests
         var steps = new List<int>();
 
         var result = await Flow.Create("Test")
-            .Step(async () => { steps.Add(1); await Task.Delay(1); return "r1"; })
-            .Step(async () => { steps.Add(2); await Task.Delay(1); return "r2"; })
-            .Step(async () => { steps.Add(3); await Task.Delay(1); return "r3"; })
-            .ExecuteAsync<string>();
+            .Step(async ct => { steps.Add(1); await Task.Delay(1, ct); })
+            .Step(async ct => { steps.Add(2); await Task.Delay(1, ct); })
+            .Step(async ct => { steps.Add(3); await Task.Delay(1, ct); })
+            .ExecuteAsync();
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.Should().Be("r3");
         result.CompletedSteps.Should().Be(3);
         steps.Should().BeEquivalentTo([1, 2, 3]);
     }
@@ -30,31 +28,16 @@ public class FlowTests
         var compensated = new List<int>();
 
         var result = await Flow.Create("Test")
-            .Step(async () => { await Task.Delay(1); return "r1"; },
-                async (string _) => { compensated.Add(1); await Task.Delay(1); })
-            .Step(async () => { await Task.Delay(1); return "r2"; },
-                async (string _) => { compensated.Add(2); await Task.Delay(1); })
-            .Step(async () => { await Task.Delay(1); throw new Exception("fail"); return "r3"; })
-            .ExecuteAsync<string>();
+            .Step(async ct => { await Task.Delay(1, ct); },
+                async ct => { compensated.Add(1); await Task.Delay(1, ct); })
+            .Step(async ct => { await Task.Delay(1, ct); },
+                async ct => { compensated.Add(2); await Task.Delay(1, ct); })
+            .Step(async ct => { await Task.Delay(1, ct); throw new Exception("fail"); })
+            .ExecuteAsync();
 
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Contain("fail");
         compensated.Should().BeEquivalentTo([2, 1]); // Reverse order
-    }
-
-    [Fact]
-    public async Task Flow_WithCatgaResult_HandlesFailure()
-    {
-        var compensated = new List<int>();
-
-        var result = await Flow.Create("Test")
-            .Step<string>(async () => { await Task.Delay(1); return CatgaResult<string>.Success("ok"); },
-                async _ => { compensated.Add(1); await Task.Delay(1); })
-            .Step<string>(async () => { await Task.Delay(1); return CatgaResult<string>.Failure("error"); })
-            .ExecuteAsync<string>();
-
-        result.IsSuccess.Should().BeFalse();
-        compensated.Should().BeEquivalentTo([1]);
     }
 
     [Fact]
@@ -63,8 +46,8 @@ public class FlowTests
         var executed = new List<int>();
 
         var result = await Flow.Create("Test")
-            .Step(async () => { executed.Add(1); await Task.Delay(1); })
-            .Step(async () => { executed.Add(2); await Task.Delay(1); })
+            .Step(async ct => { executed.Add(1); await Task.Delay(1, ct); })
+            .Step(async ct => { executed.Add(2); await Task.Delay(1, ct); })
             .ExecuteAsync();
 
         result.IsSuccess.Should().BeTrue();
@@ -79,10 +62,10 @@ public class FlowTests
         using var cts = new CancellationTokenSource();
 
         var result = await Flow.Create("Test")
-            .Step(async () => { await Task.Delay(1); return "r1"; },
-                async _ => { compensated.Add(1); await Task.Delay(1); })
-            .Step(async () => { cts.Cancel(); await Task.Delay(100, cts.Token); return "r2"; })
-            .ExecuteAsync<string>(cts.Token);
+            .Step(async ct => { await Task.Delay(1, ct); },
+                async ct => { compensated.Add(1); await Task.Delay(1, ct); })
+            .Step(async ct => { cts.Cancel(); await Task.Delay(100, ct); })
+            .ExecuteAsync(cts.Token);
 
         result.IsSuccess.Should().BeFalse();
         result.IsCancelled.Should().BeTrue();
@@ -93,9 +76,25 @@ public class FlowTests
     public async Task Flow_Duration_IsTracked()
     {
         var result = await Flow.Create("Test")
-            .Step(async () => { await Task.Delay(50); return "r1"; })
-            .ExecuteAsync<string>();
+            .Step(async ct => { await Task.Delay(50, ct); })
+            .ExecuteAsync();
 
         result.Duration.TotalMilliseconds.Should().BeGreaterThan(40);
+    }
+
+    [Fact]
+    public async Task Flow_ExecuteFromStep_ResumesCorrectly()
+    {
+        var executed = new List<int>();
+
+        var result = await Flow.Create("Test")
+            .Step(async ct => { executed.Add(1); await Task.Delay(1, ct); })
+            .Step(async ct => { executed.Add(2); await Task.Delay(1, ct); })
+            .Step(async ct => { executed.Add(3); await Task.Delay(1, ct); })
+            .ExecuteFromAsync(1); // Start from step 2
+
+        result.IsSuccess.Should().BeTrue();
+        result.CompletedSteps.Should().Be(3);
+        executed.Should().BeEquivalentTo([2, 3]); // Only steps 2 and 3 executed
     }
 }

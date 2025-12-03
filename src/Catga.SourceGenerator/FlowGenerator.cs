@@ -113,13 +113,14 @@ public class FlowGenerator : IIncrementalGenerator
         sb.AppendLine($"partial class {className}");
         sb.AppendLine("{");
 
-        // Collect all unique parameters from all steps
+        // Collect all unique parameters from all steps (exclude CancellationToken)
         var allParams = new Dictionary<string, string>();
         foreach (var step in steps)
         {
             if (step == null) continue;
             foreach (var p in step.Parameters)
             {
+                if (p.Type == "System.Threading.CancellationToken") continue;
                 if (!allParams.ContainsKey(p.Name))
                     allParams[p.Name] = p.Type;
             }
@@ -138,13 +139,19 @@ public class FlowGenerator : IIncrementalGenerator
         foreach (var step in steps)
         {
             if (step == null) continue;
-            var args = string.Join(", ", step.Parameters.Select(p => p.Name));
+            // Build args, replacing CancellationToken param with ct
+            var args = string.Join(", ", step.Parameters.Select(p =>
+                p.Type == "System.Threading.CancellationToken" ? "ct" : p.Name));
             var hasCompensate = !string.IsNullOrEmpty(step.Compensate);
 
+            // Build compensate args
+            var compArgs = hasCompensate ? string.Join(", ", step.Parameters.Select(p =>
+                p.Type == "System.Threading.CancellationToken" ? "ct" : p.Name)) : "";
+
             if (hasCompensate)
-                sb.AppendLine($"            .Step(async () => await {step.MethodName}({args}), async () => await {step.Compensate}({args}))");
+                sb.AppendLine($"            .Step(ct => {step.MethodName}({args}), ct => {step.Compensate}({compArgs}))");
             else
-                sb.AppendLine($"            .Step(async () => await {step.MethodName}({args}))");
+                sb.AppendLine($"            .Step(ct => {step.MethodName}({args}))");
         }
 
         sb.AppendLine("            .ExecuteAsync(ct);");

@@ -485,52 +485,6 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
 
     #endregion
 
-    #region RedisLeaderElection Tests
-
-    [Fact]
-    public async Task LeaderElection_TryAcquire_ShouldSucceed()
-    {
-        if (_redis is null) return;
-        var election = new RedisLeaderElection(_redis, Options.Create(new LeaderElectionOptions()), NullLogger<RedisLeaderElection>.Instance);
-        var electionName = $"election-{Guid.NewGuid():N}";
-
-        var handle = await election.TryAcquireLeadershipAsync(electionName);
-
-        handle.Should().NotBeNull();
-        handle!.IsLeader.Should().BeTrue();
-        await handle.DisposeAsync();
-    }
-
-    [Fact]
-    public async Task LeaderElection_IsLeader_ShouldReturnTrue()
-    {
-        if (_redis is null) return;
-        var election = new RedisLeaderElection(_redis, Options.Create(new LeaderElectionOptions()), NullLogger<RedisLeaderElection>.Instance);
-        var electionName = $"election-isleader-{Guid.NewGuid():N}";
-
-        var handle = await election.TryAcquireLeadershipAsync(electionName);
-        var isLeader = await election.IsLeaderAsync(electionName);
-
-        isLeader.Should().BeTrue();
-        await handle!.DisposeAsync();
-    }
-
-    [Fact]
-    public async Task LeaderElection_GetLeader_ShouldReturnLeaderInfo()
-    {
-        if (_redis is null) return;
-        var election = new RedisLeaderElection(_redis, Options.Create(new LeaderElectionOptions()), NullLogger<RedisLeaderElection>.Instance);
-        var electionName = $"election-getleader-{Guid.NewGuid():N}";
-
-        var handle = await election.TryAcquireLeadershipAsync(electionName);
-        var leader = await election.GetLeaderAsync(electionName);
-
-        leader.Should().NotBeNull();
-        await handle!.DisposeAsync();
-    }
-
-    #endregion
-
     #region RedisSnapshotStore Tests
 
     [Fact]

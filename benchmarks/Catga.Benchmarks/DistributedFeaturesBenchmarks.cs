@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 namespace Catga.Benchmarks;
 
 /// <summary>
-/// Benchmarks for distributed features: Rate Limiting, Leader Election, Compensation.
+/// Benchmarks for distributed features: Rate Limiting, Compensation.
 /// Measures overhead of distributed coordination primitives.
 /// </summary>
 [MemoryDiagnoser]
@@ -21,7 +21,6 @@ public class DistributedFeaturesBenchmarks
     private IServiceProvider _serviceProvider = null!;
     private ICatgaMediator _mediator = null!;
     private IDistributedRateLimiter _rateLimiter = null!;
-    private ILeaderElection _leaderElection = null!;
     private DistributedCommand _command = null!;
 
     [GlobalSetup]
@@ -45,13 +44,9 @@ public class DistributedFeaturesBenchmarks
         // Register in-memory rate limiter
         services.AddSingleton<IDistributedRateLimiter, InMemoryRateLimiter>();
 
-        // Register in-memory leader election
-        services.AddSingleton<ILeaderElection, InMemoryLeaderElection>();
-
         _serviceProvider = services.BuildServiceProvider();
         _mediator = _serviceProvider.GetRequiredService<ICatgaMediator>();
         _rateLimiter = _serviceProvider.GetRequiredService<IDistributedRateLimiter>();
-        _leaderElection = _serviceProvider.GetRequiredService<ILeaderElection>();
         _command = new DistributedCommand("test-123", "benchmark-data");
     }
 
@@ -71,21 +66,6 @@ public class DistributedFeaturesBenchmarks
     public async Task<RateLimitStatistics?> RateLimiter_GetStatistics()
     {
         return await _rateLimiter.GetStatisticsAsync("benchmark-key");
-    }
-
-    [Benchmark(Description = "Leader Election - TryAcquire")]
-    public async Task<ILeadershipHandle?> LeaderElection_TryAcquire()
-    {
-        var handle = await _leaderElection.TryAcquireLeadershipAsync("benchmark-election");
-        if (handle != null)
-            await handle.DisposeAsync();
-        return handle;
-    }
-
-    [Benchmark(Description = "Leader Election - IsLeader")]
-    public async Task<bool> LeaderElection_IsLeader()
-    {
-        return await _leaderElection.IsLeaderAsync("benchmark-election");
     }
 
     [Benchmark(Description = "Rate Limiter - Batch 100")]
@@ -194,144 +174,6 @@ public sealed class InMemoryRateLimiter : IDistributedRateLimiter
                 });
             }
             return ValueTask.FromResult<RateLimitStatistics?>(null);
-        }
-    }
-}
-
-public sealed class InMemoryLeaderElection : ILeaderElection
-{
-    private readonly Dictionary<string, (string nodeId, DateTime expiresAt)> _leaders = new();
-    private readonly object _lock = new();
-    private readonly string _nodeId = Guid.NewGuid().ToString("N")[..8];
-
-    public ValueTask<ILeadershipHandle?> TryAcquireLeadershipAsync(string electionId, CancellationToken ct = default)
-    {
-        lock (_lock)
-        {
-            var now = DateTime.UtcNow;
-            if (_leaders.TryGetValue(electionId, out var entry) && entry.expiresAt > now && entry.nodeId != _nodeId)
-            {
-                return ValueTask.FromResult<ILeadershipHandle?>(null);
-            }
-
-            _leaders[electionId] = (_nodeId, now.AddSeconds(15));
-            return ValueTask.FromResult<ILeadershipHandle?>(new InMemoryLeadershipHandle(electionId, _nodeId, this));
-        }
-    }
-
-    public async ValueTask<ILeadershipHandle> AcquireLeadershipAsync(string electionId, TimeSpan timeout, CancellationToken ct = default)
-    {
-        var deadline = DateTime.UtcNow + timeout;
-        while (DateTime.UtcNow < deadline)
-        {
-            var handle = await TryAcquireLeadershipAsync(electionId, ct);
-            if (handle != null) return handle;
-            await Task.Delay(100, ct);
-        }
-        throw new TimeoutException($"Failed to acquire leadership for {electionId}");
-    }
-
-    public ValueTask<bool> IsLeaderAsync(string electionId, CancellationToken ct = default)
-    {
-        lock (_lock)
-        {
-            if (_leaders.TryGetValue(electionId, out var entry))
-            {
-                return ValueTask.FromResult(entry.nodeId == _nodeId && entry.expiresAt > DateTime.UtcNow);
-            }
-            return ValueTask.FromResult(false);
-        }
-    }
-
-    public ValueTask<LeaderInfo?> GetLeaderAsync(string electionId, CancellationToken ct = default)
-    {
-        lock (_lock)
-        {
-            if (_leaders.TryGetValue(electionId, out var entry) && entry.expiresAt > DateTime.UtcNow)
-            {
-                return ValueTask.FromResult<LeaderInfo?>(new LeaderInfo
-                {
-                    NodeId = entry.nodeId,
-                    AcquiredAt = entry.expiresAt.AddSeconds(-15)
-                });
-            }
-            return ValueTask.FromResult<LeaderInfo?>(null);
-        }
-    }
-
-    public async IAsyncEnumerable<LeadershipChange> WatchAsync(string electionId, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
-    {
-        LeaderInfo? lastLeader = null;
-        while (!ct.IsCancellationRequested)
-        {
-            var current = await GetLeaderAsync(electionId, ct);
-            if (!Equals(lastLeader, current))
-            {
-                yield return new LeadershipChange
-                {
-                    Type = current.HasValue ? LeadershipChangeType.Elected : LeadershipChangeType.Lost,
-                    PreviousLeader = lastLeader,
-                    NewLeader = current,
-                    Timestamp = DateTimeOffset.UtcNow
-                };
-                lastLeader = current;
-            }
-            await Task.Delay(1000, ct);
-        }
-    }
-
-    internal void Release(string electionId, string nodeId)
-    {
-        lock (_lock)
-        {
-            if (_leaders.TryGetValue(electionId, out var entry) && entry.nodeId == nodeId)
-            {
-                _leaders.Remove(electionId);
-            }
-        }
-    }
-
-    internal void Extend(string electionId, string nodeId)
-    {
-        lock (_lock)
-        {
-            if (_leaders.TryGetValue(electionId, out var entry) && entry.nodeId == nodeId)
-            {
-                _leaders[electionId] = (nodeId, DateTime.UtcNow.AddSeconds(15));
-            }
-        }
-    }
-
-    private sealed class InMemoryLeadershipHandle : ILeadershipHandle
-    {
-        private readonly InMemoryLeaderElection _election;
-        private bool _isLeader = true;
-
-        public string ElectionId { get; }
-        public string NodeId { get; }
-        public bool IsLeader => _isLeader;
-        public DateTimeOffset AcquiredAt { get; } = DateTimeOffset.UtcNow;
-        public event Action? OnLeadershipLost;
-
-        public InMemoryLeadershipHandle(string electionId, string nodeId, InMemoryLeaderElection election)
-        {
-            ElectionId = electionId;
-            NodeId = nodeId;
-            _election = election;
-        }
-
-        public ValueTask ExtendAsync(CancellationToken ct = default)
-        {
-            _election.Extend(ElectionId, NodeId);
-            return ValueTask.CompletedTask;
-        }
-
-        public ValueTask DisposeAsync()
-        {
-            _isLeader = false;
-            _election.Release(ElectionId, NodeId);
-            OnLeadershipLost?.Invoke();
-            return ValueTask.CompletedTask;
         }
     }
 }

@@ -81,100 +81,11 @@ public class AbstractionsTests
     }
 
     [Fact]
-    public void LeaderElectionOptions_ShouldHaveDefaults()
-    {
-        // Act
-        var options = new LeaderElectionOptions();
-
-        // Assert
-        options.Should().NotBeNull();
-        options.LeaseDuration.Should().BeGreaterThan(TimeSpan.Zero);
-        options.RenewInterval.Should().BeGreaterThan(TimeSpan.Zero);
-        options.NodeId.Should().NotBeNullOrEmpty();
-    }
-
-    [Fact]
-    public void LeaderElectionOptions_CanBeModified()
-    {
-        // Act
-        var options = new LeaderElectionOptions
-        {
-            LeaseDuration = TimeSpan.FromSeconds(30),
-            RenewInterval = TimeSpan.FromSeconds(10),
-            KeyPrefix = "test:leader:",
-            NodeId = "test-node"
-        };
-
-        // Assert
-        options.LeaseDuration.Should().Be(TimeSpan.FromSeconds(30));
-        options.RenewInterval.Should().Be(TimeSpan.FromSeconds(10));
-        options.KeyPrefix.Should().Be("test:leader:");
-        options.NodeId.Should().Be("test-node");
-    }
-
-    [Fact]
-    public void LeadershipChange_ShouldBeCreatable()
-    {
-        // Act
-        var change = new LeadershipChange
-        {
-            Type = LeadershipChangeType.Elected,
-            NewLeader = new LeaderInfo { NodeId = "node-1" },
-            Timestamp = DateTimeOffset.UtcNow
-        };
-
-        // Assert
-        change.Type.Should().Be(LeadershipChangeType.Elected);
-        change.NewLeader.Should().NotBeNull();
-    }
-
-    [Fact]
-    public void LeadershipChange_Lost_ShouldWork()
-    {
-        // Act
-        var change = new LeadershipChange
-        {
-            Type = LeadershipChangeType.Lost,
-            PreviousLeader = new LeaderInfo { NodeId = "node-2" },
-            Timestamp = DateTimeOffset.UtcNow
-        };
-
-        // Assert
-        change.Type.Should().Be(LeadershipChangeType.Lost);
-        change.PreviousLeader.Should().NotBeNull();
-    }
-
-    [Fact]
-    public void LeaderInfo_ShouldBeCreatable()
-    {
-        // Act
-        var info = new LeaderInfo
-        {
-            NodeId = "leader-node",
-            AcquiredAt = DateTimeOffset.UtcNow,
-            Endpoint = "http://localhost:8080"
-        };
-
-        // Assert
-        info.NodeId.Should().Be("leader-node");
-        info.Endpoint.Should().Be("http://localhost:8080");
-    }
-
-    [Fact]
     public void RateLimitAlgorithm_ShouldHaveExpectedValues()
     {
         // Assert
         RateLimitAlgorithm.FixedWindow.Should().BeDefined();
         RateLimitAlgorithm.SlidingWindow.Should().BeDefined();
         RateLimitAlgorithm.TokenBucket.Should().BeDefined();
-    }
-
-    [Fact]
-    public void LeadershipChangeType_ShouldHaveExpectedValues()
-    {
-        // Assert
-        LeadershipChangeType.Elected.Should().BeDefined();
-        LeadershipChangeType.Resigned.Should().BeDefined();
-        LeadershipChangeType.Lost.Should().BeDefined();
     }
 }

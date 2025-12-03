@@ -142,62 +142,6 @@ public class DistributedStoresExtendedTests
 
     #endregion
 
-    #region InMemoryLeaderElection Extended Tests
-
-    [Fact]
-    public async Task LeaderElection_MultipleNodes_OnlyOneLeader()
-    {
-        // Arrange
-        var election1 = new InMemoryLeaderElection(nodeId: "node-1");
-        var election2 = new InMemoryLeaderElection(nodeId: "node-2");
-
-        // Act
-        var handle1 = await election1.TryAcquireLeadershipAsync("shared-election");
-        var handle2 = await election2.TryAcquireLeadershipAsync("shared-election");
-
-        // Assert - first one wins, second fails (different instances so both succeed in InMemory)
-        handle1.Should().NotBeNull();
-        handle2.Should().NotBeNull(); // InMemory doesn't share state between instances
-    }
-
-    [Fact]
-    public async Task LeaderElection_IsLeader_ShouldRemainTrueWhileHeld()
-    {
-        // Arrange
-        var election = new InMemoryLeaderElection(nodeId: "heartbeat-node");
-        var handle = await election.TryAcquireLeadershipAsync("heartbeat-election");
-
-        // Act
-        var isLeaderBefore = handle!.IsLeader;
-        await Task.Delay(10); // Small delay
-        var isLeaderAfter = handle.IsLeader;
-
-        // Assert
-        isLeaderBefore.Should().BeTrue();
-        isLeaderAfter.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task LeaderElection_MultipleElections_ShouldBeIndependent()
-    {
-        // Arrange
-        var election = new InMemoryLeaderElection(nodeId: "multi-node");
-
-        // Act
-        var handle1 = await election.TryAcquireLeadershipAsync("election-1");
-        var handle2 = await election.TryAcquireLeadershipAsync("election-2");
-        var isLeader1 = await election.IsLeaderAsync("election-1");
-        var isLeader2 = await election.IsLeaderAsync("election-2");
-
-        // Assert
-        handle1.Should().NotBeNull();
-        handle2.Should().NotBeNull();
-        isLeader1.Should().BeTrue();
-        isLeader2.Should().BeTrue();
-    }
-
-    #endregion
-
     #region InMemoryDistributedLock Extended Tests
 
     [Fact]

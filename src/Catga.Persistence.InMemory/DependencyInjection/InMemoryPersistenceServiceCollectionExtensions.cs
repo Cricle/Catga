@@ -174,16 +174,6 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Adds InMemory leader election to the service collection.
-    /// </summary>
-    public static IServiceCollection AddInMemoryLeaderElection(this IServiceCollection services, string? nodeId = null, TimeSpan? leaseDuration = null)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        services.TryAddSingleton<ILeaderElection>(new InMemoryLeaderElection(nodeId, leaseDuration));
-        return services;
-    }
-
-    /// <summary>
     /// Adds InMemory message scheduler to the service collection.
     /// </summary>
     public static IServiceCollection AddInMemoryMessageScheduler(this IServiceCollection services)

@@ -119,21 +119,4 @@ public static class RedisPersistenceServiceCollectionExtensions
 
         return services;
     }
-
-    /// <summary>
-    /// 添加 Redis Leader Election
-    /// </summary>
-    public static IServiceCollection AddRedisLeaderElection(
-        this IServiceCollection services,
-        Action<LeaderElectionOptions>? configure = null)
-    {
-        services.Configure<LeaderElectionOptions>(options =>
-        {
-            configure?.Invoke(options);
-        });
-
-        services.TryAddSingleton<ILeaderElection, RedisLeaderElection>();
-
-        return services;
-    }
 }

@@ -345,52 +345,6 @@ public class InMemoryStoresExtendedTests
 
     #endregion
 
-    #region InMemoryLeaderElection Extended Tests
-
-    [Fact]
-    public async Task LeaderElection_MultipleNodes_OnlyOneLeader()
-    {
-        var election1 = new InMemoryLeaderElection(nodeId: "node-1");
-        var election2 = new InMemoryLeaderElection(nodeId: "node-2");
-        var electionName = $"election-multi-{Guid.NewGuid():N}";
-
-        var handle1 = await election1.TryAcquireLeadershipAsync(electionName);
-        var handle2 = await election2.TryAcquireLeadershipAsync(electionName);
-
-        // Both should succeed in InMemory (different instances)
-        handle1.Should().NotBeNull();
-        handle2.Should().NotBeNull();
-    }
-
-    [Fact]
-    public async Task LeaderElection_GetLeader_ShouldReturnLeaderInfo()
-    {
-        var election = new InMemoryLeaderElection(nodeId: "leader-node");
-        var electionName = $"election-info-{Guid.NewGuid():N}";
-
-        var handle = await election.TryAcquireLeadershipAsync(electionName);
-        var leader = await election.GetLeaderAsync(electionName);
-
-        leader.Should().NotBeNull();
-        leader!.Value.NodeId.Should().Be("leader-node");
-        await handle!.DisposeAsync();
-    }
-
-    [Fact]
-    public async Task LeaderElection_IsLeader_AfterRelease_ShouldReturnFalse()
-    {
-        var election = new InMemoryLeaderElection(nodeId: "release-node");
-        var electionName = $"election-release-{Guid.NewGuid():N}";
-
-        var handle = await election.TryAcquireLeadershipAsync(electionName);
-        await handle!.DisposeAsync();
-        var isLeader = await election.IsLeaderAsync(electionName);
-
-        isLeader.Should().BeFalse();
-    }
-
-    #endregion
-
     #region InMemoryRateLimiter Extended Tests
 
     [Fact]

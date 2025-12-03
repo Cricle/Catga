@@ -98,12 +98,9 @@ builder.Services.AddInMemoryPersistence();
 builder.Services.AddSingleton<Catga.Pipeline.Behaviors.ICompensationPublisher<OrderSystem.Api.Messages.CreateOrderCommand>,
     OrderSystem.Api.Services.CreateOrderCompensation>();
 
-// Register distributed services (rate limiter and leader election are optional)
+// Register distributed services
 builder.Services.AddSingleton<IInventoryService, OrderSystem.Api.Services.DistributedInventoryService>();
 builder.Services.AddSingleton<IPaymentService, OrderSystem.Api.Services.SimulatedPaymentService>();
-
-// Register leader election background service
-builder.Services.AddHostedService<OrderSystem.Api.Handlers.LeaderElectionBackgroundService>();
 
 // Configure OpenTelemetry
 var serviceName = "OrderSystem.Api";

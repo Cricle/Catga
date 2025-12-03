@@ -104,69 +104,6 @@ public class InMemoryDistributedStoresTests
 
     #endregion
 
-    #region InMemoryLeaderElection Tests
-
-    [Fact]
-    public async Task LeaderElection_TryAcquire_ShouldAcquireLeadership()
-    {
-        // Arrange
-        var election = new InMemoryLeaderElection(nodeId: "node-1");
-
-        // Act
-        var handle = await election.TryAcquireLeadershipAsync("test-election");
-
-        // Assert
-        Assert.NotNull(handle);
-        Assert.True(handle.IsLeader);
-        Assert.Equal("node-1", handle.NodeId);
-    }
-
-    [Fact]
-    public async Task LeaderElection_IsLeader_ShouldReturnTrueForLeader()
-    {
-        // Arrange
-        var election = new InMemoryLeaderElection(nodeId: "node-1");
-        await election.TryAcquireLeadershipAsync("test-election");
-
-        // Act
-        var isLeader = await election.IsLeaderAsync("test-election");
-
-        // Assert
-        Assert.True(isLeader);
-    }
-
-    [Fact]
-    public async Task LeaderElection_GetLeader_ShouldReturnLeaderInfo()
-    {
-        // Arrange
-        var election = new InMemoryLeaderElection(nodeId: "node-1");
-        await election.TryAcquireLeadershipAsync("test-election");
-
-        // Act
-        var leader = await election.GetLeaderAsync("test-election");
-
-        // Assert
-        Assert.NotNull(leader);
-        Assert.Equal("node-1", leader.Value.NodeId);
-    }
-
-    [Fact]
-    public async Task LeaderElection_Release_ShouldReleaseLeadership()
-    {
-        // Arrange
-        var election = new InMemoryLeaderElection(nodeId: "node-1");
-        var handle = await election.TryAcquireLeadershipAsync("test-election");
-
-        // Act
-        await handle!.DisposeAsync();
-        var isLeader = await election.IsLeaderAsync("test-election");
-
-        // Assert
-        Assert.False(isLeader);
-    }
-
-    #endregion
-
     #region InMemorySnapshotStore Tests
 
     [Fact]

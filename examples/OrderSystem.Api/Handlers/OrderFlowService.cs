@@ -5,95 +5,78 @@ using OrderSystem.Api.Services;
 namespace OrderSystem.Api.Handlers;
 
 /// <summary>
-/// Order creation flow using FlowService base class.
-/// Just override DefineSteps() and write your business logic.
+/// Order creation flow using [FlowStep] attributes.
+/// Source Generator creates ExecuteFlowAsync(order, ct) automatically.
 ///
 /// Usage:
-///   var flow = new OrderFlowService(repo, inventory, payment, order);
-///   var result = await flow.ExecuteAsync();
+///   var service = new OrderFlowService(repo, inventory, payment);
+///   var result = await service.ExecuteFlowAsync(order, ct);
 /// </summary>
-public class OrderFlowService : FlowService
+public partial class OrderFlowService
 {
     private readonly IOrderRepository _orderRepository;
     private readonly IInventoryService _inventoryService;
     private readonly IPaymentService _paymentService;
-    private readonly Order _order;
 
     public OrderFlowService(
         IOrderRepository orderRepository,
         IInventoryService inventoryService,
-        IPaymentService paymentService,
-        Order order)
+        IPaymentService paymentService)
     {
         _orderRepository = orderRepository;
         _inventoryService = inventoryService;
         _paymentService = paymentService;
-        _order = order;
     }
 
-    protected override void DefineSteps()
+    [FlowStep(Order = 1)]
+    private async Task CheckInventory(Order order)
     {
-        // Step 1: Check inventory (no compensation - read only)
-        Step(CheckInventory);
-
-        // Step 2: Save order (with compensation)
-        Step(SaveOrder, MarkOrderFailed);
-
-        // Step 3: Reserve inventory (with compensation)
-        Step(ReserveInventory, ReleaseInventory);
-
-        // Step 4: Process payment (with compensation)
-        Step(ProcessPayment, RefundPayment);
-
-        // Step 5: Confirm order (final step)
-        Step(ConfirmOrder);
-    }
-
-    private async Task CheckInventory()
-    {
-        var result = await _inventoryService.CheckStockAsync(_order.Items);
+        var result = await _inventoryService.CheckStockAsync(order.Items);
         if (!result.IsSuccess) throw new InvalidOperationException(result.Error);
     }
 
-    private async Task SaveOrder()
+    [FlowStep(Order = 2, Compensate = nameof(MarkOrderFailed))]
+    private async Task SaveOrder(Order order)
     {
-        await _orderRepository.SaveAsync(_order);
+        await _orderRepository.SaveAsync(order);
     }
 
-    private async Task MarkOrderFailed()
+    private async Task MarkOrderFailed(Order order)
     {
-        _order.Status = OrderStatus.Failed;
-        await _orderRepository.UpdateAsync(_order);
+        order.Status = OrderStatus.Failed;
+        await _orderRepository.UpdateAsync(order);
     }
 
-    private async Task ReserveInventory()
+    [FlowStep(Order = 3, Compensate = nameof(ReleaseInventory))]
+    private async Task ReserveInventory(Order order)
     {
-        var result = await _inventoryService.ReserveStockAsync(_order.OrderId, _order.Items);
+        var result = await _inventoryService.ReserveStockAsync(order.OrderId, order.Items);
         if (!result.IsSuccess) throw new InvalidOperationException(result.Error);
     }
 
-    private async Task ReleaseInventory()
+    private async Task ReleaseInventory(Order order)
     {
-        await _inventoryService.ReleaseStockAsync(_order.OrderId, _order.Items);
+        await _inventoryService.ReleaseStockAsync(order.OrderId, order.Items);
     }
 
-    private async Task ProcessPayment()
+    [FlowStep(Order = 4, Compensate = nameof(RefundPayment))]
+    private async Task ProcessPayment(Order order)
     {
         var result = await _paymentService.ProcessPaymentAsync(
-            _order.OrderId, _order.TotalAmount, _order.PaymentMethod);
+            order.OrderId, order.TotalAmount, order.PaymentMethod);
         if (!result.IsSuccess) throw new InvalidOperationException(result.Error);
     }
 
-    private Task RefundPayment()
+    private Task RefundPayment(Order order)
     {
-        // In real implementation, call payment gateway refund API
         return Task.CompletedTask;
     }
 
-    private async Task ConfirmOrder()
+    [FlowStep(Order = 5)]
+    private async Task ConfirmOrder(Order order)
     {
-        _order.Status = OrderStatus.Confirmed;
-        _order.UpdatedAt = DateTime.UtcNow;
-        await _orderRepository.UpdateAsync(_order);
+        order.Status = OrderStatus.Confirmed;
+        order.UpdatedAt = DateTime.UtcNow;
+        await _orderRepository.UpdateAsync(order);
     }
 }

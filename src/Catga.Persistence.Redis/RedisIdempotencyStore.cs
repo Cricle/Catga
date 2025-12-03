@@ -1,128 +1,59 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Idempotency;
+using Catga.Observability;
+using Catga.Resilience;
+using MemoryPack;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
-using Catga.Resilience;
-using System.Diagnostics;
-using Catga.Observability;
-using MemoryPack;
 
 namespace Catga.Persistence.Redis;
 
-/// <summary>
-/// Redis idempotency store - production-grade high-performance (uses injected IMessageSerializer)
-/// </summary>
-public partial class RedisIdempotencyStore : RedisStoreBase, IIdempotencyStore
+/// <summary>Redis idempotency store.</summary>
+public partial class RedisIdempotencyStore(
+    IConnectionMultiplexer redis,
+    IMessageSerializer serializer,
+    ILogger<RedisIdempotencyStore> logger,
+    IResiliencePipelineProvider provider,
+    RedisIdempotencyOptions? options = null) : RedisStoreBase(redis, serializer, options?.KeyPrefix ?? "idempotency:"), IIdempotencyStore
 {
-    private readonly ILogger<RedisIdempotencyStore> _logger;
-    private readonly TimeSpan _defaultExpiry;
-    private readonly IResiliencePipelineProvider _provider;
+    private readonly TimeSpan _expiry = options?.Expiry ?? TimeSpan.FromHours(24);
 
-    public RedisIdempotencyStore(
-        IConnectionMultiplexer redis,
-        IMessageSerializer serializer,
-        ILogger<RedisIdempotencyStore> logger,
-        RedisIdempotencyOptions? options = null,
-        IResiliencePipelineProvider? provider = null)
-        : base(redis, serializer, options?.KeyPrefix ?? "idempotency:")
-    {
-        _logger = logger;
-        _defaultExpiry = options?.Expiry ?? TimeSpan.FromHours(24);
-        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
-    }
-
-    /// <inheritdoc/>
-    public async Task<bool> HasBeenProcessedAsync(long messageId, CancellationToken cancellationToken = default)
-    {
-        return await _provider.ExecutePersistenceAsync(async ct =>
+    public async Task<bool> HasBeenProcessedAsync(long messageId, CancellationToken ct = default)
+        => await provider.ExecutePersistenceAsync(async c =>
         {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Redis.Idempotency.HasBeenProcessed", ActivityKind.Internal);
-            var db = GetDatabase();
-            var key = BuildKey(messageId);
-            var exists = await db.KeyExistsAsync(key);
-            if (exists) CatgaDiagnostics.IdempotencyHits.Add(1); else CatgaDiagnostics.IdempotencyMisses.Add(1);
+            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Redis.Idempotency.HasBeenProcessed", ActivityKind.Internal);
+            var exists = await GetDatabase().KeyExistsAsync(BuildKey(messageId));
+            (exists ? CatgaDiagnostics.IdempotencyHits : CatgaDiagnostics.IdempotencyMisses).Add(1);
             return exists;
-        }, cancellationToken);
-    }
+        }, ct);
 
-    /// <inheritdoc/>
     public async Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
-        long messageId,
-        TResult? result = default,
-        CancellationToken cancellationToken = default)
-    {
-        await _provider.ExecutePersistenceAsync(async ct =>
+        long messageId, TResult? result = default, CancellationToken ct = default)
+        => await provider.ExecutePersistenceAsync(async c =>
         {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Redis.Idempotency.MarkProcessed", ActivityKind.Internal);
-            var db = GetDatabase();
-            var key = BuildKey(messageId);
-
-            var entry = new IdempotencyEntry
-            {
-                MessageId = messageId,
-                ProcessedAt = DateTime.UtcNow,
-                ResultType = result?.GetType().AssemblyQualifiedName,
-                ResultBytes = result != null ? Serializer.Serialize(result, typeof(TResult)) : null
-            };
-
-            var bytes = Serializer.Serialize(entry, typeof(IdempotencyEntry));
-            await db.StringSetAsync(key, bytes, _defaultExpiry);
-
-            CatgaLog.IdempotencyMarkedProcessed(_logger, messageId);
+            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Redis.Idempotency.MarkProcessed", ActivityKind.Internal);
+            var entry = new Entry { MessageId = messageId, ProcessedAt = DateTime.UtcNow, ResultType = result?.GetType().AssemblyQualifiedName, ResultBytes = result != null ? Serializer.Serialize(result, typeof(TResult)) : null };
+            await GetDatabase().StringSetAsync(BuildKey(messageId), Serializer.Serialize(entry, typeof(Entry)), _expiry);
+            CatgaLog.IdempotencyMarkedProcessed(logger, messageId);
             CatgaDiagnostics.IdempotencyMarked.Add(1);
-        }, cancellationToken);
-    }
+        }, ct);
 
-    /// <inheritdoc/>
-    public async Task<TResult?> GetCachedResultAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(
-        long messageId,
-        CancellationToken cancellationToken = default)
-    {
-        return await _provider.ExecutePersistenceAsync(async ct =>
+    public async Task<TResult?> GetCachedResultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(long messageId, CancellationToken ct = default)
+        => await provider.ExecutePersistenceAsync(async c =>
         {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Redis.Idempotency.GetCachedResult", ActivityKind.Internal);
-            var db = GetDatabase();
-            var key = BuildKey(messageId);
-
-            var bytes = await db.StringGetAsync(key);
-            if (!bytes.HasValue)
-            {
-                CatgaDiagnostics.IdempotencyCacheMisses.Add(1);
-                return default(TResult?);
-            }
-
-            var entry = (IdempotencyEntry?)Serializer.Deserialize((byte[])bytes!, typeof(IdempotencyEntry));
-            if (entry?.ResultBytes == null)
-            {
-                CatgaDiagnostics.IdempotencyCacheMisses.Add(1);
-                return default(TResult?);
-            }
-
-            // Verify type match
-            var expectedType = typeof(TResult).AssemblyQualifiedName;
-            if (entry.ResultType != expectedType)
-            {
-                CatgaLog.IdempotencyTypeMismatch(_logger, messageId, expectedType, entry.ResultType);
-                CatgaDiagnostics.IdempotencyCacheMisses.Add(1);
-                return default(TResult?);
-            }
-
+            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Redis.Idempotency.GetCachedResult", ActivityKind.Internal);
+            var bytes = await GetDatabase().StringGetAsync(BuildKey(messageId));
+            if (!bytes.HasValue) { CatgaDiagnostics.IdempotencyCacheMisses.Add(1); return default(TResult?); }
+            var entry = (Entry?)Serializer.Deserialize((byte[])bytes!, typeof(Entry));
+            if (entry?.ResultBytes == null) { CatgaDiagnostics.IdempotencyCacheMisses.Add(1); return default(TResult?); }
+            if (entry.ResultType != typeof(TResult).AssemblyQualifiedName) { CatgaLog.IdempotencyTypeMismatch(logger, messageId, typeof(TResult).AssemblyQualifiedName, entry.ResultType); CatgaDiagnostics.IdempotencyCacheMisses.Add(1); return default(TResult?); }
             var result = (TResult?)Serializer.Deserialize(entry.ResultBytes, typeof(TResult));
-            if (result is null) CatgaDiagnostics.IdempotencyCacheMisses.Add(1); else CatgaDiagnostics.IdempotencyCacheHits.Add(1);
+            (result is null ? CatgaDiagnostics.IdempotencyCacheMisses : CatgaDiagnostics.IdempotencyCacheHits).Add(1);
             return result;
-        }, cancellationToken);
-    }
+        }, ct);
 
-    /// <summary>
-    /// Idempotency entry
-    /// </summary>
     [MemoryPackable]
-    private partial class IdempotencyEntry
-    {
-        public long MessageId { get; set; }
-        public DateTime ProcessedAt { get; set; }
-        public string? ResultType { get; set; }
-        public byte[]? ResultBytes { get; set; }
-    }
+    private partial class Entry { public long MessageId { get; set; } public DateTime ProcessedAt { get; set; } public string? ResultType { get; set; } public byte[]? ResultBytes { get; set; } }
 }

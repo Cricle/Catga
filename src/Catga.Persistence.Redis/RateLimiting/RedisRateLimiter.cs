@@ -5,17 +5,11 @@ using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis.RateLimiting;
 
-/// <summary>
-/// Redis-backed distributed rate limiter using Polly.
-/// Provides cross-node rate limiting with sliding window algorithm.
-/// </summary>
-public sealed partial class RedisRateLimiter : IDistributedRateLimiter
+/// <summary>Redis-backed distributed rate limiter.</summary>
+public sealed partial class RedisRateLimiter(IConnectionMultiplexer redis, IOptions<DistributedRateLimiterOptions> options, ILogger<RedisRateLimiter> logger) : IDistributedRateLimiter
 {
-    private readonly IConnectionMultiplexer _redis;
-    private readonly DistributedRateLimiterOptions _options;
-    private readonly ILogger<RedisRateLimiter> _logger;
+    private readonly DistributedRateLimiterOptions _opts = options.Value;
 
-    // Lua script for atomic sliding window rate limiting
     private static readonly string SlidingWindowScript = """
         local key = KEYS[1]
         local now = tonumber(ARGV[1])
@@ -74,142 +68,58 @@ public sealed partial class RedisRateLimiter : IDistributedRateLimiter
         end
         """;
 
-
-    public RedisRateLimiter(
-        IConnectionMultiplexer redis,
-        IOptions<DistributedRateLimiterOptions> options,
-        ILogger<RedisRateLimiter> logger)
+    public async ValueTask<RateLimitResult> TryAcquireAsync(string key, int permits = 1, CancellationToken ct = default)
     {
-        _redis = redis;
-        _options = options.Value;
-        _logger = logger;
-    }
-
-    public async ValueTask<RateLimitResult> TryAcquireAsync(
-        string key,
-        int permits = 1,
-        CancellationToken ct = default)
-    {
-        var db = _redis.GetDatabase();
-        var fullKey = _options.KeyPrefix + key;
+        var db = redis.GetDatabase();
+        var fullKey = _opts.KeyPrefix + key;
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var windowMs = (long)_options.DefaultWindow.TotalMilliseconds;
-
+        var windowMs = (long)_opts.DefaultWindow.TotalMilliseconds;
         try
         {
-            RedisResult result;
-
-            if (_options.Algorithm == RateLimitAlgorithm.SlidingWindow)
-            {
-                result = await db.ScriptEvaluateAsync(
-                    SlidingWindowScript,
-                    new RedisKey[] { fullKey },
-                    new RedisValue[] { now, windowMs, _options.DefaultPermitLimit, permits, _options.SlidingWindowSegments });
-            }
-            else
-            {
-                result = await db.ScriptEvaluateAsync(
-                    FixedWindowScript,
-                    new RedisKey[] { fullKey },
-                    new RedisValue[] { windowMs, _options.DefaultPermitLimit, permits });
-            }
-
-            var values = (RedisResult[])result!;
-            var acquired = (int)values[0] == 1;
-            var remaining = (long)values[1];
-            var retryAfterMs = (long)values[2];
-
-            if (acquired)
-            {
-                LogRateLimitAcquired(_logger, key, permits, remaining);
-                return RateLimitResult.Acquired(remaining);
-            }
-            else
-            {
-                var retryAfter = TimeSpan.FromMilliseconds(retryAfterMs);
-                LogRateLimitRejected(_logger, key, permits, retryAfter.TotalSeconds);
-                return RateLimitResult.Rejected(RateLimitRejectionReason.RateLimitExceeded, retryAfter);
-            }
+            var result = _opts.Algorithm == RateLimitAlgorithm.SlidingWindow
+                ? await db.ScriptEvaluateAsync(SlidingWindowScript, [fullKey], [now, windowMs, _opts.DefaultPermitLimit, permits, _opts.SlidingWindowSegments])
+                : await db.ScriptEvaluateAsync(FixedWindowScript, [fullKey], [windowMs, _opts.DefaultPermitLimit, permits]);
+            var v = (RedisResult[])result!;
+            var acquired = (int)v[0] == 1;
+            if (acquired) { LogRateLimitAcquired(logger, key, permits, (long)v[1]); return RateLimitResult.Acquired((long)v[1]); }
+            var retryAfter = TimeSpan.FromMilliseconds((long)v[2]);
+            LogRateLimitRejected(logger, key, permits, retryAfter.TotalSeconds);
+            return RateLimitResult.Rejected(RateLimitRejectionReason.RateLimitExceeded, retryAfter);
         }
-        catch (Exception ex)
-        {
-            LogRateLimitError(_logger, key, ex.Message);
-            // Fail open - allow request on error
-            return RateLimitResult.Acquired();
-        }
+        catch (Exception ex) { LogRateLimitError(logger, key, ex.Message); return RateLimitResult.Acquired(); }
     }
 
-    public async ValueTask<RateLimitResult> WaitAsync(
-        string key,
-        int permits = 1,
-        TimeSpan timeout = default,
-        CancellationToken ct = default)
+    public async ValueTask<RateLimitResult> WaitAsync(string key, int permits = 1, TimeSpan timeout = default, CancellationToken ct = default)
     {
-        if (timeout == default)
-            timeout = TimeSpan.FromSeconds(30);
-
-        var deadline = DateTimeOffset.UtcNow.Add(timeout);
-
+        var deadline = DateTimeOffset.UtcNow.Add(timeout == default ? TimeSpan.FromSeconds(30) : timeout);
         while (DateTimeOffset.UtcNow < deadline)
         {
             ct.ThrowIfCancellationRequested();
-
-            var result = await TryAcquireAsync(key, permits, ct);
-            if (result.IsAcquired)
-                return result;
-
-            var delay = result.RetryAfter ?? TimeSpan.FromMilliseconds(100);
-            var remaining = deadline - DateTimeOffset.UtcNow;
-            if (delay > remaining)
-                delay = remaining;
-
-            if (delay > TimeSpan.Zero)
-                await Task.Delay(delay, ct);
+            var r = await TryAcquireAsync(key, permits, ct);
+            if (r.IsAcquired) return r;
+            var delay = TimeSpan.FromMilliseconds(Math.Min((r.RetryAfter ?? TimeSpan.FromMilliseconds(100)).TotalMilliseconds, (deadline - DateTimeOffset.UtcNow).TotalMilliseconds));
+            if (delay > TimeSpan.Zero) await Task.Delay(delay, ct);
         }
-
         return RateLimitResult.Rejected(RateLimitRejectionReason.Timeout);
     }
 
     public async ValueTask<RateLimitStatistics?> GetStatisticsAsync(string key, CancellationToken ct = default)
     {
-        var db = _redis.GetDatabase();
-        var fullKey = _options.KeyPrefix + key;
-
+        var db = redis.GetDatabase();
+        var fullKey = _opts.KeyPrefix + key;
         try
         {
-            if (_options.Algorithm == RateLimitAlgorithm.SlidingWindow)
+            long count; TimeSpan? ttl;
+            if (_opts.Algorithm == RateLimitAlgorithm.SlidingWindow)
             {
                 var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                var windowStart = now - (long)_options.DefaultWindow.TotalMilliseconds;
-
-                var count = await db.SortedSetLengthAsync(fullKey, windowStart, now);
-                var ttl = await db.KeyTimeToLiveAsync(fullKey);
-
-                return new RateLimitStatistics
-                {
-                    CurrentCount = count,
-                    Limit = _options.DefaultPermitLimit,
-                    ResetAfter = ttl
-                };
+                count = await db.SortedSetLengthAsync(fullKey, now - (long)_opts.DefaultWindow.TotalMilliseconds, now);
             }
-            else
-            {
-                var countStr = await db.StringGetAsync(fullKey);
-                var count = countStr.HasValue ? (long)countStr : 0;
-                var ttl = await db.KeyTimeToLiveAsync(fullKey);
-
-                return new RateLimitStatistics
-                {
-                    CurrentCount = count,
-                    Limit = _options.DefaultPermitLimit,
-                    ResetAfter = ttl
-                };
-            }
+            else { var v = await db.StringGetAsync(fullKey); count = v.HasValue ? (long)v : 0; }
+            ttl = await db.KeyTimeToLiveAsync(fullKey);
+            return new() { CurrentCount = count, Limit = _opts.DefaultPermitLimit, ResetAfter = ttl };
         }
-        catch
-        {
-            return null;
-        }
+        catch { return null; }
     }
 
     #region Logging

@@ -97,7 +97,7 @@ public static class RedisPersistenceServiceCollectionExtensions
             var serializer = sp.GetRequiredService<IMessageSerializer>();
             var logger = sp.GetRequiredService<ILogger<RedisIdempotencyStore>>();
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-            return new RedisIdempotencyStore(redis, serializer, logger, options, provider);
+            return new RedisIdempotencyStore(redis, serializer, logger, provider, options);
         });
 
         return services;

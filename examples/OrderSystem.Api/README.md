@@ -8,6 +8,7 @@
 |------|------|-----------|
 | ✅ **Flow 服务编排** | 自动补偿，零配置 Saga | `/demo/flow/order-success`, `/demo/flow/order-failure` |
 | ✅ **SafeRequestHandler** | 自动异常处理 | `/demo/order-success`, `/demo/order-failure` |
+| ✅ **集群协调** | Leader 选举，单例任务 | `/demo/cluster/status`, `/demo/cluster/toggle-leader` |
 | ✅ **事件驱动** | 多处理器并行执行 | `/demo/events` |
 | ✅ **批处理** | 高效批量请求 | `/demo/batch` |
 | ✅ **Source Generator** | 零反射，AOT 兼容 | 自动注册 |
@@ -82,6 +83,19 @@ curl -X POST http://localhost:5000/demo/order-failure
 
 # ===== 对比说明 =====
 curl http://localhost:5000/demo/compare
+
+# ===== 集群协调（Leader 选举）=====
+# 查看集群状态
+curl http://localhost:5000/demo/cluster/status
+
+# 切换 Leader 状态（模拟）
+curl -X POST http://localhost:5000/demo/cluster/toggle-leader
+
+# 执行 Leader-only 操作
+curl -X POST http://localhost:5000/demo/cluster/leader-only
+
+# 集群功能说明
+curl http://localhost:5000/demo/cluster/info
 
 # ===== 其他功能 =====
 # 事件发布（多处理器并行）

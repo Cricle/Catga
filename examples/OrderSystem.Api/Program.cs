@@ -102,6 +102,15 @@ builder.Services.AddSingleton<Catga.Pipeline.Behaviors.ICompensationPublisher<Or
 builder.Services.AddSingleton<IInventoryService, OrderSystem.Api.Services.DistributedInventoryService>();
 builder.Services.AddSingleton<IPaymentService, OrderSystem.Api.Services.SimulatedPaymentService>();
 
+// Register cluster coordinator (simulated for single-node demo)
+// In production, use real DotNext Raft cluster:
+//   builder.Services.JoinCluster();  // DotNext
+//   builder.Services.AddCatgaCluster();
+builder.Services.AddSingleton<Catga.Cluster.IClusterCoordinator, OrderSystem.Api.Services.SimulatedClusterCoordinator>();
+
+// Register singleton background task (only runs on leader)
+builder.Services.AddHostedService<OrderSystem.Api.Services.OutboxProcessorTask>();
+
 // Configure OpenTelemetry
 var serviceName = "OrderSystem.Api";
 var serviceVersion = "1.0.0";
@@ -434,6 +443,115 @@ app.MapPost("/demo/events", async (ICatgaMediator m) =>
         }
     });
 }).WithName("DemoEvents").WithTags("Advanced Demo");
+
+// ============================================================
+// Cluster Demo - Leader Election & Singleton Tasks
+// ============================================================
+
+app.MapGet("/demo/cluster/status", (Catga.Cluster.IClusterCoordinator coordinator) =>
+{
+    return Results.Ok(new
+    {
+        Title = "Cluster Status",
+        NodeId = coordinator.NodeId,
+        IsLeader = coordinator.IsLeader,
+        LeaderEndpoint = coordinator.LeaderEndpoint,
+        Message = coordinator.IsLeader
+            ? "✅ This node is the LEADER - singleton tasks are running here"
+            : "⏳ This node is a FOLLOWER - waiting for leadership"
+    });
+}).WithName("DemoClusterStatus").WithTags("Cluster Demo");
+
+app.MapPost("/demo/cluster/toggle-leader", (Catga.Cluster.IClusterCoordinator coordinator) =>
+{
+    if (coordinator is OrderSystem.Api.Services.SimulatedClusterCoordinator simulated)
+    {
+        var newState = !simulated.IsLeader;
+        simulated.SimulateLeadershipChange(newState);
+        return Results.Ok(new
+        {
+            Title = "Leadership Toggled",
+            IsLeader = newState,
+            Message = newState
+                ? "✅ Now LEADER - OutboxProcessor will start"
+                : "⏳ Now FOLLOWER - OutboxProcessor will stop"
+        });
+    }
+    return Results.BadRequest("Cannot toggle leadership on real cluster");
+}).WithName("DemoClusterToggle").WithTags("Cluster Demo");
+
+app.MapPost("/demo/cluster/leader-only", async (Catga.Cluster.IClusterCoordinator coordinator) =>
+{
+    var (isLeader, result) = await coordinator.ExecuteIfLeaderAsync(async ct =>
+    {
+        await Task.Delay(100, ct); // Simulate work
+        return new { ProcessedAt = DateTime.UtcNow, Data = "Leader-only operation completed" };
+    });
+
+    if (isLeader)
+    {
+        return Results.Ok(new
+        {
+            Title = "Leader-Only Operation",
+            Success = true,
+            Result = result,
+            Message = "✅ Operation executed on leader node"
+        });
+    }
+
+    return Results.Ok(new
+    {
+        Title = "Leader-Only Operation",
+        Success = false,
+        LeaderEndpoint = coordinator.LeaderEndpoint,
+        Message = "❌ Not leader - operation rejected. Forward to leader endpoint."
+    });
+}).WithName("DemoClusterLeaderOnly").WithTags("Cluster Demo");
+
+app.MapGet("/demo/cluster/info", () => Results.Ok(new
+{
+    Title = "Catga.Cluster - Distributed Coordination",
+    Description = "Leader election and singleton tasks using DotNext Raft consensus",
+    Endpoints = new[]
+    {
+        new { Method = "GET", Path = "/demo/cluster/status", Description = "Check cluster status and leadership" },
+        new { Method = "POST", Path = "/demo/cluster/toggle-leader", Description = "Simulate leadership change" },
+        new { Method = "POST", Path = "/demo/cluster/leader-only", Description = "Execute leader-only operation" }
+    },
+    Features = new[]
+    {
+        "✨ IClusterCoordinator - Simple leader election API",
+        "✨ SingletonTaskRunner - Background tasks only on leader",
+        "✨ LeaderOnlyBehavior - Reject non-leader requests",
+        "✨ ForwardToLeaderBehavior - Auto-forward to leader",
+        "✨ Based on DotNext Raft - Production-ready consensus"
+    },
+    CodeExample = @"
+// 1. Register cluster (production)
+builder.Services.JoinCluster();  // DotNext Raft
+builder.Services.AddCatgaCluster();
+
+// 2. Singleton background task
+public class OutboxProcessor : SingletonTaskRunner
+{
+    protected override async Task ExecuteLeaderTaskAsync(CancellationToken ct)
+    {
+        // Only runs on leader node
+        while (!ct.IsCancellationRequested)
+        {
+            await ProcessOutboxAsync(ct);
+            await Task.Delay(1000, ct);
+        }
+    }
+}
+
+// 3. Leader-only operations
+var (isLeader, result) = await coordinator.ExecuteIfLeaderAsync(async ct =>
+{
+    return await DoLeaderWorkAsync(ct);
+});
+"
+})).WithName("DemoClusterInfo").WithTags("Cluster Demo");
 
 string firstUrl = "http://localhost:5000";
 foreach (var u in app.Urls) { firstUrl = u; break; }

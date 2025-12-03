@@ -172,3 +172,50 @@ public readonly record struct FlowResult<T>(bool IsSuccess, T? Value, int Comple
 {
     public bool IsCancelled { get; init; }
 }
+
+/// <summary>
+/// Base class for Flow services. Override DefineSteps() to define your flow.
+/// Call ExecuteAsync() to run with automatic compensation.
+/// </summary>
+/// <example>
+/// public class OrderFlow : FlowService
+/// {
+///     protected override void DefineSteps()
+///     {
+///         Step(() => SaveOrder(), () => DeleteOrder());
+///         Step(() => ReserveStock(), () => ReleaseStock());
+///         Step(() => ProcessPayment(), () => RefundPayment());
+///     }
+/// }
+/// var result = await new OrderFlow().ExecuteAsync();
+/// </example>
+public abstract class FlowService
+{
+    private Flow? _flow;
+
+    protected abstract void DefineSteps();
+
+    protected void Step(Func<Task> execute, Func<Task>? compensate = null)
+    {
+        _flow?.Step(execute, compensate);
+    }
+
+    protected void Step<T>(Func<Task<T>> execute, Func<T, Task>? compensate = null)
+    {
+        _flow?.Step(execute, compensate);
+    }
+
+    public Task<FlowResult> ExecuteAsync(CancellationToken ct = default)
+    {
+        _flow = Flow.Create(GetType().Name);
+        DefineSteps();
+        return _flow.ExecuteAsync(ct);
+    }
+
+    public Task<FlowResult<T>> ExecuteAsync<T>(CancellationToken ct = default)
+    {
+        _flow = Flow.Create(GetType().Name);
+        DefineSteps();
+        return _flow.ExecuteAsync<T>(ct);
+    }
+}

@@ -155,23 +155,36 @@ OrderSystem.Api/
 
 ### 1. Flow 服务编排 - 自动补偿（推荐）
 
+**方式 A: FlowService 基类（推荐）**
 ```csharp
-// 简洁 Flow API - 失败时自动逆序补偿
-var result = await Flow.Create("CreateOrder")
-    .Step(() => orderRepository.SaveAsync(order),
-          () => orderRepository.DeleteAsync(order.Id))  // Compensation
-    .Step(() => inventoryService.ReserveAsync(items),
-          () => inventoryService.ReleaseAsync(items))   // Compensation
-    .Step(() => paymentService.ChargeAsync(amount),
-          () => paymentService.RefundAsync(amount))     // Compensation
-    .ExecuteAsync();
+public class OrderFlow : FlowService
+{
+    protected override void DefineSteps()
+    {
+        Step(SaveOrder, DeleteOrder);       // 执行 + 补偿
+        Step(ReserveStock, ReleaseStock);   // 执行 + 补偿
+        Step(ProcessPayment, RefundPayment);// 执行 + 补偿
+        Step(ConfirmOrder);                 // 仅执行
+    }
 
-if (result.IsSuccess) return Success(result.Value!);
-else return Failure(result.Error!);
+    private async Task SaveOrder() { ... }
+    private async Task DeleteOrder() { ... }
+    // ...
+}
+
+var result = await new OrderFlow(repo, inventory, payment, order).ExecuteAsync();
+```
+
+**方式 B: 直接使用 Flow**
+```csharp
+var result = await Flow.Create("CreateOrder")
+    .Step(() => repo.SaveAsync(order), () => repo.DeleteAsync(order.Id))
+    .Step(() => inventory.ReserveAsync(items), () => inventory.ReleaseAsync(items))
+    .ExecuteAsync();
 ```
 
 **关键点**：
-- ✅ 最简 API，无需 step 名称
+- ✅ FlowService 基类 - 业务代码分离，更清晰
 - ✅ 失败时自动逆序补偿
 - ✅ 内置链路跟踪 (Activity)
 - ✅ AOT 兼容

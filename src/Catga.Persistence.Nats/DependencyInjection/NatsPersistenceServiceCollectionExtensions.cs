@@ -38,7 +38,7 @@ public static class NatsPersistenceServiceCollectionExtensions
             var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_EVENTS" };
             configure?.Invoke(options);
 
-            return new Catga.Persistence.NatsJSEventStore(connection, serializer, streamName, options, provider);
+            return new Catga.Persistence.NatsJSEventStore(connection, serializer, provider, null, streamName, options);
         });
 
         return services;

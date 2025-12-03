@@ -123,7 +123,7 @@ public sealed partial class EventSourcingE2ETests : IAsyncLifetime
 
         var provider = new DiagnosticResiliencePipelineProvider();
         var streamName = $"ES_TEST_{Guid.NewGuid():N}";
-        var eventStore = new NatsJSEventStore(_nats, _serializer, streamName, options: null, provider: provider);
+        var eventStore = new NatsJSEventStore(_nats, _serializer, provider, streamName: streamName);
 
         var streamId = $"order-{Guid.NewGuid()}";
 
@@ -154,7 +154,7 @@ public sealed partial class EventSourcingE2ETests : IAsyncLifetime
 
         var provider = new DiagnosticResiliencePipelineProvider();
         var streamName = $"ES_SNAP_{Guid.NewGuid():N}";
-        var eventStore = new NatsJSEventStore(_nats, _serializer, streamName, options: null, provider: provider);
+        var eventStore = new NatsJSEventStore(_nats, _serializer, provider, streamName: streamName);
         var snapshotStore = new RedisSnapshotStore(_redis, _serializer, Options.Create(new SnapshotOptions()), NullLogger<RedisSnapshotStore>.Instance);
 
         var streamId = $"order-{Guid.NewGuid()}";

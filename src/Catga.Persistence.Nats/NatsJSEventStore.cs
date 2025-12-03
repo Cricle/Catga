@@ -1,39 +1,21 @@
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
+using Catga.Core;
 using Catga.EventSourcing;
 using Catga.Observability;
 using Catga.Resilience;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using Catga.Core;
 
 namespace Catga.Persistence;
 
-/// <summary>
-/// NATS JetStream-based event store for persistent event sourcing
-/// Uses JetStream streams instead of KV for better compatibility
-/// </summary>
-public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
+/// <summary>NATS JetStream-based event store.</summary>
+public sealed class NatsJSEventStore(INatsConnection connection, IMessageSerializer serializer, IResiliencePipelineProvider provider, IEventTypeRegistry? registry = null, string? streamName = null, NatsJSStoreOptions? options = null)
+    : NatsJSStoreBase(connection, streamName ?? "CATGA_EVENTS", options), IEventStore
 {
-    private readonly IMessageSerializer _serializer;
-    private readonly IResiliencePipelineProvider _provider;
-    private readonly IEventTypeRegistry _registry;
-
-    public NatsJSEventStore(
-        INatsConnection connection,
-        IMessageSerializer serializer,
-        string? streamName = null,
-        NatsJSStoreOptions? options = null,
-        IResiliencePipelineProvider? provider = null,
-        IEventTypeRegistry? registry = null)
-        : base(connection, streamName ?? "CATGA_EVENTS", options)
-    {
-        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
-        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
-        _registry = registry ?? new DefaultEventTypeRegistry();
-    }
+    private readonly IEventTypeRegistry _registry = registry ?? new DefaultEventTypeRegistry();
 
     protected override string[] GetSubjects() => new[] { $"{StreamName}.>" };
 
@@ -43,7 +25,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         long expectedVersion = -1,
         CancellationToken cancellationToken = default)
     {
-        await _provider.ExecutePersistenceAsync(async ct =>
+        await provider.ExecutePersistenceAsync(async ct =>
         {
             var start = Stopwatch.GetTimestamp();
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.Append", ActivityKind.Producer);
@@ -78,7 +60,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
                     var typeFull = runtimeType.AssemblyQualifiedName ?? runtimeType.FullName!;
                     _registry.Register(typeFull, runtimeType);
                     var resolvedType = _registry.Resolve(typeFull)!;
-                    var data = _serializer.Serialize(@event, resolvedType);
+                    var data = serializer.Serialize(@event, resolvedType);
                     var headers = new NatsHeaders
                     {
                         ["EventType"] = typeFull
@@ -118,7 +100,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         int maxCount = int.MaxValue,
         CancellationToken cancellationToken = default)
     {
-        return await _provider.ExecutePersistenceAsync(async ct =>
+        return await provider.ExecutePersistenceAsync(async ct =>
         {
             var start = Stopwatch.GetTimestamp();
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.Read", ActivityKind.Internal);
@@ -216,7 +198,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
         string streamId,
         CancellationToken cancellationToken = default)
     {
-        return await _provider.ExecutePersistenceAsync(async ct =>
+        return await provider.ExecutePersistenceAsync(async ct =>
         {
             var start = Stopwatch.GetTimestamp();
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.GetVersion", ActivityKind.Internal);
@@ -278,7 +260,7 @@ public sealed class NatsJSEventStore : NatsJSStoreBase, IEventStore
 
         var t = _registry.Resolve(eventTypeName!)
             ?? throw new InvalidOperationException($"Unknown event type: {eventTypeName}. Ensure it is preserved during trimming or registered in the event type registry.");
-        return (IEvent?)_serializer.Deserialize(msg.Data!, t) ?? throw new InvalidOperationException($"Fail to deserialize type {t}");
+        return (IEvent?)serializer.Deserialize(msg.Data!, t) ?? throw new InvalidOperationException($"Fail to deserialize type {t}");
     }
 
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]

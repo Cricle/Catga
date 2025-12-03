@@ -43,6 +43,7 @@ public sealed class InMemoryFlowStore : IFlowStore
         entry.State.Owner = state.Owner;
         entry.State.HeartbeatAt = state.HeartbeatAt;
         entry.State.Error = state.Error;
+        entry.State.Data = state.Data;
         state.Version = entry.Version;
 
         return ValueTask.FromResult(true);

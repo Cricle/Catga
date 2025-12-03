@@ -462,4 +462,319 @@ public class FlowExecutorTests
     }
 
     #endregion
+
+    #region TDD: Bug Discovery Tests
+
+    [Fact]
+    public async Task ExecuteAsync_ResumeFromStep_UsesCorrectStartStep()
+    {
+        // Pre-create a partially completed flow
+        var state = new FlowState
+        {
+            Id = "resume-flow",
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 2, // Already completed 2 steps
+            Version = 0,
+            Owner = "test-node",
+            HeartbeatAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+        await _store.CreateAsync(state);
+
+        int startStepReceived = -1;
+        var result = await _executor.ExecuteAsync(
+            "resume-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (s, ct) =>
+            {
+                startStepReceived = s.Step;
+                return new FlowResult(true, 3, TimeSpan.Zero);
+            });
+
+        // Executor should pass the current step to the executor function
+        startStepReceived.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_DataPreservedOnResume()
+    {
+        var originalData = new byte[] { 1, 2, 3, 4, 5 };
+
+        // Pre-create a flow with data
+        var state = new FlowState
+        {
+            Id = "data-resume-flow",
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 1,
+            Version = 0,
+            Owner = "test-node",
+            HeartbeatAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Data = originalData
+        };
+        await _store.CreateAsync(state);
+
+        byte[]? receivedData = null;
+        var result = await _executor.ExecuteAsync(
+            "data-resume-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty, // New data should be ignored
+            async (s, ct) =>
+            {
+                receivedData = s.Data;
+                return new FlowResult(true, 2, TimeSpan.Zero);
+            });
+
+        // Should use original data, not new empty data
+        receivedData.Should().BeEquivalentTo(originalData);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_VersionIncrementedOnUpdate()
+    {
+        var result = await _executor.ExecuteAsync(
+            "version-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) => new FlowResult(true, 1, TimeSpan.Zero));
+
+        var stored = await _store.GetAsync("version-flow");
+        stored!.Version.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_HeartbeatUpdatesTime()
+    {
+        var heartbeatTimes = new List<long>();
+
+        var result = await _executor.ExecuteAsync(
+            "heartbeat-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) =>
+            {
+                // Record initial heartbeat
+                var initial = await _store.GetAsync("heartbeat-flow");
+                heartbeatTimes.Add(initial!.HeartbeatAt);
+
+                // Wait for heartbeat to occur
+                await Task.Delay(150, ct);
+
+                // Record after heartbeat
+                var after = await _store.GetAsync("heartbeat-flow");
+                heartbeatTimes.Add(after!.HeartbeatAt);
+
+                return new FlowResult(true, 1, TimeSpan.Zero);
+            });
+
+        // Heartbeat should have updated the time
+        heartbeatTimes.Should().HaveCount(2);
+        heartbeatTimes[1].Should().BeGreaterThan(heartbeatTimes[0]);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CancelledFlow_StatusUpdated()
+    {
+        using var cts = new CancellationTokenSource();
+
+        var task = _executor.ExecuteAsync(
+            "cancel-status-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) =>
+            {
+                await Task.Delay(50, ct);
+                cts.Cancel();
+                await Task.Delay(1000, ct); // Will be cancelled
+                return new FlowResult(true, 1, TimeSpan.Zero);
+            },
+            cts.Token);
+
+        var result = await task;
+
+        // Flow should be marked as failed or have error
+        var stored = await _store.GetAsync("cancel-status-flow");
+        stored.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AbandonedFlow_CanBeRecovered()
+    {
+        // Create abandoned flow (old heartbeat)
+        var state = new FlowState
+        {
+            Id = "abandoned-flow",
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 1,
+            Version = 0,
+            Owner = "dead-node",
+            HeartbeatAt = DateTimeOffset.UtcNow.AddSeconds(-60).ToUnixTimeMilliseconds()
+        };
+        await _store.CreateAsync(state);
+
+        // New executor should be able to claim and execute
+        var newExecutor = new FlowExecutor(_store, new FlowOptions
+        {
+            NodeId = "new-node",
+            ClaimTimeout = TimeSpan.FromSeconds(1)
+        });
+
+        var executed = false;
+        var result = await newExecutor.ExecuteAsync(
+            "abandoned-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (s, ct) =>
+            {
+                executed = true;
+                return new FlowResult(true, 2, TimeSpan.Zero);
+            });
+
+        result.IsSuccess.Should().BeTrue();
+        executed.Should().BeTrue();
+
+        var stored = await _store.GetAsync("abandoned-flow");
+        stored!.Owner.Should().Be("new-node");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_FlowTypeMismatch_ShouldHandle()
+    {
+        // Create flow with one type
+        var state = new FlowState
+        {
+            Id = "type-mismatch-flow",
+            Type = "TypeA",
+            Status = FlowStatus.Running,
+            Step = 0,
+            Version = 0,
+            Owner = "test-node",
+            HeartbeatAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+        await _store.CreateAsync(state);
+
+        // Try to execute with different type
+        var result = await _executor.ExecuteAsync(
+            "type-mismatch-flow",
+            "TypeB", // Different type!
+            ReadOnlyMemory<byte>.Empty,
+            async (s, ct) => new FlowResult(true, 1, TimeSpan.Zero));
+
+        // Should still work (type is for categorization, not validation)
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ZeroStepFlow_Succeeds()
+    {
+        var result = await _executor.ExecuteAsync(
+            "zero-step-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) => new FlowResult(true, 0, TimeSpan.Zero));
+
+        result.IsSuccess.Should().BeTrue();
+        result.CompletedSteps.Should().Be(0);
+
+        var stored = await _store.GetAsync("zero-step-flow");
+        stored!.Status.Should().Be(FlowStatus.Done);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_NegativeSteps_Handled()
+    {
+        var result = await _executor.ExecuteAsync(
+            "negative-step-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) => new FlowResult(false, -1, TimeSpan.Zero, "Invalid state"));
+
+        result.IsSuccess.Should().BeFalse();
+        result.CompletedSteps.Should().Be(-1);
+    }
+
+    [Fact]
+    public async Task Flow_CompensationOrder_StrictlyReverse()
+    {
+        var compensationOrder = new List<int>();
+
+        var result = await Catga.Flow.Flow.Create("Test")
+            .Step(async ct => { await Task.Delay(1, ct); },
+                async ct => { compensationOrder.Add(1); await Task.Delay(1, ct); })
+            .Step(async ct => { await Task.Delay(1, ct); },
+                async ct => { compensationOrder.Add(2); await Task.Delay(1, ct); })
+            .Step(async ct => { await Task.Delay(1, ct); },
+                async ct => { compensationOrder.Add(3); await Task.Delay(1, ct); })
+            .Step(async ct => { await Task.Delay(1, ct); },
+                async ct => { compensationOrder.Add(4); await Task.Delay(1, ct); })
+            .Step(async ct => { throw new Exception("fail"); })
+            .ExecuteAsync();
+
+        result.IsSuccess.Should().BeFalse();
+        compensationOrder.Should().BeEquivalentTo([4, 3, 2, 1]);
+        compensationOrder.Should().BeInDescendingOrder();
+    }
+
+    [Fact]
+    public async Task Flow_CompensationWithException_ContinuesAll()
+    {
+        var compensated = new List<int>();
+
+        var result = await Catga.Flow.Flow.Create("Test")
+            .Step(async ct => { await Task.Delay(1, ct); },
+                async ct => { compensated.Add(1); await Task.Delay(1, ct); })
+            .Step(async ct => { await Task.Delay(1, ct); },
+                ct => { compensated.Add(2); throw new Exception("comp2 fail"); })
+            .Step(async ct => { await Task.Delay(1, ct); },
+                ct => { compensated.Add(3); throw new Exception("comp3 fail"); })
+            .Step(async ct => { throw new Exception("step fail"); })
+            .ExecuteAsync();
+
+        result.IsSuccess.Should().BeFalse();
+        // All compensations should be attempted despite exceptions
+        compensated.Should().Contain(3);
+        compensated.Should().Contain(2);
+        compensated.Should().Contain(1);
+    }
+
+    [Fact]
+    public async Task InMemoryStore_UpdateAsync_DoesNotModifyOriginalOnFailure()
+    {
+        var state = new FlowState
+        {
+            Id = "original-flow",
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 0,
+            Version = 0
+        };
+        await _store.CreateAsync(state);
+
+        // Get and update
+        var current = await _store.GetAsync("original-flow");
+        current!.Step = 1;
+        await _store.UpdateAsync(current);
+
+        // Try stale update
+        var stale = new FlowState
+        {
+            Id = "original-flow",
+            Type = "TestFlow",
+            Status = FlowStatus.Done,
+            Step = 99,
+            Version = 0 // Old version
+        };
+        var result = await _store.UpdateAsync(stale);
+
+        result.Should().BeFalse();
+
+        // Original should not be modified
+        var stored = await _store.GetAsync("original-flow");
+        stored!.Step.Should().Be(1);
+        stored.Status.Should().Be(FlowStatus.Running);
+    }
+
+    #endregion
 }

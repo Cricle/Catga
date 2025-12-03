@@ -100,7 +100,48 @@ OrderSystem.Api/
 
 ## ✨ 核心代码示例
 
-### 1. SafeRequestHandler - 自动异常处理 + 回滚
+### 1. Flow 服务编排 - 自动补偿（推荐）
+
+```csharp
+// 定义命令时声明补偿（一次性）
+[Compensation(typeof(CancelOrderCommand))]
+public partial record CreateOrderCommand(...) : IRequest<OrderCreatedResult>;
+
+[Compensation(typeof(ReleaseInventoryCommand))]
+public partial record ReserveInventoryCommand(...) : IRequest<ReserveInventoryResult>;
+
+[Compensation(typeof(RefundPaymentCommand))]
+public partial record ProcessPaymentCommand(...) : IRequest<ProcessPaymentResult>;
+
+// 业务代码 - 极简，只写业务逻辑
+public async Task<Order> CreateOrder(OrderInput input, CancellationToken ct)
+{
+    await using var flow = _mediator.BeginFlow("CreateOrder");
+
+    // 每个步骤失败时，之前成功的步骤会自动逆序补偿
+    var order = await flow.ExecuteAsync<CreateOrderCommand, OrderCreatedResult>(
+        new CreateOrderCommand(input.CustomerId, input.Items), ct);
+
+    var stock = await flow.ExecuteAsync<ReserveInventoryCommand, ReserveInventoryResult>(
+        new ReserveInventoryCommand(order.Value.OrderId, input.Items), ct);
+
+    var payment = await flow.ExecuteAsync<ProcessPaymentCommand, ProcessPaymentResult>(
+        new ProcessPaymentCommand(order.Value.OrderId, input.Amount), ct);
+
+    flow.Commit(); // 成功，不执行补偿
+    return new Order { Id = order.Value.OrderId };
+    // 任何步骤失败，Dispose 时自动逆序执行补偿
+}
+```
+
+**关键点**：
+- ✅ 用户只写业务代码，补偿逻辑与命令绑定
+- ✅ AsyncLocal 隐式传递，用户无感知
+- ✅ 失败时自动逆序执行补偿
+- ✅ Source Generator 自动生成映射代码
+- ✅ 完全 AOT 兼容，零运行时反射
+
+### 2. SafeRequestHandler - 自动异常处理 + 回滚
 
 ```csharp
 public class CreateOrderHandler : SafeRequestHandler<CreateOrderCommand, OrderCreatedResult>

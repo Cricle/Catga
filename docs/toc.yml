@@ -1,6 +1,28 @@
 - name: Getting Started
   href: articles/getting-started.md
-- name: API Documentation
-  href: api/README.md
+- name: Architecture
+  href: architecture/ARCHITECTURE.md
+- name: Configuration
+  href: articles/configuration.md
+- name: OpenTelemetry
+  href: articles/opentelemetry-integration.md
+- name: Resilience
+  href: Resilience.md
+- name: Guides
+  items:
+    - name: Source Generator
+      href: guides/source-generator.md
+    - name: Error Handling
+      href: guides/error-handling.md
+    - name: Distributed ID
+      href: guides/distributed-id.md
+    - name: Serialization
+      href: guides/serialization.md
+- name: Deployment
+  items:
+    - name: Kubernetes
+      href: deployment/kubernetes.md
+    - name: Native AOT
+      href: deployment/native-aot-publishing.md
 - name: GitHub
   href: https://github.com/Cricle/Catga

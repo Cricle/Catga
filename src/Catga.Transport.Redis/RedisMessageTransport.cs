@@ -1,96 +1,56 @@
-using Catga.Abstractions;
-using Catga.Core;
-using Catga.Observability;
-using Catga.Resilience;
-using StackExchange.Redis;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Catga.Abstractions;
+using Catga.Core;
+using Catga.Observability;
+using Catga.Resilience;
+using StackExchange.Redis;
 
 namespace Catga.Transport;
 
-/// <summary>
-/// Redis-based message transport with QoS support:
-/// - QoS 0 (AtMostOnce): Uses Redis Pub/Sub (fast, no persistence)
-/// - QoS 1 (AtLeastOnce): Uses Redis Streams (persistent, acknowledged)
-/// </summary>
+/// <summary>Redis-based message transport with QoS support.</summary>
 public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDisposable
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly IDatabase _db;
-    private readonly ISubscriber _subscriber;
-    private readonly IMessageSerializer _serializer;
+    private readonly ISubscriber _sub;
+    private readonly IMessageSerializer _ser;
     private readonly IResiliencePipelineProvider _provider;
-    private readonly string _consumerGroup;
-    private readonly string _consumerName;
-    private readonly string _channelPrefix = "catga."; // default logical prefix
-    private readonly Func<Type, string>? _naming;       // optional channel naming
-    private readonly RedisTransportOptions? _options;
-
-    // Pub/Sub subscriptions (QoS 0)
-    private readonly ConcurrentDictionary<string, ChannelMessageQueue> _pubSubSubscriptions = new();
-
-    // Stream subscriptions (QoS 1)
-    private readonly ConcurrentDictionary<string, Task> _streamTasks = new();
+    private readonly string _group;
+    private readonly string _consumer;
+    private readonly string _prefix;
+    private readonly Func<Type, string>? _naming;
+    private readonly RedisTransportOptions? _opts;
+    private readonly ConcurrentDictionary<string, ChannelMessageQueue> _pubSubs = new();
+    private readonly ConcurrentDictionary<string, Task> _streams = new();
     private readonly CancellationTokenSource _cts = new();
-
-    // Optional auto-batching state
-    private readonly ConcurrentQueue<(bool IsStream, string Destination, string Payload, string? TraceParent, string? TraceState)> _batchQueue = new();
-    private int _batchQueueCount;
-    private Timer? _flushTimer;
+    private readonly ConcurrentQueue<(bool IsStream, string Dest, string Payload, string? Tp, string? Ts)> _batch = new();
+    private int _batchCount;
+    private Timer? _timer;
     private readonly object _flushLock = new();
 
     public string Name => "Redis";
     public BatchTransportOptions? BatchOptions => null;
     public CompressionTransportOptions? CompressionOptions => null;
 
-    public RedisMessageTransport(
-        IConnectionMultiplexer redis,
-        IMessageSerializer serializer,
-        string? consumerGroup = null,
-        string? consumerName = null,
-        IResiliencePipelineProvider? provider = null)
+    public RedisMessageTransport(IConnectionMultiplexer redis, IMessageSerializer serializer, IResiliencePipelineProvider provider, RedisTransportOptions? options = null, string? consumerGroup = null, string? consumerName = null)
     {
-        _redis = redis ?? throw new ArgumentNullException(nameof(redis));
-        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
-        _db = _redis.GetDatabase();
-        _subscriber = _redis.GetSubscriber();
-        _consumerGroup = consumerGroup ?? $"catga-group-{Environment.MachineName}";
-        _consumerName = consumerName ?? $"catga-consumer-{Guid.NewGuid():N}";
-        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
-        _options = null;
-    }
-
-    /// <summary>
-    /// Overload that accepts RedisTransportOptions to enable naming convention and channel prefix.
-    /// </summary>
-    public RedisMessageTransport(
-        IConnectionMultiplexer redis,
-        IMessageSerializer serializer,
-        RedisTransportOptions options,
-        string? consumerGroup = null,
-        string? consumerName = null,
-        IResiliencePipelineProvider? provider = null)
-        : this(redis, serializer, consumerGroup, consumerName, provider)
-    {
-        if (options != null)
-        {
-            // Ensure trailing dot for simple concatenation
-            var prefix = options.ChannelPrefix ?? "catga.";
-            _channelPrefix = prefix.EndsWith('.') ? prefix : prefix + ".";
-            _naming = options.Naming;
-            _options = options;
-            if (_options.Batch is { EnableAutoBatching: true } batch)
-            {
-                _flushTimer = new Timer(static state =>
-                {
-                    var self = (RedisMessageTransport)state!;
-                    try { self.TryFlushBatchTimer(); } catch { /* swallow */ }
-                }, this, batch.BatchTimeout, batch.BatchTimeout);
-            }
-        }
+        _redis = redis;
+        _ser = serializer;
+        _provider = provider;
+        _db = redis.GetDatabase();
+        _sub = redis.GetSubscriber();
+        _group = consumerGroup ?? $"catga-group-{Environment.MachineName}";
+        _consumer = consumerName ?? $"catga-consumer-{Guid.NewGuid():N}";
+        _opts = options;
+        var p = options?.ChannelPrefix ?? "catga.";
+        _prefix = p.EndsWith('.') ? p : p + ".";
+        _naming = options?.Naming;
+        if (options?.Batch is { EnableAutoBatching: true } b)
+            _timer = new Timer(static s => { try { ((RedisMessageTransport)s!).TryFlushBatchTimer(); } catch { } }, this, b.BatchTimeout, b.BatchTimeout);
     }
 
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
@@ -119,7 +79,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
         var tag_dest = new KeyValuePair<string, object?>("destination", subject);
 
         // Optional auto-batching for Pub/Sub
-        if (_options?.Batch is { EnableAutoBatching: true } batchOptions)
+        if (_opts?.Batch is { EnableAutoBatching: true } batchOptions)
         {
             Enqueue(isStream: false, destination: subject, payload: payload, traceParent: null, traceState: null, batchOptions);
             return;
@@ -129,7 +89,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
         {
             // Always use Pub/Sub for broadcast messages
             await _provider.ExecuteTransportPublishAsync(ct => new ValueTask(
-                _subscriber.PublishAsync(
+                _sub.PublishAsync(
                     RedisChannel.Literal(subject),
                     payload,
                     CommandFlags.FireAndForget)),
@@ -186,7 +146,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
             }
         }
 
-        if (_options?.Batch is { EnableAutoBatching: true } batchOptions)
+        if (_opts?.Batch is { EnableAutoBatching: true } batchOptions)
         {
             Enqueue(isStream: true, destination: streamKey, payload: payload, traceParent: tp, traceState: ts, batchOptions);
             return;
@@ -229,8 +189,8 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
         ArgumentNullException.ThrowIfNull(handler);
 
         var subject = GetSubject<TMessage>();
-        var queue = await _subscriber.SubscribeAsync(RedisChannel.Literal(subject));
-        _pubSubSubscriptions[subject] = queue;
+        var queue = await _sub.SubscribeAsync(RedisChannel.Literal(subject));
+        _pubSubs[subject] = queue;
 
         queue.OnMessage(async channelMessage =>
         {
@@ -271,7 +231,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
 
         // Start Redis Streams (QoS1) consumer for this subject
         var streamKey = $"stream:{subject}";
-        if (!_streamTasks.ContainsKey(streamKey))
+        if (!_streams.ContainsKey(streamKey))
         {
             var task = Task.Run(async () =>
             {
@@ -280,7 +240,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                     // Ensure consumer group exists (create stream if missing)
                     try
                     {
-                        await _db.StreamCreateConsumerGroupAsync(streamKey, _consumerGroup, StreamPosition.NewMessages, createStream: true);
+                        await _db.StreamCreateConsumerGroupAsync(streamKey, _group, StreamPosition.NewMessages, createStream: true);
                     }
                     catch (RedisServerException ex) when (ex.Message.Contains("BUSYGROUP", StringComparison.OrdinalIgnoreCase))
                     {
@@ -289,7 +249,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
 
                     while (!_cts.IsCancellationRequested)
                     {
-                        var entries = await _db.StreamReadGroupAsync(streamKey, _consumerGroup, _consumerName, ">", count: 1);
+                        var entries = await _db.StreamReadGroupAsync(streamKey, _group, _consumer, ">", count: 1);
                         if (entries is null || entries.Length == 0)
                         {
                             try { await Task.Delay(200, _cts.Token); } catch { }
@@ -352,7 +312,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                                 activity2?.AddActivityEvent(CatgaActivitySource.Events.RedisReceiveProcessed,
                                     ("stream", streamKey));
 
-                                await _db.StreamAcknowledgeAsync(streamKey, _consumerGroup, entry.Id);
+                                await _db.StreamAcknowledgeAsync(streamKey, _group, entry.Id);
                             }
                             catch (Exception ex)
                             {
@@ -372,7 +332,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                     // swallow cancellation/unexpected loop errors
                 }
             }, _cts.Token);
-            _streamTasks[streamKey] = task;
+            _streams[streamKey] = task;
         }
     }
 
@@ -404,13 +364,13 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
     private string GetSubject<TMessage>() where TMessage : class
     {
         var name = _naming != null ? _naming(typeof(TMessage)) : typeof(TMessage).Name;
-        return _channelPrefix + name;
+        return _prefix + name;
     }
 
     private string SerializeMessage<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, TransportContext? context)
         where TMessage : class
     {
-        var bytes = _serializer.Serialize(message, typeof(TMessage));
+        var bytes = _ser.Serialize(message, typeof(TMessage));
         return Convert.ToBase64String(bytes);
     }
 
@@ -418,7 +378,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
         where TMessage : class
     {
         var bytes = Convert.FromBase64String(data.ToString()!);
-        var message = (TMessage?)_serializer.Deserialize(bytes, typeof(TMessage));
+        var message = (TMessage?)_ser.Deserialize(bytes, typeof(TMessage));
         return (message!, null);
     }
 
@@ -427,34 +387,34 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
         await _cts.CancelAsync();
 
         // Unsubscribe all Pub/Sub
-        foreach (var queue in _pubSubSubscriptions.Values)
+        foreach (var queue in _pubSubs.Values)
         {
             queue.Unsubscribe();
         }
-        _pubSubSubscriptions.Clear();
+        _pubSubs.Clear();
 
         // Wait for stream tasks to complete
-        if (_streamTasks.Count > 0)
+        if (_streams.Count > 0)
         {
-            await Task.WhenAll(_streamTasks.Values);
+            await Task.WhenAll(_streams.Values);
         }
-        _streamTasks.Clear();
+        _streams.Clear();
 
-        _flushTimer?.Dispose();
+        _timer?.Dispose();
         _cts.Dispose();
     }
 
     private void Enqueue(bool isStream, string destination, string payload, string? traceParent, string? traceState, BatchTransportOptions batch)
     {
-        var newCount = Interlocked.Increment(ref _batchQueueCount);
-        if (_options!.MaxQueueLength > 0 && newCount > _options.MaxQueueLength)
+        var newCount = Interlocked.Increment(ref _batchCount);
+        if (_opts!.MaxQueueLength > 0 && newCount > _opts.MaxQueueLength)
         {
-            while (Interlocked.CompareExchange(ref _batchQueueCount, _batchQueueCount, _batchQueueCount) > _options.MaxQueueLength && _batchQueue.TryDequeue(out _))
+            while (Interlocked.CompareExchange(ref _batchCount, _batchCount, _batchCount) > _opts.MaxQueueLength && _batch.TryDequeue(out _))
             {
-                Interlocked.Decrement(ref _batchQueueCount);
+                Interlocked.Decrement(ref _batchCount);
             }
         }
-        _batchQueue.Enqueue((isStream, destination, payload, traceParent, traceState));
+        _batch.Enqueue((isStream, destination, payload, traceParent, traceState));
         if (!isStream)
             System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.RedisPublishEnqueued,
                 ("channel", destination));
@@ -474,7 +434,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
 
     private void TryFlushBatchTimer()
     {
-        var batch = _options?.Batch;
+        var batch = _opts?.Batch;
         if (batch is null || !batch.EnableAutoBatching) return;
         if (!Monitor.TryEnter(_flushLock)) return;
         try { FlushInternal(batch).GetAwaiter().GetResult(); }
@@ -483,12 +443,12 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
 
     private async Task FlushInternal(BatchTransportOptions batch)
     {
-        int toProcess = Math.Min(_batchQueueCount, batch.MaxBatchSize);
+        int toProcess = Math.Min(_batchCount, batch.MaxBatchSize);
         if (toProcess <= 0) return;
         var list = new List<(bool IsStream, string Destination, string Payload, string? TraceParent, string? TraceState)>(toProcess);
-        while (toProcess-- > 0 && _batchQueue.TryDequeue(out var item))
+        while (toProcess-- > 0 && _batch.TryDequeue(out var item))
         {
-            Interlocked.Decrement(ref _batchQueueCount);
+            Interlocked.Decrement(ref _batchCount);
             list.Add(item);
         }
         using var batchSpan = ObservabilityHooks.IsEnabled ? CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Batch.Flush", ActivityKind.Producer) : null;
@@ -499,7 +459,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                 if (!item.IsStream)
                 {
                     await _provider.ExecuteTransportPublishAsync(ct => new ValueTask(
-                        _subscriber.PublishAsync(RedisChannel.Literal(item.Destination), item.Payload, CommandFlags.FireAndForget)), _cts.Token);
+                        _sub.PublishAsync(RedisChannel.Literal(item.Destination), item.Payload, CommandFlags.FireAndForget)), _cts.Token);
                     batchSpan?.AddActivityEvent(CatgaActivitySource.Events.RedisBatchPubSubSent,
                         ("channel", item.Destination));
                 }

@@ -47,10 +47,10 @@ public static class RedisTransportServiceCollectionExtensions
                 return new RedisMessageTransport(
                     redis,
                     serializer,
+                    provider,
                     options,
                     options.ConsumerGroup,
-                    options.ConsumerName,
-                    provider);
+                    options.ConsumerName);
             });
 
             sw.Stop();
@@ -93,9 +93,10 @@ public static class RedisTransportServiceCollectionExtensions
                 return new RedisMessageTransport(
                     connectionMultiplexer,
                     serializer,
+                    provider,
+                    null,
                     consumerGroup,
-                    consumerName,
-                    provider);
+                    consumerName);
             });
 
             sw.Stop();

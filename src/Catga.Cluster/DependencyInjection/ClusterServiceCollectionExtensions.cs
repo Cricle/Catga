@@ -1,0 +1,62 @@
+using System.Diagnostics.CodeAnalysis;
+using Catga.Abstractions;
+using Catga.Pipeline;
+using DotNext.Net.Cluster.Consensus.Raft;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+namespace Catga.Cluster.DependencyInjection;
+
+/// <summary>
+/// Extension methods for registering Catga cluster services.
+/// </summary>
+public static class ClusterServiceCollectionExtensions
+{
+    /// <summary>
+    /// Adds Catga cluster coordinator using DotNext Raft.
+    /// Requires IRaftCluster to be registered (e.g., via DotNext.AspNetCore.Cluster).
+    /// </summary>
+    public static IServiceCollection AddCatgaCluster(this IServiceCollection services)
+    {
+        services.TryAddSingleton<IClusterCoordinator>(sp =>
+        {
+            var cluster = sp.GetRequiredService<IRaftCluster>();
+            var logger = sp.GetService<Microsoft.Extensions.Logging.ILogger<ClusterCoordinator>>();
+            return new ClusterCoordinator(cluster, logger);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds leader-only behavior to the pipeline.
+    /// Commands will fail if not executed on leader node.
+    /// </summary>
+    public static IServiceCollection AddLeaderOnlyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(this IServiceCollection services)
+        where TRequest : IRequest<TResponse>
+    {
+        services.AddScoped<IPipelineBehavior<TRequest, TResponse>, LeaderOnlyBehavior<TRequest, TResponse>>();
+        return services;
+    }
+
+    /// <summary>
+    /// Adds forward-to-leader behavior to the pipeline.
+    /// Commands will be forwarded to leader if not on leader node.
+    /// </summary>
+    public static IServiceCollection AddForwardToLeaderBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(this IServiceCollection services)
+        where TRequest : IRequest<TResponse>
+    {
+        services.AddScoped<IPipelineBehavior<TRequest, TResponse>, ForwardToLeaderBehavior<TRequest, TResponse>>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a singleton task that only runs on the leader node.
+    /// </summary>
+    public static IServiceCollection AddSingletonTask<TTask>(this IServiceCollection services)
+        where TTask : SingletonTaskRunner
+    {
+        services.AddHostedService<TTask>();
+        return services;
+    }
+}

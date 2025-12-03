@@ -66,8 +66,9 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="4.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="4.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
-    <!-- DotNext Threading -->
+    <!-- DotNext -->
     <PackageVersion Include="DotNext.Threading" Version="5.16.0" />
+    <PackageVersion Include="DotNext.Net.Cluster" Version="5.16.0" />
     <!-- .NET Aspire -->
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="9.0.0" />
     <PackageVersion Include="Aspire.Hosting.Redis" Version="9.0.0" />

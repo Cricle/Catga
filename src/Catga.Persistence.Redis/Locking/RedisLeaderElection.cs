@@ -6,34 +6,22 @@ using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis.Locking;
 
-/// <summary>
-/// Redis-backed leader election using atomic operations.
-/// Provides distributed leader election for cluster coordination.
-/// </summary>
+/// <summary>Redis-backed leader election.</summary>
 public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
 {
     private readonly IConnectionMultiplexer _redis;
-    private readonly LeaderElectionOptions _options;
+    private readonly LeaderElectionOptions _opts;
     private readonly ILogger<RedisLeaderElection> _logger;
     private readonly Timer _renewTimer;
-    private readonly Dictionary<string, RedisLeadershipHandle> _activeLeaderships = new();
-    private readonly object _lock = new();
+    private readonly Dictionary<string, Handle> _active = [];
+    private readonly Lock _lock = new();
 
-    public RedisLeaderElection(
-        IConnectionMultiplexer redis,
-        IOptions<LeaderElectionOptions> options,
-        ILogger<RedisLeaderElection> logger)
+    public RedisLeaderElection(IConnectionMultiplexer redis, IOptions<LeaderElectionOptions> options, ILogger<RedisLeaderElection> logger)
     {
         _redis = redis;
-        _options = options.Value;
+        _opts = options.Value;
         _logger = logger;
-
-        // Start renewal timer
-        _renewTimer = new Timer(
-            RenewLeaderships,
-            null,
-            _options.RenewInterval,
-            _options.RenewInterval);
+        _renewTimer = new(RenewLeaderships, null, _opts.RenewInterval, _opts.RenewInterval);
     }
 
     public async ValueTask<ILeadershipHandle?> TryAcquireLeadershipAsync(
@@ -41,9 +29,9 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
         CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
-        var key = _options.KeyPrefix + electionId;
+        var key = _opts.KeyPrefix + electionId;
         var leaderValue = BuildLeaderValue();
-        var expiry = _options.LeaseDuration;
+        var expiry = _opts.LeaseDuration;
 
         // Try to set if not exists
         var acquired = await db.StringSetAsync(
@@ -54,12 +42,12 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
 
         if (acquired)
         {
-            LogLeadershipAcquired(_logger, electionId, _options.NodeId);
-            var handle = new RedisLeadershipHandle(this, electionId, _options.NodeId, DateTimeOffset.UtcNow);
+            LogLeadershipAcquired(_logger, electionId, _opts.NodeId);
+            var handle = new Handle(this, electionId, _opts.NodeId, DateTimeOffset.UtcNow);
 
             lock (_lock)
             {
-                _activeLeaderships[electionId] = handle;
+                _active[electionId] = handle;
             }
 
             return handle;
@@ -67,14 +55,14 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
 
         // Check if we already hold leadership (re-entrant)
         var current = await db.StringGetAsync(key);
-        if (current.HasValue && current.ToString().StartsWith(_options.NodeId + "|"))
+        if (current.HasValue && current.ToString().StartsWith(_opts.NodeId + "|"))
         {
             // Extend our existing leadership
             await db.KeyExpireAsync(key, expiry);
 
             lock (_lock)
             {
-                if (_activeLeaderships.TryGetValue(electionId, out var existing))
+                if (_active.TryGetValue(electionId, out var existing))
                     return existing;
             }
         }
@@ -110,16 +98,16 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
     public async ValueTask<bool> IsLeaderAsync(string electionId, CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
-        var key = _options.KeyPrefix + electionId;
+        var key = _opts.KeyPrefix + electionId;
 
         var current = await db.StringGetAsync(key);
-        return current.HasValue && current.ToString().StartsWith(_options.NodeId + "|");
+        return current.HasValue && current.ToString().StartsWith(_opts.NodeId + "|");
     }
 
     public async ValueTask<LeaderInfo?> GetLeaderAsync(string electionId, CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
-        var key = _options.KeyPrefix + electionId;
+        var key = _opts.KeyPrefix + electionId;
 
         var current = await db.StringGetAsync(key);
         if (!current.HasValue)
@@ -133,7 +121,7 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
-        var key = _options.KeyPrefix + electionId;
+        var key = _opts.KeyPrefix + electionId;
         LeaderInfo? lastLeader = null;
 
         while (!ct.IsCancellationRequested)
@@ -168,7 +156,7 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
     internal async ValueTask ResignAsync(string electionId)
     {
         var db = _redis.GetDatabase();
-        var key = _options.KeyPrefix + electionId;
+        var key = _opts.KeyPrefix + electionId;
 
         // Only delete if we are the leader
         var script = """
@@ -179,20 +167,20 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
             return 0
             """;
 
-        await db.ScriptEvaluateAsync(script, new RedisKey[] { key }, new RedisValue[] { _options.NodeId + "|" });
+        await db.ScriptEvaluateAsync(script, new RedisKey[] { key }, new RedisValue[] { _opts.NodeId + "|" });
 
         lock (_lock)
         {
-            _activeLeaderships.Remove(electionId);
+            _active.Remove(electionId);
         }
 
-        LogLeadershipResigned(_logger, electionId, _options.NodeId);
+        LogLeadershipResigned(_logger, electionId, _opts.NodeId);
     }
 
     internal async ValueTask ExtendAsync(string electionId)
     {
         var db = _redis.GetDatabase();
-        var key = _options.KeyPrefix + electionId;
+        var key = _opts.KeyPrefix + electionId;
 
         // Only extend if we are the leader
         var script = """
@@ -206,17 +194,17 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
         var result = await db.ScriptEvaluateAsync(
             script,
             new RedisKey[] { key },
-            new RedisValue[] { _options.NodeId + "|", (long)_options.LeaseDuration.TotalMilliseconds });
+            new RedisValue[] { _opts.NodeId + "|", (long)_opts.LeaseDuration.TotalMilliseconds });
 
         if ((int)result == 0)
         {
             // Lost leadership
             lock (_lock)
             {
-                if (_activeLeaderships.TryGetValue(electionId, out var handle))
+                if (_active.TryGetValue(electionId, out var handle))
                 {
                     handle.MarkLost();
-                    _activeLeaderships.Remove(electionId);
+                    _active.Remove(electionId);
                 }
             }
         }
@@ -227,7 +215,7 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
         List<string> elections;
         lock (_lock)
         {
-            elections = _activeLeaderships.Keys.ToList();
+            elections = _active.Keys.ToList();
         }
 
         foreach (var electionId in elections)
@@ -239,7 +227,7 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
     private string BuildLeaderValue()
     {
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        return $"{_options.NodeId}|{timestamp}|{_options.Endpoint ?? ""}";
+        return $"{_opts.NodeId}|{timestamp}|{_opts.Endpoint ?? ""}";
     }
 
     private static LeaderInfo ParseLeaderValue(string value)
@@ -260,7 +248,7 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
         // Resign all leaderships
         lock (_lock)
         {
-            foreach (var electionId in _activeLeaderships.Keys.ToList())
+            foreach (var electionId in _active.Keys.ToList())
             {
                 _ = ResignAsync(electionId);
             }
@@ -277,7 +265,7 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
 
     #endregion
 
-    private sealed class RedisLeadershipHandle : ILeadershipHandle
+    private sealed class Handle : ILeadershipHandle
     {
         private readonly RedisLeaderElection _parent;
         private bool _isLeader = true;
@@ -289,7 +277,7 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
 
         public event Action? OnLeadershipLost;
 
-        public RedisLeadershipHandle(
+        public Handle(
             RedisLeaderElection parent,
             string electionId,
             string nodeId,

@@ -1,69 +1,39 @@
+using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.Observability;
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
 
 namespace Catga.DeadLetter;
 
-/// <summary>In-memory dead letter queue (lock-free, ArrayPool optimized)</summary>
-public class InMemoryDeadLetterQueue : IDeadLetterQueue
+/// <summary>In-memory dead letter queue.</summary>
+public class InMemoryDeadLetterQueue(ILogger<InMemoryDeadLetterQueue> logger, IMessageSerializer serializer, int maxSize = 1000) : IDeadLetterQueue
 {
-    private readonly ConcurrentQueue<DeadLetterMessage> _deadLetters = new();
-    private readonly ILogger<InMemoryDeadLetterQueue> _logger;
-    private readonly IMessageSerializer _serializer;
-    private readonly int _maxSize;
+    private readonly ConcurrentQueue<DeadLetterMessage> _queue = new();
 
-    public InMemoryDeadLetterQueue(
-        ILogger<InMemoryDeadLetterQueue> logger,
-        IMessageSerializer serializer,
-        int maxSize = 1000)
+    public Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+        TMessage message, Exception exception, int retryCount, CancellationToken ct = default) where TMessage : IMessage
     {
-        _logger = logger;
-        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
-        _maxSize = maxSize;
-    }
-
-    public Task SendAsync<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, Exception exception, int retryCount, CancellationToken cancellationToken = default) where TMessage : IMessage
-    {
-        var messageData = Convert.ToBase64String(_serializer.Serialize(message, typeof(TMessage)));
-
-        var deadLetter = new DeadLetterMessage
+        var dlm = new DeadLetterMessage
         {
             MessageId = message.MessageId,
             MessageType = TypeNameCache<TMessage>.Name,
-            MessageJson = messageData,
+            MessageJson = Convert.ToBase64String(serializer.Serialize(message, typeof(TMessage))),
             ExceptionType = exception.GetType().Name,
             ExceptionMessage = exception.Message,
-            StackTrace = exception.StackTrace ?? string.Empty,
+            StackTrace = exception.StackTrace ?? "",
             RetryCount = retryCount,
             FailedAt = DateTime.UtcNow
         };
-
-        _deadLetters.Enqueue(deadLetter);
-
-        // Metrics: record dead-letter message
+        _queue.Enqueue(dlm);
         CatgaDiagnostics.DeadLetters.Add(1);
-
-        while (_deadLetters.Count > _maxSize)
-            _deadLetters.TryDequeue(out _);
-
-        CatgaLog.MessageMovedToDLQ(_logger, deadLetter.MessageType, deadLetter.MessageId, deadLetter.ExceptionMessage, retryCount);
-
+        while (_queue.Count > maxSize) _queue.TryDequeue(out _);
+        CatgaLog.MessageMovedToDLQ(logger, dlm.MessageType, dlm.MessageId, dlm.ExceptionMessage, retryCount);
         return Task.CompletedTask;
     }
 
-    public Task<List<DeadLetterMessage>> GetFailedMessagesAsync(int maxCount = 100, CancellationToken cancellationToken = default)
-    {
-        var result = new List<DeadLetterMessage>(Math.Min(maxCount, _deadLetters.Count));
-        var count = 0;
-        foreach (var item in _deadLetters)
-        {
-            if (count >= maxCount) break;
-            result.Add(item);
-            count++;
-        }
-        return Task.FromResult(result);
-    }
+    public Task<List<DeadLetterMessage>> GetFailedMessagesAsync(int maxCount = 100, CancellationToken ct = default)
+        => Task.FromResult(_queue.Take(maxCount).ToList());
 }
 

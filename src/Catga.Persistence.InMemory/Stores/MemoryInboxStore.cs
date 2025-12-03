@@ -4,99 +4,51 @@ using Catga.Resilience;
 
 namespace Catga.Inbox;
 
-/// <summary>In-memory inbox store (AOT compatible)</summary>
-public class MemoryInboxStore : BaseMemoryStore<InboxMessage>, IInboxStore
+/// <summary>In-memory inbox store.</summary>
+public class MemoryInboxStore(IResiliencePipelineProvider provider) : BaseMemoryStore<InboxMessage>, IInboxStore
 {
-    private readonly IResiliencePipelineProvider _provider;
-    public MemoryInboxStore(IResiliencePipelineProvider? provider)
-    {
-        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
-    }
-    public ValueTask<bool> TryLockMessageAsync(long messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
-        => _provider.ExecutePersistenceAsync(ct =>
+    public ValueTask<bool> TryLockMessageAsync(long messageId, TimeSpan lockDuration, CancellationToken ct = default)
+        => provider.ExecutePersistenceAsync(_ =>
         {
-            if (messageId == 0)
-                throw new ArgumentException("MessageId must be > 0", nameof(messageId));
-
-            if (TryGetMessage(messageId, out var existingMessage) && existingMessage != null)
+            if (messageId == 0) throw new ArgumentException("MessageId must be > 0");
+            var now = DateTime.UtcNow;
+            if (TryGetMessage(messageId, out var m) && m != null)
             {
-                if (existingMessage.Status == InboxStatus.Processed) return new ValueTask<bool>(false);
-                if (existingMessage.LockExpiresAt.HasValue && existingMessage.LockExpiresAt.Value > DateTime.UtcNow) return new ValueTask<bool>(false);
-
-                existingMessage.Status = InboxStatus.Processing;
-                existingMessage.LockExpiresAt = DateTime.UtcNow.Add(lockDuration);
-                CatgaDiagnostics.InboxLocksAcquired.Add(1);
-                return new ValueTask<bool>(true);
-            }
-
-            var newMessage = new InboxMessage
-            {
-                MessageId = messageId,
-                MessageType = string.Empty,
-                Payload = Array.Empty<byte>(),
-                Status = InboxStatus.Processing,
-                LockExpiresAt = DateTime.UtcNow.Add(lockDuration)
-            };
-
-            AddOrUpdateMessage(messageId, newMessage);
-            CatgaDiagnostics.InboxLocksAcquired.Add(1);
-            return new ValueTask<bool>(true);
-        }, cancellationToken);
-
-    public ValueTask MarkAsProcessedAsync(InboxMessage message, CancellationToken cancellationToken = default)
-        => _provider.ExecutePersistenceAsync(ct =>
-        {
-            ArgumentNullException.ThrowIfNull(message);
-
-            if (TryGetMessage(message.MessageId, out var existing) && existing != null)
-            {
-                existing.MessageType = message.MessageType;
-                existing.Payload = message.Payload;
-                existing.ProcessedAt = DateTime.UtcNow;
-                existing.ProcessingResult = message.ProcessingResult;
-                existing.Status = InboxStatus.Processed;
-                existing.LockExpiresAt = null;
-                existing.CorrelationId = message.CorrelationId;
-                existing.Metadata = message.Metadata;
+                if (m.Status == InboxStatus.Processed || (m.LockExpiresAt > now)) return new ValueTask<bool>(false);
+                m.Status = InboxStatus.Processing;
+                m.LockExpiresAt = now.Add(lockDuration);
             }
             else
             {
-                message.ProcessedAt = DateTime.UtcNow;
-                message.Status = InboxStatus.Processed;
-                message.LockExpiresAt = null;
-                AddOrUpdateMessage(message.MessageId, message);
+                AddOrUpdateMessage(messageId, new() { MessageId = messageId, MessageType = "", Payload = [], Status = InboxStatus.Processing, LockExpiresAt = now.Add(lockDuration) });
             }
+            CatgaDiagnostics.InboxLocksAcquired.Add(1);
+            return new ValueTask<bool>(true);
+        }, ct);
 
+    public ValueTask MarkAsProcessedAsync(InboxMessage message, CancellationToken ct = default)
+        => provider.ExecutePersistenceAsync(_ =>
+        {
+            ArgumentNullException.ThrowIfNull(message);
+            message.ProcessedAt = DateTime.UtcNow;
+            message.Status = InboxStatus.Processed;
+            message.LockExpiresAt = null;
+            AddOrUpdateMessage(message.MessageId, message);
             CatgaDiagnostics.InboxProcessed.Add(1);
             return ValueTask.CompletedTask;
-        }, cancellationToken);
+        }, ct);
 
-    public ValueTask<bool> HasBeenProcessedAsync(long messageId, CancellationToken cancellationToken = default)
-        => _provider.ExecutePersistenceAsync(ct => new ValueTask<bool>(
-            TryGetMessage(messageId, out var message) && message != null && message.Status == InboxStatus.Processed), cancellationToken);
+    public ValueTask<bool> HasBeenProcessedAsync(long messageId, CancellationToken ct = default)
+        => provider.ExecutePersistenceAsync(_ => new ValueTask<bool>(TryGetMessage(messageId, out var m) && m?.Status == InboxStatus.Processed), ct);
 
-    public ValueTask<byte[]?> GetProcessedResultAsync(long messageId, CancellationToken cancellationToken = default)
-        => _provider.ExecutePersistenceAsync(ct => new ValueTask<byte[]?>(
-            TryGetMessage(messageId, out var message) && message != null && message.Status == InboxStatus.Processed ? message.ProcessingResult : null), cancellationToken);
+    public ValueTask<byte[]?> GetProcessedResultAsync(long messageId, CancellationToken ct = default)
+        => provider.ExecutePersistenceAsync(_ => new ValueTask<byte[]?>(TryGetMessage(messageId, out var m) && m?.Status == InboxStatus.Processed ? m.ProcessingResult : null), ct);
 
-    public ValueTask ReleaseLockAsync(long messageId, CancellationToken cancellationToken = default)
-        => _provider.ExecutePersistenceAsync(ct =>
-        {
-            if (TryGetMessage(messageId, out var message) && message != null)
-            {
-                message.Status = InboxStatus.Pending;
-                message.LockExpiresAt = null;
-                CatgaDiagnostics.InboxLocksReleased.Add(1);
-            }
-            return ValueTask.CompletedTask;
-        }, cancellationToken);
+    public ValueTask ReleaseLockAsync(long messageId, CancellationToken ct = default)
+        => provider.ExecutePersistenceAsync(_ => { ExecuteIfExistsAsync(messageId, m => { m.Status = InboxStatus.Pending; m.LockExpiresAt = null; CatgaDiagnostics.InboxLocksReleased.Add(1); }); return ValueTask.CompletedTask; }, ct);
 
-    public ValueTask DeleteProcessedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
-        => _provider.ExecutePersistenceAsync(ct => DeleteExpiredMessagesAsync(
-            retentionPeriod,
-            m => m.ProcessedAt,
-            m => m.Status == InboxStatus.Processed,
-            ct), cancellationToken);
+    public ValueTask DeleteProcessedMessagesAsync(TimeSpan retention, CancellationToken ct = default)
+        => provider.ExecutePersistenceAsync(c => DeleteExpiredMessagesAsync(retention, m => m.ProcessedAt, m => m.Status == InboxStatus.Processed, c), ct);
 
     public int GetMessageCountByStatus(InboxStatus status) => GetCountByPredicate(m => m.Status == status);
 }

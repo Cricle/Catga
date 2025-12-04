@@ -110,30 +110,48 @@ public sealed class InMemoryLeaderElection(string? nodeId = null, TimeSpan? leas
         public DateTime ExpiresAt { get; set; }
     }
 
-    private sealed class Handle(string electionId, string nodeId, ElectionState state, InMemoryLeaderElection election) : ILeadershipHandle
+    private sealed class Handle : ILeadershipHandle
     {
+        private readonly string _electionId;
+        private readonly string _nodeId;
+        private readonly ElectionState _state;
+        private readonly InMemoryLeaderElection _election;
         private bool _active = true;
-        public string ElectionId => electionId;
-        public string NodeId => nodeId;
-        public bool IsLeader => _active && state.CurrentLeader == nodeId && state.ExpiresAt > DateTime.UtcNow;
-        public DateTimeOffset AcquiredAt { get; } = state.AcquiredAt;
+
+        public Handle(string electionId, string nodeId, ElectionState state, InMemoryLeaderElection election)
+        {
+            _electionId = electionId;
+            _nodeId = nodeId;
+            _state = state;
+            _election = election;
+            AcquiredAt = state.AcquiredAt;
+        }
+
+        public string ElectionId => _electionId;
+        public string NodeId => _nodeId;
+        public bool IsLeader => _active && _state.CurrentLeader == _nodeId && _state.ExpiresAt > DateTime.UtcNow;
+        public DateTimeOffset AcquiredAt { get; }
         public event Action? OnLeadershipLost;
 
         public ValueTask ExtendAsync(CancellationToken ct = default)
         {
-            if (state.CurrentLeader == nodeId)
-                state.ExpiresAt = DateTime.UtcNow + election._lease;
+            if (_state.CurrentLeader == _nodeId)
+            {
+                _state.ExpiresAt = DateTime.UtcNow + _election._lease;
+            }
+
             return ValueTask.CompletedTask;
         }
 
         public ValueTask DisposeAsync()
         {
             _active = false;
-            if (state.CurrentLeader == nodeId)
+            if (_state.CurrentLeader == _nodeId)
             {
-                state.CurrentLeader = null;
-                state.Lock.Release();
+                _state.CurrentLeader = null;
+                _state.Lock.Release();
             }
+
             OnLeadershipLost?.Invoke();
             return ValueTask.CompletedTask;
         }

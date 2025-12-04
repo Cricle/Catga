@@ -65,7 +65,9 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
             lock (_lock)
             {
                 if (_active.TryGetValue(electionId, out var existing))
+                {
                     return existing;
+                }
             }
         }
 
@@ -116,7 +118,9 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
 
         var current = await db.StringGetAsync(key);
         if (!current.HasValue)
+        {
             return null;
+        }
 
         return ParseLeaderValue(current.ToString());
     }

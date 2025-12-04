@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using Catga.Abstractions;
+using Catga.Observability;
 using DotNext.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -29,16 +31,36 @@ public sealed partial class InMemoryDistributedLock : IDistributedLock
         TimeSpan expiry,
         CancellationToken ct = default)
     {
+        using var activity = CatgaActivitySource.Source.StartActivity("Lock.TryAcquire", ActivityKind.Internal);
+        activity?.SetTag(CatgaActivitySource.Tags.LockResource, resource);
+        activity?.SetTag(CatgaActivitySource.Tags.LockExpiry, expiry.TotalMilliseconds);
+
+        var sw = Stopwatch.StartNew();
         var state = GetOrCreateLock(resource);
+
         if (await state.Lock.TryAcquireAsync(TimeSpan.Zero, ct))
         {
             var lockId = GenerateLockId();
             var expiresAt = DateTimeOffset.UtcNow.Add(expiry);
             state.LockId = lockId;
             state.ExpiresAt = expiresAt;
+
+            sw.Stop();
+            CatgaDiagnostics.LocksAcquired.Add(1);
+            CatgaDiagnostics.LockAcquireDuration.Record(sw.Elapsed.TotalMilliseconds);
+
+            activity?.SetTag(CatgaActivitySource.Tags.LockId, lockId);
+            activity?.AddActivityEvent(CatgaActivitySource.Events.LockAcquired, ("lock_id", lockId));
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
             LogLockAcquired(_logger, resource, lockId, expiry.TotalSeconds);
             return new InMemoryLockHandle(this, state, resource, lockId, expiresAt);
         }
+
+        sw.Stop();
+        CatgaDiagnostics.LocksFailed.Add(1);
+        activity?.AddActivityEvent(CatgaActivitySource.Events.LockAcquireFailed);
+
         return null;
     }
 
@@ -48,16 +70,37 @@ public sealed partial class InMemoryDistributedLock : IDistributedLock
         TimeSpan waitTimeout,
         CancellationToken ct = default)
     {
+        using var activity = CatgaActivitySource.Source.StartActivity("Lock.Acquire", ActivityKind.Internal);
+        activity?.SetTag(CatgaActivitySource.Tags.LockResource, resource);
+        activity?.SetTag(CatgaActivitySource.Tags.LockExpiry, expiry.TotalMilliseconds);
+        activity?.SetTag(CatgaActivitySource.Tags.LockWaitTimeout, waitTimeout.TotalMilliseconds);
+
+        var sw = Stopwatch.StartNew();
         var state = GetOrCreateLock(resource);
+
         if (await state.Lock.TryAcquireAsync(waitTimeout, ct))
         {
             var lockId = GenerateLockId();
             var expiresAt = DateTimeOffset.UtcNow.Add(expiry);
             state.LockId = lockId;
             state.ExpiresAt = expiresAt;
+
+            sw.Stop();
+            CatgaDiagnostics.LocksAcquired.Add(1);
+            CatgaDiagnostics.LockAcquireDuration.Record(sw.Elapsed.TotalMilliseconds);
+
+            activity?.SetTag(CatgaActivitySource.Tags.LockId, lockId);
+            activity?.AddActivityEvent(CatgaActivitySource.Events.LockAcquired, ("lock_id", lockId));
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
             LogLockAcquired(_logger, resource, lockId, expiry.TotalSeconds);
             return new InMemoryLockHandle(this, state, resource, lockId, expiresAt);
         }
+
+        sw.Stop();
+        CatgaDiagnostics.LocksTimeout.Add(1);
+        activity?.AddActivityEvent(CatgaActivitySource.Events.LockAcquireTimeout);
+        activity?.SetStatus(ActivityStatusCode.Error, "Lock acquisition timeout");
 
         LogLockTimeout(_logger, resource, waitTimeout.TotalSeconds);
         throw new LockAcquisitionException(resource, waitTimeout);
@@ -143,6 +186,7 @@ public sealed partial class InMemoryDistributedLock : IDistributedLock
             {
                 _state.LockId = null;
                 _state.Lock.Release();
+                CatgaDiagnostics.LocksReleased.Add(1);
                 LogLockReleased(_parent._logger, Resource, LockId);
             }
             return ValueTask.CompletedTask;

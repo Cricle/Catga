@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Catga.Abstractions;
+using Catga.Observability;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Polly;
@@ -30,6 +32,12 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
         string electionId,
         CancellationToken ct = default)
     {
+        using var activity = CatgaActivitySource.Source.StartActivity("Leader.TryAcquire", ActivityKind.Client);
+        activity?.SetTag(CatgaActivitySource.Tags.ElectionId, electionId);
+        activity?.SetTag(CatgaActivitySource.Tags.LeaderNodeId, _opts.NodeId);
+        activity?.SetTag(CatgaActivitySource.Tags.LeaderLeaseDuration, _opts.LeaseDuration.TotalMilliseconds);
+        activity?.SetTag("db.system", "redis");
+
         var db = _redis.GetDatabase();
         var key = _opts.KeyPrefix + electionId;
         var leaderValue = BuildLeaderValue();
@@ -44,6 +52,10 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
 
         if (acquired)
         {
+            CatgaDiagnostics.LeaderElected.Add(1);
+            activity?.AddActivityEvent(CatgaActivitySource.Events.LeaderAcquired, ("node_id", _opts.NodeId));
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
             LogLeadershipAcquired(_logger, electionId, _opts.NodeId);
             var handle = new Handle(this, electionId, _opts.NodeId, DateTimeOffset.UtcNow);
 
@@ -61,6 +73,7 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
         {
             // Extend our existing leadership
             await db.KeyExpireAsync(key, expiry);
+            CatgaDiagnostics.LeaderExtended.Add(1);
 
             lock (_lock)
             {
@@ -71,6 +84,7 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
             }
         }
 
+        activity?.AddActivityEvent(CatgaActivitySource.Events.LeaderAcquireFailed);
         return null;
     }
 
@@ -79,6 +93,11 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
         TimeSpan timeout,
         CancellationToken ct = default)
     {
+        using var activity = CatgaActivitySource.Source.StartActivity("Leader.Acquire", ActivityKind.Client);
+        activity?.SetTag(CatgaActivitySource.Tags.ElectionId, electionId);
+        activity?.SetTag(CatgaActivitySource.Tags.LeaderNodeId, _opts.NodeId);
+        activity?.SetTag("db.system", "redis");
+
         var retryDelay = TimeSpan.FromMilliseconds(500);
         var maxRetries = (int)(timeout.TotalMilliseconds / retryDelay.TotalMilliseconds);
 
@@ -96,9 +115,12 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
 
         if (handle is null)
         {
+            activity?.AddActivityEvent(CatgaActivitySource.Events.LeaderAcquireTimeout);
+            activity?.SetStatus(ActivityStatusCode.Error, "Leadership acquisition timeout");
             throw new TimeoutException($"Failed to acquire leadership for '{electionId}' within {timeout}");
         }
 
+        activity?.SetStatus(ActivityStatusCode.Ok);
         return handle;
     }
 
@@ -183,6 +205,7 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
             _active.Remove(electionId);
         }
 
+        CatgaDiagnostics.LeaderLost.Add(1);
         LogLeadershipResigned(_logger, electionId, _opts.NodeId);
     }
 
@@ -301,6 +324,7 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
         public async ValueTask ExtendAsync(CancellationToken ct = default)
         {
             await _parent.ExtendAsync(ElectionId);
+            CatgaDiagnostics.LeaderExtended.Add(1);
         }
 
         public async ValueTask DisposeAsync()

@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Catga.Abstractions;
+using Catga.Observability;
 using DotNext.Threading;
 
 namespace Catga.Persistence.InMemory.Stores;
@@ -19,12 +21,22 @@ public sealed class InMemoryLeaderElection(string? nodeId = null, TimeSpan? leas
 
     public async ValueTask<ILeadershipHandle?> TryAcquireLeadershipAsync(string electionId, CancellationToken ct = default)
     {
+        using var activity = CatgaActivitySource.Source.StartActivity("Leader.TryAcquire", ActivityKind.Internal);
+        activity?.SetTag(CatgaActivitySource.Tags.ElectionId, electionId);
+        activity?.SetTag(CatgaActivitySource.Tags.LeaderNodeId, _nodeId);
+        activity?.SetTag(CatgaActivitySource.Tags.LeaderLeaseDuration, _lease.TotalMilliseconds);
+
         var state = GetOrCreateElection(electionId);
         if (await state.Lock.TryAcquireAsync(TimeSpan.Zero, ct))
         {
             state.CurrentLeader = _nodeId;
             state.AcquiredAt = DateTimeOffset.UtcNow;
             state.ExpiresAt = DateTime.UtcNow + _lease;
+
+            CatgaDiagnostics.LeaderElected.Add(1);
+            activity?.AddActivityEvent(CatgaActivitySource.Events.LeaderAcquired, ("node_id", _nodeId));
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
             return new Handle(electionId, _nodeId, state, this);
         }
 
@@ -37,23 +49,43 @@ public sealed class InMemoryLeaderElection(string? nodeId = null, TimeSpan? leas
                 state.CurrentLeader = _nodeId;
                 state.AcquiredAt = DateTimeOffset.UtcNow;
                 state.ExpiresAt = DateTime.UtcNow + _lease;
+
+                CatgaDiagnostics.LeaderElected.Add(1);
+                activity?.AddActivityEvent(CatgaActivitySource.Events.LeaderAcquired, ("node_id", _nodeId));
+                activity?.SetStatus(ActivityStatusCode.Ok);
+
                 return new Handle(electionId, _nodeId, state, this);
             }
         }
 
+        activity?.AddActivityEvent(CatgaActivitySource.Events.LeaderAcquireFailed);
         return null;
     }
 
     public async ValueTask<ILeadershipHandle> AcquireLeadershipAsync(string electionId, TimeSpan timeout, CancellationToken ct = default)
     {
+        using var activity = CatgaActivitySource.Source.StartActivity("Leader.Acquire", ActivityKind.Internal);
+        activity?.SetTag(CatgaActivitySource.Tags.ElectionId, electionId);
+        activity?.SetTag(CatgaActivitySource.Tags.LeaderNodeId, _nodeId);
+        activity?.SetTag(CatgaActivitySource.Tags.LeaderLeaseDuration, _lease.TotalMilliseconds);
+
         var state = GetOrCreateElection(electionId);
         if (await state.Lock.TryAcquireAsync(timeout, ct))
         {
             state.CurrentLeader = _nodeId;
             state.AcquiredAt = DateTimeOffset.UtcNow;
             state.ExpiresAt = DateTime.UtcNow + _lease;
+
+            CatgaDiagnostics.LeaderElected.Add(1);
+            activity?.AddActivityEvent(CatgaActivitySource.Events.LeaderAcquired, ("node_id", _nodeId));
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
             return new Handle(electionId, _nodeId, state, this);
         }
+
+        activity?.AddActivityEvent(CatgaActivitySource.Events.LeaderAcquireTimeout);
+        activity?.SetStatus(ActivityStatusCode.Error, "Leadership acquisition timeout");
+
         throw new TimeoutException($"Failed to acquire leadership for {electionId}");
     }
 
@@ -138,6 +170,7 @@ public sealed class InMemoryLeaderElection(string? nodeId = null, TimeSpan? leas
             if (_state.CurrentLeader == _nodeId)
             {
                 _state.ExpiresAt = DateTime.UtcNow + _election._lease;
+                CatgaDiagnostics.LeaderExtended.Add(1);
             }
 
             return ValueTask.CompletedTask;
@@ -150,6 +183,7 @@ public sealed class InMemoryLeaderElection(string? nodeId = null, TimeSpan? leas
             {
                 _state.CurrentLeader = null;
                 _state.Lock.Release();
+                CatgaDiagnostics.LeaderLost.Add(1);
             }
 
             OnLeadershipLost?.Invoke();

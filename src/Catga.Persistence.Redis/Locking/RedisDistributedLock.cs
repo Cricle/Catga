@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using Catga.Abstractions;
+using Catga.Observability;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Polly;
@@ -19,6 +21,12 @@ public sealed partial class RedisDistributedLock(IConnectionMultiplexer redis, I
         TimeSpan expiry,
         CancellationToken ct = default)
     {
+        using var activity = CatgaActivitySource.Source.StartActivity("Lock.TryAcquire", ActivityKind.Client);
+        activity?.SetTag(CatgaActivitySource.Tags.LockResource, resource);
+        activity?.SetTag(CatgaActivitySource.Tags.LockExpiry, expiry.TotalMilliseconds);
+        activity?.SetTag("db.system", "redis");
+
+        var sw = Stopwatch.StartNew();
         var db = redis.GetDatabase();
         var key = GetKey(resource);
         var lockId = GenerateLockId();
@@ -32,11 +40,23 @@ public sealed partial class RedisDistributedLock(IConnectionMultiplexer redis, I
             When.NotExists,
             CommandFlags.DemandMaster);
 
+        sw.Stop();
+
         if (acquired)
         {
+            CatgaDiagnostics.LocksAcquired.Add(1);
+            CatgaDiagnostics.LockAcquireDuration.Record(sw.Elapsed.TotalMilliseconds);
+
+            activity?.SetTag(CatgaActivitySource.Tags.LockId, lockId);
+            activity?.AddActivityEvent(CatgaActivitySource.Events.LockAcquired, ("lock_id", lockId));
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
             LogLockAcquired(logger, resource, lockId, expiry.TotalSeconds);
             return new RedisLockHandle(this, db, key, resource, lockId, expiresAt);
         }
+
+        CatgaDiagnostics.LocksFailed.Add(1);
+        activity?.AddActivityEvent(CatgaActivitySource.Events.LockAcquireFailed);
 
         return null;
     }
@@ -47,6 +67,12 @@ public sealed partial class RedisDistributedLock(IConnectionMultiplexer redis, I
         TimeSpan waitTimeout,
         CancellationToken ct = default)
     {
+        using var activity = CatgaActivitySource.Source.StartActivity("Lock.Acquire", ActivityKind.Client);
+        activity?.SetTag(CatgaActivitySource.Tags.LockResource, resource);
+        activity?.SetTag(CatgaActivitySource.Tags.LockExpiry, expiry.TotalMilliseconds);
+        activity?.SetTag(CatgaActivitySource.Tags.LockWaitTimeout, waitTimeout.TotalMilliseconds);
+        activity?.SetTag("db.system", "redis");
+
         var retryInterval = _opts.RetryInterval;
         var maxRetries = (int)(waitTimeout.TotalMilliseconds / retryInterval.TotalMilliseconds);
 
@@ -64,9 +90,16 @@ public sealed partial class RedisDistributedLock(IConnectionMultiplexer redis, I
 
         if (handle is null)
         {
+            CatgaDiagnostics.LocksTimeout.Add(1);
+            activity?.AddActivityEvent(CatgaActivitySource.Events.LockAcquireTimeout);
+            activity?.SetStatus(ActivityStatusCode.Error, "Lock acquisition timeout");
+
             LogLockTimeout(logger, resource, waitTimeout.TotalSeconds);
             throw new LockAcquisitionException(resource, waitTimeout);
         }
+
+        activity?.SetTag(CatgaActivitySource.Tags.LockId, handle.LockId);
+        activity?.SetStatus(ActivityStatusCode.Ok);
 
         return handle;
     }
@@ -99,6 +132,7 @@ public sealed partial class RedisDistributedLock(IConnectionMultiplexer redis, I
 
             if ((long)result! == 1)
             {
+                CatgaDiagnostics.LocksReleased.Add(1);
                 LogLockReleased(logger, key, lockId);
             }
             else

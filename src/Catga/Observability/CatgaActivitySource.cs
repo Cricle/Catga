@@ -66,6 +66,22 @@ public static class CatgaActivitySource
         public const string StreamId = "catga.stream_id";
         public const string EventCount = "catga.event_count";
         public const string PipelineBehaviorCount = "catga.pipeline.behavior_count";
+
+        // Distributed Lock tags
+        public const string LockResource = "catga.lock.resource";
+        public const string LockId = "catga.lock.id";
+        public const string LockExpiry = "catga.lock.expiry_ms";
+        public const string LockWaitTimeout = "catga.lock.wait_timeout_ms";
+
+        // Leader Election tags
+        public const string ElectionId = "catga.election.id";
+        public const string LeaderNodeId = "catga.leader.node_id";
+        public const string LeaderLeaseDuration = "catga.leader.lease_duration_ms";
+
+        // Rate Limiter tags
+        public const string RateLimitKey = "catga.ratelimit.key";
+        public const string RateLimitPermits = "catga.ratelimit.permits";
+        public const string RateLimitRemaining = "catga.ratelimit.remaining";
     }
 
     /// <summary>Activity event names for timeline markers</summary>
@@ -159,6 +175,31 @@ public static class CatgaActivitySource
         public const string ResilienceCircuitClosed = "resilience.circuit.closed";
         public const string ResilienceTimeout = "resilience.timeout";
         public const string ResilienceRetry = "resilience.retry";
+
+        // Distributed Lock
+        public const string LockTryAcquire = "Lock.TryAcquire";
+        public const string LockAcquired = "Lock.Acquired";
+        public const string LockAcquireFailed = "Lock.Acquire.Failed";
+        public const string LockAcquireTimeout = "Lock.Acquire.Timeout";
+        public const string LockReleased = "Lock.Released";
+        public const string LockExtended = "Lock.Extended";
+        public const string LockExtendFailed = "Lock.Extend.Failed";
+
+        // Leader Election
+        public const string LeaderTryAcquire = "Leader.TryAcquire";
+        public const string LeaderAcquired = "Leader.Acquired";
+        public const string LeaderAcquireFailed = "Leader.Acquire.Failed";
+        public const string LeaderAcquireTimeout = "Leader.Acquire.Timeout";
+        public const string LeaderResigned = "Leader.Resigned";
+        public const string LeaderExtended = "Leader.Extended";
+        public const string LeaderLost = "Leader.Lost";
+
+        // Rate Limiter
+        public const string RateLimitTryAcquire = "RateLimit.TryAcquire";
+        public const string RateLimitAcquired = "RateLimit.Acquired";
+        public const string RateLimitRejected = "RateLimit.Rejected";
+        public const string RateLimitWait = "RateLimit.Wait";
+        public const string RateLimitTimeout = "RateLimit.Timeout";
     }
 
     /// <summary>Mark activity as success with optional result</summary>

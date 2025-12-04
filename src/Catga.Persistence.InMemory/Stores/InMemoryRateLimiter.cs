@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading.RateLimiting;
 using Catga.Abstractions;
+using Catga.Observability;
 
 namespace Catga.Persistence.InMemory.Stores;
 
@@ -32,12 +34,23 @@ public sealed class InMemoryRateLimiter : IDistributedRateLimiter, IDisposable
 
     public async ValueTask<RateLimitResult> TryAcquireAsync(string key, int permits = 1, CancellationToken ct = default)
     {
+        using var activity = CatgaActivitySource.Source.StartActivity("RateLimit.TryAcquire", ActivityKind.Internal);
+        activity?.SetTag(CatgaActivitySource.Tags.RateLimitKey, key);
+        activity?.SetTag(CatgaActivitySource.Tags.RateLimitPermits, permits);
+
         var limiter = GetOrCreateLimiter(key);
         using var lease = await limiter.AcquireAsync(permits, ct);
+
         if (lease.IsAcquired)
         {
+            CatgaDiagnostics.RateLimitAcquired.Add(1);
+            activity?.AddActivityEvent(CatgaActivitySource.Events.RateLimitAcquired);
+            activity?.SetStatus(ActivityStatusCode.Ok);
             return RateLimitResult.Acquired(_defaultLimit);
         }
+
+        CatgaDiagnostics.RateLimitRejected.Add(1);
+        activity?.AddActivityEvent(CatgaActivitySource.Events.RateLimitRejected);
 
         lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter);
         return RateLimitResult.Rejected(RateLimitRejectionReason.RateLimitExceeded, retryAfter);
@@ -45,28 +58,47 @@ public sealed class InMemoryRateLimiter : IDistributedRateLimiter, IDisposable
 
     public async ValueTask<RateLimitResult> WaitAsync(string key, int permits = 1, TimeSpan timeout = default, CancellationToken ct = default)
     {
+        using var activity = CatgaActivitySource.Source.StartActivity("RateLimit.Wait", ActivityKind.Internal);
+        activity?.SetTag(CatgaActivitySource.Tags.RateLimitKey, key);
+        activity?.SetTag(CatgaActivitySource.Tags.RateLimitPermits, permits);
+
         var actualTimeout = timeout == default ? TimeSpan.FromSeconds(30) : timeout;
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(actualTimeout);
+
+        var sw = Stopwatch.StartNew();
 
         try
         {
             var limiter = GetOrCreateLimiter(key);
             using var lease = await limiter.AcquireAsync(permits, cts.Token);
+
+            sw.Stop();
+            CatgaDiagnostics.RateLimitWaitDuration.Record(sw.Elapsed.TotalMilliseconds);
+
             if (lease.IsAcquired)
             {
+                CatgaDiagnostics.RateLimitAcquired.Add(1);
+                activity?.AddActivityEvent(CatgaActivitySource.Events.RateLimitAcquired);
+                activity?.SetStatus(ActivityStatusCode.Ok);
                 return RateLimitResult.Acquired(_defaultLimit);
             }
+
+            CatgaDiagnostics.RateLimitRejected.Add(1);
+            activity?.AddActivityEvent(CatgaActivitySource.Events.RateLimitRejected);
 
             lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter);
             return RateLimitResult.Rejected(RateLimitRejectionReason.RateLimitExceeded, retryAfter);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
+            CatgaDiagnostics.RateLimitRejected.Add(1);
             return RateLimitResult.Rejected(RateLimitRejectionReason.Cancelled);
         }
         catch (OperationCanceledException)
         {
+            CatgaDiagnostics.RateLimitRejected.Add(1);
+            activity?.AddActivityEvent(CatgaActivitySource.Events.RateLimitTimeout);
             return RateLimitResult.Rejected(RateLimitRejectionReason.Timeout);
         }
     }

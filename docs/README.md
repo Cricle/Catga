@@ -108,9 +108,7 @@
 |------|------|---------|
 | [**性能基准测试**](./BENCHMARK-RESULTS.md) | BenchmarkDotNet 测试报告 | **462 ns, 2.2M QPS** |
 | [性能报告](./PERFORMANCE-REPORT.md) | 详细性能分析 | P99 < 1μs |
-| [GC 和热路径优化](./development/GC_AND_HOTPATH_REVIEW.md) | TagList 栈分配, Span 优化 | 零分配设计 |
-| [线程池管理](./development/THREAD_POOL_MANAGEMENT_PLAN.md) | 并发限制, 熔断器 | 防止耗尽 |
-| [内存优化指南](./guides/memory-optimization-guide.md) | 实战技巧 | < 600B/op |
+| [内存优化指南](./guides/memory-optimization-guide.md) | TagList 栈分配, Span 优化, 实战技巧 | 零分配设计 |
 
 #### 性能亮点
 
@@ -208,7 +206,6 @@
 | 文档 | 说明 |
 |------|------|
 | [Catga.Testing 使用](../src/Catga.Testing/README.md) | 测试辅助库完整指南 |
-| [测试库总结](./development/TESTING_LIBRARY_SUMMARY.md) | 功能和最佳实践 |
 
 #### 测试示例
 
@@ -282,8 +279,6 @@ dotnet run
 | [贡献指南](./development/CONTRIBUTING.md) | 如何贡献代码 |
 | [开发文档](./development/README.md) | 开发环境搭建 |
 | [AI 学习指南](./development/AI-LEARNING-GUIDE.md) | 框架学习路径 |
-| [ValueTask 使用指南](./development/VALUETASK_VS_TASK_GUIDELINES.md) | ValueTask vs Task |
-| [WorkerId 增强](./development/WORKERID_ENHANCEMENT.md) | 分布式 ID 配置 |
 
 ---
 
@@ -303,7 +298,6 @@ dotnet run
 |------|------|
 | [分析器介绍](./analyzers/README.md) | Roslyn 分析器 |
 | [分析器使用](./guides/analyzers.md) | 诊断规则 |
-| [Grafana Dashboard](./development/GRAFANA_UPDATE_SUMMARY.md) | 监控仪表板 |
 
 #### ⚙️ 快速开启追踪与自动批量
 
@@ -377,8 +371,7 @@ builder.Services.AddRedisTransport(o =>
 <summary>❓ 性能如何优化？</summary>
 
 1. 查看 [性能基准测试](./BENCHMARK-RESULTS.md)
-2. 阅读 [GC 和热路径优化](./development/GC_AND_HOTPATH_REVIEW.md)
-3. 应用 [内存优化指南](./guides/memory-optimization-guide.md)
+2. 应用 [内存优化指南](./guides/memory-optimization-guide.md)
 
 </details>
 

@@ -74,8 +74,6 @@
 |------|------|
 | [性能基准测试](./BENCHMARK-RESULTS.md) | ⚡ 纳秒级延迟 (400-600ns), 2M+ QPS 吞吐量 |
 | [性能报告](./PERFORMANCE-REPORT.md) | 详细性能分析 |
-| [GC 和热路径优化](./development/GC_AND_HOTPATH_REVIEW.md) | TagList 栈分配, Span 优化 |
-| [线程池管理](./development/THREAD_POOL_MANAGEMENT_PLAN.md) | 并发限制, 熔断器, 批处理 |
 | [内存优化指南](./guides/memory-optimization-guide.md) | 零分配优化实战 |
 
 ### 关键指标
@@ -147,7 +145,6 @@
 | 文档 | 说明 |
 |------|------|
 | [Catga.Testing 使用](../src/Catga.Testing/README.md) | 测试辅助库 |
-| [测试库总结](./development/TESTING_LIBRARY_SUMMARY.md) | 完整功能介绍 |
 
 ### 测试示例
 
@@ -194,9 +191,6 @@ public class OrderTests : IDisposable
 | [贡献指南](./development/CONTRIBUTING.md) | 如何贡献代码 |
 | [开发文档](./development/README.md) | 开发环境搭建 |
 | [AI 学习指南](./development/AI-LEARNING-GUIDE.md) | 框架学习路径 |
-| [ValueTask 使用指南](./development/VALUETASK_VS_TASK_GUIDELINES.md) | ValueTask vs Task |
-| [ValueTask 审计报告](./development/VALUETASK_TASK_AUDIT_REPORT.md) | 代码审计 |
-| [WorkerId 增强](./development/WORKERID_ENHANCEMENT.md) | 分布式 ID 配置 |
 
 ### 技术决策
 
@@ -292,10 +286,6 @@ var result = await mediator.SendAsync(new CreateOrderCommand("PROD-001", 5));
 | 文档 | 说明 |
 |------|------|
 | [更新日志](./CHANGELOG.md) | 版本更新记录 |
-| [Grafana 仪表板](./development/GRAFANA_UPDATE_SUMMARY.md) | 监控仪表板配置 |
-| [遥测优化](./development/TELEMETRY_OPTIMIZATION_SUMMARY.md) | 指标优化总结 |
-| [单元测试修复](./development/UT_FIX_SUMMARY.md) | 测试修复记录 |
-| [包管理优化](./development/DIRECTORY_PROPS_SUMMARY.md) | 中央包管理 |
 
 ### 脚本工具
 

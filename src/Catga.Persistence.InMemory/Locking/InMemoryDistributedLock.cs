@@ -6,11 +6,19 @@ using Microsoft.Extensions.Options;
 namespace Catga.Persistence.InMemory.Locking;
 
 /// <summary>In-memory distributed lock for single-node or testing.</summary>
-public sealed partial class InMemoryDistributedLock(IOptions<DistributedLockOptions> options, ILogger<InMemoryDistributedLock> logger) : IDistributedLock
+public sealed partial class InMemoryDistributedLock : IDistributedLock
 {
     private readonly ConcurrentDictionary<string, LockEntry> _locks = new();
-    private readonly DistributedLockOptions _opts = options.Value;
-    private readonly Timer _timer = new(static s => ((InMemoryDistributedLock)s!).Cleanup(), null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    private readonly DistributedLockOptions _opts;
+    private readonly ILogger<InMemoryDistributedLock> _logger;
+    private readonly Timer _timer;
+
+    public InMemoryDistributedLock(IOptions<DistributedLockOptions> options, ILogger<InMemoryDistributedLock> logger)
+    {
+        _opts = options.Value;
+        _logger = logger;
+        _timer = new Timer(static s => ((InMemoryDistributedLock)s!).Cleanup(), this, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
 
     public ValueTask<ILockHandle?> TryAcquireAsync(
         string resource,
@@ -26,7 +34,7 @@ public sealed partial class InMemoryDistributedLock(IOptions<DistributedLockOpti
         {
             if (_locks.TryAdd(resource, entry))
             {
-                LogLockAcquired(logger, resource, lockId, expiry.TotalSeconds);
+                LogLockAcquired(_logger, resource, lockId, expiry.TotalSeconds);
                 return ValueTask.FromResult<ILockHandle?>(new InMemoryLockHandle(this, resource, lockId, expiresAt));
             }
 
@@ -37,7 +45,7 @@ public sealed partial class InMemoryDistributedLock(IOptions<DistributedLockOpti
                     // Expired, try to replace
                     if (_locks.TryUpdate(resource, entry, existing))
                     {
-                        LogLockAcquired(logger, resource, lockId, expiry.TotalSeconds);
+                        LogLockAcquired(_logger, resource, lockId, expiry.TotalSeconds);
                         return ValueTask.FromResult<ILockHandle?>(new InMemoryLockHandle(this, resource, lockId, expiresAt));
                     }
                     continue; // Retry
@@ -71,7 +79,7 @@ public sealed partial class InMemoryDistributedLock(IOptions<DistributedLockOpti
                 await Task.Delay(delay, ct);
         }
 
-        LogLockTimeout(logger, resource, waitTimeout.TotalSeconds);
+        LogLockTimeout(_logger, resource, waitTimeout.TotalSeconds);
         throw new LockAcquisitionException(resource, waitTimeout);
     }
 
@@ -90,11 +98,11 @@ public sealed partial class InMemoryDistributedLock(IOptions<DistributedLockOpti
         {
             if (_locks.TryRemove(resource, out _))
             {
-                LogLockReleased(logger, resource, lockId);
+                LogLockReleased(_logger, resource, lockId);
                 return true;
             }
         }
-        LogLockAlreadyReleased(logger, resource, lockId);
+        LogLockAlreadyReleased(_logger, resource, lockId);
         return false;
     }
 

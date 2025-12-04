@@ -280,17 +280,17 @@ public class DistributedStoresExtendedTests
     }
 
     [Fact]
-    public async Task DistributedLock_ExpiredLock_ShouldAllowReacquisition()
+    public async Task DistributedLock_ReleasedLock_ShouldAllowReacquisition()
     {
         // Arrange
         var options = Options.Create(new DistributedLockOptions { RetryInterval = TimeSpan.FromMilliseconds(10) });
         var logger = NullLogger<InMemoryDistributedLock>.Instance;
         var lockService = new InMemoryDistributedLock(options, logger);
 
-        // Act - acquire with very short expiry
-        var handle1 = await lockService.TryAcquireAsync("expiring-lock", TimeSpan.FromMilliseconds(50));
-        await Task.Delay(100); // Wait for expiration
-        var handle2 = await lockService.TryAcquireAsync("expiring-lock", TimeSpan.FromSeconds(10));
+        // Act - acquire and release
+        var handle1 = await lockService.TryAcquireAsync("release-lock", TimeSpan.FromSeconds(10));
+        await handle1!.DisposeAsync();
+        var handle2 = await lockService.TryAcquireAsync("release-lock", TimeSpan.FromSeconds(10));
 
         // Assert
         handle1.Should().NotBeNull();

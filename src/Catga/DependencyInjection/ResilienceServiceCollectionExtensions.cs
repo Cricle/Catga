@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Catga.Locking;
 using Catga.Observability;
 using Catga.Resilience;
 using Catga.Pipeline;
@@ -35,6 +36,10 @@ public static class ResilienceServiceCollectionExtensions
             services.AddSingleton(options);
             services.AddSingleton<IResiliencePipelineProvider>(sp => new DefaultResiliencePipelineProvider(options));
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(PollyBehavior<,>));
+
+            // Register attribute-driven behavior for [Idempotent], [DistributedLock], [Retry], [Timeout], [CircuitBreaker]
+            services.TryAddSingleton<IDistributedLockProvider, InMemoryDistributedLockProvider>();
+            services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AttributeDrivenBehavior<,>));
 
             sw.Stop();
             CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tags);

@@ -404,3 +404,16 @@ FodyWeavers.xsd
 /_site/
 /api/
 docfx.log
+
+# Build logs
+build.err.log
+build_all.txt
+
+# Test results
+/TestResults/
+/coverage/
+/coverage-report/
+
+# Temporary directories
+/logs/
+/.tools/

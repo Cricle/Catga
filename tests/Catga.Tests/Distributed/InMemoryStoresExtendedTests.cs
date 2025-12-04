@@ -390,9 +390,115 @@ public class InMemoryStoresExtendedTests
     }
 
     #endregion
+
+    #region InMemoryRateLimiter Extended Tests
+
+    [Fact]
+    public async Task RateLimiter_TryAcquire_WithinLimit_ShouldSucceed()
+    {
+        var limiter = new InMemoryRateLimiter();
+        var key = $"rate-{Guid.NewGuid():N}";
+
+        var result = await limiter.TryAcquireAsync(key);
+
+        result.IsAcquired.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RateLimiter_TryAcquire_MultiplePermits_ShouldDeduct()
+    {
+        var limiter = new InMemoryRateLimiter();
+        var key = $"rate-multi-{Guid.NewGuid():N}";
+
+        var result = await limiter.TryAcquireAsync(key, permits: 5);
+
+        result.IsAcquired.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RateLimiter_GetStatistics_ShouldReturnCurrentState()
+    {
+        var limiter = new InMemoryRateLimiter();
+        var key = $"rate-stats-{Guid.NewGuid():N}";
+
+        await limiter.TryAcquireAsync(key, permits: 3);
+        var stats = await limiter.GetStatisticsAsync(key);
+
+        stats.Should().NotBeNull();
+        stats!.Value.CurrentCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task RateLimiter_ConcurrentAccess_ShouldBeThreadSafe()
+    {
+        var limiter = new InMemoryRateLimiter();
+        var key = $"rate-concurrent-{Guid.NewGuid():N}";
+        var acquiredCount = 0;
+
+        var tasks = Enumerable.Range(0, 10)
+            .Select(async _ =>
+            {
+                var result = await limiter.TryAcquireAsync(key);
+                if (result.IsAcquired)
+                    Interlocked.Increment(ref acquiredCount);
+            });
+
+        await Task.WhenAll(tasks);
+
+        acquiredCount.Should().Be(10);
+    }
+
+    #endregion
+
+    #region InMemorySnapshotStore Extended Tests
+
+    [Fact]
+    public async Task SnapshotStore_SaveAndLoad_ShouldRoundTrip()
+    {
+        var store = new InMemorySnapshotStore();
+        var aggregateId = $"agg-{Guid.NewGuid():N}";
+        var snapshot = new SnapshotTestData { Value = 42, Name = "test" };
+
+        await store.SaveAsync(aggregateId, snapshot, 5);
+        var loaded = await store.LoadAsync<SnapshotTestData>(aggregateId);
+
+        loaded.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task SnapshotStore_Load_NonExistent_ShouldReturnNull()
+    {
+        var store = new InMemorySnapshotStore();
+
+        var loaded = await store.LoadAsync<SnapshotTestData>("non-existent");
+
+        loaded.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SnapshotStore_Delete_ShouldRemoveSnapshot()
+    {
+        var store = new InMemorySnapshotStore();
+        var aggregateId = $"agg-delete-{Guid.NewGuid():N}";
+
+        await store.SaveAsync(aggregateId, new SnapshotTestData { Value = 1 }, 1);
+        await store.DeleteAsync(aggregateId);
+
+        var loaded = await store.LoadAsync<SnapshotTestData>(aggregateId);
+
+        loaded.Should().BeNull();
+    }
+
+    #endregion
 }
 
 #region Test Types
+
+public class SnapshotTestData
+{
+    public int Value { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
 
 [MemoryPackable]
 public partial class InMemoryTestMessage : IMessage

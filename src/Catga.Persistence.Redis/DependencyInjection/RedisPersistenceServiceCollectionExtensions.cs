@@ -1,4 +1,5 @@
 using Catga.Inbox;
+using Catga.Locking;
 using Catga.Outbox;
 using Catga.Persistence.Redis.Persistence;
 using Catga.Persistence.Redis;
@@ -9,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Catga.Abstractions;
 using Catga.Resilience;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 using Catga.Idempotency;
 
@@ -116,6 +118,22 @@ public static class RedisPersistenceServiceCollectionExtensions
         });
 
         services.TryAddSingleton<IDistributedRateLimiter, RedisRateLimiter>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Add Redis distributed lock provider for [DistributedLock] attribute support.
+    /// </summary>
+    public static IServiceCollection AddRedisDistributedLock(
+        this IServiceCollection services,
+        Action<DistributedLockOptions>? configure = null)
+    {
+        var options = new DistributedLockOptions();
+        configure?.Invoke(options);
+
+        services.TryAddSingleton(Options.Create(options));
+        services.AddSingleton<IDistributedLockProvider, RedisDistributedLockProvider>();
 
         return services;
     }

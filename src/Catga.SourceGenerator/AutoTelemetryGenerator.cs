@@ -69,7 +69,9 @@ public class AutoTelemetryGenerator : IIncrementalGenerator
 
         // Get request/response types from interface
         var handlerInterface = classSymbol.AllInterfaces
-            .FirstOrDefault(i => i.OriginalDefinition.ToDisplayString().StartsWith("Catga.Handlers.IRequestHandler"));
+            .FirstOrDefault(i =>
+                i.OriginalDefinition.ToDisplayString().StartsWith("Catga.Handlers.IRequestHandler") ||
+                i.OriginalDefinition.ToDisplayString().StartsWith("Catga.Abstractions.IRequestHandler"));
 
         if (handlerInterface is null) return null;
 
@@ -187,6 +189,7 @@ public class AutoTelemetryGenerator : IIncrementalGenerator
         sb.AppendLine("using System.Threading;");
         sb.AppendLine("using System.Threading.Tasks;");
         sb.AppendLine("using Catga;");
+        sb.AppendLine("using Catga.Core;");
         sb.AppendLine();
         sb.AppendLine($"namespace {handler.Namespace};");
         sb.AppendLine();

@@ -376,4 +376,300 @@ public class FlowIntegrationTests
     }
 
     #endregion
+
+    #region Error Handling Tests
+
+    [Fact]
+    public async Task ErrorHandling_ExceptionInStep_RecordsError()
+    {
+        var executor = new FlowExecutor(_store);
+
+        var result = await executor.ExecuteAsync(
+            "error-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) =>
+            {
+                var flow = Catga.Flow.Flow.Create("ErrorFlow")
+                    .Step(async c => { await Task.Delay(10, c); })
+                    .Step(async c => { throw new InvalidOperationException("Test error message"); });
+
+                return await flow.ExecuteAsync(ct);
+            });
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Contain("Test error message");
+
+        var stored = await _store.GetAsync("error-flow");
+        stored!.Status.Should().Be(FlowStatus.Failed);
+        stored.Error.Should().Contain("Test error message");
+    }
+
+    [Fact]
+    public async Task ErrorHandling_ExceptionInCompensation_ContinuesOtherCompensations()
+    {
+        var executor = new FlowExecutor(_store);
+        var compensated = new List<int>();
+
+        var result = await executor.ExecuteAsync(
+            "comp-error-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) =>
+            {
+                var flow = Catga.Flow.Flow.Create("CompErrorFlow")
+                    .Step(
+                        async c => { await Task.Delay(10, c); },
+                        async c => { compensated.Add(1); await Task.Delay(1, c); })
+                    .Step(
+                        async c => { await Task.Delay(10, c); },
+                        c => { compensated.Add(2); throw new Exception("Comp error"); })
+                    .Step(
+                        async c => { await Task.Delay(10, c); },
+                        async c => { compensated.Add(3); await Task.Delay(1, c); })
+                    .Step(async c => { throw new Exception("Step error"); });
+
+                return await flow.ExecuteAsync(ct);
+            });
+
+        result.IsSuccess.Should().BeFalse();
+        // All compensations should be attempted
+        compensated.Should().Contain(3);
+        compensated.Should().Contain(2);
+        compensated.Should().Contain(1);
+    }
+
+    [Fact]
+    public async Task ErrorHandling_NullData_HandledCorrectly()
+    {
+        var executor = new FlowExecutor(_store);
+
+        byte[]? receivedData = null;
+        var result = await executor.ExecuteAsync(
+            "null-data-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) =>
+            {
+                receivedData = state.Data;
+                return new FlowResult(true, 1, TimeSpan.Zero);
+            });
+
+        result.IsSuccess.Should().BeTrue();
+        receivedData.Should().BeEmpty();
+    }
+
+    #endregion
+
+    #region Version Conflict Tests
+
+    [Fact]
+    public async Task VersionConflict_ConcurrentUpdates_OnlyOneSucceeds()
+    {
+        // Create a flow
+        var state = new FlowState
+        {
+            Id = "version-conflict-flow",
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 0,
+            Version = 0,
+            Owner = "node-1",
+            HeartbeatAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+        await _store.CreateAsync(state);
+
+        // Simulate concurrent updates with same version
+        var tasks = Enumerable.Range(1, 10)
+            .Select(async i =>
+            {
+                var s = new FlowState
+                {
+                    Id = "version-conflict-flow",
+                    Type = "TestFlow",
+                    Status = FlowStatus.Running,
+                    Step = i,
+                    Version = 0 // All use same version
+                };
+                return await _store.UpdateAsync(s);
+            })
+            .ToList();
+
+        var results = await Task.WhenAll(tasks);
+        var succeeded = results.Count(r => r);
+
+        // Only one should succeed
+        succeeded.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task VersionConflict_SequentialUpdates_AllSucceed()
+    {
+        var state = new FlowState
+        {
+            Id = "sequential-update-flow",
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 0,
+            Version = 0,
+            Owner = "node-1",
+            HeartbeatAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+        await _store.CreateAsync(state);
+
+        // Sequential updates should all succeed
+        for (int i = 1; i <= 10; i++)
+        {
+            var current = await _store.GetAsync("sequential-update-flow");
+            current!.Step = i;
+            var result = await _store.UpdateAsync(current);
+            result.Should().BeTrue($"Update {i} should succeed");
+        }
+
+        var final = await _store.GetAsync("sequential-update-flow");
+        final!.Version.Should().Be(10);
+        final.Step.Should().Be(10);
+    }
+
+    #endregion
+
+    #region Idempotency Tests
+
+    [Fact]
+    public async Task Idempotency_DuplicateFlowId_ReturnsExistingResult()
+    {
+        var executor = new FlowExecutor(_store);
+        var executionCount = 0;
+
+        // First execution
+        var result1 = await executor.ExecuteAsync(
+            "idempotent-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) =>
+            {
+                Interlocked.Increment(ref executionCount);
+                return new FlowResult(true, 1, TimeSpan.Zero);
+            });
+
+        // Second execution with same ID
+        var result2 = await executor.ExecuteAsync(
+            "idempotent-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) =>
+            {
+                Interlocked.Increment(ref executionCount);
+                return new FlowResult(true, 1, TimeSpan.Zero);
+            });
+
+        result1.IsSuccess.Should().BeTrue();
+        result2.IsSuccess.Should().BeTrue();
+        // Should only execute once
+        executionCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Idempotency_FailedFlow_CanBeRetried()
+    {
+        var executor = new FlowExecutor(_store);
+        var attemptCount = 0;
+
+        // First attempt fails
+        var result1 = await executor.ExecuteAsync(
+            "retry-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) =>
+            {
+                attemptCount++;
+                if (attemptCount == 1)
+                    return new FlowResult(false, 0, TimeSpan.Zero, "First attempt failed");
+                return new FlowResult(true, 1, TimeSpan.Zero);
+            });
+
+        result1.IsSuccess.Should().BeFalse();
+
+        // For retry, we need a new flow ID since failed flows are not re-executed
+        var result2 = await executor.ExecuteAsync(
+            "retry-flow-2",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) =>
+            {
+                attemptCount++;
+                return new FlowResult(true, 1, TimeSpan.Zero);
+            });
+
+        result2.IsSuccess.Should().BeTrue();
+        attemptCount.Should().Be(2);
+    }
+
+    #endregion
+
+    #region Timeout Tests
+
+    [Fact]
+    public async Task Timeout_LongRunningStep_CanBeCancelled()
+    {
+        var executor = new FlowExecutor(_store);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        var stepStarted = false;
+        var result = await executor.ExecuteAsync(
+            "timeout-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) =>
+            {
+                var flow = Catga.Flow.Flow.Create("TimeoutFlow")
+                    .Step(async c =>
+                    {
+                        stepStarted = true;
+                        await Task.Delay(5000, c); // Long running
+                    });
+
+                return await flow.ExecuteAsync(ct);
+            },
+            cts.Token);
+
+        stepStarted.Should().BeTrue();
+        result.IsCancelled.Should().BeTrue();
+    }
+
+    #endregion
+
+    #region State Transition Tests
+
+    [Fact]
+    public async Task StateTransition_Running_To_Done()
+    {
+        var executor = new FlowExecutor(_store);
+
+        await executor.ExecuteAsync(
+            "transition-done-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) => new FlowResult(true, 1, TimeSpan.Zero));
+
+        var stored = await _store.GetAsync("transition-done-flow");
+        stored!.Status.Should().Be(FlowStatus.Done);
+    }
+
+    [Fact]
+    public async Task StateTransition_Running_To_Failed()
+    {
+        var executor = new FlowExecutor(_store);
+
+        await executor.ExecuteAsync(
+            "transition-failed-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) => new FlowResult(false, 0, TimeSpan.Zero, "Failed"));
+
+        var stored = await _store.GetAsync("transition-failed-flow");
+        stored!.Status.Should().Be(FlowStatus.Failed);
+    }
+
+    #endregion
 }

@@ -1,11 +1,13 @@
 using Catga.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Polly;
+using Polly.Retry;
 using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis.Locking;
 
-/// <summary>Redis-based distributed lock.</summary>
+/// <summary>Redis-based distributed lock using Polly for retry logic.</summary>
 public sealed partial class RedisDistributedLock(IConnectionMultiplexer redis, IOptions<DistributedLockOptions> options, ILogger<RedisDistributedLock> logger) : IDistributedLock
 {
     private readonly DistributedLockOptions _opts = options.Value;
@@ -45,26 +47,28 @@ public sealed partial class RedisDistributedLock(IConnectionMultiplexer redis, I
         TimeSpan waitTimeout,
         CancellationToken ct = default)
     {
-        var deadline = DateTimeOffset.UtcNow.Add(waitTimeout);
         var retryInterval = _opts.RetryInterval;
+        var maxRetries = (int)(waitTimeout.TotalMilliseconds / retryInterval.TotalMilliseconds);
 
-        while (DateTimeOffset.UtcNow < deadline)
+        var pipeline = new ResiliencePipelineBuilder<ILockHandle?>()
+            .AddRetry(new RetryStrategyOptions<ILockHandle?>
+            {
+                MaxRetryAttempts = Math.Max(1, maxRetries),
+                Delay = retryInterval,
+                BackoffType = DelayBackoffType.Constant,
+                ShouldHandle = new PredicateBuilder<ILockHandle?>().HandleResult(h => h is null)
+            })
+            .Build();
+
+        var handle = await pipeline.ExecuteAsync(async c => await TryAcquireAsync(resource, expiry, c), ct);
+
+        if (handle is null)
         {
-            ct.ThrowIfCancellationRequested();
-
-            var handle = await TryAcquireAsync(resource, expiry, ct);
-            if (handle != null)
-                return handle;
-
-            // Wait before retry
-            var remaining = deadline - DateTimeOffset.UtcNow;
-            var delay = remaining < retryInterval ? remaining : retryInterval;
-            if (delay > TimeSpan.Zero)
-                await Task.Delay(delay, ct);
+            LogLockTimeout(logger, resource, waitTimeout.TotalSeconds);
+            throw new LockAcquisitionException(resource, waitTimeout);
         }
 
-        LogLockTimeout(logger, resource, waitTimeout.TotalSeconds);
-        throw new LockAcquisitionException(resource, waitTimeout);
+        return handle;
     }
 
     public async ValueTask<bool> IsLockedAsync(string resource, CancellationToken ct = default)

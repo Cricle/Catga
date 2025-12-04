@@ -2,6 +2,8 @@ using System.Runtime.CompilerServices;
 using Catga.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Polly;
+using Polly.Retry;
 using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis.Locking;
@@ -75,24 +77,25 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
         TimeSpan timeout,
         CancellationToken ct = default)
     {
-        var deadline = DateTimeOffset.UtcNow.Add(timeout);
+        var retryDelay = TimeSpan.FromMilliseconds(500);
+        var maxRetries = (int)(timeout.TotalMilliseconds / retryDelay.TotalMilliseconds);
 
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            ct.ThrowIfCancellationRequested();
+        var pipeline = new ResiliencePipelineBuilder<ILeadershipHandle?>()
+            .AddRetry(new RetryStrategyOptions<ILeadershipHandle?>
+            {
+                MaxRetryAttempts = Math.Max(1, maxRetries),
+                Delay = retryDelay,
+                BackoffType = DelayBackoffType.Constant,
+                ShouldHandle = new PredicateBuilder<ILeadershipHandle?>().HandleResult(h => h is null)
+            })
+            .Build();
 
-            var handle = await TryAcquireLeadershipAsync(electionId, ct);
-            if (handle != null)
-                return handle;
+        var handle = await pipeline.ExecuteAsync(async c => await TryAcquireLeadershipAsync(electionId, c), ct);
 
-            // Wait and retry
-            var remaining = deadline - DateTimeOffset.UtcNow;
-            var delay = TimeSpan.FromMilliseconds(Math.Min(500, remaining.TotalMilliseconds));
-            if (delay > TimeSpan.Zero)
-                await Task.Delay(delay, ct);
-        }
+        if (handle is null)
+            throw new TimeoutException($"Failed to acquire leadership for '{electionId}' within {timeout}");
 
-        throw new TimeoutException($"Failed to acquire leadership for '{electionId}' within {timeout}");
+        return handle;
     }
 
     public async ValueTask<bool> IsLeaderAsync(string electionId, CancellationToken ct = default)

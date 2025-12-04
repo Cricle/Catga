@@ -155,7 +155,7 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
 
         // Arrange
         var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
-        await using var transport = new NatsMessageTransport(_natsConnection, _serializer!, _natsLogger!, new NatsTransportOptions { SubjectPrefix = "e2e" }, provider);
+        await using var transport = new NatsMessageTransport(_natsConnection, _serializer!, _natsLogger!, provider, new NatsTransportOptions { SubjectPrefix = "e2e" });
         var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!, options: null, provider: provider);
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: provider);
 
@@ -224,7 +224,7 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
 
         // Arrange
         var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
-        await using var transport = new NatsMessageTransport(_natsConnection, _serializer!, _natsLogger!, new NatsTransportOptions { SubjectPrefix = "e2e" }, provider);
+        await using var transport = new NatsMessageTransport(_natsConnection, _serializer!, _natsLogger!, provider, new NatsTransportOptions { SubjectPrefix = "e2e" });
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: provider);
 
         var total = 10;
@@ -273,7 +273,7 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
         if (_natsConnection is null || _redis is null) return; // skip if docker not running
 
         var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
-        await using var transport = new NatsMessageTransport(_natsConnection, _serializer!, _natsLogger!, new NatsTransportOptions { SubjectPrefix = "e2e" }, provider);
+        await using var transport = new NatsMessageTransport(_natsConnection, _serializer!, _natsLogger!, provider, new NatsTransportOptions { SubjectPrefix = "e2e" });
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: provider);
 
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -357,7 +357,7 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
         };
         ActivitySource.AddActivityListener(listener);
 
-        await using var transport = new NatsMessageTransport(_natsConnection, _serializer!, _natsLogger!, new NatsTransportOptions { SubjectPrefix = "e2e" }, fault);
+        await using var transport = new NatsMessageTransport(_natsConnection, _serializer!, _natsLogger!, fault, new NatsTransportOptions { SubjectPrefix = "e2e" });
         var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: fault);
 
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

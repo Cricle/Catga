@@ -28,12 +28,13 @@ public static class NatsTransportServiceCollectionExtensions
             configure?.Invoke(options);
             services.TryAddSingleton(options);
 
-            services.TryAddSingleton<IMessageTransport>(sp => new NatsMessageTransport(sp.GetRequiredService<INatsConnection>(),
-                                                                                       sp.GetRequiredService<IMessageSerializer>(),
-                                                                                       sp.GetRequiredService<ILogger<NatsMessageTransport>>(),
-                                                                                       sp.GetRequiredService<CatgaOptions>(),
-                                                                                       options,
-                                                                                       sp.GetRequiredService<IResiliencePipelineProvider>()));
+            services.TryAddSingleton<IMessageTransport>(sp => new NatsMessageTransport(
+                sp.GetRequiredService<INatsConnection>(),
+                sp.GetRequiredService<IMessageSerializer>(),
+                sp.GetRequiredService<ILogger<NatsMessageTransport>>(),
+                sp.GetRequiredService<IResiliencePipelineProvider>(),
+                sp.GetRequiredService<CatgaOptions>(),
+                options));
             sw.Stop();
             CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tag);
             return services;
@@ -60,12 +61,13 @@ public static class NatsTransportServiceCollectionExtensions
             options ??= new NatsTransportOptions();
             services.TryAddSingleton(options);
 
-            services.TryAddSingleton<IMessageTransport>(sp => new NatsMessageTransport(sp.GetRequiredService<INatsConnection>(),
-                                                                                       sp.GetRequiredService<IMessageSerializer>(),
-                                                                                       sp.GetRequiredService<ILogger<NatsMessageTransport>>(),
-                                                                                       sp.GetRequiredService<CatgaOptions>(),
-                                                                                       options,
-                                                                                       sp.GetRequiredService<IResiliencePipelineProvider>()));
+            services.TryAddSingleton<IMessageTransport>(sp => new NatsMessageTransport(
+                sp.GetRequiredService<INatsConnection>(),
+                sp.GetRequiredService<IMessageSerializer>(),
+                sp.GetRequiredService<ILogger<NatsMessageTransport>>(),
+                sp.GetRequiredService<IResiliencePipelineProvider>(),
+                sp.GetRequiredService<CatgaOptions>(),
+                options));
             sw.Stop();
             CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tag);
             return services;

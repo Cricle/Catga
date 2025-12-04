@@ -32,11 +32,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Endpoints
-app.MapCatgaRequest<CreateOrderFlowCommand, OrderCreatedResult>("/api/orders");
-app.MapCatgaQuery<GetOrderQuery, Order?>("/api/orders/{orderId}");
-app.MapCatgaQuery<GetUserOrdersQuery, List<Order>>("/api/users/{customerId}/orders");
-app.MapCatgaRequest<ProcessOutboxCommand>("/api/outbox/process");
+// Auto-generated endpoints from [Route] attributes
+Catga.Generated.CatgaEndpointExtensions.MapCatgaEndpoints(app);
 
 app.Run();
 

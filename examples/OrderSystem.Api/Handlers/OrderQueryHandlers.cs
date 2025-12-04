@@ -1,3 +1,4 @@
+using Catga;
 using Catga.Abstractions;
 using Catga.Core;
 using OrderSystem.Api.Domain;
@@ -6,11 +7,13 @@ using OrderSystem.Api.Services;
 
 namespace OrderSystem.Api.Handlers;
 
-public class GetOrderHandler(IOrderRepository repository) : IRequestHandler<GetOrderQuery, Order?>
+[CatgaHandler]
+[Route("/orders/{orderId}", Method = "GET")]
+public partial class GetOrderHandler(IOrderRepository repository) : IRequestHandler<GetOrderQuery, Order?>
 {
-    public async Task<CatgaResult<Order?>> HandleAsync(GetOrderQuery request, CancellationToken cancellationToken)
+    private async Task<CatgaResult<Order?>> HandleAsyncCore(GetOrderQuery request, CancellationToken ct)
     {
-        var order = await repository.GetByIdAsync(request.OrderId, cancellationToken);
+        var order = await repository.GetByIdAsync(request.OrderId, ct);
         return CatgaResult<Order?>.Success(order);
     }
 }

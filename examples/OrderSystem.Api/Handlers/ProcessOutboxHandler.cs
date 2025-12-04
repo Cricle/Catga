@@ -14,6 +14,7 @@ namespace OrderSystem.Api.Handlers;
 /// - Telemetry and metrics
 /// </summary>
 [CatgaHandler]
+[Route("/outbox/process")]
 [LeaderOnly]
 [Retry(MaxAttempts = 5)]
 public sealed partial class ProcessOutboxHandler(

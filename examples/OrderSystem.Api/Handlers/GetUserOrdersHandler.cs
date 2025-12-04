@@ -23,6 +23,7 @@ public record GetUserOrdersQuery(string CustomerId) : IRequest<List<Order>>
 /// - Endpoint: GET /api/users/{customerId}/orders
 /// </summary>
 [CatgaHandler]
+[Route("/users/{customerId}/orders", Method = "GET")]
 [Sharded("{request.CustomerId}")]
 public sealed partial class GetUserOrdersHandler(
     IOrderRepository orderRepository) : IRequestHandler<GetUserOrdersQuery, List<Order>>

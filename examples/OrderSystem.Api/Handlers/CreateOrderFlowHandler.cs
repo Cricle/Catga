@@ -20,6 +20,7 @@ namespace OrderSystem.Api.Handlers;
 /// - Retry on transient failures
 /// </summary>
 [CatgaHandler]
+[Route("/orders")]
 [Idempotent(Key = "{request.CustomerId}:{request.Items.Count}")]
 [DistributedLock("order:{request.CustomerId}")]
 [Retry(MaxAttempts = 3)]

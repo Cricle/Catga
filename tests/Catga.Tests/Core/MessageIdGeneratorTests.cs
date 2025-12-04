@@ -145,24 +145,36 @@ public class MessageIdGeneratorTests
 }
 
 // Test message types - Record
-public partial record GenTestRecordCommand(string Data) : IRequest<string>;
-public partial record GenTestRecordEvent(string Id, string Data) : IEvent;
-public partial record GenTestRecordQuery(string Id) : IRequest<string>;
+public partial record GenTestRecordCommand(string Data) : IRequest<string>
+{
+    public long MessageId { get; init; } = DateTime.UtcNow.Ticks;
+}
+public partial record GenTestRecordEvent(string Id, string Data) : IEvent
+{
+    public long MessageId { get; init; } = DateTime.UtcNow.Ticks;
+}
+public partial record GenTestRecordQuery(string Id) : IRequest<string>
+{
+    public long MessageId { get; init; } = DateTime.UtcNow.Ticks;
+}
 
 // Test message types - Class
 public partial class GenTestClassCommand : IRequest<string>
 {
+    public long MessageId { get; init; } = DateTime.UtcNow.Ticks;
     public string Data { get; set; } = string.Empty;
 }
 
 public partial class GenTestClassEvent : IEvent
 {
+    public long MessageId { get; init; } = DateTime.UtcNow.Ticks;
     public string Id { get; set; } = string.Empty;
     public string Data { get; set; } = string.Empty;
 }
 
 public partial class GenTestClassQuery : IRequest<string>
 {
+    public long MessageId { get; init; } = DateTime.UtcNow.Ticks;
     public string Id { get; set; } = string.Empty;
 }
 
@@ -173,8 +185,10 @@ public partial struct GenTestStructCommand : IRequest<string>
     public GenTestStructCommand()
     {
         Data = string.Empty;
+        MessageId = DateTime.UtcNow.Ticks;
     }
 
+    public long MessageId { get; set; }
     public string Data { get; set; }
 }
 
@@ -184,8 +198,10 @@ public partial struct GenTestStructEvent : IEvent
     {
         Id = string.Empty;
         Data = string.Empty;
+        MessageId = DateTime.UtcNow.Ticks;
     }
 
+    public long MessageId { get; set; }
     public string Id { get; set; }
     public string Data { get; set; }
 }
@@ -195,8 +211,10 @@ public partial struct GenTestStructQuery : IRequest<string>
     public GenTestStructQuery()
     {
         Id = string.Empty;
+        MessageId = DateTime.UtcNow.Ticks;
     }
 
+    public long MessageId { get; set; }
     public string Id { get; set; }
 }
 

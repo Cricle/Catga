@@ -51,8 +51,6 @@
     <Compile Remove="Observability\ActivityPayloadCaptureTests.cs" />
     <Compile Remove="Serialization\SerializationHelperTests.cs" />
     <Compile Remove="Core\FastPathTests.cs" />
-    <Compile Remove="CatgaMediatorTests.cs" />
-    <Compile Remove="Core\MessageIdGeneratorTests.cs" />
     <Compile Remove="Observability\TraceTagsAdvancedTests.cs" />
     <Compile Remove="SourceGenerator\AutoTelemetryGeneratorTests.cs" />
   </ItemGroup>

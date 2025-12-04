@@ -109,13 +109,22 @@ public class CatgaMediatorTests
 
 // ==================== 测试消息定义 ====================
 
-public partial record CreateUserCommand(string Name, string Email) : IRequest<CreateUserResponse>;
+public partial record CreateUserCommand(string Name, string Email) : IRequest<CreateUserResponse>
+{
+    public long MessageId { get; init; } = DateTime.UtcNow.Ticks;
+}
 public partial record CreateUserResponse(long UserId, string Name, string Email);
 
-public partial record GetUserQuery(long UserId) : IRequest<GetUserResponse>;
+public partial record GetUserQuery(long UserId) : IRequest<GetUserResponse>
+{
+    public long MessageId { get; init; } = DateTime.UtcNow.Ticks;
+}
 public partial record GetUserResponse(long UserId, string Name, string Email);
 
-public partial record UserCreatedEvent(long UserId, string Name, string Email) : IEvent;
+public partial record UserCreatedEvent(long UserId, string Name, string Email) : IEvent
+{
+    public long MessageId { get; init; } = DateTime.UtcNow.Ticks;
+}
 
 // ==================== 测试 Handlers ====================
 

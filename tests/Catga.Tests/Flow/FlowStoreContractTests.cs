@@ -341,6 +341,162 @@ public class FlowStoreContractTests
 
     #endregion
 
+    #region Concurrency Contract
+
+    [Fact]
+    public async Task Concurrency_ParallelCreates_OnlyOneSucceeds()
+    {
+        var tasks = Enumerable.Range(1, 10)
+            .Select(_ => _store.CreateAsync(CreateState("parallel-create")).AsTask())
+            .ToList();
+
+        var results = await Task.WhenAll(tasks);
+        results.Count(r => r).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Concurrency_ParallelUpdates_OnlyOneSucceeds()
+    {
+        var state = CreateState("parallel-update");
+        await _store.CreateAsync(state);
+
+        var tasks = Enumerable.Range(1, 10)
+            .Select(i =>
+            {
+                var s = new FlowState
+                {
+                    Id = "parallel-update",
+                    Type = "TestFlow",
+                    Status = FlowStatus.Running,
+                    Step = i,
+                    Version = 0
+                };
+                return _store.UpdateAsync(s).AsTask();
+            })
+            .ToList();
+
+        var results = await Task.WhenAll(tasks);
+        results.Count(r => r).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Concurrency_ParallelClaims_OnlyOneSucceeds()
+    {
+        var state = CreateState("parallel-claim");
+        state.HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeMilliseconds();
+        await _store.CreateAsync(state);
+
+        var tasks = Enumerable.Range(1, 10)
+            .Select(i => _store.TryClaimAsync("TestFlow", $"owner-{i}", 60000).AsTask())
+            .ToList();
+
+        var results = await Task.WhenAll(tasks);
+        results.Count(r => r != null).Should().Be(1);
+    }
+
+    #endregion
+
+    #region Edge Cases
+
+    [Fact]
+    public async Task EdgeCase_EmptyData_HandledCorrectly()
+    {
+        var state = CreateState("empty-data");
+        state.Data = Array.Empty<byte>();
+        await _store.CreateAsync(state);
+
+        var stored = await _store.GetAsync("empty-data");
+        stored!.Data.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task EdgeCase_NullData_HandledCorrectly()
+    {
+        var state = CreateState("null-data");
+        state.Data = null;
+        await _store.CreateAsync(state);
+
+        var stored = await _store.GetAsync("null-data");
+        stored!.Data.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task EdgeCase_EmptyOwner_HandledCorrectly()
+    {
+        var state = CreateState("empty-owner");
+        state.Owner = "";
+        await _store.CreateAsync(state);
+
+        var stored = await _store.GetAsync("empty-owner");
+        stored!.Owner.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task EdgeCase_EmptyError_HandledCorrectly()
+    {
+        var state = CreateState("empty-error");
+        state.Error = "";
+        await _store.CreateAsync(state);
+
+        var stored = await _store.GetAsync("empty-error");
+        stored!.Error.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task EdgeCase_LongFlowId_HandledCorrectly()
+    {
+        var longId = new string('x', 256);
+        var state = CreateState(longId);
+        await _store.CreateAsync(state);
+
+        var stored = await _store.GetAsync(longId);
+        stored.Should().NotBeNull();
+        stored!.Id.Should().Be(longId);
+    }
+
+    [Fact]
+    public async Task EdgeCase_SpecialCharactersInId_HandledCorrectly()
+    {
+        var specialId = "flow:test/path?query=1&other=2";
+        var state = CreateState(specialId);
+        await _store.CreateAsync(state);
+
+        var stored = await _store.GetAsync(specialId);
+        stored.Should().NotBeNull();
+        stored!.Id.Should().Be(specialId);
+    }
+
+    [Fact]
+    public async Task EdgeCase_MaxStep_HandledCorrectly()
+    {
+        var state = CreateState("max-step");
+        state.Step = int.MaxValue;
+        await _store.CreateAsync(state);
+
+        var stored = await _store.GetAsync("max-step");
+        stored!.Step.Should().Be(int.MaxValue);
+    }
+
+    [Fact]
+    public async Task EdgeCase_MaxVersion_HandledCorrectly()
+    {
+        var state = CreateState("max-version");
+        await _store.CreateAsync(state);
+
+        // Update many times
+        for (int i = 0; i < 100; i++)
+        {
+            var current = await _store.GetAsync("max-version");
+            current!.Step = i;
+            await _store.UpdateAsync(current);
+        }
+
+        var stored = await _store.GetAsync("max-version");
+        stored!.Version.Should().Be(100);
+    }
+
+    #endregion
+
     private static FlowState CreateState(string id) => new()
     {
         Id = id,

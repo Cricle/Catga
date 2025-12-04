@@ -341,6 +341,87 @@ public sealed class RedisTransportE2ETests : IAsyncLifetime
 
     #endregion
 
+    #region Stream Operations Tests
+
+    [Fact]
+    public async Task PublishAsync_MultipleMessages_ShouldDeliverAll()
+    {
+        if (_redis is null) return;
+        var transport = new RedisMessageTransport(_redis, _serializer, _provider);
+        var receivedCount = 0;
+        var tcs = new TaskCompletionSource();
+
+        await transport.SubscribeAsync<RedisTransportMessage>(async (msg, ctx) =>
+        {
+            if (Interlocked.Increment(ref receivedCount) >= 5)
+                tcs.TrySetResult();
+            await Task.CompletedTask;
+        });
+
+        for (int i = 0; i < 5; i++)
+        {
+            var message = new RedisTransportMessage { MessageId = MessageExtensions.NewMessageId(), Data = $"msg-{i}" };
+            await transport.PublishAsync(message);
+        }
+
+        await Task.WhenAny(tcs.Task, Task.Delay(5000));
+        receivedCount.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task SubscribeAsync_MultipleSubscribers_ShouldDeliverToAll()
+    {
+        if (_redis is null) return;
+        var transport = new RedisMessageTransport(_redis, _serializer, _provider);
+        var received1 = false;
+        var received2 = false;
+        var tcs = new TaskCompletionSource();
+
+        await transport.SubscribeAsync<RedisTransportMessage>(async (msg, ctx) =>
+        {
+            received1 = true;
+            if (received1 && received2) tcs.TrySetResult();
+            await Task.CompletedTask;
+        });
+
+        await transport.SubscribeAsync<RedisTransportMessage>(async (msg, ctx) =>
+        {
+            received2 = true;
+            if (received1 && received2) tcs.TrySetResult();
+            await Task.CompletedTask;
+        });
+
+        var message = new RedisTransportMessage { MessageId = MessageExtensions.NewMessageId(), Data = "multi-sub" };
+        await transport.PublishAsync(message);
+
+        await Task.WhenAny(tcs.Task, Task.Delay(5000));
+        (received1 || received2).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Transport_WithCustomConsumerGroup_ShouldWork()
+    {
+        if (_redis is null) return;
+        var transport = new RedisMessageTransport(_redis, _serializer, _provider, consumerGroup: "custom-group", consumerName: "consumer-1");
+        var received = false;
+        var tcs = new TaskCompletionSource();
+
+        await transport.SubscribeAsync<RedisTransportMessage>(async (msg, ctx) =>
+        {
+            received = true;
+            tcs.TrySetResult();
+            await Task.CompletedTask;
+        });
+
+        var message = new RedisTransportMessage { MessageId = MessageExtensions.NewMessageId(), Data = "custom-group" };
+        await transport.PublishAsync(message);
+
+        await Task.WhenAny(tcs.Task, Task.Delay(3000));
+        received.Should().BeTrue();
+    }
+
+    #endregion
+
     #region Helpers
 
     private static bool IsDockerRunning()

@@ -1,23 +1,23 @@
 Summary
-  Generated on: 2025/12/4 - 9:38:55
-  Coverage date: 2025/12/4 - 8:20:14 - 2025/12/4 - 9:38:44
-  Parser: MultiReport (8x Cobertura)
+  Generated on: 2025/12/4 - 10:54:05
+  Coverage date: 2025/12/4 - 8:20:14 - 2025/12/4 - 10:53:55
+  Parser: MultiReport (9x Cobertura)
   Assemblies: 8
   Classes: 157
   Files: 130
-  Line coverage: 63.3%
-  Covered lines: 4638
-  Uncovered lines: 2687
-  Coverable lines: 7325
+  Line coverage: 63.1%
+  Covered lines: 4658
+  Uncovered lines: 2719
+  Coverable lines: 7377
   Total lines: 15831
-  Branch coverage: 50.4% (1406 of 2788)
-  Covered branches: 1406
-  Total branches: 2788
-  Method coverage: 71.7% (903 of 1259)
-  Full method coverage: 51.5% (649 of 1259)
-  Covered methods: 903
+  Branch coverage: 50.2% (1413 of 2814)
+  Covered branches: 1413
+  Total branches: 2814
+  Method coverage: 71.7% (915 of 1276)
+  Full method coverage: 50.8% (649 of 1276)
+  Covered methods: 915
   Fully covered methods: 649
-  Total methods: 1259
+  Total methods: 1276
 
 Catga                                                                            64.5%
   Catga.Abstractions.BatchKeyAttribute                                              0%
@@ -153,24 +153,24 @@ Catga.Persistence.Nats                                                          
   Catga.Persistence.Stores.NatsJSInboxStore                                      79.6%
   Catga.Persistence.Stores.NatsJSOutboxStore                                     89.1%
 
-Catga.Persistence.Redis                                                          56.9%
+Catga.Persistence.Redis                                                          56.4%
   Catga.DependencyInjection.RedisPersistenceServiceCollectionExtensions            23%
   Catga.Persistence.Redis.DependencyInjection.RedisDistributedExtensions            0%
   Catga.Persistence.Redis.Locking.RedisDistributedLock                           44.7%
   Catga.Persistence.Redis.Locking.RedisLeaderElection                            57.2%
   Catga.Persistence.Redis.Persistence.RedisInboxPersistence                      92.6%
   Catga.Persistence.Redis.Persistence.RedisOutboxPersistence                     89.1%
-  Catga.Persistence.Redis.RateLimiting.RedisRateLimiter                          82.8%
+  Catga.Persistence.Redis.RateLimiting.RedisRateLimiter                          81.8%
   Catga.Persistence.Redis.RedisDeadLetterQueue                                    100%
   Catga.Persistence.Redis.RedisIdempotencyOptions                                  75%
   Catga.Persistence.Redis.RedisIdempotencyStore                                    61%
   Catga.Persistence.Redis.RedisInboxOptions                                         0%
   Catga.Persistence.Redis.RedisOutboxOptions                                        0%
   Catga.Persistence.Redis.RedisStoreBase                                         94.1%
-  Catga.Persistence.Redis.Scheduling.RedisMessageScheduler                       32.7%
+  Catga.Persistence.Redis.Scheduling.RedisMessageScheduler                       31.3%
   Catga.Persistence.Redis.Scheduling.ScheduledMessageData                        42.4%
   Catga.Persistence.Redis.Stores.Meta                                            43.2%
-  Catga.Persistence.Redis.Stores.RedisSnapshotStore                                41%
+  Catga.Persistence.Redis.Stores.RedisSnapshotStore                              41.2%
 
 Catga.Serialization.MemoryPack                                                   41.6%
   Catga.DependencyInjection.MemoryPackSerializerExtensions                          0%

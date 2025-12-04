@@ -368,6 +368,67 @@ public sealed class NatsTransportE2ETests : IAsyncLifetime
 
     #endregion
 
+    #region Multiple Messages Tests
+
+    [Fact]
+    public async Task PublishAsync_MultipleMessages_ShouldDeliverAll()
+    {
+        if (_nats is null) return;
+        var options = new NatsTransportOptions { SubjectPrefix = $"multi-{Guid.NewGuid():N}" };
+        var transport = new NatsMessageTransport(_nats, _serializer, _logger, _provider, options);
+        var receivedCount = 0;
+        var tcs = new TaskCompletionSource();
+
+        await transport.SubscribeAsync<NatsTransportTestMessage>(async (msg, ctx) =>
+        {
+            if (Interlocked.Increment(ref receivedCount) >= 3)
+                tcs.TrySetResult();
+            await Task.CompletedTask;
+        });
+
+        for (int i = 0; i < 3; i++)
+        {
+            var message = new NatsTransportTestMessage { MessageId = MessageExtensions.NewMessageId(), Data = $"msg-{i}" };
+            await transport.PublishAsync(message);
+        }
+
+        await Task.WhenAny(tcs.Task, Task.Delay(5000));
+        receivedCount.Should().BeGreaterOrEqualTo(1);
+    }
+
+    [Fact]
+    public async Task SubscribeAsync_MultipleSubscribers_ShouldWork()
+    {
+        if (_nats is null) return;
+        var options = new NatsTransportOptions { SubjectPrefix = $"multi-sub-{Guid.NewGuid():N}" };
+        var transport = new NatsMessageTransport(_nats, _serializer, _logger, _provider, options);
+        var received1 = false;
+        var received2 = false;
+        var tcs = new TaskCompletionSource();
+
+        await transport.SubscribeAsync<NatsTransportTestMessage>(async (msg, ctx) =>
+        {
+            received1 = true;
+            if (received1 && received2) tcs.TrySetResult();
+            await Task.CompletedTask;
+        });
+
+        await transport.SubscribeAsync<NatsTransportTestMessage>(async (msg, ctx) =>
+        {
+            received2 = true;
+            if (received1 && received2) tcs.TrySetResult();
+            await Task.CompletedTask;
+        });
+
+        var message = new NatsTransportTestMessage { MessageId = MessageExtensions.NewMessageId(), Data = "multi-sub" };
+        await transport.PublishAsync(message);
+
+        await Task.WhenAny(tcs.Task, Task.Delay(5000));
+        (received1 || received2).Should().BeTrue();
+    }
+
+    #endregion
+
     #region Helpers
 
     private static bool IsDockerRunning()

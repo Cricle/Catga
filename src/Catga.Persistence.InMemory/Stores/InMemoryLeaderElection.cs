@@ -13,7 +13,9 @@ public sealed class InMemoryLeaderElection(string? nodeId = null, TimeSpan? leas
     private readonly TimeSpan _lease = leaseDuration ?? TimeSpan.FromSeconds(15);
 
     private ElectionState GetOrCreateElection(string electionId)
-        => _elections.GetOrAdd(electionId, _ => new ElectionState());
+    {
+        return _elections.GetOrAdd(electionId, _ => new ElectionState());
+    }
 
     public async ValueTask<ILeadershipHandle?> TryAcquireLeadershipAsync(string electionId, CancellationToken ct = default)
     {
@@ -58,14 +60,24 @@ public sealed class InMemoryLeaderElection(string? nodeId = null, TimeSpan? leas
     public ValueTask<bool> IsLeaderAsync(string electionId, CancellationToken ct = default)
     {
         if (_elections.TryGetValue(electionId, out var state))
+        {
             return ValueTask.FromResult(state.CurrentLeader == _nodeId && state.ExpiresAt > DateTime.UtcNow);
+        }
+
         return ValueTask.FromResult(false);
     }
 
     public ValueTask<LeaderInfo?> GetLeaderAsync(string electionId, CancellationToken ct = default)
     {
         if (_elections.TryGetValue(electionId, out var state) && state.CurrentLeader != null && state.ExpiresAt > DateTime.UtcNow)
-            return ValueTask.FromResult<LeaderInfo?>(new LeaderInfo { NodeId = state.CurrentLeader, AcquiredAt = state.AcquiredAt.DateTime });
+        {
+            return ValueTask.FromResult<LeaderInfo?>(new LeaderInfo
+            {
+                NodeId = state.CurrentLeader,
+                AcquiredAt = state.AcquiredAt.DateTime
+            });
+        }
+
         return ValueTask.FromResult<LeaderInfo?>(null);
     }
 
@@ -77,7 +89,13 @@ public sealed class InMemoryLeaderElection(string? nodeId = null, TimeSpan? leas
             var cur = await GetLeaderAsync(electionId, ct);
             if (!Equals(last, cur))
             {
-                yield return new() { Type = cur.HasValue ? LeadershipChangeType.Elected : LeadershipChangeType.Lost, PreviousLeader = last, NewLeader = cur, Timestamp = DateTimeOffset.UtcNow };
+                yield return new LeadershipChange
+                {
+                    Type = cur.HasValue ? LeadershipChangeType.Elected : LeadershipChangeType.Lost,
+                    PreviousLeader = last,
+                    NewLeader = cur,
+                    Timestamp = DateTimeOffset.UtcNow
+                };
                 last = cur;
             }
             await Task.Delay(1000, ct);

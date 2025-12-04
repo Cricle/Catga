@@ -18,7 +18,8 @@ public sealed class InMemoryRateLimiter : IDistributedRateLimiter, IDisposable
     }
 
     private SlidingWindowRateLimiter GetOrCreateLimiter(string key)
-        => _limiters.GetOrAdd(key, _ => new SlidingWindowRateLimiter(new SlidingWindowRateLimiterOptions
+    {
+        return _limiters.GetOrAdd(key, _ => new SlidingWindowRateLimiter(new SlidingWindowRateLimiterOptions
         {
             PermitLimit = _defaultLimit,
             Window = _window,
@@ -27,13 +28,16 @@ public sealed class InMemoryRateLimiter : IDistributedRateLimiter, IDisposable
             QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
             AutoReplenishment = true
         }));
+    }
 
     public async ValueTask<RateLimitResult> TryAcquireAsync(string key, int permits = 1, CancellationToken ct = default)
     {
         var limiter = GetOrCreateLimiter(key);
         using var lease = await limiter.AcquireAsync(permits, ct);
         if (lease.IsAcquired)
+        {
             return RateLimitResult.Acquired(_defaultLimit);
+        }
 
         lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter);
         return RateLimitResult.Rejected(RateLimitRejectionReason.RateLimitExceeded, retryAfter);
@@ -50,7 +54,9 @@ public sealed class InMemoryRateLimiter : IDistributedRateLimiter, IDisposable
             var limiter = GetOrCreateLimiter(key);
             using var lease = await limiter.AcquireAsync(permits, cts.Token);
             if (lease.IsAcquired)
+            {
                 return RateLimitResult.Acquired(_defaultLimit);
+            }
 
             lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter);
             return RateLimitResult.Rejected(RateLimitRejectionReason.RateLimitExceeded, retryAfter);
@@ -84,7 +90,9 @@ public sealed class InMemoryRateLimiter : IDistributedRateLimiter, IDisposable
     public void Dispose()
     {
         foreach (var limiter in _limiters.Values)
+        {
             limiter.Dispose();
+        }
         _limiters.Clear();
     }
 }

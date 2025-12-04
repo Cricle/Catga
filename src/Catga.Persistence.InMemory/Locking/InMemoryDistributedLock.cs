@@ -20,7 +20,9 @@ public sealed partial class InMemoryDistributedLock : IDistributedLock
     }
 
     private LockState GetOrCreateLock(string resource)
-        => _locks.GetOrAdd(resource, _ => new LockState());
+    {
+        return _locks.GetOrAdd(resource, _ => new LockState());
+    }
 
     public async ValueTask<ILockHandle?> TryAcquireAsync(
         string resource,
@@ -64,7 +66,10 @@ public sealed partial class InMemoryDistributedLock : IDistributedLock
     public ValueTask<bool> IsLockedAsync(string resource, CancellationToken ct = default)
     {
         if (_locks.TryGetValue(resource, out var state))
+        {
             return ValueTask.FromResult(state.Lock.IsLockHeld && state.ExpiresAt > DateTimeOffset.UtcNow);
+        }
+
         return ValueTask.FromResult(false);
     }
 
@@ -118,10 +123,14 @@ public sealed partial class InMemoryDistributedLock : IDistributedLock
         public ValueTask ExtendAsync(TimeSpan extension, CancellationToken ct = default)
         {
             if (_disposed != 0)
+            {
                 throw new ObjectDisposedException(nameof(InMemoryLockHandle));
+            }
 
             if (!IsValid)
+            {
                 throw new LockLostException(Resource, LockId);
+            }
 
             ExpiresAt = DateTimeOffset.UtcNow.Add(extension);
             _state.ExpiresAt = ExpiresAt;

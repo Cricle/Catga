@@ -98,9 +98,13 @@ public sealed partial class RedisDistributedLock(IConnectionMultiplexer redis, I
                 [lockId]);
 
             if ((long)result! == 1)
+            {
                 LogLockReleased(logger, key, lockId);
+            }
             else
+            {
                 LogLockAlreadyReleased(logger, key, lockId);
+            }
         }
         catch (Exception ex)
         {
@@ -169,14 +173,20 @@ public sealed partial class RedisDistributedLock(IConnectionMultiplexer redis, I
         public async ValueTask ExtendAsync(TimeSpan extension, CancellationToken ct = default)
         {
             if (_disposed != 0)
+            {
                 throw new ObjectDisposedException(nameof(RedisLockHandle));
+            }
 
             if (!IsValid)
+            {
                 throw new LockLostException(Resource, LockId);
+            }
 
             var success = await _parent.ExtendLockAsync(_db, _key, LockId, extension);
             if (!success)
+            {
                 throw new LockLostException(Resource, LockId);
+            }
 
             ExpiresAt = DateTimeOffset.UtcNow.Add(extension);
         }

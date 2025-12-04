@@ -93,7 +93,9 @@ public sealed partial class RedisLeaderElection : ILeaderElection, IDisposable
         var handle = await pipeline.ExecuteAsync(async c => await TryAcquireLeadershipAsync(electionId, c), ct);
 
         if (handle is null)
+        {
             throw new TimeoutException($"Failed to acquire leadership for '{electionId}' within {timeout}");
+        }
 
         return handle;
     }

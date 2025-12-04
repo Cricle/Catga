@@ -1,42 +1,73 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Catga.Abstractions;
+using DotNext.Threading;
 
 namespace Catga.Persistence.InMemory.Stores;
 
-/// <summary>In-memory leader election for development/testing.</summary>
+/// <summary>In-memory leader election using DotNext.Threading for development/testing.</summary>
 public sealed class InMemoryLeaderElection(string? nodeId = null, TimeSpan? leaseDuration = null) : ILeaderElection
 {
-    private readonly ConcurrentDictionary<string, (string Node, DateTime Expires)> _leaders = new();
+    private readonly ConcurrentDictionary<string, ElectionState> _elections = new();
     private readonly string _nodeId = nodeId ?? $"{Environment.MachineName}-{Guid.NewGuid():N}"[..16];
     private readonly TimeSpan _lease = leaseDuration ?? TimeSpan.FromSeconds(15);
 
-    public ValueTask<ILeadershipHandle?> TryAcquireLeadershipAsync(string electionId, CancellationToken ct = default)
+    private ElectionState GetOrCreateElection(string electionId)
+        => _elections.GetOrAdd(electionId, _ => new ElectionState());
+
+    public async ValueTask<ILeadershipHandle?> TryAcquireLeadershipAsync(string electionId, CancellationToken ct = default)
     {
-        var now = DateTime.UtcNow;
-        var entry = _leaders.AddOrUpdate(electionId,
-            _ => (_nodeId, now + _lease),
-            (_, e) => e.Expires < now || e.Node == _nodeId ? (_nodeId, now + _lease) : e);
-        return ValueTask.FromResult<ILeadershipHandle?>(entry.Node == _nodeId ? new Handle(electionId, _nodeId, this) : null);
+        var state = GetOrCreateElection(electionId);
+        if (await state.Lock.TryAcquireAsync(TimeSpan.Zero, ct))
+        {
+            state.CurrentLeader = _nodeId;
+            state.AcquiredAt = DateTimeOffset.UtcNow;
+            state.ExpiresAt = DateTime.UtcNow + _lease;
+            return new Handle(electionId, _nodeId, state, this);
+        }
+
+        // Check if current lease expired
+        if (state.ExpiresAt < DateTime.UtcNow)
+        {
+            // Try to acquire again after expiry
+            if (await state.Lock.TryAcquireAsync(TimeSpan.Zero, ct))
+            {
+                state.CurrentLeader = _nodeId;
+                state.AcquiredAt = DateTimeOffset.UtcNow;
+                state.ExpiresAt = DateTime.UtcNow + _lease;
+                return new Handle(electionId, _nodeId, state, this);
+            }
+        }
+
+        return null;
     }
 
     public async ValueTask<ILeadershipHandle> AcquireLeadershipAsync(string electionId, TimeSpan timeout, CancellationToken ct = default)
     {
-        var deadline = DateTime.UtcNow + timeout;
-        while (DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
+        var state = GetOrCreateElection(electionId);
+        if (await state.Lock.TryAcquireAsync(timeout, ct))
         {
-            if (await TryAcquireLeadershipAsync(electionId, ct) is { } h) return h;
-            await Task.Delay(100, ct);
+            state.CurrentLeader = _nodeId;
+            state.AcquiredAt = DateTimeOffset.UtcNow;
+            state.ExpiresAt = DateTime.UtcNow + _lease;
+            return new Handle(electionId, _nodeId, state, this);
         }
         throw new TimeoutException($"Failed to acquire leadership for {electionId}");
     }
 
     public ValueTask<bool> IsLeaderAsync(string electionId, CancellationToken ct = default)
-        => ValueTask.FromResult(_leaders.TryGetValue(electionId, out var e) && e.Node == _nodeId && e.Expires > DateTime.UtcNow);
+    {
+        if (_elections.TryGetValue(electionId, out var state))
+            return ValueTask.FromResult(state.CurrentLeader == _nodeId && state.ExpiresAt > DateTime.UtcNow);
+        return ValueTask.FromResult(false);
+    }
 
     public ValueTask<LeaderInfo?> GetLeaderAsync(string electionId, CancellationToken ct = default)
-        => ValueTask.FromResult(_leaders.TryGetValue(electionId, out var e) && e.Expires > DateTime.UtcNow
-            ? new LeaderInfo { NodeId = e.Node, AcquiredAt = e.Expires - _lease } : (LeaderInfo?)null);
+    {
+        if (_elections.TryGetValue(electionId, out var state) && state.CurrentLeader != null && state.ExpiresAt > DateTime.UtcNow)
+            return ValueTask.FromResult<LeaderInfo?>(new LeaderInfo { NodeId = state.CurrentLeader, AcquiredAt = state.AcquiredAt.DateTime });
+        return ValueTask.FromResult<LeaderInfo?>(null);
+    }
 
     public async IAsyncEnumerable<LeadershipChange> WatchAsync(string electionId, [EnumeratorCancellation] CancellationToken ct = default)
     {
@@ -53,26 +84,38 @@ public sealed class InMemoryLeaderElection(string? nodeId = null, TimeSpan? leas
         }
     }
 
-    private sealed class Handle(string electionId, string nodeId, InMemoryLeaderElection e) : ILeadershipHandle
+    private sealed class ElectionState
+    {
+        public AsyncExclusiveLock Lock { get; } = new();
+        public string? CurrentLeader { get; set; }
+        public DateTimeOffset AcquiredAt { get; set; }
+        public DateTime ExpiresAt { get; set; }
+    }
+
+    private sealed class Handle(string electionId, string nodeId, ElectionState state, InMemoryLeaderElection election) : ILeadershipHandle
     {
         private bool _active = true;
         public string ElectionId => electionId;
         public string NodeId => nodeId;
-        public bool IsLeader => _active && e._leaders.TryGetValue(electionId, out var x) && x.Node == nodeId;
-        public DateTimeOffset AcquiredAt { get; } = DateTimeOffset.UtcNow;
+        public bool IsLeader => _active && state.CurrentLeader == nodeId && state.ExpiresAt > DateTime.UtcNow;
+        public DateTimeOffset AcquiredAt { get; } = state.AcquiredAt;
         public event Action? OnLeadershipLost;
 
         public ValueTask ExtendAsync(CancellationToken ct = default)
         {
-            if (e._leaders.TryGetValue(electionId, out var x) && x.Node == nodeId)
-                e._leaders[electionId] = (nodeId, DateTime.UtcNow + e._lease);
+            if (state.CurrentLeader == nodeId)
+                state.ExpiresAt = DateTime.UtcNow + election._lease;
             return ValueTask.CompletedTask;
         }
 
         public ValueTask DisposeAsync()
         {
             _active = false;
-            if (e._leaders.TryGetValue(electionId, out var x) && x.Node == nodeId) e._leaders.TryRemove(electionId, out _);
+            if (state.CurrentLeader == nodeId)
+            {
+                state.CurrentLeader = null;
+                state.Lock.Release();
+            }
             OnLeadershipLost?.Invoke();
             return ValueTask.CompletedTask;
         }

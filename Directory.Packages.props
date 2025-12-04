@@ -78,6 +78,7 @@
     <!-- DotNext Raft Cluster -->
     <PackageVersion Include="DotNext.Net.Cluster" Version="5.16.0" />
     <PackageVersion Include="DotNext.AspNetCore.Cluster" Version="5.16.0" />
+    <PackageVersion Include="DotNext.Threading" Version="5.16.0" />
     <!-- .NET Aspire -->
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="9.0.0" />
     <PackageVersion Include="Aspire.Hosting.Redis" Version="9.0.0" />

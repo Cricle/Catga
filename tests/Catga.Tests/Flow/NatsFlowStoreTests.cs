@@ -357,6 +357,111 @@ public class NatsFlowStoreTests : IAsyncLifetime
 
     #endregion
 
+    #region TDD: Additional Edge Cases
+
+    [SkippableFact]
+    public async Task UpdateAsync_NonExistingFlow_ReturnsFalse()
+    {
+        SkipIfNoNats();
+
+        var state = new FlowState
+        {
+            Id = "non-existing",
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 1,
+            Version = 0
+        };
+
+        var result = await _store!.UpdateAsync(state);
+
+        result.Should().BeFalse();
+    }
+
+    [SkippableFact]
+    public async Task HeartbeatAsync_NonExistingFlow_ReturnsFalse()
+    {
+        SkipIfNoNats();
+
+        var result = await _store!.HeartbeatAsync("non-existing", "node-1", 0);
+
+        result.Should().BeFalse();
+    }
+
+    [SkippableFact]
+    public async Task TryClaimAsync_NoFlowsOfType_ReturnsNull()
+    {
+        SkipIfNoNats();
+
+        var claimed = await _store!.TryClaimAsync("NonExistingType", "node-1", 60000);
+
+        claimed.Should().BeNull();
+    }
+
+    [SkippableFact]
+    public async Task HeartbeatAsync_IncrementsVersion()
+    {
+        SkipIfNoNats();
+
+        var state = CreateState("heartbeat-version");
+        state.Owner = "node-1";
+        await _store!.CreateAsync(state);
+
+        var before = await _store.GetAsync("heartbeat-version");
+        var versionBefore = before!.Version;
+
+        await _store.HeartbeatAsync("heartbeat-version", "node-1", versionBefore);
+
+        var after = await _store.GetAsync("heartbeat-version");
+        after!.Version.Should().Be(versionBefore + 1);
+    }
+
+    [SkippableFact]
+    public async Task E2E_LargeDataPayload()
+    {
+        SkipIfNoNats();
+
+        var largeData = new byte[1024 * 100]; // 100KB
+        new Random(42).NextBytes(largeData);
+
+        var state = CreateState("large-data");
+        state.Data = largeData;
+        await _store!.CreateAsync(state);
+
+        var stored = await _store.GetAsync("large-data");
+        stored!.Data.Should().BeEquivalentTo(largeData);
+    }
+
+    [SkippableFact]
+    public async Task E2E_MultipleFlowTypes()
+    {
+        SkipIfNoNats();
+
+        var executor = new FlowExecutor(_store!);
+
+        var resultA = await executor.ExecuteAsync(
+            "type-a-flow",
+            "TypeA",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) => new FlowResult(true, 1, TimeSpan.Zero));
+
+        var resultB = await executor.ExecuteAsync(
+            "type-b-flow",
+            "TypeB",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) => new FlowResult(true, 1, TimeSpan.Zero));
+
+        resultA.IsSuccess.Should().BeTrue();
+        resultB.IsSuccess.Should().BeTrue();
+
+        var storedA = await _store!.GetAsync("type-a-flow");
+        var storedB = await _store.GetAsync("type-b-flow");
+        storedA!.Type.Should().Be("TypeA");
+        storedB!.Type.Should().Be("TypeB");
+    }
+
+    #endregion
+
     private static FlowState CreateState(string id) => new()
     {
         Id = id,

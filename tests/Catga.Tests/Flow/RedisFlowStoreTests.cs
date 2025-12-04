@@ -454,6 +454,147 @@ public class RedisFlowStoreTests : IAsyncLifetime
 
     #endregion
 
+    #region TDD: Additional Edge Cases
+
+    [SkippableFact]
+    public async Task UpdateAsync_NonExistingFlow_ReturnsFalse()
+    {
+        SkipIfNoRedis();
+
+        var state = new FlowState
+        {
+            Id = "non-existing",
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 1,
+            Version = 0
+        };
+
+        var result = await _store!.UpdateAsync(state);
+
+        result.Should().BeFalse();
+    }
+
+    [SkippableFact]
+    public async Task HeartbeatAsync_NonExistingFlow_ReturnsFalse()
+    {
+        SkipIfNoRedis();
+
+        var result = await _store!.HeartbeatAsync("non-existing", "node-1", 0);
+
+        result.Should().BeFalse();
+    }
+
+    [SkippableFact]
+    public async Task TryClaimAsync_NoFlowsOfType_ReturnsNull()
+    {
+        SkipIfNoRedis();
+
+        var claimed = await _store!.TryClaimAsync("NonExistingType", "node-1", 60000);
+
+        claimed.Should().BeNull();
+    }
+
+    [SkippableFact]
+    public async Task HeartbeatAsync_IncrementsVersion()
+    {
+        SkipIfNoRedis();
+
+        var state = CreateState("heartbeat-version");
+        state.Owner = "node-1";
+        await _store!.CreateAsync(state);
+
+        var before = await _store.GetAsync("heartbeat-version");
+        var versionBefore = before!.Version;
+
+        await _store.HeartbeatAsync("heartbeat-version", "node-1", versionBefore);
+
+        var after = await _store.GetAsync("heartbeat-version");
+        after!.Version.Should().Be(versionBefore + 1);
+    }
+
+    [SkippableFact]
+    public async Task E2E_LargeDataPayload()
+    {
+        SkipIfNoRedis();
+
+        var largeData = new byte[1024 * 100]; // 100KB
+        new Random(42).NextBytes(largeData);
+
+        var state = CreateState("large-data");
+        state.Data = largeData;
+        await _store!.CreateAsync(state);
+
+        var stored = await _store.GetAsync("large-data");
+        stored!.Data.Should().BeEquivalentTo(largeData);
+    }
+
+    [SkippableFact]
+    public async Task E2E_MultipleFlowTypes()
+    {
+        SkipIfNoRedis();
+
+        var executor = new FlowExecutor(_store!);
+
+        var resultA = await executor.ExecuteAsync(
+            "type-a-flow",
+            "TypeA",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) => new FlowResult(true, 1, TimeSpan.Zero));
+
+        var resultB = await executor.ExecuteAsync(
+            "type-b-flow",
+            "TypeB",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) => new FlowResult(true, 1, TimeSpan.Zero));
+
+        resultA.IsSuccess.Should().BeTrue();
+        resultB.IsSuccess.Should().BeTrue();
+
+        var storedA = await _store!.GetAsync("type-a-flow");
+        var storedB = await _store.GetAsync("type-b-flow");
+        storedA!.Type.Should().Be("TypeA");
+        storedB!.Type.Should().Be("TypeB");
+    }
+
+    [SkippableFact]
+    public async Task UpdateAsync_RapidUpdates_AllVersionsCorrect()
+    {
+        SkipIfNoRedis();
+
+        var state = CreateState("rapid-update");
+        await _store!.CreateAsync(state);
+
+        for (int i = 1; i <= 10; i++)
+        {
+            var current = await _store.GetAsync("rapid-update");
+            current!.Step = i;
+            var result = await _store.UpdateAsync(current);
+            result.Should().BeTrue($"Update {i} should succeed");
+        }
+
+        var final = await _store.GetAsync("rapid-update");
+        final!.Version.Should().Be(10);
+        final.Step.Should().Be(10);
+    }
+
+    [SkippableFact]
+    public async Task TryClaimAsync_FailedFlow_ReturnsNull()
+    {
+        SkipIfNoRedis();
+
+        var state = CreateState("failed-flow");
+        state.Status = FlowStatus.Failed;
+        state.HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeMilliseconds();
+        await _store!.CreateAsync(state);
+
+        var claimed = await _store.TryClaimAsync("TestFlow", "node-2", 60000);
+
+        claimed.Should().BeNull();
+    }
+
+    #endregion
+
     private static FlowState CreateState(string id) => new()
     {
         Id = id,

@@ -1,15 +1,14 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Catga.Abstractions;
+using Catga.Configuration;
 using Catga.Core;
 using Catga.Idempotency;
 using Catga.Observability;
 using Catga.Resilience;
-using Catga.Configuration;
 using Microsoft.Extensions.Logging;
-using System.Runtime.CompilerServices;
-
 using Polly;
 #if NET8_0_OR_GREATER
 using Polly.Retry;
@@ -17,30 +16,12 @@ using Polly.Retry;
 
 namespace Catga.Transport;
 
-/// <summary>In-memory message transport (for testing, supports QoS)</summary>
-public class InMemoryMessageTransport : IMessageTransport
+/// <summary>In-memory message transport for testing with QoS support.</summary>
+public class InMemoryMessageTransport(ILogger<InMemoryMessageTransport>? logger, IResiliencePipelineProvider provider, CatgaOptions? globalOptions = null)
+    : IMessageTransport
 {
-    private readonly InMemoryIdempotencyStore _idempotencyStore = new();
-    private readonly IResiliencePipelineProvider _provider;
-    private readonly ILogger<InMemoryMessageTransport>? _logger;
-    private Func<Type, string>? _naming;
-
-    public InMemoryMessageTransport(
-        ILogger<InMemoryMessageTransport>? logger = null,
-        IResiliencePipelineProvider? provider = null)
-    {
-        _logger = logger;
-        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
-    }
-
-    public InMemoryMessageTransport(
-        ILogger<InMemoryMessageTransport>? logger,
-        CatgaOptions globalOptions,
-        IResiliencePipelineProvider provider)
-        : this(logger, provider)
-    {
-        _naming = globalOptions?.EndpointNamingConvention;
-    }
+    private readonly InMemoryIdempotencyStore _idem = new();
+    private readonly Func<Type, string>? _naming = globalOptions?.EndpointNamingConvention;
 
     public string Name => "InMemory";
     public BatchTransportOptions? BatchOptions => null;
@@ -90,9 +71,9 @@ public class InMemoryMessageTransport : IMessageTransport
                     catch (Exception ex)
                     {
                         // QoS 0: Discard on failure, log but don't throw
-                        if (_logger is not null)
+                        if (logger is not null)
                         {
-                            CatgaLog.InMemoryQoS0ProcessingFailed(_logger, ex, ctx.MessageId, logicalName);
+                            CatgaLog.InMemoryQoS0ProcessingFailed(logger, ex, ctx.MessageId, logicalName);
                         }
                     }
                     System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.InMemoryPublishSent,
@@ -104,7 +85,7 @@ public class InMemoryMessageTransport : IMessageTransport
                     if ((msg?.DeliveryMode ?? DeliveryMode.WaitForResult) == DeliveryMode.WaitForResult)
                     {
                         // Synchronous mode: wait for result
-                        await _provider.ExecuteTransportPublishAsync(
+                        await provider.ExecuteTransportPublishAsync(
                             ct => new ValueTask(ExecuteHandlersAsync(handlers, message, ctx)),
                             cancellationToken);
                     }
@@ -141,18 +122,18 @@ public class InMemoryMessageTransport : IMessageTransport
                     break;
 
                 case QualityOfService.ExactlyOnce:
-                    if (ctx.MessageId.HasValue && _idempotencyStore.IsProcessed(ctx.MessageId.Value))
+                    if (ctx.MessageId.HasValue && _idem.IsProcessed(ctx.MessageId.Value))
                     {
                         activity?.SetTag("catga.idempotent", true);
                         return;
                     }
 
-                    await _provider.ExecuteTransportPublishAsync(
+                    await provider.ExecuteTransportPublishAsync(
                         ct => new ValueTask(ExecuteHandlersAsync(handlers, message, ctx)),
                         cancellationToken);
 
                     if (ctx.MessageId.HasValue)
-                        _idempotencyStore.MarkAsProcessed(ctx.MessageId.Value);
+                        _idem.MarkAsProcessed(ctx.MessageId.Value);
                     System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.InMemoryPublishSent,
                         ("destination", logicalName),
                         ("qos", qosString));

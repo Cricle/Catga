@@ -28,7 +28,7 @@ public static class InMemoryTransportServiceCollectionExtensions
                 var logger = sp.GetService<ILogger<InMemoryMessageTransport>>();
                 var global = sp.GetRequiredService<CatgaOptions>();
                 var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-                return new InMemoryMessageTransport(logger, global, provider);
+                return new InMemoryMessageTransport(logger, provider, global);
             });
 
             sw.Stop();

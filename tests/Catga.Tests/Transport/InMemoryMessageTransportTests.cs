@@ -13,7 +13,7 @@ namespace Catga.Tests.Transport;
 /// </summary>
 public class InMemoryMessageTransportTests
 {
-    private readonly InMemoryMessageTransport _transport = new(provider: new DiagnosticResiliencePipelineProvider());
+    private readonly InMemoryMessageTransport _transport = new(null, new DiagnosticResiliencePipelineProvider());
 
     #region Basic Publish/Subscribe Tests (4 tests)
 

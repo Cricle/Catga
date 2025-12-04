@@ -179,6 +179,94 @@ public class CoreComponentsExtendedTests
         fullName.Should().Contain("CoreTestMessage");
     }
 
+    [Fact]
+    public void TypeNameCache_MultipleTypes_ShouldCacheIndependently()
+    {
+        var name1 = TypeNameCache<CoreTestMessage>.Name;
+        var name2 = TypeNameCache<string>.Name;
+
+        name1.Should().Be("CoreTestMessage");
+        name2.Should().Be("String");
+    }
+
+    #endregion
+
+    #region PooledBufferWriter Extended Tests
+
+    [Fact]
+    public void PooledBufferWriter_GetMemory_ShouldReturnMemory()
+    {
+        using var writer = new PooledBufferWriter<byte>();
+
+        var memory = writer.GetMemory(10);
+
+        memory.Length.Should().BeGreaterOrEqualTo(10);
+    }
+
+    [Fact]
+    public void PooledBufferWriter_MultipleWrites_ShouldAccumulate()
+    {
+        using var writer = new PooledBufferWriter<byte>();
+
+        var span1 = writer.GetSpan(5);
+        span1[0] = 1;
+        writer.Advance(1);
+
+        var span2 = writer.GetSpan(5);
+        span2[0] = 2;
+        writer.Advance(1);
+
+        writer.WrittenCount.Should().Be(2);
+    }
+
+    [Fact]
+    public void PooledBufferWriter_WrittenSpan_ShouldReturnData()
+    {
+        using var writer = new PooledBufferWriter<byte>();
+
+        var span = writer.GetSpan(3);
+        span[0] = 10;
+        span[1] = 20;
+        span[2] = 30;
+        writer.Advance(3);
+
+        var written = writer.WrittenSpan;
+        written.Length.Should().Be(3);
+        written[0].Should().Be(10);
+        written[1].Should().Be(20);
+        written[2].Should().Be(30);
+    }
+
+    #endregion
+
+    #region MessageExtensions Extended Tests
+
+    [Fact]
+    public void NewMessageId_MultipleCalls_ShouldBeUnique()
+    {
+        var ids = new HashSet<long>();
+
+        for (int i = 0; i < 100; i++)
+        {
+            ids.Add(MessageExtensions.NewMessageId());
+        }
+
+        ids.Count.Should().Be(100);
+    }
+
+    [Fact]
+    public void NewCorrelationId_MultipleCalls_ShouldBeUnique()
+    {
+        var ids = new HashSet<long>();
+
+        for (int i = 0; i < 100; i++)
+        {
+            ids.Add(MessageExtensions.NewCorrelationId());
+        }
+
+        ids.Count.Should().Be(100);
+    }
+
     #endregion
 }
 

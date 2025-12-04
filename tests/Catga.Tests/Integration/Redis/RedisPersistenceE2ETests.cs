@@ -531,6 +531,123 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
 
     #endregion
 
+    #region RedisSnapshotStore Tests
+
+    [Fact]
+    public async Task SnapshotStore_SaveAndLoad_ShouldRoundTrip()
+    {
+        if (_redis is null) return;
+        var store = new RedisSnapshotStore(_redis, _serializer, Options.Create(new SnapshotOptions()), NullLogger<RedisSnapshotStore>.Instance);
+        var aggregateId = $"agg-{Guid.NewGuid():N}";
+
+        await store.SaveAsync(aggregateId, new TestSnapshot { Value = 42 }, 5);
+        var loaded = await store.LoadAsync<TestSnapshot>(aggregateId);
+
+        loaded.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task SnapshotStore_Load_NonExistent_ShouldReturnNull()
+    {
+        if (_redis is null) return;
+        var store = new RedisSnapshotStore(_redis, _serializer, Options.Create(new SnapshotOptions()), NullLogger<RedisSnapshotStore>.Instance);
+
+        var loaded = await store.LoadAsync<TestSnapshot>("non-existent-agg");
+
+        loaded.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RedisSnapshotStore_Delete_ShouldRemoveSnapshot()
+    {
+        if (_redis is null) return;
+        var store = new RedisSnapshotStore(_redis, _serializer, Options.Create(new SnapshotOptions()), NullLogger<RedisSnapshotStore>.Instance);
+        var aggregateId = $"agg-delete-{Guid.NewGuid():N}";
+
+        await store.SaveAsync(aggregateId, new TestSnapshot { Value = 1 }, 1);
+        await store.DeleteAsync(aggregateId);
+        var loaded = await store.LoadAsync<TestSnapshot>(aggregateId);
+
+        loaded.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SnapshotStore_SaveMultiple_ShouldOverwrite()
+    {
+        if (_redis is null) return;
+        var store = new RedisSnapshotStore(_redis, _serializer, Options.Create(new SnapshotOptions()), NullLogger<RedisSnapshotStore>.Instance);
+        var aggregateId = $"agg-overwrite-{Guid.NewGuid():N}";
+
+        await store.SaveAsync(aggregateId, new TestSnapshot { Value = 1 }, 1);
+        await store.SaveAsync(aggregateId, new TestSnapshot { Value = 2 }, 2);
+        var loaded = await store.LoadAsync<TestSnapshot>(aggregateId);
+
+        loaded.Should().NotBeNull();
+    }
+
+    #endregion
+
+    #region RedisDistributedLock Extended Tests
+
+    [Fact]
+    public async Task RedisDistributedLock_TryAcquire_ShouldSucceed()
+    {
+        if (_redis is null) return;
+        var lockProvider = new RedisDistributedLock(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
+        var lockName = $"lock-acquire-{Guid.NewGuid():N}";
+
+        var handle = await lockProvider.TryAcquireAsync(lockName, TimeSpan.FromSeconds(30));
+
+        handle.Should().NotBeNull();
+        await handle!.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DistributedLock_TryAcquire_AlreadyHeld_ShouldReturnNull()
+    {
+        if (_redis is null) return;
+        var lockProvider = new RedisDistributedLock(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
+        var lockName = $"lock-held-{Guid.NewGuid():N}";
+
+        var handle1 = await lockProvider.TryAcquireAsync(lockName, TimeSpan.FromSeconds(30));
+        var handle2 = await lockProvider.TryAcquireAsync(lockName, TimeSpan.FromSeconds(30));
+
+        handle1.Should().NotBeNull();
+        handle2.Should().BeNull();
+        await handle1!.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DistributedLock_Release_ShouldAllowReacquire()
+    {
+        if (_redis is null) return;
+        var lockProvider = new RedisDistributedLock(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
+        var lockName = $"lock-release-{Guid.NewGuid():N}";
+
+        var handle1 = await lockProvider.TryAcquireAsync(lockName, TimeSpan.FromSeconds(30));
+        await handle1!.DisposeAsync();
+        var handle2 = await lockProvider.TryAcquireAsync(lockName, TimeSpan.FromSeconds(30));
+
+        handle2.Should().NotBeNull();
+        await handle2!.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DistributedLock_Extend_ShouldSucceed()
+    {
+        if (_redis is null) return;
+        var lockProvider = new RedisDistributedLock(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
+        var lockName = $"lock-extend-{Guid.NewGuid():N}";
+
+        var handle = await lockProvider.TryAcquireAsync(lockName, TimeSpan.FromSeconds(30));
+        await handle!.ExtendAsync(TimeSpan.FromMinutes(1));
+
+        // Should still be valid
+        await handle.DisposeAsync();
+    }
+
+    #endregion
+
     #region Helpers
 
     private static bool IsDockerRunning()
@@ -583,6 +700,13 @@ public partial class TestAggregate
 {
     public string Id { get; set; } = string.Empty;
     public int Counter { get; set; }
+}
+
+[MemoryPackable]
+public partial class TestSnapshot
+{
+    public int Value { get; set; }
+    public string Name { get; set; } = string.Empty;
 }
 
 #endregion

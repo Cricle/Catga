@@ -9,29 +9,26 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Catga.Pipeline.Behaviors;
 
-/// <summary>Retry behavior with exponential backoff</summary>
+/// <summary>Retry behavior with exponential backoff using Polly.</summary>
 public partial class RetryBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
-    private readonly ResiliencePipeline _retryPipeline;
-    private readonly CatgaOptions _options;
+    private readonly ResiliencePipeline<CatgaResult<TResponse>> _pipeline;
 
     public RetryBehavior(ILogger<RetryBehavior<TRequest, TResponse>> logger, CatgaOptions options) : base(logger)
     {
-        _options = options;
-        _retryPipeline = new ResiliencePipelineBuilder()
-            .AddRetry(new RetryStrategyOptions
+        _pipeline = new ResiliencePipelineBuilder<CatgaResult<TResponse>>()
+            .AddRetry(new RetryStrategyOptions<CatgaResult<TResponse>>
             {
                 MaxRetryAttempts = options.MaxRetryAttempts,
                 Delay = TimeSpan.FromMilliseconds(options.RetryDelayMs),
                 BackoffType = DelayBackoffType.Exponential,
                 UseJitter = true,
-                ShouldHandle = new PredicateBuilder().Handle<CatgaException>(ex => ex.IsRetryable),
+                ShouldHandle = new PredicateBuilder<CatgaResult<TResponse>>()
+                    .Handle<CatgaException>(ex => ex.IsRetryable)
+                    .HandleResult(r => !r.IsSuccess && r.Exception is CatgaException { IsRetryable: true }),
                 OnRetry = args =>
                 {
                     LogRetry(logger, args.AttemptNumber, options.MaxRetryAttempts, GetRequestName());
-                    var ex = args.Outcome.Exception ?? new CatgaException("Retrying request");
-                    object state = $"Retry {args.AttemptNumber}/{options.MaxRetryAttempts} for {GetRequestName()}";
-                    logger.Log(LogLevel.Warning, default, state, ex, static (object s, Exception? e) => s?.ToString() ?? string.Empty);
                     return ValueTask.CompletedTask;
                 }
             })
@@ -40,40 +37,18 @@ public partial class RetryBehavior<[DynamicallyAccessedMembers(DynamicallyAccess
 
     public override async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {
-        var max = _options.MaxRetryAttempts;
-        var attempt = 0;
-        while (true)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            attempt++;
-            try
-            {
-                return await next();
-            }
-            catch (CatgaException ex)
-            {
-                if (!ex.IsRetryable)
-                {
-                    LogRequestFailed(Logger, ex, GetRequestName());
-                    return CatgaResult<TResponse>.Failure(ex.Message, ex);
-                }
-
-                if (attempt > max)
-                {
-                    LogRequestFailed(Logger, ex, GetRequestName());
-                    return CatgaResult<TResponse>.Failure(ex.Message, ex);
-                }
-
-                LogRetry(Logger, attempt, max, GetRequestName());
-                Logger.Log(LogLevel.Warning, default, $"Retry {attempt}/{max} for {GetRequestName()}", ex, static (object s, Exception? e) => s?.ToString() ?? string.Empty);
-
-                if (_options.RetryDelayMs > 0)
-                    await Task.Delay(_options.RetryDelayMs, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                return CatgaResult<TResponse>.Failure("Unexpected error", new CatgaException("Unexpected error", ex));
-            }
+            return await _pipeline.ExecuteAsync(async ct => await next(), cancellationToken);
+        }
+        catch (CatgaException ex)
+        {
+            LogRequestFailed(Logger, ex, GetRequestName());
+            return CatgaResult<TResponse>.Failure(ex.Message, ex);
+        }
+        catch (Exception ex)
+        {
+            return CatgaResult<TResponse>.Failure("Unexpected error", new CatgaException("Unexpected error", ex));
         }
     }
 

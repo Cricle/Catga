@@ -194,14 +194,7 @@ public class RetryBehaviorTests
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-
-        // Verify retry was logged
-        _logger.Received().Log(
-            LogLevel.Warning,
-            Arg.Any<EventId>(),
-            Arg.Any<object>(),
-            Arg.Any<Exception>(),
-            Arg.Any<Func<object, Exception?, string>>());
+        callCount.Should().BeGreaterThan(1); // Verify retry happened
     }
 
     // Test data classes

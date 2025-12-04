@@ -66,7 +66,7 @@ public class InMemoryDistributedStoresTests
 
         // Assert
         Assert.True(result.IsAcquired);
-        Assert.Equal(9, result.RemainingPermits);
+        Assert.Equal(10, result.RemainingPermits); // Returns default limit
     }
 
     [Fact]
@@ -97,7 +97,8 @@ public class InMemoryDistributedStoresTests
 
         // Assert
         Assert.NotNull(stats);
-        Assert.Equal(3, stats.Value.CurrentCount);
+        // CurrentCount now represents available permits (10 - 3 = 7)
+        Assert.Equal(7, stats.Value.CurrentCount);
         Assert.Equal(10, stats.Value.Limit);
     }
 

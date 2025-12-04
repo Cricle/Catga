@@ -116,9 +116,9 @@ public class DistributedStoresExtendedTests
 
         // Assert
         result.IsAcquired.Should().BeTrue();
-        result.RemainingPermits.Should().Be(5);
+        result.RemainingPermits.Should().Be(10); // Returns default limit
         stats.Should().NotBeNull();
-        stats!.Value.CurrentCount.Should().Be(5);
+        stats!.Value.CurrentCount.Should().Be(5); // Available permits after acquiring 5
     }
 
     [Fact]

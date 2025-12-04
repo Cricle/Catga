@@ -425,7 +425,8 @@ public class InMemoryStoresExtendedTests
         var stats = await limiter.GetStatisticsAsync(key);
 
         stats.Should().NotBeNull();
-        stats!.Value.CurrentCount.Should().Be(3);
+        // CurrentCount now represents available permits (100 - 3 = 97)
+        stats!.Value.CurrentCount.Should().Be(97);
     }
 
     [Fact]

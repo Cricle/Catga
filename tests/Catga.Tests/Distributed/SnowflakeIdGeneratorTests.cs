@@ -3,7 +3,7 @@ using FluentAssertions;
 using System.Collections.Concurrent;
 using Xunit;
 
-namespace Catga.Tests.DistributedId;
+namespace Catga.Tests.Distributed;
 
 /// <summary>
 /// Tests for Snowflake ID Generator

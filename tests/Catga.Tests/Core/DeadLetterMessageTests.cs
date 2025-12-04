@@ -2,7 +2,7 @@ using Catga.DeadLetter;
 using FluentAssertions;
 using Xunit;
 
-namespace Catga.Tests.DeadLetter;
+namespace Catga.Tests.Core;
 
 /// <summary>
 /// Tests for DeadLetterMessage

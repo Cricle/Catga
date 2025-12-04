@@ -5,7 +5,7 @@ using NSubstitute;
 using System.Text;
 using Xunit;
 
-namespace Catga.Tests.Idempotency;
+namespace Catga.Tests.Core;
 
 public class MemoryIdempotencyStoreTests
 {

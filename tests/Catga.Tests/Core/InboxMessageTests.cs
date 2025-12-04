@@ -2,7 +2,7 @@ using Catga.Inbox;
 using FluentAssertions;
 using Xunit;
 
-namespace Catga.Tests.Inbox;
+namespace Catga.Tests.Core;
 
 /// <summary>
 /// Tests for InboxMessage

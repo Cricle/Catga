@@ -2,7 +2,7 @@ using Catga.Configuration;
 using FluentAssertions;
 using Xunit;
 
-namespace Catga.Tests.Configuration;
+namespace Catga.Tests.Core;
 
 /// <summary>
 /// CatgaOptions单元测试

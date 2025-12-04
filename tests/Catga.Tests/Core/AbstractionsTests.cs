@@ -2,7 +2,7 @@ using Catga.Abstractions;
 using FluentAssertions;
 using Xunit;
 
-namespace Catga.Tests.Abstractions;
+namespace Catga.Tests.Core;
 
 /// <summary>
 /// Tests for various abstractions

@@ -2,7 +2,7 @@ using Catga.Outbox;
 using FluentAssertions;
 using Xunit;
 
-namespace Catga.Tests.Outbox;
+namespace Catga.Tests.Core;
 
 /// <summary>
 /// Tests for OutboxMessage

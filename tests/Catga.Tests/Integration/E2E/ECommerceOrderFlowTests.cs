@@ -9,7 +9,7 @@ using NSubstitute;
 using System.Diagnostics;
 using System.Linq;
 
-namespace Catga.Tests.Scenarios;
+namespace Catga.Tests.Integration.E2E;
 
 /// <summary>
 /// 电商订单流程综合业务场景测试 (TDD方法)

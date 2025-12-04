@@ -1,7 +1,7 @@
 using Catga.DistributedId;
 using FluentAssertions;
 
-namespace Catga.Tests.DistributedId;
+namespace Catga.Tests.Distributed;
 
 /// <summary>
 /// Extended unit tests for SnowflakeIdGenerator - edge cases and concurrency

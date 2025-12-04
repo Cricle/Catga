@@ -3,7 +3,7 @@ using FluentAssertions;
 using MemoryPack;
 using Xunit;
 
-namespace Catga.Tests.Abstractions;
+namespace Catga.Tests.Core;
 
 public partial class DelayedMessageTests
 {

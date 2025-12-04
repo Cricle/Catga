@@ -2,7 +2,7 @@ using Catga.Abstractions;
 using Catga.Core;
 using Xunit;
 
-namespace Catga.Tests.SourceGenerator;
+namespace Catga.Tests.Core;
 
 /// <summary>
 /// Tests for MessageId Source Generator

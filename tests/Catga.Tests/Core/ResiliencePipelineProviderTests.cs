@@ -2,7 +2,7 @@ using Catga.Resilience;
 using FluentAssertions;
 using Polly.Timeout;
 
-namespace Catga.Tests.Resilience;
+namespace Catga.Tests.Core;
 
 /// <summary>
 /// Unit tests for DefaultResiliencePipelineProvider after refactoring.

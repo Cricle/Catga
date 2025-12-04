@@ -27,7 +27,7 @@ public sealed class RedisFlowStore : IFlowStore
         if v ~= ARGV[1] then return 0 end
         redis.call('HSET', KEYS[1],
             'status', ARGV[2], 'step', ARGV[3], 'version', ARGV[4],
-            'owner', ARGV[5], 'heartbeat', ARGV[6], 'error', ARGV[7])
+            'owner', ARGV[5], 'heartbeat', ARGV[6], 'error', ARGV[7], 'data', ARGV[8])
         return 1";
 
     private const string HeartbeatScript = @"
@@ -98,7 +98,8 @@ public sealed class RedisFlowStore : IFlowStore
                 newVersion.ToString(),
                 state.Owner ?? "",
                 state.HeartbeatAt.ToString(),
-                state.Error ?? ""
+                state.Error ?? "",
+                state.Data != null ? Convert.ToBase64String(state.Data) : ""
             ]);
 
         if ((long)result! == 1)

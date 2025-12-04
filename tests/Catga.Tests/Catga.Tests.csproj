@@ -26,6 +26,7 @@
     <PackageReference Include="Testcontainers" />
     <PackageReference Include="Testcontainers.Redis" />
     <PackageReference Include="MemoryPack" />
+    <PackageReference Include="Xunit.SkippableFact" />
   </ItemGroup>
 
   <ItemGroup>

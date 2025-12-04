@@ -110,5 +110,42 @@ internal static class CatgaAnalyzerRules
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
         description: "All message properties should be serializable for distributed messaging.");
+
+    // AutoTelemetry rules (CAT5xxx)
+    public static readonly DiagnosticDescriptor MissingPartialModifier = new(
+        id: "CAT5001",
+        title: "Handler with [CatgaHandler] must be partial",
+        messageFormat: "Class '{0}' has [CatgaHandler] but is not partial. Add 'partial' modifier.",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Classes with [CatgaHandler] must be partial to allow source generation.");
+
+    public static readonly DiagnosticDescriptor MissingHandleAsyncCore = new(
+        id: "CAT5002",
+        title: "Handler with [CatgaHandler] must implement HandleAsyncCore",
+        messageFormat: "Class '{0}' has [CatgaHandler] but is missing 'HandleAsyncCore' method",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Classes with [CatgaHandler] must implement HandleAsyncCore method.");
+
+    public static readonly DiagnosticDescriptor WrongHandleAsyncCoreSignature = new(
+        id: "CAT5003",
+        title: "HandleAsyncCore has wrong signature",
+        messageFormat: "Method 'HandleAsyncCore' in '{0}' has wrong signature",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "HandleAsyncCore must match the expected signature.");
+
+    public static readonly DiagnosticDescriptor HandlerNotImplementingInterface = new(
+        id: "CAT5004",
+        title: "Handler with [CatgaHandler] must implement IRequestHandler",
+        messageFormat: "Class '{0}' has [CatgaHandler] but does not implement IRequestHandler",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Classes with [CatgaHandler] must implement IRequestHandler interface.");
 }
 

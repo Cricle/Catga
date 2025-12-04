@@ -1,13 +1,11 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using System.Runtime.InteropServices;
 using Catga;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.Flow;
 using Microsoft.Extensions.Logging;
 using OrderSystem.Api.Domain;
-using OrderSystem.Api.Infrastructure.Telemetry;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Services;
 
@@ -15,21 +13,22 @@ namespace OrderSystem.Api.Handlers;
 
 /// <summary>
 /// Order creation handler using Flow orchestration for automatic compensation.
-/// Demonstrates the simple, fluent Flow API with automatic rollback on failure.
+/// Demonstrates simplified handler pattern with automatic telemetry.
 ///
-/// Flow steps:
-/// 1. Check Inventory (read-only, no compensation)
-/// 2. Create Order → Compensation: Mark as Failed
-/// 3. Reserve Inventory → Compensation: Release Inventory
-/// 4. Process Payment → Compensation: Refund Payment
-/// 5. Confirm Order (final step)
+/// Features:
+/// - Pure business logic in HandleAsyncCore
+/// - Automatic Activity/Span with request properties as tags
+/// - Automatic duration, count, error metrics
+/// - Custom [Metric] for order amount
 /// </summary>
+[CatgaHandler]
 public sealed partial class CreateOrderFlowHandler : IRequestHandler<CreateOrderFlowCommand, OrderCreatedResult>
 {
-    private static readonly Counter<long> _orderCreatedCounter =
-        Telemetry.Meter.CreateCounter<long>("order.flow.created", "number", "Number of orders created via Flow");
-    private static readonly Histogram<double> _orderProcessingTime =
-        Telemetry.Meter.CreateHistogram<double>("order.flow.processing_time", "ms", "Order Flow processing time");
+    // Telemetry - will be auto-generated in future
+    private static readonly ActivitySource s_activitySource = new("OrderSystem.Api", "1.0.0");
+    private static readonly Meter s_meter = new("OrderSystem.Api", "1.0.0");
+    private static readonly Histogram<double> s_duration = s_meter.CreateHistogram<double>("order.flow.duration", "ms");
+    private static readonly Histogram<double> s_amount = s_meter.CreateHistogram<double>("order.flow.amount", "USD");
 
     private readonly IOrderRepository _orderRepository;
     private readonly IInventoryService _inventoryService;
@@ -51,26 +50,40 @@ public sealed partial class CreateOrderFlowHandler : IRequestHandler<CreateOrder
         _logger = logger;
     }
 
+    // Generated wrapper - will be auto-generated in future
     public async Task<CatgaResult<OrderCreatedResult>> HandleAsync(
         CreateOrderFlowCommand request,
         CancellationToken ct = default)
     {
-        var itemsSpan = CollectionsMarshal.AsSpan(request.Items);
-        decimal totalAmount = 0;
-        for (int i = 0; i < itemsSpan.Length; i++)
-            totalAmount += itemsSpan[i].Subtotal;
+        using var activity = s_activitySource.StartActivity("CreateOrderFlow");
+        activity?.SetTag("customer_id", request.CustomerId);
+        activity?.SetTag("payment_method", request.PaymentMethod);
+        activity?.SetTag("item_count", request.Items.Count);
 
-        using var activity = Telemetry.ActivitySource.StartActivityWithTags(
-            "CreateOrderFlow",
-            itemCount: request.Items.Count,
-            amount: totalAmount,
-            paymentMethod: request.PaymentMethod);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var result = await HandleAsyncCore(request, ct);
+            s_duration.Record(sw.Elapsed.TotalMilliseconds, new TagList { { "success", result.IsSuccess } });
+            return result;
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            s_duration.Record(sw.Elapsed.TotalMilliseconds, new TagList { { "success", false } });
+            throw;
+        }
+    }
 
-        using var timer = _orderProcessingTime.Measure();
+    /// <summary>
+    /// Business logic only - user writes this.
+    /// </summary>
+    private async Task<CatgaResult<OrderCreatedResult>> HandleAsyncCore(
+        CreateOrderFlowCommand request,
+        CancellationToken ct)
+    {
+        var totalAmount = request.Items.Sum(i => i.Subtotal);
 
-        LogFlowStarted(_logger, request.CustomerId, request.Items.Count);
-
-        // Create order entity
         var order = new Order
         {
             OrderId = $"FLOW-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..36],
@@ -83,46 +96,32 @@ public sealed partial class CreateOrderFlowHandler : IRequestHandler<CreateOrder
             PaymentMethod = request.PaymentMethod
         };
 
-        // Simple Flow API with automatic compensation
-        OrderCreatedResult? result = null;
         var flowResult = await Flow.Create($"CreateOrder-{request.CustomerId}")
-            .Step(async c => { await _inventoryService.CheckStockAsync(request.Items, c); },
-                null)
-            .Step(async c => { await _orderRepository.SaveAsync(order, c); },
-                async c => { order.Status = OrderStatus.Failed; await _orderRepository.UpdateAsync(order, c); })
-            .Step(async c => { await _inventoryService.ReserveStockAsync(order.OrderId, request.Items, c); },
-                async c => { await _inventoryService.ReleaseStockAsync(order.OrderId, request.Items, c); })
-            .Step(async c => { await _paymentService.ProcessPaymentAsync(order.OrderId, totalAmount, request.PaymentMethod, c); },
-                c => { _logger.LogWarning("Refunding payment for order {OrderId}", order.OrderId); return Task.CompletedTask; })
-            .Step(async c =>
+            .Step(async () => { await _inventoryService.CheckStockAsync(request.Items, ct); })
+            .Step(async () => { await _orderRepository.SaveAsync(order, ct); },
+                  async () => { order.Status = OrderStatus.Failed; await _orderRepository.UpdateAsync(order, ct); })
+            .Step(async () => { await _inventoryService.ReserveStockAsync(order.OrderId, request.Items, ct); },
+                  async () => { await _inventoryService.ReleaseStockAsync(order.OrderId, request.Items, ct); })
+            .Step(async () => { await _paymentService.ProcessPaymentAsync(order.OrderId, totalAmount, request.PaymentMethod, ct); },
+                  () => { _logger.LogWarning("Refunding payment for order {OrderId}", order.OrderId); return Task.CompletedTask; })
+            .Step(async () =>
             {
                 order.Status = OrderStatus.Confirmed;
-                await _orderRepository.UpdateAsync(order, c);
+                await _orderRepository.UpdateAsync(order, ct);
                 await _mediator.PublishAsync(new OrderCreatedEvent(
-                    order.OrderId, order.CustomerId, order.Items, order.TotalAmount, order.CreatedAt), c);
-                result = new OrderCreatedResult(order.OrderId, totalAmount, order.CreatedAt);
+                    order.OrderId, order.CustomerId, order.Items, order.TotalAmount, order.CreatedAt), ct);
             })
             .ExecuteAsync(ct);
 
+        // Record custom metric
+        s_amount.Record((double)totalAmount);
+
         if (flowResult.IsSuccess)
         {
-            LogFlowSuccess(_logger, order.OrderId, totalAmount);
-            _orderCreatedCounter.Add(1, new TagList { new("status", "success") });
-            return CatgaResult<OrderCreatedResult>.Success(result!);
+            return CatgaResult<OrderCreatedResult>.Success(
+                new OrderCreatedResult(order.OrderId, totalAmount, order.CreatedAt));
         }
 
-        LogFlowFailed(_logger, request.CustomerId, flowResult.CompletedSteps, flowResult.Error ?? "Unknown");
-        _orderCreatedCounter.Add(1, new TagList { new("status", "failed") });
         return CatgaResult<OrderCreatedResult>.Failure(flowResult.Error ?? "Flow failed");
     }
-
-    [LoggerMessage(Level = LogLevel.Information,
-        Message = "🚀 Starting order Flow for customer {CustomerId} with {ItemCount} items")]
-    static partial void LogFlowStarted(ILogger logger, string customerId, int itemCount);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "✅ Order Flow completed: {OrderId}, Amount: {Amount:C}")]
-    static partial void LogFlowSuccess(ILogger logger, string orderId, decimal amount);
-
-    [LoggerMessage(Level = LogLevel.Error, Message = "❌ Order Flow failed for {CustomerId} at step {Step}: {Error}")]
-    static partial void LogFlowFailed(ILogger logger, string customerId, int step, string error);
 }

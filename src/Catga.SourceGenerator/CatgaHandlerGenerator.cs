@@ -281,8 +281,8 @@ public class CatgaHandlerGenerator : IIncrementalGenerator
 namespace Catga;
 
 /// <summary>
-/// Controls handler registration behavior
-/// This attribute is optional - all handlers are auto-registered with Scoped lifetime by default
+/// Marks a handler for automatic registration and telemetry wrapping.
+/// When used with HandleAsyncCore method, generates HandleAsync with automatic telemetry.
 /// </summary>
 [System.AttributeUsage(System.AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
 public sealed class CatgaHandlerAttribute : System.Attribute
@@ -296,6 +296,16 @@ public sealed class CatgaHandlerAttribute : System.Attribute
     /// Whether to auto-register this handler (default: true)
     /// </summary>
     public bool AutoRegister { get; set; } = true;
+
+    /// <summary>
+    /// Custom ActivitySource field name (default: CatgaTelemetry.DefaultSource)
+    /// </summary>
+    public string? ActivitySource { get; set; }
+
+    /// <summary>
+    /// Custom Meter field name (default: CatgaTelemetry.DefaultMeter)
+    /// </summary>
+    public string? Meter { get; set; }
 
     public CatgaHandlerAttribute() { }
 

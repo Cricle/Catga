@@ -1,25 +1,25 @@
 Summary
-  Generated on: 2025/12/4 - 9:08:09
-  Coverage date: 2025/12/4 - 8:20:14 - 2025/12/4 - 9:08:00
-  Parser: MultiReport (5x Cobertura)
+  Generated on: 2025/12/4 - 9:19:50
+  Coverage date: 2025/12/4 - 8:20:14 - 2025/12/4 - 9:19:40
+  Parser: MultiReport (6x Cobertura)
   Assemblies: 8
   Classes: 157
   Files: 130
-  Line coverage: 63.2%
-  Covered lines: 4605
-  Uncovered lines: 2671
-  Coverable lines: 7276
+  Line coverage: 63.3%
+  Covered lines: 4625
+  Uncovered lines: 2676
+  Coverable lines: 7301
   Total lines: 15831
-  Branch coverage: 50% (1386 of 2768)
-  Covered branches: 1386
-  Total branches: 2768
-  Method coverage: 70.8% (882 of 1245)
-  Full method coverage: 52% (648 of 1245)
-  Covered methods: 882
-  Fully covered methods: 648
-  Total methods: 1245
+  Branch coverage: 50.3% (1398 of 2778)
+  Covered branches: 1398
+  Total branches: 2778
+  Method coverage: 71.4% (895 of 1252)
+  Full method coverage: 51.8% (649 of 1252)
+  Covered methods: 895
+  Fully covered methods: 649
+  Total methods: 1252
 
-Catga                                                                            64.4%
+Catga                                                                            64.5%
   Catga.Abstractions.BatchKeyAttribute                                              0%
   Catga.Abstractions.BatchOptionsAttribute                                          0%
   Catga.Abstractions.CorrelationId                                                  0%
@@ -27,7 +27,7 @@ Catga                                                                           
   Catga.Abstractions.DistributedRateLimiterOptions                                100%
   Catga.Abstractions.IDelayedMessage                                                0%
   Catga.Abstractions.IEvent                                                        50%
-  Catga.Abstractions.IMessage                                                      25%
+  Catga.Abstractions.IMessage                                                      50%
   Catga.Abstractions.IPrioritizedMessage                                            0%
   Catga.Abstractions.IReliableEvent                                                 0%
   Catga.Abstractions.LeaderElectionOptions                                        100%
@@ -127,14 +127,14 @@ Catga                                                                           
   Catga.Transport.TransportContext                                               25.4%
   Microsoft.Extensions.DependencyInjection.CatgaServiceCollectionExtensions      91.1%
 
-Catga.Persistence.InMemory                                                       59.7%
+Catga.Persistence.InMemory                                                       60.5%
   Catga.Common.BaseMemoryStore<T>                                                88.8%
   Catga.DeadLetter.InMemoryDeadLetterQueue                                        100%
   Catga.DependencyInjection.InMemoryPersistenceServiceCollectionExtensions         75%
   Catga.Inbox.MemoryInboxStore                                                   96.9%
   Catga.Outbox.MemoryOutboxStore                                                 93.7%
   Catga.Persistence.InMemory.DependencyInjection.InMemoryDistributedExtensions      0%
-  Catga.Persistence.InMemory.Locking.InMemoryDistributedLock                       56%
+  Catga.Persistence.InMemory.Locking.InMemoryDistributedLock                       59%
   Catga.Persistence.InMemory.Stores.InMemoryIdempotencyStore                      100%
   Catga.Persistence.InMemory.Stores.InMemoryLeaderElection                       52.5%
   Catga.Persistence.InMemory.Stores.InMemoryMessageScheduler                        0%
@@ -157,7 +157,7 @@ Catga.Persistence.Redis                                                         
   Catga.DependencyInjection.RedisPersistenceServiceCollectionExtensions            23%
   Catga.Persistence.Redis.DependencyInjection.RedisDistributedExtensions            0%
   Catga.Persistence.Redis.Locking.RedisDistributedLock                           43.2%
-  Catga.Persistence.Redis.Locking.RedisLeaderElection                            58.9%
+  Catga.Persistence.Redis.Locking.RedisLeaderElection                              58%
   Catga.Persistence.Redis.Persistence.RedisInboxPersistence                      92.6%
   Catga.Persistence.Redis.Persistence.RedisOutboxPersistence                     89.1%
   Catga.Persistence.Redis.RateLimiting.RedisRateLimiter                          82.8%
@@ -167,19 +167,19 @@ Catga.Persistence.Redis                                                         
   Catga.Persistence.Redis.RedisInboxOptions                                         0%
   Catga.Persistence.Redis.RedisOutboxOptions                                        0%
   Catga.Persistence.Redis.RedisStoreBase                                         94.1%
-  Catga.Persistence.Redis.Scheduling.RedisMessageScheduler                       31.2%
+  Catga.Persistence.Redis.Scheduling.RedisMessageScheduler                       32.7%
   Catga.Persistence.Redis.Scheduling.ScheduledMessageData                        42.4%
   Catga.Persistence.Redis.Stores.Meta                                            43.2%
-  Catga.Persistence.Redis.Stores.RedisSnapshotStore                              40.8%
+  Catga.Persistence.Redis.Stores.RedisSnapshotStore                              40.6%
 
 Catga.Serialization.MemoryPack                                                   41.6%
   Catga.DependencyInjection.MemoryPackSerializerExtensions                          0%
   Catga.Serialization.MemoryPack.MemoryPackMessageSerializer                       50%
 
-Catga.Transport.InMemory                                                         75.6%
+Catga.Transport.InMemory                                                         76.3%
   Catga.Idempotency.InMemoryIdempotencyStore                                     90.9%
   Catga.InMemoryTransportServiceCollectionExtensions                                0%
-  Catga.Transport.InMemoryMessageTransport                                         86%
+  Catga.Transport.InMemoryMessageTransport                                       86.9%
   Catga.Transport.TypedSubscribers<T>                                             100%
 
 Catga.Transport.Nats                                                             57.4%

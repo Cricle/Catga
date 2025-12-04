@@ -39,3 +39,9 @@ app.MapCatgaQuery<GetUserOrdersQuery, List<Order>>("/api/users/{customerId}/orde
 app.MapCatgaRequest<ProcessOutboxCommand>("/api/outbox/process");
 
 app.Run();
+
+namespace OrderSystem.Api
+{
+    /// <summary>Marker class for WebApplicationFactory in tests.</summary>
+    public partial class Program { }
+}

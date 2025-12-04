@@ -77,13 +77,16 @@ public sealed class InMemoryRateLimiter : IDistributedRateLimiter, IDisposable
         {
             var stats = limiter.GetStatistics();
             if (stats != null)
+            {
                 return ValueTask.FromResult<RateLimitStatistics?>(new RateLimitStatistics
                 {
                     CurrentCount = stats.CurrentAvailablePermits,
                     Limit = _defaultLimit,
                     ResetAfter = _window
                 });
+            }
         }
+
         return ValueTask.FromResult<RateLimitStatistics?>(null);
     }
 

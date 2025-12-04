@@ -79,8 +79,12 @@ public sealed partial class CreateOrderFlowHandler(
         => inventoryService.ReleaseStockAsync(_order.OrderId, _order.Items, ct).AsTask();
 
     [FlowStep(Order = 4, Compensate = nameof(LogRefund))]
-    Task ProcessPayment(CancellationToken ct)
-        => paymentService.ProcessPaymentAsync(_order.OrderId, _order.TotalAmount, _order.PaymentMethod, ct).AsTask();
+    async Task ProcessPayment(CancellationToken ct)
+    {
+        var result = await paymentService.ProcessPaymentAsync(_order.OrderId, _order.TotalAmount, _order.PaymentMethod ?? "card", ct);
+        if (!result.IsSuccess)
+            throw new InvalidOperationException(result.Error ?? "Payment failed");
+    }
 
     Task LogRefund(CancellationToken ct)
     {

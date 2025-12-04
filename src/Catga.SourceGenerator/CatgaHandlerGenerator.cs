@@ -128,7 +128,8 @@ public class CatgaHandlerGenerator : IIncrementalGenerator
         {
             var interfaceName = @interface.OriginalDefinition.ToDisplayString();
 
-            if (interfaceName == "Catga.Handlers.IRequestHandler<TRequest, TResponse>")
+            if (interfaceName == "Catga.Handlers.IRequestHandler<TRequest, TResponse>" ||
+                interfaceName == "Catga.Abstractions.IRequestHandler<TRequest, TResponse>")
             {
                 var requestType = @interface.TypeArguments[0];
                 var responseType = @interface.TypeArguments[1];
@@ -137,7 +138,7 @@ public class CatgaHandlerGenerator : IIncrementalGenerator
                 {
                     HandlerType = classSymbol.ToDisplayString(),
                     HandlerName = classSymbol.Name,
-                    InterfaceType = $"Catga.Handlers.IRequestHandler<{requestType.ToDisplayString()}, {responseType.ToDisplayString()}>",
+                    InterfaceType = $"Catga.Abstractions.IRequestHandler<{requestType.ToDisplayString()}, {responseType.ToDisplayString()}>",
                     MessageType = requestType.ToDisplayString(),
                     IsRequestHandler = true,
                     Namespace = classSymbol.ContainingNamespace.ToDisplayString(),
@@ -146,7 +147,8 @@ public class CatgaHandlerGenerator : IIncrementalGenerator
                 };
             }
 
-            if (interfaceName == "Catga.Handlers.IRequestHandler<TRequest>")
+            if (interfaceName == "Catga.Handlers.IRequestHandler<TRequest>" ||
+                interfaceName == "Catga.Abstractions.IRequestHandler<TRequest>")
             {
                 var requestType = @interface.TypeArguments[0];
 
@@ -154,7 +156,7 @@ public class CatgaHandlerGenerator : IIncrementalGenerator
                 {
                     HandlerType = classSymbol.ToDisplayString(),
                     HandlerName = classSymbol.Name,
-                    InterfaceType = $"Catga.Handlers.IRequestHandler<{requestType.ToDisplayString()}>",
+                    InterfaceType = $"Catga.Abstractions.IRequestHandler<{requestType.ToDisplayString()}>",
                     MessageType = requestType.ToDisplayString(),
                     IsRequestHandler = true,
                     Namespace = classSymbol.ContainingNamespace.ToDisplayString(),
@@ -163,7 +165,8 @@ public class CatgaHandlerGenerator : IIncrementalGenerator
                 };
             }
 
-            if (interfaceName == "Catga.Handlers.IEventHandler<TEvent>")
+            if (interfaceName == "Catga.Handlers.IEventHandler<TEvent>" ||
+                interfaceName == "Catga.Abstractions.IEventHandler<TEvent>")
             {
                 var eventType = @interface.TypeArguments[0];
 
@@ -171,7 +174,7 @@ public class CatgaHandlerGenerator : IIncrementalGenerator
                 {
                     HandlerType = classSymbol.ToDisplayString(),
                     HandlerName = classSymbol.Name,
-                    InterfaceType = $"Catga.Handlers.IEventHandler<{eventType.ToDisplayString()}>",
+                    InterfaceType = $"Catga.Abstractions.IEventHandler<{eventType.ToDisplayString()}>",
                     MessageType = eventType.ToDisplayString(),
                     IsRequestHandler = false,
                     Namespace = classSymbol.ContainingNamespace.ToDisplayString(),

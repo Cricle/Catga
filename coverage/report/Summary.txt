@@ -1,0 +1,193 @@
+Summary
+  Generated on: 2025/12/4 - 8:26:00
+  Coverage date: 2025/12/4 - 8:20:14 - 2025/12/4 - 8:25:27
+  Parser: MultiReport (2x Cobertura)
+  Assemblies: 8
+  Classes: 157
+  Files: 130
+  Line coverage: 35.1%
+  Covered lines: 2485
+  Uncovered lines: 4594
+  Coverable lines: 7079
+  Total lines: 15789
+  Branch coverage: 30.9% (830 of 2680)
+  Covered branches: 830
+  Total branches: 2680
+  Method coverage: 49.4% (583 of 1179)
+  Full method coverage: 40.3% (476 of 1179)
+  Covered methods: 583
+  Fully covered methods: 476
+  Total methods: 1179
+
+Catga                                                                            58.3%
+  Catga.Abstractions.BatchKeyAttribute                                              0%
+  Catga.Abstractions.BatchOptionsAttribute                                          0%
+  Catga.Abstractions.CorrelationId                                                  0%
+  Catga.Abstractions.DistributedLockOptions                                       100%
+  Catga.Abstractions.DistributedRateLimiterOptions                                100%
+  Catga.Abstractions.IDelayedMessage                                                0%
+  Catga.Abstractions.IEvent                                                         0%
+  Catga.Abstractions.IMessage                                                      25%
+  Catga.Abstractions.IPrioritizedMessage                                            0%
+  Catga.Abstractions.IReliableEvent                                                 0%
+  Catga.Abstractions.LeaderElectionOptions                                        100%
+  Catga.Abstractions.LeaderInfo                                                   100%
+  Catga.Abstractions.LeadershipChange                                               0%
+  Catga.Abstractions.LockAcquisitionException                                     100%
+  Catga.Abstractions.LockLostException                                            100%
+  Catga.Abstractions.MessageId                                                      0%
+  Catga.Abstractions.RateLimitResult                                              100%
+  Catga.Abstractions.RateLimitStatistics                                          100%
+  Catga.Abstractions.TraceTagAttribute                                              0%
+  Catga.Abstractions.TraceTagsAttribute                                             0%
+  Catga.CatgaMediator                                                            74.4%
+  Catga.Configuration.CatgaOptions                                                100%
+  Catga.Core.BaseBehavior<T1, T2>                                                 100%
+  Catga.Core.BatchOperationExtensions                                            94.4%
+  Catga.Core.BatchOperationHelper                                                74.1%
+  Catga.Core.CatgaResult                                                         40.8%
+  Catga.Core.CatgaResult<T>                                                      38.1%
+  Catga.Core.Compensate                                                             0%
+  Catga.Core.CompensatingHandler<T1, T2>                                            0%
+  Catga.Core.CompensatingHandler<T1, T2, T3>                                        0%
+  Catga.Core.DefaultEventTypeRegistry                                               0%
+  Catga.Core.ErrorInfo                                                            100%
+  Catga.Core.GracefulRecoveryManager                                                0%
+  Catga.Core.GracefulShutdownCoordinator                                            0%
+  Catga.Core.MemoryPoolManager                                                    100%
+  Catga.Core.MessageExtensions                                                   87.5%
+  Catga.Core.PooledArray<T>                                                       100%
+  Catga.Core.PooledBufferWriter<T>                                               91.6%
+  Catga.Core.RecoveryResult                                                         0%
+  Catga.Core.TypeNameCache<T>                                                     100%
+  Catga.DeadLetter.DeadLetterMessage                                                0%
+  Catga.DependencyInjection.CatgaServiceBuilder                                  82.8%
+  Catga.DependencyInjection.CorrelationIdDelegatingHandler                          0%
+  Catga.DependencyInjection.DistributedExtensions                                   0%
+  Catga.DependencyInjection.MediatorBatchingServiceCollectionExtensions           100%
+  Catga.DependencyInjection.ResilienceServiceCollectionExtensions                   0%
+  Catga.DistributedId.DistributedIdOptions                                          0%
+  Catga.DistributedId.IdMetadata                                                   80%
+  Catga.DistributedId.SnowflakeBitLayout                                         88.4%
+  Catga.DistributedId.SnowflakeIdGenerator                                       93.5%
+  Catga.EventSourcing.AggregateRepository<T>                                        0%
+  Catga.EventSourcing.AggregateRoot                                               100%
+  Catga.EventSourcing.ConcurrencyException                                          0%
+  Catga.EventSourcing.EventCountSnapshotStrategy                                  100%
+  Catga.EventSourcing.EventStream                                                   0%
+  Catga.EventSourcing.EventUpgrader<T1, T2>                                       100%
+  Catga.EventSourcing.EventVersionAttribute                                       100%
+  Catga.EventSourcing.EventVersionRegistry                                        100%
+  Catga.EventSourcing.Snapshot<T>                                                  25%
+  Catga.EventSourcing.SnapshotOptions                                             100%
+  Catga.EventSourcing.StoredEvent                                                   0%
+  Catga.EventSourcing.VersionedStoredEvent                                        100%
+  Catga.Exceptions.CatgaException                                                 100%
+  Catga.Exceptions.CatgaTimeoutException                                          100%
+  Catga.Exceptions.CatgaValidationException                                       100%
+  Catga.Exceptions.HandlerNotFoundException                                         0%
+  Catga.Generated.EventTypeRegistry                                               100%
+  Catga.Generated.GeneratedBootstrapRegistry                                      100%
+  Catga.Idempotency.MemoryIdempotencyStore                                       91.3%
+  Catga.Inbox.InboxMessage                                                       14.1%
+  Catga.MessageSerializerBase                                                     100%
+  Catga.Observability.CatgaActivitySource                                        97.2%
+  Catga.Observability.CatgaDiagnostics                                           94.8%
+  Catga.Observability.CatgaLog                                                     11%
+  Catga.Observability.ObservabilityHooks                                         95.6%
+  Catga.Outbox.OutboxMessage                                                     14.3%
+  Catga.Pipeline.Behaviors.AutoBatchingBehavior<T1, T2>                          82.2%
+  Catga.Pipeline.Behaviors.CompensationBehavior<T1, T2>                             0%
+  Catga.Pipeline.Behaviors.CompensationPublisher<T1, T2>                            0%
+  Catga.Pipeline.Behaviors.DistributedTracingBehavior<T1, T2>                      97%
+  Catga.Pipeline.Behaviors.IdempotencyBehavior<T1, T2>                           84.2%
+  Catga.Pipeline.Behaviors.InboxBehavior<T1, T2>                                 96.4%
+  Catga.Pipeline.Behaviors.LoggingBehavior<T1, T2>                                100%
+  Catga.Pipeline.Behaviors.OutboxBehavior<T1, T2>                                 100%
+  Catga.Pipeline.Behaviors.PollyBehavior<T1, T2>                                    0%
+  Catga.Pipeline.Behaviors.RetryBehavior<T1, T2>                                 75.5%
+  Catga.Pipeline.Behaviors.ValidationBehavior<T1, T2>                            83.3%
+  Catga.Pipeline.DefaultMediatorBatchOptionsProvider                              100%
+  Catga.Pipeline.MediatorBatchOptions                                             100%
+  Catga.Pipeline.MediatorBatchOptionsProviderExtensions                           100%
+  Catga.Pipeline.MediatorBatchProfiles                                           66.6%
+  Catga.Pipeline.MediatorBatchProfiles<T>                                         100%
+  Catga.Pipeline.PipelineExecutor                                                73.8%
+  Catga.Resilience.CatgaResilienceOptions                                         100%
+  Catga.Resilience.DefaultResiliencePipelineProvider                             88.6%
+  Catga.Scheduling.MessageSchedulerOptions                                        100%
+  Catga.Scheduling.ScheduledMessageHandle                                         100%
+  Catga.Scheduling.ScheduledMessageInfo                                           100%
+  Catga.Transport.AckContext                                                      100%
+  Catga.Transport.AckOptions                                                      100%
+  Catga.Transport.BatchTransportOptions                                             0%
+  Catga.Transport.CompressionStats                                                100%
+  Catga.Transport.CompressionTransportOptions                                       0%
+  Catga.Transport.MessageCompressor                                              73.7%
+  Catga.Transport.TransportContext                                               25.4%
+  Microsoft.Extensions.DependencyInjection.CatgaServiceCollectionExtensions      91.1%
+
+Catga.Persistence.InMemory                                                         44%
+  Catga.Common.BaseMemoryStore<T>                                                88.8%
+  Catga.DeadLetter.InMemoryDeadLetterQueue                                       10.5%
+  Catga.DependencyInjection.InMemoryPersistenceServiceCollectionExtensions         75%
+  Catga.Inbox.MemoryInboxStore                                                      3%
+  Catga.Outbox.MemoryOutboxStore                                                  6.2%
+  Catga.Persistence.InMemory.DependencyInjection.InMemoryDistributedExtensions      0%
+  Catga.Persistence.InMemory.Locking.InMemoryDistributedLock                     43.9%
+  Catga.Persistence.InMemory.Stores.InMemoryIdempotencyStore                      100%
+  Catga.Persistence.InMemory.Stores.InMemoryLeaderElection                       52.5%
+  Catga.Persistence.InMemory.Stores.InMemoryMessageScheduler                        0%
+  Catga.Persistence.InMemory.Stores.InMemoryRateLimiter                            73%
+  Catga.Persistence.InMemory.Stores.InMemorySnapshotStore                         100%
+  Catga.Persistence.Stores.InMemoryEventStore                                     3.3%
+
+Catga.Persistence.Nats                                                              0%
+  Catga.NatsPersistenceOptions                                                      0%
+  Catga.NatsPersistenceServiceCollectionExtensions                                  0%
+  Catga.Persistence.Nats.NatsJSDeadLetterQueue                                      0%
+  Catga.Persistence.Nats.NatsJSIdempotencyStore                                     0%
+  Catga.Persistence.NatsJSEventStore                                                0%
+  Catga.Persistence.NatsJSStoreBase                                                 0%
+  Catga.Persistence.NatsJSStoreOptions                                              0%
+  Catga.Persistence.Stores.NatsJSInboxStore                                         0%
+  Catga.Persistence.Stores.NatsJSOutboxStore                                        0%
+
+Catga.Persistence.Redis                                                          15.9%
+  Catga.DependencyInjection.RedisPersistenceServiceCollectionExtensions             0%
+  Catga.Persistence.Redis.DependencyInjection.RedisDistributedExtensions            0%
+  Catga.Persistence.Redis.Locking.RedisDistributedLock                              0%
+  Catga.Persistence.Redis.Locking.RedisLeaderElection                            55.6%
+  Catga.Persistence.Redis.Persistence.RedisInboxPersistence                         0%
+  Catga.Persistence.Redis.Persistence.RedisOutboxPersistence                        0%
+  Catga.Persistence.Redis.RateLimiting.RedisRateLimiter                          83.7%
+  Catga.Persistence.Redis.RedisDeadLetterQueue                                      0%
+  Catga.Persistence.Redis.RedisIdempotencyOptions                                   0%
+  Catga.Persistence.Redis.RedisIdempotencyStore                                     0%
+  Catga.Persistence.Redis.RedisInboxOptions                                         0%
+  Catga.Persistence.Redis.RedisOutboxOptions                                        0%
+  Catga.Persistence.Redis.RedisStoreBase                                         94.1%
+  Catga.Persistence.Redis.Scheduling.RedisMessageScheduler                          0%
+  Catga.Persistence.Redis.Scheduling.ScheduledMessageData                           0%
+  Catga.Persistence.Redis.Stores.Meta                                               0%
+  Catga.Persistence.Redis.Stores.RedisSnapshotStore                                 0%
+
+Catga.Serialization.MemoryPack                                                   41.6%
+  Catga.DependencyInjection.MemoryPackSerializerExtensions                          0%
+  Catga.Serialization.MemoryPack.MemoryPackMessageSerializer                       50%
+
+Catga.Transport.InMemory                                                         75.6%
+  Catga.Idempotency.InMemoryIdempotencyStore                                     90.9%
+  Catga.InMemoryTransportServiceCollectionExtensions                                0%
+  Catga.Transport.InMemoryMessageTransport                                         86%
+  Catga.Transport.TypedSubscribers<T>                                             100%
+
+Catga.Transport.Nats                                                                0%
+  Catga.DependencyInjection.NatsTransportServiceCollectionExtensions                0%
+  Catga.Transport.Nats.NatsMessageTransport                                         0%
+  Catga.Transport.Nats.NatsTransportOptions                                         0%
+
+Catga.Transport.Redis                                                               0%
+  Catga.RedisTransportServiceCollectionExtensions                                   0%
+  Catga.Transport.RedisMessageTransport                                             0%
+  Catga.Transport.RedisTransportOptions                                             0%

@@ -45,6 +45,21 @@ public static class CatgaEndpointExtensions
     }
 
     /// <summary>
+    /// Maps a POST endpoint for a Catga command without response.
+    /// </summary>
+    [RequiresUnreferencedCode("ASP.NET Core Minimal APIs use reflection for parameter binding. Use controllers for AOT.")]
+    [RequiresDynamicCode("ASP.NET Core Minimal APIs may generate code at runtime. Use controllers for AOT.")]
+    public static RouteHandlerBuilder MapCatgaRequest<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(this IEndpointRouteBuilder endpoints, string pattern) where TRequest : IRequest
+    {
+        return endpoints.MapPost(pattern, async (TRequest request, ICatgaMediator mediator, CancellationToken cancellationToken) =>
+        {
+            var result = await mediator.SendAsync(request, cancellationToken);
+            return result.IsSuccess ? Results.Ok() : Results.BadRequest(result.Error);
+        })
+        .WithName(typeof(TRequest).Name);
+    }
+
+    /// <summary>
     /// Maps a POST endpoint for publishing a Catga event.
     /// </summary>
     [RequiresUnreferencedCode("ASP.NET Core Minimal APIs use reflection for parameter binding. Use controllers for AOT.")]

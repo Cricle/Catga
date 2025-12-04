@@ -36,10 +36,6 @@ if (app.Environment.IsDevelopment())
 app.MapCatgaRequest<CreateOrderFlowCommand, OrderCreatedResult>("/api/orders");
 app.MapCatgaQuery<GetOrderQuery, Order?>("/api/orders/{orderId}");
 app.MapCatgaQuery<GetUserOrdersQuery, List<Order>>("/api/users/{customerId}/orders");
-app.MapPost("/api/outbox/process", async (ProcessOutboxCommand cmd, ICatgaMediator m) =>
-{
-    var result = await m.SendAsync(cmd);
-    return result.IsSuccess ? Results.Ok() : Results.BadRequest(result.Error);
-});
+app.MapCatgaRequest<ProcessOutboxCommand>("/api/outbox/process");
 
 app.Run();

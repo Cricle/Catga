@@ -23,14 +23,6 @@ public class EndpointGenerator : IIncrementalGenerator
             ctx.AddSource("CatgaEndpointsAttribute.g.cs", SourceText.From(AttributeSource, Encoding.UTF8));
         });
 
-        // Find assembly attribute [assembly: CatgaEndpoints]
-        var assemblyAttrProvider = context.SyntaxProvider
-            .ForAttributeWithMetadataName(
-                "Catga.CatgaEndpointsAttribute",
-                predicate: static (node, _) => node is CompilationUnitSyntax,
-                transform: static (ctx, _) => GetEndpointConfig(ctx))
-            .Where(static c => c is not null);
-
         // Find all handlers with [CatgaHandler]
         var handlerProvider = context.SyntaxProvider
             .ForAttributeWithMetadataName(
@@ -40,14 +32,14 @@ public class EndpointGenerator : IIncrementalGenerator
             .Where(static h => h is not null)
             .Collect();
 
-        // Combine and generate
-        var combined = assemblyAttrProvider.Combine(handlerProvider);
-        context.RegisterSourceOutput(combined, static (spc, data) =>
+        // Generate endpoints for all handlers
+        context.RegisterSourceOutput(handlerProvider, static (spc, handlers) =>
         {
-            var (config, handlers) = data;
-            if (config is null || handlers.Length == 0) return;
+            var validHandlers = handlers.Where(h => h is not null).ToList()!;
+            if (validHandlers.Count == 0) return;
 
-            var source = GenerateEndpointExtensions(config, handlers.Where(h => h is not null).ToList()!);
+            var config = new EndpointConfig { RoutePrefix = "/api" };
+            var source = GenerateEndpointExtensions(config, validHandlers);
             spc.AddSource("CatgaEndpointExtensions.g.cs", SourceText.From(source, Encoding.UTF8));
         });
     }
@@ -187,8 +179,10 @@ public class EndpointGenerator : IIncrementalGenerator
         sb.AppendLine("using Microsoft.AspNetCore.Builder;");
         sb.AppendLine("using Microsoft.AspNetCore.Http;");
         sb.AppendLine("using Microsoft.AspNetCore.Routing;");
+        sb.AppendLine("using Microsoft.Extensions.DependencyInjection;");
         sb.AppendLine("using Catga;");
-        sb.AppendLine("using Catga.AspNetCore;");
+        sb.AppendLine("using Catga.Abstractions;");
+        sb.AppendLine("using Catga.Core;");
         sb.AppendLine();
         sb.AppendLine("namespace Catga.Generated;");
         sb.AppendLine();

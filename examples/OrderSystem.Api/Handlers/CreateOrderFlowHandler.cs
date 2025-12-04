@@ -15,9 +15,15 @@ namespace OrderSystem.Api.Handlers;
 /// Framework auto-generates:
 /// - HandleAsync (telemetry, metrics, tracing)
 /// - ExecuteFlowAsync (from [FlowStep] methods)
-/// - CancellationToken propagation
+/// - Idempotency check (Inbox pattern)
+/// - Distributed lock acquisition
+/// - Retry on transient failures
 /// </summary>
 [CatgaHandler]
+[Idempotent(Key = "{request.CustomerId}:{request.Items.Count}")]
+[DistributedLock("order:{request.CustomerId}")]
+[Retry(MaxAttempts = 3)]
+[Timeout(30)]
 public sealed partial class CreateOrderFlowHandler(
     IOrderRepository orderRepository,
     IInventoryService inventoryService,

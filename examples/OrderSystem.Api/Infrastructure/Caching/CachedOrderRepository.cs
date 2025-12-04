@@ -70,6 +70,12 @@ public class CachedOrderRepository : IOrderRepository
         await InvalidateCacheAsync(orderId, cancellationToken);
     }
 
+    public ValueTask<List<Order>> GetByCustomerIdAsync(string customerId, CancellationToken cancellationToken = default)
+    {
+        // No caching for list queries - delegate to inner
+        return _inner.GetByCustomerIdAsync(customerId, cancellationToken);
+    }
+
     private async ValueTask InvalidateCacheAsync(string orderId, CancellationToken cancellationToken)
     {
         var cacheKey = $"order:{orderId}";

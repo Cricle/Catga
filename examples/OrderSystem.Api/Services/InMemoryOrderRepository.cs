@@ -53,6 +53,22 @@ public class InMemoryOrderRepository : IOrderRepository, IDisposable
         }
     }
 
+    public ValueTask<List<Order>> GetByCustomerIdAsync(string customerId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _lock.EnterReadLock();
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var orders = _orders.Values.Where(o => o.CustomerId == customerId).ToList();
+            return ValueTask.FromResult(orders);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
+
     public ValueTask SaveAsync(Order order, CancellationToken cancellationToken = default)
     {
         using var activity = Telemetry.ActivitySource.StartActivity("SaveOrder");

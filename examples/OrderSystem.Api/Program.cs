@@ -1,10 +1,10 @@
 using Catga;
 using Catga.DependencyInjection;
-using Catga.Generated;
+using Microsoft.Extensions.DependencyInjection;
+using OrderSystem.Api.Domain;
+using OrderSystem.Api.Handlers;
+using OrderSystem.Api.Messages;
 using OrderSystem.Api.Services;
-
-// Enable auto endpoint generation
-[assembly: CatgaEndpoints(RoutePrefix = "/api")]
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,7 +32,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Auto-map all handlers to endpoints (source generated)
-app.MapCatgaEndpoints();
+// Endpoints
+app.MapCatgaRequest<CreateOrderFlowCommand, OrderCreatedResult>("/api/orders");
+app.MapCatgaQuery<GetOrderQuery, Order?>("/api/orders/{orderId}");
+app.MapCatgaQuery<GetUserOrdersQuery, List<Order>>("/api/users/{customerId}/orders");
+app.MapPost("/api/outbox/process", async (ProcessOutboxCommand cmd, ICatgaMediator m) =>
+{
+    var result = await m.SendAsync(cmd);
+    return result.IsSuccess ? Results.Ok() : Results.BadRequest(result.Error);
+});
 
 app.Run();

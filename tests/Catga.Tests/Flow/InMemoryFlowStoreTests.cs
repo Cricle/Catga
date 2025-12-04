@@ -235,6 +235,8 @@ public class InMemoryFlowStoreTests
         var result = await _store.UpdateAsync(state);
 
         result.Should().BeFalse();
+        // Version should not be modified on failure
+        state.Version.Should().Be(0);
     }
 
     [Fact]

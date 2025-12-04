@@ -77,8 +77,21 @@ public sealed class NatsFlowStore : IFlowStore
         var js = await GetJsAsync(ct);
         var subject = $"{_streamName}.{state.Id}";
 
-        state.Version++;
-        var json = JsonSerializer.SerializeToUtf8Bytes(state);
+        // Create updated state for serialization (don't modify input until success)
+        var newVersion = state.Version + 1;
+        var updatedState = new FlowState
+        {
+            Id = state.Id,
+            Type = state.Type,
+            Status = state.Status,
+            Step = state.Step,
+            Version = newVersion,
+            Owner = state.Owner,
+            HeartbeatAt = state.HeartbeatAt,
+            Data = state.Data,
+            Error = state.Error
+        };
+        var json = JsonSerializer.SerializeToUtf8Bytes(updatedState);
 
         try
         {
@@ -86,7 +99,9 @@ public sealed class NatsFlowStore : IFlowStore
                 opts: new NatsJSPubOpts { ExpectedLastSubjectSequence = expectedSeq },
                 cancellationToken: ct);
 
-            _cache[state.Id] = state;
+            // Only update on success
+            state.Version = newVersion;
+            _cache[state.Id] = updatedState;
             _sequences[state.Id] = ack.Seq;
             return true;
         }

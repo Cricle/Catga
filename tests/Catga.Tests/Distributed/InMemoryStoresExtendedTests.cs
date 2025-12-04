@@ -490,6 +490,137 @@ public class InMemoryStoresExtendedTests
     }
 
     #endregion
+
+    #region InMemoryEventStore Tests
+
+    [Fact]
+    public async Task EventStore_AppendAndRead_ShouldRoundTrip()
+    {
+        var store = new InMemoryEventStore(_provider);
+        var streamId = $"stream-{Guid.NewGuid():N}";
+        var events = new List<IEvent> { new InMemoryTestEvent { MessageId = 1, Data = "event1" } };
+
+        await store.AppendAsync(streamId, events);
+        var result = await store.ReadAsync(streamId);
+
+        result.Events.Should().HaveCount(1);
+        result.Version.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task EventStore_AppendMultiple_ShouldIncrementVersion()
+    {
+        var store = new InMemoryEventStore(_provider);
+        var streamId = $"stream-multi-{Guid.NewGuid():N}";
+
+        await store.AppendAsync(streamId, new List<IEvent> { new InMemoryTestEvent { MessageId = 1, Data = "e1" } });
+        await store.AppendAsync(streamId, new List<IEvent> { new InMemoryTestEvent { MessageId = 2, Data = "e2" } }, expectedVersion: 0);
+
+        var result = await store.ReadAsync(streamId);
+        result.Events.Should().HaveCount(2);
+        result.Version.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task EventStore_GetVersion_ShouldReturnCorrectVersion()
+    {
+        var store = new InMemoryEventStore(_provider);
+        var streamId = $"stream-version-{Guid.NewGuid():N}";
+
+        var versionBefore = await store.GetVersionAsync(streamId);
+        await store.AppendAsync(streamId, new List<IEvent> { new InMemoryTestEvent { MessageId = 1, Data = "e1" } });
+        var versionAfter = await store.GetVersionAsync(streamId);
+
+        versionBefore.Should().Be(-1);
+        versionAfter.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task EventStore_Read_NonExistentStream_ShouldReturnEmpty()
+    {
+        var store = new InMemoryEventStore(_provider);
+
+        var result = await store.ReadAsync("non-existent-stream");
+
+        result.Events.Should().BeEmpty();
+        result.Version.Should().Be(-1);
+    }
+
+    [Fact]
+    public async Task EventStore_Clear_ShouldRemoveAllStreams()
+    {
+        var store = new InMemoryEventStore(_provider);
+        var streamId = $"stream-clear-{Guid.NewGuid():N}";
+
+        await store.AppendAsync(streamId, new List<IEvent> { new InMemoryTestEvent { MessageId = 1, Data = "e1" } });
+        store.Clear();
+
+        store.StreamCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task EventStore_StreamCount_ShouldReturnCorrectCount()
+    {
+        var store = new InMemoryEventStore(_provider);
+
+        await store.AppendAsync($"stream-count-1-{Guid.NewGuid():N}", new List<IEvent> { new InMemoryTestEvent { MessageId = 1, Data = "e1" } });
+        await store.AppendAsync($"stream-count-2-{Guid.NewGuid():N}", new List<IEvent> { new InMemoryTestEvent { MessageId = 2, Data = "e2" } });
+
+        store.StreamCount.Should().BeGreaterOrEqualTo(2);
+    }
+
+    [Fact]
+    public async Task EventStore_GetEventCount_ShouldReturnCorrectCount()
+    {
+        var store = new InMemoryEventStore(_provider);
+        var streamId = $"stream-eventcount-{Guid.NewGuid():N}";
+
+        await store.AppendAsync(streamId, new List<IEvent>
+        {
+            new InMemoryTestEvent { MessageId = 1, Data = "e1" },
+            new InMemoryTestEvent { MessageId = 2, Data = "e2" }
+        });
+
+        store.GetEventCount(streamId).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task EventStore_ReadWithFromVersion_ShouldReturnSubset()
+    {
+        var store = new InMemoryEventStore(_provider);
+        var streamId = $"stream-fromversion-{Guid.NewGuid():N}";
+
+        await store.AppendAsync(streamId, new List<IEvent>
+        {
+            new InMemoryTestEvent { MessageId = 1, Data = "e1" },
+            new InMemoryTestEvent { MessageId = 2, Data = "e2" },
+            new InMemoryTestEvent { MessageId = 3, Data = "e3" }
+        });
+
+        var result = await store.ReadAsync(streamId, fromVersion: 1);
+
+        result.Events.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task EventStore_ReadWithMaxCount_ShouldLimitResults()
+    {
+        var store = new InMemoryEventStore(_provider);
+        var streamId = $"stream-maxcount-{Guid.NewGuid():N}";
+
+        await store.AppendAsync(streamId, new List<IEvent>
+        {
+            new InMemoryTestEvent { MessageId = 1, Data = "e1" },
+            new InMemoryTestEvent { MessageId = 2, Data = "e2" },
+            new InMemoryTestEvent { MessageId = 3, Data = "e3" }
+        });
+
+        var result = await store.ReadAsync(streamId, maxCount: 2);
+
+        result.Events.Should().HaveCount(2);
+    }
+
+    #endregion
 }
 
 #region Test Types

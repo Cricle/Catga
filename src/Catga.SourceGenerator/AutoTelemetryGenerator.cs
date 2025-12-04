@@ -332,6 +332,110 @@ public class AutoTelemetryGenerator : IIncrementalGenerator
             public static readonly System.Diagnostics.ActivitySource DefaultSource = new("Catga", "1.0.0");
             public static readonly System.Diagnostics.Metrics.Meter DefaultMeter = new("Catga", "1.0.0");
         }
+
+        // ============================================================
+        // Distributed Capability Attributes
+        // ============================================================
+
+        /// <summary>
+        /// Enables idempotent execution using Inbox pattern.
+        /// Duplicate requests with same IdempotencyKey are rejected.
+        /// </summary>
+        [System.AttributeUsage(System.AttributeTargets.Class)]
+        public sealed class IdempotentAttribute : System.Attribute
+        {
+            /// <summary>Key expression, e.g. "{request.OrderId}" or "{request.CustomerId}:{request.OrderId}"</summary>
+            public string? Key { get; set; }
+            /// <summary>Time-to-live for idempotency record. Default: 24 hours.</summary>
+            public int TtlSeconds { get; set; } = 86400;
+        }
+
+        /// <summary>
+        /// Acquires distributed lock before execution.
+        /// </summary>
+        [System.AttributeUsage(System.AttributeTargets.Class)]
+        public sealed class DistributedLockAttribute : System.Attribute
+        {
+            /// <summary>Lock key expression, e.g. "order:{request.CustomerId}"</summary>
+            public string Key { get; }
+            /// <summary>Lock timeout in seconds. Default: 30.</summary>
+            public int TimeoutSeconds { get; set; } = 30;
+            /// <summary>Wait timeout in seconds. Default: 10.</summary>
+            public int WaitSeconds { get; set; } = 10;
+
+            public DistributedLockAttribute(string key) => Key = key;
+        }
+
+        /// <summary>
+        /// Enables automatic retry on transient failures.
+        /// </summary>
+        [System.AttributeUsage(System.AttributeTargets.Class)]
+        public sealed class RetryAttribute : System.Attribute
+        {
+            /// <summary>Maximum retry attempts. Default: 3.</summary>
+            public int MaxAttempts { get; set; } = 3;
+            /// <summary>Initial delay in milliseconds. Default: 100.</summary>
+            public int DelayMs { get; set; } = 100;
+            /// <summary>Use exponential backoff. Default: true.</summary>
+            public bool Exponential { get; set; } = true;
+        }
+
+        /// <summary>
+        /// Sets execution timeout.
+        /// </summary>
+        [System.AttributeUsage(System.AttributeTargets.Class)]
+        public sealed class TimeoutAttribute : System.Attribute
+        {
+            /// <summary>Timeout in seconds.</summary>
+            public int Seconds { get; }
+            public TimeoutAttribute(int seconds) => Seconds = seconds;
+        }
+
+        /// <summary>
+        /// Enables circuit breaker pattern.
+        /// </summary>
+        [System.AttributeUsage(System.AttributeTargets.Class)]
+        public sealed class CircuitBreakerAttribute : System.Attribute
+        {
+            /// <summary>Failure threshold before opening. Default: 5.</summary>
+            public int FailureThreshold { get; set; } = 5;
+            /// <summary>Duration circuit stays open in seconds. Default: 30.</summary>
+            public int BreakDurationSeconds { get; set; } = 30;
+        }
+
+        // ============================================================
+        // Cluster Capability Attributes
+        // ============================================================
+
+        /// <summary>
+        /// Handler only executes on cluster leader node.
+        /// Non-leader nodes forward request to leader.
+        /// </summary>
+        [System.AttributeUsage(System.AttributeTargets.Class)]
+        public sealed class LeaderOnlyAttribute : System.Attribute { }
+
+        /// <summary>
+        /// Routes request to specific shard based on key.
+        /// </summary>
+        [System.AttributeUsage(System.AttributeTargets.Class)]
+        public sealed class ShardedAttribute : System.Attribute
+        {
+            /// <summary>Shard key expression, e.g. "{request.CustomerId}"</summary>
+            public string Key { get; }
+            public ShardedAttribute(string key) => Key = key;
+        }
+
+        /// <summary>
+        /// Broadcasts request to all cluster nodes.
+        /// </summary>
+        [System.AttributeUsage(System.AttributeTargets.Class)]
+        public sealed class BroadcastAttribute : System.Attribute { }
+
+        /// <summary>
+        /// Marks a background task that runs as singleton across cluster.
+        /// </summary>
+        [System.AttributeUsage(System.AttributeTargets.Class)]
+        public sealed class ClusterSingletonAttribute : System.Attribute { }
         """;
 
     private class HandlerInfo

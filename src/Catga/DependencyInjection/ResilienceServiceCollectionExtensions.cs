@@ -18,7 +18,7 @@ public static class ResilienceServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         var sw = Stopwatch.StartNew();
-        var tags = new TagList { { "component", "DI.Resilience" } };
+        var tag = new KeyValuePair<string, object?>("component", "DI.Resilience");
         try
         {
             var options = new CatgaResilienceOptions();
@@ -42,15 +42,15 @@ public static class ResilienceServiceCollectionExtensions
             services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AttributeDrivenBehavior<,>));
 
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tag);
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tag);
             return services;
         }
         catch
         {
             sw.Stop();
-            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tags);
-            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tags);
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tag);
+            CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tag);
             throw;
         }
     }

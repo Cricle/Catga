@@ -48,21 +48,15 @@ internal static class ObservabilityHooks
     public static void RecordPipelineBehaviorCount(string requestType, int count)
     {
         if (!_enabled) return;
-        var tags = new TagList
-        {
-            new("request_type", requestType)
-        };
-        CatgaDiagnostics.PipelineBehaviorCount.Record(count, tags);
+        var tag = new KeyValuePair<string, object?>("request_type", requestType);
+        CatgaDiagnostics.PipelineBehaviorCount.Record(count, tag);
     }
 
     public static void RecordPipelineDuration(string requestType, double durationMs)
     {
         if (!_enabled) return;
-        var tags = new TagList
-        {
-            new("request_type", requestType)
-        };
-        CatgaDiagnostics.PipelineDuration.Record(durationMs, tags);
+        var tag = new KeyValuePair<string, object?>("request_type", requestType);
+        CatgaDiagnostics.PipelineDuration.Record(durationMs, tag);
     }
 
     public static void RecordCommandResult(string requestType, bool success, double durationMs, IDisposable? handle)
@@ -76,8 +70,8 @@ internal static class ObservabilityHooks
         };
         CatgaDiagnostics.CommandsExecuted.Add(1, tags);
 
-        var dTags = new TagList { new("request_type", requestType) };
-        CatgaDiagnostics.CommandDuration.Record(durationMs, dTags);
+        var dTag = new KeyValuePair<string, object?>("request_type", requestType);
+        CatgaDiagnostics.CommandDuration.Record(durationMs, dTag);
         if (handle is Activity a)
         {
             a.SetTag(CatgaActivitySource.Tags.Success, success);

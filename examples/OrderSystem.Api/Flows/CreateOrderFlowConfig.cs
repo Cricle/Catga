@@ -5,53 +5,20 @@ namespace OrderSystem.Api.Flows;
 
 /// <summary>
 /// Flow state for order creation.
-/// Implements IFlowState for change tracking.
+/// Uses [FlowState] attribute for source-generated IFlowState implementation.
 /// </summary>
-public class CreateOrderFlowState : IFlowState
+[FlowState]
+public partial class CreateOrderFlowState
 {
-    private int _changedMask;
-    private const int Field_OrderId = 0;
-    private const int Field_TotalAmount = 1;
-    private const int Field_StockReserved = 2;
+    public string? OrderId { get; set; }
+    public decimal TotalAmount { get; set; }
+    public bool StockReserved { get; set; }
 
-    public string? FlowId { get; set; }
-
-    private string? _orderId;
-    public string? OrderId
-    {
-        get => _orderId;
-        set { _orderId = value; MarkChanged(Field_OrderId); }
-    }
-
-    private decimal _totalAmount;
-    public decimal TotalAmount
-    {
-        get => _totalAmount;
-        set { _totalAmount = value; MarkChanged(Field_TotalAmount); }
-    }
-
-    private bool _stockReserved;
-    public bool StockReserved
-    {
-        get => _stockReserved;
-        set { _stockReserved = value; MarkChanged(Field_StockReserved); }
-    }
-
+    [FlowStateIgnore]
     public string? CustomerId { get; set; }
-    public List<OrderSystem.Api.Domain.OrderItem> Items { get; set; } = [];
 
-    // IFlowState implementation
-    public bool HasChanges => _changedMask != 0;
-    public int GetChangedMask() => _changedMask;
-    public bool IsFieldChanged(int fieldIndex) => (_changedMask & (1 << fieldIndex)) != 0;
-    public void ClearChanges() => _changedMask = 0;
-    public void MarkChanged(int fieldIndex) => _changedMask |= (1 << fieldIndex);
-    public IEnumerable<string> GetChangedFieldNames()
-    {
-        if (IsFieldChanged(Field_OrderId)) yield return nameof(OrderId);
-        if (IsFieldChanged(Field_TotalAmount)) yield return nameof(TotalAmount);
-        if (IsFieldChanged(Field_StockReserved)) yield return nameof(StockReserved);
-    }
+    [FlowStateIgnore]
+    public List<OrderSystem.Api.Domain.OrderItem> Items { get; set; } = [];
 }
 
 /// <summary>

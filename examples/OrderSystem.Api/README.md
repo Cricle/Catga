@@ -92,8 +92,16 @@ public class SendOrderNotificationHandler : IEventHandler<OrderCreatedEvent> { .
 Multi-step operations with automatic compensation using FlowConfig DSL:
 
 ```csharp
-// 1. Define state class implementing IFlowState
-public class CreateOrderFlowState : IFlowState { ... }
+// 1. Define state class with [FlowState] attribute (source-generated IFlowState)
+[FlowState]
+public partial class CreateOrderFlowState
+{
+    public string? OrderId { get; set; }
+    public decimal TotalAmount { get; set; }
+
+    [FlowStateIgnore]  // Excluded from change tracking
+    public string? CustomerId { get; set; }
+}
 
 // 2. Define flow configuration
 public class CreateOrderFlowConfig : FlowConfig<CreateOrderFlowState>

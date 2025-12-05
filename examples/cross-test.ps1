@@ -283,8 +283,12 @@ function Write-ResultsTable {
     Write-Header "Cross-Mode Stress Test Results"
     Write-Host ""
 
-    # Main performance table
-    $header = "{0,-12} | {1,-14} | {2,8} | {3,8} | {4,8} | {5,8} | {6,10}" -f "Mode", "Infrastructure", "Seq RPS", "Par RPS", "Ord RPS", "Avg(ms)", "Success"
+    # ===== Table 1: Performance Summary =====
+    Write-Host "┌─────────────────────────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+    Write-Host "│                           PERFORMANCE SUMMARY                                       │" -ForegroundColor Cyan
+    Write-Host "└─────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+
+    $header = "{0,-14} | {1,-12} | {2,10} | {3,10} | {4,10} | {5,10} | {6,8}" -f "Mode", "Infra", "Seq RPS", "Par RPS", "Ord RPS", "Avg(ms)", "Success"
     $separator = "─" * 90
 
     Write-Host $header -ForegroundColor Yellow
@@ -295,7 +299,7 @@ function Write-ResultsTable {
             [math]::Round((($r.SeqSuccess + $r.ParSuccess + $r.OrdSuccess) / ($r.SeqCount + $r.ParCount + $r.OrdCount)) * 100, 0)
         } else { 0 }
 
-        $row = "{0,-12} | {1,-14} | {2,8} | {3,8} | {4,8} | {5,8} | {6,9}%" -f `
+        $row = "{0,-14} | {1,-12} | {2,10} | {3,10} | {4,10} | {5,10} | {6,7}%" -f `
             $r.Mode, `
             $r.Infrastructure, `
             $r.SeqRps, `
@@ -311,28 +315,59 @@ function Write-ResultsTable {
     Write-Host $separator -ForegroundColor Gray
     Write-Host ""
 
-    # Latency details table
-    Write-Host "Latency Details (Sequential Requests):" -ForegroundColor Cyan
-    $latHeader = "{0,-12} | {1,-14} | {2,10} | {3,10} | {4,10}" -f "Mode", "Infrastructure", "Min(ms)", "Avg(ms)", "Max(ms)"
+    # ===== Table 2: Latency Details =====
+    Write-Host "┌─────────────────────────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+    Write-Host "│                           LATENCY DISTRIBUTION                                      │" -ForegroundColor Cyan
+    Write-Host "└─────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+
+    $latHeader = "{0,-14} | {1,-12} | {2,12} | {3,12} | {4,12} | {5,12}" -f "Mode", "Infra", "Min(ms)", "Avg(ms)", "Max(ms)", "Jitter(ms)"
     Write-Host $latHeader -ForegroundColor Yellow
     Write-Host $separator -ForegroundColor Gray
 
     foreach ($r in $Results) {
-        $row = "{0,-12} | {1,-14} | {2,10} | {3,10} | {4,10}" -f `
+        $jitter = [math]::Round($r.SeqMaxMs - $r.SeqMinMs, 2)
+        $row = "{0,-14} | {1,-12} | {2,12} | {3,12} | {4,12} | {5,12}" -f `
             $r.Mode, `
             $r.Infrastructure, `
             $r.SeqMinMs, `
             $r.SeqAvgMs, `
-            $r.SeqMaxMs
+            $r.SeqMaxMs, `
+            $jitter
         Write-Host $row
     }
 
     Write-Host $separator -ForegroundColor Gray
     Write-Host ""
 
-    # Infrastructure status
-    Write-Host "Infrastructure Status:" -ForegroundColor Cyan
-    $infraHeader = "{0,-12} | {1,-14} | {2,10} | {3,12} | {4,10}" -f "Mode", "Infrastructure", "Health", "Redis", "NATS"
+    # ===== Table 3: Throughput Comparison =====
+    Write-Host "┌─────────────────────────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+    Write-Host "│                           THROUGHPUT COMPARISON                                     │" -ForegroundColor Cyan
+    Write-Host "└─────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+
+    $tpHeader = "{0,-14} | {1,15} | {2,15} | {3,15} | {4,15}" -f "Mode", "Seq Total", "Par Total", "Ord Total", "Total Req"
+    Write-Host $tpHeader -ForegroundColor Yellow
+    Write-Host $separator -ForegroundColor Gray
+
+    foreach ($r in $Results) {
+        $totalReq = $r.SeqSuccess + $r.ParSuccess + $r.OrdSuccess
+        $row = "{0,-14} | {1,15} | {2,15} | {3,15} | {4,15}" -f `
+            $r.Mode, `
+            "$($r.SeqSuccess)/$($r.SeqCount)", `
+            "$($r.ParSuccess)/$($r.ParCount)", `
+            "$($r.OrdSuccess)/$($r.OrdCount)", `
+            $totalReq
+        Write-Host $row
+    }
+
+    Write-Host $separator -ForegroundColor Gray
+    Write-Host ""
+
+    # ===== Table 4: Infrastructure Status =====
+    Write-Host "┌─────────────────────────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+    Write-Host "│                           INFRASTRUCTURE STATUS                                     │" -ForegroundColor Cyan
+    Write-Host "└─────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+
+    $infraHeader = "{0,-14} | {1,-12} | {2,12} | {3,15} | {4,12}" -f "Mode", "Infra", "Health", "Redis", "NATS"
     Write-Host $infraHeader -ForegroundColor Yellow
     Write-Host $separator -ForegroundColor Gray
 
@@ -341,24 +376,62 @@ function Write-ResultsTable {
         $redisIcon = if ($r.RedisOk) { "✓ $($r.RedisLatencyMs)ms" } elseif ($r.Infrastructure -match "Redis") { "✗ FAIL" } else { "N/A" }
         $natsIcon = if ($r.NatsOk) { "✓ OK" } elseif ($r.Infrastructure -match "NATS") { "✗ FAIL" } else { "N/A" }
 
-        $row = "{0,-12} | {1,-14} | {2,10} | {3,12} | {4,10}" -f `
+        $row = "{0,-14} | {1,-12} | {2,12} | {3,15} | {4,12}" -f `
             $r.Mode, `
             $r.Infrastructure, `
             $healthIcon, `
             $redisIcon, `
             $natsIcon
-        Write-Host $row
+
+        $color = if ($r.HealthOk) { "Green" } else { "Red" }
+        Write-Host $row -ForegroundColor $color
     }
 
     Write-Host $separator -ForegroundColor Gray
     Write-Host ""
 
-    # Legend
-    Write-Host "Legend:" -ForegroundColor Gray
-    Write-Host "  Seq RPS  - Sequential requests per second ($SequentialCount requests)" -ForegroundColor Gray
-    Write-Host "  Par RPS  - Parallel requests per second ($ParallelCount concurrent)" -ForegroundColor Gray
-    Write-Host "  Ord RPS  - Order creation requests per second ($OrderCount concurrent)" -ForegroundColor Gray
-    Write-Host "  Avg(ms)  - Average latency for sequential requests" -ForegroundColor Gray
+    # ===== Table 5: Cross-Mode Comparison =====
+    if ($Results.Count -gt 1) {
+        Write-Host "┌─────────────────────────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+        Write-Host "│                           CROSS-MODE COMPARISON                                     │" -ForegroundColor Cyan
+        Write-Host "└─────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+
+        $baseline = $Results[0]
+        $compHeader = "{0,-14} | {1,12} | {2,12} | {3,12} | {4,12}" -f "Mode", "vs Baseline", "Seq Δ%", "Par Δ%", "Ord Δ%"
+        Write-Host $compHeader -ForegroundColor Yellow
+        Write-Host $separator -ForegroundColor Gray
+
+        foreach ($r in $Results) {
+            if ($r.Mode -eq $baseline.Mode) {
+                $row = "{0,-14} | {1,12} | {2,12} | {3,12} | {4,12}" -f $r.Mode, "BASELINE", "0%", "0%", "0%"
+                Write-Host $row -ForegroundColor Cyan
+            } else {
+                $seqDelta = if ($baseline.SeqRps -gt 0) { [math]::Round((($r.SeqRps - $baseline.SeqRps) / $baseline.SeqRps) * 100, 1) } else { 0 }
+                $parDelta = if ($baseline.ParRps -gt 0) { [math]::Round((($r.ParRps - $baseline.ParRps) / $baseline.ParRps) * 100, 1) } else { 0 }
+                $ordDelta = if ($baseline.OrdRps -gt 0) { [math]::Round((($r.OrdRps - $baseline.OrdRps) / $baseline.OrdRps) * 100, 1) } else { 0 }
+
+                $seqStr = if ($seqDelta -ge 0) { "+$seqDelta%" } else { "$seqDelta%" }
+                $parStr = if ($parDelta -ge 0) { "+$parDelta%" } else { "$parDelta%" }
+                $ordStr = if ($ordDelta -ge 0) { "+$ordDelta%" } else { "$ordDelta%" }
+
+                $row = "{0,-14} | {1,12} | {2,12} | {3,12} | {4,12}" -f $r.Mode, "vs $($baseline.Mode)", $seqStr, $parStr, $ordStr
+                $color = if ($seqDelta -lt -20) { "Red" } elseif ($seqDelta -lt 0) { "Yellow" } else { "Green" }
+                Write-Host $row -ForegroundColor $color
+            }
+        }
+
+        Write-Host $separator -ForegroundColor Gray
+        Write-Host ""
+    }
+
+    # ===== Legend =====
+    Write-Host "┌─────────────────────────────────────────────────────────────────────────────────────┐" -ForegroundColor Gray
+    Write-Host "│ Legend:                                                                             │" -ForegroundColor Gray
+    Write-Host "│   Seq RPS  - Sequential requests/sec ($SequentialCount requests)                              │" -ForegroundColor Gray
+    Write-Host "│   Par RPS  - Parallel requests/sec ($ParallelCount concurrent runspaces)                      │" -ForegroundColor Gray
+    Write-Host "│   Ord RPS  - Order creation requests/sec ($OrderCount concurrent)                             │" -ForegroundColor Gray
+    Write-Host "│   Jitter   - Latency variance (Max - Min)                                           │" -ForegroundColor Gray
+    Write-Host "└─────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Gray
     Write-Host ""
 }
 

@@ -1,3 +1,4 @@
+using Catga;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.Flow;
@@ -15,6 +16,7 @@ namespace OrderSystem.Api.Handlers;
 /// </summary>
 public partial class CreateOrderFlowHandler(
     IOrderRepository orderRepository,
+    ICatgaMediator mediator,
     ILogger<CreateOrderFlowHandler> logger) : IRequestHandler<CreateOrderFlowCommand, OrderCreatedResult>
 {
     private Order _order = null!;
@@ -56,6 +58,9 @@ public partial class CreateOrderFlowHandler(
         _order.UpdatedAt = DateTime.UtcNow;
         await orderRepository.UpdateAsync(_order, ct);
         logger.LogInformation("Step 3: Order {OrderId} confirmed", _order.OrderId);
+
+        // Publish event
+        await mediator.PublishAsync(new OrderConfirmedEvent(_order.OrderId, DateTime.UtcNow), ct);
     }
 
     private async Task MarkFailed(CreateOrderFlowCommand request, CancellationToken ct)
@@ -84,6 +89,7 @@ public partial class CreateOrderFlowHandler(
 /// </summary>
 public class CreateOrderHandler(
     IOrderRepository orderRepository,
+    ICatgaMediator mediator,
     ILogger<CreateOrderHandler> logger) : IRequestHandler<CreateOrderCommand, OrderCreatedResult>
 {
     public async Task<CatgaResult<OrderCreatedResult>> HandleAsync(
@@ -102,6 +108,10 @@ public class CreateOrderHandler(
         await orderRepository.SaveAsync(order, ct);
         logger.LogInformation("Order {OrderId} created", order.OrderId);
 
+        // Publish event for other handlers
+        await mediator.PublishAsync(
+            new OrderCreatedEvent(order.OrderId, order.CustomerId, order.TotalAmount, order.CreatedAt), ct);
+
         return CatgaResult<OrderCreatedResult>.Success(
             new OrderCreatedResult(order.OrderId, order.TotalAmount, order.CreatedAt));
     }
@@ -109,6 +119,7 @@ public class CreateOrderHandler(
 
 public class CancelOrderHandler(
     IOrderRepository orderRepository,
+    ICatgaMediator mediator,
     ILogger<CancelOrderHandler> logger) : IRequestHandler<CancelOrderCommand>
 {
     public async Task<CatgaResult> HandleAsync(
@@ -127,6 +138,10 @@ public class CancelOrderHandler(
 
         await orderRepository.UpdateAsync(order, ct);
         logger.LogInformation("Order {OrderId} cancelled", request.OrderId);
+
+        // Publish cancellation event
+        await mediator.PublishAsync(
+            new OrderCancelledEvent(request.OrderId, request.Reason, order.CancelledAt!.Value), ct);
 
         return CatgaResult.Success();
     }

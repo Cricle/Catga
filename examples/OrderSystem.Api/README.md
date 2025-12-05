@@ -1,6 +1,6 @@
-# OrderSystem.Api - Catga Example
+# OrderSystem.Api - Catga Best Practices Example
 
-Order system demonstrating Catga CQRS and Flow patterns.
+Complete order system demonstrating Catga framework best practices.
 
 ## Quick Start
 
@@ -10,6 +10,36 @@ dotnet run
 ```
 
 Open http://localhost:5275/swagger for API docs.
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **CQRS Pattern** | Commands and queries separation |
+| **Mediator Pattern** | ICatgaMediator for handler dispatch |
+| **Flow Pattern** | Multi-step operations with automatic compensation |
+| **Event Publishing** | Multiple handlers per event |
+| **Pipeline Behaviors** | Cross-cutting concerns (logging, validation) |
+| **MemoryPack** | High-performance binary serialization |
+
+## Project Structure
+
+```
+OrderSystem.Api/
+├── Behaviors/           # Pipeline behaviors
+│   └── ValidationBehavior.cs
+├── Domain/              # Domain models
+│   └── Order.cs
+├── Handlers/            # Command/Query/Event handlers
+│   ├── OrderHandlers.cs
+│   └── EventHandlers.cs
+├── Messages/            # Commands, Queries, Events
+│   ├── Commands.cs
+│   └── Events.cs
+├── Services/            # Infrastructure services
+│   └── InMemoryOrderRepository.cs
+└── Program.cs           # Application entry point
+```
 
 ## Endpoints
 
@@ -22,16 +52,42 @@ Open http://localhost:5275/swagger for API docs.
 | `/api/users/{id}/orders` | GET | Get user orders |
 | `/health` | GET | Health check |
 
-## Features
+## Best Practices Demonstrated
 
-- **CQRS Pattern** - Commands and queries separation
-- **Mediator Pattern** - ICatgaMediator for handler dispatch
-- **Flow Pattern** - Multi-step operations with automatic compensation
-- **MemoryPack** - Fast serialization
+### 1. Pipeline Behaviors
 
-## Flow Pattern Example
+Cross-cutting concerns like logging and validation:
 
-The `/api/orders/flow` endpoint demonstrates the Flow pattern:
+```csharp
+public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+{
+    public async Task<CatgaResult<TResponse>> HandleAsync(
+        TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
+    {
+        logger.LogInformation("Handling {Request}", typeof(TRequest).Name);
+        var result = await next();
+        logger.LogInformation("{Request} completed in {Ms}ms", typeof(TRequest).Name, sw.ElapsedMilliseconds);
+        return result;
+    }
+}
+```
+
+### 2. Event Publishing
+
+Commands publish events, multiple handlers react:
+
+```csharp
+// In CreateOrderHandler
+await mediator.PublishAsync(new OrderCreatedEvent(order.OrderId, ...));
+
+// Multiple handlers receive the event
+public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent> { ... }
+public class SendOrderNotificationHandler : IEventHandler<OrderCreatedEvent> { ... }
+```
+
+### 3. Flow Pattern (Saga)
+
+Multi-step operations with automatic compensation:
 
 ```csharp
 public partial class CreateOrderFlowHandler
@@ -44,16 +100,25 @@ public partial class CreateOrderFlowHandler
 
     [FlowStep(Order = 3, Compensate = nameof(MarkFailed))]
     private async Task ConfirmOrder(...) { ... }
-
-    // Compensation methods called on failure (reverse order)
-    private Task ReleaseStock(...) { ... }
-    private async Task MarkFailed(...) { ... }
 }
 ```
 
-Flow steps execute in order. On failure, compensation methods run in reverse order.
+### 4. DI Registration
 
-## Example
+```csharp
+// Pipeline behaviors (executed in order)
+builder.Services.AddScoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+builder.Services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+
+// Command/Query handlers
+builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderHandler>();
+
+// Event handlers (multiple per event)
+builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedEventHandler>();
+builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, SendOrderNotificationHandler>();
+```
+
+## Example Requests
 
 ```bash
 # Create order (simple)
@@ -61,8 +126,16 @@ curl -X POST http://localhost:5275/api/orders \
   -H "Content-Type: application/json" \
   -d '{"customerId":"C001","items":[{"productId":"P1","productName":"Laptop","quantity":1,"unitPrice":999}]}'
 
-# Create order (Flow pattern with compensation)
+# Create order (Flow pattern)
 curl -X POST http://localhost:5275/api/orders/flow \
   -H "Content-Type: application/json" \
   -d '{"customerId":"C001","items":[{"productId":"P1","productName":"Laptop","quantity":1,"unitPrice":999}]}'
+
+# Get order
+curl http://localhost:5275/api/orders/{orderId}
+
+# Cancel order
+curl -X POST http://localhost:5275/api/orders/{orderId}/cancel \
+  -H "Content-Type: application/json" \
+  -d '{"reason":"Customer request"}'
 ```

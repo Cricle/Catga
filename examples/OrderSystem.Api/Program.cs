@@ -1,6 +1,8 @@
 using Catga;
 using Catga.Abstractions;
 using Catga.DependencyInjection;
+using Catga.Pipeline;
+using OrderSystem.Api.Behaviors;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Handlers;
 using OrderSystem.Api.Messages;
@@ -8,26 +10,48 @@ using OrderSystem.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Catga
+// ============================================
+// Catga Configuration (Best Practices)
+// ============================================
 builder.Services
     .AddCatga()
-    .UseMemoryPack()
-    .ForDevelopment();
+    .UseMemoryPack()           // High-performance binary serialization
+    .ForDevelopment();         // Development mode with detailed logging
 
 builder.Services.AddInMemoryTransport();
 builder.Services.AddInMemoryPersistence();
 
+// ============================================
 // Services
+// ============================================
 builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
 
-// Handlers
+// ============================================
+// Pipeline Behaviors (Cross-cutting concerns)
+// ============================================
+builder.Services.AddScoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+builder.Services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+
+// ============================================
+// Command/Query Handlers
+// ============================================
 builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderHandler>();
 builder.Services.AddScoped<IRequestHandler<CreateOrderFlowCommand, OrderCreatedResult>, CreateOrderFlowHandler>();
 builder.Services.AddScoped<IRequestHandler<CancelOrderCommand>, CancelOrderHandler>();
 builder.Services.AddScoped<IRequestHandler<GetOrderQuery, Order?>, GetOrderHandler>();
 builder.Services.AddScoped<IRequestHandler<GetUserOrdersQuery, List<Order>>, GetUserOrdersHandler>();
 
+// ============================================
+// Event Handlers (Multiple handlers per event)
+// ============================================
+builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedEventHandler>();
+builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, SendOrderNotificationHandler>();
+builder.Services.AddScoped<IEventHandler<OrderCancelledEvent>, OrderCancelledEventHandler>();
+builder.Services.AddScoped<IEventHandler<OrderConfirmedEvent>, OrderConfirmedEventHandler>();
+
+// ============================================
 // Swagger
+// ============================================
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

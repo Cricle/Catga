@@ -23,8 +23,8 @@ Open http://localhost:5275/swagger for API docs.
 
 ## Features
 
-- **Source Generated Endpoints** - `[Route]` attribute auto-generates API endpoints
 - **CQRS Pattern** - Commands and queries separation
+- **Mediator Pattern** - ICatgaMediator for handler dispatch
 - **MemoryPack** - Fast serialization
 
 ## Example

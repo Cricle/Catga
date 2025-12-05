@@ -1,4 +1,3 @@
-using Catga;
 using Catga.Abstractions;
 using Catga.Core;
 using Microsoft.Extensions.Logging;
@@ -8,17 +7,12 @@ using OrderSystem.Api.Services;
 
 namespace OrderSystem.Api.Handlers;
 
-/// <summary>
-/// Create order - POST /api/orders
-/// </summary>
-[CatgaHandler]
-[Route("/orders")]
-public sealed partial class CreateOrderHandler(
+public class CreateOrderHandler(
     IOrderRepository orderRepository,
     ILogger<CreateOrderHandler> logger) : IRequestHandler<CreateOrderCommand, OrderCreatedResult>
 {
-    private async Task<CatgaResult<OrderCreatedResult>> HandleAsyncCore(
-        CreateOrderCommand request, CancellationToken ct)
+    public async Task<CatgaResult<OrderCreatedResult>> HandleAsync(
+        CreateOrderCommand request, CancellationToken ct = default)
     {
         var order = new Order
         {
@@ -38,17 +32,12 @@ public sealed partial class CreateOrderHandler(
     }
 }
 
-/// <summary>
-/// Cancel order - POST /api/orders/{orderId}/cancel
-/// </summary>
-[CatgaHandler]
-[Route("/orders/{orderId}/cancel")]
-public sealed partial class CancelOrderHandler(
+public class CancelOrderHandler(
     IOrderRepository orderRepository,
     ILogger<CancelOrderHandler> logger) : IRequestHandler<CancelOrderCommand>
 {
-    private async Task<CatgaResult> HandleAsyncCore(
-        CancelOrderCommand request, CancellationToken ct)
+    public async Task<CatgaResult> HandleAsync(
+        CancelOrderCommand request, CancellationToken ct = default)
     {
         var order = await orderRepository.GetByIdAsync(request.OrderId, ct);
         if (order == null)
@@ -68,32 +57,22 @@ public sealed partial class CancelOrderHandler(
     }
 }
 
-/// <summary>
-/// Get order - GET /api/orders/{orderId}
-/// </summary>
-[CatgaHandler]
-[Route("/orders/{orderId}", Method = "GET")]
-public sealed partial class GetOrderHandler(
+public class GetOrderHandler(
     IOrderRepository orderRepository) : IRequestHandler<GetOrderQuery, Order?>
 {
-    private async Task<CatgaResult<Order?>> HandleAsyncCore(
-        GetOrderQuery request, CancellationToken ct)
+    public async Task<CatgaResult<Order?>> HandleAsync(
+        GetOrderQuery request, CancellationToken ct = default)
     {
         var order = await orderRepository.GetByIdAsync(request.OrderId, ct);
         return CatgaResult<Order?>.Success(order);
     }
 }
 
-/// <summary>
-/// Get user orders - GET /api/users/{customerId}/orders
-/// </summary>
-[CatgaHandler]
-[Route("/users/{customerId}/orders", Method = "GET")]
-public sealed partial class GetUserOrdersHandler(
+public class GetUserOrdersHandler(
     IOrderRepository orderRepository) : IRequestHandler<GetUserOrdersQuery, List<Order>>
 {
-    private async Task<CatgaResult<List<Order>>> HandleAsyncCore(
-        GetUserOrdersQuery request, CancellationToken ct)
+    public async Task<CatgaResult<List<Order>>> HandleAsync(
+        GetUserOrdersQuery request, CancellationToken ct = default)
     {
         var orders = await orderRepository.GetByCustomerIdAsync(request.CustomerId, ct);
         return CatgaResult<List<Order>>.Success(orders);

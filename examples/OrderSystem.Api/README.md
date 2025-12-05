@@ -32,9 +32,8 @@ dotnet run
 
 - **CQRS Pattern** - Commands and queries separation
 - **Saga Pattern** - Automatic compensation on failure
-- **Event Sourcing** - Order events published via mediator
+- **Event Publishing** - Order events via mediator
 - **Distributed Lock** - Per-customer order locking
-- **Metrics** - Order creation counters and histograms
 - **Structured Logging** - LoggerMessage source generation
 - **Health Checks** - Kubernetes-ready endpoints
 

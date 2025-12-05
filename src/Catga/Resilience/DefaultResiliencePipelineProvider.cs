@@ -36,7 +36,9 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
             });
         b.AddCircuitBreaker(new CircuitBreakerStrategyOptions
         {
-            FailureRatio = 0.5, MinimumThroughput = minThroughput, BreakDuration = TimeSpan.FromSeconds(30),
+            FailureRatio = 0.5,
+            MinimumThroughput = minThroughput,
+            BreakDuration = TimeSpan.FromSeconds(30),
             OnOpened = _ => { Metric(CatgaDiagnostics.ResilienceCircuitOpened, comp); Event(CatgaActivitySource.Events.ResilienceCircuitOpen, comp); return default; },
             OnHalfOpened = _ => { Metric(CatgaDiagnostics.ResilienceCircuitHalfOpened, comp); Event(CatgaActivitySource.Events.ResilienceCircuitHalfOpen, comp); return default; },
             OnClosed = _ => { Metric(CatgaDiagnostics.ResilienceCircuitClosed, comp); Event(CatgaActivitySource.Events.ResilienceCircuitClosed, comp); return default; }
@@ -49,7 +51,10 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
         if (retryDelay.HasValue && retryCount > 0)
             b.AddRetry(new RetryStrategyOptions
             {
-                Delay = retryDelay.Value, UseJitter = true, BackoffType = DelayBackoffType.Exponential, MaxRetryAttempts = retryCount,
+                Delay = retryDelay.Value,
+                UseJitter = true,
+                BackoffType = DelayBackoffType.Exponential,
+                MaxRetryAttempts = retryCount,
                 ShouldHandle = new PredicateBuilder().Handle<TimeoutRejectedException>().Handle<Exception>(),
                 OnRetry = args => { Metric(CatgaDiagnostics.ResilienceRetries, comp); Event(CatgaActivitySource.Events.ResilienceRetry, comp, args.AttemptNumber); return default; }
             });

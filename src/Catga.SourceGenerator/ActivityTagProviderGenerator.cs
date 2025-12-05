@@ -279,12 +279,12 @@ public sealed class ActivityTagProviderGenerator : IIncrementalGenerator
         // If nested, generate partial wrappers for containing types
         var __containers = info.Containers;
         if (__containers != null)
-        foreach (var c in __containers)
-        {
-            string ck = c.IsRecord ? (c.IsStruct ? "record struct" : "record") : (c.IsStruct ? "struct" : "class");
-            sb.Append(c.Accessibility).Append("partial ").Append(ck).Append(' ').Append(c.Name).AppendLine()
-              .AppendLine("{");
-        }
+            foreach (var c in __containers)
+            {
+                string ck = c.IsRecord ? (c.IsStruct ? "record struct" : "record") : (c.IsStruct ? "struct" : "class");
+                sb.Append(c.Accessibility).Append("partial ").Append(ck).Append(' ').Append(c.Name).AppendLine()
+                  .AppendLine("{");
+            }
         string accessibility = info.Accessibility;
         string kind = info.IsRecord
             ? (info.IsStruct ? "record struct" : "record")
@@ -298,15 +298,15 @@ public sealed class ActivityTagProviderGenerator : IIncrementalGenerator
 
         var __props = info.Properties;
         if (__props != null)
-        foreach (var p in __props)
-        {
-            var tn = p.ExplicitName;
-            var tagName = string.IsNullOrEmpty(tn) ? $"catga.req.{p.Name}" : tn!;
-            // Generate minimally allocating SetTag
-            sb.Append("        activity?.SetTag(\"").Append(Escape(tagName)).Append("\", ");
-            // Use typed literal for common primitives to avoid boxing where possible is not necessary since Activity.SetTag accepts object?;
-            sb.Append("this.").Append(p.Name).AppendLine(");");
-        }
+            foreach (var p in __props)
+            {
+                var tn = p.ExplicitName;
+                var tagName = string.IsNullOrEmpty(tn) ? $"catga.req.{p.Name}" : tn!;
+                // Generate minimally allocating SetTag
+                sb.Append("        activity?.SetTag(\"").Append(Escape(tagName)).Append("\", ");
+                // Use typed literal for common primitives to avoid boxing where possible is not necessary since Activity.SetTag accepts object?;
+                sb.Append("this.").Append(p.Name).AppendLine(");");
+            }
 
         sb.AppendLine("    }");
         sb.AppendLine("}");

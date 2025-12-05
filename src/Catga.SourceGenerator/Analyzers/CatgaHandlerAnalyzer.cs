@@ -29,7 +29,7 @@ public class CatgaHandlerAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor MissingHandleAsyncCore = new(
         id: "CAT5002",
         title: "Handler with [CatgaHandler] must implement HandleAsyncCore",
-        messageFormat: "Class '{0}' has [CatgaHandler] but is missing 'HandleAsyncCore' method. Add: private async Task<CatgaResult<TResponse>> HandleAsyncCore({1} request, CancellationToken ct)",
+        messageFormat: "Class '{0}' has [CatgaHandler] but is missing 'HandleAsyncCore' method. Add: private async Task<CatgaResult<TResponse>> HandleAsyncCore({1} request, CancellationToken ct).",
         category: "Catga.Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
@@ -38,7 +38,7 @@ public class CatgaHandlerAnalyzer : DiagnosticAnalyzer
     public static readonly DiagnosticDescriptor WrongHandleAsyncCoreSignature = new(
         id: "CAT5003",
         title: "HandleAsyncCore has wrong signature",
-        messageFormat: "Method 'HandleAsyncCore' in '{0}' has wrong signature. Expected: private async Task<CatgaResult<{1}>> HandleAsyncCore({2} request, CancellationToken ct)",
+        messageFormat: "Method 'HandleAsyncCore' in '{0}' has wrong signature. Expected: private async Task<CatgaResult<{1}>> HandleAsyncCore({2} request, CancellationToken ct).",
         category: "Catga.Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,

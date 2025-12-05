@@ -1,7 +1,11 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
+using Catga.Core;
 using Microsoft.Extensions.Logging;
 using OrderSystem.Api.Domain;
-using OrderSystem.Api.Infrastructure.Telemetry;
+using System.Diagnostics;
+using System.Collections.Immutable;
+using System.Net.Http;
 
 namespace OrderSystem.Api.Services;
 
@@ -156,3 +160,179 @@ public class InMemoryOrderRepository : IOrderRepository, IDisposable
     }
 }
 
+public class MockInventoryService : IInventoryService, IDisposable
+{
+    private static readonly Counter<long> _inventoryOperationCounter = Telemetry.Meter.CreateCounter<long>("inventory_operations", "number", "Operation type");
+    private static readonly Histogram<double> _inventoryOperationDuration = Telemetry.Meter.CreateHistogram<double>("inventory_operation_duration", "ms", "Operation duration in milliseconds");
+    private static readonly KeyValuePair<string, object?>[] TagCheckStock = new[] { new KeyValuePair<string, object?>("operation", "check_stock") };
+    private static readonly KeyValuePair<string, object?>[] TagReserveStock = new[] { new KeyValuePair<string, object?>("operation", "reserve_stock") };
+    private static readonly KeyValuePair<string, object?>[] TagReleaseStock = new[] { new KeyValuePair<string, object?>("operation", "release_stock") };
+
+    private readonly ILogger<MockInventoryService> _logger;
+    private readonly HttpClient _httpClient;
+    private readonly Random _random = new();
+    private bool _disposed;
+
+    public MockInventoryService(HttpClient httpClient, ILogger<MockInventoryService> logger)
+    {
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _logger.LogInformation("Mock inventory service initialized");
+    }
+
+    public async ValueTask<CatgaResult> CheckStockAsync(List<OrderItem> items, CancellationToken cancellationToken = default)
+    {
+        using var activity = Telemetry.ActivitySource.StartActivity("CheckStock");
+        using var timer = _inventoryOperationDuration.Measure();
+
+        _inventoryOperationCounter.Add(1, TagCheckStock);
+
+        try
+        {
+            // Simulate network/database latency
+            await Task.Delay(_random.Next(50, 200), cancellationToken);
+
+            // Randomly fail 5% of the time to test resilience
+            if (_random.NextDouble() < 0.05)
+            {
+                _logger.LogWarning("Stock check failed for {ItemCount} items", items.Count);
+                return CatgaResult.Failure("Failed to check inventory");
+            }
+
+            _logger.LogDebug("Stock checked for {ItemCount} items", items.Count);
+            return CatgaResult.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking stock for {ItemCount} items", items.Count);
+            return CatgaResult.Failure($"Stock check failed: {ex.Message}");
+        }
+    }
+
+    public async ValueTask<CatgaResult> ReserveStockAsync(string orderId, List<OrderItem> items, CancellationToken cancellationToken = default)
+    {
+        using var activity = Telemetry.ActivitySource.StartActivity("ReserveStock");
+        using var timer = _inventoryOperationDuration.Measure();
+
+        _inventoryOperationCounter.Add(1, TagReserveStock);
+
+        try
+        {
+            // Simulate network/database latency
+            await Task.Delay(_random.Next(100, 300), cancellationToken);
+
+            // Randomly fail 3% of the time to test resilience
+            if (_random.NextDouble() < 0.03)
+            {
+                _logger.LogWarning("Stock reservation failed for order {OrderId}", orderId);
+                return CatgaResult.Failure("Failed to reserve inventory");
+            }
+
+            _logger.LogInformation("Stock reserved for order {OrderId} with {ItemCount} items", orderId, items.Count);
+            return CatgaResult.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reserving stock for order {OrderId}", orderId);
+            return CatgaResult.Failure($"Stock reservation failed: {ex.Message}");
+        }
+    }
+
+    public async ValueTask<CatgaResult> ReleaseStockAsync(string orderId, List<OrderItem> items, CancellationToken cancellationToken = default)
+    {
+        using var activity = Telemetry.ActivitySource.StartActivity("ReleaseStock");
+        using var timer = _inventoryOperationDuration.Measure();
+
+        _inventoryOperationCounter.Add(1, TagReleaseStock);
+
+        try
+        {
+            // Simulate network/database latency
+            await Task.Delay(_random.Next(50, 150), cancellationToken);
+
+            _logger.LogInformation("Stock released for order {OrderId} with {ItemCount} items", orderId, items.Count);
+            return CatgaResult.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error releasing stock for order {OrderId}", orderId);
+            return CatgaResult.Failure($"Failed to release stock: {ex.Message}");
+        }
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+            GC.SuppressFinalize(this);
+        }
+    }
+
+}
+
+public class MockPaymentService : IPaymentService, IDisposable
+{
+    private static readonly Counter<long> _paymentCounter = Telemetry.Meter.CreateCounter<long>("payment_operations", "number", "Operation type");
+    private static readonly Histogram<double> _paymentDuration = Telemetry.Meter.CreateHistogram<double>("payment_operation_duration", "ms", "Payment processing duration in milliseconds");
+    private static readonly KeyValuePair<string, object?>[] TagProcessPayment = new[] { new KeyValuePair<string, object?>("operation", "process_payment") };
+
+    private readonly ILogger<MockPaymentService> _logger;
+    private readonly HttpClient _httpClient;
+    private readonly Random _random = new();
+    private bool _disposed;
+
+    public MockPaymentService(HttpClient httpClient, ILogger<MockPaymentService> logger)
+    {
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _logger.LogInformation("Mock payment service initialized");
+    }
+
+    public async ValueTask<CatgaResult> ProcessPaymentAsync(string orderId, decimal amount, string paymentMethod, CancellationToken cancellationToken = default)
+    {
+        using var activity = Telemetry.ActivitySource.StartActivity("ProcessPayment");
+        using var timer = _paymentDuration.Measure();
+
+        _paymentCounter.Add(1, TagProcessPayment);
+
+        try
+        {
+            // Simulate payment processing time
+            await Task.Delay(_random.Next(100, 500), cancellationToken);
+
+            // Randomly fail 2% of the time to test resilience
+            if (_random.NextDouble() < 0.02)
+            {
+                _logger.LogWarning("Payment failed for order {OrderId} with {Amount:C}", orderId, amount);
+                return CatgaResult.Failure("Payment processing failed");
+            }
+
+            // Special case for testing failure scenarios
+            if (paymentMethod?.Contains("fail", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                _logger.LogWarning("Payment method {PaymentMethod} is configured to fail", paymentMethod);
+                return CatgaResult.Failure($"Payment method {paymentMethod} is not supported");
+            }
+
+            _logger.LogInformation("Successfully processed payment of {Amount:C} for order {OrderId} using {PaymentMethod}",
+                amount, orderId, paymentMethod);
+
+            return CatgaResult.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing payment for order {OrderId}", orderId);
+            return CatgaResult.Failure($"Payment processing error: {ex.Message}");
+        }
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+            GC.SuppressFinalize(this);
+        }
+    }
+}

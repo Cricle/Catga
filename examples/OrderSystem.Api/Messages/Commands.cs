@@ -1,7 +1,6 @@
-using Catga.Core;
+using Catga.Abstractions;
 using MemoryPack;
 using OrderSystem.Api.Domain;
-using Catga.Abstractions;
 
 namespace OrderSystem.Api.Messages;
 

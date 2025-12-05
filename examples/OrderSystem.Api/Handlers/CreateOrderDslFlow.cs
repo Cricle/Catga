@@ -7,72 +7,28 @@ using OrderSystem.Api.Messages;
 namespace OrderSystem.Api.Handlers;
 
 /// <summary>
-/// Order creation flow state using DSL Flow.
-/// Demonstrates: Distributed saga with automatic compensation.
+/// Order creation flow state using DSL Flow with Source Generator.
 ///
-/// Note: For production use, consider using [FlowState] attribute with field declarations
-/// to auto-generate change tracking. This example shows manual implementation.
+/// The [FlowState] attribute auto-generates:
+/// - IFlowState implementation
+/// - Change tracking (HasChanges, GetChangedMask, etc.)
+/// - Field constants (Field_OrderId, Field_CustomerId, etc.)
+/// - FlowId property
+///
+/// Just define properties - the generator handles the rest!
 /// </summary>
-public class CreateOrderFlowState : IFlowState
+[FlowState]
+public partial class CreateOrderFlowState
 {
-    public const int Field_OrderId = 0;
-    public const int Field_CustomerId = 1;
-    public const int Field_Items = 2;
-    public const int Field_ShippingAddress = 3;
-    public const int Field_PaymentMethod = 4;
-    public const int Field_TotalAmount = 5;
-    public const int Field_ReservationId = 6;
-    public const int Field_PaymentId = 7;
-    public const int Field_Status = 8;
-    public const int FieldCount = 9;
-
-    private int _changedMask;
-    public string? FlowId { get; set; }
-
-    private string? _orderId;
-    public string? OrderId { get => _orderId; set { _orderId = value; MarkChanged(Field_OrderId); } }
-
-    private string? _customerId;
-    public string? CustomerId { get => _customerId; set { _customerId = value; MarkChanged(Field_CustomerId); } }
-
-    private List<OrderItem>? _items;
-    public List<OrderItem>? Items { get => _items; set { _items = value; MarkChanged(Field_Items); } }
-
-    private string? _shippingAddress;
-    public string? ShippingAddress { get => _shippingAddress; set { _shippingAddress = value; MarkChanged(Field_ShippingAddress); } }
-
-    private string? _paymentMethod;
-    public string? PaymentMethod { get => _paymentMethod; set { _paymentMethod = value; MarkChanged(Field_PaymentMethod); } }
-
-    private decimal _totalAmount;
-    public decimal TotalAmount { get => _totalAmount; set { _totalAmount = value; MarkChanged(Field_TotalAmount); } }
-
-    private string? _reservationId;
-    public string? ReservationId { get => _reservationId; set { _reservationId = value; MarkChanged(Field_ReservationId); } }
-
-    private string? _paymentId;
-    public string? PaymentId { get => _paymentId; set { _paymentId = value; MarkChanged(Field_PaymentId); } }
-
-    private string? _status;
-    public string? Status { get => _status; set { _status = value; MarkChanged(Field_Status); } }
-
-    public bool HasChanges => _changedMask != 0;
-    public int GetChangedMask() => _changedMask;
-    public bool IsFieldChanged(int fieldIndex) => (_changedMask & (1 << fieldIndex)) != 0;
-    public void ClearChanges() => _changedMask = 0;
-    public void MarkChanged(int fieldIndex) => _changedMask |= (1 << fieldIndex);
-    public IEnumerable<string> GetChangedFieldNames()
-    {
-        if (IsFieldChanged(Field_OrderId)) yield return nameof(OrderId);
-        if (IsFieldChanged(Field_CustomerId)) yield return nameof(CustomerId);
-        if (IsFieldChanged(Field_Items)) yield return nameof(Items);
-        if (IsFieldChanged(Field_ShippingAddress)) yield return nameof(ShippingAddress);
-        if (IsFieldChanged(Field_PaymentMethod)) yield return nameof(PaymentMethod);
-        if (IsFieldChanged(Field_TotalAmount)) yield return nameof(TotalAmount);
-        if (IsFieldChanged(Field_ReservationId)) yield return nameof(ReservationId);
-        if (IsFieldChanged(Field_PaymentId)) yield return nameof(PaymentId);
-        if (IsFieldChanged(Field_Status)) yield return nameof(Status);
-    }
+    public string? OrderId { get; set; }
+    public string? CustomerId { get; set; }
+    public List<OrderItem>? Items { get; set; }
+    public string? ShippingAddress { get; set; }
+    public string? PaymentMethod { get; set; }
+    public decimal TotalAmount { get; set; }
+    public string? ReservationId { get; set; }
+    public string? PaymentId { get; set; }
+    public string? Status { get; set; }
 }
 
 /// <summary>

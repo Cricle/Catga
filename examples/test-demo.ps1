@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Automated test script to verify OrderSystem functionality.
-    Tests order creation, cancellation, and cluster features.
+    Tests order creation, cancellation, cluster features, and stress tests.
 
 .PARAMETER BaseUrl
     The base URL of the OrderSystem API (default: http://localhost:5275)
@@ -12,16 +12,24 @@
 .PARAMETER TestCluster
     If specified, tests multiple nodes for cluster verification
 
+.PARAMETER StressTest
+    If specified, runs stress tests and outputs performance table
+
 .EXAMPLE
     .\test-demo.ps1
-    .\test-demo.ps1 -BaseUrl http://localhost:5276
     .\test-demo.ps1 -TestCluster
+    .\test-demo.ps1 -StressTest
+    .\test-demo.ps1 -TestCluster -StressTest
 #>
 
 param(
     [string]$BaseUrl = "http://localhost:5275",
-    [switch]$TestCluster
+    [switch]$TestCluster,
+    [switch]$StressTest
 )
+
+# Global stress test results for final table
+$script:StressResults = @()
 
 $ErrorActionPreference = "Stop"
 
@@ -61,6 +69,153 @@ function Test-Endpoint {
     } catch {
         return @{ Success = $false; Error = $_.Exception.Message }
     }
+}
+
+function Run-StressTest {
+    param(
+        [string]$Mode,
+        [string]$Endpoint,
+        [int]$SequentialCount = 100,
+        [int]$ParallelCount = 50
+    )
+
+    $results = @{
+        Mode = $Mode
+        SequentialCount = $SequentialCount
+        SequentialSuccess = 0
+        SequentialRps = 0
+        SequentialAvgMs = 0
+        ParallelCount = $ParallelCount
+        ParallelSuccess = 0
+        ParallelRps = 0
+        ParallelAvgMs = 0
+        OrderCreateCount = 20
+        OrderCreateSuccess = 0
+        OrderCreateRps = 0
+    }
+
+    # Sequential stress test
+    $seqTimes = @()
+    $seqStart = Get-Date
+    for ($i = 1; $i -le $SequentialCount; $i++) {
+        $reqStart = Get-Date
+        $result = Test-Endpoint "$Endpoint/api/cluster/node"
+        $reqEnd = Get-Date
+        if ($result.Success) {
+            $results.SequentialSuccess++
+            $seqTimes += ($reqEnd - $reqStart).TotalMilliseconds
+        }
+    }
+    $seqDuration = ((Get-Date) - $seqStart).TotalMilliseconds
+    $results.SequentialRps = [math]::Round($SequentialCount / ($seqDuration / 1000), 1)
+    if ($seqTimes.Count -gt 0) {
+        $results.SequentialAvgMs = [math]::Round(($seqTimes | Measure-Object -Average).Average, 2)
+    }
+
+    # Parallel stress test
+    $parallelJobs = @()
+    for ($i = 1; $i -le $ParallelCount; $i++) {
+        $job = Start-Job -ScriptBlock {
+            param($Url)
+            $start = Get-Date
+            try {
+                $response = Invoke-RestMethod -Uri "$Url/api/cluster/node" -Method GET -TimeoutSec 10
+                $duration = ((Get-Date) - $start).TotalMilliseconds
+                return @{ Success = $true; Duration = $duration }
+            } catch {
+                return @{ Success = $false; Duration = 0 }
+            }
+        } -ArgumentList $Endpoint
+        $parallelJobs += $job
+    }
+
+    $parallelStart = Get-Date
+    $parallelJobs | Wait-Job | Out-Null
+    $parallelDuration = ((Get-Date) - $parallelStart).TotalMilliseconds
+    $parallelResults = $parallelJobs | Receive-Job
+    $parallelJobs | Remove-Job
+
+    $results.ParallelSuccess = ($parallelResults | Where-Object { $_.Success }).Count
+    $results.ParallelRps = [math]::Round($ParallelCount / ($parallelDuration / 1000), 1)
+    $successDurations = ($parallelResults | Where-Object { $_.Success }).Duration
+    if ($successDurations.Count -gt 0) {
+        $results.ParallelAvgMs = [math]::Round(($successDurations | Measure-Object -Average).Average, 2)
+    }
+
+    # Order creation stress test
+    $orderJobs = @()
+    for ($i = 1; $i -le $results.OrderCreateCount; $i++) {
+        $job = Start-Job -ScriptBlock {
+            param($Url, $Index)
+            $payload = @{
+                customerId = "STRESS-$Index-$(Get-Random)"
+                items = @(@{
+                    productId = "STRESS-PROD"
+                    productName = "Stress Product"
+                    quantity = 1
+                    unitPrice = 10.00
+                })
+                shippingAddress = "Stress Address"
+                paymentMethod = "card"
+            }
+            try {
+                $response = Invoke-RestMethod -Uri "$Url/api/orders" -Method POST -ContentType "application/json" -Body ($payload | ConvertTo-Json -Depth 5) -TimeoutSec 10
+                return @{ Success = ($null -ne $response.orderId) }
+            } catch {
+                return @{ Success = $false }
+            }
+        } -ArgumentList $Endpoint, $i
+        $orderJobs += $job
+    }
+
+    $orderStart = Get-Date
+    $orderJobs | Wait-Job | Out-Null
+    $orderDuration = ((Get-Date) - $orderStart).TotalMilliseconds
+    $orderResults = $orderJobs | Receive-Job
+    $orderJobs | Remove-Job
+
+    $results.OrderCreateSuccess = ($orderResults | Where-Object { $_.Success }).Count
+    $results.OrderCreateRps = [math]::Round($results.OrderCreateCount / ($orderDuration / 1000), 1)
+
+    return $results
+}
+
+function Write-StressResultsTable {
+    param([array]$Results)
+
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "   Stress Test Results" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host ""
+
+    # Header
+    $header = "{0,-12} | {1,8} | {2,10} | {3,8} | {4,10} | {5,8} | {6,10}" -f "Mode", "Seq RPS", "Seq Avg(ms)", "Par RPS", "Par Avg(ms)", "Ord RPS", "Ord Success"
+    $separator = "-" * 85
+    Write-Host $header -ForegroundColor Yellow
+    Write-Host $separator -ForegroundColor Gray
+
+    foreach ($r in $Results) {
+        $row = "{0,-12} | {1,8} | {2,10} | {3,8} | {4,10} | {5,8} | {6,10}" -f `
+            $r.Mode, `
+            $r.SequentialRps, `
+            $r.SequentialAvgMs, `
+            $r.ParallelRps, `
+            $r.ParallelAvgMs, `
+            $r.OrderCreateRps, `
+            "$($r.OrderCreateSuccess)/$($r.OrderCreateCount)"
+        Write-Host $row
+    }
+
+    Write-Host $separator -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "Legend:" -ForegroundColor Gray
+    Write-Host "  Seq RPS     - Sequential requests per second (100 requests)" -ForegroundColor Gray
+    Write-Host "  Seq Avg(ms) - Average latency for sequential requests" -ForegroundColor Gray
+    Write-Host "  Par RPS     - Parallel requests per second (50 concurrent)" -ForegroundColor Gray
+    Write-Host "  Par Avg(ms) - Average latency for parallel requests" -ForegroundColor Gray
+    Write-Host "  Ord RPS     - Order creation requests per second (20 concurrent)" -ForegroundColor Gray
+    Write-Host ""
 }
 
 Write-Host ""
@@ -577,6 +732,40 @@ if ($TestCluster) {
     }
 }
 
+# Stress Tests (run for current mode)
+if ($StressTest) {
+    $modeName = if ($TestCluster) { "Cluster" } else { "Single" }
+    Write-TestHeader "Stress Test ($modeName Mode)"
+    Write-Host "  Running stress tests... (this may take a moment)" -ForegroundColor Gray
+
+    $stressResult = Run-StressTest -Mode $modeName -Endpoint $BaseUrl
+    $script:StressResults += $stressResult
+
+    $totalTests++
+    if ($stressResult.SequentialSuccess -eq $stressResult.SequentialCount) {
+        $passedTests++
+        Write-TestResult "Sequential stress (100 req)" $true "$($stressResult.SequentialRps) req/s, avg $($stressResult.SequentialAvgMs)ms"
+    } else {
+        Write-TestResult "Sequential stress (100 req)" $false "$($stressResult.SequentialSuccess)/100 succeeded"
+    }
+
+    $totalTests++
+    if ($stressResult.ParallelSuccess -eq $stressResult.ParallelCount) {
+        $passedTests++
+        Write-TestResult "Parallel stress (50 concurrent)" $true "$($stressResult.ParallelRps) req/s, avg $($stressResult.ParallelAvgMs)ms"
+    } else {
+        Write-TestResult "Parallel stress (50 concurrent)" $false "$($stressResult.ParallelSuccess)/50 succeeded"
+    }
+
+    $totalTests++
+    if ($stressResult.OrderCreateSuccess -eq $stressResult.OrderCreateCount) {
+        $passedTests++
+        Write-TestResult "Order creation stress (20 concurrent)" $true "$($stressResult.OrderCreateRps) req/s"
+    } else {
+        Write-TestResult "Order creation stress (20 concurrent)" $false "$($stressResult.OrderCreateSuccess)/20 succeeded"
+    }
+}
+
 # Summary
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
@@ -597,6 +786,11 @@ if ($passedTests -eq $totalTests) {
     Write-Host "  All tests passed!" -ForegroundColor Green
 } else {
     Write-Host "  Some tests failed. Check the output above." -ForegroundColor Yellow
+}
+
+# Output stress results table if stress tests were run
+if ($StressTest -and $script:StressResults.Count -gt 0) {
+    Write-StressResultsTable -Results $script:StressResults
 }
 
 Write-Host ""

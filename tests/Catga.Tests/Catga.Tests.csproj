@@ -47,22 +47,5 @@
     <!-- <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" /> -->
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Tests excluded due to missing source generator output -->
-    <Compile Remove="Observability\ActivityPayloadCaptureTests.cs" />
-    <Compile Remove="Serialization\SerializationHelperTests.cs" />
-    <Compile Remove="Core\FastPathTests.cs" />
-    <Compile Remove="Observability\TraceTagsAdvancedTests.cs" />
-    <Compile Remove="SourceGenerator\AutoTelemetryGeneratorTests.cs" />
-    <Compile Remove="Observability\TraceTagsGeneratorTests.cs" />
-    <Compile Remove="Observability\TraceTagsEventTests.cs" />
-    <Compile Remove="Pipeline\AutoBatchingBehaviorTests.cs" />
-    <Compile Remove="Integration\MediatorAutoBatchingIntegrationTests.cs" />
-    <Compile Remove="Integration\E2E\ECommerceOrderFlowTests.cs" />
-    <Compile Remove="Integration\E2E\StreamProcessingE2ETests.cs" />
-    <Compile Remove="Integration\E2E\DistributedLockE2ETests.cs" />
-    <!-- Tests excluded due to Docker dependency -->
-    <Compile Remove="Integration\RedisTransportIntegrationTests.cs" />
-  </ItemGroup>
 
 </Project>

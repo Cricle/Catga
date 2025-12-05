@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 namespace Catga.Core;
 
 /// <summary>Batch operation extensions for IReadOnlyList</summary>
-public static class BatchOperationExtensions
+internal static class BatchOperationExtensions
 {
     /// <summary>
     /// Execute batch async operations in parallel (optimized for single-item)

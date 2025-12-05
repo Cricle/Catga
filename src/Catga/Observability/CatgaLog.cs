@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 namespace Catga.Observability;
 
 /// <summary>High-performance logging using source-generated LoggerMessage</summary>
-public static partial class CatgaLog
+internal static partial class CatgaLog
 {
     // Message Transport Logs
     [LoggerMessage(EventId = 1000, Level = LogLevel.Debug, Message = "Publishing message {MessageType} [MessageId={MessageId}, QoS={QoS}]")]

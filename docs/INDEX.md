@@ -40,6 +40,7 @@
 
 | 文档 | 说明 |
 |------|------|
+| [Flow DSL](./guides/flow-dsl.md) | 分布式事务 DSL（Saga 模式） |
 | [分布式事务](./patterns/DISTRIBUTED-TRANSACTION-V2.md) | Outbox/Inbox 模式 |
 | [事件溯源](./architecture/ARCHITECTURE.md) | Event Sourcing 实现 |
 | [分布式追踪](./observability/DISTRIBUTED-TRACING-GUIDE.md) | OpenTelemetry 集成 |

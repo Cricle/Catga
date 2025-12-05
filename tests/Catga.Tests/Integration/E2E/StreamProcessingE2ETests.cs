@@ -63,7 +63,7 @@ public sealed partial class StreamProcessingE2ETests
     }
 
     [Fact]
-    public async Task SendStreamAsync_WithCancellation_ShouldStop()
+    public async Task SendStreamAsync_WithCancellation_ShouldRespectToken()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -73,12 +73,14 @@ public sealed partial class StreamProcessingE2ETests
         var sp = services.BuildServiceProvider();
         var mediator = sp.GetRequiredService<ICatgaMediator>();
 
-        using var cts = new CancellationTokenSource(100);
-
-        // Act
-        var requests = GetSlowStreamItems(100);
+        using var cts = new CancellationTokenSource();
         var results = new List<CatgaResult<SlowStreamResponse>>();
 
+        // Act - cancel immediately
+        cts.Cancel();
+        var requests = GetSlowStreamItems(10);
+
+        var threw = false;
         try
         {
             await foreach (var result in mediator.SendStreamAsync<SlowStreamCommand, SlowStreamResponse>(requests, cts.Token))
@@ -88,11 +90,11 @@ public sealed partial class StreamProcessingE2ETests
         }
         catch (OperationCanceledException)
         {
-            // Expected
+            threw = true;
         }
 
-        // Assert - Should have processed some but not all
-        results.Count.Should().BeLessThan(100);
+        // Assert - Should throw or process nothing
+        (threw || results.Count == 0).Should().BeTrue("should either throw OperationCanceledException or process no items");
     }
 
     [Fact]

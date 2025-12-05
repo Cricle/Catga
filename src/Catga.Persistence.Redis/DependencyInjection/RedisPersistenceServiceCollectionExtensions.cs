@@ -5,6 +5,8 @@ using Catga.Persistence.Redis.Persistence;
 using Catga.Persistence.Redis;
 using Catga.Persistence.Redis.Locking;
 using Catga.Persistence.Redis.RateLimiting;
+using Catga.Persistence.Redis.Flow;
+using Catga.Flow.Dsl;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Catga.Abstractions;
@@ -134,6 +136,23 @@ public static class RedisPersistenceServiceCollectionExtensions
 
         services.TryAddSingleton(Options.Create(options));
         services.AddSingleton<IDistributedLockProvider, RedisDistributedLockProvider>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Add Redis DSL flow store for distributed flow execution.
+    /// </summary>
+    public static IServiceCollection AddRedisDslFlowStore(
+        this IServiceCollection services,
+        string prefix = "dslflow:")
+    {
+        services.TryAddSingleton<IDslFlowStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            return new RedisDslFlowStore(redis, serializer, prefix);
+        });
 
         return services;
     }

@@ -602,6 +602,92 @@ public class InMemoryFlowStoreTests
         after!.Version.Should().Be(versionBefore + 1);
     }
 
+    [Fact]
+    public async Task E2E_ConcurrentClaims_OnlyOneSucceeds()
+    {
+        // Use unique flow type and ID to avoid conflicts with other tests
+        var uniqueId = $"concurrent-claim-{Guid.NewGuid():N}";
+        var uniqueType = $"ConcurrentTest_{Guid.NewGuid():N}";
+
+        // Create abandoned flow with heartbeat 1 minute ago
+        var state = CreateState(uniqueId, uniqueType);
+        state.Owner = "dead-node";
+        state.HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-1).ToUnixTimeMilliseconds();
+        await _store.CreateAsync(state);
+
+        // Multiple nodes try to claim with 5 second timeout (heartbeat is 1 min old, so it's abandoned)
+        var tasks = Enumerable.Range(1, 5).Select(async i =>
+        {
+            return await _store.TryClaimAsync(uniqueType, $"node-{i}", 5000);
+        }).ToList();
+
+        var results = await Task.WhenAll(tasks);
+
+        // Only one should succeed
+        results.Count(r => r != null).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task E2E_EmptyData_HandledCorrectly()
+    {
+        var state = CreateState("empty-data");
+        state.Data = Array.Empty<byte>();
+        await _store.CreateAsync(state);
+
+        var stored = await _store.GetAsync("empty-data");
+        stored!.Data.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task E2E_SpecialCharactersInId()
+    {
+        var specialId = "flow:with/special.chars-123";
+        var state = CreateState(specialId);
+        await _store.CreateAsync(state);
+
+        var stored = await _store.GetAsync(specialId);
+        stored.Should().NotBeNull();
+        stored!.Id.Should().Be(specialId);
+    }
+
+    [Fact]
+    public async Task E2E_StatusTransitions()
+    {
+        var state = CreateState("status-flow");
+        await _store.CreateAsync(state);
+
+        // Running -> Done
+        state.Status = FlowStatus.Done;
+        await _store.UpdateAsync(state);
+
+        var stored = await _store.GetAsync("status-flow");
+        stored!.Status.Should().Be(FlowStatus.Done);
+    }
+
+    [Fact]
+    public async Task E2E_FlowCancellation_MarksAsFailed()
+    {
+        var executor = new FlowExecutor(_store, new FlowOptions
+        {
+            NodeId = "cancel-node"
+        });
+
+        using var cts = new CancellationTokenSource(50);
+
+        var result = await executor.ExecuteAsync(
+            "cancel-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) =>
+            {
+                await Task.Delay(200, ct); // Longer than cancellation
+                return new FlowResult(true, 1, TimeSpan.Zero);
+            },
+            cts.Token);
+
+        result.IsSuccess.Should().BeFalse();
+    }
+
     #endregion
 
     private static FlowState CreateState(string id, string type = "TestFlow") => new()

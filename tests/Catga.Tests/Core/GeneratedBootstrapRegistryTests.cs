@@ -13,8 +13,7 @@ public class GeneratedBootstrapRegistryTests
     public void Register_WithValidAction_ShouldNotThrow()
     {
         // Arrange
-        var called = false;
-        Action<IServiceCollection> registration = _ => called = true;
+        Action<IServiceCollection> registration = _ => { };
 
         // Act
         var act = () => GeneratedBootstrapRegistry.Register(registration);

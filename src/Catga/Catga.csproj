@@ -35,6 +35,15 @@
 
 	<ItemGroup>
 		<InternalsVisibleTo Include="Catga.Benchmarks" />
+		<InternalsVisibleTo Include="Catga.Tests" />
+		<InternalsVisibleTo Include="Catga.Cluster" />
+		<InternalsVisibleTo Include="Catga.Hosting.Aspire" />
+		<InternalsVisibleTo Include="Catga.Persistence.InMemory" />
+		<InternalsVisibleTo Include="Catga.Persistence.Nats" />
+		<InternalsVisibleTo Include="Catga.Persistence.Redis" />
+		<InternalsVisibleTo Include="Catga.Transport.InMemory" />
+		<InternalsVisibleTo Include="Catga.Transport.Nats" />
+		<InternalsVisibleTo Include="Catga.Transport.Redis" />
 	</ItemGroup>
 
 </Project>

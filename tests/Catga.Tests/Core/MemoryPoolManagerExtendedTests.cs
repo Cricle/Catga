@@ -88,7 +88,7 @@ public class MemoryPoolManagerExtendedTests
     }
 
     [Fact]
-    public void RentArray_ConcurrentAccess_ShouldBeThreadSafe()
+    public async Task RentArray_ConcurrentAccess_ShouldBeThreadSafe()
     {
         // Arrange
         var tasks = new List<Task>();
@@ -111,7 +111,7 @@ public class MemoryPoolManagerExtendedTests
             }));
         }
 
-        Task.WaitAll(tasks.ToArray());
+        await Task.WhenAll(tasks);
 
         // Assert
         exceptions.Should().BeEmpty();

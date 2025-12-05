@@ -12,7 +12,7 @@ namespace Catga.Core;
 /// <summary>
 /// Helper for batch parallel operations with chunking to prevent thread pool starvation (DRY principle)
 /// </summary>
-public static class BatchOperationHelper
+internal static class BatchOperationHelper
 {
     /// <summary>Default chunk size for large batches</summary>
     public const int DefaultChunkSize = 100;

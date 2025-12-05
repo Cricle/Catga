@@ -497,12 +497,12 @@ public class FlowE2ETests
                 $"retry-flow-{retry}",
                 "RetryFlow",
                 ReadOnlyMemory<byte>.Empty,
-                async (state, ct) =>
+                (state, ct) =>
                 {
                     attempts++;
                     if (attempts < 3)
-                        return new FlowResult(false, 0, TimeSpan.Zero, "Transient error");
-                    return new FlowResult(true, 1, TimeSpan.Zero);
+                        return Task.FromResult(new FlowResult(false, 0, TimeSpan.Zero, "Transient error"));
+                    return Task.FromResult(new FlowResult(true, 1, TimeSpan.Zero));
                 });
 
             if (result.IsSuccess) break;
@@ -528,10 +528,10 @@ public class FlowE2ETests
             "large-data-flow",
             "LargeDataFlow",
             largeData,
-            async (state, ct) =>
+            (state, ct) =>
             {
                 receivedData = state.Data;
-                return new FlowResult(true, 1, TimeSpan.Zero);
+                return Task.FromResult(new FlowResult(true, 1, TimeSpan.Zero));
             });
 
         // Assert
@@ -593,7 +593,7 @@ public class FlowE2ETests
                         async c => { serviceBCalls.Add("Execute"); await Task.Delay(10, c); },
                         async c => { serviceBCalls.Add("Compensate"); await Task.Delay(10, c); })
                     .Step(
-                        async c => { serviceCCalls.Add("Execute"); throw new Exception("Service C failed"); },
+                        c => { serviceCCalls.Add("Execute"); throw new Exception("Service C failed"); },
                         async c => { serviceCCalls.Add("Compensate"); await Task.Delay(10, c); });
 
                 return await flow.ExecuteAsync(ct);
@@ -638,7 +638,7 @@ public class FlowE2ETests
                         async c => { messagesSent.Add("Send"); await Task.Delay(10, c); },
                         async c => { messagesSent.Add("Unsend"); await Task.Delay(10, c); })
                     .Step(
-                        async c => { cacheUpdates.Add("Update"); throw new Exception("Cache failed"); },
+                        c => { cacheUpdates.Add("Update"); throw new Exception("Cache failed"); },
                         async c => { cacheUpdates.Add("Invalidate"); await Task.Delay(10, c); });
 
                 return await flow.ExecuteAsync(ct);

@@ -4,7 +4,7 @@ using System.Diagnostics.Metrics;
 namespace Catga.Observability;
 
 /// <summary>Centralized diagnostics for Catga framework (ActivitySource + Metrics)</summary>
-public static class CatgaDiagnostics
+internal static class CatgaDiagnostics
 {
     public const string ActivitySourceName = "Catga";
     public const string MeterName = "Catga";

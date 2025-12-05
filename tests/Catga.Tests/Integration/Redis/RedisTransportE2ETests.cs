@@ -63,7 +63,8 @@ public sealed class RedisTransportE2ETests : IAsyncLifetime
 
         var result = await Task.WhenAny(tcs.Task, Task.Delay(5000));
         result.Should().Be(tcs.Task);
-        tcs.Task.Result.Data.Should().Be("hello");
+        var received = await tcs.Task;
+        received.Data.Should().Be("hello");
     }
 
     [Fact]

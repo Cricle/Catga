@@ -65,7 +65,7 @@ public sealed class DistributedLock : IAsyncDisposable
     /// </summary>
     public bool IsValid => _acquired && _coordinator.IsLeader;
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         if (_acquired)
         {
@@ -75,5 +75,6 @@ public sealed class DistributedLock : IAsyncDisposable
         }
 
         _localLock.Dispose();
+        return ValueTask.CompletedTask;
     }
 }

@@ -9,7 +9,7 @@ namespace Catga.Observability;
 /// Minimal indirection for tracing/metrics. Core calls these no-ops unless enabled.
 /// Keeps core free from direct ActivitySource/Counters usage.
 /// </summary>
-public static class ObservabilityHooks
+internal static class ObservabilityHooks
 {
     private static volatile bool _enabled;
 

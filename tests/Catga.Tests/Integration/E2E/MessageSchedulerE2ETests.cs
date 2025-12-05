@@ -143,6 +143,152 @@ public sealed partial class MessageSchedulerE2ETests : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task Redis_MessageScheduler_ScheduleAtSpecificTime()
+    {
+        if (_redis is null) return;
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(_redis);
+        services.AddSingleton(_serializer);
+        services.AddCatga();
+
+        var sp = services.BuildServiceProvider();
+        var mediator = sp.GetRequiredService<ICatgaMediator>();
+        var options = Options.Create(new MessageSchedulerOptions { PollingInterval = TimeSpan.FromHours(1) });
+        var logger = NullLogger<RedisMessageScheduler>.Instance;
+
+        var scheduler = new RedisMessageScheduler(_redis, _serializer, mediator, options, logger);
+
+        // Schedule at specific time
+        var scheduledTime = DateTimeOffset.UtcNow.AddHours(1);
+        var message = new ScheduledTestEvent { MessageId = MessageExtensions.NewMessageId(), Data = "at-time" };
+        var handle = await scheduler.ScheduleAsync(message, scheduledTime);
+
+        handle.ScheduleId.Should().NotBeNullOrEmpty();
+
+        var info = await scheduler.GetAsync(handle.ScheduleId);
+        info.Should().NotBeNull();
+        info!.Value.DeliverAt.Should().BeCloseTo(scheduledTime, TimeSpan.FromSeconds(1));
+
+        await scheduler.CancelAsync(handle.ScheduleId);
+    }
+
+    [Fact]
+    public async Task Redis_MessageScheduler_CancelNonExistent_Succeeds()
+    {
+        if (_redis is null) return;
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(_redis);
+        services.AddSingleton(_serializer);
+        services.AddCatga();
+
+        var sp = services.BuildServiceProvider();
+        var mediator = sp.GetRequiredService<ICatgaMediator>();
+        var options = Options.Create(new MessageSchedulerOptions { PollingInterval = TimeSpan.FromHours(1) });
+        var logger = NullLogger<RedisMessageScheduler>.Instance;
+
+        var scheduler = new RedisMessageScheduler(_redis, _serializer, mediator, options, logger);
+
+        // Redis transaction succeeds even if key doesn't exist
+        var result = await scheduler.CancelAsync("non-existent-id");
+        result.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Redis_MessageScheduler_GetNonExistent_ReturnsNull()
+    {
+        if (_redis is null) return;
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(_redis);
+        services.AddSingleton(_serializer);
+        services.AddCatga();
+
+        var sp = services.BuildServiceProvider();
+        var mediator = sp.GetRequiredService<ICatgaMediator>();
+        var options = Options.Create(new MessageSchedulerOptions { PollingInterval = TimeSpan.FromHours(1) });
+        var logger = NullLogger<RedisMessageScheduler>.Instance;
+
+        var scheduler = new RedisMessageScheduler(_redis, _serializer, mediator, options, logger);
+
+        var info = await scheduler.GetAsync("non-existent-id");
+        info.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Redis_MessageScheduler_MultipleSchedulers_SeesSameMessages()
+    {
+        if (_redis is null) return;
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(_redis);
+        services.AddSingleton(_serializer);
+        services.AddCatga();
+
+        var sp = services.BuildServiceProvider();
+        var mediator = sp.GetRequiredService<ICatgaMediator>();
+        var options = Options.Create(new MessageSchedulerOptions { PollingInterval = TimeSpan.FromHours(1) });
+        var logger = NullLogger<RedisMessageScheduler>.Instance;
+
+        // Create two scheduler instances
+        var scheduler1 = new RedisMessageScheduler(_redis, _serializer, mediator, options, logger);
+        var scheduler2 = new RedisMessageScheduler(_redis, _serializer, mediator, options, logger);
+
+        // Schedule via scheduler1
+        var message = new ScheduledTestEvent { MessageId = MessageExtensions.NewMessageId(), Data = "shared" };
+        var handle = await scheduler1.ScheduleAsync(message, TimeSpan.FromMinutes(30));
+
+        // Verify via scheduler2
+        var info = await scheduler2.GetAsync(handle.ScheduleId);
+        info.Should().NotBeNull();
+        info!.Value.Status.Should().Be(ScheduledMessageStatus.Pending);
+
+        // Cancel via scheduler2
+        var cancelled = await scheduler2.CancelAsync(handle.ScheduleId);
+        cancelled.Should().BeTrue();
+
+        // Verify via scheduler1
+        var infoAfter = await scheduler1.GetAsync(handle.ScheduleId);
+        infoAfter.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Redis_MessageScheduler_LargePayload()
+    {
+        if (_redis is null) return;
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(_redis);
+        services.AddSingleton(_serializer);
+        services.AddCatga();
+
+        var sp = services.BuildServiceProvider();
+        var mediator = sp.GetRequiredService<ICatgaMediator>();
+        var options = Options.Create(new MessageSchedulerOptions { PollingInterval = TimeSpan.FromHours(1) });
+        var logger = NullLogger<RedisMessageScheduler>.Instance;
+
+        var scheduler = new RedisMessageScheduler(_redis, _serializer, mediator, options, logger);
+
+        // Schedule with large payload
+        var largeData = new string('X', 50_000);
+        var message = new ScheduledTestEvent { MessageId = MessageExtensions.NewMessageId(), Data = largeData };
+        var handle = await scheduler.ScheduleAsync(message, TimeSpan.FromMinutes(30));
+
+        handle.ScheduleId.Should().NotBeNullOrEmpty();
+
+        var info = await scheduler.GetAsync(handle.ScheduleId);
+        info.Should().NotBeNull();
+
+        await scheduler.CancelAsync(handle.ScheduleId);
+    }
+
     [MemoryPackable]
     private partial record ScheduledTestEvent : IEvent
     {

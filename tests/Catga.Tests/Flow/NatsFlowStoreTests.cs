@@ -1,5 +1,7 @@
+using Catga.Abstractions;
 using Catga.Flow;
 using Catga.Persistence.Nats.Flow;
+using Catga.Serialization.MemoryPack;
 using FluentAssertions;
 using NATS.Client.Core;
 
@@ -29,7 +31,7 @@ public class NatsFlowStoreTests : IAsyncLifetime
             await _nats.ConnectAsync();
             if (_nats.ConnectionState == NatsConnectionState.Open)
             {
-                _store = new NatsFlowStore(_nats, _streamName);
+                _store = new NatsFlowStore(_nats, new MemoryPackMessageSerializer(), _streamName);
             }
         }
         catch
@@ -460,6 +462,117 @@ public class NatsFlowStoreTests : IAsyncLifetime
         var storedB = await _store.GetAsync("type-b-flow");
         storedA!.Type.Should().Be("TypeA");
         storedB!.Type.Should().Be("TypeB");
+    }
+
+    #endregion
+
+    #region Additional E2E Scenarios
+
+    [SkippableFact]
+    public async Task TryClaimAsync_FailedFlow_ReturnsNull()
+    {
+        SkipIfNoNats();
+
+        var state = CreateState("flow-failed");
+        state.Status = FlowStatus.Failed;
+        state.HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeMilliseconds();
+        await _store!.CreateAsync(state);
+
+        var claimed = await _store.TryClaimAsync("TestFlow", "node-2", 60000);
+
+        claimed.Should().BeNull();
+    }
+
+    [SkippableFact]
+    public async Task E2E_FlowCancellation_MarksAsFailed()
+    {
+        SkipIfNoNats();
+
+        var executor = new FlowExecutor(_store!, new FlowOptions
+        {
+            NodeId = "cancel-node"
+        });
+
+        using var cts = new CancellationTokenSource(50);
+
+        var result = await executor.ExecuteAsync(
+            "cancel-flow",
+            "TestFlow",
+            ReadOnlyMemory<byte>.Empty,
+            async (state, ct) =>
+            {
+                await Task.Delay(200, ct); // Longer than cancellation
+                return new FlowResult(true, 1, TimeSpan.Zero);
+            },
+            cts.Token);
+
+        result.IsSuccess.Should().BeFalse();
+    }
+
+    [SkippableFact]
+    public async Task E2E_ConcurrentClaims_OnlyOneSucceeds()
+    {
+        SkipIfNoNats();
+
+        // Create abandoned flow
+        var state = CreateState("concurrent-claim");
+        state.Owner = "dead-node";
+        state.HeartbeatAt = DateTimeOffset.UtcNow.AddSeconds(-10).ToUnixTimeMilliseconds();
+        await _store!.CreateAsync(state);
+
+        // Multiple nodes try to claim
+        var tasks = Enumerable.Range(1, 5).Select(async i =>
+        {
+            return await _store.TryClaimAsync("TestFlow", $"node-{i}", 60000);
+        }).ToList();
+
+        var results = await Task.WhenAll(tasks);
+
+        // Only one should succeed
+        results.Count(r => r != null).Should().Be(1);
+    }
+
+    [SkippableFact]
+    public async Task E2E_StatusTransitions()
+    {
+        SkipIfNoNats();
+
+        var state = CreateState("status-flow");
+        await _store!.CreateAsync(state);
+
+        // Running -> Done
+        state.Status = FlowStatus.Done;
+        await _store.UpdateAsync(state);
+
+        var stored = await _store.GetAsync("status-flow");
+        stored!.Status.Should().Be(FlowStatus.Done);
+    }
+
+    [SkippableFact]
+    public async Task E2E_EmptyData_HandledCorrectly()
+    {
+        SkipIfNoNats();
+
+        var state = CreateState("empty-data");
+        state.Data = Array.Empty<byte>();
+        await _store!.CreateAsync(state);
+
+        var stored = await _store.GetAsync("empty-data");
+        stored!.Data.Should().BeEmpty();
+    }
+
+    [SkippableFact]
+    public async Task E2E_SpecialCharactersInId()
+    {
+        SkipIfNoNats();
+
+        var specialId = "flow:with/special.chars-123";
+        var state = CreateState(specialId);
+        await _store!.CreateAsync(state);
+
+        var stored = await _store.GetAsync(specialId);
+        stored.Should().NotBeNull();
+        stored!.Id.Should().Be(specialId);
     }
 
     #endregion

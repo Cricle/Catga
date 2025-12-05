@@ -436,6 +436,533 @@ public sealed partial class DockerE2EIntegrationTests : IAsyncLifetime
             => _inner.ExecutePersistenceAsync(action, cancellationToken);
     }
 
+    #region Redis Transport E2E Tests
+
+    [Fact]
+    public async Task E2E_Redis_PubSub_QoS0_Delivers()
+    {
+        if (_redis is null) return;
+
+        var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
+        await using var transport = new RedisMessageTransport(_redis, _serializer!, provider);
+
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await transport.SubscribeAsync<TestEvent>(async (msg, ctx) =>
+        {
+            await Task.CompletedTask;
+            tcs.TrySetResult();
+        });
+
+        await Task.Delay(200);
+
+        var ev = new TestEvent { MessageId = MessageExtensions.NewMessageId(), Id = "redis-1", Data = "pubsub", QoS = QualityOfService.AtMostOnce };
+        await transport.PublishAsync(ev, new TransportContext { MessageId = ev.MessageId });
+
+        var done = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        done.Should().Be(tcs.Task, "Redis PubSub should deliver message");
+    }
+
+    [Fact]
+    public async Task E2E_Redis_Stream_QoS1_Delivers()
+    {
+        if (_redis is null) return;
+
+        var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
+        await using var transport = new RedisMessageTransport(_redis, _serializer!, provider);
+
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await transport.SubscribeAsync<TestEvent>(async (msg, ctx) =>
+        {
+            await Task.CompletedTask;
+            tcs.TrySetResult();
+        });
+
+        await Task.Delay(200);
+
+        var ev = new TestEvent { MessageId = MessageExtensions.NewMessageId(), Id = "redis-stream-1", Data = "stream", QoS = QualityOfService.AtLeastOnce };
+        await transport.PublishAsync(ev, new TransportContext { MessageId = ev.MessageId });
+
+        var done = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        done.Should().Be(tcs.Task, "Redis Stream should deliver message");
+    }
+
+    [Fact]
+    public async Task E2E_Redis_BatchPublish_AllDelivered()
+    {
+        if (_redis is null) return;
+
+        var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
+        await using var transport = new RedisMessageTransport(_redis, _serializer!, provider);
+
+        var total = 5;
+        var received = 0;
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await transport.SubscribeAsync<TestEvent>(async (msg, ctx) =>
+        {
+            await Task.CompletedTask;
+            if (Interlocked.Increment(ref received) == total)
+                tcs.TrySetResult();
+        });
+
+        await Task.Delay(200);
+
+        var events = Enumerable.Range(0, total).Select(i => new TestEvent
+        {
+            MessageId = MessageExtensions.NewMessageId(),
+            Id = $"batch-{i}",
+            Data = "batch",
+            QoS = QualityOfService.AtLeastOnce
+        }).ToList();
+
+        await transport.PublishBatchAsync(events, new TransportContext());
+
+        var done = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(15)));
+        done.Should().Be(tcs.Task, "All batch messages should be delivered");
+        Volatile.Read(ref received).Should().Be(total);
+    }
+
+    #endregion
+
+    #region Distributed Lock E2E Tests
+
+    [Fact]
+    public async Task E2E_Redis_DistributedLock_MutualExclusion()
+    {
+        if (_redis is null) return;
+
+        var options = Microsoft.Extensions.Options.Options.Create(new Catga.Abstractions.DistributedLockOptions
+        {
+            DefaultExpiry = TimeSpan.FromSeconds(30),
+            DefaultWaitTimeout = TimeSpan.FromSeconds(10),
+            RetryInterval = TimeSpan.FromMilliseconds(50)
+        });
+        var logger = Mock.Of<ILogger<Catga.Persistence.Redis.Locking.RedisDistributedLock>>();
+        var lockService = new Catga.Persistence.Redis.Locking.RedisDistributedLock(_redis, options, logger);
+
+        var resource = $"test-lock-{Guid.NewGuid()}";
+        var executionOrder = new List<int>();
+        var lockObj = new object();
+
+        async Task WorkerAsync(int id)
+        {
+            await using var handle = await lockService.AcquireAsync(resource, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(10));
+            lock (lockObj) executionOrder.Add(id);
+            await Task.Delay(50); // Hold lock briefly
+        }
+
+        // Start 3 workers concurrently
+        var tasks = new[] { WorkerAsync(1), WorkerAsync(2), WorkerAsync(3) };
+        await Task.WhenAll(tasks);
+
+        // All should have executed (order may vary)
+        executionOrder.Should().HaveCount(3);
+        executionOrder.Should().Contain(new[] { 1, 2, 3 });
+    }
+
+    [Fact]
+    public async Task E2E_Redis_DistributedLock_Timeout()
+    {
+        if (_redis is null) return;
+
+        var options = Microsoft.Extensions.Options.Options.Create(new Catga.Abstractions.DistributedLockOptions
+        {
+            DefaultExpiry = TimeSpan.FromSeconds(30),
+            DefaultWaitTimeout = TimeSpan.FromMilliseconds(500),
+            RetryInterval = TimeSpan.FromMilliseconds(50)
+        });
+        var logger = Mock.Of<ILogger<Catga.Persistence.Redis.Locking.RedisDistributedLock>>();
+        var lockService = new Catga.Persistence.Redis.Locking.RedisDistributedLock(_redis, options, logger);
+
+        var resource = $"test-lock-timeout-{Guid.NewGuid()}";
+
+        // Acquire first lock
+        await using var lock1 = await lockService.AcquireAsync(resource, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(5));
+
+        // Second lock should timeout
+        var sw = Stopwatch.StartNew();
+        Func<Task> act = async () => await lockService.AcquireAsync(resource, TimeSpan.FromSeconds(30), TimeSpan.FromMilliseconds(500));
+        await act.Should().ThrowAsync<TimeoutException>();
+        sw.ElapsedMilliseconds.Should().BeGreaterOrEqualTo(400);
+    }
+
+    #endregion
+
+    #region Idempotency E2E Tests
+
+    [Fact]
+    public async Task E2E_Redis_Idempotency_DuplicateMessagesProcessedOnce()
+    {
+        if (_redis is null) return;
+
+        var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
+        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: provider);
+
+        var messageId = MessageExtensions.NewMessageId();
+        var processCount = 0;
+
+        // Simulate processing same message 3 times
+        for (int i = 0; i < 3; i++)
+        {
+            var locked = await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
+            if (locked)
+            {
+                processCount++;
+                await inbox.MarkAsProcessedAsync(new InboxMessage
+                {
+                    MessageId = messageId,
+                    MessageType = "TestEvent",
+                    Payload = Array.Empty<byte>(),
+                    Status = InboxStatus.Processed,
+                    ReceivedAt = DateTime.UtcNow,
+                    ProcessedAt = DateTime.UtcNow,
+                    ProcessingResult = System.Text.Encoding.UTF8.GetBytes("ok")
+                });
+            }
+        }
+
+        processCount.Should().Be(1, "message should only be processed once");
+        (await inbox.HasBeenProcessedAsync(messageId)).Should().BeTrue();
+    }
+
+    #endregion
+
+    #region Outbox Pattern E2E Tests
+
+    [Fact]
+    public async Task E2E_Outbox_GetPending_MarkPublished_Workflow()
+    {
+        if (_redis is null) return;
+
+        var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
+        var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!, options: null, provider: provider);
+
+        // Add multiple messages
+        var messages = Enumerable.Range(0, 5).Select(i => new OutboxMessage
+        {
+            MessageId = MessageExtensions.NewMessageId(),
+            MessageType = "TestEvent",
+            Payload = _serializer!.Serialize(new TestEvent { MessageId = 0, Id = $"outbox-{i}", Data = "test" }),
+            Status = OutboxStatus.Pending,
+            CreatedAt = DateTime.UtcNow
+        }).ToList();
+
+        foreach (var msg in messages)
+            await outbox.AddAsync(msg);
+
+        // Get pending
+        var pending = await outbox.GetPendingMessagesAsync(10);
+        pending.Should().HaveCountGreaterOrEqualTo(5);
+
+        // Mark as published
+        foreach (var msg in messages)
+            await outbox.MarkAsPublishedAsync(msg.MessageId);
+
+        // Verify no longer pending
+        var pendingAfter = await outbox.GetPendingMessagesAsync(10);
+        pendingAfter.Where(p => messages.Any(m => m.MessageId == p.MessageId)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task E2E_Outbox_MarkFailed_IncreasesRetryCount()
+    {
+        if (_redis is null) return;
+
+        var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
+        var outbox = new RedisOutboxPersistence(_redis!, _serializer!, _outboxLogger!, options: null, provider: provider);
+
+        var messageId = MessageExtensions.NewMessageId();
+        var msg = new OutboxMessage
+        {
+            MessageId = messageId,
+            MessageType = "TestEvent",
+            Payload = _serializer!.Serialize(new TestEvent { MessageId = 0, Id = "fail-test", Data = "test" }),
+            Status = OutboxStatus.Pending,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await outbox.AddAsync(msg);
+
+        // Mark as failed twice
+        await outbox.MarkAsFailedAsync(messageId, "Error 1");
+        await outbox.MarkAsFailedAsync(messageId, "Error 2");
+
+        // Message should still be retrievable (for retry)
+        var pending = await outbox.GetPendingMessagesAsync(100);
+        var found = pending.FirstOrDefault(p => p.MessageId == messageId);
+        found.Should().NotBeNull();
+        found!.RetryCount.Should().BeGreaterOrEqualTo(2);
+    }
+
+    #endregion
+
+    #region Cross-Transport E2E Tests
+
+    [Fact]
+    public async Task E2E_NATS_To_Redis_CrossTransport_MessageFlow()
+    {
+        if (_natsConnection is null || _redis is null) return;
+
+        var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
+
+        // NATS publisher
+        await using var natsTransport = new NatsMessageTransport(_natsConnection, _serializer!, _natsLogger!, provider, new NatsTransportOptions { SubjectPrefix = "cross" });
+
+        // Redis subscriber (simulating different service)
+        await using var redisTransport = new RedisMessageTransport(_redis, _serializer!, provider);
+
+        var natsReceived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var redisReceived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await natsTransport.SubscribeAsync<TestEvent>(async (msg, ctx) =>
+        {
+            await Task.CompletedTask;
+            natsReceived.TrySetResult();
+        });
+
+        await redisTransport.SubscribeAsync<TestEvent>(async (msg, ctx) =>
+        {
+            await Task.CompletedTask;
+            redisReceived.TrySetResult();
+        });
+
+        await Task.Delay(200);
+
+        // Publish to both
+        var ev = new TestEvent { MessageId = MessageExtensions.NewMessageId(), Id = "cross-1", Data = "cross-transport" };
+        await natsTransport.PublishAsync(ev, new TransportContext { MessageId = ev.MessageId });
+        await redisTransport.PublishAsync(ev, new TransportContext { MessageId = ev.MessageId });
+
+        // Both should receive
+        var natsDone = await Task.WhenAny(natsReceived.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        var redisDone = await Task.WhenAny(redisReceived.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+
+        natsDone.Should().Be(natsReceived.Task, "NATS should receive message");
+        redisDone.Should().Be(redisReceived.Task, "Redis should receive message");
+    }
+
+    #endregion
+
+    #region Concurrency E2E Tests
+
+    [Fact]
+    public async Task E2E_HighConcurrency_MultiplePublishers_NoMessageLoss()
+    {
+        if (_natsConnection is null || _redis is null) return;
+
+        var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
+        await using var transport = new NatsMessageTransport(_natsConnection, _serializer!, _natsLogger!, provider, new NatsTransportOptions { SubjectPrefix = "concurrent" });
+        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: provider);
+
+        var totalMessages = 50;
+        var received = 0;
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await transport.SubscribeAsync<TestEvent>(async (msg, ctx) =>
+        {
+            if (!await inbox.TryLockMessageAsync(msg.MessageId, TimeSpan.FromMinutes(5))) return;
+            await inbox.MarkAsProcessedAsync(new InboxMessage
+            {
+                MessageId = msg.MessageId,
+                MessageType = typeof(TestEvent).FullName!,
+                Payload = Array.Empty<byte>(),
+                Status = InboxStatus.Processed,
+                ReceivedAt = DateTime.UtcNow,
+                ProcessedAt = DateTime.UtcNow,
+                ProcessingResult = Array.Empty<byte>()
+            });
+            if (Interlocked.Increment(ref received) == totalMessages)
+                tcs.TrySetResult();
+        });
+
+        await Task.Delay(200);
+
+        // 5 concurrent publishers, each publishing 10 messages
+        var publishTasks = Enumerable.Range(0, 5).Select(async publisherId =>
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                var ev = new TestEvent
+                {
+                    MessageId = MessageExtensions.NewMessageId(),
+                    Id = $"p{publisherId}-m{i}",
+                    Data = "concurrent",
+                    QoS = QualityOfService.AtLeastOnce
+                };
+                await transport.PublishAsync(ev, new TransportContext { MessageId = ev.MessageId });
+            }
+        });
+
+        await Task.WhenAll(publishTasks);
+
+        var done = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(30)));
+        done.Should().Be(tcs.Task, "all concurrent messages should be delivered");
+        Volatile.Read(ref received).Should().Be(totalMessages);
+    }
+
+    #endregion
+
+    #region Performance E2E Tests
+
+    [Fact]
+    public async Task E2E_Throughput_1000Messages_Under10Seconds()
+    {
+        if (_natsConnection is null || _redis is null) return;
+
+        var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
+        await using var transport = new NatsMessageTransport(_natsConnection, _serializer!, _natsLogger!, provider, new NatsTransportOptions { SubjectPrefix = "perf" });
+
+        var totalMessages = 1000;
+        var received = 0;
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await transport.SubscribeAsync<TestEvent>(async (msg, ctx) =>
+        {
+            await Task.CompletedTask;
+            if (Interlocked.Increment(ref received) == totalMessages)
+                tcs.TrySetResult();
+        });
+
+        await Task.Delay(200);
+
+        var sw = Stopwatch.StartNew();
+
+        // Batch publish for performance
+        var events = Enumerable.Range(0, totalMessages).Select(i => new TestEvent
+        {
+            MessageId = MessageExtensions.NewMessageId(),
+            Id = $"perf-{i}",
+            Data = "performance",
+            QoS = QualityOfService.AtMostOnce // Fast path
+        }).ToList();
+
+        await transport.PublishBatchAsync(events, new TransportContext());
+
+        var done = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(30)));
+        sw.Stop();
+
+        done.Should().Be(tcs.Task, "all messages should be delivered");
+        sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10), "1000 messages should complete under 10 seconds");
+    }
+
+    #endregion
+
+    #region Error Handling E2E Tests
+
+    [Fact]
+    public async Task E2E_NATS_MessageHandlerThrows_DoesNotCrashTransport()
+    {
+        if (_natsConnection is null) return;
+
+        var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
+        await using var transport = new NatsMessageTransport(_natsConnection, _serializer!, _natsLogger!, provider, new NatsTransportOptions { SubjectPrefix = "error" });
+
+        var successCount = 0;
+        var errorCount = 0;
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await transport.SubscribeAsync<TestEvent>(async (msg, ctx) =>
+        {
+            await Task.CompletedTask;
+            if (msg.Id.Contains("fail"))
+            {
+                Interlocked.Increment(ref errorCount);
+                throw new Exception("Simulated handler failure");
+            }
+            if (Interlocked.Increment(ref successCount) == 2)
+                tcs.TrySetResult();
+        });
+
+        await Task.Delay(200);
+
+        // Publish mix of success and failure messages
+        var events = new[]
+        {
+            new TestEvent { MessageId = MessageExtensions.NewMessageId(), Id = "success-1", Data = "ok" },
+            new TestEvent { MessageId = MessageExtensions.NewMessageId(), Id = "fail-1", Data = "error" },
+            new TestEvent { MessageId = MessageExtensions.NewMessageId(), Id = "success-2", Data = "ok" }
+        };
+
+        foreach (var ev in events)
+            await transport.PublishAsync(ev, new TransportContext { MessageId = ev.MessageId });
+
+        var done = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        done.Should().Be(tcs.Task, "successful messages should still be processed");
+        Volatile.Read(ref successCount).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task E2E_Redis_LargeMessage_ProcessedCorrectly()
+    {
+        if (_redis is null) return;
+
+        var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
+        await using var transport = new RedisMessageTransport(_redis, _serializer!, provider);
+
+        var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await transport.SubscribeAsync<TestEvent>(async (msg, ctx) =>
+        {
+            await Task.CompletedTask;
+            tcs.TrySetResult(msg.Data);
+        });
+
+        await Task.Delay(200);
+
+        // Create large payload (100KB)
+        var largeData = new string('X', 100_000);
+        var ev = new TestEvent { MessageId = MessageExtensions.NewMessageId(), Id = "large-1", Data = largeData };
+        await transport.PublishAsync(ev, new TransportContext { MessageId = ev.MessageId });
+
+        var done = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        done.Should().Be(tcs.Task, "large message should be delivered");
+        (await tcs.Task).Length.Should().Be(100_000);
+    }
+
+    #endregion
+
+    #region Ordering E2E Tests
+
+    [Fact]
+    public async Task E2E_NATS_MessageOrdering_PreservedInSequence()
+    {
+        if (_natsConnection is null) return;
+
+        var provider = new Catga.Resilience.DiagnosticResiliencePipelineProvider();
+        await using var transport = new NatsMessageTransport(_natsConnection, _serializer!, _natsLogger!, provider, new NatsTransportOptions { SubjectPrefix = "order" });
+
+        var receivedOrder = new List<int>();
+        var lockObj = new object();
+        var total = 20;
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await transport.SubscribeAsync<TestEvent>(async (msg, ctx) =>
+        {
+            await Task.CompletedTask;
+            var index = int.Parse(msg.Id.Split('-')[1]);
+            lock (lockObj) receivedOrder.Add(index);
+            if (receivedOrder.Count == total)
+                tcs.TrySetResult();
+        });
+
+        await Task.Delay(200);
+
+        // Publish in order
+        for (int i = 0; i < total; i++)
+        {
+            var ev = new TestEvent { MessageId = MessageExtensions.NewMessageId(), Id = $"seq-{i}", Data = "ordered" };
+            await transport.PublishAsync(ev, new TransportContext { MessageId = ev.MessageId });
+        }
+
+        var done = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromSeconds(15)));
+        done.Should().Be(tcs.Task, "all messages should be received");
+
+        // Verify order is preserved (NATS core pub/sub should maintain order for single publisher)
+        receivedOrder.Should().BeInAscendingOrder();
+    }
+
+    #endregion
+
     // Test model
     [MemoryPack.MemoryPackable]
     private partial record TestEvent : IEvent

@@ -9,7 +9,29 @@
 
 ## [Unreleased]
 
-计划中的特性和改进。
+### Added
+
+#### Flow DSL - 分布式事务 DSL
+- ✅ **Fluent DSL API** - `Send`, `Query`, `Publish`, `WhenAll`, `WhenAny`
+- ✅ **自动补偿** - `IfFail`, `IfAnyFail` 自动回滚
+- ✅ **条件执行** - `OnlyWhen` 条件步骤
+- ✅ **并行执行** - `WhenAll`/`WhenAny` 子流程协调
+- ✅ **超时配置** - 默认超时 + 标签超时
+- ✅ **状态追踪** - `IFlowState` 变更追踪
+- ✅ **持久化** - InMemory + Redis 存储
+- ✅ **Telemetry** - ActivitySource + Metrics 集成
+- ✅ **源代码生成器** - `[FlowState]` 自动生成 IFlowState
+
+#### 新增文件
+- `src/Catga/Flow/Abstractions.cs` - 核心接口
+- `src/Catga/Flow/FlowConfig.cs` - DSL 配置
+- `src/Catga/Flow/DslFlowExecutor.cs` - 执行器
+- `src/Catga/Flow/InMemoryDslFlowStore.cs` - 内存存储
+- `src/Catga/Flow/FlowResumeHandler.cs` - 恢复处理器
+- `src/Catga/Flow/DslFlowServiceExtensions.cs` - DI 扩展
+- `src/Catga.Persistence.Redis/Flow/RedisDslFlowStore.cs` - Redis 存储
+- `src/Catga.SourceGenerator/FlowStateGenerator.cs` - 源生成器
+- `docs/guides/flow-dsl.md` - 文档
 
 ---
 

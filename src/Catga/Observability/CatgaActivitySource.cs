@@ -6,7 +6,7 @@ namespace Catga.Observability;
 /// Centralized ActivitySource for Catga framework distributed tracing
 /// Provides distributed tracing for all operations
 /// </summary>
-public static class CatgaActivitySource
+internal static class CatgaActivitySource
 {
     /// <summary>Activity source name for Catga framework</summary>
     public const string SourceName = "Catga.Framework";

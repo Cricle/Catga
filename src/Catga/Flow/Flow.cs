@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -413,7 +414,7 @@ public abstract class FlowRecoveryService : IDisposable
 public static class FlowServiceCollectionExtensions
 {
     /// <summary>Add flow services with custom store.</summary>
-    public static IServiceCollection AddFlow<TStore>(this IServiceCollection services, Action<FlowOptions>? configure = null)
+    public static IServiceCollection AddFlow<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TStore>(this IServiceCollection services, Action<FlowOptions>? configure = null)
         where TStore : class, IFlowStore
     {
         var options = new FlowOptions();

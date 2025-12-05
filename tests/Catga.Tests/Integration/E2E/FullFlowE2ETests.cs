@@ -433,7 +433,7 @@ public sealed partial class FullFlowE2ETests
 
     private sealed class PaymentAttemptTracker
     {
-        public int Attempts;
+        public int Attempts = 0;
     }
 
     private sealed class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, ProcessPaymentResult>

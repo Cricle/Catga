@@ -6,7 +6,7 @@ namespace Catga.Core;
 /// <summary>
 /// Centralized memory pool manager for Catga (AOT-safe, thread-safe, zero-config)
 /// </summary>
-public static class MemoryPoolManager
+internal static class MemoryPoolManager
 {
     /// <summary>
     /// Rent array from shared pool
@@ -46,7 +46,7 @@ public static class MemoryPoolManager
 /// // Automatically returned to pool when exiting scope
 /// </code>
 /// </remarks>
-public readonly struct PooledArray<T> : IDisposable
+internal readonly struct PooledArray<T> : IDisposable
 {
     /// <summary>
     /// The rented array

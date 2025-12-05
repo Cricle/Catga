@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using System.Text.Json;
+using Catga.Abstractions;
 using Catga.Flow;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
@@ -14,15 +14,17 @@ namespace Catga.Persistence.Nats.Flow;
 public sealed class NatsFlowStore : IFlowStore
 {
     private readonly INatsConnection _nats;
+    private readonly IMessageSerializer _serializer;
     private readonly string _streamName;
     private readonly ConcurrentDictionary<string, FlowState> _cache = new();
     private readonly ConcurrentDictionary<string, ulong> _sequences = new();
     private INatsJSContext? _js;
     private bool _initialized;
 
-    public NatsFlowStore(INatsConnection nats, string streamName = "FLOWS")
+    public NatsFlowStore(INatsConnection nats, IMessageSerializer serializer, string streamName = "FLOWS")
     {
         _nats = nats;
+        _serializer = serializer;
         _streamName = streamName;
     }
 
@@ -54,11 +56,11 @@ public sealed class NatsFlowStore : IFlowStore
 
         var js = await GetJsAsync(ct);
         var subject = $"{_streamName}.{state.Id}";
-        var json = JsonSerializer.SerializeToUtf8Bytes(state);
+        var data = _serializer.Serialize(state);
 
         try
         {
-            var ack = await js.PublishAsync(subject, json, cancellationToken: ct);
+            var ack = await js.PublishAsync(subject, data, cancellationToken: ct);
             _cache[state.Id] = state;
             _sequences[state.Id] = ack.Seq;
             return true;
@@ -91,11 +93,11 @@ public sealed class NatsFlowStore : IFlowStore
             Data = state.Data,
             Error = state.Error
         };
-        var json = JsonSerializer.SerializeToUtf8Bytes(updatedState);
+        var data = _serializer.Serialize(updatedState);
 
         try
         {
-            var ack = await js.PublishAsync(subject, json,
+            var ack = await js.PublishAsync(subject, data,
                 opts: new NatsJSPubOpts { ExpectedLastSubjectSequence = expectedSeq },
                 cancellationToken: ct);
 

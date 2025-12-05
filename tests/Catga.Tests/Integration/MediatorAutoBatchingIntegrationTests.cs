@@ -182,13 +182,17 @@ public class MediatorAutoBatchingIntegrationTests
     [Fact]
     public async Task KeySelector_FromAttribute_SplitsShards_ByCategory()
     {
+        // Manually register key selector since Source Generator is disabled
+        MediatorBatchProfiles.RegisterKeySelector<AttrKeyReq>(static r => r.Category ?? string.Empty);
+        MediatorBatchProfiles.RegisterOptionsTransformer<AttrKeyReq>(static g => g with { MaxBatchSize = 2 });
+
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddCatga()
             .UseMediatorAutoBatching(o =>
             {
                 o.EnableAutoBatching = true;
-                o.MaxBatchSize = 64; // global, overridden by attribute to 2
+                o.MaxBatchSize = 64; // global, overridden by manual registration to 2
                 o.BatchTimeout = TimeSpan.FromSeconds(30); // avoid timer-based flush
             })
             .UseResilience();

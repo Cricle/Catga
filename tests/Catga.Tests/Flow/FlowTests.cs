@@ -231,7 +231,7 @@ public class FlowTests
                 async ct => { compensated.Add(2); await Task.Delay(1, ct); })
             .Step(async ct => { await Task.Delay(1, ct); },
                 async ct => { compensated.Add(3); await Task.Delay(1, ct); })
-            .Step(async ct => { throw new Exception("fail"); })
+            .Step(ct => { throw new Exception("fail"); })
             .ExecuteAsync();
 
         result.IsSuccess.Should().BeFalse();
@@ -249,7 +249,7 @@ public class FlowTests
                 async ct => { compensated.Add(1); await Task.Delay(1, ct); })
             .Step(async ct => { executed.Add(2); await Task.Delay(1, ct); },
                 async ct => { compensated.Add(2); await Task.Delay(1, ct); })
-            .Step(async ct => { executed.Add(3); throw new Exception("last fail"); })
+            .Step(ct => { executed.Add(3); throw new Exception("last fail"); })
             .ExecuteAsync();
 
         result.IsSuccess.Should().BeFalse();
@@ -266,7 +266,7 @@ public class FlowTests
         var result = await Flow.Create("Test")
             .Step(async ct => { executed.Add(1); await Task.Delay(1, ct); },
                 async ct => { compensated.Add(1); await Task.Delay(1, ct); })
-            .Step(async ct => { executed.Add(2); throw new Exception("middle fail"); },
+            .Step(ct => { executed.Add(2); throw new Exception("middle fail"); },
                 async ct => { compensated.Add(2); await Task.Delay(1, ct); })
             .Step(async ct => { executed.Add(3); await Task.Delay(1, ct); },
                 async ct => { compensated.Add(3); await Task.Delay(1, ct); })
@@ -328,7 +328,7 @@ public class FlowTests
             .Step(async ct => { await Task.Delay(1, ct); }, null)
             .Step(async ct => { await Task.Delay(1, ct); },
                 async ct => { compensated.Add(2); await Task.Delay(1, ct); })
-            .Step(async ct => { throw new Exception("fail"); })
+            .Step(ct => { throw new Exception("fail"); })
             .ExecuteAsync();
 
         result.IsSuccess.Should().BeFalse();

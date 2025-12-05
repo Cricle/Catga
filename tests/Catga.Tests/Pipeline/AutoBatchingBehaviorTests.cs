@@ -137,8 +137,11 @@ public class AutoBatchingBehaviorTests
     }
 
     [Fact]
-    public void GeneratedKeySelector_Works_WithoutExtension()
+    public void ManualKeySelector_Works_WithoutExtension()
     {
+        // Manually register key selector since Source Generator is disabled
+        MediatorBatchProfiles.RegisterKeySelector<KeyReq>(static r => r.TenantId);
+
         var services = new ServiceCollection();
         var builder = services.AddCatga();
         builder.UseMediatorAutoBatching(o => o.EnableAutoBatching = true);
@@ -150,12 +153,14 @@ public class AutoBatchingBehaviorTests
     }
 
     [Fact]
-    public void GeneratedKeySelector_Works()
+    public void ManualKeySelector_Works()
     {
+        // Manually register key selector since Source Generator is disabled
+        MediatorBatchProfiles.RegisterKeySelector<KeyReq>(static r => r.TenantId);
+
         var services = new ServiceCollection();
         var builder = services.AddCatga();
-        builder.UseMediatorAutoBatching(o => o.EnableAutoBatching = true)
-               .UseMediatorAutoBatchingProfilesFromAssembly();
+        builder.UseMediatorAutoBatching(o => o.EnableAutoBatching = true);
         using var sp = services.BuildServiceProvider();
 
         var provider = sp.GetRequiredService<IMediatorBatchOptionsProvider>();

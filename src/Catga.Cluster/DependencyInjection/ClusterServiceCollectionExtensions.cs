@@ -53,7 +53,7 @@ public static class ClusterServiceCollectionExtensions
     /// <summary>
     /// Registers a singleton task that only runs on the leader node.
     /// </summary>
-    public static IServiceCollection AddSingletonTask<TTask>(this IServiceCollection services)
+    public static IServiceCollection AddSingletonTask<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TTask>(this IServiceCollection services)
         where TTask : SingletonTaskRunner
     {
         services.AddHostedService<TTask>();

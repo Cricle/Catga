@@ -23,7 +23,7 @@ namespace Catga.Core;
 /// Thread Safety: Not thread-safe. Each instance should be used by single thread.
 /// </para>
 /// </remarks>
-public sealed class PooledBufferWriter<T> : IBufferWriter<T>, IDisposable
+internal sealed class PooledBufferWriter<T> : IBufferWriter<T>, IDisposable
 {
     private T[] _buffer;
     private int _index;

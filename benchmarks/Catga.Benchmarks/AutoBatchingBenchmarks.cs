@@ -154,7 +154,7 @@ public class AutoBatchingBenchmarks
         public long MessageId { get; init; }
     }
 
-    private sealed class UnkeyedReqHandler : IRequestHandler<UnkeyedReq, int>
+    internal sealed class UnkeyedReqHandler : IRequestHandler<UnkeyedReq, int>
     {
         public Task<CatgaResult<int>> HandleAsync(UnkeyedReq request, CancellationToken cancellationToken = default)
             => Task.FromResult(CatgaResult<int>.Success(1));
@@ -167,7 +167,7 @@ public class AutoBatchingBenchmarks
         public long MessageId { get; init; }
     }
 
-    private sealed class KeyedReqHandler : IRequestHandler<KeyedReq, int>
+    internal sealed class KeyedReqHandler : IRequestHandler<KeyedReq, int>
     {
         public Task<CatgaResult<int>> HandleAsync(KeyedReq request, CancellationToken cancellationToken = default)
             => Task.FromResult(CatgaResult<int>.Success(1));

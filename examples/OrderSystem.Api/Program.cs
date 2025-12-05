@@ -5,6 +5,9 @@ using OrderSystem.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ===== Cluster Mode Detection =====
+var clusterEnabled = Environment.GetEnvironmentVariable("Catga__ClusterEnabled") == "true";
+
 // ===== Catga Configuration =====
 builder.Services
     .AddCatga()
@@ -16,7 +19,16 @@ builder.Services.AddInMemoryTransport();
 builder.Services.AddInMemoryPersistence();
 
 // ===== Business Services =====
-builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
+// In cluster mode, use Redis for distributed storage
+// In single mode, use in-memory for simplicity
+if (clusterEnabled)
+{
+    builder.Services.AddSingleton<IOrderRepository, RedisOrderRepository>();
+}
+else
+{
+    builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
+}
 builder.Services.AddSingleton<IInventoryService, DistributedInventoryService>();
 builder.Services.AddSingleton<IPaymentService, SimulatedPaymentService>();
 
@@ -49,7 +61,6 @@ app.MapHealthChecks("/health/ready");
 
 // ===== Cluster Status Endpoints =====
 var nodeId = Environment.GetEnvironmentVariable("Catga__NodeId") ?? $"node-{Environment.ProcessId}";
-var clusterEnabled = Environment.GetEnvironmentVariable("Catga__ClusterEnabled") == "true";
 
 app.MapGet("/api/cluster/status", () => new
 {

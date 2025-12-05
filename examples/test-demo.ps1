@@ -44,12 +44,13 @@ function Write-TestResult {
 }
 
 function Test-Endpoint {
-    param([string]$Url, [string]$Method = "GET", [object]$Body = $null)
+    param([string]$Url, [string]$Method = "GET", [object]$Body = $null, [int]$TimeoutSec = 5)
     try {
         $params = @{
             Uri = $Url
             Method = $Method
             ContentType = "application/json"
+            TimeoutSec = $TimeoutSec
             ErrorAction = "Stop"
         }
         if ($Body) {
@@ -153,27 +154,19 @@ if ($result.Success -and $result.Data.orderId) {
         Write-TestResult "Get order by ID" $false $result.Error
     }
 
-    # Test 5: Cancel Order (skip in cluster mode - in-memory storage per node)
-    $clusterCheck = Test-Endpoint "$BaseUrl/api/cluster/status"
-    $isCluster = $clusterCheck.Success -and $clusterCheck.Data.clusterEnabled -eq $true
-
+    # Test 5: Cancel Order
+    Start-Sleep -Milliseconds 300
+    $cancelPayload = @{
+        orderId = $orderId
+        reason = "Test cancellation"
+    }
+    $result = Test-Endpoint "$BaseUrl/api/orders/$orderId/cancel" "POST" $cancelPayload
     $totalTests++
-    if ($isCluster) {
+    if ($result.Success) {
         $passedTests++
-        Write-Host "  [SKIP] Cancel order skipped in cluster mode" -ForegroundColor Yellow
+        Write-TestResult "Cancel order" $true
     } else {
-        Start-Sleep -Milliseconds 300
-        $cancelPayload = @{
-            orderId = $orderId
-            reason = "Test cancellation"
-        }
-        $result = Test-Endpoint "$BaseUrl/api/orders/$orderId/cancel" "POST" $cancelPayload
-        if ($result.Success) {
-            $passedTests++
-            Write-TestResult "Cancel order" $true
-        } else {
-            Write-TestResult "Cancel order" $false $result.Error
-        }
+        Write-TestResult "Cancel order" $false $result.Error
     }
 } else {
     Write-TestResult "Create order" $false ($result.Error ?? "No orderId returned")
@@ -266,71 +259,61 @@ if ($concurrentSuccess -eq $concurrentCount) {
     Write-TestResult "Concurrent order creation" $false "$concurrentSuccess/$concurrentCount succeeded"
 }
 
-# Test 9: Order Status Verification (Single node only - distributed storage not shared)
+# Test 9: Order Status Verification
 Write-TestHeader "Order Status Verification"
 
-# Check if we're in cluster mode
-$clusterResult = Test-Endpoint "$BaseUrl/api/cluster/status"
-$isClusterMode = $clusterResult.Success -and $clusterResult.Data.clusterEnabled -eq $true
+$statusPayload = @{
+    customerId = "STATUS-TEST-$(Get-Random -Maximum 9999)"
+    items = @(@{
+        productId = "STATUS-PROD"
+        productName = "Status Test Product"
+        quantity = 1
+        unitPrice = 100.00
+    })
+    shippingAddress = "Status Test Address"
+    paymentMethod = "credit_card"
+}
 
-if ($isClusterMode) {
-    Write-Host "  [SKIP] Status tests skipped in cluster mode (in-memory storage per node)" -ForegroundColor Yellow
-    # Still count as passed since this is expected behavior
-    $totalTests += 2
-    $passedTests += 2
+$result = Test-Endpoint "$BaseUrl/api/orders" "POST" $statusPayload
+$totalTests++
+if ($result.Success -and $result.Data.orderId) {
+    $statusOrderId = $result.Data.orderId
+
+    # Get order and check status
+    Start-Sleep -Milliseconds 200
+    $result = Test-Endpoint "$BaseUrl/api/orders/$statusOrderId"
+    if ($result.Success -and $result.Data -and $result.Data.status -ne $null) {
+        $passedTests++
+        Write-TestResult "Order status check" $true "Status=$($result.Data.status)"
+    } else {
+        Write-TestResult "Order status check" $false "Could not verify status"
+    }
 } else {
-    # Create a new order and verify its status
-    $statusPayload = @{
-        customerId = "STATUS-TEST-$(Get-Random -Maximum 9999)"
-        items = @(@{
-            productId = "STATUS-PROD"
-            productName = "Status Test Product"
-            quantity = 1
-            unitPrice = 100.00
-        })
-        shippingAddress = "Status Test Address"
-        paymentMethod = "credit_card"
-    }
+    Write-TestResult "Order status check" $false "Failed to create test order"
+}
 
-    $result = Test-Endpoint "$BaseUrl/api/orders" "POST" $statusPayload
-    $totalTests++
-    if ($result.Success -and $result.Data.orderId) {
-        $statusOrderId = $result.Data.orderId
+# Test 10: Cancel and Verify Status Change
+$totalTests++
+if ($statusOrderId) {
+    Start-Sleep -Milliseconds 200
+    $cancelPayload = @{ orderId = $statusOrderId; reason = "Status test cancellation" }
+    $result = Test-Endpoint "$BaseUrl/api/orders/$statusOrderId/cancel" "POST" $cancelPayload
 
-        # Get order and check status
+    if ($result.Success) {
+        # Verify cancelled status
+        Start-Sleep -Milliseconds 200
         $result = Test-Endpoint "$BaseUrl/api/orders/$statusOrderId"
-        if ($result.Success -and $result.Data.status -ne $null) {
+        if ($result.Success -and $result.Data -and $result.Data.status -eq 1) {
             $passedTests++
-            Write-TestResult "Order status check" $true "Status=$($result.Data.status)"
+            Write-TestResult "Cancel status verification" $true "Order correctly marked as Cancelled"
         } else {
-            Write-TestResult "Order status check" $false "Could not verify status"
+            Write-TestResult "Cancel status verification" $false "Status not updated to Cancelled (got $($result.Data.status))"
         }
     } else {
-        Write-TestResult "Order status check" $false "Failed to create test order"
+        Write-TestResult "Cancel status verification" $false "Cancel request failed: $($result.Error)"
     }
-
-    # Test 10: Cancel and Verify Status Change
-    $totalTests++
-    if ($statusOrderId) {
-        Start-Sleep -Milliseconds 300
-        $cancelPayload = @{ orderId = $statusOrderId; reason = "Status test cancellation" }
-        $result = Test-Endpoint "$BaseUrl/api/orders/$statusOrderId/cancel" "POST" $cancelPayload
-
-        if ($result.Success) {
-            # Verify cancelled status
-            $result = Test-Endpoint "$BaseUrl/api/orders/$statusOrderId"
-            if ($result.Success -and $result.Data.status -eq 1) {  # 1 = Cancelled (Pending=0, Cancelled=1, Confirmed=2, Failed=3)
-                $passedTests++
-                Write-TestResult "Cancel status verification" $true "Order correctly marked as Cancelled"
-            } else {
-                Write-TestResult "Cancel status verification" $false "Status not updated to Cancelled (got $($result.Data.status))"
-            }
-        } else {
-            Write-TestResult "Cancel status verification" $false "Cancel request failed: $($result.Error)"
-        }
-    } else {
-        Write-TestResult "Cancel status verification" $false "No order to cancel"
-    }
+} else {
+    Write-TestResult "Cancel status verification" $false "No order to cancel"
 }
 
 # Test 11: Invalid Order ID (returns null for non-existent order)
@@ -554,15 +537,15 @@ if ($TestCluster) {
         $lcOrderId = $result.Data.orderId
         Write-TestResult "Create order" $true "OrderId=$lcOrderId"
 
-        # Read (may fail in cluster mode due to in-memory storage per node)
+        # Read order (with Redis storage, should work across nodes)
+        Start-Sleep -Milliseconds 200
         $result = Test-Endpoint "$clusterEndpoint/api/orders/$lcOrderId"
         $totalTests++
-        if ($result.Success) {
+        if ($result.Success -and $result.Data) {
             $passedTests++
-            $status = if ($result.Data) { $result.Data.status } else { "null (expected in cluster)" }
-            Write-TestResult "Read order" $true "Status=$status"
+            Write-TestResult "Read order" $true "Status=$($result.Data.status)"
         } else {
-            Write-TestResult "Read order" $false $result.Error
+            Write-TestResult "Read order" $false "Order not found"
         }
 
         # List by customer

@@ -263,14 +263,14 @@ public class AutoTelemetryGenerator : IIncrementalGenerator
         sb.AppendLine("        catch (Exception ex)");
         sb.AppendLine("        {");
         sb.AppendLine("            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);");
-        sb.AppendLine($"            s_errors.Add(1, new TagList {{ {{ \"handler\", \"{handler.ClassName}\" }}, {{ \"error\", ex.GetType().Name }} }});");
+        sb.AppendLine($"            s_errors.Add(1, new KeyValuePair<string, object?>(\"handler\", \"{handler.ClassName}\"), new KeyValuePair<string, object?>(\"error\", ex.GetType().Name));");
         sb.AppendLine("            throw;");
         sb.AppendLine("        }");
         sb.AppendLine("        finally");
         sb.AppendLine("        {");
         sb.AppendLine("            sw.Stop();");
-        sb.AppendLine($"            s_duration.Record(sw.Elapsed.TotalMilliseconds, new TagList {{ {{ \"handler\", \"{handler.ClassName}\" }}, {{ \"success\", success }} }});");
-        sb.AppendLine($"            s_count.Add(1, new TagList {{ {{ \"handler\", \"{handler.ClassName}\" }}, {{ \"success\", success }} }});");
+        sb.AppendLine($"            s_duration.Record(sw.Elapsed.TotalMilliseconds, new KeyValuePair<string, object?>(\"handler\", \"{handler.ClassName}\"), new KeyValuePair<string, object?>(\"success\", success));");
+        sb.AppendLine($"            s_count.Add(1, new KeyValuePair<string, object?>(\"handler\", \"{handler.ClassName}\"), new KeyValuePair<string, object?>(\"success\", success));");
         sb.AppendLine("        }");
         sb.AppendLine("    }");
         sb.AppendLine("}");

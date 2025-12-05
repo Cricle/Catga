@@ -63,12 +63,9 @@ internal static class ObservabilityHooks
     {
         if (!_enabled) return;
         var successValue = success ? "true" : "false";
-        var tags = new TagList
-        {
-            new("request_type", requestType),
-            new("success", successValue)
-        };
-        CatgaDiagnostics.CommandsExecuted.Add(1, tags);
+        var tag1 = new KeyValuePair<string, object?>("request_type", requestType);
+        var tag2 = new KeyValuePair<string, object?>("success", successValue);
+        CatgaDiagnostics.CommandsExecuted.Add(1, tag1, tag2);
 
         var dTag = new KeyValuePair<string, object?>("request_type", requestType);
         CatgaDiagnostics.CommandDuration.Record(durationMs, dTag);
@@ -83,12 +80,9 @@ internal static class ObservabilityHooks
     public static void RecordCommandError(string requestType, Exception ex, IDisposable? handle)
     {
         if (!_enabled) return;
-        var tags = new TagList
-        {
-            new("request_type", requestType),
-            new("success", "false")
-        };
-        CatgaDiagnostics.CommandsExecuted.Add(1, tags);
+        var tag1 = new KeyValuePair<string, object?>("request_type", requestType);
+        var tag2 = new KeyValuePair<string, object?>("success", "false");
+        CatgaDiagnostics.CommandsExecuted.Add(1, tag1, tag2);
         if (handle is Activity a)
         {
             a.SetStatus(ActivityStatusCode.Error, ex.Message);
@@ -125,12 +119,9 @@ internal static class ObservabilityHooks
         Span<char> countBuffer = stackalloc char[10];
         handlerCount.TryFormat(countBuffer, out var charsWritten);
         var handlerCountStr = new string(countBuffer[..charsWritten]);
-        var tags = new TagList
-        {
-            new("event_type", eventType),
-            new("handler_count", handlerCountStr)
-        };
-        CatgaDiagnostics.EventsPublished.Add(1, tags);
+        var tag1 = new KeyValuePair<string, object?>("event_type", eventType);
+        var tag2 = new KeyValuePair<string, object?>("handler_count", handlerCountStr);
+        CatgaDiagnostics.EventsPublished.Add(1, tag1, tag2);
     }
 
     // ---- Mediator Auto-Batching ----

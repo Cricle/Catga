@@ -115,12 +115,9 @@ public static class PipelineExecutor
         {
             var result = await behavior.HandleAsync(context.Request, next, context.CancellationToken);
             var elapsedMs = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
-            var tags = new TagList
-            {
-                new("request_type", TypeNameCache<TRequest>.Name),
-                new("behavior_type", behavior.GetType().Name)
-            };
-            CatgaDiagnostics.PipelineBehaviorDuration.Record(elapsedMs, tags);
+            var tag1 = new KeyValuePair<string, object?>("request_type", TypeNameCache<TRequest>.Name);
+            var tag2 = new KeyValuePair<string, object?>("behavior_type", behavior.GetType().Name);
+            CatgaDiagnostics.PipelineBehaviorDuration.Record(elapsedMs, tag1, tag2);
             if (span != null)
             {
                 span.SetTag(CatgaActivitySource.Tags.Duration, elapsedMs);

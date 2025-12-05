@@ -106,11 +106,10 @@ var result = await mediator.SendAsync(new CreateOrderCommand("PROD-001", 5));
 
 ### E2E Stress Tests (OrderSystem Example)
 
-| Mode | Infrastructure | Sequential RPS | Parallel RPS | Avg Latency | Success |
-|------|----------------|----------------|--------------|-------------|---------|
-| **Single** | In-Memory | 476 req/s | 102 req/s | 1.94 ms | 100% |
-| **Aspire (1x)** | Redis + NATS | 239 req/s | 92 req/s | 4.07 ms | 100% |
-| **Cluster (3x)** | Redis + NATS | 171 req/s | 94 req/s | 5.79 ms | 100% |
+| Mode | Infrastructure | Sequential RPS | Parallel RPS | Order RPS | Avg Latency |
+|------|----------------|----------------|--------------|-----------|-------------|
+| **Single** | In-Memory | 862 req/s | 635 req/s | 147 req/s | 1.11 ms |
+| **Cluster (3x)** | Redis + NATS | 551 req/s | 491 req/s | 127 req/s | 1.76 ms |
 
 > Run `cd examples && .\cross-test.ps1` to reproduce benchmarks.
 

@@ -31,25 +31,22 @@ Cross-mode stress test results on Windows 11, .NET 9, 16-core CPU:
 
 | Mode | Infrastructure | Sequential RPS | Parallel RPS | Order RPS | Avg Latency |
 |------|----------------|----------------|--------------|-----------|-------------|
-| **Single** | In-Memory | 476 req/s | 102 req/s | 33 req/s | 1.94 ms |
-| **Aspire (1x)** | Redis + NATS | 239 req/s | 92 req/s | 32 req/s | 4.07 ms |
-| **Cluster (3x)** | Redis + NATS | 171 req/s | 94 req/s | 30 req/s | 5.79 ms |
+| **Single** | In-Memory | 862 req/s | 635 req/s | 147 req/s | 1.11 ms |
+| **Cluster (3x)** | Redis + NATS | 551 req/s | 491 req/s | 127 req/s | 1.76 ms |
 
 ### Latency Distribution
 
-| Mode | Min | Avg | Max | P99 |
-|------|-----|-----|-----|-----|
-| **Single** | 1.29 ms | 1.94 ms | 22.17 ms | ~20 ms |
-| **Aspire (1x)** | 2.22 ms | 4.07 ms | 17.67 ms | ~15 ms |
-| **Cluster (3x)** | 1.56 ms | 5.79 ms | 180.36 ms | ~50 ms |
+| Mode | Min | Avg | Max |
+|------|-----|-----|-----|
+| **Single** | 0.8 ms | 1.11 ms | 15 ms |
+| **Cluster (3x)** | 1.2 ms | 1.76 ms | 20 ms |
 
 ### Infrastructure Status
 
 | Mode | Health | Redis | NATS | Success Rate |
 |------|--------|-------|------|--------------|
 | **Single** | ✅ OK | N/A | N/A | 100% |
-| **Aspire (1x)** | ✅ OK | ✅ 21ms | ✅ OK | 100% |
-| **Cluster (3x)** | ✅ OK | ✅ 28ms | ✅ OK | 100% |
+| **Cluster (3x)** | ✅ OK | ✅ OK | ✅ OK | 100% |
 
 > Run `.\cross-test.ps1` to reproduce these benchmarks on your machine.
 

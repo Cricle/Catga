@@ -100,11 +100,10 @@
 
 ### E2E 压力测试 (OrderSystem 示例)
 
-| 模式 | 基础设施 | 顺序 RPS | 并行 RPS | 平均延迟 | 成功率 |
-|------|----------|----------|----------|----------|--------|
-| **Single** | In-Memory | 476 req/s | 102 req/s | 1.94 ms | 100% |
-| **Aspire (1x)** | Redis + NATS | 239 req/s | 92 req/s | 4.07 ms | 100% |
-| **Cluster (3x)** | Redis + NATS | 171 req/s | 94 req/s | 5.79 ms | 100% |
+| 模式 | 基础设施 | 顺序 RPS | 并行 RPS | 订单 RPS | 平均延迟 |
+|------|----------|----------|----------|----------|----------|
+| **Single** | In-Memory | 862 req/s | 635 req/s | 147 req/s | 1.11 ms |
+| **Cluster (3x)** | Redis + NATS | 551 req/s | 491 req/s | 127 req/s | 1.76 ms |
 
 > 运行 `cd examples && .\cross-test.ps1` 复现测试结果
 

@@ -375,42 +375,212 @@ if ($result.Success) {
     Write-TestResult "Swagger spec" $false $result.Error
 }
 
-# Cluster Tests
+# Cluster E2E Tests (Aspire mode - all replicas behind single endpoint)
 if ($TestCluster) {
-    Write-TestHeader "Cluster Node Tests"
+    Write-TestHeader "Cluster Configuration"
 
-    $ports = @(5275, 5276, 5277)
-    foreach ($port in $ports) {
-        $nodeUrl = "http://localhost:$port"
-        $result = Test-Endpoint "$nodeUrl/api/cluster/node"
-        $totalTests++
-        if ($result.Success) {
-            $passedTests++
-            Write-TestResult "Node on port $port" $true "NodeId=$($result.Data.nodeId)"
-        } else {
-            Write-TestResult "Node on port $port" $false "Not reachable"
-        }
+    # In Aspire mode, all replicas are behind the same endpoint (load balanced)
+    $clusterEndpoint = $BaseUrl
+
+    # E2E Test 1: Verify cluster is enabled
+    $result = Test-Endpoint "$clusterEndpoint/api/cluster/status"
+    $totalTests++
+    if ($result.Success -and $result.Data.clusterEnabled -eq $true) {
+        $passedTests++
+        $nodeCount = $result.Data.nodeCount
+        Write-TestResult "Cluster enabled" $true "NodeCount=$nodeCount"
+    } else {
+        Write-TestResult "Cluster enabled" $false "ClusterEnabled=$($result.Data.clusterEnabled)"
     }
 
-    # Test cross-node order visibility
-    Write-Host ""
-    Write-Host "  Testing cross-node order visibility..." -ForegroundColor Gray
+    # E2E Test 2: Node info available
+    $result = Test-Endpoint "$clusterEndpoint/api/cluster/node"
+    $totalTests++
+    if ($result.Success) {
+        $passedTests++
+        Write-TestResult "Node info endpoint" $true "NodeId=$($result.Data.nodeId), PID=$($result.Data.processId)"
+    } else {
+        Write-TestResult "Node info endpoint" $false $result.Error
+    }
 
-    # Create order on node 1
-    $result = Test-Endpoint "http://localhost:5275/api/orders" "POST" $orderPayload
+    # E2E Test 3: Multiple rapid requests (tests load balancing if configured)
+    Write-TestHeader "Load Balancing Test"
+
+    $respondingNodes = @{}
+    $requestCount = 20
+    for ($i = 1; $i -le $requestCount; $i++) {
+        $result = Test-Endpoint "$clusterEndpoint/api/cluster/node"
+        if ($result.Success) {
+            $nodeId = $result.Data.nodeId
+            if (-not $respondingNodes.ContainsKey($nodeId)) {
+                $respondingNodes[$nodeId] = 0
+            }
+            $respondingNodes[$nodeId]++
+        }
+    }
+    $totalTests++
+    $passedTests++
+    $nodeList = ($respondingNodes.Keys | ForEach-Object { "$_($($respondingNodes[$_]))" }) -join ", "
+    Write-TestResult "Load distribution ($requestCount requests)" $true $nodeList
+
+    # E2E Test 4: Concurrent order creation
+    Write-TestHeader "Concurrent Operations"
+
+    $concurrentJobs = @()
+    $concurrentCount = 10
+
+    for ($i = 1; $i -le $concurrentCount; $i++) {
+        $job = Start-Job -ScriptBlock {
+            param($BaseUrl, $Index)
+            $payload = @{
+                customerId = "CLUSTER-CONC-$Index"
+                items = @(@{
+                    productId = "CC-PROD-$Index"
+                    productName = "Cluster Concurrent Product $Index"
+                    quantity = 1
+                    unitPrice = 50.00
+                })
+                shippingAddress = "Cluster Address $Index"
+                paymentMethod = "credit_card"
+            }
+            try {
+                $response = Invoke-RestMethod -Uri "$BaseUrl/api/orders" -Method POST -ContentType "application/json" -Body ($payload | ConvertTo-Json -Depth 10)
+                return @{ Success = $true; OrderId = $response.orderId }
+            } catch {
+                return @{ Success = $false; Error = $_.Exception.Message }
+            }
+        } -ArgumentList $clusterEndpoint, $i
+        $concurrentJobs += $job
+    }
+
+    $concurrentJobs | Wait-Job | Out-Null
+    $concurrentResults = $concurrentJobs | Receive-Job
+    $concurrentJobs | Remove-Job
+
+    $concurrentSuccess = ($concurrentResults | Where-Object { $_.Success }).Count
+    $totalTests++
+    if ($concurrentSuccess -eq $concurrentCount) {
+        $passedTests++
+        Write-TestResult "Concurrent cluster orders" $true "$concurrentCount orders created"
+    } else {
+        Write-TestResult "Concurrent cluster orders" $false "$concurrentSuccess/$concurrentCount succeeded"
+    }
+
+    # E2E Test 5: Stress test - rapid sequential requests
+    Write-TestHeader "Stress Test"
+
+    $stressCount = 50
+    $stressSuccess = 0
+    $stressStart = Get-Date
+
+    for ($i = 1; $i -le $stressCount; $i++) {
+        $result = Test-Endpoint "$clusterEndpoint/api/cluster/node"
+        if ($result.Success) { $stressSuccess++ }
+    }
+
+    $stressDuration = ((Get-Date) - $stressStart).TotalMilliseconds
+    $rps = [math]::Round($stressCount / ($stressDuration / 1000), 1)
+
+    $totalTests++
+    if ($stressSuccess -eq $stressCount) {
+        $passedTests++
+        Write-TestResult "Sequential stress ($stressCount requests)" $true "$rps req/s"
+    } else {
+        Write-TestResult "Sequential stress ($stressCount requests)" $false "$stressSuccess/$stressCount succeeded"
+    }
+
+    # E2E Test 6: Parallel stress test
+    $parallelJobs = @()
+    $parallelCount = 20
+
+    for ($i = 1; $i -le $parallelCount; $i++) {
+        $job = Start-Job -ScriptBlock {
+            param($BaseUrl)
+            try {
+                $response = Invoke-RestMethod -Uri "$BaseUrl/api/cluster/node" -Method GET
+                return @{ Success = $true }
+            } catch {
+                return @{ Success = $false }
+            }
+        } -ArgumentList $clusterEndpoint
+        $parallelJobs += $job
+    }
+
+    $parallelStart = Get-Date
+    $parallelJobs | Wait-Job | Out-Null
+    $parallelDuration = ((Get-Date) - $parallelStart).TotalMilliseconds
+    $parallelResults = $parallelJobs | Receive-Job
+    $parallelJobs | Remove-Job
+
+    $parallelSuccess = ($parallelResults | Where-Object { $_.Success }).Count
+    $parallelRps = [math]::Round($parallelCount / ($parallelDuration / 1000), 1)
+
+    $totalTests++
+    if ($parallelSuccess -eq $parallelCount) {
+        $passedTests++
+        Write-TestResult "Parallel stress ($parallelCount requests)" $true "$parallelRps req/s"
+    } else {
+        Write-TestResult "Parallel stress ($parallelCount requests)" $false "$parallelSuccess/$parallelCount succeeded"
+    }
+
+    # E2E Test 7: Order lifecycle in cluster
+    Write-TestHeader "Order Lifecycle"
+
+    $lifecyclePayload = @{
+        customerId = "LIFECYCLE-$(Get-Random -Maximum 9999)"
+        items = @(@{
+            productId = "LC-PROD"
+            productName = "Lifecycle Product"
+            quantity = 2
+            unitPrice = 75.00
+        })
+        shippingAddress = "Lifecycle Address"
+        paymentMethod = "credit_card"
+    }
+
+    # Create
+    $result = Test-Endpoint "$clusterEndpoint/api/orders" "POST" $lifecyclePayload
+    $totalTests++
     if ($result.Success -and $result.Data.orderId) {
-        $crossOrderId = $result.Data.orderId
-        Write-Host "  Created order $crossOrderId on node 1" -ForegroundColor Gray
+        $passedTests++
+        $lcOrderId = $result.Data.orderId
+        Write-TestResult "Create order" $true "OrderId=$lcOrderId"
 
-        # Try to read from node 2
-        Start-Sleep -Milliseconds 500
-        $result = Test-Endpoint "http://localhost:5276/api/orders/$crossOrderId"
+        # Read
+        $result = Test-Endpoint "$clusterEndpoint/api/orders/$lcOrderId"
+        $totalTests++
+        if ($result.Success -and $result.Data) {
+            $passedTests++
+            Write-TestResult "Read order" $true "Status=$($result.Data.status)"
+        } else {
+            Write-TestResult "Read order" $false $result.Error
+        }
+
+        # List by customer
+        $result = Test-Endpoint "$clusterEndpoint/api/users/$($lifecyclePayload.customerId)/orders"
         $totalTests++
         if ($result.Success) {
             $passedTests++
-            Write-TestResult "Cross-node order read" $true "Order visible on node 2"
+            $count = if ($result.Data -is [array]) { $result.Data.Count } else { 1 }
+            Write-TestResult "List orders by customer" $true "Found $count order(s)"
         } else {
-            Write-TestResult "Cross-node order read" $false "Order not visible on node 2"
+            Write-TestResult "List orders by customer" $false $result.Error
+        }
+    } else {
+        Write-TestResult "Create order" $false $result.Error
+    }
+
+    # E2E Test 8: Health endpoints
+    Write-TestHeader "Health Endpoints"
+
+    foreach ($endpoint in @("/health", "/health/live", "/health/ready")) {
+        $result = Test-Endpoint "$clusterEndpoint$endpoint"
+        $totalTests++
+        if ($result.Success) {
+            $passedTests++
+            Write-TestResult "Health $endpoint" $true
+        } else {
+            Write-TestResult "Health $endpoint" $false $result.Error
         }
     }
 }

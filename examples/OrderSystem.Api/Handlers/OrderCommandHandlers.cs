@@ -15,33 +15,22 @@ using OrderSystem.Api.Services;
 
 namespace OrderSystem.Api.Handlers;
 
-public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderCreatedResult>
+/// <summary>
+/// Handler for creating orders with full saga pattern.
+/// Demonstrates: CQRS, automatic compensation, metrics, and structured logging.
+/// </summary>
+public partial class CreateOrderHandler(
+    IOrderRepository orderRepository,
+    IInventoryService inventoryService,
+    IPaymentService paymentService,
+    ICatgaMediator mediator,
+    ILogger<CreateOrderHandler> logger) : IRequestHandler<CreateOrderCommand, OrderCreatedResult>
 {
-    private static readonly Counter<long> _orderCreatedCounter =
+    private static readonly Counter<long> OrderCreatedCounter =
         Telemetry.Meter.CreateCounter<long>("order.created", "number", "Number of orders created");
-    private static readonly Histogram<double> _orderProcessingTime =
+    private static readonly Histogram<double> OrderProcessingTime =
         Telemetry.Meter.CreateHistogram<double>("order.processing_time", "ms", "Order processing time in milliseconds");
-
-    private readonly IOrderRepository _orderRepository;
-    private readonly IInventoryService _inventoryService;
-    private readonly IPaymentService _paymentService;
-    private readonly ICatgaMediator _mediator;
-    private readonly ILogger<CreateOrderHandler> _logger;
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _orderLocks = new();
-
-    public CreateOrderHandler(
-        IOrderRepository orderRepository,
-        IInventoryService inventoryService,
-        IPaymentService paymentService,
-        ICatgaMediator mediator,
-        ILogger<CreateOrderHandler> logger)
-    {
-        _orderRepository = orderRepository ?? throw new ArgumentNullException(nameof(orderRepository));
-        _inventoryService = inventoryService ?? throw new ArgumentNullException(nameof(inventoryService));
-        _paymentService = paymentService ?? throw new ArgumentNullException(nameof(paymentService));
-        _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> OrderLocks = new();
 
     public async Task<CatgaResult<OrderCreatedResult>> HandleAsync(
         CreateOrderCommand request,
@@ -59,23 +48,23 @@ public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Or
             amount: totalAmount,
             paymentMethod: request.PaymentMethod);
 
-        using var timer = _orderProcessingTime.Measure();
+        using var timer = OrderProcessingTime.Measure();
 
         try
         {
-            LogOrderCreationStarted(_logger, request.CustomerId);
+            LogOrderCreationStarted(logger, request.CustomerId);
 
             // Use a per-customer lock to prevent duplicate orders
-            var orderLock = _orderLocks.GetOrAdd(request.CustomerId, _ => new SemaphoreSlim(1, 1));
+            var orderLock = OrderLocks.GetOrAdd(request.CustomerId, _ => new SemaphoreSlim(1, 1));
             await orderLock.WaitAsync(cancellationToken);
 
             try
             {
                 // 1. Check inventory
-                var stockCheck = await _inventoryService.CheckStockAsync(request.Items, cancellationToken);
+                var stockCheck = await inventoryService.CheckStockAsync(request.Items, cancellationToken);
                 if (!stockCheck.IsSuccess)
                 {
-                    LogStockCheckFailed(_logger, request.CustomerId);
+                    LogStockCheckFailed(logger, request.CustomerId);
                     // Build product id list without LINQ allocations
                     var sb = new StringBuilder();
                     var span = CollectionsMarshal.AsSpan(request.Items);
@@ -101,13 +90,13 @@ public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Or
                 };
 
                 // 3. Save order
-                await _orderRepository.SaveAsync(order, cancellationToken);
-                LogOrderSaved(_logger, order.OrderId);
+                await orderRepository.SaveAsync(order, cancellationToken);
+                LogOrderSaved(logger, order.OrderId);
 
                 try
                 {
                     // 4. Reserve inventory
-                    var reserveResult = await _inventoryService.ReserveStockAsync(order.OrderId, request.Items, cancellationToken);
+                    var reserveResult = await inventoryService.ReserveStockAsync(order.OrderId, request.Items, cancellationToken);
                     if (!reserveResult.IsSuccess)
                     {
                         await HandleOrderFailure(order, "inventory_reservation_failed", cancellationToken);
@@ -116,7 +105,7 @@ public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Or
                     }
 
                     // 5. Process payment
-                    var paymentResult = await _paymentService.ProcessPaymentAsync(
+                    var paymentResult = await paymentService.ProcessPaymentAsync(
                         order.OrderId,
                         totalAmount,
                         request.PaymentMethod,
@@ -132,10 +121,10 @@ public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Or
                     // 6. Update order status
                     order.Status = OrderStatus.Confirmed;
                     order.UpdatedAt = DateTime.UtcNow;
-                    await _orderRepository.UpdateAsync(order, cancellationToken);
+                    await orderRepository.UpdateAsync(order, cancellationToken);
 
                     // 7. Publish event
-                    await _mediator.PublishAsync(new OrderCreatedEvent(
+                    await mediator.PublishAsync(new OrderCreatedEvent(
                         order.OrderId,
                         order.CustomerId,
                         order.Items,
@@ -150,16 +139,16 @@ public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Or
                         new("payment_method", request.PaymentMethod),
                         new("item_count", request.Items.Count)
                     };
-                    _orderCreatedCounter.Add(1, tags);
+                    OrderCreatedCounter.Add(1, tags);
 
-                    LogOrderCreatedSuccess(_logger, order.OrderId, totalAmount);
+                    LogOrderCreatedSuccess(logger, order.OrderId, totalAmount);
 
                     return CatgaResult<OrderCreatedResult>.Success(
                         new OrderCreatedResult(order.OrderId, totalAmount, order.CreatedAt));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error processing order {OrderId}", order.OrderId);
+                    logger.LogError(ex, "Error processing order {OrderId}", order.OrderId);
                     await HandleOrderFailure(order, "processing_error", cancellationToken);
                     throw;
                 }
@@ -167,12 +156,12 @@ public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Or
             finally
             {
                 orderLock.Release();
-                _orderLocks.TryRemove(request.CustomerId, out _);
+                OrderLocks.TryRemove(request.CustomerId, out _);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error creating order for customer {CustomerId}", request.CustomerId);
+            logger.LogError(ex, "Unexpected error creating order for customer {CustomerId}", request.CustomerId);
             return CatgaResult<OrderCreatedResult>.Failure(
                 $"An unexpected error occurred: {ex.Message}");
         }
@@ -186,19 +175,19 @@ public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Or
             order.Status = OrderStatus.Failed;
             order.FailureReason = failureReason;
             order.UpdatedAt = DateTime.UtcNow;
-            await _orderRepository.UpdateAsync(order, cancellationToken);
+            await orderRepository.UpdateAsync(order, cancellationToken);
 
             // Release any reserved inventory
             if (failureReason != "inventory_reservation_failed")
             {
-                await _inventoryService.ReleaseStockAsync(
+                await inventoryService.ReleaseStockAsync(
                     order.OrderId,
                     order.Items,
                     cancellationToken);
             }
 
             // Publish failure event
-            await _mediator.PublishAsync(new OrderFailedEvent(
+            await mediator.PublishAsync(new OrderFailedEvent(
                 order.OrderId,
                 order.CustomerId,
                 failureReason,
@@ -211,13 +200,13 @@ public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Or
                 new("status", "failed"),
                 new("reason", failureReason)
             };
-            _orderCreatedCounter.Add(1, tags);
+            OrderCreatedCounter.Add(1, tags);
 
-            LogOrderFailed(_logger, order.OrderId, failureReason);
+            LogOrderFailed(logger, order.OrderId, failureReason);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error handling order failure for {OrderId}", order.OrderId);
+            logger.LogError(ex, "Error handling order failure for {OrderId}", order.OrderId);
         }
     }
 
@@ -231,34 +220,24 @@ public partial class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Or
     static partial void LogOrderSaved(ILogger logger, string orderId);
 
     [LoggerMessage(Level = LogLevel.Information,
-        Message = "✅ Order {OrderId} created successfully with total amount {Amount:C}")]
+        Message = "Order {OrderId} created successfully with total amount {Amount:C}")]
     static partial void LogOrderCreatedSuccess(ILogger logger, string orderId, decimal amount);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "❌ Order {OrderId} failed: {Reason}")]
+    [LoggerMessage(Level = LogLevel.Error, Message = "Order {OrderId} failed: {Reason}")]
     static partial void LogOrderFailed(ILogger logger, string orderId, string reason);
 }
 
-public partial class CancelOrderHandler : IRequestHandler<CancelOrderCommand>
+/// <summary>
+/// Handler for cancelling orders with inventory release.
+/// </summary>
+public partial class CancelOrderHandler(
+    IOrderRepository orderRepository,
+    IInventoryService inventoryService,
+    ICatgaMediator mediator,
+    ILogger<CancelOrderHandler> logger) : IRequestHandler<CancelOrderCommand>
 {
-    private static readonly Counter<long> _orderCancelledCounter =
+    private static readonly Counter<long> OrderCancelledCounter =
         Telemetry.Meter.CreateCounter<long>("order.cancelled", "number", "Number of orders cancelled");
-
-    private readonly IOrderRepository _orderRepository;
-    private readonly IInventoryService _inventoryService;
-    private readonly ICatgaMediator _mediator;
-    private readonly ILogger<CancelOrderHandler> _logger;
-
-    public CancelOrderHandler(
-        IOrderRepository orderRepository,
-        IInventoryService inventoryService,
-        ICatgaMediator mediator,
-        ILogger<CancelOrderHandler> logger)
-    {
-        _orderRepository = orderRepository ?? throw new ArgumentNullException(nameof(orderRepository));
-        _inventoryService = inventoryService ?? throw new ArgumentNullException(nameof(inventoryService));
-        _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
 
     public async Task<CatgaResult> HandleAsync(
         CancelOrderCommand request,
@@ -270,16 +249,16 @@ public partial class CancelOrderHandler : IRequestHandler<CancelOrderCommand>
 
         try
         {
-            var order = await _orderRepository.GetByIdAsync(request.OrderId, cancellationToken);
+            var order = await orderRepository.GetByIdAsync(request.OrderId, cancellationToken);
             if (order == null)
             {
-                _logger.LogWarning("Attempted to cancel non-existent order {OrderId}", request.OrderId);
+                logger.LogWarning("Attempted to cancel non-existent order {OrderId}", request.OrderId);
                 return CatgaResult.Failure($"Order {request.OrderId} not found");
             }
 
             if (order.Status == OrderStatus.Cancelled)
             {
-                _logger.LogInformation("Order {OrderId} is already cancelled", request.OrderId);
+                logger.LogInformation("Order {OrderId} is already cancelled", request.OrderId);
                 return CatgaResult.Success();
             }
 
@@ -292,19 +271,19 @@ public partial class CancelOrderHandler : IRequestHandler<CancelOrderCommand>
             order.CancelledAt = DateTime.UtcNow;
             order.UpdatedAt = DateTime.UtcNow;
 
-            await _orderRepository.UpdateAsync(order, cancellationToken);
+            await orderRepository.UpdateAsync(order, cancellationToken);
 
             // Release reserved inventory if previously confirmed or pending
             if (wasConfirmedOrPending)
             {
-                await _inventoryService.ReleaseStockAsync(
+                await inventoryService.ReleaseStockAsync(
                     order.OrderId,
                     order.Items,
                     cancellationToken);
             }
 
             // Publish event
-            await _mediator.PublishAsync(new OrderCancelledEvent(
+            await mediator.PublishAsync(new OrderCancelledEvent(
                 order.OrderId,
                 request.Reason,
                 DateTime.UtcNow),
@@ -312,16 +291,16 @@ public partial class CancelOrderHandler : IRequestHandler<CancelOrderCommand>
 
             // Record metric
             var tags = new TagList { new("reason", request.Reason ?? "unknown") };
-            _orderCancelledCounter.Add(1, tags);
+            OrderCancelledCounter.Add(1, tags);
 
-            _logger.LogInformation("✅ Order {OrderId} cancelled: {Reason}",
+            logger.LogInformation("Order {OrderId} cancelled: {Reason}",
                 request.OrderId, request.Reason);
 
             return CatgaResult.Success();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Error cancelling order {OrderId}", request.OrderId);
+            logger.LogError(ex, "Error cancelling order {OrderId}", request.OrderId);
             return CatgaResult.Failure($"Error cancelling order: {ex.Message}");
         }
     }

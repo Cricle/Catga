@@ -111,7 +111,7 @@ function Run-AspireMode {
     Write-Host "Press Ctrl+C to stop Aspire" -ForegroundColor Yellow
     Write-Host ""
 
-    dotnet run --project "$RootDir\examples\OrderSystem.AppHost\OrderSystem.AppHost.csproj" -c Release --no-build
+    dotnet run --project "$RootDir\examples\OrderSystem.AppHost\OrderSystem.AppHost.csproj"
 }
 
 # Main

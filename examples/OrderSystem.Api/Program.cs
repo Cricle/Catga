@@ -23,6 +23,12 @@ builder.Services.AddInMemoryPersistence();
 // In single mode, use in-memory for simplicity
 if (clusterEnabled)
 {
+    // Redis is provided by Aspire via AddRedis() in AppHost
+    // Use StackExchange.Redis client with Aspire connection string
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = builder.Configuration.GetConnectionString("redis");
+    });
     builder.Services.AddSingleton<IOrderRepository, RedisOrderRepository>();
 }
 else

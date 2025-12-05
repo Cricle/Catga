@@ -121,9 +121,13 @@ function Run-FullStressTest {
         # Redis test (if available)
         RedisOk = $false
         RedisLatencyMs = 0
+        RedisReadRps = 0
+        RedisWriteRps = 0
 
         # NATS test (if available)
         NatsOk = $false
+        NatsLatencyMs = 0
+        NatsPubRps = 0
     }
 
     # Health check
@@ -243,29 +247,72 @@ function Run-FullStressTest {
     $results.OrdRps = [math]::Round($OrderCount / ($orderDuration / 1000), 1)
     Write-Host "  ✓ Orders: $($results.OrdSuccess)/$OrderCount created, $($results.OrdRps) req/s" -ForegroundColor Green
 
-    # Test Redis connectivity (via order read - uses Redis in cluster mode)
+    # Test Redis performance (via order read/write - uses Redis in cluster mode)
     if ($Infrastructure -match "Redis") {
-        $orderIds = ($orderResults | Where-Object { $_.Success -and $_.OrderId }).OrderId
+        Write-Host "  Running Redis tests..." -ForegroundColor Gray
+        $orderIds = @($orderResults | Where-Object { $_.Success -and $_.OrderId } | ForEach-Object { $_.OrderId })
+
         if ($orderIds.Count -gt 0) {
-            $redisStart = Get-Date
-            $readResult = Test-Endpoint "$Endpoint/api/orders/$($orderIds[0])"
-            $redisLatency = ((Get-Date) - $redisStart).TotalMilliseconds
-            $results.RedisOk = $readResult.Success -and $readResult.Data
-            $results.RedisLatencyMs = [math]::Round($redisLatency, 2)
-            if ($results.RedisOk) {
-                Write-Host "  ✓ Redis: Order read OK, $($results.RedisLatencyMs)ms" -ForegroundColor Green
-            } else {
-                Write-Host "  ✗ Redis: Order read failed" -ForegroundColor Red
+            # Redis Read Test (20 sequential reads)
+            $redisReadCount = 20
+            $redisReadTimes = @()
+            for ($i = 0; $i -lt $redisReadCount; $i++) {
+                $orderId = $orderIds[$i % $orderIds.Count]
+                $readStart = Get-Date
+                $readResult = Test-Endpoint "$Endpoint/api/orders/$orderId"
+                if ($readResult.Success -and $readResult.Data) {
+                    $redisReadTimes += ((Get-Date) - $readStart).TotalMilliseconds
+                }
             }
+            if ($redisReadTimes.Count -gt 0) {
+                $results.RedisOk = $true
+                $results.RedisLatencyMs = [math]::Round(($redisReadTimes | Measure-Object -Average).Average, 2)
+                $totalReadTime = ($redisReadTimes | Measure-Object -Sum).Sum
+                $results.RedisReadRps = [math]::Round($redisReadTimes.Count / ($totalReadTime / 1000), 1)
+            }
+
+            # Redis Write Test (10 order updates via cancel)
+            $redisWriteCount = 10
+            $redisWriteTimes = @()
+            for ($i = 0; $i -lt [math]::Min($redisWriteCount, $orderIds.Count); $i++) {
+                $orderId = $orderIds[$i]
+                $writeStart = Get-Date
+                $cancelPayload = @{ orderId = $orderId; reason = "Redis write test" }
+                $writeResult = Test-Endpoint "$Endpoint/api/orders/$orderId/cancel" "POST" $cancelPayload
+                if ($writeResult.Success) {
+                    $redisWriteTimes += ((Get-Date) - $writeStart).TotalMilliseconds
+                }
+            }
+            if ($redisWriteTimes.Count -gt 0) {
+                $totalWriteTime = ($redisWriteTimes | Measure-Object -Sum).Sum
+                $results.RedisWriteRps = [math]::Round($redisWriteTimes.Count / ($totalWriteTime / 1000), 1)
+            }
+
+            Write-Host "  ✓ Redis: Read $($results.RedisReadRps) req/s, Write $($results.RedisWriteRps) req/s, Avg $($results.RedisLatencyMs)ms" -ForegroundColor Green
         }
     }
 
-    # NATS is used internally for messaging - check cluster status
+    # Test NATS performance (via cluster node endpoint which uses NATS internally)
     if ($Infrastructure -match "NATS") {
-        $clusterResult = Test-Endpoint "$Endpoint/api/cluster/status"
-        $results.NatsOk = $clusterResult.Success
-        if ($results.NatsOk) {
-            Write-Host "  ✓ NATS: Cluster communication OK" -ForegroundColor Green
+        Write-Host "  Running NATS tests..." -ForegroundColor Gray
+
+        # NATS latency test (cluster communication)
+        $natsTestCount = 20
+        $natsTimes = @()
+        for ($i = 0; $i -lt $natsTestCount; $i++) {
+            $natsStart = Get-Date
+            $clusterResult = Test-Endpoint "$Endpoint/api/cluster/node"
+            if ($clusterResult.Success) {
+                $natsTimes += ((Get-Date) - $natsStart).TotalMilliseconds
+            }
+        }
+
+        if ($natsTimes.Count -gt 0) {
+            $results.NatsOk = $true
+            $results.NatsLatencyMs = [math]::Round(($natsTimes | Measure-Object -Average).Average, 2)
+            $totalNatsTime = ($natsTimes | Measure-Object -Sum).Sum
+            $results.NatsPubRps = [math]::Round($natsTimes.Count / ($totalNatsTime / 1000), 1)
+            Write-Host "  ✓ NATS: $($results.NatsPubRps) req/s, Avg $($results.NatsLatencyMs)ms" -ForegroundColor Green
         }
     }
 
@@ -362,28 +409,92 @@ function Write-ResultsTable {
     Write-Host $separator -ForegroundColor Gray
     Write-Host ""
 
-    # ===== Table 4: Infrastructure Status =====
+    # ===== Table 4: Redis Performance =====
+    $hasRedis = $Results | Where-Object { $_.Infrastructure -match "Redis" }
+    if ($hasRedis) {
+        Write-Host "┌─────────────────────────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+        Write-Host "│                           REDIS PERFORMANCE                                         │" -ForegroundColor Cyan
+        Write-Host "└─────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+
+        $redisHeader = "{0,-14} | {1,-12} | {2,12} | {3,12} | {4,12} | {5,12}" -f "Mode", "Infra", "Status", "Read RPS", "Write RPS", "Avg(ms)"
+        Write-Host $redisHeader -ForegroundColor Yellow
+        Write-Host $separator -ForegroundColor Gray
+
+        foreach ($r in $Results) {
+            $statusIcon = if ($r.RedisOk) { "✓ OK" } elseif ($r.Infrastructure -match "Redis") { "✗ FAIL" } else { "N/A" }
+            $readRps = if ($r.RedisReadRps -gt 0) { $r.RedisReadRps } else { "N/A" }
+            $writeRps = if ($r.RedisWriteRps -gt 0) { $r.RedisWriteRps } else { "N/A" }
+            $avgMs = if ($r.RedisLatencyMs -gt 0) { $r.RedisLatencyMs } else { "N/A" }
+
+            $row = "{0,-14} | {1,-12} | {2,12} | {3,12} | {4,12} | {5,12}" -f `
+                $r.Mode, `
+                $r.Infrastructure, `
+                $statusIcon, `
+                $readRps, `
+                $writeRps, `
+                $avgMs
+
+            $color = if ($r.RedisOk) { "Green" } elseif ($r.Infrastructure -match "Redis") { "Red" } else { "Gray" }
+            Write-Host $row -ForegroundColor $color
+        }
+
+        Write-Host $separator -ForegroundColor Gray
+        Write-Host ""
+    }
+
+    # ===== Table 5: NATS Performance =====
+    $hasNats = $Results | Where-Object { $_.Infrastructure -match "NATS" }
+    if ($hasNats) {
+        Write-Host "┌─────────────────────────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+        Write-Host "│                           NATS PERFORMANCE                                          │" -ForegroundColor Cyan
+        Write-Host "└─────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+
+        $natsHeader = "{0,-14} | {1,-12} | {2,12} | {3,12} | {4,12}" -f "Mode", "Infra", "Status", "Pub RPS", "Avg(ms)"
+        Write-Host $natsHeader -ForegroundColor Yellow
+        Write-Host $separator -ForegroundColor Gray
+
+        foreach ($r in $Results) {
+            $statusIcon = if ($r.NatsOk) { "✓ OK" } elseif ($r.Infrastructure -match "NATS") { "✗ FAIL" } else { "N/A" }
+            $pubRps = if ($r.NatsPubRps -gt 0) { $r.NatsPubRps } else { "N/A" }
+            $avgMs = if ($r.NatsLatencyMs -gt 0) { $r.NatsLatencyMs } else { "N/A" }
+
+            $row = "{0,-14} | {1,-12} | {2,12} | {3,12} | {4,12}" -f `
+                $r.Mode, `
+                $r.Infrastructure, `
+                $statusIcon, `
+                $pubRps, `
+                $avgMs
+
+            $color = if ($r.NatsOk) { "Green" } elseif ($r.Infrastructure -match "NATS") { "Red" } else { "Gray" }
+            Write-Host $row -ForegroundColor $color
+        }
+
+        Write-Host $separator -ForegroundColor Gray
+        Write-Host ""
+    }
+
+    # ===== Table 6: Infrastructure Summary =====
     Write-Host "┌─────────────────────────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
-    Write-Host "│                           INFRASTRUCTURE STATUS                                     │" -ForegroundColor Cyan
+    Write-Host "│                           INFRASTRUCTURE SUMMARY                                    │" -ForegroundColor Cyan
     Write-Host "└─────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
 
-    $infraHeader = "{0,-14} | {1,-12} | {2,12} | {3,15} | {4,12}" -f "Mode", "Infra", "Health", "Redis", "NATS"
+    $infraHeader = "{0,-14} | {1,-12} | {2,10} | {3,10} | {4,10}" -f "Mode", "Infra", "Health", "Redis", "NATS"
     Write-Host $infraHeader -ForegroundColor Yellow
     Write-Host $separator -ForegroundColor Gray
 
     foreach ($r in $Results) {
         $healthIcon = if ($r.HealthOk) { "✓ OK" } else { "✗ FAIL" }
-        $redisIcon = if ($r.RedisOk) { "✓ $($r.RedisLatencyMs)ms" } elseif ($r.Infrastructure -match "Redis") { "✗ FAIL" } else { "N/A" }
+        $redisIcon = if ($r.RedisOk) { "✓ OK" } elseif ($r.Infrastructure -match "Redis") { "✗ FAIL" } else { "N/A" }
         $natsIcon = if ($r.NatsOk) { "✓ OK" } elseif ($r.Infrastructure -match "NATS") { "✗ FAIL" } else { "N/A" }
 
-        $row = "{0,-14} | {1,-12} | {2,12} | {3,15} | {4,12}" -f `
+        $row = "{0,-14} | {1,-12} | {2,10} | {3,10} | {4,10}" -f `
             $r.Mode, `
             $r.Infrastructure, `
             $healthIcon, `
             $redisIcon, `
             $natsIcon
 
-        $color = if ($r.HealthOk) { "Green" } else { "Red" }
+        $color = if ($r.HealthOk -and ($r.RedisOk -or $r.Infrastructure -notmatch "Redis") -and ($r.NatsOk -or $r.Infrastructure -notmatch "NATS")) { "Green" } else { "Red" }
         Write-Host $row -ForegroundColor $color
     }
 

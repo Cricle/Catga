@@ -10,77 +10,77 @@ using OrderSystem.Api.Services;
 namespace OrderSystem.Api.Handlers;
 
 /// <summary>
-/// Create order using Flow pattern with automatic compensation.
+/// Create order using Flow DSL pattern with automatic compensation.
 /// Flow steps: CreateOrder -> ReserveStock -> ConfirmOrder
 /// On failure: compensation runs in reverse order.
 /// </summary>
-public partial class CreateOrderFlowHandler(
+public class CreateOrderFlowHandler(
     IOrderRepository orderRepository,
     ICatgaMediator mediator,
     ILogger<CreateOrderFlowHandler> logger) : IRequestHandler<CreateOrderFlowCommand, OrderCreatedResult>
 {
-    private Order _order = null!;
-
-    [FlowStep(Order = 1)]
-    private async Task CreateOrder(CreateOrderFlowCommand request, CancellationToken ct)
-    {
-        _order = new Order
-        {
-            OrderId = $"ORD-{Guid.NewGuid():N}"[..16],
-            CustomerId = request.CustomerId,
-            Items = request.Items,
-            TotalAmount = request.Items.Sum(i => i.Subtotal),
-            Status = OrderStatus.Pending,
-            CreatedAt = DateTime.UtcNow
-        };
-        await orderRepository.SaveAsync(_order, ct);
-        logger.LogInformation("Step 1: Order {OrderId} created", _order.OrderId);
-    }
-
-    [FlowStep(Order = 2, Compensate = nameof(ReleaseStock))]
-    private Task ReserveStock(CreateOrderFlowCommand request, CancellationToken ct)
-    {
-        // Simulate stock reservation (in real app, call inventory service)
-        logger.LogInformation("Step 2: Stock reserved for order {OrderId}", _order.OrderId);
-        return Task.CompletedTask;
-    }
-
-    private Task ReleaseStock(CreateOrderFlowCommand request, CancellationToken ct)
-    {
-        logger.LogWarning("Compensation: Releasing stock for order {OrderId}", _order.OrderId);
-        return Task.CompletedTask;
-    }
-
-    [FlowStep(Order = 3, Compensate = nameof(MarkFailed))]
-    private async Task ConfirmOrder(CreateOrderFlowCommand request, CancellationToken ct)
-    {
-        _order.Status = OrderStatus.Confirmed;
-        _order.UpdatedAt = DateTime.UtcNow;
-        await orderRepository.UpdateAsync(_order, ct);
-        logger.LogInformation("Step 3: Order {OrderId} confirmed", _order.OrderId);
-
-        // Publish event
-        await mediator.PublishAsync(new OrderConfirmedEvent(_order.OrderId, DateTime.UtcNow), ct);
-    }
-
-    private async Task MarkFailed(CreateOrderFlowCommand request, CancellationToken ct)
-    {
-        _order.Status = OrderStatus.Failed;
-        _order.UpdatedAt = DateTime.UtcNow;
-        await orderRepository.UpdateAsync(_order, ct);
-        logger.LogWarning("Compensation: Order {OrderId} marked as failed", _order.OrderId);
-    }
-
     public async Task<CatgaResult<OrderCreatedResult>> HandleAsync(
         CreateOrderFlowCommand request, CancellationToken ct = default)
     {
-        var result = await ExecuteFlowAsync(request, ct);
+        Order? order = null;
+
+        // Use Flow DSL for multi-step operations with compensation
+        var result = await Flow.Create("CreateOrderFlow")
+            .Step(async _ =>
+            {
+                // Step 1: Create order
+                order = new Order
+                {
+                    OrderId = $"ORD-{Guid.NewGuid():N}"[..16],
+                    CustomerId = request.CustomerId,
+                    Items = request.Items,
+                    TotalAmount = request.Items.Sum(i => i.Subtotal),
+                    Status = OrderStatus.Pending,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await orderRepository.SaveAsync(order, ct);
+                logger.LogInformation("Step 1: Order {OrderId} created", order.OrderId);
+            })
+            .Step(
+                _ =>
+                {
+                    // Step 2: Reserve stock (simulated)
+                    logger.LogInformation("Step 2: Stock reserved for order {OrderId}", order!.OrderId);
+                    return Task.CompletedTask;
+                },
+                _ =>
+                {
+                    // Compensation: Release stock
+                    logger.LogWarning("Compensation: Releasing stock for order {OrderId}", order!.OrderId);
+                    return Task.CompletedTask;
+                })
+            .Step(
+                async _ =>
+                {
+                    // Step 3: Confirm order
+                    order!.Status = OrderStatus.Confirmed;
+                    order.UpdatedAt = DateTime.UtcNow;
+                    await orderRepository.UpdateAsync(order, ct);
+                    logger.LogInformation("Step 3: Order {OrderId} confirmed", order.OrderId);
+
+                    // Publish event
+                    await mediator.PublishAsync(new OrderConfirmedEvent(order.OrderId, DateTime.UtcNow), ct);
+                },
+                async _ =>
+                {
+                    // Compensation: Mark as failed
+                    order!.Status = OrderStatus.Failed;
+                    order.UpdatedAt = DateTime.UtcNow;
+                    await orderRepository.UpdateAsync(order, ct);
+                    logger.LogWarning("Compensation: Order {OrderId} marked as failed", order.OrderId);
+                })
+            .ExecuteAsync(ct);
 
         if (!result.IsSuccess)
             return CatgaResult<OrderCreatedResult>.Failure(result.Error ?? "Order creation failed");
 
         return CatgaResult<OrderCreatedResult>.Success(
-            new OrderCreatedResult(_order.OrderId, _order.TotalAmount, _order.CreatedAt));
+            new OrderCreatedResult(order!.OrderId, order.TotalAmount, order.CreatedAt));
     }
 }
 

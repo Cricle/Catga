@@ -85,22 +85,25 @@ public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent> { ... }
 public class SendOrderNotificationHandler : IEventHandler<OrderCreatedEvent> { ... }
 ```
 
-### 3. Flow Pattern (Saga)
+### 3. Flow DSL (Saga Pattern)
 
-Multi-step operations with automatic compensation:
+Multi-step operations with automatic compensation using fluent DSL:
 
 ```csharp
-public partial class CreateOrderFlowHandler
-{
-    [FlowStep(Order = 1)]
-    private async Task CreateOrder(...) { ... }
-
-    [FlowStep(Order = 2, Compensate = nameof(ReleaseStock))]
-    private Task ReserveStock(...) { ... }
-
-    [FlowStep(Order = 3, Compensate = nameof(MarkFailed))]
-    private async Task ConfirmOrder(...) { ... }
-}
+var result = await Flow.Create("CreateOrderFlow")
+    .Step(async _ =>
+    {
+        // Step 1: Create order
+        order = new Order { ... };
+        await orderRepository.SaveAsync(order, ct);
+    })
+    .Step(
+        _ => { /* Step 2: Reserve stock */ return Task.CompletedTask; },
+        _ => { /* Compensation: Release stock */ return Task.CompletedTask; })
+    .Step(
+        async _ => { /* Step 3: Confirm order */ },
+        async _ => { /* Compensation: Mark as failed */ })
+    .ExecuteAsync(ct);
 ```
 
 ### 4. DI Registration

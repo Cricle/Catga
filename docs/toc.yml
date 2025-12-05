@@ -4,10 +4,18 @@
   href: architecture/ARCHITECTURE.md
 - name: Configuration
   href: articles/configuration.md
-- name: OpenTelemetry
-  href: articles/opentelemetry-integration.md
-- name: Resilience
-  href: Resilience.md
+- name: Performance
+  items:
+    - name: Benchmark Results
+      href: BENCHMARK-RESULTS.md
+    - name: Performance Report
+      href: PERFORMANCE-REPORT.md
+- name: Examples
+  items:
+    - name: OrderSystem Demo
+      href: ../examples/README.md
+    - name: E2E Scenarios
+      href: examples/e2e-scenarios.md
 - name: Guides
   items:
     - name: Source Generator
@@ -18,6 +26,18 @@
       href: guides/distributed-id.md
     - name: Serialization
       href: guides/serialization.md
+    - name: Flow DSL
+      href: guides/flow-dsl.md
+- name: Observability
+  items:
+    - name: OpenTelemetry
+      href: articles/opentelemetry-integration.md
+    - name: Distributed Tracing
+      href: observability/DISTRIBUTED-TRACING-GUIDE.md
+    - name: Jaeger Guide
+      href: observability/JAEGER-COMPLETE-GUIDE.md
+- name: Resilience
+  href: Resilience.md
 - name: Deployment
   items:
     - name: Kubernetes

@@ -80,7 +80,7 @@
 ### 关键指标
 
 ```
-📊 核心 CQRS 性能
+📊 核心 CQRS 性能 (BenchmarkDotNet)
 ├── 命令处理: 462 ns (432 B)    → 2.2M ops/s
 ├── 查询处理: 446 ns (368 B)    → 2.2M ops/s
 ├── 事件发布: 438 ns (432 B)    → 2.3M ops/s
@@ -97,6 +97,16 @@
 ├── 100 并发: 54.2 μs → 1.8M ops/s
 └── 1000 并发: 519 μs → 1.9M ops/s
 ```
+
+### E2E 压力测试 (OrderSystem 示例)
+
+| 模式 | 基础设施 | 顺序 RPS | 并行 RPS | 平均延迟 | 成功率 |
+|------|----------|----------|----------|----------|--------|
+| **Single** | In-Memory | 476 req/s | 102 req/s | 1.94 ms | 100% |
+| **Aspire (1x)** | Redis + NATS | 239 req/s | 92 req/s | 4.07 ms | 100% |
+| **Cluster (3x)** | Redis + NATS | 171 req/s | 94 req/s | 5.79 ms | 100% |
+
+> 运行 `cd examples && .\cross-test.ps1` 复现测试结果
 
 ---
 
@@ -210,12 +220,19 @@ public class OrderTests : IDisposable
 
 | 示例 | 说明 | 特性 |
 |------|------|------|
-| [OrderSystem.Api](../examples/OrderSystem.Api/README.md) | 电商订单系统 | 完整业务流程、分布式部署 |
-| [OrderSystem.AppHost](../examples/OrderSystem.AppHost/README.md) | .NET Aspire 编排 | 云原生开发 |
+| [OrderSystem 示例](../examples/README.md) | 电商订单系统 | 完整业务流程、压力测试、分布式部署 |
+| [OrderSystem.Api](../examples/OrderSystem.Api/) | API 应用 | CQRS Handlers、Web UI |
+| [OrderSystem.AppHost](../examples/OrderSystem.AppHost/) | Aspire 编排 | Redis + NATS + Jaeger |
 
-### 示例代码
+### 测试脚本
 
-#### E2E 实战场景
+| 脚本 | 说明 | 用法 |
+|------|------|------|
+| `run-demo.ps1` | 启动服务 | `-Mode Single\|Aspire\|Cluster` |
+| `test-demo.ps1` | 功能和压力测试 | `-TestCluster -StressTest` |
+| `cross-test.ps1` | 跨模式性能对比 | 自动运行所有模式 |
+
+### E2E 实战场景
 
 - [分布式与集群 E2E 场景](./examples/e2e-scenarios.md)
 

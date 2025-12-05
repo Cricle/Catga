@@ -1,114 +1,165 @@
 # Catga Examples
 
-> **30 seconds to start, 3 lines of code** - Learn Catga through practical examples
+> **30 seconds to start, production-ready distributed system**
 
-[Back to Docs](../docs/README.md) · [Doc Index](../docs/INDEX.md)
+[Documentation](https://cricle.github.io/Catga/) · [Architecture](../docs/architecture/ARCHITECTURE.md) · [API Reference](../docs/api/index.md)
 
 ---
 
-## Quick Start
-
-### One-Click Demo Scripts
+## 🚀 Quick Start
 
 ```powershell
-# Single instance mode (simplest)
+cd examples
+
+# Single instance (simplest)
 .\run-demo.ps1 -Mode Single
 
-# Cluster mode (3 nodes with Redis/NATS)
+# Cluster mode (3 replicas + Redis + NATS)
 .\run-demo.ps1 -Mode Cluster
 
-# Aspire mode (full orchestration with monitoring)
-.\run-demo.ps1 -Mode Aspire
+# Run tests
+.\test-demo.ps1 -StressTest
 ```
 
-### Run Tests
+---
+
+## 📊 Performance Benchmarks
+
+Cross-mode stress test results on Windows 11, .NET 9, 16-core CPU:
+
+### Throughput Comparison
+
+| Mode | Infrastructure | Sequential RPS | Parallel RPS | Order RPS | Avg Latency |
+|------|----------------|----------------|--------------|-----------|-------------|
+| **Single** | In-Memory | 476 req/s | 102 req/s | 33 req/s | 1.94 ms |
+| **Aspire (1x)** | Redis + NATS | 239 req/s | 92 req/s | 32 req/s | 4.07 ms |
+| **Cluster (3x)** | Redis + NATS | 171 req/s | 94 req/s | 30 req/s | 5.79 ms |
+
+### Latency Distribution
+
+| Mode | Min | Avg | Max | P99 |
+|------|-----|-----|-----|-----|
+| **Single** | 1.29 ms | 1.94 ms | 22.17 ms | ~20 ms |
+| **Aspire (1x)** | 2.22 ms | 4.07 ms | 17.67 ms | ~15 ms |
+| **Cluster (3x)** | 1.56 ms | 5.79 ms | 180.36 ms | ~50 ms |
+
+### Infrastructure Status
+
+| Mode | Health | Redis | NATS | Success Rate |
+|------|--------|-------|------|--------------|
+| **Single** | ✅ OK | N/A | N/A | 100% |
+| **Aspire (1x)** | ✅ OK | ✅ 21ms | ✅ OK | 100% |
+| **Cluster (3x)** | ✅ OK | ✅ 28ms | ✅ OK | 100% |
+
+> Run `.\cross-test.ps1` to reproduce these benchmarks on your machine.
+
+---
+
+## 🧪 Test Scripts
+
+| Script | Description | Usage |
+|--------|-------------|-------|
+| `run-demo.ps1` | Start OrderSystem in different modes | `-Mode Single\|Aspire\|Cluster` |
+| `test-demo.ps1` | Functional and stress tests | `-TestCluster -StressTest` |
+| `cross-test.ps1` | Cross-mode performance comparison | Runs all modes automatically |
+
+### Examples
 
 ```powershell
-# Test single instance
+# Functional tests only
 .\test-demo.ps1
 
-# Test cluster nodes
-.\test-demo.ps1 -TestCluster
+# Cluster tests with stress
+.\test-demo.ps1 -TestCluster -StressTest
+
+# Full cross-mode benchmark
+.\cross-test.ps1
 ```
 
 ---
 
-## Demo Modes
+## 🏗️ Architecture
 
-| Mode | Description | Requirements |
-|------|-------------|--------------|
-| **Single** | Single instance, in-memory | None |
-| **Aspire** | Aspire + Redis/NATS/Jaeger (1 replica) | Docker |
-| **Cluster** | Aspire + Redis/NATS/Jaeger (3 replicas) | Docker |
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Aspire Dashboard (:15888)                │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │ OrderAPI-1  │  │ OrderAPI-2  │  │ OrderAPI-3  │         │
+│  │   (:5275)   │  │   (replica) │  │   (replica) │         │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
+│         │                │                │                 │
+│         └────────────────┼────────────────┘                 │
+│                          │                                  │
+│  ┌───────────────────────┴───────────────────────┐         │
+│  │                Load Balancer                   │         │
+│  └───────────────────────┬───────────────────────┘         │
+│                          │                                  │
+│  ┌───────────┐    ┌──────┴──────┐    ┌───────────┐         │
+│  │   Redis   │    │    NATS     │    │  Jaeger   │         │
+│  │  (:6379)  │    │   (:4222)   │    │ (:16686)  │         │
+│  └───────────┘    └─────────────┘    └───────────┘         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Components
+
+| Component | Role | Port |
+|-----------|------|------|
+| **OrderSystem.Api** | Business logic, CQRS handlers | 5275 |
+| **Redis** | Distributed cache, order storage | 6379 |
+| **NATS** | Message queue, event streaming | 4222 |
+| **Jaeger** | Distributed tracing | 16686 |
+| **Aspire Dashboard** | Monitoring, logs, metrics | 15888 |
 
 ---
 
-## OrderSystem.AppHost
+## 📁 Project Structure
 
-**.NET Aspire orchestration - One-click distributed system**
-
-### 30-Second Quick Start
-
-```bash
-cd examples/OrderSystem.AppHost
-dotnet run
-# Redis, NATS auto-start
-# Visit http://localhost:15888 for Aspire Dashboard
+```
+examples/
+├── OrderSystem.Api/          # Main API application
+│   ├── Handlers/             # CQRS command/query handlers
+│   ├── Services/             # Business services
+│   ├── Domain/               # Domain models
+│   └── wwwroot/              # Web UI
+├── OrderSystem.AppHost/      # Aspire orchestration
+├── run-demo.ps1              # Start script
+├── test-demo.ps1             # Test script
+└── cross-test.ps1            # Benchmark script
 ```
 
-### Core Features
+---
 
-| Feature | Description | Advantages |
-|------|------|------|
-| **Auto Orchestration** | One-click start Redis, NATS, and services | Zero configuration |
-| **Service Discovery** | Auto service registration and endpoint resolution | No hard-coded addresses |
-| **Observability** | Integrated logging, tracing, and metrics | One-stop monitoring |
-| **Health Checks** | Auto monitoring service health | Quick problem discovery |
-| **Elastic Scaling** | Declarative configuration of replicas | Easy scaling |
+## 🔧 Configuration
 
-### Architecture
+### Environment Variables
 
-```mermaid
-graph TB
-    A[Aspire Dashboard<br/>:15888] --> B[OrderSystem<br/>:5275]
-    B --> C[Redis<br/>:6379]
-    B --> D[NATS<br/>:4222]
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `Catga__ClusterEnabled` | Enable cluster mode | `false` |
+| `Catga__NodeId` | Node identifier | `node-{PID}` |
+| `CLUSTER_MODE` | Aspire replica count (true=3) | `false` |
 
-    style A fill:#e1f5ff
-    style B fill:#fff3e0
-    style C fill:#ffebee
-    style D fill:#f3e5f5
-```
-
-### Sample Code
+### Aspire Configuration
 
 ```csharp
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Add infrastructure
-var nats = builder.AddNats("nats").WithDataVolume().WithJetStream();
 var redis = builder.AddRedis("redis").WithDataVolume();
+var nats = builder.AddNats("nats").WithJetStream();
 
-// Add application service
 builder.AddProject<Projects.OrderSystem_Api>("order-api")
-    .WithReference(nats)
     .WithReference(redis)
+    .WithReference(nats)
     .WithReplicas(3);  // Cluster mode
 
 builder.Build().Run();
 ```
 
-### Use Cases
-
-| Scenario | Aspire | Standalone | K8s |
-|----------|--------|------------|-----|
-| **Local Dev** | Best | OK | Complex |
-| **Team Collab** | Unified | Scattered | Needs Cluster |
-| **Production** | Cloud Native | Not Recommended | Recommended |
-
 ---
 
-## URLs Reference
+## 🌐 URLs
 
 | Service | URL |
 |---------|-----|
@@ -120,27 +171,17 @@ builder.Build().Run();
 
 ---
 
-## Learning Path
+## 📚 Related Documentation
 
-1. **Run Single Mode** - Understand basic concepts
-2. **Run Cluster Mode** - See distributed features
-3. **Run Aspire Mode** - Full orchestration with monitoring
-4. **Modify Handlers** - Add your own business logic
-
----
-
-## Related Docs
-
-- **[Doc Index](../docs/INDEX.md)** - Quick reference
-- **[Architecture](../docs/architecture/ARCHITECTURE.md)** - Deep dive into Catga
-- **[Serialization Guide](../docs/guides/serialization.md)** - MemoryPack vs JSON
+- [Getting Started](../docs/articles/getting-started.md)
+- [Architecture](../docs/architecture/ARCHITECTURE.md)
+- [Distributed Tracing](../docs/observability/DISTRIBUTED-TRACING-GUIDE.md)
+- [E2E Scenarios](../docs/examples/e2e-scenarios.md)
 
 ---
 
 <div align="center">
 
-**Start with examples, master Catga in 30 seconds!**
-
-[Back to Docs](../docs/README.md) · [Doc Index](../docs/INDEX.md)
+**⭐ Production-ready distributed system in 30 seconds!**
 
 </div>

@@ -95,7 +95,7 @@ var result = await mediator.SendAsync(new CreateOrderCommand("PROD-001", 5));
 
 ## 📊 Performance
 
-> BenchmarkDotNet (.NET 9.0, Release)
+### Micro-Benchmarks (BenchmarkDotNet, .NET 9.0)
 
 | Operation | Latency | Allocation | Throughput |
 |-----------|---------|------------|------------|
@@ -103,6 +103,40 @@ var result = await mediator.SendAsync(new CreateOrderCommand("PROD-001", 5));
 | Query | 446 ns | 368 B | 2.2M ops/s |
 | Event | 438 ns | 432 B | 2.3M ops/s |
 | Batch (100) | 45.1 μs | 32.8 KB | 2.2M ops/s |
+
+### E2E Stress Tests (OrderSystem Example)
+
+| Mode | Infrastructure | Sequential RPS | Parallel RPS | Avg Latency | Success |
+|------|----------------|----------------|--------------|-------------|---------|
+| **Single** | In-Memory | 476 req/s | 102 req/s | 1.94 ms | 100% |
+| **Aspire (1x)** | Redis + NATS | 239 req/s | 92 req/s | 4.07 ms | 100% |
+| **Cluster (3x)** | Redis + NATS | 171 req/s | 94 req/s | 5.79 ms | 100% |
+
+> Run `cd examples && .\cross-test.ps1` to reproduce benchmarks.
+
+---
+
+## 🎯 Examples
+
+Complete e-commerce order system with distributed features:
+
+```powershell
+cd examples
+
+# Single instance (simplest)
+.\run-demo.ps1 -Mode Single
+
+# Cluster mode (3 replicas + Redis + NATS)
+.\run-demo.ps1 -Mode Cluster
+
+# Run stress tests
+.\test-demo.ps1 -StressTest
+
+# Cross-mode benchmark
+.\cross-test.ps1
+```
+
+See [examples/README.md](./examples/README.md) for detailed benchmarks and architecture.
 
 ---
 
@@ -142,23 +176,14 @@ builder.Services.AddCatga()
 
 ## 📚 Documentation
 
-- [Getting Started](./docs/articles/getting-started.md)
-- [Architecture](./docs/architecture/ARCHITECTURE.md)
-- [Configuration](./docs/articles/configuration.md)
-- [OpenTelemetry](./docs/articles/opentelemetry-integration.md)
-- [Resilience](./docs/Resilience.md)
-- [Distributed Tracing](./docs/observability/DISTRIBUTED-TRACING-GUIDE.md)
-
----
-
-## 🎯 Examples
-
-See [examples/OrderSystem.Api](./examples/OrderSystem.Api/) for a complete e-commerce order system example.
-
-```bash
-cd examples/OrderSystem.Api
-dotnet run
-```
+| Topic | Description |
+|-------|-------------|
+| [Getting Started](./docs/articles/getting-started.md) | First steps with Catga |
+| [Architecture](./docs/architecture/ARCHITECTURE.md) | Deep dive into internals |
+| [Configuration](./docs/articles/configuration.md) | All configuration options |
+| [OpenTelemetry](./docs/articles/opentelemetry-integration.md) | Tracing and metrics |
+| [Distributed Tracing](./docs/observability/DISTRIBUTED-TRACING-GUIDE.md) | End-to-end tracing |
+| [E2E Scenarios](./docs/examples/e2e-scenarios.md) | Distributed validation |
 
 ---
 

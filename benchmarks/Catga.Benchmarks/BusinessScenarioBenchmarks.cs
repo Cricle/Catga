@@ -15,8 +15,8 @@ using Catga.Resilience;
 namespace Catga.Benchmarks;
 
 /// <summary>
-/// Realistic business scenario benchmarks
-/// Simulates common patterns: Order Processing, Payment, Notification
+/// Business scenario benchmarks - Order Processing, Payment, Notification
+/// Run: dotnet run -c Release --filter *BusinessScenario*
 /// </summary>
 [MemoryDiagnoser]
 [ShortRunJob]
@@ -24,56 +24,15 @@ public class BusinessScenarioBenchmarks
 {
     private IServiceProvider _serviceProvider = null!;
     private ICatgaMediator _mediator = null!;
-    private ActivityListener? _listener;
-
-    private static bool Quick => string.Equals(Environment.GetEnvironmentVariable("E2E_QUICK"), "true", StringComparison.OrdinalIgnoreCase);
-
-    [ParamsSource(nameof(BoolOffThenOn))]
-    public bool TracingEnabled { get; set; }
-
-    [ParamsSource(nameof(BoolOffThenOn))]
-    public bool ResilienceEnabled { get; set; }
-
-    [ParamsSource(nameof(BoolOffThenOn))]
-    public bool EnableAutoBatching { get; set; }
-
-    [ParamsSource(nameof(HandlerDelayCases))]
-    public int HandlerDelayMs { get; set; }
-
-    [ParamsSource(nameof(ConcurrentFlowsCases))]
-    public int ConcurrentFlows { get; set; }
-
-    public static IEnumerable<bool> BoolOffThenOn() => Quick ? new[] { false } : new[] { false, true };
-    public static IEnumerable<int> HandlerDelayCases() => Quick ? new[] { 0, 1 } : new[] { 0, 1, 5 };
-    public static IEnumerable<int> ConcurrentFlowsCases() => Quick ? new[] { 1, 16 } : new[] { 1, 16, 128 };
 
     [GlobalSetup]
     public void Setup()
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Warning));
-        var builder = services.AddCatga().UseMemoryPack();
-        if (ResilienceEnabled)
-        {
-            builder.UseResilience();
-        }
-        else
-        {
-            services.AddSingleton<IResiliencePipelineProvider, NoopResiliencePipelineProvider>();
-        }
-        if (EnableAutoBatching)
-        {
-            builder.UseMediatorAutoBatching(o =>
-            {
-                o.EnableAutoBatching = true;
-                o.MaxBatchSize = 32;
-                o.MaxQueueLength = 20_000;
-                o.BatchTimeout = TimeSpan.FromMilliseconds(5);
-                o.FlushDegree = Math.Max(Environment.ProcessorCount / 4, 1);
-            });
-        }
+        services.AddCatga().UseMemoryPack();
+        services.AddSingleton<IResiliencePipelineProvider, NoopResiliencePipelineProvider>();
 
-        // Register handlers
         services.AddScoped<IRequestHandler<CreateOrderCommand, CreateOrderResult>, CreateOrderHandler>();
         services.AddScoped<IRequestHandler<ProcessPaymentCommand, ProcessPaymentResult>, ProcessPaymentHandler>();
         services.AddScoped<IRequestHandler<GetOrderQuery, GetOrderResult>, GetOrderQueryHandler>();
@@ -86,18 +45,7 @@ public class BusinessScenarioBenchmarks
 
         _serviceProvider = services.BuildServiceProvider();
         _mediator = _serviceProvider.GetRequiredService<ICatgaMediator>();
-        BenchScenarioRuntime.DelayMs = HandlerDelayMs;
-
-        if (TracingEnabled)
-        {
-            _listener = new ActivityListener
-            {
-                ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
-                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-                ActivityStopped = _ => { }
-            };
-            ActivitySource.AddActivityListener(_listener);
-        }
+        BenchScenarioRuntime.DelayMs = 0;
     }
 
     [Benchmark(Baseline = true, Description = "Create Order (Command)")]
@@ -201,24 +149,19 @@ public class BusinessScenarioBenchmarks
         }
     }
 
-    [Benchmark(Description = "E-Commerce Scenario Batch (100 flows sequential)")]
+    [Benchmark(Description = "E-Commerce Scenario Batch (10 flows)")]
     public async Task ECommerceScenarioBatch()
     {
-        var n = Quick ? 10 : 100;
-        for (int i = 0; i < n; i++)
-        {
+        for (int i = 0; i < 10; i++)
             await RunECommerceFlow();
-        }
     }
 
-    [Benchmark(Description = "E-Commerce Scenario Concurrent (100 flows)")]
+    [Benchmark(Description = "E-Commerce Scenario Concurrent (10 flows)")]
     public async Task ECommerceScenarioConcurrent()
     {
-        var tasks = new Task[ConcurrentFlows];
-        for (int i = 0; i < ConcurrentFlows; i++)
-        {
+        var tasks = new Task[10];
+        for (int i = 0; i < 10; i++)
             tasks[i] = RunECommerceFlow();
-        }
         await Task.WhenAll(tasks);
     }
 
@@ -238,23 +181,15 @@ public class BusinessScenarioBenchmarks
         }
     }
 
-    [Benchmark(Description = "High-Throughput Batch (100 Orders)")]
+    [Benchmark(Description = "High-Throughput Batch (20 Orders)")]
     public async Task HighThroughputBatch()
     {
-        var n = Quick ? 20 : 100;
-        var tasks = new Task<CatgaResult<CreateOrderResult>>[n];
-
-        for (int i = 0; i < n; i++)
+        var tasks = new Task<CatgaResult<CreateOrderResult>>[20];
+        for (int i = 0; i < 20; i++)
         {
-            var command = new CreateOrderCommand(
-                UserId: 100 + i,
-                ProductId: 200 + i,
-                Quantity: 1,
-                TotalAmount: 50.0m + i
-            );
+            var command = new CreateOrderCommand(100 + i, 200 + i, 1, 50.0m + i);
             tasks[i] = _mediator.SendAsync<CreateOrderCommand, CreateOrderResult>(command).AsTask();
         }
-
         await Task.WhenAll(tasks);
     }
 
@@ -262,10 +197,7 @@ public class BusinessScenarioBenchmarks
     public void Cleanup()
     {
         if (_serviceProvider is IDisposable disposable)
-        {
             disposable.Dispose();
-        }
-        _listener?.Dispose();
     }
 }
 

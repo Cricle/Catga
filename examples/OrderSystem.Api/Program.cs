@@ -50,10 +50,11 @@ builder.Services.AddScoped<IEventHandler<OrderCancelledEvent>, OrderCancelledEve
 builder.Services.AddScoped<IEventHandler<OrderConfirmedEvent>, OrderConfirmedEventHandler>();
 
 // ============================================
-// Swagger
+// Swagger & Health Checks
 // ============================================
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 

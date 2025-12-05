@@ -4,8 +4,16 @@ using OrderSystem.Api.Domain;
 
 namespace OrderSystem.Api.Messages;
 
+/// <summary>Simple create order command.</summary>
 [MemoryPackable]
 public partial record CreateOrderCommand(
+    string CustomerId,
+    List<OrderItem> Items
+) : IRequest<OrderCreatedResult>;
+
+/// <summary>Create order using Flow pattern with automatic compensation.</summary>
+[MemoryPackable]
+public partial record CreateOrderFlowCommand(
     string CustomerId,
     List<OrderItem> Items
 ) : IRequest<OrderCreatedResult>;

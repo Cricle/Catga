@@ -3,8 +3,20 @@
 ### Health Check
 GET {{baseUrl}}/health
 
-### Create Order
+### Create Order (Simple)
 POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+    "customerId": "C001",
+    "items": [
+        { "productId": "P001", "productName": "Laptop", "quantity": 1, "unitPrice": 999.99 },
+        { "productId": "P002", "productName": "Mouse", "quantity": 2, "unitPrice": 29.99 }
+    ]
+}
+
+### Create Order (Flow) - with automatic compensation on failure
+POST {{baseUrl}}/api/orders/flow
 Content-Type: application/json
 
 {

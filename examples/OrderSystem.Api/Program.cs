@@ -22,6 +22,7 @@ builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
 
 // Handlers
 builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderHandler>();
+builder.Services.AddScoped<IRequestHandler<CreateOrderFlowCommand, OrderCreatedResult>, CreateOrderFlowHandler>();
 builder.Services.AddScoped<IRequestHandler<CancelOrderCommand>, CancelOrderHandler>();
 builder.Services.AddScoped<IRequestHandler<GetOrderQuery, Order?>, GetOrderHandler>();
 builder.Services.AddScoped<IRequestHandler<GetUserOrdersQuery, List<Order>>, GetUserOrdersHandler>();
@@ -43,6 +44,13 @@ app.MapPost("/api/orders", async (CreateOrderCommand cmd, ICatgaMediator mediato
     var result = await mediator.SendAsync<CreateOrderCommand, OrderCreatedResult>(cmd);
     return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
 });
+
+// Flow endpoint - demonstrates automatic compensation on failure
+app.MapPost("/api/orders/flow", async (CreateOrderFlowCommand cmd, ICatgaMediator mediator) =>
+{
+    var result = await mediator.SendAsync<CreateOrderFlowCommand, OrderCreatedResult>(cmd);
+    return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
+}).WithDescription("Create order using Flow pattern with automatic compensation");
 
 app.MapGet("/api/orders/{orderId}", async (string orderId, ICatgaMediator mediator) =>
 {

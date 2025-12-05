@@ -2,7 +2,7 @@ using MemoryPack;
 
 namespace OrderSystem.Api.Domain;
 
-public enum OrderStatus { Pending, Confirmed, Cancelled }
+public enum OrderStatus { Pending, Confirmed, Cancelled, Failed }
 
 [MemoryPackable]
 public partial record Order

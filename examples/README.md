@@ -38,8 +38,8 @@
 | Mode | Description | Requirements |
 |------|-------------|--------------|
 | **Single** | Single instance, in-memory | None |
-| **Cluster** | 3 nodes with shared Redis/NATS | Docker |
-| **Aspire** | Full Aspire orchestration | Docker |
+| **Aspire** | Aspire + Redis/NATS/Jaeger (1 replica) | Docker |
+| **Cluster** | Aspire + Redis/NATS/Jaeger (3 replicas) | Docker |
 
 ---
 

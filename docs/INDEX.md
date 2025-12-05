@@ -219,17 +219,7 @@ public class OrderTests : IDisposable
 
 | 示例 | 说明 | 特性 |
 |------|------|------|
-| [OrderSystem 示例](../examples/README.md) | 电商订单系统 | 完整业务流程、压力测试、分布式部署 |
-| [OrderSystem.Api](../examples/OrderSystem.Api/) | API 应用 | CQRS Handlers、Web UI |
-| [OrderSystem.AppHost](../examples/OrderSystem.AppHost/) | Aspire 编排 | Redis + NATS + Jaeger |
-
-### 测试脚本
-
-| 脚本 | 说明 | 用法 |
-|------|------|------|
-| `run-demo.ps1` | 启动服务 | `-Mode Single\|Aspire\|Cluster` |
-| `test-demo.ps1` | 功能和压力测试 | `-TestCluster -StressTest` |
-| `cross-test.ps1` | 跨模式性能对比 | 自动运行所有模式 |
+| [OrderSystem 示例](../examples/README.md) | 电商订单系统 | CQRS、Mediator、MemoryPack |
 
 ### E2E 实战场景
 

@@ -553,7 +553,7 @@ info: ✅ Rollback completed: Inventory released, Order deleted, Failure event p
 
 - [SafeRequestHandler 指南](./custom-error-handling.md)
 - [错误处理基础](./error-handling.md)
-- [OrderSystem 完整示例](../../examples/OrderSystem.Api/Handlers/OrderCommandHandlers.cs)
+- [OrderSystem 完整示例](../../examples/README.md)
 - [错误处理与 CatgaResult](../guides/error-handling.md)
 
 ---

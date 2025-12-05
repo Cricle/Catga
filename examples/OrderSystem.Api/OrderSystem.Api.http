@@ -1,6 +1,135 @@
-@OrderSystem.Api_HostAddress = http://localhost:5275
+@baseUrl = http://localhost:5275
 
-GET {{OrderSystem.Api_HostAddress}}/weatherforecast/
+### ===== Health Checks =====
+
+### Health Check
+GET {{baseUrl}}/health
 Accept: application/json
 
-###
+### Liveness Check
+GET {{baseUrl}}/health/live
+Accept: application/json
+
+### Readiness Check
+GET {{baseUrl}}/health/ready
+Accept: application/json
+
+### ===== Order Commands =====
+
+### Create Order - Success Scenario
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+    "customerId": "CUST-001",
+    "items": [
+        {
+            "productId": "PROD-001",
+            "productName": "Laptop",
+            "quantity": 1,
+            "unitPrice": 999.99
+        },
+        {
+            "productId": "PROD-002",
+            "productName": "Mouse",
+            "quantity": 2,
+            "unitPrice": 29.99
+        }
+    ],
+    "shippingAddress": "123 Main St, City, Country",
+    "paymentMethod": "credit_card"
+}
+
+### Create Order - Multiple Items
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+    "customerId": "CUST-002",
+    "items": [
+        {
+            "productId": "PROD-003",
+            "productName": "Keyboard",
+            "quantity": 1,
+            "unitPrice": 149.99
+        }
+    ],
+    "shippingAddress": "456 Oak Ave, Town, Country",
+    "paymentMethod": "paypal"
+}
+
+### Create Order - Using Flow (Saga Pattern)
+POST {{baseUrl}}/api/orders/flow
+Content-Type: application/json
+
+{
+    "customerId": "CUST-003",
+    "items": [
+        {
+            "productId": "PROD-001",
+            "productName": "Laptop",
+            "quantity": 1,
+            "unitPrice": 999.99
+        }
+    ],
+    "shippingAddress": "789 Pine Rd, Village, Country",
+    "paymentMethod": "credit_card"
+}
+
+### ===== Order Queries =====
+
+### Get Order by ID
+# Replace {orderId} with actual order ID from create response
+@orderId = ORD-20241205-001
+GET {{baseUrl}}/api/orders/{{orderId}}
+Accept: application/json
+
+### Get Orders by Customer
+@customerId = CUST-001
+GET {{baseUrl}}/api/users/{{customerId}}/orders
+Accept: application/json
+
+### ===== Order Operations =====
+
+### Cancel Order
+# Replace {orderId} with actual order ID
+POST {{baseUrl}}/api/orders/{{orderId}}/cancel
+Content-Type: application/json
+
+{
+    "reason": "Customer requested cancellation"
+}
+
+### ===== Demo Endpoints =====
+
+### Run Success Demo
+POST {{baseUrl}}/api/demo/success
+Content-Type: application/json
+
+{}
+
+### Run Failure Demo (triggers compensation)
+POST {{baseUrl}}/api/demo/failure
+Content-Type: application/json
+
+{}
+
+### ===== Cluster & Distributed =====
+
+### Get Cluster Status
+GET {{baseUrl}}/api/cluster/status
+Accept: application/json
+
+### Get Node Info
+GET {{baseUrl}}/api/cluster/node
+Accept: application/json
+
+### ===== Metrics & Observability =====
+
+### Prometheus Metrics
+GET {{baseUrl}}/metrics
+Accept: text/plain
+
+### OpenAPI Spec
+GET {{baseUrl}}/swagger/v1/swagger.json
+Accept: application/json

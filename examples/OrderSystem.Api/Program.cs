@@ -23,11 +23,18 @@ builder.Services.AddSingleton<IPaymentService, SimulatedPaymentService>();
 // ===== Auto-register handlers (source generated) =====
 builder.Services.AddGeneratedHandlers();
 
+// ===== Health Checks =====
+builder.Services.AddHealthChecks();
+
 // ===== Swagger =====
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// ===== Static Files (Web UI) =====
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 if (app.Environment.IsDevelopment())
 {
@@ -35,7 +42,33 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Auto-generated endpoints from [Route] attributes
+// ===== Health Check Endpoints =====
+app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/live");
+app.MapHealthChecks("/health/ready");
+
+// ===== Cluster Status Endpoints =====
+var nodeId = Environment.GetEnvironmentVariable("Catga__NodeId") ?? $"node-{Environment.ProcessId}";
+var clusterEnabled = Environment.GetEnvironmentVariable("Catga__ClusterEnabled") == "true";
+
+app.MapGet("/api/cluster/status", () => new
+{
+    ClusterEnabled = clusterEnabled,
+    NodeCount = clusterEnabled ? 3 : 1,
+    Status = "healthy",
+    Timestamp = DateTime.UtcNow
+});
+
+app.MapGet("/api/cluster/node", () => new
+{
+    NodeId = nodeId,
+    ProcessId = Environment.ProcessId,
+    MachineName = Environment.MachineName,
+    StartTime = DateTime.UtcNow,
+    ClusterEnabled = clusterEnabled
+});
+
+// ===== Auto-generated endpoints from [Route] attributes =====
 Catga.Generated.CatgaEndpointExtensions.MapCatgaEndpoints(app);
 
 app.Run();

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OrderSystem - 订单管理系统</title>
+    <title>OrderSystem - Catga Demo</title>
     <script src="/lib/alpine.min.js" defer></script>
     <script src="/lib/tailwind.js"></script>
     <style>
@@ -23,13 +23,12 @@
                         <span class="text-sm text-gray-500">Catga Demo</span>
                     </div>
                     <div class="flex items-center space-x-4">
-                        <a href="/demo/compare" target="_blank"
-                           class="px-3 py-2 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition">
-                            🧭 流程对比
-                        </a>
+                        <span x-show="clusterStatus" class="px-3 py-2 text-sm bg-green-100 text-green-700 rounded-lg">
+                            <span x-text="clusterStatus?.clusterEnabled ? 'Cluster: ' + clusterStatus.nodeCount + ' nodes' : 'Single Node'"></span>
+                        </span>
                         <a href="/swagger" target="_blank"
                            class="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition">
-                            📚 API 文档
+                            API Docs
                         </a>
                     </div>
                 </div>
@@ -43,22 +42,27 @@
                     <button @click="currentTab = 'demo'"
                             :class="currentTab === 'demo' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
                             class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
-                        🎬 Demo 演示
+                        Demo
                     </button>
                     <button @click="currentTab = 'orders'"
                             :class="currentTab === 'orders' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
                             class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
-                        📦 订单列表
+                        Orders
                     </button>
                     <button @click="currentTab = 'manual'"
                             :class="currentTab === 'manual' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
                             class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
-                        🧪 手动操作
+                        Create Order
+                    </button>
+                    <button @click="currentTab = 'cluster'"
+                            :class="currentTab === 'cluster' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
+                            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
+                        Cluster
                     </button>
                     <button @click="currentTab = 'health'"
                             :class="currentTab === 'health' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'"
                             class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
-                        🩺 系统健康
+                        Health
                     </button>
                 </nav>
             </div>
@@ -69,34 +73,34 @@
             <!-- Demo Tab -->
             <div x-show="currentTab === 'demo'" x-cloak class="fade-in space-y-6">
                 <div class="bg-white rounded-lg shadow p-6">
-                    <h2 class="text-xl font-bold text-gray-900 mb-4">Catga 核心特性演示</h2>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">Catga Core Features Demo</h2>
                     <p class="text-gray-600 mb-6">
-                        通过订单创建流程演示 Catga 的核心特性：SafeRequestHandler、自动回滚、事件发布。
+                        Demonstrates Catga core features through order creation: SafeRequestHandler, automatic rollback, event publishing.
                     </p>
 
                     <!-- Success Demo -->
                     <div class="mb-8">
                         <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-lg font-semibold text-green-700">✅ 成功场景</h3>
+                            <h3 class="text-lg font-semibold text-green-700">Success Scenario</h3>
                             <button @click="runSuccessDemo()"
                                     :disabled="demoLoading"
                                     class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50">
-                                <span x-show="!demoLoading">运行 Demo</span>
-                                <span x-show="demoLoading">运行中...</span>
+                                <span x-show="!demoLoading">Run Demo</span>
+                                <span x-show="demoLoading">Running...</span>
                             </button>
                         </div>
                         <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                            <p class="text-sm text-gray-700 mb-2">流程步骤：</p>
+                            <p class="text-sm text-gray-700 mb-2">Flow Steps:</p>
                             <ol class="text-sm text-gray-600 space-y-1 list-decimal list-inside">
-                                <li>检查库存 ✅</li>
-                                <li>保存订单 ✅</li>
-                                <li>预留库存 ✅</li>
-                                <li>验证支付方式 ✅</li>
-                                <li>发布事件 ✅</li>
+                                <li>Check Inventory</li>
+                                <li>Save Order</li>
+                                <li>Reserve Inventory</li>
+                                <li>Process Payment</li>
+                                <li>Publish Event</li>
                             </ol>
                         </div>
                         <div x-show="successResult" x-cloak class="mt-4 bg-white border border-green-300 rounded-lg p-4">
-                            <p class="text-sm font-semibold text-green-700 mb-2">✅ 执行结果：</p>
+                            <p class="text-sm font-semibold text-green-700 mb-2">Result:</p>
                             <pre class="text-xs bg-gray-50 p-3 rounded overflow-x-auto" x-text="JSON.stringify(successResult, null, 2)"></pre>
                         </div>
                     </div>
@@ -104,28 +108,28 @@
                     <!-- Failure Demo -->
                     <div>
                         <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-lg font-semibold text-red-700">❌ 失败场景（自动回滚）</h3>
+                            <h3 class="text-lg font-semibold text-red-700">Failure Scenario (Auto Rollback)</h3>
                             <button @click="runFailureDemo()"
                                     :disabled="demoLoading"
                                     class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50">
-                                <span x-show="!demoLoading">运行 Demo</span>
-                                <span x-show="demoLoading">运行中...</span>
+                                <span x-show="!demoLoading">Run Demo</span>
+                                <span x-show="demoLoading">Running...</span>
                             </button>
                         </div>
                         <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                            <p class="text-sm text-gray-700 mb-2">流程步骤：</p>
+                            <p class="text-sm text-gray-700 mb-2">Flow Steps:</p>
                             <ol class="text-sm text-gray-600 space-y-1 list-decimal list-inside">
-                                <li>检查库存 ✅</li>
-                                <li>保存订单 ✅</li>
-                                <li>预留库存 ✅</li>
-                                <li>验证支付方式 ❌ （触发失败）</li>
-                                <li>自动回滚：释放库存 🔄</li>
-                                <li>自动回滚：删除订单 🔄</li>
-                                <li>发布失败事件 📢</li>
+                                <li>Check Inventory</li>
+                                <li>Save Order</li>
+                                <li>Reserve Inventory</li>
+                                <li>Process Payment (triggers failure)</li>
+                                <li>Auto Rollback: Release Inventory</li>
+                                <li>Auto Rollback: Cancel Order</li>
+                                <li>Publish Failure Event</li>
                             </ol>
                         </div>
                         <div x-show="failureResult" x-cloak class="mt-4 bg-white border border-red-300 rounded-lg p-4">
-                            <p class="text-sm font-semibold text-red-700 mb-2">❌ 执行结果：</p>
+                            <p class="text-sm font-semibold text-red-700 mb-2">Result:</p>
                             <pre class="text-xs bg-gray-50 p-3 rounded overflow-x-auto" x-text="JSON.stringify(failureResult, null, 2)"></pre>
                         </div>
                     </div>
@@ -133,23 +137,23 @@
 
                 <!-- Key Features -->
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow p-6">
-                    <h3 class="text-lg font-bold text-gray-900 mb-4">🌟 核心特性</h3>
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">Core Features</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-white rounded-lg p-4 shadow-sm">
-                            <p class="font-semibold text-gray-900 mb-2">✨ SafeRequestHandler</p>
-                            <p class="text-sm text-gray-600">自动异常处理，无需手动 try-catch</p>
+                            <p class="font-semibold text-gray-900 mb-2">SafeRequestHandler</p>
+                            <p class="text-sm text-gray-600">Automatic exception handling, no manual try-catch</p>
                         </div>
                         <div class="bg-white rounded-lg p-4 shadow-sm">
-                            <p class="font-semibold text-gray-900 mb-2">🔄 自动回滚</p>
-                            <p class="text-sm text-gray-600">失败时自动回滚已完成的操作</p>
+                            <p class="font-semibold text-gray-900 mb-2">Auto Rollback</p>
+                            <p class="text-sm text-gray-600">Automatically rollback completed operations on failure</p>
                         </div>
                         <div class="bg-white rounded-lg p-4 shadow-sm">
-                            <p class="font-semibold text-gray-900 mb-2">📢 事件驱动</p>
-                            <p class="text-sm text-gray-600">自动发布事件，解耦业务逻辑</p>
+                            <p class="font-semibold text-gray-900 mb-2">Event Driven</p>
+                            <p class="text-sm text-gray-600">Automatic event publishing, decoupled business logic</p>
                         </div>
                         <div class="bg-white rounded-lg p-4 shadow-sm">
-                            <p class="font-semibold text-gray-900 mb-2">🚀 Source Generator</p>
-                            <p class="text-sm text-gray-600">零反射，AOT 兼容，自动注册</p>
+                            <p class="font-semibold text-gray-900 mb-2">Source Generator</p>
+                            <p class="text-sm text-gray-600">Zero reflection, AOT compatible, auto registration</p>
                         </div>
                     </div>
                 </div>
@@ -159,17 +163,17 @@
             <div x-show="currentTab === 'orders'" x-cloak class="fade-in">
                 <div class="bg-white rounded-lg shadow">
                     <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                        <h2 class="text-lg font-semibold text-gray-900">订单列表</h2>
+                        <h2 class="text-lg font-semibold text-gray-900">Orders</h2>
                         <button @click="loadOrders()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
-                            🔄 刷新
+                            Refresh
                         </button>
                     </div>
                     <div class="divide-y divide-gray-200">
                         <template x-if="orders.length === 0">
                             <div class="px-6 py-12 text-center text-gray-500">
-                                <p>暂无订单数据</p>
+                                <p>No orders yet</p>
                                 <button @click="currentTab = 'demo'" class="mt-4 text-blue-600 hover:text-blue-700">
-                                    运行 Demo 创建订单 →
+                                    Run Demo to create orders
                                 </button>
                             </div>
                         </template>
@@ -181,12 +185,12 @@
                                             <span class="text-sm font-medium text-gray-900" x-text="order.orderId"></span>
                                             <span class="px-2 py-1 text-xs font-medium rounded"
                                                   :class="order.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'"
-                                                  x-text="order.status === 'Pending' ? '待处理' : '已取消'"></span>
+                                                  x-text="order.status === 'Pending' ? 'Pending' : 'Cancelled'"></span>
                                         </div>
                                         <div class="flex items-center space-x-4 text-sm text-gray-500">
                                             <span>👤 <span x-text="order.customerId"></span></span>
                                             <span>💰 ¥<span x-text="order.totalAmount.toLocaleString()"></span></span>
-                                            <span>📦 <span x-text="order.items.length"></span> 件商品</span>
+                                            <span>📦 <span x-text="order.items.length"></span> items</span>
                                             <span>📅 <span x-text="new Date(order.createdAt).toLocaleString()"></span></span>
                                         </div>
                                         <div class="mt-2 text-xs text-gray-400">
@@ -198,7 +202,7 @@
                                     <button x-show="order.status === 'Pending'"
                                             @click="cancelOrder(order.orderId)"
                                             class="ml-4 px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition">
-                                        取消订单
+                                        Cancel
                                     </button>
                                 </div>
                             </div>
@@ -211,36 +215,36 @@
             <div x-show="currentTab === 'manual'" x-cloak class="fade-in space-y-6">
                 <div class="bg-white rounded-lg shadow p-6">
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-lg font-semibold text-gray-900">手动创建订单</h2>
-                        <button @click="submitManual()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">提交创建</button>
+                        <h2 class="text-lg font-semibold text-gray-900">Create Order</h2>
+                        <button @click="submitManual()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">Submit</button>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-sm text-gray-600 mb-1">客户ID</label>
-                            <input x-model="manualOrder.customerId" class="w-full border rounded px-3 py-2" placeholder="如 DEMO-CUST-UI">
+                            <label class="block text-sm text-gray-600 mb-1">Customer ID</label>
+                            <input x-model="manualOrder.customerId" class="w-full border rounded px-3 py-2" placeholder="e.g. CUST-001">
                         </div>
                         <div>
-                            <label class="block text-sm text-gray-600 mb-1">收货地址</label>
-                            <input x-model="manualOrder.shippingAddress" class="w-full border rounded px-3 py-2" placeholder="详细地址">
+                            <label class="block text-sm text-gray-600 mb-1">Shipping Address</label>
+                            <input x-model="manualOrder.shippingAddress" class="w-full border rounded px-3 py-2" placeholder="Full address">
                         </div>
                         <div>
-                            <label class="block text-sm text-gray-600 mb-1">支付方式</label>
-                            <input x-model="manualOrder.paymentMethod" class="w-full border rounded px-3 py-2" placeholder="如 Alipay 或 FAIL-CreditCard">
+                            <label class="block text-sm text-gray-600 mb-1">Payment Method</label>
+                            <input x-model="manualOrder.paymentMethod" class="w-full border rounded px-3 py-2" placeholder="e.g. credit_card, paypal">
                         </div>
                     </div>
                     <div class="mt-6">
                         <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-sm font-semibold text-gray-900">商品明细</h3>
-                            <button @click="addItem()" class="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200">+ 添加商品</button>
+                            <h3 class="text-sm font-semibold text-gray-900">Order Items</h3>
+                            <button @click="addItem()" class="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200">+ Add Item</button>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="min-w-full text-sm">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-3 py-2 text-left text-gray-600">商品ID</th>
-                                        <th class="px-3 py-2 text-left text-gray-600">名称</th>
-                                        <th class="px-3 py-2 text-left text-gray-600">数量</th>
-                                        <th class="px-3 py-2 text-left text-gray-600">单价</th>
+                                        <th class="px-3 py-2 text-left text-gray-600">Product ID</th>
+                                        <th class="px-3 py-2 text-left text-gray-600">Name</th>
+                                        <th class="px-3 py-2 text-left text-gray-600">Qty</th>
+                                        <th class="px-3 py-2 text-left text-gray-600">Price</th>
                                         <th class="px-3 py-2"></th>
                                     </tr>
                                 </thead>
@@ -251,7 +255,7 @@
                                             <td class="px-3 py-2"><input x-model="it.productName" class="w-full border rounded px-2 py-1"></td>
                                             <td class="px-3 py-2 w-24"><input type="number" min="1" x-model.number="it.quantity" class="w-full border rounded px-2 py-1"></td>
                                             <td class="px-3 py-2 w-28"><input type="number" step="0.01" x-model.number="it.unitPrice" class="w-full border rounded px-2 py-1"></td>
-                                            <td class="px-3 py-2 text-right"><button @click="removeItem(idx)" class="text-red-600 hover:text-red-700">删除</button></td>
+                                            <td class="px-3 py-2 text-right"><button @click="removeItem(idx)" class="text-red-600 hover:text-red-700">Remove</button></td>
                                         </tr>
                                     </template>
                                 </tbody>
@@ -259,29 +263,98 @@
                         </div>
                     </div>
                     <div x-show="manualResult" x-cloak class="mt-4 bg-gray-50 border rounded p-4">
-                        <p class="text-sm font-semibold text-gray-700 mb-2">执行结果：</p>
+                        <p class="text-sm font-semibold text-gray-700 mb-2">Result:</p>
                         <pre class="text-xs overflow-x-auto" x-text="JSON.stringify(manualResult, null, 2)"></pre>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-white rounded-lg shadow p-6">
-                        <h3 class="text-base font-semibold text-gray-900 mb-3">按ID取消订单</h3>
+                        <h3 class="text-base font-semibold text-gray-900 mb-3">Cancel Order by ID</h3>
                         <div class="flex space-x-2">
-                            <input x-model="cancelOrderId" class="flex-1 border rounded px-3 py-2" placeholder="订单ID">
-                            <input x-model="cancelReason" class="flex-1 border rounded px-3 py-2" placeholder="取消原因">
-                            <button @click="cancelById()" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">取消</button>
+                            <input x-model="cancelOrderId" class="flex-1 border rounded px-3 py-2" placeholder="Order ID">
+                            <input x-model="cancelReason" class="flex-1 border rounded px-3 py-2" placeholder="Cancellation Reason">
+                            <button @click="cancelById()" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Cancel</button>
                         </div>
                     </div>
 
                     <div class="bg-white rounded-lg shadow p-6">
-                        <h3 class="text-base font-semibold text-gray-900 mb-3">按ID查询订单</h3>
+                        <h3 class="text-base font-semibold text-gray-900 mb-3">Lookup Order by ID</h3>
                         <div class="flex space-x-2 mb-3">
-                            <input x-model="orderLookupId" class="flex-1 border rounded px-3 py-2" placeholder="订单ID">
-                            <button @click="getOrderById()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">查询</button>
+                            <input x-model="orderLookupId" class="flex-1 border rounded px-3 py-2" placeholder="Order ID">
+                            <button @click="getOrderById()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Search</button>
                         </div>
                         <div x-show="orderLookupResult" x-cloak class="bg-gray-50 border rounded p-3">
                             <pre class="text-xs overflow-x-auto" x-text="JSON.stringify(orderLookupResult, null, 2)"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cluster Tab -->
+            <div x-show="currentTab === 'cluster'" x-cloak class="fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Cluster Status</h2>
+                        <template x-if="clusterStatus">
+                            <div class="space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Cluster Enabled:</span>
+                                    <span :class="clusterStatus.clusterEnabled ? 'text-green-600' : 'text-gray-600'" x-text="clusterStatus.clusterEnabled ? 'Yes' : 'No'"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Node Count:</span>
+                                    <span class="font-medium" x-text="clusterStatus.nodeCount"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Status:</span>
+                                    <span class="px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-800" x-text="clusterStatus.status"></span>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="!clusterStatus">
+                            <p class="text-gray-500">Loading cluster status...</p>
+                        </template>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Node Info</h2>
+                        <template x-if="nodeInfo">
+                            <div class="space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Node ID:</span>
+                                    <span class="font-mono text-sm" x-text="nodeInfo.nodeId"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Process ID:</span>
+                                    <span class="font-mono text-sm" x-text="nodeInfo.processId"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Machine:</span>
+                                    <span class="font-mono text-sm" x-text="nodeInfo.machineName"></span>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="!nodeInfo">
+                            <p class="text-gray-500">Loading node info...</p>
+                        </template>
+                    </div>
+                </div>
+                <div class="mt-6 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg shadow p-6">
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">Cluster Mode</h3>
+                    <p class="text-gray-600 mb-4">Run with cluster mode to demonstrate distributed features:</p>
+                    <pre class="bg-gray-800 text-green-400 p-4 rounded-lg text-sm overflow-x-auto">$env:CLUSTER_MODE="true"; dotnet run --project examples/OrderSystem.AppHost</pre>
+                    <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-white rounded-lg p-4 shadow-sm">
+                            <p class="font-semibold text-gray-900 mb-2">Distributed Locks</p>
+                            <p class="text-sm text-gray-600">Redis-based distributed locking</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 shadow-sm">
+                            <p class="font-semibold text-gray-900 mb-2">Message Routing</p>
+                            <p class="text-sm text-gray-600">NATS JetStream for reliable messaging</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 shadow-sm">
+                            <p class="font-semibold text-gray-900 mb-2">Outbox Pattern</p>
+                            <p class="text-sm text-gray-600">Guaranteed message delivery</p>
                         </div>
                     </div>
                 </div>
@@ -291,16 +364,16 @@
             <div x-show="currentTab === 'health'" x-cloak class="fade-in">
                 <div class="bg-white rounded-lg shadow p-6">
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-lg font-semibold text-gray-900">系统健康</h2>
-                        <button @click="checkHealth()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">刷新</button>
+                        <h2 class="text-lg font-semibold text-gray-900">System Health</h2>
+                        <button @click="checkHealth()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">Refresh</button>
                     </div>
                     <template x-if="!healthData">
-                        <p class="text-gray-500">点击“刷新”获取健康状态</p>
+                        <p class="text-gray-500">Click "Refresh" to check health status</p>
                     </template>
                     <template x-if="healthData">
                         <div>
                             <div class="mb-3">
-                                <span class="text-sm mr-2">总体状态：</span>
+                                <span class="text-sm mr-2">Overall Status:</span>
                                 <span class="px-2 py-1 text-xs font-medium rounded"
                                       :class="healthData.status === 'Healthy' ? 'bg-green-100 text-green-800' : (healthData.status === 'Degraded' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800')"
                                       x-text="healthData.status"></span>
@@ -349,24 +422,40 @@
                 successResult: null,
                 failureResult: null,
                 toast: { show: false, message: '', type: 'success' },
+                clusterStatus: null,
+                nodeInfo: null,
                 manualOrder: {
-                    customerId: 'DEMO-CUST-UI',
-                    shippingAddress: '北京市 海淀区 XXX 路 123 号',
-                    paymentMethod: 'Alipay',
+                    customerId: 'DEMO-CUST-001',
+                    shippingAddress: '123 Main Street, City, Country',
+                    paymentMethod: 'credit_card',
                     items: [
-                        { productId: 'SKU-100', productName: '示例商品A', quantity: 1, unitPrice: 99 },
-                        { productId: 'SKU-200', productName: '示例商品B', quantity: 2, unitPrice: 49 }
+                        { productId: 'PROD-001', productName: 'Laptop', quantity: 1, unitPrice: 999.99 },
+                        { productId: 'PROD-002', productName: 'Mouse', quantity: 2, unitPrice: 29.99 }
                     ]
                 },
                 manualResult: null,
                 orderLookupId: '',
                 orderLookupResult: null,
                 cancelOrderId: '',
-                cancelReason: '用户主动取消',
+                cancelReason: 'Customer requested cancellation',
                 healthData: null,
 
                 async init() {
                     await this.loadOrders();
+                    await this.loadClusterStatus();
+                },
+
+                async loadClusterStatus() {
+                    try {
+                        const [statusRes, nodeRes] = await Promise.all([
+                            fetch('/api/cluster/status'),
+                            fetch('/api/cluster/node')
+                        ]);
+                        this.clusterStatus = await statusRes.json();
+                        this.nodeInfo = await nodeRes.json();
+                    } catch (error) {
+                        console.error('Failed to load cluster status:', error);
+                    }
                 },
 
                 addItem() {
@@ -407,13 +496,13 @@
                             };
                             this.orders = [order, ...this.orders];
                             this.saveOrders();
-                            this.showToast('✅ 订单创建成功', 'success');
+                            this.showToast('Order created successfully', 'success');
                             this.currentTab = 'orders';
                         } else {
-                            this.showToast(result?.error ?? '❌ 创建失败', 'error');
+                            this.showToast(result?.error ?? 'Creation failed', 'error');
                         }
                     } catch (error) {
-                        this.showToast('❌ 请求失败', 'error');
+                        this.showToast('Request failed', 'error');
                     }
                 },
 
@@ -439,10 +528,10 @@
                         };
                         this.orders = [order, ...this.orders];
                         this.saveOrders();
-                        this.showToast('✅ 订单创建成功！', 'success');
+                        this.showToast('Order created successfully!', 'success');
                         await this.loadOrders();
                     } catch (error) {
-                        this.showToast('❌ 请求失败', 'error');
+                        this.showToast('Request failed', 'error');
                     } finally {
                         this.demoLoading = false;
                     }
@@ -455,10 +544,10 @@
                         const response = await fetch('/demo/order-failure', { method: 'POST' });
                         const result = await response.json();
                         this.failureResult = result;
-                        this.showToast('⚠️ 演示失败场景完成（预期行为）', 'success');
+                        this.showToast('Failure scenario completed (expected behavior)', 'success');
                         await this.loadOrders();
                     } catch (error) {
-                        this.showToast('❌ 请求失败', 'error');
+                        this.showToast('Request failed', 'error');
                     } finally {
                         this.demoLoading = false;
                     }
@@ -485,27 +574,27 @@
                 },
 
                 async cancelOrder(orderId) {
-                    if (!confirm(`确定要取消订单 ${orderId} 吗？`)) return;
+                    if (!confirm(`Cancel order ${orderId}?`)) return;
 
                     try {
                         const response = await fetch('/api/orders/cancel', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ orderId, reason: '用户主动取消' })
+                            body: JSON.stringify({ orderId, reason: 'Customer requested cancellation' })
                         });
 
                         if (response.ok) {
-                            this.showToast('订单已取消', 'success');
+                            this.showToast('Order cancelled', 'success');
                             // Update local cache status
                             this.orders = this.orders.map(o => o.orderId === orderId ? { ...o, status: 'Cancelled' } : o);
                             this.saveOrders();
                             await this.loadOrders();
                         } else {
                             const error = await response.text();
-                            this.showToast(`取消失败: ${error}`, 'error');
+                            this.showToast(`Cancel failed: ${error}`, 'error');
                         }
                     } catch (error) {
-                        this.showToast('请求失败', 'error');
+                        this.showToast('Request failed', 'error');
                     }
                 },
 
@@ -520,13 +609,13 @@
                         if (response.ok) {
                             this.orders = this.orders.map(o => o.orderId === this.cancelOrderId ? { ...o, status: 'Cancelled' } : o);
                             this.saveOrders();
-                            this.showToast('订单已取消', 'success');
+                            this.showToast('Order cancelled', 'success');
                         } else {
                             const error = await response.text();
-                            this.showToast(`取消失败: ${error}`, 'error');
+                            this.showToast(`Cancel failed: ${error}`, 'error');
                         }
                     } catch (error) {
-                        this.showToast('请求失败', 'error');
+                        this.showToast('Request failed', 'error');
                     }
                 },
 
@@ -536,7 +625,7 @@
                         const response = await fetch(`/api/orders/${encodeURIComponent(this.orderLookupId)}`);
                         this.orderLookupResult = response.ok ? await response.json() : { error: await response.text() };
                     } catch (error) {
-                        this.orderLookupResult = { error: '请求失败' };
+                        this.orderLookupResult = { error: 'Request failed' };
                     }
                 },
 

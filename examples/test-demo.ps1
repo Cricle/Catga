@@ -75,8 +75,8 @@ function Run-StressTest {
     param(
         [string]$Mode,
         [string]$Endpoint,
-        [int]$SequentialCount = 100,
-        [int]$ParallelCount = 50
+        [int]$SequentialCount = 500,
+        [int]$ParallelCount = 100
     )
 
     $results = @{
@@ -89,22 +89,21 @@ function Run-StressTest {
         ParallelSuccess = 0
         ParallelRps = 0
         ParallelAvgMs = 0
-        OrderCreateCount = 20
+        OrderCreateCount = 50
         OrderCreateSuccess = 0
         OrderCreateRps = 0
     }
 
-    # Sequential stress test
-    $seqTimes = @()
+    # Sequential stress test (direct calls, no Job overhead)
+    $seqTimes = [System.Collections.Generic.List[double]]::new()
     $seqStart = Get-Date
     for ($i = 1; $i -le $SequentialCount; $i++) {
         $reqStart = Get-Date
-        $result = Test-Endpoint "$Endpoint/api/cluster/node"
-        $reqEnd = Get-Date
-        if ($result.Success) {
+        try {
+            $null = Invoke-RestMethod -Uri "$Endpoint/api/cluster/node" -Method GET -TimeoutSec 5
             $results.SequentialSuccess++
-            $seqTimes += ($reqEnd - $reqStart).TotalMilliseconds
-        }
+            $seqTimes.Add(((Get-Date) - $reqStart).TotalMilliseconds)
+        } catch { }
     }
     $seqDuration = ((Get-Date) - $seqStart).TotalMilliseconds
     $results.SequentialRps = [math]::Round($SequentialCount / ($seqDuration / 1000), 1)
@@ -112,67 +111,84 @@ function Run-StressTest {
         $results.SequentialAvgMs = [math]::Round(($seqTimes | Measure-Object -Average).Average, 2)
     }
 
-    # Parallel stress test
-    $parallelJobs = @()
-    for ($i = 1; $i -le $ParallelCount; $i++) {
-        $job = Start-Job -ScriptBlock {
-            param($Url)
-            $start = Get-Date
-            try {
-                $response = Invoke-RestMethod -Uri "$Url/api/cluster/node" -Method GET -TimeoutSec 10
-                $duration = ((Get-Date) - $start).TotalMilliseconds
-                return @{ Success = $true; Duration = $duration }
-            } catch {
-                return @{ Success = $false; Duration = 0 }
-            }
-        } -ArgumentList $Endpoint
-        $parallelJobs += $job
+    # Parallel stress test using runspaces (much faster than Start-Job)
+    $runspacePool = [runspacefactory]::CreateRunspacePool(1, $ParallelCount)
+    $runspacePool.Open()
+    $runspaces = [System.Collections.Generic.List[object]]::new()
+
+    $scriptBlock = {
+        param($Url)
+        $start = [datetime]::Now
+        try {
+            $null = Invoke-RestMethod -Uri $Url -Method GET -TimeoutSec 5
+            return @{ Success = $true; Duration = ([datetime]::Now - $start).TotalMilliseconds }
+        } catch {
+            return @{ Success = $false; Duration = 0 }
+        }
     }
 
     $parallelStart = Get-Date
-    $parallelJobs | Wait-Job | Out-Null
+    for ($i = 1; $i -le $ParallelCount; $i++) {
+        $ps = [powershell]::Create().AddScript($scriptBlock).AddArgument("$Endpoint/api/cluster/node")
+        $ps.RunspacePool = $runspacePool
+        $runspaces.Add(@{ Pipe = $ps; Handle = $ps.BeginInvoke() })
+    }
+
+    $parallelResults = @()
+    foreach ($rs in $runspaces) {
+        $parallelResults += $rs.Pipe.EndInvoke($rs.Handle)
+        $rs.Pipe.Dispose()
+    }
     $parallelDuration = ((Get-Date) - $parallelStart).TotalMilliseconds
-    $parallelResults = $parallelJobs | Receive-Job
-    $parallelJobs | Remove-Job
+    $runspacePool.Close()
 
     $results.ParallelSuccess = ($parallelResults | Where-Object { $_.Success }).Count
     $results.ParallelRps = [math]::Round($ParallelCount / ($parallelDuration / 1000), 1)
-    $successDurations = ($parallelResults | Where-Object { $_.Success }).Duration
+    $successDurations = @($parallelResults | Where-Object { $_.Success } | ForEach-Object { $_.Duration })
     if ($successDurations.Count -gt 0) {
         $results.ParallelAvgMs = [math]::Round(($successDurations | Measure-Object -Average).Average, 2)
     }
 
-    # Order creation stress test
-    $orderJobs = @()
-    for ($i = 1; $i -le $results.OrderCreateCount; $i++) {
-        $job = Start-Job -ScriptBlock {
-            param($Url, $Index)
-            $payload = @{
-                customerId = "STRESS-$Index-$(Get-Random)"
-                items = @(@{
-                    productId = "STRESS-PROD"
-                    productName = "Stress Product"
-                    quantity = 1
-                    unitPrice = 10.00
-                })
-                shippingAddress = "Stress Address"
-                paymentMethod = "card"
-            }
-            try {
-                $response = Invoke-RestMethod -Uri "$Url/api/orders" -Method POST -ContentType "application/json" -Body ($payload | ConvertTo-Json -Depth 5) -TimeoutSec 10
-                return @{ Success = ($null -ne $response.orderId) }
-            } catch {
-                return @{ Success = $false }
-            }
-        } -ArgumentList $Endpoint, $i
-        $orderJobs += $job
+    # Order creation stress test using runspaces
+    $orderPool = [runspacefactory]::CreateRunspacePool(1, 50)
+    $orderPool.Open()
+    $orderRunspaces = [System.Collections.Generic.List[object]]::new()
+
+    $orderScript = {
+        param($Url, $Index)
+        $payload = @{
+            customerId = "STRESS-$Index-$([guid]::NewGuid().ToString('N').Substring(0,8))"
+            items = @(@{
+                productId = "STRESS-PROD"
+                productName = "Stress Product"
+                quantity = 1
+                unitPrice = 10.00
+            })
+            shippingAddress = "Stress Address"
+            paymentMethod = "card"
+        } | ConvertTo-Json -Depth 5
+        try {
+            $response = Invoke-RestMethod -Uri $Url -Method POST -ContentType "application/json" -Body $payload -TimeoutSec 10
+            return @{ Success = ($null -ne $response.orderId) }
+        } catch {
+            return @{ Success = $false }
+        }
     }
 
     $orderStart = Get-Date
-    $orderJobs | Wait-Job | Out-Null
+    for ($i = 1; $i -le $results.OrderCreateCount; $i++) {
+        $ps = [powershell]::Create().AddScript($orderScript).AddArgument("$Endpoint/api/orders").AddArgument($i)
+        $ps.RunspacePool = $orderPool
+        $orderRunspaces.Add(@{ Pipe = $ps; Handle = $ps.BeginInvoke() })
+    }
+
+    $orderResults = @()
+    foreach ($rs in $orderRunspaces) {
+        $orderResults += $rs.Pipe.EndInvoke($rs.Handle)
+        $rs.Pipe.Dispose()
+    }
     $orderDuration = ((Get-Date) - $orderStart).TotalMilliseconds
-    $orderResults = $orderJobs | Receive-Job
-    $orderJobs | Remove-Job
+    $orderPool.Close()
 
     $results.OrderCreateSuccess = ($orderResults | Where-Object { $_.Success }).Count
     $results.OrderCreateRps = [math]::Round($results.OrderCreateCount / ($orderDuration / 1000), 1)
@@ -210,11 +226,11 @@ function Write-StressResultsTable {
     Write-Host $separator -ForegroundColor Gray
     Write-Host ""
     Write-Host "Legend:" -ForegroundColor Gray
-    Write-Host "  Seq RPS     - Sequential requests per second (100 requests)" -ForegroundColor Gray
+    Write-Host "  Seq RPS     - Sequential requests per second (500 requests)" -ForegroundColor Gray
     Write-Host "  Seq Avg(ms) - Average latency for sequential requests" -ForegroundColor Gray
-    Write-Host "  Par RPS     - Parallel requests per second (50 concurrent)" -ForegroundColor Gray
+    Write-Host "  Par RPS     - Parallel requests per second (100 concurrent runspaces)" -ForegroundColor Gray
     Write-Host "  Par Avg(ms) - Average latency for parallel requests" -ForegroundColor Gray
-    Write-Host "  Ord RPS     - Order creation requests per second (20 concurrent)" -ForegroundColor Gray
+    Write-Host "  Ord RPS     - Order creation requests per second (50 concurrent)" -ForegroundColor Gray
     Write-Host ""
 }
 

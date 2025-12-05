@@ -21,9 +21,9 @@
 param(
     [switch]$SkipSingle,
     [switch]$SkipCluster,
-    [int]$SequentialCount = 100,
-    [int]$ParallelCount = 50,
-    [int]$OrderCount = 20
+    [int]$SequentialCount = 500,
+    [int]$ParallelCount = 100,
+    [int]$OrderCount = 50
 )
 
 $ErrorActionPreference = "Stop"
@@ -135,18 +135,17 @@ function Run-FullStressTest {
     }
     Write-Host "  ✓ Health check passed" -ForegroundColor Green
 
-    # Sequential stress test
+    # Sequential stress test (direct calls, no Job overhead)
     Write-Host "  Running sequential test ($SequentialCount requests)..." -ForegroundColor Gray
-    $seqTimes = @()
+    $seqTimes = [System.Collections.Generic.List[double]]::new()
     $seqStart = Get-Date
     for ($i = 1; $i -le $SequentialCount; $i++) {
         $reqStart = Get-Date
-        $result = Test-Endpoint "$Endpoint/api/cluster/node"
-        $reqEnd = Get-Date
-        if ($result.Success) {
+        try {
+            $null = Invoke-RestMethod -Uri "$Endpoint/api/cluster/node" -Method GET -TimeoutSec 5
             $results.SeqSuccess++
-            $seqTimes += ($reqEnd - $reqStart).TotalMilliseconds
-        }
+            $seqTimes.Add(((Get-Date) - $reqStart).TotalMilliseconds)
+        } catch { }
     }
     $seqDuration = ((Get-Date) - $seqStart).TotalMilliseconds
     $results.SeqRps = [math]::Round($SequentialCount / ($seqDuration / 1000), 1)
@@ -158,70 +157,87 @@ function Run-FullStressTest {
     }
     Write-Host "  ✓ Sequential: $($results.SeqRps) req/s, avg $($results.SeqAvgMs)ms" -ForegroundColor Green
 
-    # Parallel stress test
+    # Parallel stress test using runspaces (much faster than Start-Job)
     Write-Host "  Running parallel test ($ParallelCount concurrent)..." -ForegroundColor Gray
-    $parallelJobs = @()
-    for ($i = 1; $i -le $ParallelCount; $i++) {
-        $job = Start-Job -ScriptBlock {
-            param($Url)
-            $start = Get-Date
-            try {
-                $response = Invoke-RestMethod -Uri "$Url/api/cluster/node" -Method GET -TimeoutSec 10
-                $duration = ((Get-Date) - $start).TotalMilliseconds
-                return @{ Success = $true; Duration = $duration }
-            } catch {
-                return @{ Success = $false; Duration = 0 }
-            }
-        } -ArgumentList $Endpoint
-        $parallelJobs += $job
+    $runspacePool = [runspacefactory]::CreateRunspacePool(1, $ParallelCount)
+    $runspacePool.Open()
+    $runspaces = [System.Collections.Generic.List[object]]::new()
+
+    $scriptBlock = {
+        param($Url)
+        $start = [datetime]::Now
+        try {
+            $null = Invoke-RestMethod -Uri $Url -Method GET -TimeoutSec 5
+            return @{ Success = $true; Duration = ([datetime]::Now - $start).TotalMilliseconds }
+        } catch {
+            return @{ Success = $false; Duration = 0 }
+        }
     }
 
     $parallelStart = Get-Date
-    $parallelJobs | Wait-Job | Out-Null
+    for ($i = 1; $i -le $ParallelCount; $i++) {
+        $ps = [powershell]::Create().AddScript($scriptBlock).AddArgument("$Endpoint/api/cluster/node")
+        $ps.RunspacePool = $runspacePool
+        $runspaces.Add(@{ Pipe = $ps; Handle = $ps.BeginInvoke() })
+    }
+
+    $parallelResults = @()
+    foreach ($rs in $runspaces) {
+        $parallelResults += $rs.Pipe.EndInvoke($rs.Handle)
+        $rs.Pipe.Dispose()
+    }
     $parallelDuration = ((Get-Date) - $parallelStart).TotalMilliseconds
-    $parallelResults = $parallelJobs | Receive-Job
-    $parallelJobs | Remove-Job
+    $runspacePool.Close()
 
     $results.ParSuccess = ($parallelResults | Where-Object { $_.Success }).Count
     $results.ParRps = [math]::Round($ParallelCount / ($parallelDuration / 1000), 1)
-    $successDurations = ($parallelResults | Where-Object { $_.Success }).Duration
+    $successDurations = @($parallelResults | Where-Object { $_.Success } | ForEach-Object { $_.Duration })
     if ($successDurations.Count -gt 0) {
         $results.ParAvgMs = [math]::Round(($successDurations | Measure-Object -Average).Average, 2)
     }
     Write-Host "  ✓ Parallel: $($results.ParRps) req/s, avg $($results.ParAvgMs)ms" -ForegroundColor Green
 
-    # Order creation stress test
+    # Order creation stress test using runspaces
     Write-Host "  Running order creation test ($OrderCount concurrent)..." -ForegroundColor Gray
-    $orderJobs = @()
-    for ($i = 1; $i -le $OrderCount; $i++) {
-        $job = Start-Job -ScriptBlock {
-            param($Url, $Index)
-            $payload = @{
-                customerId = "CROSS-$Index-$(Get-Random)"
-                items = @(@{
-                    productId = "CROSS-PROD"
-                    productName = "Cross Test Product"
-                    quantity = 1
-                    unitPrice = 10.00
-                })
-                shippingAddress = "Cross Test Address"
-                paymentMethod = "card"
-            }
-            try {
-                $response = Invoke-RestMethod -Uri "$Url/api/orders" -Method POST -ContentType "application/json" -Body ($payload | ConvertTo-Json -Depth 5) -TimeoutSec 15
-                return @{ Success = ($null -ne $response.orderId); OrderId = $response.orderId }
-            } catch {
-                return @{ Success = $false }
-            }
-        } -ArgumentList $Endpoint, $i
-        $orderJobs += $job
+    $orderPool = [runspacefactory]::CreateRunspacePool(1, 50)
+    $orderPool.Open()
+    $orderRunspaces = [System.Collections.Generic.List[object]]::new()
+
+    $orderScript = {
+        param($Url, $Index)
+        $payload = @{
+            customerId = "CROSS-$Index-$([guid]::NewGuid().ToString('N').Substring(0,8))"
+            items = @(@{
+                productId = "CROSS-PROD"
+                productName = "Cross Test Product"
+                quantity = 1
+                unitPrice = 10.00
+            })
+            shippingAddress = "Cross Test Address"
+            paymentMethod = "card"
+        } | ConvertTo-Json -Depth 5
+        try {
+            $response = Invoke-RestMethod -Uri $Url -Method POST -ContentType "application/json" -Body $payload -TimeoutSec 10
+            return @{ Success = ($null -ne $response.orderId); OrderId = $response.orderId }
+        } catch {
+            return @{ Success = $false }
+        }
     }
 
     $orderStart = Get-Date
-    $orderJobs | Wait-Job | Out-Null
+    for ($i = 1; $i -le $OrderCount; $i++) {
+        $ps = [powershell]::Create().AddScript($orderScript).AddArgument("$Endpoint/api/orders").AddArgument($i)
+        $ps.RunspacePool = $orderPool
+        $orderRunspaces.Add(@{ Pipe = $ps; Handle = $ps.BeginInvoke() })
+    }
+
+    $orderResults = @()
+    foreach ($rs in $orderRunspaces) {
+        $orderResults += $rs.Pipe.EndInvoke($rs.Handle)
+        $rs.Pipe.Dispose()
+    }
     $orderDuration = ((Get-Date) - $orderStart).TotalMilliseconds
-    $orderResults = $orderJobs | Receive-Job
-    $orderJobs | Remove-Job
+    $orderPool.Close()
 
     $results.OrdSuccess = ($orderResults | Where-Object { $_.Success }).Count
     $results.OrdRps = [math]::Round($OrderCount / ($orderDuration / 1000), 1)

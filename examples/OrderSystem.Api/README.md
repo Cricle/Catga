@@ -30,6 +30,8 @@ OrderSystem.Api/
 │   └── ValidationBehavior.cs
 ├── Domain/              # Domain models
 │   └── Order.cs
+├── Flows/               # Flow DSL configurations
+│   └── CreateOrderFlowConfig.cs
 ├── Handlers/            # Command/Query/Event handlers
 │   ├── OrderHandlers.cs
 │   └── EventHandlers.cs
@@ -87,24 +89,37 @@ public class SendOrderNotificationHandler : IEventHandler<OrderCreatedEvent> { .
 
 ### 3. Flow DSL (Saga Pattern)
 
-Multi-step operations with automatic compensation using fluent DSL:
+Multi-step operations with automatic compensation using FlowConfig DSL:
 
 ```csharp
-var result = await Flow.Create("CreateOrderFlow")
-    .Step(async _ =>
+// 1. Define state class implementing IFlowState
+public class CreateOrderFlowState : IFlowState { ... }
+
+// 2. Define flow configuration
+public class CreateOrderFlowConfig : FlowConfig<CreateOrderFlowState>
+{
+    protected override void Configure(IFlowBuilder<CreateOrderFlowState> flow)
     {
-        // Step 1: Create order
-        order = new Order { ... };
-        await orderRepository.SaveAsync(order, ct);
-    })
-    .Step(
-        _ => { /* Step 2: Reserve stock */ return Task.CompletedTask; },
-        _ => { /* Compensation: Release stock */ return Task.CompletedTask; })
-    .Step(
-        async _ => { /* Step 3: Confirm order */ },
-        async _ => { /* Compensation: Mark as failed */ })
-    .ExecuteAsync(ct);
+        flow.Name("create-order");
+        flow.Timeout(TimeSpan.FromMinutes(5));
+
+        // Step 1: Save order (with compensation)
+        flow.Send(s => new SaveOrderCommand(s.OrderId!))
+            .IfFail(s => new DeleteOrderCommand(s.OrderId!))
+            .Tag("persistence");
+
+        // Step 2: Reserve stock (with compensation)
+        flow.Send(s => new ReserveStockCommand(s.OrderId!))
+            .IfFail(s => new ReleaseStockCommand(s.OrderId!))
+            .Tag("inventory");
+
+        // Step 3: Publish event
+        flow.Publish(s => new OrderConfirmedEvent(s.OrderId!));
+    }
+}
 ```
+
+See `Flows/CreateOrderFlowConfig.cs` for the complete example.
 
 ### 4. DI Registration
 

@@ -249,71 +249,153 @@ function Run-FullStressTest {
 
     # Test Redis performance (via order read/write - uses Redis in cluster mode)
     if ($Infrastructure -match "Redis") {
-        Write-Host "  Running Redis tests..." -ForegroundColor Gray
+        Write-Host "  Running Redis tests (100 operations)..." -ForegroundColor Gray
         $orderIds = @($orderResults | Where-Object { $_.Success -and $_.OrderId } | ForEach-Object { $_.OrderId })
 
         if ($orderIds.Count -gt 0) {
-            # Redis Read Test (20 sequential reads)
-            $redisReadCount = 20
-            $redisReadTimes = @()
+            # Redis Read Test - 100 sequential reads
+            $redisReadCount = 100
+            $redisReadTimes = [System.Collections.Generic.List[double]]::new()
+            $redisReadStart = Get-Date
             for ($i = 0; $i -lt $redisReadCount; $i++) {
                 $orderId = $orderIds[$i % $orderIds.Count]
-                $readStart = Get-Date
-                $readResult = Test-Endpoint "$Endpoint/api/orders/$orderId"
-                if ($readResult.Success -and $readResult.Data) {
-                    $redisReadTimes += ((Get-Date) - $readStart).TotalMilliseconds
-                }
+                $reqStart = Get-Date
+                try {
+                    $null = Invoke-RestMethod -Uri "$Endpoint/api/orders/$orderId" -Method GET -TimeoutSec 5
+                    $redisReadTimes.Add(((Get-Date) - $reqStart).TotalMilliseconds)
+                } catch { }
             }
+            $redisReadDuration = ((Get-Date) - $redisReadStart).TotalMilliseconds
+
             if ($redisReadTimes.Count -gt 0) {
                 $results.RedisOk = $true
-                $results.RedisLatencyMs = [math]::Round(($redisReadTimes | Measure-Object -Average).Average, 2)
-                $totalReadTime = ($redisReadTimes | Measure-Object -Sum).Sum
-                $results.RedisReadRps = [math]::Round($redisReadTimes.Count / ($totalReadTime / 1000), 1)
+                $readStats = $redisReadTimes | Measure-Object -Average -Minimum -Maximum
+                $results.RedisLatencyMs = [math]::Round($readStats.Average, 2)
+                $results.RedisReadRps = [math]::Round($redisReadCount / ($redisReadDuration / 1000), 1)
+                $results.RedisReadMinMs = [math]::Round($readStats.Minimum, 2)
+                $results.RedisReadMaxMs = [math]::Round($readStats.Maximum, 2)
             }
 
-            # Redis Write Test (10 order updates via cancel)
-            $redisWriteCount = 10
-            $redisWriteTimes = @()
-            for ($i = 0; $i -lt [math]::Min($redisWriteCount, $orderIds.Count); $i++) {
-                $orderId = $orderIds[$i]
-                $writeStart = Get-Date
-                $cancelPayload = @{ orderId = $orderId; reason = "Redis write test" }
-                $writeResult = Test-Endpoint "$Endpoint/api/orders/$orderId/cancel" "POST" $cancelPayload
-                if ($writeResult.Success) {
-                    $redisWriteTimes += ((Get-Date) - $writeStart).TotalMilliseconds
+            # Redis Write Test - 50 order creations (direct write to Redis)
+            $redisWriteCount = 50
+            $redisWriteTimes = [System.Collections.Generic.List[double]]::new()
+            $redisWriteStart = Get-Date
+
+            $writePool = [runspacefactory]::CreateRunspacePool(1, 20)
+            $writePool.Open()
+            $writeRunspaces = [System.Collections.Generic.List[object]]::new()
+
+            $writeScript = {
+                param($Url, $Index)
+                $payload = @{
+                    customerId = "REDIS-WRITE-$Index"
+                    items = @(@{ productId = "RW-PROD"; productName = "Redis Write Test"; quantity = 1; unitPrice = 1.00 })
+                    shippingAddress = "Redis Test"; paymentMethod = "card"
+                } | ConvertTo-Json -Depth 5
+                $start = [datetime]::Now
+                try {
+                    $null = Invoke-RestMethod -Uri $Url -Method POST -ContentType "application/json" -Body $payload -TimeoutSec 5
+                    return @{ Success = $true; Duration = ([datetime]::Now - $start).TotalMilliseconds }
+                } catch {
+                    return @{ Success = $false; Duration = 0 }
                 }
             }
-            if ($redisWriteTimes.Count -gt 0) {
-                $totalWriteTime = ($redisWriteTimes | Measure-Object -Sum).Sum
-                $results.RedisWriteRps = [math]::Round($redisWriteTimes.Count / ($totalWriteTime / 1000), 1)
+
+            for ($i = 0; $i -lt $redisWriteCount; $i++) {
+                $ps = [powershell]::Create().AddScript($writeScript).AddArgument("$Endpoint/api/orders").AddArgument($i)
+                $ps.RunspacePool = $writePool
+                $writeRunspaces.Add(@{ Pipe = $ps; Handle = $ps.BeginInvoke() })
             }
 
-            Write-Host "  ✓ Redis: Read $($results.RedisReadRps) req/s, Write $($results.RedisWriteRps) req/s, Avg $($results.RedisLatencyMs)ms" -ForegroundColor Green
+            $writeResults = @()
+            foreach ($rs in $writeRunspaces) {
+                $writeResults += $rs.Pipe.EndInvoke($rs.Handle)
+                $rs.Pipe.Dispose()
+            }
+            $redisWriteDuration = ((Get-Date) - $redisWriteStart).TotalMilliseconds
+            $writePool.Close()
+
+            $successWrites = @($writeResults | Where-Object { $_.Success })
+            if ($successWrites.Count -gt 0) {
+                $writeStats = $successWrites.Duration | Measure-Object -Average -Minimum -Maximum
+                $results.RedisWriteRps = [math]::Round($redisWriteCount / ($redisWriteDuration / 1000), 1)
+                $results.RedisWriteAvgMs = [math]::Round($writeStats.Average, 2)
+                $results.RedisWriteMinMs = [math]::Round($writeStats.Minimum, 2)
+                $results.RedisWriteMaxMs = [math]::Round($writeStats.Maximum, 2)
+            }
+
+            Write-Host "  ✓ Redis Read:  $($results.RedisReadRps) req/s, Avg $($results.RedisLatencyMs)ms (Min $($results.RedisReadMinMs), Max $($results.RedisReadMaxMs))" -ForegroundColor Green
+            Write-Host "  ✓ Redis Write: $($results.RedisWriteRps) req/s, Avg $($results.RedisWriteAvgMs)ms (Min $($results.RedisWriteMinMs), Max $($results.RedisWriteMaxMs))" -ForegroundColor Green
         }
     }
 
-    # Test NATS performance (via cluster node endpoint which uses NATS internally)
+    # Test NATS performance (via rapid API calls that trigger NATS messaging)
     if ($Infrastructure -match "NATS") {
-        Write-Host "  Running NATS tests..." -ForegroundColor Gray
+        Write-Host "  Running NATS tests (200 operations)..." -ForegroundColor Gray
 
-        # NATS latency test (cluster communication)
-        $natsTestCount = 20
-        $natsTimes = @()
-        for ($i = 0; $i -lt $natsTestCount; $i++) {
-            $natsStart = Get-Date
-            $clusterResult = Test-Endpoint "$Endpoint/api/cluster/node"
-            if ($clusterResult.Success) {
-                $natsTimes += ((Get-Date) - $natsStart).TotalMilliseconds
+        # NATS Sequential Test - 100 rapid calls
+        $natsSeqCount = 100
+        $natsSeqTimes = [System.Collections.Generic.List[double]]::new()
+        $natsSeqStart = Get-Date
+        for ($i = 0; $i -lt $natsSeqCount; $i++) {
+            $reqStart = Get-Date
+            try {
+                $null = Invoke-RestMethod -Uri "$Endpoint/api/cluster/node" -Method GET -TimeoutSec 5
+                $natsSeqTimes.Add(((Get-Date) - $reqStart).TotalMilliseconds)
+            } catch { }
+        }
+        $natsSeqDuration = ((Get-Date) - $natsSeqStart).TotalMilliseconds
+
+        if ($natsSeqTimes.Count -gt 0) {
+            $results.NatsOk = $true
+            $natsSeqStats = $natsSeqTimes | Measure-Object -Average -Minimum -Maximum
+            $results.NatsLatencyMs = [math]::Round($natsSeqStats.Average, 2)
+            $results.NatsSeqRps = [math]::Round($natsSeqCount / ($natsSeqDuration / 1000), 1)
+            $results.NatsMinMs = [math]::Round($natsSeqStats.Minimum, 2)
+            $results.NatsMaxMs = [math]::Round($natsSeqStats.Maximum, 2)
+        }
+
+        # NATS Parallel Test - 100 concurrent calls
+        $natsParCount = 100
+        $natsPool = [runspacefactory]::CreateRunspacePool(1, $natsParCount)
+        $natsPool.Open()
+        $natsRunspaces = [System.Collections.Generic.List[object]]::new()
+
+        $natsScript = {
+            param($Url)
+            $start = [datetime]::Now
+            try {
+                $null = Invoke-RestMethod -Uri $Url -Method GET -TimeoutSec 5
+                return @{ Success = $true; Duration = ([datetime]::Now - $start).TotalMilliseconds }
+            } catch {
+                return @{ Success = $false; Duration = 0 }
             }
         }
 
-        if ($natsTimes.Count -gt 0) {
-            $results.NatsOk = $true
-            $results.NatsLatencyMs = [math]::Round(($natsTimes | Measure-Object -Average).Average, 2)
-            $totalNatsTime = ($natsTimes | Measure-Object -Sum).Sum
-            $results.NatsPubRps = [math]::Round($natsTimes.Count / ($totalNatsTime / 1000), 1)
-            Write-Host "  ✓ NATS: $($results.NatsPubRps) req/s, Avg $($results.NatsLatencyMs)ms" -ForegroundColor Green
+        $natsParStart = Get-Date
+        for ($i = 0; $i -lt $natsParCount; $i++) {
+            $ps = [powershell]::Create().AddScript($natsScript).AddArgument("$Endpoint/api/cluster/node")
+            $ps.RunspacePool = $natsPool
+            $natsRunspaces.Add(@{ Pipe = $ps; Handle = $ps.BeginInvoke() })
         }
+
+        $natsParResults = @()
+        foreach ($rs in $natsRunspaces) {
+            $natsParResults += $rs.Pipe.EndInvoke($rs.Handle)
+            $rs.Pipe.Dispose()
+        }
+        $natsParDuration = ((Get-Date) - $natsParStart).TotalMilliseconds
+        $natsPool.Close()
+
+        $successNats = @($natsParResults | Where-Object { $_.Success })
+        if ($successNats.Count -gt 0) {
+            $natsParStats = $successNats.Duration | Measure-Object -Average -Minimum -Maximum
+            $results.NatsPubRps = [math]::Round($natsParCount / ($natsParDuration / 1000), 1)
+            $results.NatsParAvgMs = [math]::Round($natsParStats.Average, 2)
+        }
+
+        Write-Host "  ✓ NATS Seq:  $($results.NatsSeqRps) req/s, Avg $($results.NatsLatencyMs)ms (Min $($results.NatsMinMs), Max $($results.NatsMaxMs))" -ForegroundColor Green
+        Write-Host "  ✓ NATS Par:  $($results.NatsPubRps) req/s, Avg $($results.NatsParAvgMs)ms ($natsParCount concurrent)" -ForegroundColor Green
     }
 
     return $results
@@ -409,67 +491,93 @@ function Write-ResultsTable {
     Write-Host $separator -ForegroundColor Gray
     Write-Host ""
 
-    # ===== Table 4: Redis Performance =====
+    # ===== Table 4: Redis Performance (Detailed) =====
     $hasRedis = $Results | Where-Object { $_.Infrastructure -match "Redis" }
     if ($hasRedis) {
-        Write-Host "┌─────────────────────────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
-        Write-Host "│                           REDIS PERFORMANCE                                         │" -ForegroundColor Cyan
-        Write-Host "└─────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+        Write-Host "┌───────────────────────────────────────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+        Write-Host "│                                    REDIS PERFORMANCE (100 reads, 50 writes)                       │" -ForegroundColor Cyan
+        Write-Host "└───────────────────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
 
-        $redisHeader = "{0,-14} | {1,-12} | {2,12} | {3,12} | {4,12} | {5,12}" -f "Mode", "Infra", "Status", "Read RPS", "Write RPS", "Avg(ms)"
-        Write-Host $redisHeader -ForegroundColor Yellow
-        Write-Host $separator -ForegroundColor Gray
+        # Redis Read Details
+        Write-Host ""
+        Write-Host "  Redis READ Performance:" -ForegroundColor Yellow
+        $readHeader = "  {0,-14} | {1,10} | {2,10} | {3,10} | {4,10}" -f "Mode", "RPS", "Min(ms)", "Avg(ms)", "Max(ms)"
+        Write-Host $readHeader -ForegroundColor Gray
+        Write-Host "  $("-" * 65)" -ForegroundColor Gray
 
         foreach ($r in $Results) {
-            $statusIcon = if ($r.RedisOk) { "✓ OK" } elseif ($r.Infrastructure -match "Redis") { "✗ FAIL" } else { "N/A" }
-            $readRps = if ($r.RedisReadRps -gt 0) { $r.RedisReadRps } else { "N/A" }
-            $writeRps = if ($r.RedisWriteRps -gt 0) { $r.RedisWriteRps } else { "N/A" }
-            $avgMs = if ($r.RedisLatencyMs -gt 0) { $r.RedisLatencyMs } else { "N/A" }
-
-            $row = "{0,-14} | {1,-12} | {2,12} | {3,12} | {4,12} | {5,12}" -f `
-                $r.Mode, `
-                $r.Infrastructure, `
-                $statusIcon, `
-                $readRps, `
-                $writeRps, `
-                $avgMs
-
-            $color = if ($r.RedisOk) { "Green" } elseif ($r.Infrastructure -match "Redis") { "Red" } else { "Gray" }
-            Write-Host $row -ForegroundColor $color
+            if ($r.Infrastructure -match "Redis") {
+                $rps = if ($r.RedisReadRps -gt 0) { $r.RedisReadRps } else { "N/A" }
+                $minMs = if ($r.RedisReadMinMs) { $r.RedisReadMinMs } else { "N/A" }
+                $avgMs = if ($r.RedisLatencyMs -gt 0) { $r.RedisLatencyMs } else { "N/A" }
+                $maxMs = if ($r.RedisReadMaxMs) { $r.RedisReadMaxMs } else { "N/A" }
+                $row = "  {0,-14} | {1,10} | {2,10} | {3,10} | {4,10}" -f $r.Mode, $rps, $minMs, $avgMs, $maxMs
+                Write-Host $row -ForegroundColor Green
+            }
         }
 
-        Write-Host $separator -ForegroundColor Gray
+        # Redis Write Details
+        Write-Host ""
+        Write-Host "  Redis WRITE Performance:" -ForegroundColor Yellow
+        $writeHeader = "  {0,-14} | {1,10} | {2,10} | {3,10} | {4,10}" -f "Mode", "RPS", "Min(ms)", "Avg(ms)", "Max(ms)"
+        Write-Host $writeHeader -ForegroundColor Gray
+        Write-Host "  $("-" * 65)" -ForegroundColor Gray
+
+        foreach ($r in $Results) {
+            if ($r.Infrastructure -match "Redis") {
+                $rps = if ($r.RedisWriteRps -gt 0) { $r.RedisWriteRps } else { "N/A" }
+                $minMs = if ($r.RedisWriteMinMs) { $r.RedisWriteMinMs } else { "N/A" }
+                $avgMs = if ($r.RedisWriteAvgMs) { $r.RedisWriteAvgMs } else { "N/A" }
+                $maxMs = if ($r.RedisWriteMaxMs) { $r.RedisWriteMaxMs } else { "N/A" }
+                $row = "  {0,-14} | {1,10} | {2,10} | {3,10} | {4,10}" -f $r.Mode, $rps, $minMs, $avgMs, $maxMs
+                Write-Host $row -ForegroundColor Green
+            }
+        }
+
         Write-Host ""
     }
 
-    # ===== Table 5: NATS Performance =====
+    # ===== Table 5: NATS Performance (Detailed) =====
     $hasNats = $Results | Where-Object { $_.Infrastructure -match "NATS" }
     if ($hasNats) {
-        Write-Host "┌─────────────────────────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
-        Write-Host "│                           NATS PERFORMANCE                                          │" -ForegroundColor Cyan
-        Write-Host "└─────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+        Write-Host "┌───────────────────────────────────────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+        Write-Host "│                                    NATS PERFORMANCE (100 seq, 100 par)                            │" -ForegroundColor Cyan
+        Write-Host "└───────────────────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
 
-        $natsHeader = "{0,-14} | {1,-12} | {2,12} | {3,12} | {4,12}" -f "Mode", "Infra", "Status", "Pub RPS", "Avg(ms)"
-        Write-Host $natsHeader -ForegroundColor Yellow
-        Write-Host $separator -ForegroundColor Gray
+        # NATS Sequential Details
+        Write-Host ""
+        Write-Host "  NATS SEQUENTIAL Performance:" -ForegroundColor Yellow
+        $seqHeader = "  {0,-14} | {1,10} | {2,10} | {3,10} | {4,10}" -f "Mode", "RPS", "Min(ms)", "Avg(ms)", "Max(ms)"
+        Write-Host $seqHeader -ForegroundColor Gray
+        Write-Host "  $("-" * 65)" -ForegroundColor Gray
 
         foreach ($r in $Results) {
-            $statusIcon = if ($r.NatsOk) { "✓ OK" } elseif ($r.Infrastructure -match "NATS") { "✗ FAIL" } else { "N/A" }
-            $pubRps = if ($r.NatsPubRps -gt 0) { $r.NatsPubRps } else { "N/A" }
-            $avgMs = if ($r.NatsLatencyMs -gt 0) { $r.NatsLatencyMs } else { "N/A" }
-
-            $row = "{0,-14} | {1,-12} | {2,12} | {3,12} | {4,12}" -f `
-                $r.Mode, `
-                $r.Infrastructure, `
-                $statusIcon, `
-                $pubRps, `
-                $avgMs
-
-            $color = if ($r.NatsOk) { "Green" } elseif ($r.Infrastructure -match "NATS") { "Red" } else { "Gray" }
-            Write-Host $row -ForegroundColor $color
+            if ($r.Infrastructure -match "NATS") {
+                $rps = if ($r.NatsSeqRps) { $r.NatsSeqRps } else { "N/A" }
+                $minMs = if ($r.NatsMinMs) { $r.NatsMinMs } else { "N/A" }
+                $avgMs = if ($r.NatsLatencyMs -gt 0) { $r.NatsLatencyMs } else { "N/A" }
+                $maxMs = if ($r.NatsMaxMs) { $r.NatsMaxMs } else { "N/A" }
+                $row = "  {0,-14} | {1,10} | {2,10} | {3,10} | {4,10}" -f $r.Mode, $rps, $minMs, $avgMs, $maxMs
+                Write-Host $row -ForegroundColor Green
+            }
         }
 
-        Write-Host $separator -ForegroundColor Gray
+        # NATS Parallel Details
+        Write-Host ""
+        Write-Host "  NATS PARALLEL Performance (100 concurrent):" -ForegroundColor Yellow
+        $parHeader = "  {0,-14} | {1,10} | {2,10}" -f "Mode", "RPS", "Avg(ms)"
+        Write-Host $parHeader -ForegroundColor Gray
+        Write-Host "  $("-" * 40)" -ForegroundColor Gray
+
+        foreach ($r in $Results) {
+            if ($r.Infrastructure -match "NATS") {
+                $rps = if ($r.NatsPubRps -gt 0) { $r.NatsPubRps } else { "N/A" }
+                $avgMs = if ($r.NatsParAvgMs) { $r.NatsParAvgMs } else { "N/A" }
+                $row = "  {0,-14} | {1,10} | {2,10}" -f $r.Mode, $rps, $avgMs
+                Write-Host $row -ForegroundColor Green
+            }
+        }
+
         Write-Host ""
     }
 

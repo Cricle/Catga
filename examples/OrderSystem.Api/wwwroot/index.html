@@ -577,7 +577,7 @@
                     if (!confirm(`Cancel order ${orderId}?`)) return;
 
                     try {
-                        const response = await fetch('/api/orders/cancel', {
+                        const response = await fetch(`/api/orders/${orderId}/cancel`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ orderId, reason: 'Customer requested cancellation' })
@@ -601,7 +601,7 @@
                 async cancelById() {
                     if (!this.cancelOrderId) return;
                     try {
-                        const response = await fetch('/api/orders/cancel', {
+                        const response = await fetch(`/api/orders/${this.cancelOrderId}/cancel`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ orderId: this.cancelOrderId, reason: this.cancelReason })

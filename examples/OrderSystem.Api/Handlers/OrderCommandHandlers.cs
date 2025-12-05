@@ -230,6 +230,8 @@ public partial class CreateOrderHandler(
 /// <summary>
 /// Handler for cancelling orders with inventory release.
 /// </summary>
+[CatgaHandler]
+[Route("/orders/{orderId}/cancel", Method = "POST")]
 public partial class CancelOrderHandler(
     IOrderRepository orderRepository,
     IInventoryService inventoryService,
@@ -239,7 +241,7 @@ public partial class CancelOrderHandler(
     private static readonly Counter<long> OrderCancelledCounter =
         Telemetry.Meter.CreateCounter<long>("order.cancelled", "number", "Number of orders cancelled");
 
-    public async Task<CatgaResult> HandleAsync(
+    private async Task<CatgaResult> HandleAsyncCore(
         CancelOrderCommand request,
         CancellationToken cancellationToken = default)
     {

@@ -179,7 +179,7 @@ public sealed partial class ServiceRegistrationE2ETests
     }
 
     [Fact]
-    public async Task ScopedMediator_DifferentScopes_ShouldGetDifferentInstances()
+    public Task ScopedMediator_DifferentScopes_ShouldGetDifferentInstances()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -202,6 +202,7 @@ public sealed partial class ServiceRegistrationE2ETests
 
         // Assert
         mediator1.Should().NotBeSameAs(mediator2);
+        return Task.CompletedTask;
     }
 
     [Fact]

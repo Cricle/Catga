@@ -298,7 +298,7 @@ public class FlowE2ETests
                         async c => { steps.Add("Comp1"); await Task.Delay(10, c); })
                     .Step(async c => { steps.Add("Step2"); await Task.Delay(10, c); },
                         async c => { steps.Add("Comp2"); await Task.Delay(10, c); })
-                    .Step(async c => { steps.Add("Step3"); throw new Exception("Step3 failed"); });
+                    .Step(c => { steps.Add("Step3"); throw new Exception("Step3 failed"); });
 
                 return await flow.ExecuteAsync(ct);
             });

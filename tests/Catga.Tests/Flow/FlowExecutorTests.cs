@@ -673,7 +673,7 @@ public class FlowExecutorTests
             "zero-step-flow",
             "TestFlow",
             ReadOnlyMemory<byte>.Empty,
-            async (state, ct) => new FlowResult(true, 0, TimeSpan.Zero));
+            (state, ct) => Task.FromResult(new FlowResult(true, 0, TimeSpan.Zero)));
 
         result.IsSuccess.Should().BeTrue();
         result.CompletedSteps.Should().Be(0);
@@ -689,7 +689,7 @@ public class FlowExecutorTests
             "negative-step-flow",
             "TestFlow",
             ReadOnlyMemory<byte>.Empty,
-            async (state, ct) => new FlowResult(false, -1, TimeSpan.Zero, "Invalid state"));
+            (state, ct) => Task.FromResult(new FlowResult(false, -1, TimeSpan.Zero, "Invalid state")));
 
         result.IsSuccess.Should().BeFalse();
         result.CompletedSteps.Should().Be(-1);
@@ -709,7 +709,7 @@ public class FlowExecutorTests
                 async ct => { compensationOrder.Add(3); await Task.Delay(1, ct); })
             .Step(async ct => { await Task.Delay(1, ct); },
                 async ct => { compensationOrder.Add(4); await Task.Delay(1, ct); })
-            .Step(async ct => { throw new Exception("fail"); })
+            .Step(ct => { throw new Exception("fail"); })
             .ExecuteAsync();
 
         result.IsSuccess.Should().BeFalse();
@@ -729,7 +729,7 @@ public class FlowExecutorTests
                 ct => { compensated.Add(2); throw new Exception("comp2 fail"); })
             .Step(async ct => { await Task.Delay(1, ct); },
                 ct => { compensated.Add(3); throw new Exception("comp3 fail"); })
-            .Step(async ct => { throw new Exception("step fail"); })
+            .Step(ct => { throw new Exception("step fail"); })
             .ExecuteAsync();
 
         result.IsSuccess.Should().BeFalse();

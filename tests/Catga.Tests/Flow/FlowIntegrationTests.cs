@@ -362,7 +362,7 @@ public class FlowIntegrationTests
                 $"rapid-flow-{i}",
                 "TestFlow",
                 ReadOnlyMemory<byte>.Empty,
-                async (state, ct) => new FlowResult(true, 1, TimeSpan.Zero));
+                (state, ct) => Task.FromResult(new FlowResult(true, 1, TimeSpan.Zero)));
 
             result.IsSuccess.Should().BeTrue();
         }
@@ -546,10 +546,10 @@ public class FlowIntegrationTests
             "idempotent-flow",
             "TestFlow",
             ReadOnlyMemory<byte>.Empty,
-            async (state, ct) =>
+            (state, ct) =>
             {
                 Interlocked.Increment(ref executionCount);
-                return new FlowResult(true, 1, TimeSpan.Zero);
+                return Task.FromResult(new FlowResult(true, 1, TimeSpan.Zero));
             });
 
         // Second execution with same ID
@@ -557,10 +557,10 @@ public class FlowIntegrationTests
             "idempotent-flow",
             "TestFlow",
             ReadOnlyMemory<byte>.Empty,
-            async (state, ct) =>
+            (state, ct) =>
             {
                 Interlocked.Increment(ref executionCount);
-                return new FlowResult(true, 1, TimeSpan.Zero);
+                return Task.FromResult(new FlowResult(true, 1, TimeSpan.Zero));
             });
 
         result1.IsSuccess.Should().BeTrue();
@@ -580,12 +580,12 @@ public class FlowIntegrationTests
             "retry-flow",
             "TestFlow",
             ReadOnlyMemory<byte>.Empty,
-            async (state, ct) =>
+            (state, ct) =>
             {
                 attemptCount++;
                 if (attemptCount == 1)
-                    return new FlowResult(false, 0, TimeSpan.Zero, "First attempt failed");
-                return new FlowResult(true, 1, TimeSpan.Zero);
+                    return Task.FromResult(new FlowResult(false, 0, TimeSpan.Zero, "First attempt failed"));
+                return Task.FromResult(new FlowResult(true, 1, TimeSpan.Zero));
             });
 
         result1.IsSuccess.Should().BeFalse();
@@ -595,10 +595,10 @@ public class FlowIntegrationTests
             "retry-flow-2",
             "TestFlow",
             ReadOnlyMemory<byte>.Empty,
-            async (state, ct) =>
+            (state, ct) =>
             {
                 attemptCount++;
-                return new FlowResult(true, 1, TimeSpan.Zero);
+                return Task.FromResult(new FlowResult(true, 1, TimeSpan.Zero));
             });
 
         result2.IsSuccess.Should().BeTrue();
@@ -650,7 +650,7 @@ public class FlowIntegrationTests
             "transition-done-flow",
             "TestFlow",
             ReadOnlyMemory<byte>.Empty,
-            async (state, ct) => new FlowResult(true, 1, TimeSpan.Zero));
+            (state, ct) => Task.FromResult(new FlowResult(true, 1, TimeSpan.Zero)));
 
         var stored = await _store.GetAsync("transition-done-flow");
         stored!.Status.Should().Be(FlowStatus.Done);
@@ -665,7 +665,7 @@ public class FlowIntegrationTests
             "transition-failed-flow",
             "TestFlow",
             ReadOnlyMemory<byte>.Empty,
-            async (state, ct) => new FlowResult(false, 0, TimeSpan.Zero, "Failed"));
+            (state, ct) => Task.FromResult(new FlowResult(false, 0, TimeSpan.Zero, "Failed")));
 
         var stored = await _store.GetAsync("transition-failed-flow");
         stored!.Status.Should().Be(FlowStatus.Failed);

@@ -2,9 +2,12 @@ using Catga.Abstractions;
 using Catga.Core;
 using Catga.DeadLetter;
 using Catga.EventSourcing;
+using Catga.Flow;
+using Catga.Flow.Dsl;
 using Catga.Inbox;
 using Catga.Outbox;
 using Catga.Persistence.Redis;
+using Catga.Persistence.Redis.Flow;
 using Catga.Persistence.Redis.Locking;
 using Catga.Persistence.Redis.Persistence;
 using Catga.Persistence.Redis.RateLimiting;
@@ -630,6 +633,272 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
     }
 
     #endregion
+
+    #region RedisEventStore Tests
+
+    [Fact]
+    public async Task EventStore_AppendAndRead_ShouldWork()
+    {
+        if (_redis is null) return;
+        var store = new RedisEventStore(_redis, _serializer, _provider, NullLogger<RedisEventStore>.Instance);
+        var streamId = $"stream-{Guid.NewGuid():N}";
+        var events = new List<IEvent> { new TestEvent { Name = "Event1" }, new TestEvent { Name = "Event2" } };
+
+        await store.AppendAsync(streamId, events);
+        var stream = await store.ReadAsync(streamId);
+
+        stream.Events.Should().HaveCount(2);
+        stream.Version.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task EventStore_GetVersion_ShouldReturnCorrectVersion()
+    {
+        if (_redis is null) return;
+        var store = new RedisEventStore(_redis, _serializer, _provider, NullLogger<RedisEventStore>.Instance);
+        var streamId = $"stream-ver-{Guid.NewGuid():N}";
+
+        var versionBefore = await store.GetVersionAsync(streamId);
+        await store.AppendAsync(streamId, [new TestEvent { Name = "E1" }]);
+        var versionAfter = await store.GetVersionAsync(streamId);
+
+        versionBefore.Should().Be(-1);
+        versionAfter.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task EventStore_OptimisticConcurrency_ShouldThrowOnMismatch()
+    {
+        if (_redis is null) return;
+        var store = new RedisEventStore(_redis, _serializer, _provider, NullLogger<RedisEventStore>.Instance);
+        var streamId = $"stream-conc-{Guid.NewGuid():N}";
+
+        await store.AppendAsync(streamId, [new TestEvent { Name = "E1" }]);
+
+        var act = async () => await store.AppendAsync(streamId, [new TestEvent { Name = "E2" }], expectedVersion: 5);
+
+        await act.Should().ThrowAsync<ConcurrencyException>();
+    }
+
+    [Fact]
+    public async Task EventStore_ReadFromVersion_ShouldFilterEvents()
+    {
+        if (_redis is null) return;
+        var store = new RedisEventStore(_redis, _serializer, _provider, NullLogger<RedisEventStore>.Instance);
+        var streamId = $"stream-filter-{Guid.NewGuid():N}";
+
+        await store.AppendAsync(streamId, [new TestEvent { Name = "E1" }, new TestEvent { Name = "E2" }, new TestEvent { Name = "E3" }]);
+        var stream = await store.ReadAsync(streamId, fromVersion: 1);
+
+        stream.Events.Should().HaveCountGreaterOrEqualTo(1);
+    }
+
+    #endregion
+
+    #region RedisFlowStore Tests
+
+    [Fact]
+    public async Task FlowStore_CreateAndGet_ShouldWork()
+    {
+        if (_redis is null) return;
+        var store = new RedisFlowStore(_redis, $"flow-{Guid.NewGuid():N}:");
+        var flowId = $"flow-{Guid.NewGuid():N}";
+        var state = new FlowState
+        {
+            Id = flowId,
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 0,
+            Version = 0,
+            Owner = "node-1",
+            HeartbeatAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+
+        var created = await store.CreateAsync(state);
+        var loaded = await store.GetAsync(flowId);
+
+        created.Should().BeTrue();
+        loaded.Should().NotBeNull();
+        loaded!.Type.Should().Be("TestFlow");
+    }
+
+    [Fact]
+    public async Task FlowStore_Update_ShouldIncrementVersion()
+    {
+        if (_redis is null) return;
+        var store = new RedisFlowStore(_redis, $"flow-upd-{Guid.NewGuid():N}:");
+        var flowId = $"flow-{Guid.NewGuid():N}";
+        var state = new FlowState
+        {
+            Id = flowId,
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 0,
+            Version = 0,
+            Owner = "node-1",
+            HeartbeatAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+
+        await store.CreateAsync(state);
+        state.Step = 1;
+        var updated = await store.UpdateAsync(state);
+        var loaded = await store.GetAsync(flowId);
+
+        updated.Should().BeTrue();
+        loaded!.Step.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task FlowStore_TryClaim_ShouldClaimAbandonedFlow()
+    {
+        if (_redis is null) return;
+        var store = new RedisFlowStore(_redis, $"flow-claim-{Guid.NewGuid():N}:");
+        var flowId = $"flow-{Guid.NewGuid():N}";
+        var state = new FlowState
+        {
+            Id = flowId,
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 0,
+            Version = 0,
+            Owner = "node-1",
+            HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-10).ToUnixTimeMilliseconds() // Old heartbeat
+        };
+
+        await store.CreateAsync(state);
+        var claimed = await store.TryClaimAsync("TestFlow", "node-2", timeoutMs: 60000);
+
+        claimed.Should().NotBeNull();
+        claimed!.Owner.Should().Be("node-2");
+    }
+
+    [Fact]
+    public async Task FlowStore_Heartbeat_ShouldUpdateTimestamp()
+    {
+        if (_redis is null) return;
+        var store = new RedisFlowStore(_redis, $"flow-hb-{Guid.NewGuid():N}:");
+        var flowId = $"flow-{Guid.NewGuid():N}";
+        var state = new FlowState
+        {
+            Id = flowId,
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 0,
+            Version = 0,
+            Owner = "node-1",
+            HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeMilliseconds()
+        };
+
+        await store.CreateAsync(state);
+        var result = await store.HeartbeatAsync(flowId, "node-1", 0);
+
+        result.Should().BeTrue();
+    }
+
+    #endregion
+
+    #region RedisDslFlowStore Tests
+
+    [Fact]
+    public async Task DslFlowStore_CreateAndGet_ShouldWork()
+    {
+        if (_redis is null) return;
+        var store = new RedisDslFlowStore(_redis, _serializer, $"dslflow-{Guid.NewGuid():N}:");
+        var flowId = $"dsl-{Guid.NewGuid():N}";
+        var snapshot = new FlowSnapshot<TestFlowState>(
+            flowId,
+            new TestFlowState { Counter = 0 },
+            CurrentStep: 0,
+            Status: DslFlowStatus.Running,
+            Error: null,
+            WaitCondition: null,
+            CreatedAt: DateTime.UtcNow,
+            UpdatedAt: DateTime.UtcNow,
+            Version: 0);
+
+        var created = await store.CreateAsync(snapshot);
+        var loaded = await store.GetAsync<TestFlowState>(flowId);
+
+        created.Should().BeTrue();
+        loaded.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DslFlowStore_Update_ShouldWork()
+    {
+        if (_redis is null) return;
+        var store = new RedisDslFlowStore(_redis, _serializer, $"dslflow-upd-{Guid.NewGuid():N}:");
+        var flowId = $"dsl-{Guid.NewGuid():N}";
+        var snapshot = new FlowSnapshot<TestFlowState>(
+            flowId,
+            new TestFlowState { Counter = 0 },
+            CurrentStep: 0,
+            Status: DslFlowStatus.Running,
+            Error: null,
+            WaitCondition: null,
+            CreatedAt: DateTime.UtcNow,
+            UpdatedAt: DateTime.UtcNow,
+            Version: 0);
+
+        await store.CreateAsync(snapshot);
+        var updated = await store.UpdateAsync(snapshot with { CurrentStep = 1 });
+
+        updated.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DslFlowStore_Delete_ShouldRemoveFlow()
+    {
+        if (_redis is null) return;
+        var store = new RedisDslFlowStore(_redis, _serializer, $"dslflow-del-{Guid.NewGuid():N}:");
+        var flowId = $"dsl-{Guid.NewGuid():N}";
+        var snapshot = new FlowSnapshot<TestFlowState>(
+            flowId,
+            new TestFlowState { Counter = 0 },
+            CurrentStep: 0,
+            Status: DslFlowStatus.Running,
+            Error: null,
+            WaitCondition: null,
+            CreatedAt: DateTime.UtcNow,
+            UpdatedAt: DateTime.UtcNow,
+            Version: 0);
+
+        await store.CreateAsync(snapshot);
+        var deleted = await store.DeleteAsync(flowId);
+        var loaded = await store.GetAsync<TestFlowState>(flowId);
+
+        deleted.Should().BeTrue();
+        loaded.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DslFlowStore_WaitCondition_ShouldWork()
+    {
+        if (_redis is null) return;
+        var store = new RedisDslFlowStore(_redis, _serializer, $"dslflow-wait-{Guid.NewGuid():N}:");
+        var correlationId = $"corr-{Guid.NewGuid():N}";
+        var flowId = $"flow-{Guid.NewGuid():N}";
+        var condition = new WaitCondition
+        {
+            CorrelationId = correlationId,
+            Type = WaitType.All,
+            ExpectedCount = 2,
+            CompletedCount = 0,
+            Timeout = TimeSpan.FromMinutes(5),
+            CreatedAt = DateTime.UtcNow,
+            FlowId = flowId,
+            FlowType = "TestFlow",
+            Step = 0
+        };
+
+        await store.SetWaitConditionAsync(correlationId, condition);
+        var loaded = await store.GetWaitConditionAsync(correlationId);
+
+        loaded.Should().NotBeNull();
+        loaded!.ExpectedCount.Should().Be(2);
+    }
+
+    #endregion
 }
 
 #region Test Types
@@ -661,6 +930,29 @@ public partial class TestSnapshot
 {
     public int Value { get; set; }
     public string Name { get; set; } = string.Empty;
+}
+
+[MemoryPackable]
+public partial class TestEvent : IEvent
+{
+    public long MessageId { get; set; }
+    public long CorrelationId { get; set; }
+    public QualityOfService QoS { get; set; } = QualityOfService.AtLeastOnce;
+    public string Name { get; set; } = string.Empty;
+}
+
+[MemoryPackable]
+public partial class TestFlowState : IFlowState
+{
+    public string? FlowId { get; set; }
+    public int Counter { get; set; }
+    private int _changedMask;
+    public bool HasChanges => _changedMask != 0;
+    public int GetChangedMask() => _changedMask;
+    public bool IsFieldChanged(int fieldIndex) => (_changedMask & (1 << fieldIndex)) != 0;
+    public void ClearChanges() => _changedMask = 0;
+    public void MarkChanged(int fieldIndex) => _changedMask |= (1 << fieldIndex);
+    public IEnumerable<string> GetChangedFieldNames() => [];
 }
 
 #endregion

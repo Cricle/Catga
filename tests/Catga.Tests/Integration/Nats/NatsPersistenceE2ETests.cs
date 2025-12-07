@@ -1,10 +1,15 @@
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.DeadLetter;
+using Catga.EventSourcing;
+using Catga.Flow;
+using Catga.Flow.Dsl;
 using Catga.Inbox;
 using Catga.Outbox;
 using Catga.Persistence;
 using Catga.Persistence.Nats;
+using Catga.Persistence.Nats.Flow;
+using Catga.Persistence.Nats.Stores;
 using Catga.Persistence.Stores;
 using Catga.Resilience;
 using Catga.Serialization.MemoryPack;
@@ -12,6 +17,8 @@ using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using FluentAssertions;
 using MemoryPack;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NATS.Client.Core;
 
 namespace Catga.Tests.Integration.Nats;
@@ -366,6 +373,230 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
     }
 
     #endregion
+
+    #region NatsFlowStore Tests
+
+    [Fact]
+    public async Task FlowStore_CreateAndGet_ShouldWork()
+    {
+        if (_nats is null) return;
+        var store = new NatsFlowStore(_nats, _serializer, $"flows_{Guid.NewGuid():N}");
+        var flowId = $"flow-{Guid.NewGuid():N}";
+        var state = new FlowState
+        {
+            Id = flowId,
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 0,
+            Version = 0,
+            Owner = "node-1",
+            HeartbeatAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+
+        var created = await store.CreateAsync(state);
+        var loaded = await store.GetAsync(flowId);
+
+        created.Should().BeTrue();
+        loaded.Should().NotBeNull();
+        loaded!.Type.Should().Be("TestFlow");
+    }
+
+    [Fact]
+    public async Task FlowStore_Update_ShouldWork()
+    {
+        if (_nats is null) return;
+        var store = new NatsFlowStore(_nats, _serializer, $"flows_upd_{Guid.NewGuid():N}");
+        var flowId = $"flow-{Guid.NewGuid():N}";
+        var state = new FlowState
+        {
+            Id = flowId,
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 0,
+            Version = 0,
+            Owner = "node-1",
+            HeartbeatAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+
+        await store.CreateAsync(state);
+        state.Step = 1;
+        var updated = await store.UpdateAsync(state);
+
+        updated.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task FlowStore_TryClaim_ShouldClaimAbandonedFlow()
+    {
+        if (_nats is null) return;
+        var store = new NatsFlowStore(_nats, _serializer, $"flows_claim_{Guid.NewGuid():N}");
+        var flowId = $"flow-{Guid.NewGuid():N}";
+        var state = new FlowState
+        {
+            Id = flowId,
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 0,
+            Version = 0,
+            Owner = "node-1",
+            HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-10).ToUnixTimeMilliseconds()
+        };
+
+        await store.CreateAsync(state);
+        var claimed = await store.TryClaimAsync("TestFlow", "node-2", timeoutMs: 60000);
+
+        claimed.Should().NotBeNull();
+        claimed!.Owner.Should().Be("node-2");
+    }
+
+    [Fact]
+    public async Task FlowStore_Heartbeat_ShouldWork()
+    {
+        if (_nats is null) return;
+        var store = new NatsFlowStore(_nats, _serializer, $"flows_hb_{Guid.NewGuid():N}");
+        var flowId = $"flow-{Guid.NewGuid():N}";
+        var state = new FlowState
+        {
+            Id = flowId,
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 0,
+            Version = 0,
+            Owner = "node-1",
+            HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeMilliseconds()
+        };
+
+        await store.CreateAsync(state);
+        var result = await store.HeartbeatAsync(flowId, "node-1", 0);
+
+        result.Should().BeTrue();
+    }
+
+    #endregion
+
+    #region NatsDslFlowStore Tests
+
+    [Fact]
+    public async Task DslFlowStore_CreateAndGet_ShouldWork()
+    {
+        if (_nats is null) return;
+        var store = new NatsDslFlowStore(_nats, _serializer, $"dslflows_{Guid.NewGuid():N}");
+        var flowId = $"dsl-{Guid.NewGuid():N}";
+        var snapshot = new FlowSnapshot<NatsTestFlowState>(
+            flowId,
+            new NatsTestFlowState { Counter = 0 },
+            CurrentStep: 0,
+            Status: DslFlowStatus.Running,
+            Error: null,
+            WaitCondition: null,
+            CreatedAt: DateTime.UtcNow,
+            UpdatedAt: DateTime.UtcNow,
+            Version: 0);
+
+        var created = await store.CreateAsync(snapshot);
+        var loaded = await store.GetAsync<NatsTestFlowState>(flowId);
+
+        created.Should().BeTrue();
+        loaded.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DslFlowStore_Update_ShouldWork()
+    {
+        if (_nats is null) return;
+        var store = new NatsDslFlowStore(_nats, _serializer, $"dslflows_upd_{Guid.NewGuid():N}");
+        var flowId = $"dsl-{Guid.NewGuid():N}";
+        var snapshot = new FlowSnapshot<NatsTestFlowState>(
+            flowId,
+            new NatsTestFlowState { Counter = 0 },
+            CurrentStep: 0,
+            Status: DslFlowStatus.Running,
+            Error: null,
+            WaitCondition: null,
+            CreatedAt: DateTime.UtcNow,
+            UpdatedAt: DateTime.UtcNow,
+            Version: 0);
+
+        await store.CreateAsync(snapshot);
+        var updated = await store.UpdateAsync(snapshot with { CurrentStep = 1 });
+
+        updated.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DslFlowStore_WaitCondition_ShouldWork()
+    {
+        if (_nats is null) return;
+        var store = new NatsDslFlowStore(_nats, _serializer, $"dslflows_wait_{Guid.NewGuid():N}");
+        var correlationId = $"corr-{Guid.NewGuid():N}";
+        var flowId = $"flow-{Guid.NewGuid():N}";
+        var condition = new WaitCondition
+        {
+            CorrelationId = correlationId,
+            Type = WaitType.All,
+            ExpectedCount = 2,
+            CompletedCount = 0,
+            Timeout = TimeSpan.FromMinutes(5),
+            CreatedAt = DateTime.UtcNow,
+            FlowId = flowId,
+            FlowType = "TestFlow",
+            Step = 0
+        };
+
+        await store.SetWaitConditionAsync(correlationId, condition);
+        var loaded = await store.GetWaitConditionAsync(correlationId);
+
+        loaded.Should().NotBeNull();
+        loaded!.ExpectedCount.Should().Be(2);
+    }
+
+    #endregion
+
+    #region NatsSnapshotStore Tests
+
+    [Fact]
+    public async Task SnapshotStore_SaveAndLoad_ShouldWork()
+    {
+        if (_nats is null) return;
+        var store = new NatsSnapshotStore(_nats, _serializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
+        var streamId = $"stream-{Guid.NewGuid():N}";
+        var aggregate = new NatsTestAggregate { Id = "agg-1", Counter = 42 };
+
+        await store.SaveAsync(streamId, aggregate, version: 10);
+        var snapshot = await store.LoadAsync<NatsTestAggregate>(streamId);
+
+        snapshot.Should().NotBeNull();
+        snapshot!.Value.Version.Should().Be(10);
+        snapshot.Value.State.Counter.Should().Be(42);
+    }
+
+    [Fact]
+    public async Task SnapshotStore_Delete_ShouldRemoveSnapshot()
+    {
+        if (_nats is null) return;
+        var store = new NatsSnapshotStore(_nats, _serializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
+        var streamId = $"stream-del-{Guid.NewGuid():N}";
+        var aggregate = new NatsTestAggregate { Id = "agg-del", Counter = 99 };
+
+        await store.SaveAsync(streamId, aggregate, version: 5);
+        await store.DeleteAsync(streamId);
+        var snapshot = await store.LoadAsync<NatsTestAggregate>(streamId);
+
+        snapshot.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SnapshotStore_LoadNonExistent_ShouldReturnNull()
+    {
+        if (_nats is null) return;
+        var store = new NatsSnapshotStore(_nats, _serializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
+
+        var snapshot = await store.LoadAsync<NatsTestAggregate>("non-existent-stream");
+
+        snapshot.Should().BeNull();
+    }
+
+    #endregion
 }
 
 #region Test Types
@@ -393,6 +624,27 @@ public partial class NatsTestEvent : IEvent
     public QualityOfService QoS { get; set; } = QualityOfService.AtLeastOnce;
     public string Data { get; set; } = string.Empty;
     public DateTime OccurredAt { get; set; } = DateTime.UtcNow;
+}
+
+[MemoryPackable]
+public partial class NatsTestAggregate
+{
+    public string Id { get; set; } = string.Empty;
+    public int Counter { get; set; }
+}
+
+[MemoryPackable]
+public partial class NatsTestFlowState : IFlowState
+{
+    public string? FlowId { get; set; }
+    public int Counter { get; set; }
+    private int _changedMask;
+    public bool HasChanges => _changedMask != 0;
+    public int GetChangedMask() => _changedMask;
+    public bool IsFieldChanged(int fieldIndex) => (_changedMask & (1 << fieldIndex)) != 0;
+    public void ClearChanges() => _changedMask = 0;
+    public void MarkChanged(int fieldIndex) => _changedMask |= (1 << fieldIndex);
+    public IEnumerable<string> GetChangedFieldNames() => [];
 }
 
 #endregion

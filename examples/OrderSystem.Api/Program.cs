@@ -63,14 +63,13 @@ builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
 
 // ============================================
 // Pipeline Behaviors (Cross-cutting concerns)
-// Note: Use AddSingleton for stateless behaviors (better performance)
 // ============================================
 builder.Services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
 builder.Services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
 // ============================================
 // Command/Query Handlers
-// Note: Use AddSingleton for stateless handlers (better performance)
+// Note: Use Singleton for stateless handlers (ICatgaMediator is now Singleton)
 // ============================================
 builder.Services.AddSingleton<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderHandler>();
 builder.Services.AddSingleton<IRequestHandler<CreateOrderFlowCommand, OrderCreatedResult>, CreateOrderFlowHandler>();
@@ -80,7 +79,7 @@ builder.Services.AddSingleton<IRequestHandler<GetUserOrdersQuery, List<Order>>, 
 
 // ============================================
 // Event Handlers (Multiple handlers per event)
-// Note: Use AddSingleton for stateless handlers (better performance)
+// Note: Use Singleton for stateless handlers (ICatgaMediator is now Singleton)
 // ============================================
 builder.Services.AddSingleton<IEventHandler<OrderCreatedEvent>, OrderCreatedEventHandler>();
 builder.Services.AddSingleton<IEventHandler<OrderCreatedEvent>, SendOrderNotificationHandler>();

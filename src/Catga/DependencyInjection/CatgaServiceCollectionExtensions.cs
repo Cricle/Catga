@@ -27,8 +27,8 @@ public static class CatgaServiceCollectionExtensions
         var options = new CatgaOptions();
         services.TryAddSingleton(options);
 
-        // Register core services
-        services.TryAddScoped<ICatgaMediator, CatgaMediator>();
+        // Register core services (Singleton for performance, uses root IServiceProvider)
+        services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
 
         // Register default SnowflakeIdGenerator with WorkerId from environment or random
         // Users can override this by calling .UseWorkerId(n) or .UseWorkerIdFromEnvironment()
@@ -92,8 +92,8 @@ public static class CatgaServiceCollectionExtensions
         configure(options);
         services.TryAddSingleton(options);
 
-        // Register core services
-        services.TryAddScoped<ICatgaMediator, CatgaMediator>();
+        // Register core services (Singleton for performance, uses root IServiceProvider)
+        services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
 
         // Register default SnowflakeIdGenerator
         services.TryAddSingleton<IDistributedIdGenerator>(sp => new SnowflakeIdGenerator(GetWorkerIdFromEnvironmentOrRandom("CATGA_WORKER_ID")));

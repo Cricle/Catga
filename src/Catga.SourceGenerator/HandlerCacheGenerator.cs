@@ -154,6 +154,7 @@ public sealed class HandlerCacheGenerator : IIncrementalGenerator
                 {
             """);
 
+        // Use TryAddSingleton for handlers (ICatgaMediator is now Singleton)
         var distinctHandlers = new HashSet<string>();
         foreach (var h in handlers.Where(x => distinctHandlers.Add(x.HandlerType)))
             sb.AppendLine($"        services.TryAddSingleton<{h.HandlerType}>();");

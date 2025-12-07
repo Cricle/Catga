@@ -10,6 +10,8 @@ using Catga.Persistence.Redis.Stores;
 using Catga.Flow;
 using Catga.Flow.Dsl;
 using Catga.EventSourcing;
+using Catga.DeadLetter;
+using Catga.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Catga.Abstractions;
@@ -207,6 +209,43 @@ public static class RedisPersistenceServiceCollectionExtensions
             var options = sp.GetRequiredService<IOptions<SnapshotOptions>>();
             var logger = sp.GetRequiredService<ILogger<RedisSnapshotStore>>();
             return new RedisSnapshotStore(redis, serializer, options, logger);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Add Redis event store for event sourcing.
+    /// </summary>
+    public static IServiceCollection AddRedisEventStore(
+        this IServiceCollection services,
+        string prefix = "events:",
+        IEventTypeRegistry? registry = null)
+    {
+        services.TryAddSingleton<IEventStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
+            var logger = sp.GetRequiredService<ILogger<RedisEventStore>>();
+            return new RedisEventStore(redis, serializer, provider, logger, registry, prefix);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Add Redis dead letter queue.
+    /// </summary>
+    public static IServiceCollection AddRedisDeadLetterQueue(
+        this IServiceCollection services,
+        string prefix = "dlq:")
+    {
+        services.TryAddSingleton<IDeadLetterQueue>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            return new RedisDeadLetterQueue(redis, serializer, prefix);
         });
 
         return services;

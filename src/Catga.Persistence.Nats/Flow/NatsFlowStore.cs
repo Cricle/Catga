@@ -1,89 +1,121 @@
-using System.Collections.Concurrent;
 using Catga.Abstractions;
 using Catga.Flow;
 using NATS.Client.Core;
+using NATS.Client.KeyValueStore;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 
 namespace Catga.Persistence.Nats.Flow;
 
 /// <summary>
-/// NATS JetStream flow store using streams with sequence-based optimistic locking.
+/// NATS KV-based flow store with revision-based optimistic locking.
 /// Production-ready for distributed clusters.
 /// </summary>
 public sealed class NatsFlowStore : IFlowStore
 {
     private readonly INatsConnection _nats;
     private readonly IMessageSerializer _serializer;
-    private readonly string _streamName;
-    private readonly ConcurrentDictionary<string, FlowState> _cache = new();
-    private readonly ConcurrentDictionary<string, ulong> _sequences = new();
-    private INatsJSContext? _js;
+    private readonly string _bucketName;
+    private readonly string _indexBucket;
+    private INatsKVContext? _kv;
+    private INatsKVStore? _store;
+    private INatsKVStore? _indexStore;
+    private readonly SemaphoreSlim _initLock = new(1, 1);
     private bool _initialized;
 
-    public NatsFlowStore(INatsConnection nats, IMessageSerializer serializer, string streamName = "FLOWS")
+    public NatsFlowStore(INatsConnection nats, IMessageSerializer serializer, string bucketName = "flows")
     {
         _nats = nats;
         _serializer = serializer;
-        _streamName = streamName;
+        _bucketName = bucketName;
+        _indexBucket = $"{bucketName}_idx";
     }
 
-    // Encode flow ID for NATS subject (replace special chars)
+    // Encode flow ID for NATS key (replace special chars)
     private static string EncodeId(string id) => id.Replace(":", "_C_").Replace("/", "_S_").Replace(".", "_D_");
     private static string DecodeId(string encoded) => encoded.Replace("_C_", ":").Replace("_S_", "/").Replace("_D_", ".");
 
-    private async ValueTask<INatsJSContext> GetJsAsync(CancellationToken ct)
+    private async ValueTask EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_js != null && _initialized) return _js;
+        if (_initialized) return;
 
-        _js = new NatsJSContext(_nats);
-
+        await _initLock.WaitAsync(ct);
         try
         {
-            await _js.CreateStreamAsync(new StreamConfig(_streamName, [$"{_streamName}.*"])
+            if (_initialized) return;
+
+            _kv = new NatsKVContext(new NatsJSContext(_nats));
+
+            // Main flow state bucket
+            _store = await _kv.CreateStoreAsync(new NatsKVConfig(_bucketName)
             {
-                Storage = StreamConfigStorage.File,
-                Retention = StreamConfigRetention.Limits,
+                History = 1,
+                Storage = NatsKVStorageType.File,
                 MaxAge = TimeSpan.FromDays(7)
             }, ct);
-        }
-        catch (NatsJSApiException ex) when (ex.Error.Code == 400) { }
 
-        _initialized = true;
-        return _js;
+            // Type index bucket (stores flow IDs by type)
+            _indexStore = await _kv.CreateStoreAsync(new NatsKVConfig(_indexBucket)
+            {
+                History = 64, // Keep some history for index updates
+                Storage = NatsKVStorageType.File,
+                MaxAge = TimeSpan.FromDays(7)
+            }, ct);
+
+            _initialized = true;
+        }
+        catch (NatsKVException) { _initialized = true; } // Bucket exists
+        finally
+        {
+            _initLock.Release();
+        }
     }
 
     public async ValueTask<bool> CreateAsync(FlowState state, CancellationToken ct = default)
     {
-        if (_cache.ContainsKey(state.Id))
-            return false;
+        await EnsureInitializedAsync(ct);
 
-        var js = await GetJsAsync(ct);
-        var subject = $"{_streamName}.{EncodeId(state.Id)}";
+        var key = EncodeId(state.Id);
         var data = _serializer.Serialize(state);
 
         try
         {
-            var ack = await js.PublishAsync(subject, data, cancellationToken: ct);
-            _cache[state.Id] = state;
-            _sequences[state.Id] = ack.Seq;
+            // Create with revision 0 (must not exist)
+            await _store!.CreateAsync(key, data, cancellationToken: ct);
+
+            // Add to type index
+            await AddToTypeIndexAsync(state.Type, state.Id, ct);
             return true;
         }
-        catch
+        catch (NatsKVCreateException)
         {
-            return false;
+            return false; // Already exists
         }
     }
 
     public async ValueTask<bool> UpdateAsync(FlowState state, CancellationToken ct = default)
     {
-        if (!_sequences.TryGetValue(state.Id, out var expectedSeq))
+        await EnsureInitializedAsync(ct);
+
+        var key = EncodeId(state.Id);
+
+        // Get current revision
+        NatsKVEntry<byte[]> entry;
+        try
+        {
+            entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
+        }
+        catch (NatsKVKeyNotFoundException)
+        {
+            return false;
+        }
+
+        // Deserialize to check version
+        var current = _serializer.Deserialize<FlowState>(entry.Value!);
+        if (current == null || current.Version != state.Version)
             return false;
 
-        var js = await GetJsAsync(ct);
-        var subject = $"{_streamName}.{EncodeId(state.Id)}";
-
-        // Create updated state for serialization (don't modify input until success)
+        // Create updated state
         var newVersion = state.Version + 1;
         var updatedState = new FlowState
         {
@@ -101,44 +133,71 @@ public sealed class NatsFlowStore : IFlowStore
 
         try
         {
-            var ack = await js.PublishAsync(subject, data,
-                opts: new NatsJSPubOpts { ExpectedLastSubjectSequence = expectedSeq },
-                cancellationToken: ct);
-
-            // Only update on success
+            // CAS update with expected revision
+            await _store!.UpdateAsync(key, data, entry.Revision, cancellationToken: ct);
             state.Version = newVersion;
-            _cache[state.Id] = updatedState;
-            _sequences[state.Id] = ack.Seq;
             return true;
         }
-        catch (NatsJSApiException)
+        catch (NatsKVWrongLastRevisionException)
         {
-            return false; // Sequence mismatch
+            return false; // Concurrent modification
         }
     }
 
-    public ValueTask<FlowState?> GetAsync(string id, CancellationToken ct = default)
+    public async ValueTask<FlowState?> GetAsync(string id, CancellationToken ct = default)
     {
-        _cache.TryGetValue(id, out var state);
-        return ValueTask.FromResult(state);
+        await EnsureInitializedAsync(ct);
+
+        var key = EncodeId(id);
+        try
+        {
+            var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
+            if (entry.Value == null) return null;
+            return _serializer.Deserialize<FlowState>(entry.Value);
+        }
+        catch (NatsKVKeyNotFoundException)
+        {
+            return null;
+        }
     }
 
     public async ValueTask<FlowState?> TryClaimAsync(string type, string owner, long timeoutMs, CancellationToken ct = default)
     {
+        await EnsureInitializedAsync(ct);
+
         var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-        foreach (var kvp in _cache)
+        // Get flow IDs for this type from index
+        var flowIds = await GetTypeIndexAsync(type, ct);
+
+        foreach (var id in flowIds)
         {
-            var state = kvp.Value;
-            if (state.Type != type) continue;
+            var state = await GetAsync(id, ct);
+            if (state == null) continue;
             if (state.Status is FlowStatus.Done or FlowStatus.Failed) continue;
             if (nowMs - state.HeartbeatAt < timeoutMs) continue;
 
             // Try CAS claim
-            state.Owner = owner;
-            state.HeartbeatAt = nowMs;
-            if (await UpdateAsync(state, ct))
+            var claimState = new FlowState
+            {
+                Id = state.Id,
+                Type = state.Type,
+                Status = state.Status,
+                Step = state.Step,
+                Version = state.Version,
+                Owner = owner,
+                HeartbeatAt = nowMs,
+                Data = state.Data,
+                Error = state.Error
+            };
+
+            if (await UpdateAsync(claimState, ct))
+            {
+                state.Owner = owner;
+                state.HeartbeatAt = nowMs;
+                state.Version = claimState.Version;
                 return state;
+            }
         }
 
         return null;
@@ -152,5 +211,50 @@ public sealed class NatsFlowStore : IFlowStore
 
         state.HeartbeatAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         return await UpdateAsync(state, ct);
+    }
+
+    // Index management
+    private async ValueTask AddToTypeIndexAsync(string type, string flowId, CancellationToken ct)
+    {
+        var indexKey = $"type_{EncodeId(type)}";
+        try
+        {
+            var entry = await _indexStore!.GetEntryAsync<byte[]>(indexKey, cancellationToken: ct);
+            var ids = _serializer.Deserialize<HashSet<string>>(entry.Value!) ?? [];
+            ids.Add(flowId);
+            await _indexStore!.UpdateAsync(indexKey, _serializer.Serialize(ids), entry.Revision, cancellationToken: ct);
+        }
+        catch (NatsKVKeyNotFoundException)
+        {
+            var ids = new HashSet<string> { flowId };
+            try
+            {
+                await _indexStore!.CreateAsync(indexKey, _serializer.Serialize(ids), cancellationToken: ct);
+            }
+            catch (NatsKVCreateException)
+            {
+                // Race condition, retry
+                await AddToTypeIndexAsync(type, flowId, ct);
+            }
+        }
+        catch (NatsKVWrongLastRevisionException)
+        {
+            // Retry on conflict
+            await AddToTypeIndexAsync(type, flowId, ct);
+        }
+    }
+
+    private async ValueTask<IEnumerable<string>> GetTypeIndexAsync(string type, CancellationToken ct)
+    {
+        var indexKey = $"type_{EncodeId(type)}";
+        try
+        {
+            var entry = await _indexStore!.GetEntryAsync<byte[]>(indexKey, cancellationToken: ct);
+            return _serializer.Deserialize<HashSet<string>>(entry.Value!) ?? [];
+        }
+        catch (NatsKVKeyNotFoundException)
+        {
+            return [];
+        }
     }
 }

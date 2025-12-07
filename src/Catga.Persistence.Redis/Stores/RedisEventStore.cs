@@ -386,6 +386,31 @@ public sealed partial class RedisEventStore : IEventStore
 
     #endregion
 
+    #region Projection API
+
+    public async ValueTask<IReadOnlyList<string>> GetAllStreamIdsAsync(CancellationToken cancellationToken = default)
+    {
+        return await _provider.ExecutePersistenceAsync(async ct =>
+        {
+            var db = _redis.GetDatabase();
+            var server = _redis.GetServers().First();
+            var streamIds = new List<string>();
+
+            // Scan for all version keys to find stream IDs
+            var pattern = _prefix + "version:*";
+            await foreach (var key in server.KeysAsync(pattern: pattern))
+            {
+                var keyStr = key.ToString();
+                var streamId = keyStr[(_prefix + "version:").Length..];
+                streamIds.Add(streamId);
+            }
+
+            return (IReadOnlyList<string>)streamIds;
+        }, cancellationToken);
+    }
+
+    #endregion
+
     [LoggerMessage(Level = LogLevel.Debug, Message = "Events appended to stream {StreamId}: count={Count}, version={Version}")]
     private static partial void LogEventsAppended(ILogger logger, string streamId, int count, long version);
 

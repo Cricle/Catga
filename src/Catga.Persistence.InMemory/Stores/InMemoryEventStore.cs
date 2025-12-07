@@ -117,6 +117,16 @@ public sealed class InMemoryEventStore(IResiliencePipelineProvider provider) : I
 
     #endregion
 
+    #region Projection API
+
+    public ValueTask<IReadOnlyList<string>> GetAllStreamIdsAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return ValueTask.FromResult<IReadOnlyList<string>>(_streams.Keys.ToList());
+    }
+
+    #endregion
+
     public void Clear() => _streams.Clear();
     public int StreamCount => _streams.Count;
     public int GetEventCount(string streamId) => _streams.TryGetValue(streamId, out var s) ? (int)(s.Version + 1) : 0;

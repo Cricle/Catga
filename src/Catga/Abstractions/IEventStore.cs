@@ -61,6 +61,17 @@ public interface IEventStore
         CancellationToken cancellationToken = default);
 
     #endregion
+
+    #region Projection API
+
+    /// <summary>
+    /// Get all stream IDs in the event store.
+    /// Used for projection catch-up and rebuild.
+    /// </summary>
+    ValueTask<IReadOnlyList<string>> GetAllStreamIdsAsync(
+        CancellationToken cancellationToken = default);
+
+    #endregion
 }
 
 /// <summary>

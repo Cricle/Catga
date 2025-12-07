@@ -458,4 +458,52 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
     }
 
     #endregion
+
+    #region Projection API
+
+    public async ValueTask<IReadOnlyList<string>> GetAllStreamIdsAsync(CancellationToken cancellationToken = default)
+    {
+        return await provider.ExecutePersistenceAsync(async ct =>
+        {
+            await EnsureInitializedAsync(ct);
+
+            var streamIds = new HashSet<string>();
+
+            try
+            {
+                // Create a consumer to read all messages and extract unique stream IDs
+                var consumerName = $"proj-scan-{Guid.NewGuid():N}";
+                var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                    StreamName,
+                    new ConsumerConfig
+                    {
+                        Name = consumerName,
+                        AckPolicy = ConsumerConfigAckPolicy.None,
+                        DeliverPolicy = ConsumerConfigDeliverPolicy.All
+                    },
+                    ct);
+
+                await foreach (var msg in consumer.FetchAsync<byte[]>(
+                    new NatsJSFetchOpts { MaxMsgs = 10000 },
+                    cancellationToken: ct))
+                {
+                    // Extract stream ID from subject (format: StreamName.streamId)
+                    var subject = msg.Subject;
+                    if (subject.StartsWith(StreamName + "."))
+                    {
+                        var streamId = subject[(StreamName.Length + 1)..];
+                        streamIds.Add(streamId);
+                    }
+                }
+            }
+            catch (NatsJSApiException ex) when (ex.Error.Code == 404)
+            {
+                return (IReadOnlyList<string>)Array.Empty<string>();
+            }
+
+            return (IReadOnlyList<string>)streamIds.ToList();
+        }, cancellationToken);
+    }
+
+    #endregion
 }

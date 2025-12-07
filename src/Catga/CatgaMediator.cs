@@ -149,7 +149,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         return result;
     }
 
-    public async Task<CatgaResult> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest
+    public async ValueTask<CatgaResult> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest
     {
         using var scope = _serviceProvider.CreateScope();
         var handler = scope.ServiceProvider.GetService<IRequestHandler<TRequest>>();

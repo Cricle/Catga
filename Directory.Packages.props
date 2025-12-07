@@ -34,6 +34,7 @@
     <PackageVersion Include="NATS.Client.KeyValueStore" Version="2.5.2" />
     <!-- Redis 客户端 -->
     <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />
+    <PackageVersion Include="StackExchange.Redis.MultiplexerPool" Version="2.2.0" />
     <!-- 序列化 -->
     <PackageVersion Include="MemoryPack" Version="1.21.3" />
     <!-- Benchmark -->

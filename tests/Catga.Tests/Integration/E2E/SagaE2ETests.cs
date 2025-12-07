@@ -164,13 +164,13 @@ public sealed partial class SagaE2ETests
 
     private sealed class CreateOrderSagaHandler(SagaState state) : IRequestHandler<CreateOrderSagaCommand, SagaStepResult>
     {
-        public Task<CatgaResult<SagaStepResult>> HandleAsync(CreateOrderSagaCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<SagaStepResult>> HandleAsync(CreateOrderSagaCommand request, CancellationToken ct = default)
         {
             lock (state.CompletedSteps)
             {
                 state.CompletedSteps.Add("CreateOrder");
             }
-            return Task.FromResult(CatgaResult<SagaStepResult>.Success(new SagaStepResult { StepName = "CreateOrder", Success = true }));
+            return new ValueTask<CatgaResult<SagaStepResult>>(CatgaResult<SagaStepResult>.Success(new SagaStepResult { StepName = "CreateOrder", Success = true }));
         }
     }
 
@@ -185,13 +185,13 @@ public sealed partial class SagaE2ETests
 
     private sealed class ReserveInventorySagaHandler(SagaState state) : IRequestHandler<ReserveInventorySagaCommand, SagaStepResult>
     {
-        public Task<CatgaResult<SagaStepResult>> HandleAsync(ReserveInventorySagaCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<SagaStepResult>> HandleAsync(ReserveInventorySagaCommand request, CancellationToken ct = default)
         {
             lock (state.CompletedSteps)
             {
                 state.CompletedSteps.Add("ReserveInventory");
             }
-            return Task.FromResult(CatgaResult<SagaStepResult>.Success(new SagaStepResult { StepName = "ReserveInventory", Success = true }));
+            return new ValueTask<CatgaResult<SagaStepResult>>(CatgaResult<SagaStepResult>.Success(new SagaStepResult { StepName = "ReserveInventory", Success = true }));
         }
     }
 
@@ -205,17 +205,17 @@ public sealed partial class SagaE2ETests
 
     private sealed class ProcessPaymentSagaHandler(SagaState state) : IRequestHandler<ProcessPaymentSagaCommand, SagaStepResult>
     {
-        public Task<CatgaResult<SagaStepResult>> HandleAsync(ProcessPaymentSagaCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<SagaStepResult>> HandleAsync(ProcessPaymentSagaCommand request, CancellationToken ct = default)
         {
             if (state.ShouldFailPayment)
             {
-                return Task.FromResult(CatgaResult<SagaStepResult>.Failure("Payment declined"));
+                return new ValueTask<CatgaResult<SagaStepResult>>(CatgaResult<SagaStepResult>.Failure("Payment declined"));
             }
             lock (state.CompletedSteps)
             {
                 state.CompletedSteps.Add("ProcessPayment");
             }
-            return Task.FromResult(CatgaResult<SagaStepResult>.Success(new SagaStepResult { StepName = "ProcessPayment", Success = true }));
+            return new ValueTask<CatgaResult<SagaStepResult>>(CatgaResult<SagaStepResult>.Success(new SagaStepResult { StepName = "ProcessPayment", Success = true }));
         }
     }
 
@@ -229,13 +229,13 @@ public sealed partial class SagaE2ETests
 
     private sealed class ShipOrderSagaHandler(SagaState state) : IRequestHandler<ShipOrderSagaCommand, SagaStepResult>
     {
-        public Task<CatgaResult<SagaStepResult>> HandleAsync(ShipOrderSagaCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<SagaStepResult>> HandleAsync(ShipOrderSagaCommand request, CancellationToken ct = default)
         {
             lock (state.CompletedSteps)
             {
                 state.CompletedSteps.Add("ShipOrder");
             }
-            return Task.FromResult(CatgaResult<SagaStepResult>.Success(new SagaStepResult { StepName = "ShipOrder", Success = true }));
+            return new ValueTask<CatgaResult<SagaStepResult>>(CatgaResult<SagaStepResult>.Success(new SagaStepResult { StepName = "ShipOrder", Success = true }));
         }
     }
 
@@ -248,13 +248,13 @@ public sealed partial class SagaE2ETests
 
     private sealed class CompensateInventoryHandler(SagaState state) : IRequestHandler<CompensateInventoryCommand, SagaStepResult>
     {
-        public Task<CatgaResult<SagaStepResult>> HandleAsync(CompensateInventoryCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<SagaStepResult>> HandleAsync(CompensateInventoryCommand request, CancellationToken ct = default)
         {
             lock (state.CompensatedSteps)
             {
                 state.CompensatedSteps.Add("CompensateInventory");
             }
-            return Task.FromResult(CatgaResult<SagaStepResult>.Success(new SagaStepResult { StepName = "CompensateInventory", Success = true }));
+            return new ValueTask<CatgaResult<SagaStepResult>>(CatgaResult<SagaStepResult>.Success(new SagaStepResult { StepName = "CompensateInventory", Success = true }));
         }
     }
 
@@ -267,13 +267,13 @@ public sealed partial class SagaE2ETests
 
     private sealed class CompensateOrderHandler(SagaState state) : IRequestHandler<CompensateOrderCommand, SagaStepResult>
     {
-        public Task<CatgaResult<SagaStepResult>> HandleAsync(CompensateOrderCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<SagaStepResult>> HandleAsync(CompensateOrderCommand request, CancellationToken ct = default)
         {
             lock (state.CompensatedSteps)
             {
                 state.CompensatedSteps.Add("CompensateOrder");
             }
-            return Task.FromResult(CatgaResult<SagaStepResult>.Success(new SagaStepResult { StepName = "CompensateOrder", Success = true }));
+            return new ValueTask<CatgaResult<SagaStepResult>>(CatgaResult<SagaStepResult>.Success(new SagaStepResult { StepName = "CompensateOrder", Success = true }));
         }
     }
 

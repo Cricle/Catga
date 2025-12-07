@@ -317,9 +317,9 @@ public sealed partial class CatgaMediatorCoverageTests
 
     private sealed class SingletonHandler : IRequestHandler<SingletonCommand, SingletonResponse>
     {
-        public Task<CatgaResult<SingletonResponse>> HandleAsync(SingletonCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<SingletonResponse>> HandleAsync(SingletonCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<SingletonResponse>.Success(new SingletonResponse { DoubledValue = request.Value * 2 }));
+            return new ValueTask<CatgaResult<SingletonResponse>>(CatgaResult<SingletonResponse>.Success(new SingletonResponse { DoubledValue = request.Value * 2 }));
         }
     }
 
@@ -338,9 +338,9 @@ public sealed partial class CatgaMediatorCoverageTests
 
     private sealed class ScopedHandler : IRequestHandler<ScopedCommand, ScopedResponse>
     {
-        public Task<CatgaResult<ScopedResponse>> HandleAsync(ScopedCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<ScopedResponse>> HandleAsync(ScopedCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<ScopedResponse>.Success(new ScopedResponse { TripleValue = request.Value * 3 }));
+            return new ValueTask<CatgaResult<ScopedResponse>>(CatgaResult<ScopedResponse>.Success(new ScopedResponse { TripleValue = request.Value * 3 }));
         }
     }
 
@@ -355,9 +355,9 @@ public sealed partial class CatgaMediatorCoverageTests
 
     private sealed class TransientHandler : IRequestHandler<TransientCommand, TransientResponse>
     {
-        public Task<CatgaResult<TransientResponse>> HandleAsync(TransientCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<TransientResponse>> HandleAsync(TransientCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<TransientResponse>.Success(new TransientResponse()));
+            return new ValueTask<CatgaResult<TransientResponse>>(CatgaResult<TransientResponse>.Success(new TransientResponse()));
         }
     }
 
@@ -372,7 +372,7 @@ public sealed partial class CatgaMediatorCoverageTests
 
     private sealed class ThrowingHandler : IRequestHandler<ThrowingCommand, ThrowingResponse>
     {
-        public Task<CatgaResult<ThrowingResponse>> HandleAsync(ThrowingCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<ThrowingResponse>> HandleAsync(ThrowingCommand request, CancellationToken ct = default)
         {
             throw new InvalidOperationException("Test exception");
         }
@@ -399,20 +399,20 @@ public sealed partial class CatgaMediatorCoverageTests
     private sealed class MultiEventHandler1 : IEventHandler<MultiEvent>
     {
         public static int Count;
-        public Task HandleAsync(MultiEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(MultiEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref Count);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
     private sealed class MultiEventHandler2 : IEventHandler<MultiEvent>
     {
         public static int Count;
-        public Task HandleAsync(MultiEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(MultiEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref Count);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -424,7 +424,7 @@ public sealed partial class CatgaMediatorCoverageTests
 
     private sealed class PartialFailHandler1 : IEventHandler<PartialFailEvent>
     {
-        public Task HandleAsync(PartialFailEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(PartialFailEvent @event, CancellationToken ct = default)
         {
             throw new InvalidOperationException("Handler 1 failed");
         }
@@ -433,10 +433,10 @@ public sealed partial class CatgaMediatorCoverageTests
     private sealed class PartialFailHandler2 : IEventHandler<PartialFailEvent>
     {
         public static int Count;
-        public Task HandleAsync(PartialFailEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(PartialFailEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref Count);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -451,10 +451,10 @@ public sealed partial class CatgaMediatorCoverageTests
 
     private sealed class CancellableHandler : IRequestHandler<CancellableCommand, CancellableResponse>
     {
-        public Task<CatgaResult<CancellableResponse>> HandleAsync(CancellableCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<CancellableResponse>> HandleAsync(CancellableCommand request, CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
-            return Task.FromResult(CatgaResult<CancellableResponse>.Success(new CancellableResponse()));
+            return new ValueTask<CatgaResult<CancellableResponse>>(CatgaResult<CancellableResponse>.Success(new CancellableResponse()));
         }
     }
 
@@ -470,9 +470,9 @@ public sealed partial class CatgaMediatorCoverageTests
 
     private sealed class CorrelatedHandler : IRequestHandler<CorrelatedCommand, CorrelatedResponse>
     {
-        public Task<CatgaResult<CorrelatedResponse>> HandleAsync(CorrelatedCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<CorrelatedResponse>> HandleAsync(CorrelatedCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<CorrelatedResponse>.Success(new CorrelatedResponse()));
+            return new ValueTask<CatgaResult<CorrelatedResponse>>(CatgaResult<CorrelatedResponse>.Success(new CorrelatedResponse()));
         }
     }
 

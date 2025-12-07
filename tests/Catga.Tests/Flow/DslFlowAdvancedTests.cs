@@ -36,7 +36,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new SingleStepFlowConfig();
@@ -57,7 +57,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new ManyStepsFlowConfig();
@@ -123,7 +123,7 @@ public class DslFlowAdvancedTests
             {
                 callCount++;
                 call.Arg<CancellationToken>().ThrowIfCancellationRequested();
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -139,7 +139,7 @@ public class DslFlowAdvancedTests
                 if (callCount > 0) cts.Cancel();
                 callCount++;
                 call.Arg<CancellationToken>().ThrowIfCancellationRequested();
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         // Act
@@ -242,7 +242,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new SingleStepFlowConfig();
@@ -356,8 +356,8 @@ public class DslFlowAdvancedTests
                 var cmd = call.Arg<TestCommand>();
                 executedCommands.Add(cmd.Value);
                 if (cmd.Value == "step3")
-                    return Task.FromResult(CatgaResult.Failure("Step 3 failed"));
-                return Task.FromResult(CatgaResult.Success());
+                    return new ValueTask<CatgaResult>(CatgaResult.Failure("Step 3 failed"));
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -389,10 +389,10 @@ public class DslFlowAdvancedTests
             {
                 var cmd = call.Arg<TestCommand>();
                 if (cmd.Value == "step2")
-                    return Task.FromResult(CatgaResult.Failure("Step 2 failed"));
+                    return new ValueTask<CatgaResult>(CatgaResult.Failure("Step 2 failed"));
                 if (cmd.Value.StartsWith("compensate"))
                     throw new InvalidOperationException("Compensation failed");
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -422,7 +422,7 @@ public class DslFlowAdvancedTests
             .Returns(call =>
             {
                 executedCommands.Add(call.Arg<TestCommand>().Value);
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -448,7 +448,7 @@ public class DslFlowAdvancedTests
             .Returns(call =>
             {
                 executedCommands.Add(call.Arg<TestCommand>().Value);
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -476,7 +476,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQuery, string>(Arg.Any<TestQuery>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("query-result")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("query-result")));
 
         var store = new InMemoryDslFlowStore();
         var config = new QueryFlowConfig();
@@ -528,7 +528,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new SingleStepFlowConfig();
@@ -551,7 +551,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Failure("Test error")));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Failure("Test error")));
 
         var store = new InMemoryDslFlowStore();
         var config = new SingleStepFlowConfig();
@@ -614,7 +614,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Failure("Original error")));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Failure("Original error")));
 
         var store = new InMemoryDslFlowStore();
         var config = new SingleStepFlowConfig();
@@ -725,7 +725,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new WhenAnyFlowConfig();
@@ -745,7 +745,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("winner")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("winner")));
 
         var store = new InMemoryDslFlowStore();
         var config = new WhenAnyWithResultFlowConfig();
@@ -765,7 +765,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new WhenAnyWithTimeoutFlowConfig();
@@ -785,7 +785,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new WhenAnyWithTagFlowConfig();
@@ -805,7 +805,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("result")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("result")));
 
         var store = new InMemoryDslFlowStore();
         var config = new WhenAnyResultWithTimeoutFlowConfig();
@@ -825,7 +825,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("result")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("result")));
 
         var store = new InMemoryDslFlowStore();
         var config = new WhenAnyResultWithTagFlowConfig();
@@ -849,7 +849,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new WhenAllWithTimeoutFlowConfig();
@@ -869,7 +869,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new WhenAllWithTagFlowConfig();
@@ -889,7 +889,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new WhenAllWithCompensationFlowConfig();
@@ -913,7 +913,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new FailIfWithMessageFlowConfig();
@@ -933,7 +933,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new FailIfOnStateFlowConfig();
@@ -953,7 +953,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("result")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("result")));
 
         var store = new InMemoryDslFlowStore();
         var config = new SendResultWithIfFailFlowConfig();
@@ -977,7 +977,7 @@ public class DslFlowAdvancedTests
             .Returns(call =>
             {
                 queryExecuted = true;
-                return ValueTask.FromResult(CatgaResult<string>.Success("result"));
+                return new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("result"));
             });
 
         var store = new InMemoryDslFlowStore();
@@ -999,7 +999,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Failure("Query failed")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Failure("Query failed")));
 
         var store = new InMemoryDslFlowStore();
         var config = new SendResultOptionalFlowConfig();
@@ -1019,7 +1019,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("result")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("result")));
 
         var store = new InMemoryDslFlowStore();
         var config = new SendResultTagFlowConfig();
@@ -1039,7 +1039,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("captured-value")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("captured-value")));
 
         var store = new InMemoryDslFlowStore();
         var config = new SendResultIntoFlowConfig();
@@ -1064,7 +1064,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new ChainedOptionsFlowConfig();
@@ -1084,7 +1084,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new MultiTagStepFlowConfig();
@@ -1108,7 +1108,7 @@ public class DslFlowAdvancedTests
             .Returns(call =>
             {
                 executedCommands.Add(call.Arg<TestCommand>().Value);
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -1130,7 +1130,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("query-result")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("query-result")));
 
         var store = new InMemoryDslFlowStore();
         var config = new QueryIntoFlowConfig();
@@ -1151,7 +1151,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("result")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("result")));
 
         var store = new InMemoryDslFlowStore();
         var config = new QueryWithTagFlowConfig();
@@ -1668,7 +1668,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("result-value")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("result-value")));
 
         var store = new InMemoryDslFlowStore();
         var config = new SendWithResultIntoFlowConfig();
@@ -1694,14 +1694,14 @@ public class DslFlowAdvancedTests
             .Returns(call =>
             {
                 executedCommands.Add("query");
-                return ValueTask.FromResult(CatgaResult<string>.Failure("Query failed"));
+                return new ValueTask<CatgaResult<string>>(CatgaResult<string>.Failure("Query failed"));
             });
 
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
                 executedCommands.Add(call.Arg<TestCommand>().Value);
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -1722,7 +1722,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("bad-result")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("bad-result")));
 
         var store = new InMemoryDslFlowStore();
         var config = new SendWithResultFailIfMessageFlowConfig();
@@ -1743,7 +1743,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Failure("Optional failed")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Failure("Optional failed")));
 
         var store = new InMemoryDslFlowStore();
         var config = new SendWithResultOptionalFlowConfig();
@@ -1767,7 +1767,7 @@ public class DslFlowAdvancedTests
             .Returns(call =>
             {
                 queryExecuted = true;
-                return ValueTask.FromResult(CatgaResult<string>.Success("result"));
+                return new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("result"));
             });
 
         var store = new InMemoryDslFlowStore();
@@ -1789,7 +1789,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("result")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("result")));
 
         var store = new InMemoryDslFlowStore();
         var config = new SendWithResultTaggedFlowConfig();
@@ -1813,7 +1813,7 @@ public class DslFlowAdvancedTests
         // Arrange - FailIf works on query results, not state
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("fail-value")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("fail-value")));
 
         var store = new InMemoryDslFlowStore();
         var config = new FailIfOnResultFlowConfig();
@@ -1834,7 +1834,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("ok-value")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("ok-value")));
 
         var store = new InMemoryDslFlowStore();
         var config = new FailIfOnResultFlowConfig();
@@ -1858,7 +1858,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var publishedEvents = new List<TestEvent>();
         mediator.PublishAsync(Arg.Any<TestEvent>(), Arg.Any<CancellationToken>())
@@ -1914,7 +1914,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Failure("Test failure")));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Failure("Test failure")));
 
         TestEvent? failedEvent = null;
         mediator.PublishAsync(Arg.Any<TestEvent>(), Arg.Any<CancellationToken>())
@@ -1949,7 +1949,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new TimeoutFlowConfig();
@@ -2106,7 +2106,7 @@ public class DslFlowAdvancedTests
             .Returns(call =>
             {
                 executedSteps.Add(call.Arg<TestCommand>().Value);
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -2132,7 +2132,7 @@ public class DslFlowAdvancedTests
             .Returns(call =>
             {
                 executedSteps.Add(call.Arg<TestCommand>().Value);
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -2165,8 +2165,8 @@ public class DslFlowAdvancedTests
                 callCount++;
                 // Fail on step3
                 if (cmd.Value == "step3")
-                    return Task.FromResult(CatgaResult.Failure("Step3 failed"));
-                return Task.FromResult(CatgaResult.Success());
+                    return new ValueTask<CatgaResult>(CatgaResult.Failure("Step3 failed"));
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -2194,7 +2194,7 @@ public class DslFlowAdvancedTests
         var publishedEvents = new List<TestEvent>();
 
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("query-result-value")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("query-result-value")));
 
         mediator.PublishAsync(Arg.Any<TestEvent>(), Arg.Any<CancellationToken>())
             .Returns(call =>
@@ -2227,7 +2227,7 @@ public class DslFlowAdvancedTests
             .Returns(call =>
             {
                 executedSteps.Add(call.Arg<TestCommand>().Value);
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -2260,7 +2260,7 @@ public class DslFlowAdvancedTests
                 executedSteps.Add(cmd.Value);
                 if (cmd.Value == "step2")
                     cts.Cancel();
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -2291,8 +2291,8 @@ public class DslFlowAdvancedTests
                 var cmd = call.Arg<TestCommand>();
                 executedSteps.Add(cmd.Value);
                 if (cmd.Value == "optional")
-                    return Task.FromResult(CatgaResult.Failure("Optional failed"));
-                return Task.FromResult(CatgaResult.Success());
+                    return new ValueTask<CatgaResult>(CatgaResult.Failure("Optional failed"));
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -2316,7 +2316,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("invalid-result")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("invalid-result")));
 
         var store = new InMemoryDslFlowStore();
         var config = new E2EFailIfFlowConfig();
@@ -2341,7 +2341,7 @@ public class DslFlowAdvancedTests
             .Returns(call =>
             {
                 executedSteps.Add(call.Arg<TestCommand>().Value);
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -2368,14 +2368,14 @@ public class DslFlowAdvancedTests
             .Returns(call =>
             {
                 operations.Add($"Send:{call.Arg<TestCommand>().Value}");
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
                 operations.Add($"Query:{call.Arg<TestQueryWithResult>().Value}");
-                return ValueTask.FromResult(CatgaResult<string>.Success("query-result"));
+                return new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("query-result"));
             });
 
         mediator.PublishAsync(Arg.Any<TestEvent>(), Arg.Any<CancellationToken>())
@@ -2410,7 +2410,7 @@ public class DslFlowAdvancedTests
             .Returns(call =>
             {
                 executedSteps.Add(call.Arg<TestCommand>().Value);
-                return Task.FromResult(CatgaResult.Success());
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -2450,10 +2450,10 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Success("modified-value")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("modified-value")));
 
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new E2EStateModificationFlowConfig();
@@ -2480,8 +2480,8 @@ public class DslFlowAdvancedTests
                 var cmd = call.Arg<TestCommand>();
                 executedSteps.Add(cmd.Value);
                 if (cmd.Value == "step4")
-                    return Task.FromResult(CatgaResult.Failure("Step4 failed"));
-                return Task.FromResult(CatgaResult.Success());
+                    return new ValueTask<CatgaResult>(CatgaResult.Failure("Step4 failed"));
+                return new ValueTask<CatgaResult>(CatgaResult.Success());
             });
 
         var store = new InMemoryDslFlowStore();
@@ -2510,7 +2510,7 @@ public class DslFlowAdvancedTests
         var publishedEvents = new List<string>();
 
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         mediator.PublishAsync(Arg.Any<TestEvent>(), Arg.Any<CancellationToken>())
             .Returns(call =>
@@ -2538,7 +2538,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync<TestQueryWithResult, string>(Arg.Any<TestQueryWithResult>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<string>.Failure("Query failed")));
+            .Returns(new ValueTask<CatgaResult<string>>(CatgaResult<string>.Failure("Query failed")));
 
         var store = new InMemoryDslFlowStore();
         var config = new E2EQueryFailureFlowConfig();
@@ -2559,7 +2559,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new E2ERetrySettingsFlowConfig();
@@ -2579,7 +2579,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new E2EPersistSettingsFlowConfig();
@@ -2601,7 +2601,7 @@ public class DslFlowAdvancedTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<TestCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
 
         var store = new InMemoryDslFlowStore();
         var config = new SimpleFlowConfig();

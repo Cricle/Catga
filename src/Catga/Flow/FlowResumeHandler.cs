@@ -20,7 +20,7 @@ public record FlowCompletedEvent(
 /// </summary>
 public class FlowResumeHandler(IDslFlowStore store) : IEventHandler<FlowCompletedEvent>
 {
-    public async Task HandleAsync(FlowCompletedEvent @event, CancellationToken ct = default)
+    public async ValueTask HandleAsync(FlowCompletedEvent @event, CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(@event.ParentCorrelationId))
             return;

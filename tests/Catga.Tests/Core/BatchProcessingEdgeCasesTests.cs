@@ -549,24 +549,24 @@ public record BatchEvent(int Id, string Name) : IEvent
 
 public class BatchCommandHandler : IRequestHandler<BatchCommand, BatchResponse>
 {
-    public Task<CatgaResult<BatchResponse>> HandleAsync(
+    public ValueTask<CatgaResult<BatchResponse>> HandleAsync(
         BatchCommand request,
         CancellationToken cancellationToken = default)
     {
         if (request.ShouldFail)
         {
-            return Task.FromResult(
+            return new ValueTask<CatgaResult<BatchResponse>>(
                 CatgaResult<BatchResponse>.Failure($"Failed to process item {request.Id}"));
         }
 
         var response = new BatchResponse(request.Id, $"Processed-{request.Name}");
-        return Task.FromResult(CatgaResult<BatchResponse>.Success(response));
+        return new ValueTask<CatgaResult<BatchResponse>>(CatgaResult<BatchResponse>.Success(response));
     }
 }
 
 public class SlowBatchCommandHandler : IRequestHandler<SlowBatchCommand, SlowBatchResponse>
 {
-    public async Task<CatgaResult<SlowBatchResponse>> HandleAsync(
+    public async ValueTask<CatgaResult<SlowBatchResponse>> HandleAsync(
         SlowBatchCommand request,
         CancellationToken cancellationToken = default)
     {
@@ -577,14 +577,14 @@ public class SlowBatchCommandHandler : IRequestHandler<SlowBatchCommand, SlowBat
 
 public class MemoryIntensiveCommandHandler : IRequestHandler<MemoryIntensiveCommand, MemoryIntensiveResponse>
 {
-    public Task<CatgaResult<MemoryIntensiveResponse>> HandleAsync(
+    public ValueTask<CatgaResult<MemoryIntensiveResponse>> HandleAsync(
         MemoryIntensiveCommand request,
         CancellationToken cancellationToken = default)
     {
         // 模拟内存密集型操作，但很快释放
         var data = new byte[1024]; // 1KB data
         var response = new MemoryIntensiveResponse(request.Id, data);
-        return Task.FromResult(CatgaResult<MemoryIntensiveResponse>.Success(response));
+        return new ValueTask<CatgaResult<MemoryIntensiveResponse>>(CatgaResult<MemoryIntensiveResponse>.Success(response));
     }
 }
 
@@ -592,16 +592,16 @@ public class BatchEventHandler : IEventHandler<BatchEvent>
 {
     public static int ProcessedCount = 0;
 
-    public Task HandleAsync(BatchEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(BatchEvent @event, CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref ProcessedCount);
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
 public class SlowBatchEventHandler : IEventHandler<BatchEvent>
 {
-    public async Task HandleAsync(BatchEvent @event, CancellationToken cancellationToken = default)
+    public async ValueTask HandleAsync(BatchEvent @event, CancellationToken cancellationToken = default)
     {
         await Task.Delay(5, cancellationToken);
     }

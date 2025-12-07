@@ -128,30 +128,30 @@ public record ScopedResponse(Guid InstanceId);
 // Test handlers
 public class MetadataCommandHandler : IRequestHandler<MetadataCommand, MetadataResponse>
 {
-    public Task<CatgaResult<MetadataResponse>> HandleAsync(
+    public ValueTask<CatgaResult<MetadataResponse>> HandleAsync(
         MetadataCommand request,
         CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(CatgaResult<MetadataResponse>.Success(new MetadataResponse(request.Data)));
+        return new ValueTask<CatgaResult<MetadataResponse>>(CatgaResult<MetadataResponse>.Success(new MetadataResponse(request.Data)));
     }
 }
 
 public class ExceptionCommandHandler : IRequestHandler<ExceptionCommand, ExceptionResponse>
 {
-    public Task<CatgaResult<ExceptionResponse>> HandleAsync(
+    public ValueTask<CatgaResult<ExceptionResponse>> HandleAsync(
         ExceptionCommand request,
         CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(CatgaResult<ExceptionResponse>.Failure("Exception occurred"));
+        return new ValueTask<CatgaResult<ExceptionResponse>>(CatgaResult<ExceptionResponse>.Failure("Exception occurred"));
     }
 }
 
 public class ExceptionEventHandler : IEventHandler<ExceptionEvent>
 {
-    public Task HandleAsync(ExceptionEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(ExceptionEvent @event, CancellationToken cancellationToken = default)
     {
         // 模拟异常但不抛出
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -159,11 +159,11 @@ public class ScopedCommandHandler : IRequestHandler<ScopedCommand, ScopedRespons
 {
     private readonly Guid _instanceId = Guid.NewGuid();
 
-    public Task<CatgaResult<ScopedResponse>> HandleAsync(
+    public ValueTask<CatgaResult<ScopedResponse>> HandleAsync(
         ScopedCommand request,
         CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(CatgaResult<ScopedResponse>.Success(new ScopedResponse(_instanceId)));
+        return new ValueTask<CatgaResult<ScopedResponse>>(CatgaResult<ScopedResponse>.Success(new ScopedResponse(_instanceId)));
     }
 }
 

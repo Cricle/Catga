@@ -276,9 +276,9 @@ public class CatgaMediatorBoundaryTests
 
     public class TestCommandHandler : IRequestHandler<TestCommand, TestResponse>
     {
-        public Task<CatgaResult<TestResponse>> HandleAsync(TestCommand request, CancellationToken cancellationToken)
+        public ValueTask<CatgaResult<TestResponse>> HandleAsync(TestCommand request, CancellationToken cancellationToken)
         {
-            return Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse
+            return new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse
             {
                 Result = $"{request.Data}-processed"
             }));
@@ -287,15 +287,15 @@ public class CatgaMediatorBoundaryTests
 
     public class TestEventHandler : IEventHandler<TestEvent>
     {
-        public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken)
+        public ValueTask HandleAsync(TestEvent @event, CancellationToken cancellationToken)
         {
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
     public class FailingCommandHandler : IRequestHandler<FailingCommand, TestResponse>
     {
-        public Task<CatgaResult<TestResponse>> HandleAsync(FailingCommand request, CancellationToken cancellationToken)
+        public ValueTask<CatgaResult<TestResponse>> HandleAsync(FailingCommand request, CancellationToken cancellationToken)
         {
             throw new InvalidOperationException("Handler always fails");
         }
@@ -303,7 +303,7 @@ public class CatgaMediatorBoundaryTests
 
     public class SlowCommandHandler : IRequestHandler<SlowCommand, TestResponse>
     {
-        public async Task<CatgaResult<TestResponse>> HandleAsync(SlowCommand request, CancellationToken cancellationToken)
+        public async ValueTask<CatgaResult<TestResponse>> HandleAsync(SlowCommand request, CancellationToken cancellationToken)
         {
             await Task.Delay(50, cancellationToken);
             return CatgaResult<TestResponse>.Success(new TestResponse { Result = "slow" });

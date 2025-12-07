@@ -268,10 +268,10 @@ public sealed partial class FullFlowE2ETests
 
     private sealed class CreateOrderHandler : IRequestHandler<CreateOrderCommand, CreateOrderResult>
     {
-        public Task<CatgaResult<CreateOrderResult>> HandleAsync(CreateOrderCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<CreateOrderResult>> HandleAsync(CreateOrderCommand request, CancellationToken ct = default)
         {
             var orderId = $"ORD-{Guid.NewGuid():N}";
-            return Task.FromResult(CatgaResult<CreateOrderResult>.Success(new CreateOrderResult { OrderId = orderId }));
+            return new ValueTask<CatgaResult<CreateOrderResult>>(CatgaResult<CreateOrderResult>.Success(new CreateOrderResult { OrderId = orderId }));
         }
     }
 
@@ -290,9 +290,9 @@ public sealed partial class FullFlowE2ETests
 
     private sealed class ProcessOrderHandler : IRequestHandler<ProcessOrderCommand, ProcessOrderResult>
     {
-        public Task<CatgaResult<ProcessOrderResult>> HandleAsync(ProcessOrderCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<ProcessOrderResult>> HandleAsync(ProcessOrderCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<ProcessOrderResult>.Success(new ProcessOrderResult { Status = "Processing" }));
+            return new ValueTask<CatgaResult<ProcessOrderResult>>(CatgaResult<ProcessOrderResult>.Success(new ProcessOrderResult { Status = "Processing" }));
         }
     }
 
@@ -311,9 +311,9 @@ public sealed partial class FullFlowE2ETests
 
     private sealed class CompleteOrderHandler : IRequestHandler<CompleteOrderCommand, CompleteOrderResult>
     {
-        public Task<CatgaResult<CompleteOrderResult>> HandleAsync(CompleteOrderCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<CompleteOrderResult>> HandleAsync(CompleteOrderCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<CompleteOrderResult>.Success(new CompleteOrderResult { Status = "Completed" }));
+            return new ValueTask<CatgaResult<CompleteOrderResult>>(CatgaResult<CompleteOrderResult>.Success(new CompleteOrderResult { Status = "Completed" }));
         }
     }
 
@@ -328,10 +328,10 @@ public sealed partial class FullFlowE2ETests
     private sealed class OrderCreatedHandler : IEventHandler<OrderCreatedEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(OrderCreatedEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(OrderCreatedEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -345,10 +345,10 @@ public sealed partial class FullFlowE2ETests
     private sealed class OrderCompletedHandler : IEventHandler<OrderCompletedEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(OrderCompletedEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(OrderCompletedEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -369,10 +369,10 @@ public sealed partial class FullFlowE2ETests
 
     private sealed class RegisterUserHandler : IRequestHandler<RegisterUserCommand, RegisterUserResult>
     {
-        public Task<CatgaResult<RegisterUserResult>> HandleAsync(RegisterUserCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<RegisterUserResult>> HandleAsync(RegisterUserCommand request, CancellationToken ct = default)
         {
             var userId = $"USR-{Guid.NewGuid():N}";
-            return Task.FromResult(CatgaResult<RegisterUserResult>.Success(new RegisterUserResult { UserId = userId }));
+            return new ValueTask<CatgaResult<RegisterUserResult>>(CatgaResult<RegisterUserResult>.Success(new RegisterUserResult { UserId = userId }));
         }
     }
 
@@ -392,9 +392,9 @@ public sealed partial class FullFlowE2ETests
 
     private sealed class VerifyEmailHandler : IRequestHandler<VerifyEmailCommand, VerifyEmailResult>
     {
-        public Task<CatgaResult<VerifyEmailResult>> HandleAsync(VerifyEmailCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<VerifyEmailResult>> HandleAsync(VerifyEmailCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<VerifyEmailResult>.Success(new VerifyEmailResult { IsVerified = true }));
+            return new ValueTask<CatgaResult<VerifyEmailResult>>(CatgaResult<VerifyEmailResult>.Success(new VerifyEmailResult { IsVerified = true }));
         }
     }
 
@@ -409,10 +409,10 @@ public sealed partial class FullFlowE2ETests
     private sealed class UserRegisteredHandler : IEventHandler<UserRegisteredEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(UserRegisteredEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(UserRegisteredEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -438,10 +438,10 @@ public sealed partial class FullFlowE2ETests
 
     private sealed class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, ProcessPaymentResult>
     {
-        public Task<CatgaResult<ProcessPaymentResult>> HandleAsync(ProcessPaymentCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<ProcessPaymentResult>> HandleAsync(ProcessPaymentCommand request, CancellationToken ct = default)
         {
             var transactionId = $"TXN-{Guid.NewGuid():N}";
-            return Task.FromResult(CatgaResult<ProcessPaymentResult>.Success(new ProcessPaymentResult { TransactionId = transactionId }));
+            return new ValueTask<CatgaResult<ProcessPaymentResult>>(CatgaResult<ProcessPaymentResult>.Success(new ProcessPaymentResult { TransactionId = transactionId }));
         }
     }
 
@@ -463,9 +463,9 @@ public sealed partial class FullFlowE2ETests
 
     private sealed class CheckInventoryHandler : IRequestHandler<CheckInventoryQuery, CheckInventoryResult>
     {
-        public Task<CatgaResult<CheckInventoryResult>> HandleAsync(CheckInventoryQuery request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<CheckInventoryResult>> HandleAsync(CheckInventoryQuery request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<CheckInventoryResult>.Success(new CheckInventoryResult { IsAvailable = true, AvailableQuantity = 100 }));
+            return new ValueTask<CatgaResult<CheckInventoryResult>>(CatgaResult<CheckInventoryResult>.Success(new CheckInventoryResult { IsAvailable = true, AvailableQuantity = 100 }));
         }
     }
 
@@ -486,10 +486,10 @@ public sealed partial class FullFlowE2ETests
 
     private sealed class ReserveInventoryHandler : IRequestHandler<ReserveInventoryCommand, ReserveInventoryResult>
     {
-        public Task<CatgaResult<ReserveInventoryResult>> HandleAsync(ReserveInventoryCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<ReserveInventoryResult>> HandleAsync(ReserveInventoryCommand request, CancellationToken ct = default)
         {
             var reservationId = $"RES-{Guid.NewGuid():N}";
-            return Task.FromResult(CatgaResult<ReserveInventoryResult>.Success(new ReserveInventoryResult { ReservationId = reservationId }));
+            return new ValueTask<CatgaResult<ReserveInventoryResult>>(CatgaResult<ReserveInventoryResult>.Success(new ReserveInventoryResult { ReservationId = reservationId }));
         }
     }
 
@@ -505,30 +505,30 @@ public sealed partial class FullFlowE2ETests
     private sealed class EmailNotificationHandler : IEventHandler<SendNotificationEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(SendNotificationEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(SendNotificationEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
     private sealed class SmsNotificationHandler : IEventHandler<SendNotificationEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(SendNotificationEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(SendNotificationEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
     private sealed class PushNotificationHandler : IEventHandler<SendNotificationEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(SendNotificationEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(SendNotificationEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 

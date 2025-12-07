@@ -152,7 +152,7 @@ public class OutboxBehaviorTests
         _mockIdGenerator.NextId().Returns(999L);
         _mockSerializer.Serialize(Arg.Any<object>()).Returns(new byte[] { 1, 2, 3 });
 
-        PipelineDelegate<EmptyResponse> next = () => ValueTask.FromResult(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
+        PipelineDelegate<EmptyResponse> next = () => new ValueTask<CatgaResult<EmptyResponse>>(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
 
         // Act
         await _behavior.HandleAsync(@event, next);
@@ -172,7 +172,7 @@ public class OutboxBehaviorTests
         var @event = new TestEvent { MessageId = 456, Data = "test" };
         _mockSerializer.Serialize(Arg.Any<object>()).Returns(new byte[] { 1, 2, 3 });
 
-        PipelineDelegate<EmptyResponse> next = () => ValueTask.FromResult(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
+        PipelineDelegate<EmptyResponse> next = () => new ValueTask<CatgaResult<EmptyResponse>>(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
 
         // Act
         var result = await _behavior.HandleAsync(@event, next);
@@ -194,7 +194,7 @@ public class OutboxBehaviorTests
         _mockIdGenerator.NextId().Returns(999L);
         _mockSerializer.Serialize(Arg.Any<object>()).Returns(new byte[] { 1, 2, 3 });
 
-        PipelineDelegate<EmptyResponse> next = () => ValueTask.FromResult(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
+        PipelineDelegate<EmptyResponse> next = () => new ValueTask<CatgaResult<EmptyResponse>>(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
 
         // Act
         await _behavior.HandleAsync(@event, next);
@@ -219,7 +219,7 @@ public class OutboxBehaviorTests
             .Returns(ValueTask.CompletedTask)
             .AndDoes(x => capturedMessage = x.Arg<OutboxMessage>());
 
-        PipelineDelegate<EmptyResponse> next = () => ValueTask.FromResult(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
+        PipelineDelegate<EmptyResponse> next = () => new ValueTask<CatgaResult<EmptyResponse>>(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
 
         // Act
         await _behavior.HandleAsync(@event, next);
@@ -277,7 +277,7 @@ public class OutboxBehaviorTests
             Arg.Any<CancellationToken>())
             .Returns(Task.FromException(new InvalidOperationException("Transport error")));
 
-        PipelineDelegate<EmptyResponse> next = () => ValueTask.FromResult(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
+        PipelineDelegate<EmptyResponse> next = () => new ValueTask<CatgaResult<EmptyResponse>>(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
 
         // Act
         var result = await _behavior.HandleAsync(@event, next);
@@ -307,7 +307,7 @@ public class OutboxBehaviorTests
         _mockStore.AddAsync(Arg.Any<OutboxMessage>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => ValueTask.FromException(new InvalidOperationException("Database error")));
 
-        PipelineDelegate<EmptyResponse> next = () => ValueTask.FromResult(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
+        PipelineDelegate<EmptyResponse> next = () => new ValueTask<CatgaResult<EmptyResponse>>(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
 
         // Act
         var result = await _behavior.HandleAsync(@event, next);
@@ -328,7 +328,7 @@ public class OutboxBehaviorTests
         _mockStore.MarkAsPublishedAsync(Arg.Any<long>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => ValueTask.FromException(new InvalidOperationException("Mark published error")));
 
-        PipelineDelegate<EmptyResponse> next = () => ValueTask.FromResult(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
+        PipelineDelegate<EmptyResponse> next = () => new ValueTask<CatgaResult<EmptyResponse>>(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
 
         // Act
         var result = await _behavior.HandleAsync(@event, next);
@@ -354,7 +354,7 @@ public class OutboxBehaviorTests
         var cancellationToken = cts.Token;
         _mockSerializer.Serialize(Arg.Any<object>()).Returns(new byte[] { 1, 2, 3 });
 
-        PipelineDelegate<EmptyResponse> next = () => ValueTask.FromResult(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
+        PipelineDelegate<EmptyResponse> next = () => new ValueTask<CatgaResult<EmptyResponse>>(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
 
         // Act
         await _behavior.HandleAsync(@event, next, cancellationToken);
@@ -390,7 +390,7 @@ public class OutboxBehaviorTests
                 return ValueTask.CompletedTask.AsTask();
             });
 
-        PipelineDelegate<EmptyResponse> next = () => ValueTask.FromResult(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
+        PipelineDelegate<EmptyResponse> next = () => new ValueTask<CatgaResult<EmptyResponse>>(CatgaResult<EmptyResponse>.Success(new EmptyResponse()));
 
         // Act
         await _behavior.HandleAsync(@event, next);

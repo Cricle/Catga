@@ -399,7 +399,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
 {
     public static long? LastReceivedCorrelationId { get; private set; }
 
-    public Task<CatgaResult<CreateOrderResponse>> HandleAsync(
+    public ValueTask<CatgaResult<CreateOrderResponse>> HandleAsync(
         CreateOrderCommand request,
         CancellationToken cancellationToken = default)
     {
@@ -407,13 +407,13 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
 
         if (request.Quantity <= 0)
         {
-            return Task.FromResult(
+            return new ValueTask<CatgaResult<CreateOrderResponse>>(
                 CatgaResult<CreateOrderResponse>.Failure("Invalid quantity"));
         }
 
         var orderId = Random.Shared.Next(10000, 99999);
         var response = new CreateOrderResponse(orderId, request.ProductId, request.Quantity);
-        return Task.FromResult(CatgaResult<CreateOrderResponse>.Success(response));
+        return new ValueTask<CatgaResult<CreateOrderResponse>>(CatgaResult<CreateOrderResponse>.Success(response));
     }
 }
 
@@ -421,7 +421,7 @@ public class PaymentCommandHandler : IRequestHandler<PaymentCommand, PaymentResp
 {
     public static long? LastReceivedCorrelationId { get; private set; }
 
-    public Task<CatgaResult<PaymentResponse>> HandleAsync(
+    public ValueTask<CatgaResult<PaymentResponse>> HandleAsync(
         PaymentCommand request,
         CancellationToken cancellationToken = default)
     {
@@ -429,7 +429,7 @@ public class PaymentCommandHandler : IRequestHandler<PaymentCommand, PaymentResp
 
         var transactionId = $"TXN-{Random.Shared.Next(100000, 999999)}";
         var response = new PaymentResponse(transactionId, true);
-        return Task.FromResult(CatgaResult<PaymentResponse>.Success(response));
+        return new ValueTask<CatgaResult<PaymentResponse>>(CatgaResult<PaymentResponse>.Success(response));
     }
 }
 
@@ -437,7 +437,7 @@ public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent>
 {
     public static readonly List<long> ReceivedCorrelationIds = new();
 
-    public Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
     {
         if (@event.CorrelationId.HasValue)
         {
@@ -446,7 +446,7 @@ public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent>
                 ReceivedCorrelationIds.Add(@event.CorrelationId.Value);
             }
         }
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -454,7 +454,7 @@ public class SendEmailEventHandler : IEventHandler<OrderCreatedEvent>
 {
     public static readonly List<long> ReceivedCorrelationIds = new();
 
-    public Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
     {
         if (@event.CorrelationId.HasValue)
         {
@@ -463,7 +463,7 @@ public class SendEmailEventHandler : IEventHandler<OrderCreatedEvent>
                 ReceivedCorrelationIds.Add(@event.CorrelationId.Value);
             }
         }
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -471,7 +471,7 @@ public class UpdateInventoryEventHandler : IEventHandler<OrderCreatedEvent>
 {
     public static readonly List<long> ReceivedCorrelationIds = new();
 
-    public Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
     {
         if (@event.CorrelationId.HasValue)
         {
@@ -480,7 +480,7 @@ public class UpdateInventoryEventHandler : IEventHandler<OrderCreatedEvent>
                 ReceivedCorrelationIds.Add(@event.CorrelationId.Value);
             }
         }
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 

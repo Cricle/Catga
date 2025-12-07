@@ -111,20 +111,20 @@ public partial record ConcurrentEvent(int Id) : IEvent;
 
 public class ConcurrentCommandHandler : IRequestHandler<ConcurrentCommand, ConcurrentResult>
 {
-    public Task<CatgaResult<ConcurrentResult>> HandleAsync(
+    public ValueTask<CatgaResult<ConcurrentResult>> HandleAsync(
         ConcurrentCommand request,
         CancellationToken cancellationToken = default)
     {
         var result = new ConcurrentResult(request.Id, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-        return Task.FromResult(CatgaResult<ConcurrentResult>.Success(result));
+        return new ValueTask<CatgaResult<ConcurrentResult>>(CatgaResult<ConcurrentResult>.Success(result));
     }
 }
 
 public class ConcurrentEventHandler : IEventHandler<ConcurrentEvent>
 {
-    public Task HandleAsync(ConcurrentEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(ConcurrentEvent @event, CancellationToken cancellationToken = default)
     {
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 

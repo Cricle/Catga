@@ -187,15 +187,15 @@ public sealed partial class BatchOperationExtendedTests
 
     private sealed class BatchHandler : IRequestHandler<BatchCommand, BatchResponse>
     {
-        public Task<CatgaResult<BatchResponse>> HandleAsync(BatchCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<BatchResponse>> HandleAsync(BatchCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<BatchResponse>.Success(new BatchResponse { ProcessedValue = request.Value * 2 }));
+            return new ValueTask<CatgaResult<BatchResponse>>(CatgaResult<BatchResponse>.Success(new BatchResponse { ProcessedValue = request.Value * 2 }));
         }
     }
 
     private sealed class SlowBatchHandler : IRequestHandler<SlowBatchCommand, SlowBatchResponse>
     {
-        public async Task<CatgaResult<SlowBatchResponse>> HandleAsync(SlowBatchCommand request, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<SlowBatchResponse>> HandleAsync(SlowBatchCommand request, CancellationToken ct = default)
         {
             await Task.Delay(10, ct);
             return CatgaResult<SlowBatchResponse>.Success(new SlowBatchResponse { ProcessedValue = request.Value * 2 });
@@ -225,10 +225,10 @@ public sealed partial class BatchOperationExtendedTests
     {
         public static int ReceivedCount;
 
-        public Task HandleAsync(BatchEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(BatchEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -244,13 +244,13 @@ public sealed partial class BatchOperationExtendedTests
 
     private sealed class FailingBatchHandler : IRequestHandler<FailingBatchCommand, FailingBatchResponse>
     {
-        public Task<CatgaResult<FailingBatchResponse>> HandleAsync(FailingBatchCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<FailingBatchResponse>> HandleAsync(FailingBatchCommand request, CancellationToken ct = default)
         {
             if (request.ShouldFail)
             {
-                return Task.FromResult(CatgaResult<FailingBatchResponse>.Failure("Intentional failure"));
+                return new ValueTask<CatgaResult<FailingBatchResponse>>(CatgaResult<FailingBatchResponse>.Failure("Intentional failure"));
             }
-            return Task.FromResult(CatgaResult<FailingBatchResponse>.Success(new FailingBatchResponse()));
+            return new ValueTask<CatgaResult<FailingBatchResponse>>(CatgaResult<FailingBatchResponse>.Success(new FailingBatchResponse()));
         }
     }
 

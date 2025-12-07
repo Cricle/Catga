@@ -183,10 +183,10 @@ public sealed partial class PipelineE2ETests
         private readonly List<string> _executionOrder;
         public OrderHandler(List<string> executionOrder) => _executionOrder = executionOrder;
 
-        public Task<CatgaResult<OrderResult>> HandleAsync(OrderCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<OrderResult>> HandleAsync(OrderCommand request, CancellationToken ct = default)
         {
             _executionOrder.Add("Handler");
-            return Task.FromResult(CatgaResult<OrderResult>.Success(new OrderResult { Result = $"handled-{request.Data}" }));
+            return new ValueTask<CatgaResult<OrderResult>>(CatgaResult<OrderResult>.Success(new OrderResult { Result = $"handled-{request.Data}" }));
         }
     }
 
@@ -246,9 +246,9 @@ public sealed partial class PipelineE2ETests
 
     private sealed class FailingHandler : IRequestHandler<FailingCommand, FailingResult>
     {
-        public Task<CatgaResult<FailingResult>> HandleAsync(FailingCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<FailingResult>> HandleAsync(FailingCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<FailingResult>.Success(new FailingResult()));
+            return new ValueTask<CatgaResult<FailingResult>>(CatgaResult<FailingResult>.Success(new FailingResult()));
         }
     }
 
@@ -276,9 +276,9 @@ public sealed partial class PipelineE2ETests
 
     private sealed class ValidatedHandler : IRequestHandler<ValidatedCommand, ValidatedResult>
     {
-        public Task<CatgaResult<ValidatedResult>> HandleAsync(ValidatedCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<ValidatedResult>> HandleAsync(ValidatedCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<ValidatedResult>.Success(new ValidatedResult { Greeting = $"Hello, {request.Name}!" }));
+            return new ValueTask<CatgaResult<ValidatedResult>>(CatgaResult<ValidatedResult>.Success(new ValidatedResult { Greeting = $"Hello, {request.Name}!" }));
         }
     }
 
@@ -289,7 +289,7 @@ public sealed partial class PipelineE2ETests
         {
             if (request is ValidatedCommand cmd && string.IsNullOrWhiteSpace(cmd.Name))
             {
-                return ValueTask.FromResult(CatgaResult<TResponse>.Failure("Name validation failed"));
+                return new ValueTask<CatgaResult<TResponse>>(CatgaResult<TResponse>.Failure("Name validation failed"));
             }
             return next();
         }
@@ -318,14 +318,14 @@ public sealed partial class PipelineE2ETests
         private readonly AttemptTracker _tracker;
         public RetryableHandler(AttemptTracker tracker) => _tracker = tracker;
 
-        public Task<CatgaResult<RetryableResult>> HandleAsync(RetryableCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<RetryableResult>> HandleAsync(RetryableCommand request, CancellationToken ct = default)
         {
             var attempt = Interlocked.Increment(ref _tracker.Attempts);
             if (attempt < request.FailUntilAttempt)
             {
                 throw new InvalidOperationException($"Transient failure on attempt {attempt}");
             }
-            return Task.FromResult(CatgaResult<RetryableResult>.Success(new RetryableResult { AttemptNumber = attempt }));
+            return new ValueTask<CatgaResult<RetryableResult>>(CatgaResult<RetryableResult>.Success(new RetryableResult { AttemptNumber = attempt }));
         }
     }
 
@@ -361,10 +361,10 @@ public sealed partial class PipelineE2ETests
 
     private sealed class CancellableHandler : IRequestHandler<CancellableCommand, CancellableResult>
     {
-        public Task<CatgaResult<CancellableResult>> HandleAsync(CancellableCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<CancellableResult>> HandleAsync(CancellableCommand request, CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
-            return Task.FromResult(CatgaResult<CancellableResult>.Success(new CancellableResult()));
+            return new ValueTask<CatgaResult<CancellableResult>>(CatgaResult<CancellableResult>.Success(new CancellableResult()));
         }
     }
 

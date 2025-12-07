@@ -48,13 +48,13 @@ public class CqrsPerformanceBenchmarks
     }
 
     [Benchmark(Baseline = true, Description = "Send Command (single)")]
-    public async Task<CatgaResult<BenchCommandResult>> SendCommand_Single()
+    public async ValueTask<CatgaResult<BenchCommandResult>> SendCommand_Single()
     {
         return await _mediator.SendAsync<BenchCommand, BenchCommandResult>(_command);
     }
 
     [Benchmark(Description = "Send Query (single)")]
-    public async Task<CatgaResult<BenchQueryResult>> SendQuery_Single()
+    public async ValueTask<CatgaResult<BenchQueryResult>> SendQuery_Single()
     {
         return await _mediator.SendAsync<BenchQuery, BenchQueryResult>(_query);
     }
@@ -110,14 +110,14 @@ public partial record BenchEvent(int Id, string Data) : IEvent;
 // Benchmark handlers - minimal logic for pure framework overhead measurement
 public class BenchCommandHandler : IRequestHandler<BenchCommand, BenchCommandResult>
 {
-    public Task<CatgaResult<BenchCommandResult>> HandleAsync(
+    public ValueTask<CatgaResult<BenchCommandResult>> HandleAsync(
         BenchCommand request,
         CancellationToken cancellationToken = default)
     {
         if (BenchRuntime.HandlerDelayMs > 0)
-            return HandleWithDelayAsync(request, cancellationToken);
+            return new ValueTask<CatgaResult<BenchCommandResult>>(HandleWithDelayAsync(request, cancellationToken));
         var result = new BenchCommandResult(request.Id, $"Processed: {request.Data}");
-        return Task.FromResult(CatgaResult<BenchCommandResult>.Success(result));
+        return new ValueTask<CatgaResult<BenchCommandResult>>(CatgaResult<BenchCommandResult>.Success(result));
     }
 
     private static async Task<CatgaResult<BenchCommandResult>> HandleWithDelayAsync(BenchCommand request, CancellationToken ct)
@@ -130,22 +130,22 @@ public class BenchCommandHandler : IRequestHandler<BenchCommand, BenchCommandRes
 
 public class BenchQueryHandler : IRequestHandler<BenchQuery, BenchQueryResult>
 {
-    public Task<CatgaResult<BenchQueryResult>> HandleAsync(
+    public ValueTask<CatgaResult<BenchQueryResult>> HandleAsync(
         BenchQuery request,
         CancellationToken cancellationToken = default)
     {
         var result = new BenchQueryResult(request.Id, "Query result data");
-        return Task.FromResult(CatgaResult<BenchQueryResult>.Success(result));
+        return new ValueTask<CatgaResult<BenchQueryResult>>(CatgaResult<BenchQueryResult>.Success(result));
     }
 }
 
 public class BenchEventHandler : IEventHandler<BenchEvent>
 {
-    public Task HandleAsync(BenchEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(BenchEvent @event, CancellationToken cancellationToken = default)
     {
         if (BenchRuntime.HandlerDelayMs > 0)
-            return Task.Delay(BenchRuntime.HandlerDelayMs, cancellationToken);
-        return Task.CompletedTask;
+            return new ValueTask(Task.Delay(BenchRuntime.HandlerDelayMs, cancellationToken));
+        return ValueTask.CompletedTask;
     }
 }
 

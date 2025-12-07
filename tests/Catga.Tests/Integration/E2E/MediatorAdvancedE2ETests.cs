@@ -292,9 +292,9 @@ public sealed partial class MediatorAdvancedE2ETests
     {
         private readonly string _instanceId = Guid.NewGuid().ToString();
 
-        public Task<CatgaResult<ScopedTestResult>> HandleAsync(ScopedTestCommand request, CancellationToken ct)
+        public ValueTask<CatgaResult<ScopedTestResult>> HandleAsync(ScopedTestCommand request, CancellationToken ct)
         {
-            return Task.FromResult(CatgaResult<ScopedTestResult>.Success(new ScopedTestResult(_instanceId)));
+            return new ValueTask<CatgaResult<ScopedTestResult>>(CatgaResult<ScopedTestResult>.Success(new ScopedTestResult(_instanceId)));
         }
     }
 
@@ -311,9 +311,9 @@ public sealed partial class MediatorAdvancedE2ETests
     {
         private readonly string _instanceId = Guid.NewGuid().ToString();
 
-        public Task<CatgaResult<SingletonTestResult>> HandleAsync(SingletonTestCommand request, CancellationToken ct)
+        public ValueTask<CatgaResult<SingletonTestResult>> HandleAsync(SingletonTestCommand request, CancellationToken ct)
         {
-            return Task.FromResult(CatgaResult<SingletonTestResult>.Success(new SingletonTestResult(_instanceId)));
+            return new ValueTask<CatgaResult<SingletonTestResult>>(CatgaResult<SingletonTestResult>.Success(new SingletonTestResult(_instanceId)));
         }
     }
 
@@ -346,10 +346,10 @@ public sealed partial class MediatorAdvancedE2ETests
     {
         private readonly EventTracker _tracker;
         public MultiHandlerEventHandler1(EventTracker tracker) => _tracker = tracker;
-        public Task HandleAsync(MultiHandlerEvent @event, CancellationToken ct)
+        public ValueTask HandleAsync(MultiHandlerEvent @event, CancellationToken ct)
         {
             _tracker.AddHandler("Handler1");
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -357,10 +357,10 @@ public sealed partial class MediatorAdvancedE2ETests
     {
         private readonly EventTracker _tracker;
         public MultiHandlerEventHandler2(EventTracker tracker) => _tracker = tracker;
-        public Task HandleAsync(MultiHandlerEvent @event, CancellationToken ct)
+        public ValueTask HandleAsync(MultiHandlerEvent @event, CancellationToken ct)
         {
             _tracker.AddHandler("Handler2");
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -368,10 +368,10 @@ public sealed partial class MediatorAdvancedE2ETests
     {
         private readonly EventTracker _tracker;
         public MultiHandlerEventHandler3(EventTracker tracker) => _tracker = tracker;
-        public Task HandleAsync(MultiHandlerEvent @event, CancellationToken ct)
+        public ValueTask HandleAsync(MultiHandlerEvent @event, CancellationToken ct)
         {
             _tracker.AddHandler("Handler3");
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -385,16 +385,16 @@ public sealed partial class MediatorAdvancedE2ETests
     {
         private readonly EventTracker _tracker;
         public PartialFailEventHandler1(EventTracker tracker) => _tracker = tracker;
-        public Task HandleAsync(PartialFailEvent @event, CancellationToken ct)
+        public ValueTask HandleAsync(PartialFailEvent @event, CancellationToken ct)
         {
             _tracker.AddHandler("Handler1");
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
     private sealed class PartialFailEventHandlerFailing : IEventHandler<PartialFailEvent>
     {
-        public Task HandleAsync(PartialFailEvent @event, CancellationToken ct)
+        public ValueTask HandleAsync(PartialFailEvent @event, CancellationToken ct)
         {
             throw new InvalidOperationException("Intentional failure");
         }
@@ -404,10 +404,10 @@ public sealed partial class MediatorAdvancedE2ETests
     {
         private readonly EventTracker _tracker;
         public PartialFailEventHandler3(EventTracker tracker) => _tracker = tracker;
-        public Task HandleAsync(PartialFailEvent @event, CancellationToken ct)
+        public ValueTask HandleAsync(PartialFailEvent @event, CancellationToken ct)
         {
             _tracker.AddHandler("Handler3");
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -425,11 +425,11 @@ public sealed partial class MediatorAdvancedE2ETests
 
     private sealed class BatchItemHandler : IRequestHandler<BatchItemCommand, BatchItemResult>
     {
-        public Task<CatgaResult<BatchItemResult>> HandleAsync(BatchItemCommand request, CancellationToken ct)
+        public ValueTask<CatgaResult<BatchItemResult>> HandleAsync(BatchItemCommand request, CancellationToken ct)
         {
             if (request.ShouldFail)
-                return Task.FromResult(CatgaResult<BatchItemResult>.Failure($"Failed: {request.ItemId}"));
-            return Task.FromResult(CatgaResult<BatchItemResult>.Success(new BatchItemResult(request.ItemId)));
+                return new ValueTask<CatgaResult<BatchItemResult>>(CatgaResult<BatchItemResult>.Failure($"Failed: {request.ItemId}"));
+            return new ValueTask<CatgaResult<BatchItemResult>>(CatgaResult<BatchItemResult>.Success(new BatchItemResult(request.ItemId)));
         }
     }
 
@@ -444,10 +444,10 @@ public sealed partial class MediatorAdvancedE2ETests
     {
         private readonly EventTracker _tracker;
         public BatchEventHandler(EventTracker tracker) => _tracker = tracker;
-        public Task HandleAsync(BatchEvent @event, CancellationToken ct)
+        public ValueTask HandleAsync(BatchEvent @event, CancellationToken ct)
         {
             _tracker.AddEventIndex(@event.Index);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -464,9 +464,9 @@ public sealed partial class MediatorAdvancedE2ETests
 
     private sealed class StreamItemHandler : IRequestHandler<StreamItemCommand, StreamItemResult>
     {
-        public Task<CatgaResult<StreamItemResult>> HandleAsync(StreamItemCommand request, CancellationToken ct)
+        public ValueTask<CatgaResult<StreamItemResult>> HandleAsync(StreamItemCommand request, CancellationToken ct)
         {
-            return Task.FromResult(CatgaResult<StreamItemResult>.Success(
+            return new ValueTask<CatgaResult<StreamItemResult>>(CatgaResult<StreamItemResult>.Success(
                 new StreamItemResult(request.Value * 2)));
         }
     }
@@ -502,9 +502,9 @@ public sealed partial class MediatorAdvancedE2ETests
             _c = c;
         }
 
-        public Task<CatgaResult<MultiDependencyResult>> HandleAsync(MultiDependencyCommand request, CancellationToken ct)
+        public ValueTask<CatgaResult<MultiDependencyResult>> HandleAsync(MultiDependencyCommand request, CancellationToken ct)
         {
-            return Task.FromResult(CatgaResult<MultiDependencyResult>.Success(
+            return new ValueTask<CatgaResult<MultiDependencyResult>>(CatgaResult<MultiDependencyResult>.Success(
                 new MultiDependencyResult(_a.GetValue(), _b.GetValue(), _c.GetValue())));
         }
     }

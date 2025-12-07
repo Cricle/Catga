@@ -6,6 +6,7 @@ using Catga.Transport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using StackExchange.Redis;
+using StackExchange.Redis.MultiplexerPool;
 using System.Diagnostics;
 
 namespace Catga;
@@ -32,12 +33,30 @@ public static class RedisTransportServiceCollectionExtensions
             configure?.Invoke(options);
 
             if (options.RegistConnection)
-                services.TryAddSingleton<IConnectionMultiplexer>(sp => ConnectionMultiplexer.Connect(options.ConfigurationOptions ?? new ConfigurationOptions()));
+            {
+                // Always use connection pool
+                services.TryAddSingleton<IConnectionMultiplexerPool>(sp =>
+                {
+                    var configString = options.ConfigurationOptions?.ToString() ?? "localhost:6379";
+                    var strategy = options.SelectionStrategy == Transport.ConnectionSelectionStrategy.LoadBased
+                        ? StackExchange.Redis.MultiplexerPool.ConnectionSelectionStrategy.LeastLoaded
+                        : StackExchange.Redis.MultiplexerPool.ConnectionSelectionStrategy.RoundRobin;
+
+                    return ConnectionMultiplexerPoolFactory.Create(
+                        poolSize: options.PoolSize,
+                        configuration: configString,
+                        connectionSelectionStrategy: strategy);
+                });
+
+                // Backward compatibility: also register IConnectionMultiplexer
+                services.TryAddSingleton<IConnectionMultiplexer>(sp =>
+                    sp.GetRequiredService<IConnectionMultiplexerPool>().GetAsync().GetAwaiter().GetResult().Connection);
+            }
 
             // Register Transport
             services.TryAddSingleton<IMessageTransport>(sp =>
             {
-                var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+                var pool = sp.GetRequiredService<IConnectionMultiplexerPool>();
                 var serializer = sp.GetRequiredService<IMessageSerializer>();
                 // Pass options so ChannelPrefix/Naming can take effect
                 var catgaOptions = sp.GetRequiredService<CatgaOptions>();
@@ -45,7 +64,7 @@ public static class RedisTransportServiceCollectionExtensions
                     options.Naming = catgaOptions.EndpointNamingConvention;
                 var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
                 return new RedisMessageTransport(
-                    redis,
+                    pool,
                     serializer,
                     provider,
                     options,
@@ -67,6 +86,19 @@ public static class RedisTransportServiceCollectionExtensions
         {
             CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tag);
         }
+    }
+
+    /// <summary>
+    /// Add Redis Transport with connection string
+    /// </summary>
+    public static IServiceCollection AddRedisTransport(
+        this IServiceCollection services,
+        string connectionString)
+    {
+        return services.AddRedisTransport(opts =>
+        {
+            opts.ConfigurationOptions = ConfigurationOptions.Parse(connectionString);
+        });
     }
 
     /// <summary>

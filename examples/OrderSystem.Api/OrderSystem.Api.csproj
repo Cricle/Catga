@@ -10,7 +10,10 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Catga\Catga.csproj" />
     <ProjectReference Include="..\..\src\Catga.Transport.InMemory\Catga.Transport.InMemory.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Transport.Redis\Catga.Transport.Redis.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Transport.Nats\Catga.Transport.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Persistence.Redis\Catga.Persistence.Redis.csproj" />
     <ProjectReference Include="..\..\src\Catga.AspNetCore\Catga.AspNetCore.csproj" />
     <ProjectReference Include="..\..\src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj" />
     <ProjectReference Include="..\..\src\Catga.Cluster\Catga.Cluster.csproj" />

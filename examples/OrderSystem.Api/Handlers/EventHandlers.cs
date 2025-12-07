@@ -8,12 +8,12 @@ namespace OrderSystem.Api.Handlers;
 public class OrderCreatedEventHandler(
     ILogger<OrderCreatedEventHandler> logger) : IEventHandler<OrderCreatedEvent>
 {
-    public Task HandleAsync(OrderCreatedEvent @event, CancellationToken ct = default)
+    public ValueTask HandleAsync(OrderCreatedEvent @event, CancellationToken ct = default)
     {
         logger.LogInformation(
             "Order created: {OrderId}, Customer: {CustomerId}, Amount: {Amount:C}",
             @event.OrderId, @event.CustomerId, @event.TotalAmount);
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -21,12 +21,12 @@ public class OrderCreatedEventHandler(
 public class SendOrderNotificationHandler(
     ILogger<SendOrderNotificationHandler> logger) : IEventHandler<OrderCreatedEvent>
 {
-    public Task HandleAsync(OrderCreatedEvent @event, CancellationToken ct = default)
+    public ValueTask HandleAsync(OrderCreatedEvent @event, CancellationToken ct = default)
     {
         logger.LogInformation(
             "Notification sent for order {OrderId} to customer {CustomerId}",
             @event.OrderId, @event.CustomerId);
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -34,12 +34,12 @@ public class SendOrderNotificationHandler(
 public class OrderCancelledEventHandler(
     ILogger<OrderCancelledEventHandler> logger) : IEventHandler<OrderCancelledEvent>
 {
-    public Task HandleAsync(OrderCancelledEvent @event, CancellationToken ct = default)
+    public ValueTask HandleAsync(OrderCancelledEvent @event, CancellationToken ct = default)
     {
         logger.LogInformation(
             "Order cancelled: {OrderId}, Reason: {Reason}",
             @event.OrderId, @event.Reason ?? "Not specified");
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -47,9 +47,9 @@ public class OrderCancelledEventHandler(
 public class OrderConfirmedEventHandler(
     ILogger<OrderConfirmedEventHandler> logger) : IEventHandler<OrderConfirmedEvent>
 {
-    public Task HandleAsync(OrderConfirmedEvent @event, CancellationToken ct = default)
+    public ValueTask HandleAsync(OrderConfirmedEvent @event, CancellationToken ct = default)
     {
         logger.LogInformation("Order confirmed: {OrderId}", @event.OrderId);
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }

@@ -199,7 +199,7 @@ public sealed partial class ConcurrencyE2ETests
 
     private sealed class ConcurrentHandler : IRequestHandler<ConcurrentRequest, ConcurrentResponse>
     {
-        public async Task<CatgaResult<ConcurrentResponse>> HandleAsync(ConcurrentRequest request, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<ConcurrentResponse>> HandleAsync(ConcurrentRequest request, CancellationToken ct = default)
         {
             await Task.Delay(Random.Shared.Next(1, 10), ct);
             return CatgaResult<ConcurrentResponse>.Success(new ConcurrentResponse { ProcessedIndex = request.Index });
@@ -216,20 +216,20 @@ public sealed partial class ConcurrencyE2ETests
     private sealed class ParallelEventHandler1 : IEventHandler<ParallelEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(ParallelEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(ParallelEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
     private sealed class ParallelEventHandler2 : IEventHandler<ParallelEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(ParallelEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(ParallelEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -248,9 +248,9 @@ public sealed partial class ConcurrencyE2ETests
 
     private sealed class MixedRequestHandler : IRequestHandler<MixedRequest, MixedResponse>
     {
-        public Task<CatgaResult<MixedResponse>> HandleAsync(MixedRequest request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<MixedResponse>> HandleAsync(MixedRequest request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<MixedResponse>.Success(new MixedResponse { Result = request.Value * 2 }));
+            return new ValueTask<CatgaResult<MixedResponse>>(CatgaResult<MixedResponse>.Success(new MixedResponse { Result = request.Value * 2 }));
         }
     }
 
@@ -264,10 +264,10 @@ public sealed partial class ConcurrencyE2ETests
     private sealed class MixedEventHandler : IEventHandler<MixedEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(MixedEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(MixedEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -288,9 +288,9 @@ public sealed partial class ConcurrencyE2ETests
 
     private sealed class RapidHandler : IRequestHandler<RapidRequest, RapidResponse>
     {
-        public Task<CatgaResult<RapidResponse>> HandleAsync(RapidRequest request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<RapidResponse>> HandleAsync(RapidRequest request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<RapidResponse>.Success(new RapidResponse { BurstId = request.BurstId, Index = request.Index }));
+            return new ValueTask<CatgaResult<RapidResponse>>(CatgaResult<RapidResponse>.Success(new RapidResponse { BurstId = request.BurstId, Index = request.Index }));
         }
     }
 
@@ -309,7 +309,7 @@ public sealed partial class ConcurrencyE2ETests
 
     private sealed class SlowHandler : IRequestHandler<SlowRequest, SlowResponse>
     {
-        public async Task<CatgaResult<SlowResponse>> HandleAsync(SlowRequest request, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<SlowResponse>> HandleAsync(SlowRequest request, CancellationToken ct = default)
         {
             await Task.Delay(request.DelayMs, ct);
             return CatgaResult<SlowResponse>.Success(new SlowResponse { Completed = true });
@@ -331,9 +331,9 @@ public sealed partial class ConcurrencyE2ETests
 
     private sealed class FastHandler : IRequestHandler<FastRequest, FastResponse>
     {
-        public Task<CatgaResult<FastResponse>> HandleAsync(FastRequest request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<FastResponse>> HandleAsync(FastRequest request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<FastResponse>.Success(new FastResponse { Index = request.Index }));
+            return new ValueTask<CatgaResult<FastResponse>>(CatgaResult<FastResponse>.Success(new FastResponse { Index = request.Index }));
         }
     }
 

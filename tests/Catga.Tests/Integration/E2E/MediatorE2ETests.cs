@@ -216,10 +216,10 @@ public sealed partial class MediatorE2ETests : IAsyncLifetime
 
     private sealed class CreateOrderHandler : IRequestHandler<CreateOrderCommand, CreateOrderResult>
     {
-        public Task<CatgaResult<CreateOrderResult>> HandleAsync(CreateOrderCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<CreateOrderResult>> HandleAsync(CreateOrderCommand request, CancellationToken ct = default)
         {
             var result = new CreateOrderResult { OrderId = $"ORD-{Guid.NewGuid():N}", Status = "Created" };
-            return Task.FromResult(CatgaResult<CreateOrderResult>.Success(result));
+            return new ValueTask<CatgaResult<CreateOrderResult>>(CatgaResult<CreateOrderResult>.Success(result));
         }
     }
 
@@ -234,20 +234,20 @@ public sealed partial class MediatorE2ETests : IAsyncLifetime
     private sealed class OrderPlacedHandler1 : IEventHandler<OrderPlacedEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(OrderPlacedEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(OrderPlacedEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
     private sealed class OrderPlacedHandler2 : IEventHandler<OrderPlacedEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(OrderPlacedEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(OrderPlacedEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -267,10 +267,10 @@ public sealed partial class MediatorE2ETests : IAsyncLifetime
     private sealed class IdempotentHandler : IRequestHandler<IdempotentCommand, IdempotentResult>
     {
         public static int ExecutionCount;
-        public Task<CatgaResult<IdempotentResult>> HandleAsync(IdempotentCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<IdempotentResult>> HandleAsync(IdempotentCommand request, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ExecutionCount);
-            return Task.FromResult(CatgaResult<IdempotentResult>.Success(new IdempotentResult { Value = $"processed-{request.Data}" }));
+            return new ValueTask<CatgaResult<IdempotentResult>>(CatgaResult<IdempotentResult>.Success(new IdempotentResult { Value = $"processed-{request.Data}" }));
         }
     }
 
@@ -289,7 +289,7 @@ public sealed partial class MediatorE2ETests : IAsyncLifetime
 
     private sealed class ConcurrentHandler : IRequestHandler<ConcurrentCommand, ConcurrentResult>
     {
-        public async Task<CatgaResult<ConcurrentResult>> HandleAsync(ConcurrentCommand request, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<ConcurrentResult>> HandleAsync(ConcurrentCommand request, CancellationToken ct = default)
         {
             await Task.Delay(10, ct); // Simulate work
             return CatgaResult<ConcurrentResult>.Success(new ConcurrentResult { ProcessedIndex = request.Index });
@@ -311,9 +311,9 @@ public sealed partial class MediatorE2ETests : IAsyncLifetime
 
     private sealed class PipelineHandler : IRequestHandler<PipelineCommand, PipelineResult>
     {
-        public Task<CatgaResult<PipelineResult>> HandleAsync(PipelineCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<PipelineResult>> HandleAsync(PipelineCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<PipelineResult>.Success(new PipelineResult { Result = $"handled-{request.Data}" }));
+            return new ValueTask<CatgaResult<PipelineResult>>(CatgaResult<PipelineResult>.Success(new PipelineResult { Result = $"handled-{request.Data}" }));
         }
     }
 

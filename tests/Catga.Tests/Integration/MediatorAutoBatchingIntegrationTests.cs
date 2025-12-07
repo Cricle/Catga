@@ -34,7 +34,7 @@ public class MediatorAutoBatchingIntegrationTests
         public static int MaxConcurrent => Volatile.Read(ref _maxConcurrent);
         public static void Reset() { _current = 0; Volatile.Write(ref _maxConcurrent, 0); }
 
-        public async Task<CatgaResult<int>> HandleAsync(BulkheadReq request, CancellationToken cancellationToken = default)
+        public async ValueTask<CatgaResult<int>> HandleAsync(BulkheadReq request, CancellationToken cancellationToken = default)
         {
             var now = Interlocked.Increment(ref _current);
             while (true)
@@ -100,8 +100,8 @@ public class MediatorAutoBatchingIntegrationTests
 
     private sealed class KeyChurnReqHandler : IRequestHandler<KeyChurnReq, int>
     {
-        public Task<CatgaResult<int>> HandleAsync(KeyChurnReq request, CancellationToken cancellationToken = default)
-            => Task.FromResult(CatgaResult<int>.Success(1));
+        public ValueTask<CatgaResult<int>> HandleAsync(KeyChurnReq request, CancellationToken cancellationToken = default)
+            => new ValueTask<CatgaResult<int>>(CatgaResult<int>.Success(1));
     }
 
     [Fact]
@@ -155,10 +155,10 @@ public class MediatorAutoBatchingIntegrationTests
     {
         public static int CallCount;
         public static void Reset() => CallCount = 0;
-        public Task<CatgaResult<int>> HandleAsync(AttrReq request, CancellationToken cancellationToken = default)
+        public ValueTask<CatgaResult<int>> HandleAsync(AttrReq request, CancellationToken cancellationToken = default)
         {
             Interlocked.Increment(ref CallCount);
-            return Task.FromResult(CatgaResult<int>.Success(1));
+            return new ValueTask<CatgaResult<int>>(CatgaResult<int>.Success(1));
         }
     }
 
@@ -172,7 +172,7 @@ public class MediatorAutoBatchingIntegrationTests
 
     private sealed class AttrKeyReqHandler : IRequestHandler<AttrKeyReq, int>
     {
-        public async Task<CatgaResult<int>> HandleAsync(AttrKeyReq request, CancellationToken cancellationToken = default)
+        public async ValueTask<CatgaResult<int>> HandleAsync(AttrKeyReq request, CancellationToken cancellationToken = default)
         {
             await Task.Delay(5, cancellationToken);
             return CatgaResult<int>.Success(1);
@@ -293,7 +293,7 @@ public class MediatorAutoBatchingIntegrationTests
         public static int MaxConcurrent => Volatile.Read(ref _maxConcurrent);
         public static void Reset() { _current = 0; Volatile.Write(ref _maxConcurrent, 0); }
 
-        public async Task<CatgaResult<int>> HandleAsync(IntensiveReq request, CancellationToken cancellationToken = default)
+        public async ValueTask<CatgaResult<int>> HandleAsync(IntensiveReq request, CancellationToken cancellationToken = default)
         {
             var now = Interlocked.Increment(ref _current);
             while (true)

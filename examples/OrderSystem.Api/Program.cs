@@ -18,8 +18,35 @@ builder.Services
     .UseMemoryPack()           // High-performance binary serialization
     .ForDevelopment();         // Development mode with detailed logging
 
-builder.Services.AddInMemoryTransport();
-builder.Services.AddInMemoryPersistence();
+// Transport configuration (env: CATGA_TRANSPORT = InMemory | Redis | NATS)
+var transport = Environment.GetEnvironmentVariable("CATGA_TRANSPORT") ?? "InMemory";
+switch (transport.ToLower())
+{
+    case "redis":
+        var redisConn = Environment.GetEnvironmentVariable("REDIS_CONNECTION") ?? "localhost:6379";
+        builder.Services.AddRedisTransport(redisConn);
+        break;
+    case "nats":
+        var natsUrl = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
+        builder.Services.AddNatsTransport(natsUrl);
+        break;
+    default:
+        builder.Services.AddInMemoryTransport();
+        break;
+}
+
+// Persistence configuration (env: CATGA_PERSISTENCE = InMemory | Redis)
+var persistence = Environment.GetEnvironmentVariable("CATGA_PERSISTENCE") ?? "InMemory";
+switch (persistence.ToLower())
+{
+    case "redis":
+        var redisConnPersist = Environment.GetEnvironmentVariable("REDIS_CONNECTION") ?? "localhost:6379";
+        builder.Services.AddRedisPersistence(redisConnPersist);
+        break;
+    default:
+        builder.Services.AddInMemoryPersistence();
+        break;
+}
 
 // ============================================
 // Services

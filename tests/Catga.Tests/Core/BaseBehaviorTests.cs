@@ -184,7 +184,7 @@ public class BaseBehaviorTests
         var expectedResponse = new TestResponse { Result = "success" };
 
         ValueTask<CatgaResult<TestResponse>> Next() =>
-            ValueTask.FromResult(CatgaResult<TestResponse>.Success(expectedResponse));
+            new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(expectedResponse));
 
         // Act
         var result = await behavior.HandleAsync(request, Next, CancellationToken.None);
@@ -210,7 +210,7 @@ public class BaseBehaviorTests
         var tasks = requests.Select(async r =>
         {
             ValueTask<CatgaResult<TestResponse>> Next() =>
-                ValueTask.FromResult(CatgaResult<TestResponse>.Success(
+                new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(
                     new TestResponse { Result = $"response-{r.MessageId}" }));
 
             return await behavior.HandleAsync(r, Next, CancellationToken.None);

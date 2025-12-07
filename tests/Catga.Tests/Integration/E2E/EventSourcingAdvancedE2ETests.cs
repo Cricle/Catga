@@ -299,11 +299,11 @@ public sealed partial class EventSourcingAdvancedE2ETests
 
     private sealed class CreateAccountHandler(InMemoryEventStore eventStore) : IRequestHandler<CreateAccountCommand, AccountResult>
     {
-        public Task<CatgaResult<AccountResult>> HandleAsync(CreateAccountCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<AccountResult>> HandleAsync(CreateAccountCommand request, CancellationToken ct = default)
         {
             var @event = new AccountCreatedEventInternal { AccountId = request.AccountId, Amount = request.InitialBalance };
             eventStore.Append(request.AccountId, @event, 0);
-            return Task.FromResult(CatgaResult<AccountResult>.Success(
+            return new ValueTask<CatgaResult<AccountResult>>(CatgaResult<AccountResult>.Success(
                 new AccountResult { AccountId = request.AccountId, Balance = request.InitialBalance, Version = 1 }));
         }
     }
@@ -318,7 +318,7 @@ public sealed partial class EventSourcingAdvancedE2ETests
 
     private sealed class DepositHandler(InMemoryEventStore eventStore) : IRequestHandler<DepositCommand, AccountResult>
     {
-        public Task<CatgaResult<AccountResult>> HandleAsync(DepositCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<AccountResult>> HandleAsync(DepositCommand request, CancellationToken ct = default)
         {
             var events = eventStore.GetEvents(request.AccountId);
             var currentVersion = events.Count;
@@ -327,7 +327,7 @@ public sealed partial class EventSourcingAdvancedE2ETests
             var @event = new DepositedEvent { AccountId = request.AccountId, Amount = request.Amount };
             eventStore.Append(request.AccountId, @event, currentVersion);
 
-            return Task.FromResult(CatgaResult<AccountResult>.Success(
+            return new ValueTask<CatgaResult<AccountResult>>(CatgaResult<AccountResult>.Success(
                 new AccountResult { AccountId = request.AccountId, Balance = currentBalance + request.Amount, Version = currentVersion + 1 }));
         }
     }
@@ -342,19 +342,19 @@ public sealed partial class EventSourcingAdvancedE2ETests
 
     private sealed class WithdrawHandler(InMemoryEventStore eventStore) : IRequestHandler<WithdrawCommand, AccountResult>
     {
-        public Task<CatgaResult<AccountResult>> HandleAsync(WithdrawCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<AccountResult>> HandleAsync(WithdrawCommand request, CancellationToken ct = default)
         {
             var events = eventStore.GetEvents(request.AccountId);
             var currentVersion = events.Count;
             var currentBalance = events.Sum(e => e is WithdrawnEvent ? -e.Amount : e.Amount);
 
             if (currentBalance < request.Amount)
-                return Task.FromResult(CatgaResult<AccountResult>.Failure("Insufficient funds"));
+                return new ValueTask<CatgaResult<AccountResult>>(CatgaResult<AccountResult>.Failure("Insufficient funds"));
 
             var @event = new WithdrawnEvent { AccountId = request.AccountId, Amount = request.Amount };
             eventStore.Append(request.AccountId, @event, currentVersion);
 
-            return Task.FromResult(CatgaResult<AccountResult>.Success(
+            return new ValueTask<CatgaResult<AccountResult>>(CatgaResult<AccountResult>.Success(
                 new AccountResult { AccountId = request.AccountId, Balance = currentBalance - request.Amount, Version = currentVersion + 1 }));
         }
     }
@@ -368,11 +368,11 @@ public sealed partial class EventSourcingAdvancedE2ETests
 
     private sealed class GetAccountHandler(InMemoryEventStore eventStore) : IRequestHandler<GetAccountQuery, AccountState>
     {
-        public Task<CatgaResult<AccountState>> HandleAsync(GetAccountQuery request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<AccountState>> HandleAsync(GetAccountQuery request, CancellationToken ct = default)
         {
             var events = eventStore.GetEvents(request.AccountId);
             var balance = events.Sum(e => e is WithdrawnEvent ? -e.Amount : e.Amount);
-            return Task.FromResult(CatgaResult<AccountState>.Success(
+            return new ValueTask<CatgaResult<AccountState>>(CatgaResult<AccountState>.Success(
                 new AccountState { AccountId = request.AccountId, Balance = balance, Version = events.Count }));
         }
     }
@@ -388,7 +388,7 @@ public sealed partial class EventSourcingAdvancedE2ETests
 
     private sealed class DepositWithVersionHandler(InMemoryEventStore eventStore) : IRequestHandler<DepositWithVersionCommand, AccountResult>
     {
-        public Task<CatgaResult<AccountResult>> HandleAsync(DepositWithVersionCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<AccountResult>> HandleAsync(DepositWithVersionCommand request, CancellationToken ct = default)
         {
             try
             {
@@ -398,12 +398,12 @@ public sealed partial class EventSourcingAdvancedE2ETests
                 var @event = new DepositedEvent { AccountId = request.AccountId, Amount = request.Amount };
                 eventStore.Append(request.AccountId, @event, request.ExpectedVersion);
 
-                return Task.FromResult(CatgaResult<AccountResult>.Success(
+                return new ValueTask<CatgaResult<AccountResult>>(CatgaResult<AccountResult>.Success(
                     new AccountResult { AccountId = request.AccountId, Balance = currentBalance + request.Amount, Version = request.ExpectedVersion + 1 }));
             }
             catch (InvalidOperationException ex)
             {
-                return Task.FromResult(CatgaResult<AccountResult>.Failure(ex.Message));
+                return new ValueTask<CatgaResult<AccountResult>>(CatgaResult<AccountResult>.Failure(ex.Message));
             }
         }
     }
@@ -426,14 +426,14 @@ public sealed partial class EventSourcingAdvancedE2ETests
     private sealed class CreateSnapshotHandler(InMemoryEventStore eventStore, InMemorySnapshotStore snapshotStore)
         : IRequestHandler<CreateSnapshotCommand, SnapshotResult>
     {
-        public Task<CatgaResult<SnapshotResult>> HandleAsync(CreateSnapshotCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<SnapshotResult>> HandleAsync(CreateSnapshotCommand request, CancellationToken ct = default)
         {
             var events = eventStore.GetEvents(request.AccountId).Take(request.AtVersion).ToList();
             var balance = events.Sum(e => e is WithdrawnEvent ? -e.Amount : e.Amount);
 
             snapshotStore.Save(request.AccountId, new AccountSnapshot(balance, request.AtVersion));
 
-            return Task.FromResult(CatgaResult<SnapshotResult>.Success(
+            return new ValueTask<CatgaResult<SnapshotResult>>(CatgaResult<SnapshotResult>.Success(
                 new SnapshotResult { AccountId = request.AccountId, Version = request.AtVersion }));
         }
     }
@@ -448,7 +448,7 @@ public sealed partial class EventSourcingAdvancedE2ETests
     private sealed class GetAccountFromSnapshotHandler(InMemoryEventStore eventStore, InMemorySnapshotStore snapshotStore)
         : IRequestHandler<GetAccountFromSnapshotQuery, AccountState>
     {
-        public Task<CatgaResult<AccountState>> HandleAsync(GetAccountFromSnapshotQuery request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<AccountState>> HandleAsync(GetAccountFromSnapshotQuery request, CancellationToken ct = default)
         {
             var snapshot = snapshotStore.Get(request.AccountId);
             var startVersion = snapshot?.Version ?? 0;
@@ -457,7 +457,7 @@ public sealed partial class EventSourcingAdvancedE2ETests
             var events = eventStore.GetEventsFromVersion(request.AccountId, startVersion);
             var balance = startBalance + events.Sum(e => e is WithdrawnEvent ? -e.Amount : e.Amount);
 
-            return Task.FromResult(CatgaResult<AccountState>.Success(
+            return new ValueTask<CatgaResult<AccountState>>(CatgaResult<AccountState>.Success(
                 new AccountState { AccountId = request.AccountId, Balance = balance, Version = startVersion + events.Count }));
         }
     }
@@ -473,20 +473,20 @@ public sealed partial class EventSourcingAdvancedE2ETests
     private sealed class AccountSummaryProjector : IEventHandler<AccountCreatedEvent>
     {
         public static int ProjectedCount;
-        public Task HandleAsync(AccountCreatedEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(AccountCreatedEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ProjectedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
     private sealed class AccountAuditProjector : IEventHandler<AccountCreatedEvent>
     {
         public static int ProjectedCount;
-        public Task HandleAsync(AccountCreatedEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(AccountCreatedEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ProjectedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 

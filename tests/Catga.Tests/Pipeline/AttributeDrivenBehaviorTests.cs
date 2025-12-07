@@ -39,10 +39,10 @@ public class AttributeDrivenBehaviorTests
         var request = new IdempotentRequest { CustomerId = "cust-1" };
         var callCount = 0;
 
-        Task<CatgaResult<string>> Next()
+        ValueTask<CatgaResult<string>> Next()
         {
             callCount++;
-            return Task.FromResult(CatgaResult<string>.Success("result"));
+            return new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("result"));
         }
 
         // Act - first call

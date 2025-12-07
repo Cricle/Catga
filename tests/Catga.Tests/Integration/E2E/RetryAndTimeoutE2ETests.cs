@@ -276,7 +276,7 @@ public sealed partial class RetryAndTimeoutE2ETests
 
     private sealed class SlowProcessingHandler : IRequestHandler<SlowProcessingRequest, SlowProcessingResponse>
     {
-        public async Task<CatgaResult<SlowProcessingResponse>> HandleAsync(SlowProcessingRequest request, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<SlowProcessingResponse>> HandleAsync(SlowProcessingRequest request, CancellationToken ct = default)
         {
             await Task.Delay(request.DelayMs, ct);
             return CatgaResult<SlowProcessingResponse>.Success(new SlowProcessingResponse { Completed = true });
@@ -298,13 +298,13 @@ public sealed partial class RetryAndTimeoutE2ETests
 
     private sealed class TransientFailureHandler(AttemptTracker tracker) : IRequestHandler<TransientFailureRequest, TransientFailureResponse>
     {
-        public Task<CatgaResult<TransientFailureResponse>> HandleAsync(TransientFailureRequest request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<TransientFailureResponse>> HandleAsync(TransientFailureRequest request, CancellationToken ct = default)
         {
             if (request.Attempt < tracker.FailUntilAttempt)
             {
-                return Task.FromResult(CatgaResult<TransientFailureResponse>.Failure("Transient failure"));
+                return new ValueTask<CatgaResult<TransientFailureResponse>>(CatgaResult<TransientFailureResponse>.Failure("Transient failure"));
             }
-            return Task.FromResult(CatgaResult<TransientFailureResponse>.Success(
+            return new ValueTask<CatgaResult<TransientFailureResponse>>(CatgaResult<TransientFailureResponse>.Success(
                 new TransientFailureResponse { AttemptNumber = request.Attempt }));
         }
     }
@@ -324,14 +324,14 @@ public sealed partial class RetryAndTimeoutE2ETests
 
     private sealed class CircuitBreakerHandler(SimpleCircuitBreaker circuitBreaker) : IRequestHandler<CircuitBreakerRequest, CircuitBreakerResponse>
     {
-        public Task<CatgaResult<CircuitBreakerResponse>> HandleAsync(CircuitBreakerRequest request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<CircuitBreakerResponse>> HandleAsync(CircuitBreakerRequest request, CancellationToken ct = default)
         {
             if (request.ShouldFail)
             {
                 circuitBreaker.RecordFailure();
-                return Task.FromResult(CatgaResult<CircuitBreakerResponse>.Failure("Simulated failure"));
+                return new ValueTask<CatgaResult<CircuitBreakerResponse>>(CatgaResult<CircuitBreakerResponse>.Failure("Simulated failure"));
             }
-            return Task.FromResult(CatgaResult<CircuitBreakerResponse>.Success(new CircuitBreakerResponse { Success = true }));
+            return new ValueTask<CatgaResult<CircuitBreakerResponse>>(CatgaResult<CircuitBreakerResponse>.Success(new CircuitBreakerResponse { Success = true }));
         }
     }
 
@@ -350,7 +350,7 @@ public sealed partial class RetryAndTimeoutE2ETests
 
     private sealed class TimeoutHandler : IRequestHandler<TimeoutRequest, TimeoutResponse>
     {
-        public async Task<CatgaResult<TimeoutResponse>> HandleAsync(TimeoutRequest request, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<TimeoutResponse>> HandleAsync(TimeoutRequest request, CancellationToken ct = default)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(request.TimeoutMs);
@@ -383,13 +383,13 @@ public sealed partial class RetryAndTimeoutE2ETests
 
     private sealed class IsolatedFailureHandler : IRequestHandler<IsolatedFailureRequest, IsolatedFailureResponse>
     {
-        public Task<CatgaResult<IsolatedFailureResponse>> HandleAsync(IsolatedFailureRequest request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<IsolatedFailureResponse>> HandleAsync(IsolatedFailureRequest request, CancellationToken ct = default)
         {
             if (request.ShouldFail)
             {
-                return Task.FromResult(CatgaResult<IsolatedFailureResponse>.Failure("Isolated failure"));
+                return new ValueTask<CatgaResult<IsolatedFailureResponse>>(CatgaResult<IsolatedFailureResponse>.Failure("Isolated failure"));
             }
-            return Task.FromResult(CatgaResult<IsolatedFailureResponse>.Success(
+            return new ValueTask<CatgaResult<IsolatedFailureResponse>>(CatgaResult<IsolatedFailureResponse>.Success(
                 new IsolatedFailureResponse { Index = request.Index }));
         }
     }
@@ -409,7 +409,7 @@ public sealed partial class RetryAndTimeoutE2ETests
 
     private sealed class BulkheadHandler(SimpleBulkhead bulkhead) : IRequestHandler<BulkheadRequest, BulkheadResponse>
     {
-        public async Task<CatgaResult<BulkheadResponse>> HandleAsync(BulkheadRequest request, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<BulkheadResponse>> HandleAsync(BulkheadRequest request, CancellationToken ct = default)
         {
             return await bulkhead.ExecuteAsync(async () =>
             {

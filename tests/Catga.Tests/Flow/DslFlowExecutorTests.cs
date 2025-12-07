@@ -492,25 +492,25 @@ public class DslFlowExecutorTests
     private void SetupMediatorSuccess<TRequest>() where TRequest : IRequest
     {
         _mediator.SendAsync(Arg.Any<TRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Success()));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
     }
 
     private void SetupMediatorSuccess<TRequest, TResult>(TResult result) where TRequest : IRequest<TResult>
     {
         _mediator.SendAsync<TRequest, TResult>(Arg.Any<TRequest>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<TResult>.Success(result)));
+            .Returns(new ValueTask<CatgaResult<TResult>>(CatgaResult<TResult>.Success(result)));
     }
 
     private void SetupMediatorQueryResult<TRequest, TResult>(TResult result) where TRequest : IRequest<TResult>
     {
         _mediator.SendAsync<TRequest, TResult>(Arg.Any<TRequest>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<TResult>.Success(result)));
+            .Returns(new ValueTask<CatgaResult<TResult>>(CatgaResult<TResult>.Success(result)));
     }
 
     private void SetupMediatorFailure<TRequest>(string error) where TRequest : IRequest
     {
         _mediator.SendAsync(Arg.Any<TRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult.Failure(error)));
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Failure(error)));
     }
 
     private void SetupMediatorPublish<TEvent>() where TEvent : IEvent

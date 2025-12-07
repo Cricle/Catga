@@ -184,7 +184,7 @@ public sealed partial class ErrorHandlingE2ETests
 
     private sealed class ThrowingHandler : IRequestHandler<ThrowingCommand, ThrowingResult>
     {
-        public Task<CatgaResult<ThrowingResult>> HandleAsync(ThrowingCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<ThrowingResult>> HandleAsync(ThrowingCommand request, CancellationToken ct = default)
         {
             throw new InvalidOperationException("Handler threw an exception");
         }
@@ -201,7 +201,7 @@ public sealed partial class ErrorHandlingE2ETests
 
     private sealed class CatgaExceptionHandler : IRequestHandler<CatgaExceptionCommand, CatgaExceptionResult>
     {
-        public Task<CatgaResult<CatgaExceptionResult>> HandleAsync(CatgaExceptionCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<CatgaExceptionResult>> HandleAsync(CatgaExceptionCommand request, CancellationToken ct = default)
         {
             throw new CatgaException("Custom error occurred", "CUSTOM_ERROR");
         }
@@ -218,9 +218,9 @@ public sealed partial class ErrorHandlingE2ETests
 
     private sealed class FailureResultHandler : IRequestHandler<FailureResultCommand, FailureResultResponse>
     {
-        public Task<CatgaResult<FailureResultResponse>> HandleAsync(FailureResultCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<FailureResultResponse>> HandleAsync(FailureResultCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<FailureResultResponse>.Failure("Business logic failure"));
+            return new ValueTask<CatgaResult<FailureResultResponse>>(CatgaResult<FailureResultResponse>.Failure("Business logic failure"));
         }
     }
 
@@ -232,7 +232,7 @@ public sealed partial class ErrorHandlingE2ETests
 
     private sealed class ThrowingEventHandler : IEventHandler<MultiHandlerEvent>
     {
-        public Task HandleAsync(MultiHandlerEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(MultiHandlerEvent @event, CancellationToken ct = default)
         {
             throw new InvalidOperationException("Event handler threw");
         }
@@ -242,10 +242,10 @@ public sealed partial class ErrorHandlingE2ETests
     {
         public static int ReceivedCount;
 
-        public Task HandleAsync(MultiHandlerEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(MultiHandlerEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -260,9 +260,9 @@ public sealed partial class ErrorHandlingE2ETests
 
     private sealed class NullResponseHandler : IRequestHandler<NullResponseCommand, NullResponseResult>
     {
-        public Task<CatgaResult<NullResponseResult>> HandleAsync(NullResponseCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<NullResponseResult>> HandleAsync(NullResponseCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<NullResponseResult>.Success(null!));
+            return new ValueTask<CatgaResult<NullResponseResult>>(CatgaResult<NullResponseResult>.Success(null!));
         }
     }
 
@@ -278,7 +278,7 @@ public sealed partial class ErrorHandlingE2ETests
 
     private sealed class SlowHandler : IRequestHandler<SlowCommand, SlowResult>
     {
-        public async Task<CatgaResult<SlowResult>> HandleAsync(SlowCommand request, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<SlowResult>> HandleAsync(SlowCommand request, CancellationToken ct = default)
         {
             await Task.Delay(request.DelayMs, ct);
             return CatgaResult<SlowResult>.Success(new SlowResult());
@@ -296,7 +296,7 @@ public sealed partial class ErrorHandlingE2ETests
 
     private sealed class ArgumentExceptionHandler : IRequestHandler<ArgumentExceptionCommand, ArgumentExceptionResult>
     {
-        public Task<CatgaResult<ArgumentExceptionResult>> HandleAsync(ArgumentExceptionCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<ArgumentExceptionResult>> HandleAsync(ArgumentExceptionCommand request, CancellationToken ct = default)
         {
             throw new ArgumentException("Invalid argument");
         }

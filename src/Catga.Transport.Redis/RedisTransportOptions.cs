@@ -1,7 +1,7 @@
 using System;
 using Catga.Transport;
-using Microsoft.VisualBasic;
 using StackExchange.Redis;
+
 namespace Catga.Transport;
 
 /// <summary>
@@ -23,6 +23,22 @@ public enum RedisMode
     /// Redis Cluster for horizontal scaling
     /// </summary>
     Cluster
+}
+
+/// <summary>
+/// Connection selection strategy for the pool
+/// </summary>
+public enum ConnectionSelectionStrategy
+{
+    /// <summary>
+    /// Round-robin selection (default)
+    /// </summary>
+    RoundRobin,
+
+    /// <summary>
+    /// Load-based selection (least busy connection)
+    /// </summary>
+    LoadBased
 }
 
 /// <summary>
@@ -62,10 +78,23 @@ public sealed class RedisTransportOptions
     public int MaxQueueLength { get; set; } = 10000;
 
     /// <summary>
-    /// Is regist the <see cref="IConnectionMultiplexer"/> in DI
+    /// Whether to register the connection pool in DI
     /// </summary>
     public bool RegistConnection { get; set; } = true;
 
+    /// <summary>
+    /// Redis configuration options
+    /// </summary>
     public ConfigurationOptions? ConfigurationOptions { get; set; }
+
+    /// <summary>
+    /// Connection pool size. Default is Environment.ProcessorCount.
+    /// </summary>
+    public int PoolSize { get; set; } = Environment.ProcessorCount;
+
+    /// <summary>
+    /// Connection selection strategy for the pool
+    /// </summary>
+    public ConnectionSelectionStrategy SelectionStrategy { get; set; } = ConnectionSelectionStrategy.RoundRobin;
 }
 

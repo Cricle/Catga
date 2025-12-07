@@ -48,13 +48,13 @@ app.Run();
 static Task SimulatePayment(string method, decimal amount)
 {
     if (method.StartsWith("FAIL")) throw new Exception("Payment declined");
-    return Task.CompletedTask;
+    return ValueTask.CompletedTask;
 }
 
 static Task SimulateRefund(string orderId)
 {
     Console.WriteLine($"Refunded order {orderId}");
-    return Task.CompletedTask;
+    return ValueTask.CompletedTask;
 }
 
 // Simple types

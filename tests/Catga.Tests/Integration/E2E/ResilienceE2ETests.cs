@@ -204,7 +204,7 @@ public sealed partial class ResilienceE2ETests
 
         public RetryableHandler(AttemptTracker tracker) => _tracker = tracker;
 
-        public Task<CatgaResult<RetryableResponse>> HandleAsync(RetryableCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<RetryableResponse>> HandleAsync(RetryableCommand request, CancellationToken ct = default)
         {
             Interlocked.Increment(ref _tracker.Attempts);
             var count = Interlocked.Increment(ref _callCount);
@@ -214,7 +214,7 @@ public sealed partial class ResilienceE2ETests
                 throw new CatgaException("Transient error") { IsRetryable = true };
             }
 
-            return Task.FromResult(CatgaResult<RetryableResponse>.Success(new RetryableResponse()));
+            return new ValueTask<CatgaResult<RetryableResponse>>(CatgaResult<RetryableResponse>.Success(new RetryableResponse()));
         }
     }
 
@@ -233,7 +233,7 @@ public sealed partial class ResilienceE2ETests
 
         public PermanentFailHandler(AttemptTracker tracker) => _tracker = tracker;
 
-        public Task<CatgaResult<PermanentFailResponse>> HandleAsync(PermanentFailCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<PermanentFailResponse>> HandleAsync(PermanentFailCommand request, CancellationToken ct = default)
         {
             Interlocked.Increment(ref _tracker.Attempts);
             throw new InvalidOperationException("Permanent error");
@@ -252,7 +252,7 @@ public sealed partial class ResilienceE2ETests
 
     private sealed class SlowHandler : IRequestHandler<SlowCommand, SlowResponse>
     {
-        public async Task<CatgaResult<SlowResponse>> HandleAsync(SlowCommand request, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<SlowResponse>> HandleAsync(SlowCommand request, CancellationToken ct = default)
         {
             await Task.Delay(request.DelayMs, ct);
             return CatgaResult<SlowResponse>.Success(new SlowResponse());
@@ -268,16 +268,16 @@ public sealed partial class ResilienceE2ETests
     private sealed class SuccessfulEventHandler : IEventHandler<MixedEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(MixedEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(MixedEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
     private sealed class FailingEventHandler : IEventHandler<MixedEvent>
     {
-        public Task HandleAsync(MixedEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(MixedEvent @event, CancellationToken ct = default)
         {
             throw new InvalidOperationException("Event handler failed");
         }
@@ -286,10 +286,10 @@ public sealed partial class ResilienceE2ETests
     private sealed class AnotherSuccessfulEventHandler : IEventHandler<MixedEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(MixedEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(MixedEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -308,7 +308,7 @@ public sealed partial class ResilienceE2ETests
 
     private sealed class ConcurrentHandler : IRequestHandler<ConcurrentCommand, ConcurrentResponse>
     {
-        public async Task<CatgaResult<ConcurrentResponse>> HandleAsync(ConcurrentCommand request, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<ConcurrentResponse>> HandleAsync(ConcurrentCommand request, CancellationToken ct = default)
         {
             await Task.Delay(10, ct); // Simulate some work
             return CatgaResult<ConcurrentResponse>.Success(new ConcurrentResponse { ProcessedValue = request.Value * 2 });
@@ -330,9 +330,9 @@ public sealed partial class ResilienceE2ETests
 
     private sealed class LargePayloadHandler : IRequestHandler<LargePayloadCommand, LargePayloadResponse>
     {
-        public Task<CatgaResult<LargePayloadResponse>> HandleAsync(LargePayloadCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<LargePayloadResponse>> HandleAsync(LargePayloadCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<LargePayloadResponse>.Success(new LargePayloadResponse { DataLength = request.Data.Length }));
+            return new ValueTask<CatgaResult<LargePayloadResponse>>(CatgaResult<LargePayloadResponse>.Success(new LargePayloadResponse { DataLength = request.Data.Length }));
         }
     }
 
@@ -368,7 +368,7 @@ public sealed partial class ResilienceE2ETests
 
         public OuterHandler(ICatgaMediator mediator) => _mediator = mediator;
 
-        public async Task<CatgaResult<OuterResponse>> HandleAsync(OuterCommand request, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<OuterResponse>> HandleAsync(OuterCommand request, CancellationToken ct = default)
         {
             var innerCommand = new InnerCommand { MessageId = MessageExtensions.NewMessageId(), Value = request.Value };
             var innerResult = await _mediator.SendAsync<InnerCommand, InnerResponse>(innerCommand, ct);
@@ -384,9 +384,9 @@ public sealed partial class ResilienceE2ETests
 
     private sealed class InnerHandler : IRequestHandler<InnerCommand, InnerResponse>
     {
-        public Task<CatgaResult<InnerResponse>> HandleAsync(InnerCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<InnerResponse>> HandleAsync(InnerCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<InnerResponse>.Success(new InnerResponse { DoubledValue = request.Value * 2 }));
+            return new ValueTask<CatgaResult<InnerResponse>>(CatgaResult<InnerResponse>.Success(new InnerResponse { DoubledValue = request.Value * 2 }));
         }
     }
 

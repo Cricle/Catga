@@ -8,15 +8,14 @@ using Catga.Core;
 using Catga.Observability;
 using Catga.Resilience;
 using StackExchange.Redis;
+using StackExchange.Redis.MultiplexerPool;
 
 namespace Catga.Transport;
 
 /// <summary>Redis-based message transport with QoS support.</summary>
 public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDisposable
 {
-    private readonly IConnectionMultiplexer _redis;
-    private readonly IDatabase _db;
-    private readonly ISubscriber _sub;
+    private readonly IConnectionMultiplexerPool _pool;
     private readonly IMessageSerializer _ser;
     private readonly IResiliencePipelineProvider _provider;
     private readonly string _group;
@@ -36,13 +35,35 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
     public BatchTransportOptions? BatchOptions => null;
     public CompressionTransportOptions? CompressionOptions => null;
 
-    public RedisMessageTransport(IConnectionMultiplexer redis, IMessageSerializer serializer, IResiliencePipelineProvider provider, RedisTransportOptions? options = null, string? consumerGroup = null, string? consumerName = null)
+    /// <summary>
+    /// Get a connection from the pool
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IConnectionMultiplexer GetConnection() => _pool.GetAsync().GetAwaiter().GetResult().Connection;
+
+    /// <summary>
+    /// Get a connection from the pool asynchronously
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private async ValueTask<IConnectionMultiplexer> GetConnectionAsync() => (await _pool.GetAsync()).Connection;
+
+    /// <summary>
+    /// Get a database from the pool
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IDatabase GetDatabase() => GetConnection().GetDatabase();
+
+    /// <summary>
+    /// Get a subscriber from the pool
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ISubscriber GetSubscriber() => GetConnection().GetSubscriber();
+
+    public RedisMessageTransport(IConnectionMultiplexerPool pool, IMessageSerializer serializer, IResiliencePipelineProvider provider, RedisTransportOptions? options = null, string? consumerGroup = null, string? consumerName = null)
     {
-        _redis = redis;
+        _pool = pool;
         _ser = serializer;
         _provider = provider;
-        _db = redis.GetDatabase();
-        _sub = redis.GetSubscriber();
         _group = consumerGroup ?? $"catga-group-{Environment.MachineName}";
         _consumer = consumerName ?? $"catga-consumer-{Guid.NewGuid():N}";
         _opts = options;
@@ -51,6 +72,63 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
         _naming = options?.Naming;
         if (options?.Batch is { EnableAutoBatching: true } b)
             _timer = new Timer(static s => { try { ((RedisMessageTransport)s!).TryFlushBatchTimer(); } catch { } }, this, b.BatchTimeout, b.BatchTimeout);
+    }
+
+    /// <summary>
+    /// Constructor for backward compatibility with single IConnectionMultiplexer
+    /// </summary>
+    public RedisMessageTransport(IConnectionMultiplexer redis, IMessageSerializer serializer, IResiliencePipelineProvider provider, RedisTransportOptions? options = null, string? consumerGroup = null, string? consumerName = null)
+        : this(new SingleConnectionPool(redis), serializer, provider, options, consumerGroup, consumerName)
+    {
+    }
+
+    /// <summary>
+    /// Wrapper to adapt single IConnectionMultiplexer to IConnectionMultiplexerPool interface
+    /// </summary>
+    private sealed class SingleConnectionPool : IConnectionMultiplexerPool
+    {
+        private readonly IConnectionMultiplexer _connection;
+        private readonly ReconnectableConnectionMultiplexerWrapper _wrapper;
+
+        public SingleConnectionPool(IConnectionMultiplexer connection)
+        {
+            _connection = connection;
+            _wrapper = new ReconnectableConnectionMultiplexerWrapper(connection);
+        }
+
+        public int PoolSize => 1;
+
+        public Task<IReconnectableConnectionMultiplexer> GetAsync() => Task.FromResult<IReconnectableConnectionMultiplexer>(_wrapper);
+
+        public Task CloseAllAsync(bool allowCommandsToComplete = true) => _connection.CloseAsync(allowCommandsToComplete);
+
+        public void Dispose() => _connection.Dispose();
+
+        public ValueTask DisposeAsync()
+        {
+            Dispose();
+            return default;
+        }
+
+        /// <summary>
+        /// Wrapper to adapt IConnectionMultiplexer to IReconnectableConnectionMultiplexer
+        /// </summary>
+        private sealed class ReconnectableConnectionMultiplexerWrapper : IReconnectableConnectionMultiplexer
+        {
+            private readonly IConnectionMultiplexer _inner;
+
+            public ReconnectableConnectionMultiplexerWrapper(IConnectionMultiplexer inner) => _inner = inner;
+
+            public IConnectionMultiplexer Multiplexer => _inner;
+
+            public IConnectionMultiplexer Connection => _inner;
+
+            public int ConnectionIndex => 0;
+
+            public DateTime ConnectionTimeUtc { get; } = DateTime.UtcNow;
+
+            public Task ReconnectAsync(bool abortOnConnectFail = true, bool allowCommandsToComplete = true) => Task.CompletedTask;
+        }
     }
 
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
@@ -89,7 +167,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
         {
             // Always use Pub/Sub for broadcast messages
             await _provider.ExecuteTransportPublishAsync(ct => new ValueTask(
-                _sub.PublishAsync(
+                GetSubscriber().PublishAsync(
                     RedisChannel.Literal(subject),
                     payload,
                     CommandFlags.FireAndForget)),
@@ -156,7 +234,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
         {
             // Use Streams for point-to-point messaging
             await _provider.ExecuteTransportSendAsync(ct => new ValueTask(
-                _db.StreamAddAsync(
+                GetDatabase().StreamAddAsync(
                     streamKey,
                     new NameValueEntry[] {
                         new NameValueEntry("data", payload),
@@ -189,7 +267,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
         ArgumentNullException.ThrowIfNull(handler);
 
         var subject = GetSubject<TMessage>();
-        var queue = await _sub.SubscribeAsync(RedisChannel.Literal(subject));
+        var queue = await GetSubscriber().SubscribeAsync(RedisChannel.Literal(subject));
         _pubSubs[subject] = queue;
 
         queue.OnMessage(async channelMessage =>
@@ -240,7 +318,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                     // Ensure consumer group exists (create stream if missing)
                     try
                     {
-                        await _db.StreamCreateConsumerGroupAsync(streamKey, _group, StreamPosition.NewMessages, createStream: true);
+                        await GetDatabase().StreamCreateConsumerGroupAsync(streamKey, _group, StreamPosition.NewMessages, createStream: true);
                     }
                     catch (RedisServerException ex) when (ex.Message.Contains("BUSYGROUP", StringComparison.OrdinalIgnoreCase))
                     {
@@ -249,7 +327,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
 
                     while (!_cts.IsCancellationRequested)
                     {
-                        var entries = await _db.StreamReadGroupAsync(streamKey, _group, _consumer, ">", count: 1);
+                        var entries = await GetDatabase().StreamReadGroupAsync(streamKey, _group, _consumer, ">", count: 1);
                         if (entries is null || entries.Length == 0)
                         {
                             try { await Task.Delay(200, _cts.Token); } catch { }
@@ -312,7 +390,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                                 activity2?.AddActivityEvent(CatgaActivitySource.Events.RedisReceiveProcessed,
                                     ("stream", streamKey));
 
-                                await _db.StreamAcknowledgeAsync(streamKey, _group, entry.Id);
+                                await GetDatabase().StreamAcknowledgeAsync(streamKey, _group, entry.Id);
                             }
                             catch (Exception ex)
                             {
@@ -459,7 +537,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                 if (!item.IsStream)
                 {
                     await _provider.ExecuteTransportPublishAsync(ct => new ValueTask(
-                        _sub.PublishAsync(RedisChannel.Literal(item.Destination), item.Payload, CommandFlags.FireAndForget)), _cts.Token);
+                        GetSubscriber().PublishAsync(RedisChannel.Literal(item.Destination), item.Payload, CommandFlags.FireAndForget)), _cts.Token);
                     batchSpan?.AddActivityEvent(CatgaActivitySource.Events.RedisBatchPubSubSent,
                         ("channel", item.Destination));
                 }
@@ -469,7 +547,7 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                     if (!string.IsNullOrEmpty(item.TraceParent)) entries.Add(new NameValueEntry("traceparent", item.TraceParent));
                     if (!string.IsNullOrEmpty(item.TraceState)) entries.Add(new NameValueEntry("tracestate", item.TraceState));
                     await _provider.ExecuteTransportSendAsync(ct => new ValueTask(
-                        _db.StreamAddAsync(item.Destination, entries.ToArray(), flags: CommandFlags.DemandMaster)), _cts.Token);
+                        GetDatabase().StreamAddAsync(item.Destination, entries.ToArray(), flags: CommandFlags.DemandMaster)), _cts.Token);
                     batchSpan?.AddActivityEvent(CatgaActivitySource.Events.RedisBatchStreamAdded,
                         ("stream", item.Destination));
                 }

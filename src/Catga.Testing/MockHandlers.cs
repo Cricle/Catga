@@ -10,10 +10,10 @@ public class MockSuccessHandler<TRequest, TResponse> : IRequestHandler<TRequest,
     where TRequest : IRequest<TResponse>
     where TResponse : new()
 {
-    public Task<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+    public ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
         var response = new TResponse();
-        return Task.FromResult(CatgaResult<TResponse>.Success(response));
+        return new ValueTask<CatgaResult<TResponse>>(CatgaResult<TResponse>.Success(response));
     }
 }
 
@@ -30,9 +30,9 @@ public class MockFailureHandler<TRequest, TResponse> : IRequestHandler<TRequest,
         _errorMessage = errorMessage;
     }
 
-    public Task<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+    public ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(CatgaResult<TResponse>.Failure(_errorMessage));
+        return new ValueTask<CatgaResult<TResponse>>(CatgaResult<TResponse>.Failure(_errorMessage));
     }
 }
 
@@ -47,14 +47,14 @@ public class TrackableHandler<TRequest, TResponse> : IRequestHandler<TRequest, T
     public TRequest? LastRequest { get; private set; }
     public List<TRequest> AllRequests { get; } = new();
 
-    public Task<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+    public ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
         CallCount++;
         LastRequest = request;
         AllRequests.Add(request);
 
         var response = new TResponse();
-        return Task.FromResult(CatgaResult<TResponse>.Success(response));
+        return new ValueTask<CatgaResult<TResponse>>(CatgaResult<TResponse>.Success(response));
     }
 
     public void Reset()
@@ -75,12 +75,12 @@ public class TrackableEventHandler<TEvent> : IEventHandler<TEvent>
     public TEvent? LastEvent { get; private set; }
     public List<TEvent> AllEvents { get; } = new();
 
-    public Task HandleAsync(TEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(TEvent @event, CancellationToken cancellationToken = default)
     {
         CallCount++;
         LastEvent = @event;
         AllEvents.Add(@event);
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 
     public void Reset()
@@ -105,7 +105,7 @@ public class DelayedHandler<TRequest, TResponse> : IRequestHandler<TRequest, TRe
         _delay = delay;
     }
 
-    public async Task<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+    public async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
         await Task.Delay(_delay, cancellationToken);
         var response = new TResponse();
@@ -126,7 +126,7 @@ public class ExceptionHandler<TRequest, TResponse> : IRequestHandler<TRequest, T
         _exception = exception ?? new InvalidOperationException("Mock exception");
     }
 
-    public Task<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
+    public ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
     {
         throw _exception;
     }

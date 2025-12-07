@@ -189,9 +189,9 @@ public sealed partial class PipelineBehaviorCoverageTests
 
     private sealed class LoggedHandler : IRequestHandler<LoggedCommand, LoggedResponse>
     {
-        public Task<CatgaResult<LoggedResponse>> HandleAsync(LoggedCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<LoggedResponse>> HandleAsync(LoggedCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<LoggedResponse>.Success(new LoggedResponse()));
+            return new ValueTask<CatgaResult<LoggedResponse>>(CatgaResult<LoggedResponse>.Success(new LoggedResponse()));
         }
     }
 
@@ -207,9 +207,9 @@ public sealed partial class PipelineBehaviorCoverageTests
 
     private sealed class ValidatedHandler : IRequestHandler<ValidatedCommand, ValidatedResponse>
     {
-        public Task<CatgaResult<ValidatedResponse>> HandleAsync(ValidatedCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<ValidatedResponse>> HandleAsync(ValidatedCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<ValidatedResponse>.Success(new ValidatedResponse()));
+            return new ValueTask<CatgaResult<ValidatedResponse>>(CatgaResult<ValidatedResponse>.Success(new ValidatedResponse()));
         }
     }
 
@@ -227,10 +227,10 @@ public sealed partial class PipelineBehaviorCoverageTests
         private readonly List<string> _order;
         public OrderedHandler(List<string> order) => _order = order;
 
-        public Task<CatgaResult<OrderedResponse>> HandleAsync(OrderedCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<OrderedResponse>> HandleAsync(OrderedCommand request, CancellationToken ct = default)
         {
             _order.Add("Handler");
-            return Task.FromResult(CatgaResult<OrderedResponse>.Success(new OrderedResponse()));
+            return new ValueTask<CatgaResult<OrderedResponse>>(CatgaResult<OrderedResponse>.Success(new OrderedResponse()));
         }
     }
 
@@ -275,9 +275,9 @@ public sealed partial class PipelineBehaviorCoverageTests
 
     private sealed class FailBehaviorHandler : IRequestHandler<FailBehaviorCommand, FailBehaviorResponse>
     {
-        public Task<CatgaResult<FailBehaviorResponse>> HandleAsync(FailBehaviorCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<FailBehaviorResponse>> HandleAsync(FailBehaviorCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<FailBehaviorResponse>.Success(new FailBehaviorResponse()));
+            return new ValueTask<CatgaResult<FailBehaviorResponse>>(CatgaResult<FailBehaviorResponse>.Success(new FailBehaviorResponse()));
         }
     }
 
@@ -307,10 +307,10 @@ public sealed partial class PipelineBehaviorCoverageTests
     {
         public static bool WasCalled;
 
-        public Task<CatgaResult<ShortCircuitResponse>> HandleAsync(ShortCircuitCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<ShortCircuitResponse>> HandleAsync(ShortCircuitCommand request, CancellationToken ct = default)
         {
             WasCalled = true;
-            return Task.FromResult(CatgaResult<ShortCircuitResponse>.Success(new ShortCircuitResponse { FromBehavior = false }));
+            return new ValueTask<CatgaResult<ShortCircuitResponse>>(CatgaResult<ShortCircuitResponse>.Success(new ShortCircuitResponse { FromBehavior = false }));
         }
     }
 
@@ -322,7 +322,7 @@ public sealed partial class PipelineBehaviorCoverageTests
             if (request is ShortCircuitCommand cmd && cmd.ShouldShortCircuit)
             {
                 var response = (TResponse)(object)new ShortCircuitResponse { FromBehavior = true };
-                return ValueTask.FromResult(CatgaResult<TResponse>.Success(response));
+                return new ValueTask<CatgaResult<TResponse>>(CatgaResult<TResponse>.Success(response));
             }
             return next();
         }
@@ -343,9 +343,9 @@ public sealed partial class PipelineBehaviorCoverageTests
 
     private sealed class ModifyHandler : IRequestHandler<ModifyCommand, ModifyResponse>
     {
-        public Task<CatgaResult<ModifyResponse>> HandleAsync(ModifyCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<ModifyResponse>> HandleAsync(ModifyCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<ModifyResponse>.Success(new ModifyResponse { ModifiedValue = request.Value }));
+            return new ValueTask<CatgaResult<ModifyResponse>>(CatgaResult<ModifyResponse>.Success(new ModifyResponse { ModifiedValue = request.Value }));
         }
     }
 
@@ -375,9 +375,9 @@ public sealed partial class PipelineBehaviorCoverageTests
 
     private sealed class CancelBehaviorHandler : IRequestHandler<CancelBehaviorCommand, CancelBehaviorResponse>
     {
-        public Task<CatgaResult<CancelBehaviorResponse>> HandleAsync(CancelBehaviorCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<CancelBehaviorResponse>> HandleAsync(CancelBehaviorCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<CancelBehaviorResponse>.Success(new CancelBehaviorResponse()));
+            return new ValueTask<CatgaResult<CancelBehaviorResponse>>(CatgaResult<CancelBehaviorResponse>.Success(new CancelBehaviorResponse()));
         }
     }
 

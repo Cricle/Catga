@@ -85,6 +85,18 @@ public static class RedisPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Add Redis persistence with connection string
+    /// </summary>
+    public static IServiceCollection AddRedisPersistence(
+        this IServiceCollection services,
+        string connectionString)
+    {
+        services.TryAddSingleton<IConnectionMultiplexer>(_ =>
+            ConnectionMultiplexer.Connect(connectionString));
+        return services.AddRedisPersistence();
+    }
+
+    /// <summary>
     /// 添加 Redis 幂等性存储 (requires IMessageSerializer to be registered separately)
     /// </summary>
     public static IServiceCollection AddRedisIdempotencyStore(

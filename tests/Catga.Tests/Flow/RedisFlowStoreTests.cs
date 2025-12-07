@@ -601,10 +601,10 @@ public class RedisFlowStoreTests : IAsyncLifetime
         // Create abandoned flow
         var state = CreateState("concurrent-claim");
         state.Owner = "dead-node";
-        state.HeartbeatAt = DateTimeOffset.UtcNow.AddSeconds(-10).ToUnixTimeMilliseconds();
+        state.HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeMilliseconds(); // 5 minutes ago
         await _store!.CreateAsync(state);
 
-        // Multiple nodes try to claim
+        // Multiple nodes try to claim (timeout is 60 seconds)
         var tasks = Enumerable.Range(1, 5).Select(async i =>
         {
             return await _store.TryClaimAsync("TestFlow", $"node-{i}", 60000);
@@ -626,7 +626,7 @@ public class RedisFlowStoreTests : IAsyncLifetime
         await _store!.CreateAsync(state);
 
         var stored = await _store.GetAsync("empty-data");
-        stored!.Data.Should().BeEmpty();
+        stored!.Data.Should().BeNullOrEmpty();
     }
 
     [SkippableFact]

@@ -479,7 +479,7 @@ public record ErrorStreamResponse(int Id);
 
 public class StreamTestCommandHandler : IRequestHandler<StreamTestCommand, StreamTestResponse>
 {
-    public async Task<CatgaResult<StreamTestResponse>> HandleAsync(
+    public async ValueTask<CatgaResult<StreamTestResponse>> HandleAsync(
         StreamTestCommand request,
         CancellationToken cancellationToken = default)
     {
@@ -497,7 +497,7 @@ public class StreamTestCommandHandler : IRequestHandler<StreamTestCommand, Strea
 
 public class SlowStreamCommandHandler : IRequestHandler<SlowStreamCommand, SlowStreamResponse>
 {
-    public async Task<CatgaResult<SlowStreamResponse>> HandleAsync(
+    public async ValueTask<CatgaResult<SlowStreamResponse>> HandleAsync(
         SlowStreamCommand request,
         CancellationToken cancellationToken = default)
     {
@@ -508,11 +508,11 @@ public class SlowStreamCommandHandler : IRequestHandler<SlowStreamCommand, SlowS
 
 public class ErrorStreamCommandHandler : IRequestHandler<ErrorStreamCommand, ErrorStreamResponse>
 {
-    public Task<CatgaResult<ErrorStreamResponse>> HandleAsync(
+    public ValueTask<CatgaResult<ErrorStreamResponse>> HandleAsync(
         ErrorStreamCommand request,
         CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(
+        return new ValueTask<CatgaResult<ErrorStreamResponse>>(
             CatgaResult<ErrorStreamResponse>.Failure($"Error processing item {request.Id}"));
     }
 }

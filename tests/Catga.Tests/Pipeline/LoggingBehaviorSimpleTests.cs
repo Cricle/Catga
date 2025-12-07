@@ -35,7 +35,7 @@ public class LoggingBehaviorSimpleTests
         var expectedResponse = new TestResponse { Result = "success" };
 
         PipelineDelegate<TestResponse> next = () =>
-            ValueTask.FromResult(CatgaResult<TestResponse>.Success(expectedResponse));
+            new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(expectedResponse));
 
         // Act
         var result = await _behavior.HandleAsync(request, next, CancellationToken.None);
@@ -52,7 +52,7 @@ public class LoggingBehaviorSimpleTests
         var request = new TestRequest { MessageId = 456, Data = "test" };
         var response = new TestResponse { Result = "result-456" };
         PipelineDelegate<TestResponse> next = () =>
-            ValueTask.FromResult(CatgaResult<TestResponse>.Success(response));
+            new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(response));
 
         // Act
         var result = await _behavior.HandleAsync(request, next, CancellationToken.None);
@@ -72,7 +72,7 @@ public class LoggingBehaviorSimpleTests
         var errorMessage = "Test error";
 
         PipelineDelegate<TestResponse> next = () =>
-            ValueTask.FromResult(CatgaResult<TestResponse>.Failure(errorMessage));
+            new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Failure(errorMessage));
 
         // Act
         var result = await _behavior.HandleAsync(request, next, CancellationToken.None);
@@ -90,7 +90,7 @@ public class LoggingBehaviorSimpleTests
         var errorInfo = ErrorInfo.Validation("Validation failed");
 
         PipelineDelegate<TestResponse> next = () =>
-            ValueTask.FromResult(CatgaResult<TestResponse>.Failure(errorInfo));
+            new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Failure(errorInfo));
 
         // Act
         var result = await _behavior.HandleAsync(request, next, CancellationToken.None);
@@ -165,17 +165,17 @@ public class LoggingBehaviorSimpleTests
         // Arrange & Act
         var result1 = await _behavior.HandleAsync(
             new TestRequest { MessageId = 1, Data = "test1" },
-            () => ValueTask.FromResult(CatgaResult<TestResponse>.Success(new TestResponse { Result = "1" })),
+            () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse { Result = "1" })),
             CancellationToken.None);
 
         var result2 = await _behavior.HandleAsync(
             new TestRequest { MessageId = 2, Data = "test2" },
-            () => ValueTask.FromResult(CatgaResult<TestResponse>.Success(new TestResponse { Result = "2" })),
+            () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse { Result = "2" })),
             CancellationToken.None);
 
         var result3 = await _behavior.HandleAsync(
             new TestRequest { MessageId = 3, Data = "test3" },
-            () => ValueTask.FromResult(CatgaResult<TestResponse>.Success(new TestResponse { Result = "3" })),
+            () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse { Result = "3" })),
             CancellationToken.None);
 
         // Assert
@@ -200,7 +200,7 @@ public class LoggingBehaviorSimpleTests
             Substitute.For<ILogger<LoggingBehavior<StringRequest, string>>>());
 
         PipelineDelegate<string> next = () =>
-            ValueTask.FromResult(CatgaResult<string>.Success("string-result"));
+            new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("string-result"));
 
         // Act
         var result = await behavior.HandleAsync(request, next, CancellationToken.None);
@@ -219,7 +219,7 @@ public class LoggingBehaviorSimpleTests
             Substitute.For<ILogger<LoggingBehavior<IntRequest, int>>>());
 
         PipelineDelegate<int> next = () =>
-            ValueTask.FromResult(CatgaResult<int>.Success(42));
+            new ValueTask<CatgaResult<int>>(CatgaResult<int>.Success(42));
 
         // Act
         var result = await behavior.HandleAsync(request, next, CancellationToken.None);

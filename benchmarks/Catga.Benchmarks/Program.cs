@@ -21,6 +21,7 @@ public class Program
         Console.WriteLine("  --filter *CqrsPerformance*       Core CQRS operations");
         Console.WriteLine("  --filter *BusinessScenario*      Business scenarios");
         Console.WriteLine("  --filter *ConcurrencyPerformance* Concurrency tests");
+        Console.WriteLine("  --filter *Transport*             Redis/NATS transport tests");
         Console.WriteLine();
     }
 }

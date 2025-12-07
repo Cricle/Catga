@@ -465,40 +465,40 @@ public class CatgaMediatorAdditionalTests
 
     public class TestCommandHandler : IRequestHandler<TestCommand, TestResponse>
     {
-        public Task<CatgaResult<TestResponse>> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
+        public ValueTask<CatgaResult<TestResponse>> HandleAsync(TestCommand request, CancellationToken cancellationToken = default)
         {
             var response = new TestResponse { Result = $"{request.Data}_processed" };
-            return Task.FromResult(CatgaResult<TestResponse>.Success(response));
+            return new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(response));
         }
     }
 
     public class TestCommandNoResponseHandler : IRequestHandler<TestCommandNoResponse>
     {
-        public Task<CatgaResult> HandleAsync(TestCommandNoResponse request, CancellationToken cancellationToken = default)
+        public ValueTask<CatgaResult> HandleAsync(TestCommandNoResponse request, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(CatgaResult.Success());
+            return new ValueTask<CatgaResult>(CatgaResult.Success());
         }
     }
 
     public class TestEventHandler : IEventHandler<TestEvent>
     {
-        public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+        public ValueTask HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
         {
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
     public class TestEventHandler2 : IEventHandler<TestEvent>
     {
-        public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+        public ValueTask HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
         {
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
     public class SlowEventHandler : IEventHandler<TestEvent>
     {
-        public async Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+        public async ValueTask HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
         {
             await Task.Delay(20, cancellationToken);
         }
@@ -506,7 +506,7 @@ public class CatgaMediatorAdditionalTests
 
     public class SlowEventHandler2 : IEventHandler<TestEvent>
     {
-        public async Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+        public async ValueTask HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
         {
             await Task.Delay(20, cancellationToken);
         }
@@ -514,7 +514,7 @@ public class CatgaMediatorAdditionalTests
 
     public class FailingCommandHandler : IRequestHandler<FailingCommand, TestResponse>
     {
-        public Task<CatgaResult<TestResponse>> HandleAsync(FailingCommand request, CancellationToken cancellationToken = default)
+        public ValueTask<CatgaResult<TestResponse>> HandleAsync(FailingCommand request, CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException("Handler failed intentionally");
         }
@@ -522,7 +522,7 @@ public class CatgaMediatorAdditionalTests
 
     public class FailingEventHandler : IEventHandler<TestEvent>
     {
-        public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+        public ValueTask HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException("Event handler failed intentionally");
         }

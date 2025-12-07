@@ -49,7 +49,7 @@ public class BusinessScenarioBenchmarks
     }
 
     [Benchmark(Baseline = true, Description = "Create Order (Command)")]
-    public async Task<CatgaResult<CreateOrderResult>> CreateOrder()
+    public async ValueTask<CatgaResult<CreateOrderResult>> CreateOrder()
     {
         var command = new CreateOrderCommand(
             UserId: 123,
@@ -62,7 +62,7 @@ public class BusinessScenarioBenchmarks
     }
 
     [Benchmark(Description = "Process Payment (Command)")]
-    public async Task<CatgaResult<ProcessPaymentResult>> ProcessPayment()
+    public async ValueTask<CatgaResult<ProcessPaymentResult>> ProcessPayment()
     {
         var command = new ProcessPaymentCommand(
             OrderId: 789,
@@ -74,14 +74,14 @@ public class BusinessScenarioBenchmarks
     }
 
     [Benchmark(Description = "Get Order (Query)")]
-    public async Task<CatgaResult<GetOrderResult>> GetOrder()
+    public async ValueTask<CatgaResult<GetOrderResult>> GetOrder()
     {
         var query = new GetOrderQuery(OrderId: 789);
         return await _mediator.SendAsync<GetOrderQuery, GetOrderResult>(query);
     }
 
     [Benchmark(Description = "Get User Orders (Query with multiple results)")]
-    public async Task<CatgaResult<GetUserOrdersResult>> GetUserOrders()
+    public async ValueTask<CatgaResult<GetUserOrdersResult>> GetUserOrders()
     {
         var query = new GetUserOrdersQuery(UserId: 123);
         return await _mediator.SendAsync<GetUserOrdersQuery, GetUserOrdersResult>(query);
@@ -309,12 +309,12 @@ public partial record PaymentProcessedEvent(
 
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, CreateOrderResult>
 {
-    public Task<CatgaResult<CreateOrderResult>> HandleAsync(
+    public ValueTask<CatgaResult<CreateOrderResult>> HandleAsync(
         CreateOrderCommand request,
         CancellationToken cancellationToken = default)
     {
         if (BenchScenarioRuntime.DelayMs > 0)
-            return HandleWithDelayAsync(request, cancellationToken);
+            return new ValueTask<CatgaResult<CreateOrderResult>>(HandleWithDelayAsync(request, cancellationToken));
         var orderId = Random.Shared.Next(10000, 99999);
         var result = new CreateOrderResult(
             OrderId: orderId,
@@ -322,7 +322,7 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, CreateOrde
             TotalAmount: request.TotalAmount
         );
 
-        return Task.FromResult(CatgaResult<CreateOrderResult>.Success(result));
+        return new ValueTask<CatgaResult<CreateOrderResult>>(CatgaResult<CreateOrderResult>.Success(result));
     }
 
     private static async Task<CatgaResult<CreateOrderResult>> HandleWithDelayAsync(CreateOrderCommand request, CancellationToken ct)
@@ -336,12 +336,12 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, CreateOrde
 
 public class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, ProcessPaymentResult>
 {
-    public Task<CatgaResult<ProcessPaymentResult>> HandleAsync(
+    public ValueTask<CatgaResult<ProcessPaymentResult>> HandleAsync(
         ProcessPaymentCommand request,
         CancellationToken cancellationToken = default)
     {
         if (BenchScenarioRuntime.DelayMs > 0)
-            return HandleWithDelayAsync(request, cancellationToken);
+            return new ValueTask<CatgaResult<ProcessPaymentResult>>(HandleWithDelayAsync(request, cancellationToken));
         var paymentId = Random.Shared.Next(20000, 29999);
         var transactionId = Guid.NewGuid().ToString("N")[..16];
 
@@ -351,7 +351,7 @@ public class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, Proc
             TransactionId: transactionId
         );
 
-        return Task.FromResult(CatgaResult<ProcessPaymentResult>.Success(result));
+        return new ValueTask<CatgaResult<ProcessPaymentResult>>(CatgaResult<ProcessPaymentResult>.Success(result));
     }
 
     private static async Task<CatgaResult<ProcessPaymentResult>> HandleWithDelayAsync(ProcessPaymentCommand request, CancellationToken ct)
@@ -370,12 +370,12 @@ public class ProcessPaymentHandler : IRequestHandler<ProcessPaymentCommand, Proc
 
 public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, GetOrderResult>
 {
-    public Task<CatgaResult<GetOrderResult>> HandleAsync(
+    public ValueTask<CatgaResult<GetOrderResult>> HandleAsync(
         GetOrderQuery request,
         CancellationToken cancellationToken = default)
     {
         if (BenchScenarioRuntime.DelayMs > 0)
-            return HandleWithDelayAsync(request, cancellationToken);
+            return new ValueTask<CatgaResult<GetOrderResult>>(HandleWithDelayAsync(request, cancellationToken));
         var result = new GetOrderResult(
             OrderId: request.OrderId,
             UserId: 123,
@@ -383,7 +383,7 @@ public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, GetOrderResul
             TotalAmount: 99.99m
         );
 
-        return Task.FromResult(CatgaResult<GetOrderResult>.Success(result));
+        return new ValueTask<CatgaResult<GetOrderResult>>(CatgaResult<GetOrderResult>.Success(result));
     }
 
     private static async Task<CatgaResult<GetOrderResult>> HandleWithDelayAsync(GetOrderQuery request, CancellationToken ct)
@@ -396,19 +396,19 @@ public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, GetOrderResul
 
 public class GetUserOrdersQueryHandler : IRequestHandler<GetUserOrdersQuery, GetUserOrdersResult>
 {
-    public Task<CatgaResult<GetUserOrdersResult>> HandleAsync(
+    public ValueTask<CatgaResult<GetUserOrdersResult>> HandleAsync(
         GetUserOrdersQuery request,
         CancellationToken cancellationToken = default)
     {
         if (BenchScenarioRuntime.DelayMs > 0)
-            return HandleWithDelayAsync(request, cancellationToken);
+            return new ValueTask<CatgaResult<GetUserOrdersResult>>(HandleWithDelayAsync(request, cancellationToken));
         var result = new GetUserOrdersResult(
             UserId: request.UserId,
             TotalOrders: 15,
             TotalSpent: 1299.85m
         );
 
-        return Task.FromResult(CatgaResult<GetUserOrdersResult>.Success(result));
+        return new ValueTask<CatgaResult<GetUserOrdersResult>>(CatgaResult<GetUserOrdersResult>.Success(result));
     }
 
     private static async Task<CatgaResult<GetUserOrdersResult>> HandleWithDelayAsync(GetUserOrdersQuery request, CancellationToken ct)
@@ -425,41 +425,41 @@ public class GetUserOrdersQueryHandler : IRequestHandler<GetUserOrdersQuery, Get
 
 public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent>
 {
-    public Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
     {
         if (BenchScenarioRuntime.DelayMs > 0)
-            return Task.Delay(BenchScenarioRuntime.DelayMs, cancellationToken);
-        return Task.CompletedTask;
+            return new ValueTask(Task.Delay(BenchScenarioRuntime.DelayMs, cancellationToken));
+        return ValueTask.CompletedTask;
     }
 }
 
 public class SendEmailNotificationHandler : IEventHandler<OrderCreatedEvent>
 {
-    public Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
     {
         if (BenchScenarioRuntime.DelayMs > 0)
-            return Task.Delay(BenchScenarioRuntime.DelayMs, cancellationToken);
-        return Task.CompletedTask;
+            return new ValueTask(Task.Delay(BenchScenarioRuntime.DelayMs, cancellationToken));
+        return ValueTask.CompletedTask;
     }
 }
 
 public class UpdateInventoryHandler : IEventHandler<OrderCreatedEvent>
 {
-    public Task HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(OrderCreatedEvent @event, CancellationToken cancellationToken = default)
     {
         if (BenchScenarioRuntime.DelayMs > 0)
-            return Task.Delay(BenchScenarioRuntime.DelayMs, cancellationToken);
-        return Task.CompletedTask;
+            return new ValueTask(Task.Delay(BenchScenarioRuntime.DelayMs, cancellationToken));
+        return ValueTask.CompletedTask;
     }
 }
 
 public class PaymentProcessedEventHandler : IEventHandler<PaymentProcessedEvent>
 {
-    public Task HandleAsync(PaymentProcessedEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(PaymentProcessedEvent @event, CancellationToken cancellationToken = default)
     {
         if (BenchScenarioRuntime.DelayMs > 0)
-            return Task.Delay(BenchScenarioRuntime.DelayMs, cancellationToken);
-        return Task.CompletedTask;
+            return new ValueTask(Task.Delay(BenchScenarioRuntime.DelayMs, cancellationToken));
+        return ValueTask.CompletedTask;
     }
 }
 

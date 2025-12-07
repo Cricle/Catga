@@ -38,7 +38,7 @@ public class DistributedTracingBehaviorTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        PipelineDelegate<TestResponse> next = () => ValueTask.FromResult(CatgaResult<TestResponse>.Success(expectedResponse));
+        PipelineDelegate<TestResponse> next = () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(expectedResponse));
 
         // Act
         var result = await behavior.HandleAsync(request, next);
@@ -58,7 +58,7 @@ public class DistributedTracingBehaviorTests
         var request = new TestRequest { MessageId = 123 };
         var expectedResponse = new TestResponse { Result = "OK" };
 
-        PipelineDelegate<TestResponse> next = () => ValueTask.FromResult(CatgaResult<TestResponse>.Success(expectedResponse));
+        PipelineDelegate<TestResponse> next = () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(expectedResponse));
 
         // Act - without ActivityListener, tracing is disabled
         var result = await behavior.HandleAsync(request, next);
@@ -88,7 +88,7 @@ public class DistributedTracingBehaviorTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        PipelineDelegate<TestResponse> next = () => ValueTask.FromResult(CatgaResult<TestResponse>.Success(new TestResponse()));
+        PipelineDelegate<TestResponse> next = () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse()));
 
         // Act
         await behavior.HandleAsync(request, next);
@@ -115,7 +115,7 @@ public class DistributedTracingBehaviorTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        PipelineDelegate<TestResponse> next = () => ValueTask.FromResult(CatgaResult<TestResponse>.Success(new TestResponse()));
+        PipelineDelegate<TestResponse> next = () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse()));
 
         // Act
         await behavior.HandleAsync(request, next);
@@ -143,7 +143,7 @@ public class DistributedTracingBehaviorTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        PipelineDelegate<TestResponse> next = () => ValueTask.FromResult(CatgaResult<TestResponse>.Success(new TestResponse()));
+        PipelineDelegate<TestResponse> next = () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse()));
 
         // Act
         await behavior.HandleAsync(request, next);
@@ -173,7 +173,7 @@ public class DistributedTracingBehaviorTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        PipelineDelegate<TestResponse> next = () => ValueTask.FromResult(CatgaResult<TestResponse>.Success(new TestResponse { Result = "Success" }));
+        PipelineDelegate<TestResponse> next = () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse { Result = "Success" }));
 
         // Act
         var result = await behavior.HandleAsync(request, next);
@@ -200,7 +200,7 @@ public class DistributedTracingBehaviorTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        PipelineDelegate<TestResponse> next = () => ValueTask.FromResult(CatgaResult<TestResponse>.Success(new TestResponse()));
+        PipelineDelegate<TestResponse> next = () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse()));
 
         // Act
         await behavior.HandleAsync(request, next);
@@ -230,7 +230,7 @@ public class DistributedTracingBehaviorTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        PipelineDelegate<TestResponse> next = () => ValueTask.FromResult(CatgaResult<TestResponse>.Failure("Test error"));
+        PipelineDelegate<TestResponse> next = () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Failure("Test error"));
 
         // Act
         var result = await behavior.HandleAsync(request, next);
@@ -258,7 +258,7 @@ public class DistributedTracingBehaviorTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        PipelineDelegate<TestResponse> next = () => ValueTask.FromResult(CatgaResult<TestResponse>.Failure("Test failure"));
+        PipelineDelegate<TestResponse> next = () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Failure("Test failure"));
 
         // Act
         await behavior.HandleAsync(request, next);
@@ -350,7 +350,7 @@ public class DistributedTracingBehaviorTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        PipelineDelegate<TestResponse> next = () => ValueTask.FromResult(CatgaResult<TestResponse>.Success(new TestResponse()));
+        PipelineDelegate<TestResponse> next = () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse()));
 
         // Act
         await behavior.HandleAsync(request, next);
@@ -380,7 +380,7 @@ public class DistributedTracingBehaviorTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        PipelineDelegate<TestResponse> next = () => ValueTask.FromResult(CatgaResult<TestResponse>.Success(new TestResponse()));
+        PipelineDelegate<TestResponse> next = () => new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse()));
 
         // Act
         await behavior.HandleAsync(request, next);

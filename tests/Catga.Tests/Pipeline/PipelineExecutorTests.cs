@@ -24,7 +24,7 @@ public class PipelineExecutorTests
         var expectedResponse = new TestResponse { Result = "OK" };
         var handler = Substitute.For<IRequestHandler<TestRequest, TestResponse>>();
         handler.HandleAsync(request, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult<TestResponse>.Success(expectedResponse)));
+            .Returns(new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(expectedResponse)));
 
         var behaviors = new List<IPipelineBehavior<TestRequest, TestResponse>>();
 
@@ -45,7 +45,7 @@ public class PipelineExecutorTests
         var request = new TestRequest();
         var handler = Substitute.For<IRequestHandler<TestRequest, TestResponse>>();
         handler.HandleAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse())));
+            .Returns(new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse())));
 
         var behaviors = new List<IPipelineBehavior<TestRequest, TestResponse>>();
 
@@ -68,7 +68,7 @@ public class PipelineExecutorTests
         var response = new TestResponse { Result = "OK" };
         var handler = Substitute.For<IRequestHandler<TestRequest, TestResponse>>();
         handler.HandleAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult<TestResponse>.Success(response)));
+            .Returns(new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(response)));
 
         var executionOrder = new List<string>();
         var behavior = Substitute.For<IPipelineBehavior<TestRequest, TestResponse>>();
@@ -100,7 +100,7 @@ public class PipelineExecutorTests
         var request = new TestRequest { Data = "original" };
         var handler = Substitute.For<IRequestHandler<TestRequest, TestResponse>>();
         handler.HandleAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse())));
+            .Returns(new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse())));
 
         var behavior = Substitute.For<IPipelineBehavior<TestRequest, TestResponse>>();
         behavior.HandleAsync(Arg.Any<TestRequest>(), Arg.Any<PipelineDelegate<TestResponse>>(), Arg.Any<CancellationToken>())
@@ -132,7 +132,7 @@ public class PipelineExecutorTests
         var request = new TestRequest();
         var handler = Substitute.For<IRequestHandler<TestRequest, TestResponse>>();
         handler.HandleAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse())));
+            .Returns(new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse())));
 
         var executionOrder = new List<string>();
 
@@ -190,7 +190,7 @@ public class PipelineExecutorTests
         var request = new TestRequest();
         var handler = Substitute.For<IRequestHandler<TestRequest, TestResponse>>();
         handler.HandleAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse())));
+            .Returns(new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse())));
 
         var behavior1 = CreatePassThroughBehavior();
         var behavior2 = CreatePassThroughBehavior();
@@ -222,7 +222,7 @@ public class PipelineExecutorTests
         var shortCircuitResponse = new TestResponse { Result = "Short-circuited" };
         var behavior = Substitute.For<IPipelineBehavior<TestRequest, TestResponse>>();
         behavior.HandleAsync(Arg.Any<TestRequest>(), Arg.Any<PipelineDelegate<TestResponse>>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<TestResponse>.Success(shortCircuitResponse)));
+            .Returns(new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(shortCircuitResponse)));
 
         var behaviors = new List<IPipelineBehavior<TestRequest, TestResponse>> { behavior };
 
@@ -244,7 +244,7 @@ public class PipelineExecutorTests
 
         var behavior1 = Substitute.For<IPipelineBehavior<TestRequest, TestResponse>>();
         behavior1.HandleAsync(Arg.Any<TestRequest>(), Arg.Any<PipelineDelegate<TestResponse>>(), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.FromResult(CatgaResult<TestResponse>.Failure("Short-circuit")));
+            .Returns(new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Failure("Short-circuit")));
 
         var behavior2 = Substitute.For<IPipelineBehavior<TestRequest, TestResponse>>();
         var behaviors = new List<IPipelineBehavior<TestRequest, TestResponse>> { behavior1, behavior2 };
@@ -271,7 +271,7 @@ public class PipelineExecutorTests
         var request = new TestRequest();
         var handler = Substitute.For<IRequestHandler<TestRequest, TestResponse>>();
         handler.HandleAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<CatgaResult<TestResponse>>(new InvalidOperationException("Handler error")));
+            .Returns(new ValueTask<CatgaResult<TestResponse>>(Task.FromException<CatgaResult<TestResponse>>(new InvalidOperationException("Handler error"))));
 
         var behavior = CreatePassThroughBehavior();
         var behaviors = new List<IPipelineBehavior<TestRequest, TestResponse>> { behavior };
@@ -313,7 +313,7 @@ public class PipelineExecutorTests
 
         var handler = Substitute.For<IRequestHandler<TestRequest, TestResponse>>();
         handler.HandleAsync(Arg.Any<TestRequest>(), cancellationToken)
-            .Returns(Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse())));
+            .Returns(new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse())));
 
         var behaviors = new List<IPipelineBehavior<TestRequest, TestResponse>>();
 
@@ -334,7 +334,7 @@ public class PipelineExecutorTests
 
         var handler = Substitute.For<IRequestHandler<TestRequest, TestResponse>>();
         handler.HandleAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse())));
+            .Returns(new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse())));
 
         var behavior = Substitute.For<IPipelineBehavior<TestRequest, TestResponse>>();
         behavior.HandleAsync(Arg.Any<TestRequest>(), Arg.Any<PipelineDelegate<TestResponse>>(), cancellationToken)
@@ -370,7 +370,7 @@ public class PipelineExecutorTests
 
         var handler = Substitute.For<IRequestHandler<TestRequest, TestResponse>>();
         handler.HandleAsync(Arg.Any<TestRequest>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CatgaResult<TestResponse>.Success(handlerResponse)));
+            .Returns(new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(handlerResponse)));
 
         var behavior = Substitute.For<IPipelineBehavior<TestRequest, TestResponse>>();
         behavior.HandleAsync(Arg.Any<TestRequest>(), Arg.Any<PipelineDelegate<TestResponse>>(), Arg.Any<CancellationToken>())

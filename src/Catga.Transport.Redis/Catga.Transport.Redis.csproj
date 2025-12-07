@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="StackExchange.Redis.MultiplexerPool" />
   </ItemGroup>
 
 </Project>

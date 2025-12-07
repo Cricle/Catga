@@ -178,15 +178,15 @@ public sealed partial class StreamProcessingE2ETests
 
     private sealed class StreamHandler : IRequestHandler<StreamCommand, StreamResponse>
     {
-        public Task<CatgaResult<StreamResponse>> HandleAsync(StreamCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<StreamResponse>> HandleAsync(StreamCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<StreamResponse>.Success(new StreamResponse { ProcessedValue = request.Value * 2 }));
+            return new ValueTask<CatgaResult<StreamResponse>>(CatgaResult<StreamResponse>.Success(new StreamResponse { ProcessedValue = request.Value * 2 }));
         }
     }
 
     private sealed class SlowStreamHandler : IRequestHandler<SlowStreamCommand, SlowStreamResponse>
     {
-        public async Task<CatgaResult<SlowStreamResponse>> HandleAsync(SlowStreamCommand request, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<SlowStreamResponse>> HandleAsync(SlowStreamCommand request, CancellationToken ct = default)
         {
             await Task.Delay(20, ct);
             return CatgaResult<SlowStreamResponse>.Success(new SlowStreamResponse { ProcessedValue = request.Value * 2 });

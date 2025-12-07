@@ -83,5 +83,14 @@ public static class NatsTransportServiceCollectionExtensions
             CatgaDiagnostics.DIRegistrationDuration.Record(sw.Elapsed.TotalMilliseconds, tag);
         }
     }
+
+    /// <summary>
+    /// Add NATS transport with URL
+    /// </summary>
+    public static IServiceCollection AddNatsTransport(this IServiceCollection services, string natsUrl)
+    {
+        services.TryAddSingleton<INatsConnection>(_ => new NatsConnection(new NatsOpts { Url = natsUrl }));
+        return services.AddNatsTransport(configure: null);
+    }
 }
 

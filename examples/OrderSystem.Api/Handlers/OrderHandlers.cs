@@ -28,7 +28,7 @@ public class CreateOrderFlowHandler(
     ICatgaMediator mediator,
     ILogger<CreateOrderFlowHandler> logger) : IRequestHandler<CreateOrderFlowCommand, OrderCreatedResult>
 {
-    public async Task<CatgaResult<OrderCreatedResult>> HandleAsync(
+    public async ValueTask<CatgaResult<OrderCreatedResult>> HandleAsync(
         CreateOrderFlowCommand request, CancellationToken ct = default)
     {
         // For simplicity, execute steps directly here
@@ -86,7 +86,7 @@ public class CreateOrderHandler(
     ICatgaMediator mediator,
     ILogger<CreateOrderHandler> logger) : IRequestHandler<CreateOrderCommand, OrderCreatedResult>
 {
-    public async Task<CatgaResult<OrderCreatedResult>> HandleAsync(
+    public async ValueTask<CatgaResult<OrderCreatedResult>> HandleAsync(
         CreateOrderCommand request, CancellationToken ct = default)
     {
         var order = new Order
@@ -116,7 +116,7 @@ public class CancelOrderHandler(
     ICatgaMediator mediator,
     ILogger<CancelOrderHandler> logger) : IRequestHandler<CancelOrderCommand>
 {
-    public async Task<CatgaResult> HandleAsync(
+    public async ValueTask<CatgaResult> HandleAsync(
         CancelOrderCommand request, CancellationToken ct = default)
     {
         var order = await orderRepository.GetByIdAsync(request.OrderId, ct);
@@ -144,7 +144,7 @@ public class CancelOrderHandler(
 public class GetOrderHandler(
     IOrderRepository orderRepository) : IRequestHandler<GetOrderQuery, Order?>
 {
-    public async Task<CatgaResult<Order?>> HandleAsync(
+    public async ValueTask<CatgaResult<Order?>> HandleAsync(
         GetOrderQuery request, CancellationToken ct = default)
     {
         var order = await orderRepository.GetByIdAsync(request.OrderId, ct);
@@ -155,7 +155,7 @@ public class GetOrderHandler(
 public class GetUserOrdersHandler(
     IOrderRepository orderRepository) : IRequestHandler<GetUserOrdersQuery, List<Order>>
 {
-    public async Task<CatgaResult<List<Order>>> HandleAsync(
+    public async ValueTask<CatgaResult<List<Order>>> HandleAsync(
         GetUserOrdersQuery request, CancellationToken ct = default)
     {
         var orders = await orderRepository.GetByCustomerIdAsync(request.CustomerId, ct);

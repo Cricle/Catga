@@ -28,6 +28,10 @@ public sealed class NatsFlowStore : IFlowStore
         _streamName = streamName;
     }
 
+    // Encode flow ID for NATS subject (replace special chars)
+    private static string EncodeId(string id) => id.Replace(":", "_C_").Replace("/", "_S_").Replace(".", "_D_");
+    private static string DecodeId(string encoded) => encoded.Replace("_C_", ":").Replace("_S_", "/").Replace("_D_", ".");
+
     private async ValueTask<INatsJSContext> GetJsAsync(CancellationToken ct)
     {
         if (_js != null && _initialized) return _js;
@@ -55,7 +59,7 @@ public sealed class NatsFlowStore : IFlowStore
             return false;
 
         var js = await GetJsAsync(ct);
-        var subject = $"{_streamName}.{state.Id}";
+        var subject = $"{_streamName}.{EncodeId(state.Id)}";
         var data = _serializer.Serialize(state);
 
         try
@@ -77,7 +81,7 @@ public sealed class NatsFlowStore : IFlowStore
             return false;
 
         var js = await GetJsAsync(ct);
-        var subject = $"{_streamName}.{state.Id}";
+        var subject = $"{_streamName}.{EncodeId(state.Id)}";
 
         // Create updated state for serialization (don't modify input until success)
         var newVersion = state.Version + 1;

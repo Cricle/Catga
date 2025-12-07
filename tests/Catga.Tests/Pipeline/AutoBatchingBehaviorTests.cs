@@ -57,7 +57,7 @@ public class AutoBatchingBehaviorTests
         var provider = new DefaultMediatorBatchOptionsProvider(options);
         var behavior = new AutoBatchingBehavior<ManyKeysReq, int>(logger, options, new NoopResilienceProvider(), provider);
 
-        PipelineDelegate<int> next = () => ValueTask.FromResult(CatgaResult<int>.Success(1));
+        PipelineDelegate<int> next = () => new ValueTask<CatgaResult<int>>(CatgaResult<int>.Success(1));
 
         // Wave 1: 50 keys, two entries each to flush
         var tasks1 = new List<Task<CatgaResult<int>>>();
@@ -102,7 +102,7 @@ public class AutoBatchingBehaviorTests
         var behavior = new AutoBatchingBehavior<KeyedReq, int>(logger, options, new NoopResilienceProvider(), provider);
 
         int calls = 0;
-        PipelineDelegate<int> next = () => { Interlocked.Increment(ref calls); return ValueTask.FromResult(CatgaResult<int>.Success(1)); };
+        PipelineDelegate<int> next = () => { Interlocked.Increment(ref calls); return new ValueTask<CatgaResult<int>>(CatgaResult<int>.Success(1)); };
 
         // Two items for shard A, two for shard B -> expect two separate flushes and 4 handler invocations
         var tasks = new List<Task<CatgaResult<int>>>
@@ -130,7 +130,7 @@ public class AutoBatchingBehaviorTests
         var behavior = new AutoBatchingBehavior<DisabledReq, int>(logger, global, new NoopResilienceProvider(), provider);
 
         int calls = 0;
-        PipelineDelegate<int> next = () => { Interlocked.Increment(ref calls); return ValueTask.FromResult(CatgaResult<int>.Success(7)); };
+        PipelineDelegate<int> next = () => { Interlocked.Increment(ref calls); return new ValueTask<CatgaResult<int>>(CatgaResult<int>.Success(7)); };
         var res = await behavior.HandleAsync(new DisabledReq(), next);
         res.IsSuccess.Should().BeTrue();
         calls.Should().Be(1); // executed directly, not queued
@@ -222,7 +222,7 @@ public class AutoBatchingBehaviorTests
         var provider = new NoopResilienceProvider();
         var behavior = new AutoBatchingBehavior<OverflowReq, int>(logger, options, provider);
 
-        PipelineDelegate<int> next = () => ValueTask.FromResult(CatgaResult<int>.Success(1));
+        PipelineDelegate<int> next = () => new ValueTask<CatgaResult<int>>(CatgaResult<int>.Success(1));
         var result = await behavior.HandleAsync(new OverflowReq(), next);
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Contain("overflow");

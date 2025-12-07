@@ -92,13 +92,13 @@ public sealed partial class CompensatingHandlerTests
 
         public CompensatableHandler(CompensationTracker tracker) => _tracker = tracker;
 
-        public Task<CatgaResult<CompensatableResponse1>> HandleAsync(CompensatableCommand1 request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<CompensatableResponse1>> HandleAsync(CompensatableCommand1 request, CancellationToken ct = default)
         {
             if (request.ShouldFail)
             {
-                return Task.FromResult(CatgaResult<CompensatableResponse1>.Failure("Intentional failure"));
+                return new ValueTask<CatgaResult<CompensatableResponse1>>(CatgaResult<CompensatableResponse1>.Failure("Intentional failure"));
             }
-            return Task.FromResult(CatgaResult<CompensatableResponse1>.Success(new CompensatableResponse1()));
+            return new ValueTask<CatgaResult<CompensatableResponse1>>(CatgaResult<CompensatableResponse1>.Success(new CompensatableResponse1()));
         }
     }
 
@@ -108,15 +108,15 @@ public sealed partial class CompensatingHandlerTests
 
         public CompensatableWithCompensationHandler(CompensationTracker tracker) => _tracker = tracker;
 
-        public Task<CatgaResult<CompensatableResponse2>> HandleAsync(CompensatableCommand2 request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<CompensatableResponse2>> HandleAsync(CompensatableCommand2 request, CancellationToken ct = default)
         {
             if (request.ShouldFail)
             {
                 // Simulate compensation
                 _tracker.CompensationCalled = true;
-                return Task.FromResult(CatgaResult<CompensatableResponse2>.Failure("Failed with compensation"));
+                return new ValueTask<CatgaResult<CompensatableResponse2>>(CatgaResult<CompensatableResponse2>.Failure("Failed with compensation"));
             }
-            return Task.FromResult(CatgaResult<CompensatableResponse2>.Success(new CompensatableResponse2()));
+            return new ValueTask<CatgaResult<CompensatableResponse2>>(CatgaResult<CompensatableResponse2>.Success(new CompensatableResponse2()));
         }
     }
 

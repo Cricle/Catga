@@ -21,7 +21,7 @@ public abstract class CompensatingHandler<[DynamicallyAccessedMembers(Dynamicall
         _mediator = mediator;
     }
 
-    public async Task<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken ct = default)
+    public async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken ct = default)
     {
         try
         {
@@ -41,7 +41,7 @@ public abstract class CompensatingHandler<[DynamicallyAccessedMembers(Dynamicall
     }
 
     /// <summary>Implement your business logic here.</summary>
-    protected abstract Task<CatgaResult<TResponse>> HandleCoreAsync(TRequest request, CancellationToken ct);
+    protected abstract ValueTask<CatgaResult<TResponse>> HandleCoreAsync(TRequest request, CancellationToken ct);
 
     /// <summary>Create the compensation event. Override to customize.</summary>
     protected abstract TCompensationEvent? CreateCompensationEvent(TRequest request, Exception ex);
@@ -61,7 +61,7 @@ public abstract class CompensatingHandler<[DynamicallyAccessedMembers(Dynamicall
         _mediator = mediator;
     }
 
-    public async Task<CatgaResult> HandleAsync(TRequest request, CancellationToken ct = default)
+    public async ValueTask<CatgaResult> HandleAsync(TRequest request, CancellationToken ct = default)
     {
         try
         {
@@ -79,7 +79,7 @@ public abstract class CompensatingHandler<[DynamicallyAccessedMembers(Dynamicall
         }
     }
 
-    protected abstract Task<CatgaResult> HandleCoreAsync(TRequest request, CancellationToken ct);
+    protected abstract ValueTask<CatgaResult> HandleCoreAsync(TRequest request, CancellationToken ct);
     protected abstract TCompensationEvent? CreateCompensationEvent(TRequest request, Exception ex);
 }
 

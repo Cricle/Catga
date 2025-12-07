@@ -51,7 +51,7 @@ public class MediatorBatchMetricsTests
         var provider = new MediatorBatchOptions();
         var behavior = new AutoBatchingBehavior<OverflowMetricReq, int>(logger, options, new NoopResilienceProvider());
 
-        PipelineDelegate<int> next = () => ValueTask.FromResult(CatgaResult<int>.Success(1));
+        PipelineDelegate<int> next = () => new ValueTask<CatgaResult<int>>(CatgaResult<int>.Success(1));
         var result = await behavior.HandleAsync(new OverflowMetricReq(), next);
         result.IsSuccess.Should().BeFalse();
 

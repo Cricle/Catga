@@ -132,43 +132,43 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
 {
     private static long _nextUserId = 1000;
 
-    public Task<CatgaResult<CreateUserResponse>> HandleAsync(
+    public ValueTask<CatgaResult<CreateUserResponse>> HandleAsync(
         CreateUserCommand request,
         CancellationToken cancellationToken = default)
     {
         var userId = Interlocked.Increment(ref _nextUserId);
         var response = new CreateUserResponse(userId, request.Name, request.Email);
-        return Task.FromResult(CatgaResult<CreateUserResponse>.Success(response));
+        return new ValueTask<CatgaResult<CreateUserResponse>>(CatgaResult<CreateUserResponse>.Success(response));
     }
 }
 
 public class GetUserQueryHandler : IRequestHandler<GetUserQuery, GetUserResponse>
 {
-    public Task<CatgaResult<GetUserResponse>> HandleAsync(
+    public ValueTask<CatgaResult<GetUserResponse>> HandleAsync(
         GetUserQuery request,
         CancellationToken cancellationToken = default)
     {
         // 模拟从数据库查询
         var response = new GetUserResponse(request.UserId, "MockUser", "mock@example.com");
-        return Task.FromResult(CatgaResult<GetUserResponse>.Success(response));
+        return new ValueTask<CatgaResult<GetUserResponse>>(CatgaResult<GetUserResponse>.Success(response));
     }
 }
 
 public class UserCreatedEventHandler : IEventHandler<UserCreatedEvent>
 {
-    public Task HandleAsync(UserCreatedEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(UserCreatedEvent @event, CancellationToken cancellationToken = default)
     {
         // 模拟事件处理（如保存到事件存储）
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
 public class SendWelcomeEmailHandler : IEventHandler<UserCreatedEvent>
 {
-    public Task HandleAsync(UserCreatedEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(UserCreatedEvent @event, CancellationToken cancellationToken = default)
     {
         // 模拟发送欢迎邮件
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 

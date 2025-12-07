@@ -432,11 +432,11 @@ public class SuccessfulEventHandler : IEventHandler<TestEvent>
     public static int ExecutedCount = 0;
     public static Action<int>? OnExecute = null;
 
-    public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref ExecutedCount);
         OnExecute?.Invoke(@event.Id);
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -444,13 +444,13 @@ public class FailingEventHandler : IEventHandler<TestEvent>
 {
     public static bool ShouldFail = false;
 
-    public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
     {
         if (ShouldFail)
         {
             throw new InvalidOperationException($"Handler failed for event {@event.Id}");
         }
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -461,7 +461,7 @@ public class ThrowingEventHandler : IEventHandler<TestEvent>
     public static Action? OnExecute = null;
     public static Action? OnFinally = null;
 
-    public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -484,7 +484,7 @@ public class SlowEventHandler : IEventHandler<TestEvent>
     public static int CancelledCount = 0;
     public static int DelayMs = 100;
 
-    public async Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+    public async ValueTask HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref ExecutedCount);
         try
@@ -505,7 +505,7 @@ public class IntermittentFailureHandler : IEventHandler<TestEvent>
     public static int FailureCount = 0;
     private static int _counter = 0;
 
-    public Task HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
     {
         var count = Interlocked.Increment(ref _counter);
 
@@ -516,7 +516,7 @@ public class IntermittentFailureHandler : IEventHandler<TestEvent>
         }
 
         Interlocked.Increment(ref SuccessCount);
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -526,12 +526,12 @@ public class MultiHandler1 : IEventHandler<MultiHandlerEvent>
     public static int ExecutedCount = 0;
     public static bool ShouldFail = false;
 
-    public Task HandleAsync(MultiHandlerEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(MultiHandlerEvent @event, CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref ExecutedCount);
         if (ShouldFail)
             throw new InvalidOperationException("MultiHandler1 failed");
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -540,12 +540,12 @@ public class MultiHandler2 : IEventHandler<MultiHandlerEvent>
     public static int ExecutedCount = 0;
     public static bool ShouldFail = false;
 
-    public Task HandleAsync(MultiHandlerEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(MultiHandlerEvent @event, CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref ExecutedCount);
         if (ShouldFail)
             throw new InvalidOperationException("MultiHandler2 failed");
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -554,12 +554,12 @@ public class MultiHandler3 : IEventHandler<MultiHandlerEvent>
     public static int ExecutedCount = 0;
     public static bool ShouldFail = false;
 
-    public Task HandleAsync(MultiHandlerEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(MultiHandlerEvent @event, CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref ExecutedCount);
         if (ShouldFail)
             throw new InvalidOperationException("MultiHandler3 failed");
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -568,12 +568,12 @@ public class FailingMultiHandler : IEventHandler<MultiHandlerEvent>
     public static int ExecutedCount = 0;
     public static bool ShouldFail = false;
 
-    public Task HandleAsync(MultiHandlerEvent @event, CancellationToken cancellationToken = default)
+    public ValueTask HandleAsync(MultiHandlerEvent @event, CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref ExecutedCount);
         if (ShouldFail)
             throw new InvalidOperationException("FailingMultiHandler failed");
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
 

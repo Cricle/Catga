@@ -245,9 +245,9 @@ public sealed partial class ServiceRegistrationE2ETests
 
     private sealed class TestHandler : IRequestHandler<TestCommand, TestResponse>
     {
-        public Task<CatgaResult<TestResponse>> HandleAsync(TestCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<TestResponse>> HandleAsync(TestCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<TestResponse>.Success(new TestResponse { DoubledValue = request.Value * 2 }));
+            return new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse { DoubledValue = request.Value * 2 }));
         }
     }
 
@@ -260,30 +260,30 @@ public sealed partial class ServiceRegistrationE2ETests
     private sealed class TestEventHandler1 : IEventHandler<TestEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(TestEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(TestEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
     private sealed class TestEventHandler2 : IEventHandler<TestEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(TestEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(TestEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
     private sealed class TestEventHandler3 : IEventHandler<TestEvent>
     {
         public static int ReceivedCount;
-        public Task HandleAsync(TestEvent @event, CancellationToken ct = default)
+        public ValueTask HandleAsync(TestEvent @event, CancellationToken ct = default)
         {
             Interlocked.Increment(ref ReceivedCount);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -313,9 +313,9 @@ public sealed partial class ServiceRegistrationE2ETests
             _dependency = dependency;
         }
 
-        public Task<CatgaResult<ScopedResponse>> HandleAsync(ScopedCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<ScopedResponse>> HandleAsync(ScopedCommand request, CancellationToken ct = default)
         {
-            return Task.FromResult(CatgaResult<ScopedResponse>.Success(new ScopedResponse { DependencyId = _dependency.Id }));
+            return new ValueTask<CatgaResult<ScopedResponse>>(CatgaResult<ScopedResponse>.Success(new ScopedResponse { DependencyId = _dependency.Id }));
         }
     }
 

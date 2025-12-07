@@ -419,14 +419,21 @@ var snapshotGroup = app.MapGroup("/api/snapshots").WithTags("Snapshots");
 snapshotGroup.MapPost("/orders/{orderId}", async (
     string orderId,
     IEnhancedSnapshotStore snapshotStore,
-    ITimeTravelService<OrderAggregate> timeTravelService) =>
+    IEventStore eventStore) =>
 {
     var streamId = $"OrderAggregate-{orderId}";
-    var state = await timeTravelService.GetStateAtVersionAsync(orderId, long.MaxValue);
-    if (state == null) return Results.NotFound();
+    var eventStream = await eventStore.ReadAsync(streamId);
+    if (eventStream.Events.Count == 0) return Results.NotFound();
 
-    await snapshotStore.SaveAsync(streamId, state, state.Version);
-    return Results.Ok(new { streamId, version = state.Version, message = "Snapshot created" });
+    // Rebuild aggregate from events
+    var aggregate = new OrderAggregate();
+    foreach (var stored in eventStream.Events)
+    {
+        aggregate.Apply(stored.Event);
+    }
+
+    await snapshotStore.SaveAsync(streamId, aggregate, eventStream.Version);
+    return Results.Ok(new { streamId, version = eventStream.Version, message = "Snapshot created" });
 }).WithDescription("Create a snapshot for an order");
 
 snapshotGroup.MapGet("/orders/{orderId}/history", async (

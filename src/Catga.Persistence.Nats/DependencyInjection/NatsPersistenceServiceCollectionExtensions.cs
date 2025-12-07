@@ -217,6 +217,46 @@ public static class NatsPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Adds NATS KV-based projection checkpoint store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsProjectionCheckpointStore(
+        this IServiceCollection services,
+        string? bucketName = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<IProjectionCheckpointStore>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
+            return new NatsProjectionCheckpointStore(connection, serializer, provider, bucketName ?? "projection-checkpoints");
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds NATS KV-based subscription store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsSubscriptionStore(
+        this IServiceCollection services,
+        string? bucketName = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<ISubscriptionStore>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
+            return new NatsSubscriptionStore(connection, serializer, provider, bucketName ?? "subscriptions");
+        });
+
+        return services;
+    }
+
+    /// <summary>
     /// Adds complete NATS JetStream persistence (EventStore + Outbox + Inbox) to the service collection.
     /// </summary>
     public static IServiceCollection AddNatsPersistence(

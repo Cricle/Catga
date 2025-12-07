@@ -250,4 +250,75 @@ public static class RedisPersistenceServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Add Redis projection checkpoint store.
+    /// </summary>
+    public static IServiceCollection AddRedisProjectionCheckpointStore(
+        this IServiceCollection services,
+        string prefix = "projection:checkpoint:")
+    {
+        services.TryAddSingleton<IProjectionCheckpointStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
+            return new RedisProjectionCheckpointStore(redis, serializer, provider, prefix);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Add Redis subscription store.
+    /// </summary>
+    public static IServiceCollection AddRedisSubscriptionStore(
+        this IServiceCollection services,
+        string prefix = "subscription:")
+    {
+        services.TryAddSingleton<ISubscriptionStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
+            return new RedisSubscriptionStore(redis, serializer, provider, prefix);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Add Redis enhanced snapshot store.
+    /// </summary>
+    public static IServiceCollection AddRedisEnhancedSnapshotStore(
+        this IServiceCollection services,
+        string prefix = "snapshot:enhanced:")
+    {
+        services.TryAddSingleton<IEnhancedSnapshotStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
+            return new RedisEnhancedSnapshotStore(redis, serializer, provider, prefix);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Add Redis audit log store.
+    /// </summary>
+    public static IServiceCollection AddRedisAuditLogStore(
+        this IServiceCollection services,
+        string prefix = "audit:")
+    {
+        services.TryAddSingleton<IAuditLogStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            return new RedisAuditLogStore(redis, serializer, prefix);
+        });
+
+        return services;
+    }
 }

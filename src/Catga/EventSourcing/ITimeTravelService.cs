@@ -77,7 +77,7 @@ public sealed class StateComparison<TAggregate> where TAggregate : class, IAggre
     public long ToVersion { get; init; }
 
     /// <summary>Events between the two versions.</summary>
-    public IReadOnlyList<StoredEvent> EventsBetween { get; init; } = [];
+    public IReadOnlyList<VersionInfo> EventsBetween { get; init; } = [];
 }
 
 /// <summary>
@@ -160,9 +160,10 @@ public sealed class TimeTravelService<[DynamicallyAccessedMembers(DynamicallyAcc
             toState.LoadFromHistory(toStream.Events.Select(e => e.Event));
         }
 
-        // Get events between versions
+        // Get events between versions as VersionInfo
         var eventsBetween = toStream.Events
             .Where(e => e.Version > fromVersion && e.Version <= toVersion)
+            .Select(e => new VersionInfo { Version = e.Version, EventType = e.Event.GetType().Name, Timestamp = e.Timestamp })
             .ToList();
 
         return new StateComparison<TAggregate>

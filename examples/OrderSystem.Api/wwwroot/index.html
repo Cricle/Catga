@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catga Time Travel Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .timeline-line { position: absolute; left: 24px; top: 40px; bottom: 0; width: 2px; background: #e5e7eb; }
+        .timeline-dot { position: absolute; left: 16px; top: 8px; width: 18px; height: 18px; border-radius: 50%; border: 3px solid; background: white; }
+        .event-card { transition: all 0.3s ease; }
+        .event-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .version-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; background: #3b82f6; border-radius: 50%; cursor: pointer; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">
+                <span class="text-blue-600">Catga</span> Time Travel Demo
+            </h1>
+            <p class="text-gray-600">Event Sourcing with temporal queries - reconstruct any historical state</p>
+        </div>
+
+        <!-- Create Demo Order -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-800">Step 1: Create Demo Order</h2>
+                    <p class="text-gray-500 text-sm">Creates an order with 7 events: create, add items, status changes, discount</p>
+                </div>
+                <button id="createBtn" onclick="createDemoOrder()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors">
+                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                    Create Demo Order
+                </button>
+            </div>
+            <div id="createResult" class="mt-4 hidden">
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p class="text-green-800"><strong>Order Created:</strong> <span id="orderId" class="font-mono"></span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Time Travel Controls -->
+        <div id="timeTravelSection" class="hidden">
+            <!-- Version Slider -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Step 2: Travel Through Time</h2>
+                <div class="flex items-center gap-4 mb-4">
+                    <span class="text-gray-600 font-medium">Version:</span>
+                    <input type="range" id="versionSlider" min="0" max="6" value="6"
+                        class="version-slider flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        oninput="updateVersion(this.value)">
+                    <span id="versionDisplay" class="text-2xl font-bold text-blue-600 w-12 text-center">6</span>
+                </div>
+                <div class="flex justify-between text-xs text-gray-400 px-1">
+                    <span>v0 (Created)</span>
+                    <span>v6 (Confirmed)</span>
+                </div>
+            </div>
+
+            <!-- State Display -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Current State -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex items-center gap-2 mb-4">
+                        <i data-lucide="clock" class="w-5 h-5 text-blue-600"></i>
+                        <h3 class="text-lg font-semibold text-gray-800">State at Version <span id="stateVersion" class="text-blue-600">6</span></h3>
+                    </div>
+                    <div id="stateDisplay" class="space-y-3">
+                        <!-- State will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Timeline -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex items-center gap-2 mb-4">
+                        <i data-lucide="git-branch" class="w-5 h-5 text-purple-600"></i>
+                        <h3 class="text-lg font-semibold text-gray-800">Event Timeline</h3>
+                    </div>
+                    <div id="timeline" class="relative space-y-4 pl-10">
+                        <!-- Timeline will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Version Comparison -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <div class="flex items-center gap-2 mb-4">
+                    <i data-lucide="git-compare" class="w-5 h-5 text-orange-600"></i>
+                    <h3 class="text-lg font-semibold text-gray-800">Compare Versions</h3>
+                </div>
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="flex items-center gap-2">
+                        <label class="text-gray-600">From:</label>
+                        <select id="fromVersion" class="border rounded-lg px-3 py-2" onchange="compareVersions()">
+                            <option value="0">v0</option>
+                            <option value="1">v1</option>
+                            <option value="2">v2</option>
+                            <option value="3">v3</option>
+                            <option value="4">v4</option>
+                            <option value="5">v5</option>
+                            <option value="6">v6</option>
+                        </select>
+                    </div>
+                    <i data-lucide="arrow-right" class="w-5 h-5 text-gray-400"></i>
+                    <div class="flex items-center gap-2">
+                        <label class="text-gray-600">To:</label>
+                        <select id="toVersion" class="border rounded-lg px-3 py-2" onchange="compareVersions()">
+                            <option value="0">v0</option>
+                            <option value="1">v1</option>
+                            <option value="2">v2</option>
+                            <option value="3">v3</option>
+                            <option value="4">v4</option>
+                            <option value="5">v5</option>
+                            <option value="6" selected>v6</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="comparisonResult" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Comparison will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center text-gray-500 text-sm mt-8">
+            <p>Powered by <strong>Catga</strong> Event Sourcing Framework</p>
+            <p class="mt-1">
+                <a href="/swagger" class="text-blue-600 hover:underline">API Documentation</a> |
+                <a href="https://github.com/Cricle/Catga" class="text-blue-600 hover:underline">GitHub</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let currentOrderId = null;
+        let timelineData = [];
+
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        async function createDemoOrder() {
+            const btn = document.getElementById('createBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Creating...';
+            lucide.createIcons();
+
+            try {
+                const response = await fetch('/api/timetravel/demo/create', { method: 'POST' });
+                const data = await response.json();
+
+                currentOrderId = data.orderId;
+                document.getElementById('orderId').textContent = currentOrderId;
+                document.getElementById('createResult').classList.remove('hidden');
+                document.getElementById('timeTravelSection').classList.remove('hidden');
+
+                // Load timeline
+                await loadTimeline();
+                await updateVersion(6);
+                await compareVersions();
+
+                btn.innerHTML = '<i data-lucide="check-circle" class="w-5 h-5"></i> Created!';
+                btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                btn.classList.add('bg-green-600');
+            } catch (error) {
+                console.error('Error:', error);
+                btn.innerHTML = '<i data-lucide="x-circle" class="w-5 h-5"></i> Error';
+                btn.classList.add('bg-red-600');
+            }
+
+            lucide.createIcons();
+        }
+
+        async function loadTimeline() {
+            const response = await fetch(`/api/timetravel/orders/${currentOrderId}/timeline`);
+            timelineData = await response.json();
+            renderTimeline();
+        }
+
+        function renderTimeline() {
+            const container = document.getElementById('timeline');
+            const currentVersion = parseInt(document.getElementById('versionSlider').value);
+
+            const eventColors = {
+                'OrderAggregateCreated': 'border-green-500 bg-green-50',
+                'OrderItemAdded': 'border-blue-500 bg-blue-50',
+                'OrderStatusChanged': 'border-purple-500 bg-purple-50',
+                'OrderDiscountApplied': 'border-orange-500 bg-orange-50'
+            };
+
+            const eventIcons = {
+                'OrderAggregateCreated': 'file-plus',
+                'OrderItemAdded': 'shopping-cart',
+                'OrderStatusChanged': 'refresh-cw',
+                'OrderDiscountApplied': 'percent'
+            };
+
+            container.innerHTML = timelineData.map((item, index) => {
+                const isActive = index <= currentVersion;
+                const colorClass = eventColors[item.eventType] || 'border-gray-500 bg-gray-50';
+                const icon = eventIcons[item.eventType] || 'circle';
+
+                return `
+                    <div class="event-card relative ${isActive ? 'opacity-100' : 'opacity-40'} transition-opacity">
+                        <div class="timeline-dot ${isActive ? colorClass.split(' ')[0] : 'border-gray-300'}"></div>
+                        ${index < timelineData.length - 1 ? '<div class="timeline-line"></div>' : ''}
+                        <div class="border rounded-lg p-3 ${isActive ? colorClass : 'bg-gray-50 border-gray-200'}">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="font-medium text-sm">v${item.version}: ${item.eventType.replace('Order', '').replace('Aggregate', '')}</span>
+                                <span class="text-xs text-gray-500">${new Date(item.timestamp).toLocaleTimeString()}</span>
+                            </div>
+                            <div class="text-xs text-gray-600">
+                                Total: $${item.state.totalAmount.toFixed(2)} | Items: ${item.state.itemCount} | ${item.state.status}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        async function updateVersion(version) {
+            document.getElementById('versionDisplay').textContent = version;
+            document.getElementById('stateVersion').textContent = version;
+
+            const response = await fetch(`/api/timetravel/orders/${currentOrderId}/version/${version}`);
+            const state = await response.json();
+
+            const stateDisplay = document.getElementById('stateDisplay');
+            stateDisplay.innerHTML = `
+                <div class="fade-in">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-blue-50 rounded-lg p-3">
+                            <div class="text-xs text-blue-600 uppercase font-medium">Total Amount</div>
+                            <div class="text-2xl font-bold text-blue-800">$${state.totalAmount.toFixed(2)}</div>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-3">
+                            <div class="text-xs text-purple-600 uppercase font-medium">Status</div>
+                            <div class="text-2xl font-bold text-purple-800">${state.status}</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3">
+                        <div class="text-xs text-gray-600 uppercase font-medium mb-2">Items (${state.items.length})</div>
+                        ${state.items.length === 0 ? '<div class="text-gray-400 text-sm">No items yet</div>' :
+                            state.items.map(item => `
+                                <div class="flex justify-between text-sm py-1 border-b border-gray-200 last:border-0">
+                                    <span>${item.productName} x${item.quantity}</span>
+                                    <span class="font-medium">$${(item.price * item.quantity).toFixed(2)}</span>
+                                </div>
+                            `).join('')
+                        }
+                    </div>
+                </div>
+            `;
+
+            renderTimeline();
+        }
+
+        async function compareVersions() {
+            if (!currentOrderId) return;
+
+            const fromVersion = document.getElementById('fromVersion').value;
+            const toVersion = document.getElementById('toVersion').value;
+
+            const response = await fetch(`/api/timetravel/orders/${currentOrderId}/compare/${fromVersion}/${toVersion}`);
+            const data = await response.json();
+
+            const container = document.getElementById('comparisonResult');
+
+            const amountDiff = data.toState.totalAmount - data.fromState.totalAmount;
+            const itemDiff = data.toState.itemCount - data.fromState.itemCount;
+
+            container.innerHTML = `
+                <div class="bg-red-50 rounded-lg p-4 fade-in">
+                    <div class="text-xs text-red-600 uppercase font-medium mb-1">From v${fromVersion}</div>
+                    <div class="text-xl font-bold text-red-800">$${data.fromState.totalAmount.toFixed(2)}</div>
+                    <div class="text-sm text-red-600">${data.fromState.itemCount} items | ${data.fromState.status}</div>
+                </div>
+                <div class="bg-gray-100 rounded-lg p-4 flex flex-col items-center justify-center fade-in">
+                    <div class="text-xs text-gray-500 uppercase font-medium mb-1">${data.eventsBetween.length} Events</div>
+                    <div class="flex items-center gap-2">
+                        <span class="${amountDiff >= 0 ? 'text-green-600' : 'text-red-600'} font-bold">
+                            ${amountDiff >= 0 ? '+' : ''}$${amountDiff.toFixed(2)}
+                        </span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        ${itemDiff >= 0 ? '+' : ''}${itemDiff} items
+                    </div>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 fade-in">
+                    <div class="text-xs text-green-600 uppercase font-medium mb-1">To v${toVersion}</div>
+                    <div class="text-xl font-bold text-green-800">$${data.toState.totalAmount.toFixed(2)}</div>
+                    <div class="text-sm text-green-600">${data.toState.itemCount} items | ${data.toState.status}</div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

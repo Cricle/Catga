@@ -1,7 +1,9 @@
 using Catga;
 using Catga.Abstractions;
 using Catga.DependencyInjection;
+using Catga.EventSourcing;
 using Catga.Pipeline;
+using Catga.Resilience;
 using OrderSystem.Api.Behaviors;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Handlers;
@@ -42,6 +44,9 @@ switch (transport.ToLower())
         builder.Services.AddInMemoryTransport();
         break;
 }
+
+// Resilience pipeline (required for persistence)
+builder.Services.AddSingleton<IResiliencePipelineProvider, DefaultResiliencePipelineProvider>();
 
 // Persistence configuration (env: CATGA_PERSISTENCE = InMemory | Redis)
 var persistence = Environment.GetEnvironmentVariable("CATGA_PERSISTENCE") ?? "InMemory";
@@ -87,6 +92,11 @@ builder.Services.AddSingleton<IEventHandler<OrderCancelledEvent>, OrderCancelled
 builder.Services.AddSingleton<IEventHandler<OrderConfirmedEvent>, OrderConfirmedEventHandler>();
 
 // ============================================
+// Time Travel Service
+// ============================================
+builder.Services.AddTimeTravelService<OrderAggregate>();
+
+// ============================================
 // Swagger & Health Checks
 // ============================================
 builder.Services.AddEndpointsApiExplorer();
@@ -97,6 +107,8 @@ var app = builder.Build();
 
 app.UseSwagger();
 app.UseSwaggerUI();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.MapHealthChecks("/health");
 
@@ -131,6 +143,136 @@ app.MapGet("/api/users/{customerId}/orders", async (string customerId, ICatgaMed
     var result = await mediator.SendAsync<GetUserOrdersQuery, List<Order>>(new(customerId));
     return Results.Ok(result.Value);
 });
+
+// ============================================
+// Time Travel Demo Endpoints
+// ============================================
+var timeTravelGroup = app.MapGroup("/api/timetravel").WithTags("Time Travel");
+
+// Create a demo order with events
+timeTravelGroup.MapPost("/demo/create", async (IEventStore eventStore) =>
+{
+    var orderId = $"order-{Guid.NewGuid():N}"[..16];
+    var streamId = $"OrderAggregate-{orderId}";
+    var msgId = Random.Shared.NextInt64();
+
+    var events = new IEvent[]
+    {
+        new OrderAggregateCreated { MessageId = msgId++, OrderId = orderId, CustomerId = "customer-001", InitialAmount = 0 },
+        new OrderItemAdded { MessageId = msgId++, OrderId = orderId, ProductName = "Laptop", Quantity = 1, Price = 999.99m },
+        new OrderItemAdded { MessageId = msgId++, OrderId = orderId, ProductName = "Mouse", Quantity = 2, Price = 29.99m },
+        new OrderStatusChanged { MessageId = msgId++, OrderId = orderId, NewStatus = "Processing" },
+        new OrderDiscountApplied { MessageId = msgId++, OrderId = orderId, DiscountAmount = 50m },
+        new OrderItemAdded { MessageId = msgId++, OrderId = orderId, ProductName = "Keyboard", Quantity = 1, Price = 79.99m },
+        new OrderStatusChanged { MessageId = msgId++, OrderId = orderId, NewStatus = "Confirmed" }
+    };
+
+    await eventStore.AppendAsync(streamId, events);
+
+    return Results.Ok(new { orderId, eventCount = events.Length, message = "Demo order created with 7 events" });
+}).WithDescription("Create a demo order with multiple events for time travel demonstration");
+
+// Get state at specific version
+timeTravelGroup.MapGet("/orders/{orderId}/version/{version:long}", async (
+    string orderId,
+    long version,
+    ITimeTravelService<OrderAggregate> timeTravelService) =>
+{
+    var state = await timeTravelService.GetStateAtVersionAsync(orderId, version);
+    if (state == null) return Results.NotFound(new { error = "Order not found or version does not exist" });
+
+    return Results.Ok(new
+    {
+        orderId = state.Id,
+        customerId = state.CustomerId,
+        items = state.Items,
+        totalAmount = state.TotalAmount,
+        status = state.Status,
+        version = state.Version,
+        createdAt = state.CreatedAt,
+        updatedAt = state.UpdatedAt
+    });
+}).WithDescription("Get order state at a specific version");
+
+// Get version history
+timeTravelGroup.MapGet("/orders/{orderId}/history", async (
+    string orderId,
+    ITimeTravelService<OrderAggregate> timeTravelService) =>
+{
+    var history = await timeTravelService.GetVersionHistoryAsync(orderId);
+    return Results.Ok(history.Select(h => new
+    {
+        version = h.Version,
+        eventType = h.EventType,
+        timestamp = h.Timestamp
+    }));
+}).WithDescription("Get version history for an order");
+
+// Compare two versions
+timeTravelGroup.MapGet("/orders/{orderId}/compare/{fromVersion:long}/{toVersion:long}", async (
+    string orderId,
+    long fromVersion,
+    long toVersion,
+    ITimeTravelService<OrderAggregate> timeTravelService) =>
+{
+    var comparison = await timeTravelService.CompareVersionsAsync(orderId, fromVersion, toVersion);
+
+    return Results.Ok(new
+    {
+        fromVersion,
+        toVersion,
+        fromState = comparison.FromState == null ? null : new
+        {
+            totalAmount = comparison.FromState.TotalAmount,
+            status = comparison.FromState.Status,
+            itemCount = comparison.FromState.Items.Count
+        },
+        toState = comparison.ToState == null ? null : new
+        {
+            totalAmount = comparison.ToState.TotalAmount,
+            status = comparison.ToState.Status,
+            itemCount = comparison.ToState.Items.Count
+        },
+        eventsBetween = comparison.EventsBetween.Select(e => new
+        {
+            version = e.Version,
+            eventType = e.EventType,
+            timestamp = e.Timestamp
+        })
+    });
+}).WithDescription("Compare order state between two versions");
+
+// Get all versions with full state
+timeTravelGroup.MapGet("/orders/{orderId}/timeline", async (
+    string orderId,
+    ITimeTravelService<OrderAggregate> timeTravelService) =>
+{
+    var history = await timeTravelService.GetVersionHistoryAsync(orderId);
+    var timeline = new List<object>();
+
+    foreach (var h in history)
+    {
+        var state = await timeTravelService.GetStateAtVersionAsync(orderId, h.Version);
+        if (state != null)
+        {
+            timeline.Add(new
+            {
+                version = h.Version,
+                eventType = h.EventType,
+                timestamp = h.Timestamp,
+                state = new
+                {
+                    totalAmount = state.TotalAmount,
+                    status = state.Status,
+                    itemCount = state.Items.Count,
+                    items = state.Items.Select(i => new { i.ProductName, i.Quantity, i.Price })
+                }
+            });
+        }
+    }
+
+    return Results.Ok(timeline);
+}).WithDescription("Get complete timeline with state at each version");
 
 app.Run();
 

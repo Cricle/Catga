@@ -1,9 +1,11 @@
 using Catga.Abstractions;
 using Catga.DeadLetter;
 using Catga.EventSourcing;
+using Catga.Flow;
 using Catga.Inbox;
 using Catga.Observability;
 using Catga.Outbox;
+using Catga.Persistence.InMemory.Flow;
 using Catga.Persistence.InMemory.Stores;
 using Catga.Persistence.Stores;
 using Catga.Resilience;
@@ -208,6 +210,16 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Adds InMemory flow store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddInMemoryFlowStore(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<IFlowStore, InMemoryFlowStore>();
+        return services;
+    }
+
+    /// <summary>
     /// Adds complete InMemory persistence (all stores) to the service collection.
     /// </summary>
     public static IServiceCollection AddInMemoryPersistence(
@@ -223,6 +235,7 @@ public static class InMemoryPersistenceServiceCollectionExtensions
         services.AddInMemoryIdempotencyStore();
         services.AddInMemorySnapshotStore();
         services.AddInMemoryDistributedLock();
+        services.AddInMemoryFlowStore();
 
         return services;
     }

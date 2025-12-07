@@ -169,4 +169,49 @@ public class MessageCompressorTests
 
         decompressed.Should().BeEquivalentTo(original);
     }
+
+    [Fact]
+    public void CompressToBuffer_None_CopiesData()
+    {
+        var data = Encoding.UTF8.GetBytes("Hello");
+        var buffer = new byte[100];
+
+        var length = MessageCompressor.CompressToBuffer(data, buffer, CompressionAlgorithm.None);
+
+        length.Should().Be(data.Length);
+        buffer.Take(length).Should().BeEquivalentTo(data);
+    }
+
+    [Fact]
+    public void CompressToBuffer_GZip_CompressesData()
+    {
+        var data = Encoding.UTF8.GetBytes(new string('A', 500));
+        var buffer = new byte[1000];
+
+        var length = MessageCompressor.CompressToBuffer(data, buffer, CompressionAlgorithm.GZip);
+
+        length.Should().BeLessThan(data.Length);
+        length.Should().BeGreaterThan(5); // Header size
+    }
+
+    [Fact]
+    public void CompressToBuffer_EmptyData_ReturnsZero()
+    {
+        var data = Array.Empty<byte>();
+        var buffer = new byte[100];
+
+        var length = MessageCompressor.CompressToBuffer(data, buffer, CompressionAlgorithm.GZip);
+
+        length.Should().Be(0);
+    }
+
+    [Fact]
+    public void Decompress_TooShortData_ReturnsOriginal()
+    {
+        var data = new byte[] { 1, 2, 3 };
+
+        var result = MessageCompressor.Decompress(data);
+
+        result.Should().BeEquivalentTo(data);
+    }
 }

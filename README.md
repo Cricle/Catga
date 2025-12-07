@@ -11,37 +11,36 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Build](https://github.com/Cricle/Catga/actions/workflows/coverage.yml/badge.svg)](https://github.com/Cricle/Catga/actions/workflows/coverage.yml)
 
-**265ns Latency · 3.7M+ ops/s · Zero Reflection · Source Generated · 200x Faster than MassTransit**
+**Low Memory · Zero Reflection · Source Generated · Native AOT · Distributed Ready**
 
-[Quick Start](#-quick-start) · [Performance](#-performance-vs-masstransit) · [Features](#-features) · [Documentation](https://cricle.github.io/Catga/)
+[Quick Start](#-quick-start) · [Performance](#-performance-benchmarks) · [Features](#-features) · [Documentation](https://cricle.github.io/Catga/)
 
 </div>
 
 ---
 
-## 🚀 Performance vs MassTransit
+## 🚀 Performance Benchmarks
 
-> **Real benchmark data** - Run `dotnet run -c Release` in `benchmarks/Catga.Benchmarks`
+> **Real benchmark data** - Run `dotnet run -c Release --filter *MediatRComparison*` in `benchmarks/Catga.Benchmarks`
 
-### Core Operations (BenchmarkDotNet, .NET 9.0, AMD Ryzen 7 5800H)
+### Catga vs MediatR (Fair Comparison - Both In-Memory)
 
-| Framework | Operation | Latency | Throughput | Memory |
-|-----------|-----------|---------|------------|--------|
-| **Catga** | Command | **265 ns** | **3.77M ops/s** | 32 B |
-| **Catga** | Query | **274 ns** | **3.65M ops/s** | 32 B |
-| **Catga** | Event | **313 ns** | **3.19M ops/s** | 424 B |
-| MassTransit | Request/Response | 20 ms | 4,847 ops/s | ~2 KB |
-| MassTransit | Publish/Consume | 714 ms (avg) | 10,240 ops/s | ~1 KB |
+| Operation | Catga | MediatR | Catga Memory | MediatR Memory |
+|-----------|-------|---------|--------------|----------------|
+| Send Command | 342 ns | 164 ns | **88 B** | 424 B |
+| Send Query | 313 ns | 153 ns | **32 B** | 368 B |
+| Publish Event | 481 ns | 157 ns | 424 B | **288 B** |
+| Batch 100 Commands | 25.6 μs | 13.9 μs | **8.8 KB** | 35.2 KB |
 
-### Performance Comparison
+### Key Insights
 
-| Metric | Catga | MassTransit | Improvement |
-|--------|-------|-------------|-------------|
-| **Latency** | 265 ns | 20 ms | **75,000x faster** |
-| **Throughput** | 3.77M ops/s | 4,847 ops/s | **778x higher** |
-| **Memory** | 32 B/op | ~2 KB/op | **64x less** |
+| Metric | Catga | MediatR | Notes |
+|--------|-------|---------|-------|
+| **Single Op Latency** | ~340 ns | ~160 ns | MediatR faster for simple ops |
+| **Batch Memory** | **8.8 KB** | 35.2 KB | **4x less memory** in batch |
+| **Per-Op Memory** | **32-88 B** | 288-424 B | **3-11x less allocation** |
 
-> MassTransit data from [official benchmark](https://github.com/MassTransit/MassTransit-Benchmark) with RabbitMQ (100 clients, 100K messages)
+> **Note**: MediatR is faster for simple in-memory dispatch. Catga's value is in **distributed scenarios** with Redis/NATS transport, Event Sourcing, Outbox/Inbox patterns, and Native AOT support.
 
 ### Business Scenario Benchmarks
 
@@ -71,7 +70,7 @@
 
 | Feature | Description |
 |---------|-------------|
-| **Ultra Performance** | 265 ns/op, 3.7M+ ops/s, 32 B allocation |
+| **Low Memory** | 32-88 B/op single, 8.8 KB/100 batch (4x less than MediatR) |
 | **Native AOT** | Full support, zero reflection, trimming safe |
 | **Source Generator** | Compile-time handler registration, zero runtime overhead |
 | **Distributed** | Lock, Rate Limiting, Leader Election, Event Sourcing |
@@ -144,32 +143,32 @@ var result = await mediator.SendAsync<CreateOrderCommand, Order>(
 
 ---
 
-## 🎯 Why Catga over MassTransit?
+## 🎯 When to Use Catga
 
-| Aspect | Catga | MassTransit |
-|--------|-------|-------------|
-| **Design Goal** | Ultra low-latency, high-throughput | Feature-rich, enterprise patterns |
-| **Latency** | Nanoseconds (265 ns) | Milliseconds (20+ ms) |
-| **Throughput** | Millions ops/s | Thousands ops/s |
-| **Memory** | Minimal allocation (32 B) | Higher allocation (~2 KB) |
-| **AOT Support** | Full Native AOT | Limited |
-| **Reflection** | Zero (source generated) | Heavy use |
-| **Use Case** | Real-time, gaming, trading, IoT | Traditional enterprise messaging |
+| Aspect | Catga | MediatR |
+|--------|-------|---------|
+| **Memory Efficiency** | **32-88 B/op** | 288-424 B/op |
+| **Batch Memory** | **8.8 KB/100 ops** | 35.2 KB/100 ops |
+| **Native AOT** | ✅ Full support | ⚠️ Limited |
+| **Reflection** | Zero (source generated) | Uses reflection |
+| **Distributed** | ✅ Redis, NATS, Event Sourcing | ❌ In-memory only |
+| **Reliability** | ✅ Outbox/Inbox, DLQ, Idempotency | ❌ Not included |
 
-### When to use Catga
+### Choose Catga When
 
-- ✅ Need sub-millisecond latency
-- ✅ High-frequency trading, gaming, real-time systems
-- ✅ Native AOT deployment (containers, serverless)
-- ✅ Memory-constrained environments
-- ✅ Millions of messages per second
+- ✅ Need **distributed messaging** (Redis Streams, NATS JetStream)
+- ✅ Building **event-sourced** systems
+- ✅ Require **exactly-once delivery** (Outbox/Inbox pattern)
+- ✅ **Native AOT** deployment (containers, serverless)
+- ✅ **Memory-constrained** environments (4x less batch memory)
+- ✅ Need **observability** (OpenTelemetry tracing, metrics)
 
-### When to use MassTransit
+### Choose MediatR When
 
-- ✅ Need saga/state machine patterns
-- ✅ Complex routing and topology
-- ✅ Multi-broker support (RabbitMQ, Azure Service Bus, Amazon SQS)
-- ✅ Established enterprise patterns
+- ✅ Simple **in-memory** mediator pattern
+- ✅ Need **fastest single-operation latency**
+- ✅ No distributed requirements
+- ✅ Existing MediatR codebase
 
 ---
 

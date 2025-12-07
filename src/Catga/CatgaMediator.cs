@@ -6,6 +6,7 @@ using Catga.Observability;
 using Catga.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -20,6 +21,10 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
     private readonly ILogger<CatgaMediator> _logger;
     private readonly bool _enableLogging;
     private readonly bool _enableTracing;
+
+    // Static handler cache - shared across all CatgaMediator instances
+    private static readonly ConcurrentDictionary<Type, object?> _handlerCache = new();
+    private static readonly ConcurrentDictionary<Type, object?> _behaviorCache = new();
 
     public CatgaMediator(
         IServiceProvider serviceProvider,
@@ -60,17 +65,16 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
         try
         {
-            // All handlers and behaviors are now Singleton - no scope creation needed
-            var handler = _serviceProvider.GetService<IRequestHandler<TRequest, TResponse>>();
+            // Fast-path: get handler from static cache
+            var handler = GetCachedHandler<TRequest, TResponse>();
             if (handler == null)
             {
                 if (_enableTracing) ObservabilityHooks.RecordCommandError(reqType ?? TypeNameCache<TRequest>.Name, new HandlerNotFoundException(TypeNameCache<TRequest>.Name), activity);
                 return CatgaResult<TResponse>.Failure($"No handler for {TypeNameCache<TRequest>.Name}", new HandlerNotFoundException(TypeNameCache<TRequest>.Name));
             }
 
-            // Fast-path: no pipeline behaviors
-            var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
-            var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToArray();
+            // Fast-path: get behaviors from static cache
+            var behaviorsList = GetCachedBehaviors<TRequest, TResponse>();
 
             if (behaviorsList.Count == 0)
                 return await ExecuteRequestDirectAsync(handler, request, cancellationToken).ConfigureAwait(false);
@@ -386,5 +390,40 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         {
             return CatgaResult<TResponse>.Failure($"Handler failed: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Get handler from static cache (first access resolves and caches)
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IRequestHandler<TRequest, TResponse>? GetCachedHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>()
+        where TRequest : IRequest<TResponse>
+    {
+        var key = typeof(TRequest);
+        if (_handlerCache.TryGetValue(key, out var cached))
+            return cached as IRequestHandler<TRequest, TResponse>;
+
+        // First access: resolve and cache
+        var handler = _serviceProvider.GetService<IRequestHandler<TRequest, TResponse>>();
+        _handlerCache.TryAdd(key, handler);
+        return handler;
+    }
+
+    /// <summary>
+    /// Get behaviors from static cache (first access resolves and caches)
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IList<IPipelineBehavior<TRequest, TResponse>> GetCachedBehaviors<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>()
+        where TRequest : IRequest<TResponse>
+    {
+        var key = typeof(TRequest);
+        if (_behaviorCache.TryGetValue(key, out var cached))
+            return (cached as IList<IPipelineBehavior<TRequest, TResponse>>) ?? Array.Empty<IPipelineBehavior<TRequest, TResponse>>();
+
+        // First access: resolve and cache
+        var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
+        var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToArray();
+        _behaviorCache.TryAdd(key, behaviorsList);
+        return behaviorsList;
     }
 }

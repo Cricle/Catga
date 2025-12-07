@@ -128,6 +128,162 @@ public class AttributeDrivenBehaviorTests
     {
         public long MessageId { get; init; } = DateTime.UtcNow.Ticks;
     }
+
+    [Timeout(5)]
+    public record TimeoutRequest : IRequest<string>
+    {
+        public long MessageId { get; init; } = DateTime.UtcNow.Ticks;
+    }
+
+    [CircuitBreaker(FailureThreshold = 3, BreakDurationSeconds = 10)]
+    public record CircuitBreakerRequest : IRequest<string>
+    {
+        public long MessageId { get; init; } = DateTime.UtcNow.Ticks;
+    }
+
+    [Idempotent(Key = "{request.Id}")]
+    [Retry(MaxAttempts = 2, DelayMs = 5)]
+    public record CombinedRequest : IRequest<string>
+    {
+        public long MessageId { get; init; } = DateTime.UtcNow.Ticks;
+        public string Id { get; init; } = "";
+    }
+}
+
+public class AttributeDrivenBehaviorAdditionalTests
+{
+    [Fact]
+    public async Task HandleAsync_WithTimeout_ExecutesWithinTimeout()
+    {
+        // Arrange
+        var behavior = new AttributeDrivenBehavior<AttributeDrivenBehaviorTests.TimeoutRequest, string>(
+            NullLogger<AttributeDrivenBehavior<AttributeDrivenBehaviorTests.TimeoutRequest, string>>.Instance);
+        var request = new AttributeDrivenBehaviorTests.TimeoutRequest();
+
+        // Act
+        var result = await behavior.HandleAsync(request, () =>
+            new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("ok")));
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal("ok", result.Value);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithCircuitBreaker_ExecutesNormally()
+    {
+        // Arrange
+        var behavior = new AttributeDrivenBehavior<AttributeDrivenBehaviorTests.CircuitBreakerRequest, string>(
+            NullLogger<AttributeDrivenBehavior<AttributeDrivenBehaviorTests.CircuitBreakerRequest, string>>.Instance);
+        var request = new AttributeDrivenBehaviorTests.CircuitBreakerRequest();
+
+        // Act
+        var result = await behavior.HandleAsync(request, () =>
+            new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("ok")));
+
+        // Assert
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithCombinedAttributes_AppliesAll()
+    {
+        // Arrange
+        var store = new InMemoryIdempotencyStore2();
+        var behavior = new AttributeDrivenBehavior<AttributeDrivenBehaviorTests.CombinedRequest, string>(
+            NullLogger<AttributeDrivenBehavior<AttributeDrivenBehaviorTests.CombinedRequest, string>>.Instance,
+            store);
+        var request = new AttributeDrivenBehaviorTests.CombinedRequest { Id = "combined-1" };
+        var callCount = 0;
+
+        // Act - first call
+        var result1 = await behavior.HandleAsync(request, () =>
+        {
+            callCount++;
+            return new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("result"));
+        });
+
+        // Act - second call with same key
+        var result2 = await behavior.HandleAsync(request, () =>
+        {
+            callCount++;
+            return new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("result2"));
+        });
+
+        // Assert
+        Assert.True(result1.IsSuccess);
+        Assert.True(result2.IsSuccess);
+        Assert.Equal(1, callCount); // Only called once due to idempotency
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithDistributedLock_FailsWhenLockNotAcquired()
+    {
+        // Arrange
+        var lockProvider = new FailingLockProvider();
+        var behavior = new AttributeDrivenBehavior<AttributeDrivenBehaviorTests.LockedRequest, string>(
+            NullLogger<AttributeDrivenBehavior<AttributeDrivenBehaviorTests.LockedRequest, string>>.Instance,
+            lockProvider: lockProvider);
+        var request = new AttributeDrivenBehaviorTests.LockedRequest { ResourceId = "res-fail" };
+
+        // Act
+        var result = await behavior.HandleAsync(request, () =>
+            new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("ok")));
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Contains("lock", result.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithCancellationToken_PassesToNext()
+    {
+        // Arrange
+        var behavior = new AttributeDrivenBehavior<AttributeDrivenBehaviorTests.PlainRequest, string>(
+            NullLogger<AttributeDrivenBehavior<AttributeDrivenBehaviorTests.PlainRequest, string>>.Instance);
+        var request = new AttributeDrivenBehaviorTests.PlainRequest();
+        var cts = new CancellationTokenSource();
+        var tokenReceived = false;
+
+        // Act
+        var result = await behavior.HandleAsync(request, () =>
+        {
+            tokenReceived = true;
+            return new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success("ok"));
+        }, cts.Token);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.True(tokenReceived);
+    }
+}
+
+// Simple in-memory idempotency store for testing
+file class InMemoryIdempotencyStore2 : IIdempotencyStore
+{
+    private readonly Dictionary<long, object?> _cache = new();
+
+    public Task<bool> HasBeenProcessedAsync(long messageId, CancellationToken ct = default)
+        => Task.FromResult(_cache.ContainsKey(messageId));
+
+    public Task MarkAsProcessedAsync<T>(long messageId, T? result, CancellationToken ct = default)
+    {
+        _cache[messageId] = result;
+        return Task.CompletedTask;
+    }
+
+    public Task<T?> GetCachedResultAsync<T>(long messageId, CancellationToken ct = default)
+    {
+        if (_cache.TryGetValue(messageId, out var value))
+            return Task.FromResult((T?)value);
+        return Task.FromResult(default(T));
+    }
+}
+
+file class FailingLockProvider : IDistributedLockProvider
+{
+    public ValueTask<IAsyncDisposable?> AcquireAsync(string key, TimeSpan timeout, TimeSpan wait, CancellationToken ct = default)
+        => new((IAsyncDisposable?)null);
 }
 
 // Simple in-memory idempotency store for testing

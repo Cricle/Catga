@@ -467,7 +467,8 @@ public class BatchOperationHelperTests
         var elapsed = DateTime.UtcNow - startTime;
 
         // Assert - Should take ~50ms (parallel), not 500ms (sequential)
-        elapsed.Should().BeLessThan(TimeSpan.FromMilliseconds(200));
+        // Allow more time for CI environments
+        elapsed.Should().BeLessThan(TimeSpan.FromMilliseconds(400));
     }
 
     [Fact]

@@ -101,7 +101,7 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
         if (enabled)
         {
             // Register distributed tracing behavior for rich trace data in Jaeger
-            Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.DistributedTracingBehavior<,>));
+            Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.DistributedTracingBehavior<,>));
             ObservabilityHooks.Enable();
         }
 
@@ -183,13 +183,13 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
 
     public CatgaServiceBuilder UseInbox()
     {
-        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.InboxBehavior<,>));
+        Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.InboxBehavior<,>));
         return this;
     }
 
     public CatgaServiceBuilder UseOutbox()
     {
-        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.OutboxBehavior<,>));
+        Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.OutboxBehavior<,>));
         return this;
     }
 
@@ -205,7 +205,7 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
     /// </summary>
     public CatgaServiceBuilder UseAutoCompensation()
     {
-        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.CompensationBehavior<,>));
+        Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.CompensationBehavior<,>));
         return this;
     }
 
@@ -238,7 +238,7 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
             Services.TryAddSingleton<CatgaResilienceOptions>(_ => new CatgaResilienceOptions());
             Services.TryAddSingleton<IResiliencePipelineProvider>(sp => new DefaultResiliencePipelineProvider(sp.GetRequiredService<CatgaResilienceOptions>()));
 
-            Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.AutoBatchingBehavior<,>));
+            Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.AutoBatchingBehavior<,>));
         }
 
         return this;

@@ -60,39 +60,24 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
         try
         {
-            // Optimize: Try to resolve Singleton handler first (skip CreateScope for performance)
-            var singletonHandler = _serviceProvider.GetService<IRequestHandler<TRequest, TResponse>>();
-
-            if (singletonHandler != null)
-            {
-                // Ultra fast-path: if there are no pipeline behaviors, skip scope creation entirely
-                var behaviorsEnum = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>().GetEnumerator();
-                try
-                {
-                    if (!behaviorsEnum.MoveNext())
-                        return await ExecuteRequestDirectAsync(singletonHandler, request, cancellationToken).ConfigureAwait(false);
-                }
-                finally { behaviorsEnum.Dispose(); }
-
-                // Behaviors exist: create scope so they can resolve scoped dependencies
-                using var singletonScope = _serviceProvider.CreateScope();
-                return await ExecuteRequestWithMetricsAsync(singletonHandler, request,
-                    singletonScope.ServiceProvider, activity as Activity, request, reqType, startTimestamp, cancellationToken);
-            }
-
-            // Standard path: Scoped/Transient handler
-            using var scope = _serviceProvider.CreateScope();
-            var scopedProvider = scope.ServiceProvider;
-
-            var handler = scopedProvider.GetService<IRequestHandler<TRequest, TResponse>>();
+            // All handlers and behaviors are now Singleton - no scope creation needed
+            var handler = _serviceProvider.GetService<IRequestHandler<TRequest, TResponse>>();
             if (handler == null)
             {
                 if (_enableTracing) ObservabilityHooks.RecordCommandError(reqType ?? TypeNameCache<TRequest>.Name, new HandlerNotFoundException(TypeNameCache<TRequest>.Name), activity);
                 return CatgaResult<TResponse>.Failure($"No handler for {TypeNameCache<TRequest>.Name}", new HandlerNotFoundException(TypeNameCache<TRequest>.Name));
             }
 
+            // Fast-path: no pipeline behaviors
+            var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
+            var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToArray();
+
+            if (behaviorsList.Count == 0)
+                return await ExecuteRequestDirectAsync(handler, request, cancellationToken).ConfigureAwait(false);
+
+            // Execute with pipeline behaviors
             return await ExecuteRequestWithMetricsAsync(handler, request,
-                scopedProvider, activity as Activity, request, reqType, startTimestamp, cancellationToken);
+                _serviceProvider, activity as Activity, request, reqType, startTimestamp, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -163,8 +148,8 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
     public async ValueTask<CatgaResult> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest
     {
-        using var scope = _serviceProvider.CreateScope();
-        var handler = scope.ServiceProvider.GetService<IRequestHandler<TRequest>>();
+        // All handlers are now Singleton - no scope creation needed
+        var handler = _serviceProvider.GetService<IRequestHandler<TRequest>>();
         if (handler == null)
             return CatgaResult.Failure($"No handler for {TypeNameCache<TRequest>.Name}", new HandlerNotFoundException(TypeNameCache<TRequest>.Name));
         return await handler.HandleAsync(request, cancellationToken);
@@ -181,12 +166,11 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
         if (_enableLogging) CatgaLog.EventPublishing(_logger, eventType!, @event.MessageId);
 
-        using var scope = _serviceProvider.CreateScope();
-        var scopedProvider = scope.ServiceProvider;
+        // All handlers are now Singleton - no scope creation needed
 
         // Fast-path: use generated router if available
-        var generatedRouter = scopedProvider.GetService<IGeneratedEventRouter>();
-        if (generatedRouter != null && generatedRouter.TryRoute(scopedProvider, @event, cancellationToken, out var dispatchedTask))
+        var generatedRouter = _serviceProvider.GetService<IGeneratedEventRouter>();
+        if (generatedRouter != null && generatedRouter.TryRoute(_serviceProvider, @event, cancellationToken, out var dispatchedTask))
         {
             if (dispatchedTask != null)
                 await dispatchedTask.ConfigureAwait(false);
@@ -195,7 +179,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         }
 
         // Enumerate handlers without allocating a List
-        var handlersEnumerable = scopedProvider.GetServices<IEventHandler<TEvent>>();
+        var handlersEnumerable = _serviceProvider.GetServices<IEventHandler<TEvent>>();
         var pool = ArrayPool<IEventHandler<TEvent>>.Shared;
         var arr = pool.Rent(8);
         var count = 0;

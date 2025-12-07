@@ -81,7 +81,14 @@ jobs:
           export CATGA_TRANSPORT=InMemory
           export CATGA_PERSISTENCE=InMemory
           dotnet run --project examples/OrderSystem.Api -c Release --no-build &
-          sleep 5
+          # Wait for app to be ready
+          for i in {1..30}; do
+            if curl -s http://localhost:5275/health > /dev/null 2>&1; then
+              echo "App is ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
           echo "Health endpoint:"
           ab -n 1000 -c 20 http://localhost:5275/health 2>&1 | grep -E "(Requests per second|Time per request.*mean\))"
           echo "Orders endpoint:"
@@ -96,7 +103,13 @@ jobs:
           export CATGA_PERSISTENCE=Redis
           export REDIS_CONNECTION=localhost:6379
           dotnet run --project examples/OrderSystem.Api -c Release --no-build &
-          sleep 5
+          for i in {1..30}; do
+            if curl -s http://localhost:5275/health > /dev/null 2>&1; then
+              echo "App is ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
           echo "Health endpoint:"
           ab -n 1000 -c 20 http://localhost:5275/health 2>&1 | grep -E "(Requests per second|Time per request.*mean\))"
           echo "Orders endpoint:"
@@ -111,7 +124,13 @@ jobs:
           export CATGA_PERSISTENCE=InMemory
           export NATS_URL=nats://localhost:4222
           dotnet run --project examples/OrderSystem.Api -c Release --no-build &
-          sleep 5
+          for i in {1..30}; do
+            if curl -s http://localhost:5275/health > /dev/null 2>&1; then
+              echo "App is ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
           echo "Health endpoint:"
           ab -n 1000 -c 20 http://localhost:5275/health 2>&1 | grep -E "(Requests per second|Time per request.*mean\))"
           echo "Orders endpoint:"
@@ -127,7 +146,13 @@ jobs:
           export REDIS_CONNECTION=localhost:6379
           export NATS_URL=nats://localhost:4222
           dotnet run --project examples/OrderSystem.Api -c Release --no-build &
-          sleep 5
+          for i in {1..30}; do
+            if curl -s http://localhost:5275/health > /dev/null 2>&1; then
+              echo "App is ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
           echo "Health endpoint:"
           ab -n 1000 -c 20 http://localhost:5275/health 2>&1 | grep -E "(Requests per second|Time per request.*mean\))"
           echo "Orders endpoint:"

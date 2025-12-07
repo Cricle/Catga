@@ -1,14 +1,20 @@
 using Catga.Abstractions;
 using Catga.EventSourcing;
+using Catga.Flow;
+using Catga.Flow.Dsl;
 using Catga.Inbox;
 using Catga.Outbox;
 using Catga.Persistence;
 using Catga.Persistence.Stores;
+using Catga.Persistence.Nats.Flow;
+using Catga.Persistence.Nats.Stores;
 using Catga.DeadLetter;
 using Catga.Idempotency;
 using Catga.Persistence.Nats;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using Catga.Resilience;
 
@@ -147,6 +153,70 @@ public static class NatsPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Adds NATS KV-based flow store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsFlowStore(
+        this IServiceCollection services,
+        string? bucketName = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<IFlowStore>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            return new NatsFlowStore(connection, serializer, bucketName ?? "flows");
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds NATS KV-based DSL flow store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsDslFlowStore(
+        this IServiceCollection services,
+        string? bucketName = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<IDslFlowStore>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            return new NatsDslFlowStore(connection, serializer, bucketName ?? "dslflows");
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds NATS KV-based snapshot store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsSnapshotStore(
+        this IServiceCollection services,
+        Action<SnapshotOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        if (configure != null)
+            services.Configure(configure);
+        else
+            services.TryAddSingleton(Options.Create(new SnapshotOptions()));
+
+        services.TryAddSingleton<ISnapshotStore>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var options = sp.GetRequiredService<IOptions<SnapshotOptions>>();
+            var logger = sp.GetRequiredService<ILogger<NatsSnapshotStore>>();
+            return new NatsSnapshotStore(connection, serializer, options, logger);
+        });
+
+        return services;
+    }
+
+    /// <summary>
     /// Adds complete NATS JetStream persistence (EventStore + Outbox + Inbox) to the service collection.
     /// </summary>
     public static IServiceCollection AddNatsPersistence(
@@ -163,6 +233,9 @@ public static class NatsPersistenceServiceCollectionExtensions
         services.AddNatsInboxStore(options.InboxStreamName);
         services.AddNatsDeadLetterQueue();
         services.AddNatsIdempotencyStore();
+        services.AddNatsFlowStore(options.FlowBucketName);
+        services.AddNatsDslFlowStore(options.DslFlowBucketName);
+        services.AddNatsSnapshotStore();
 
         return services;
     }
@@ -187,6 +260,16 @@ public sealed class NatsPersistenceOptions
     /// JetStream stream name for Inbox Store (default: "CATGA_INBOX")
     /// </summary>
     public string? InboxStreamName { get; set; }
+
+    /// <summary>
+    /// KV bucket name for Flow Store (default: "flows")
+    /// </summary>
+    public string? FlowBucketName { get; set; }
+
+    /// <summary>
+    /// KV bucket name for DSL Flow Store (default: "dslflows")
+    /// </summary>
+    public string? DslFlowBucketName { get; set; }
 
     /// <summary>
     /// Store options for Event Store

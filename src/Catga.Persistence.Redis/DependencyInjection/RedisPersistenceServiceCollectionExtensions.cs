@@ -6,7 +6,10 @@ using Catga.Persistence.Redis;
 using Catga.Persistence.Redis.Locking;
 using Catga.Persistence.Redis.RateLimiting;
 using Catga.Persistence.Redis.Flow;
+using Catga.Persistence.Redis.Stores;
+using Catga.Flow;
 using Catga.Flow.Dsl;
+using Catga.EventSourcing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Catga.Abstractions;
@@ -164,6 +167,46 @@ public static class RedisPersistenceServiceCollectionExtensions
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
             var serializer = sp.GetRequiredService<IMessageSerializer>();
             return new RedisDslFlowStore(redis, serializer, prefix);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Add Redis flow store for saga/flow state management.
+    /// </summary>
+    public static IServiceCollection AddRedisFlowStore(
+        this IServiceCollection services,
+        string prefix = "flow:")
+    {
+        services.TryAddSingleton<IFlowStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            return new RedisFlowStore(redis, prefix);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Add Redis snapshot store for event sourcing.
+    /// </summary>
+    public static IServiceCollection AddRedisSnapshotStore(
+        this IServiceCollection services,
+        Action<SnapshotOptions>? configure = null)
+    {
+        if (configure != null)
+            services.Configure(configure);
+        else
+            services.TryAddSingleton(Options.Create(new SnapshotOptions()));
+
+        services.TryAddSingleton<ISnapshotStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var options = sp.GetRequiredService<IOptions<SnapshotOptions>>();
+            var logger = sp.GetRequiredService<ILogger<RedisSnapshotStore>>();
+            return new RedisSnapshotStore(redis, serializer, options, logger);
         });
 
         return services;

@@ -430,7 +430,177 @@ public class CatgaMediatorAdditionalTests
         true.Should().BeTrue();
     }
 
+    // ==================== SendBatchAsync Tests ====================
+
+    [Fact]
+    public async Task SendBatchAsync_WithValidRequests_ReturnsAllResults()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddScoped<IRequestHandler<TestCommand, TestResponse>, TestCommandHandler>();
+        services.AddSingleton<IDistributedIdGenerator, SnowflakeIdGenerator>();
+        var sp = services.BuildServiceProvider();
+        var mediator = new CatgaMediator(sp, sp.GetRequiredService<ILogger<CatgaMediator>>());
+
+        var requests = new List<TestCommand>
+        {
+            new() { Data = "batch1" },
+            new() { Data = "batch2" },
+            new() { Data = "batch3" }
+        };
+
+        // Act
+        var results = await mediator.SendBatchAsync<TestCommand, TestResponse>(requests);
+
+        // Assert
+        results.Should().HaveCount(3);
+        results.Should().OnlyContain(r => r.IsSuccess);
+    }
+
+    [Fact]
+    public async Task SendBatchAsync_WithNullRequests_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var sp = services.BuildServiceProvider();
+        var mediator = new CatgaMediator(sp, sp.GetRequiredService<ILogger<CatgaMediator>>());
+
+        // Act
+        Func<Task> act = async () => await mediator.SendBatchAsync<TestCommand, TestResponse>(null!);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task SendBatchAsync_WithCancellation_ThrowsOperationCanceledException()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var sp = services.BuildServiceProvider();
+        var mediator = new CatgaMediator(sp, sp.GetRequiredService<ILogger<CatgaMediator>>());
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act
+        Func<Task> act = async () => await mediator.SendBatchAsync<TestCommand, TestResponse>(
+            new List<TestCommand> { new() { Data = "test" } }, cts.Token);
+
+        // Assert
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    // ==================== SendStreamAsync Tests ====================
+
+    [Fact]
+    public async Task SendStreamAsync_WithValidRequests_ReturnsAllResults()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddScoped<IRequestHandler<TestCommand, TestResponse>, TestCommandHandler>();
+        services.AddSingleton<IDistributedIdGenerator, SnowflakeIdGenerator>();
+        var sp = services.BuildServiceProvider();
+        var mediator = new CatgaMediator(sp, sp.GetRequiredService<ILogger<CatgaMediator>>());
+
+        async IAsyncEnumerable<TestCommand> GetRequests()
+        {
+            yield return new TestCommand { Data = "stream1" };
+            yield return new TestCommand { Data = "stream2" };
+            await Task.Yield();
+        }
+
+        // Act
+        var results = new List<CatgaResult<TestResponse>>();
+        await foreach (var result in mediator.SendStreamAsync<TestCommand, TestResponse>(GetRequests()))
+        {
+            results.Add(result);
+        }
+
+        // Assert
+        results.Should().HaveCount(2);
+        results.Should().OnlyContain(r => r.IsSuccess);
+    }
+
+    [Fact]
+    public async Task SendStreamAsync_WithNullRequests_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var sp = services.BuildServiceProvider();
+        var mediator = new CatgaMediator(sp, sp.GetRequiredService<ILogger<CatgaMediator>>());
+
+        // Act
+        Func<Task> act = async () =>
+        {
+            await foreach (var _ in mediator.SendStreamAsync<TestCommand, TestResponse>(null!))
+            {
+            }
+        };
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    // ==================== PublishBatchAsync Tests ====================
+
+    [Fact]
+    public async Task PublishBatchAsync_WithValidEvents_PublishesAll()
+    {
+        // Arrange
+        var handlerCallCount = 0;
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddScoped<IEventHandler<TestEvent>>(_ => new CountingEventHandler(() => Interlocked.Increment(ref handlerCallCount)));
+        var sp = services.BuildServiceProvider();
+        var mediator = new CatgaMediator(sp, sp.GetRequiredService<ILogger<CatgaMediator>>());
+
+        var events = new List<TestEvent>
+        {
+            new() { Data = "event1" },
+            new() { Data = "event2" },
+            new() { Data = "event3" }
+        };
+
+        // Act
+        await mediator.PublishBatchAsync(events);
+
+        // Assert
+        handlerCallCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task PublishBatchAsync_WithNullEvents_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var sp = services.BuildServiceProvider();
+        var mediator = new CatgaMediator(sp, sp.GetRequiredService<ILogger<CatgaMediator>>());
+
+        // Act
+        Func<Task> act = async () => await mediator.PublishBatchAsync<TestEvent>(null!);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
     // ==================== Test Helpers ====================
+
+    public class CountingEventHandler : IEventHandler<TestEvent>
+    {
+        private readonly Action _onHandle;
+        public CountingEventHandler(Action onHandle) => _onHandle = onHandle;
+        public ValueTask HandleAsync(TestEvent @event, CancellationToken cancellationToken = default)
+        {
+            _onHandle();
+            return ValueTask.CompletedTask;
+        }
+    }
 
     public record TestCommand : IRequest<TestResponse>, IMessage
     {

@@ -113,6 +113,131 @@ public class IdempotencyBehaviorTests
             .DidNotReceive()
             .MarkAsProcessedAsync(Arg.Any<long>(), Arg.Any<CatgaResult<TestResponse>>(), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task HandleAsync_WithCachedNullResult_ShouldReturnCachedNull()
+    {
+        // Arrange
+        var idempotencyStore = Substitute.For<IIdempotencyStore>();
+        var logger = NullLogger<IdempotencyBehavior<TestRequest, TestResponse>>.Instance;
+        var behavior = new IdempotencyBehavior<TestRequest, TestResponse>(idempotencyStore, logger);
+
+        var request = new TestRequest("test");
+
+        idempotencyStore
+            .HasBeenProcessedAsync(Arg.Any<long>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        idempotencyStore
+            .GetCachedResultAsync<TestResponse>(Arg.Any<long>(), Arg.Any<CancellationToken>())
+            .Returns((TestResponse?)null);
+
+        PipelineDelegate<TestResponse> next = () =>
+            new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse("New")));
+
+        // Act
+        var result = await behavior.HandleAsync(request, next);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithCancellationToken_ShouldPassToStore()
+    {
+        // Arrange
+        var idempotencyStore = Substitute.For<IIdempotencyStore>();
+        var logger = NullLogger<IdempotencyBehavior<TestRequest, TestResponse>>.Instance;
+        var behavior = new IdempotencyBehavior<TestRequest, TestResponse>(idempotencyStore, logger);
+
+        var request = new TestRequest("test");
+        var cts = new CancellationTokenSource();
+
+        idempotencyStore
+            .HasBeenProcessedAsync(Arg.Any<long>(), cts.Token)
+            .Returns(false);
+
+        PipelineDelegate<TestResponse> next = () =>
+            new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse("Result")));
+
+        // Act
+        await behavior.HandleAsync(request, next, cts.Token);
+
+        // Assert
+        await idempotencyStore.Received(1).HasBeenProcessedAsync(Arg.Any<long>(), cts.Token);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithFailedResult_ShouldNotCache()
+    {
+        // Arrange
+        var idempotencyStore = Substitute.For<IIdempotencyStore>();
+        var logger = NullLogger<IdempotencyBehavior<TestRequest, TestResponse>>.Instance;
+        var behavior = new IdempotencyBehavior<TestRequest, TestResponse>(idempotencyStore, logger);
+
+        var request = new TestRequest("test");
+
+        idempotencyStore
+            .HasBeenProcessedAsync(Arg.Any<long>(), Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        PipelineDelegate<TestResponse> next = () =>
+            new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Failure("Error"));
+
+        // Act
+        var result = await behavior.HandleAsync(request, next);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        await idempotencyStore
+            .DidNotReceive()
+            .MarkAsProcessedAsync(Arg.Any<long>(), Arg.Any<TestResponse>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_MultipleCallsWithSameMessageId_ShouldReturnCached()
+    {
+        // Arrange
+        var idempotencyStore = Substitute.For<IIdempotencyStore>();
+        var logger = NullLogger<IdempotencyBehavior<TestRequest, TestResponse>>.Instance;
+        var behavior = new IdempotencyBehavior<TestRequest, TestResponse>(idempotencyStore, logger);
+
+        var messageId = 12345L;
+        var request = new TestRequest("test") { MessageId = messageId };
+        var cachedResponse = new TestResponse("Cached");
+
+        var callCount = 0;
+        idempotencyStore
+            .HasBeenProcessedAsync(messageId, Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                callCount++;
+                return callCount > 1; // First call returns false, subsequent return true
+            });
+
+        idempotencyStore
+            .GetCachedResultAsync<TestResponse>(messageId, Arg.Any<CancellationToken>())
+            .Returns(cachedResponse);
+
+        var nextCallCount = 0;
+        PipelineDelegate<TestResponse> next = () =>
+        {
+            nextCallCount++;
+            return new ValueTask<CatgaResult<TestResponse>>(CatgaResult<TestResponse>.Success(new TestResponse("New")));
+        };
+
+        // Act - First call
+        var result1 = await behavior.HandleAsync(request, next);
+        // Act - Second call
+        var result2 = await behavior.HandleAsync(request, next);
+
+        // Assert
+        result1.IsSuccess.Should().BeTrue();
+        result2.IsSuccess.Should().BeTrue();
+        result2.Value!.Message.Should().Be("Cached");
+        nextCallCount.Should().Be(1); // next should only be called once
+    }
 }
 
 // 测试用的请求和响应类型

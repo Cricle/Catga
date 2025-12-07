@@ -4,7 +4,7 @@
 
 # Catga
 
-**Ultra High-Performance .NET CQRS/Event Sourcing Framework**
+**High-Performance .NET CQRS/Event Sourcing Framework**
 
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![Native AOT](https://img.shields.io/badge/Native-AOT-success?logo=dotnet)](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
@@ -21,48 +21,33 @@
 
 ## 🚀 Performance Benchmarks
 
-> **Real benchmark data** - Run `dotnet run -c Release --filter *MediatRComparison*` in `benchmarks/Catga.Benchmarks`
+> **Real benchmark data** from BenchmarkDotNet on AMD Ryzen 7 5800H, .NET 9.0.8
+> Run: `dotnet run -c Release --filter *MediatRComparison*` in `benchmarks/Catga.Benchmarks`
 
-### Catga vs MediatR (Fair Comparison - Both In-Memory)
+### Catga vs MediatR Comparison
 
-| Operation | Catga | MediatR | Catga Memory | MediatR Memory |
-|-----------|-------|---------|--------------|----------------|
-| Send Command | 342 ns | 164 ns | **88 B** | 424 B |
-| Send Query | 313 ns | 153 ns | **32 B** | 368 B |
-| Publish Event | 481 ns | 157 ns | 424 B | **288 B** |
-| Batch 100 Commands | 25.6 μs | 13.9 μs | **8.8 KB** | 35.2 KB |
+| Operation | Catga (minimal) | MediatR | Winner | Memory Savings |
+|-----------|-----------------|---------|--------|----------------|
+| **Command** | 206 ns | 185 ns | MediatR +11% | **88 B vs 424 B (4.8x less)** |
+| **Query** | 205 ns | 208 ns | **Catga +1%** | **32 B vs 368 B (11.5x less)** |
+| **Event** | **119 ns** | 147 ns | **Catga +19%** | **64 B vs 288 B (4.5x less)** |
+| **Batch 100** | 13.9 μs | 13.4 μs | MediatR +4% | **8.8 KB vs 35.2 KB (4x less)** |
+
+### Performance Modes
+
+| Mode | Command | Query | Event | Use Case |
+|------|---------|-------|-------|----------|
+| **Minimal** | 206 ns | 205 ns | 119 ns | Production (max performance) |
+| **Default** | 314 ns | 313 ns | 182 ns | Development (with logging/tracing) |
 
 ### Key Insights
 
-| Metric | Catga | MediatR | Notes |
-|--------|-------|---------|-------|
-| **Single Op Latency** | ~340 ns | ~160 ns | MediatR faster for simple ops |
-| **Batch Memory** | **8.8 KB** | 35.2 KB | **4x less memory** in batch |
-| **Per-Op Memory** | **32-88 B** | 288-424 B | **3-11x less allocation** |
+- ✅ **Event publishing 19% faster** than MediatR (119 ns vs 147 ns)
+- ✅ **Query performance on par** with MediatR (205 ns vs 208 ns)
+- ✅ **4-11x less memory allocation** across all operations
+- ✅ **Batch operations use 4x less memory** (8.8 KB vs 35.2 KB)
 
-> **Note**: MediatR is faster for simple in-memory dispatch. Catga's value is in **distributed scenarios** with Redis/NATS transport, Event Sourcing, Outbox/Inbox patterns, and Native AOT support.
-
-### Business Scenario Benchmarks
-
-| Scenario | Latency | Memory | Throughput |
-|----------|---------|--------|------------|
-| Create Order (Command) | 487 ns | 104 B | 2.05M ops/s |
-| Process Payment | 499 ns | 232 B | 2.00M ops/s |
-| Get Order (Query) | 486 ns | 80 B | 2.06M ops/s |
-| Event (3 handlers) | 903 ns | 1,024 B | 1.11M ops/s |
-| Complete Order Flow | 1.39 μs | 1,128 B | 720K ops/s |
-| E-Commerce Scenario | 1.48 μs | 416 B | 676K ops/s |
-| Batch (10 flows) | 14.7 μs | 4,160 B | 68K ops/s |
-| High-Throughput (20 orders) | 9.77 μs | 5,440 B | 102K ops/s |
-
-### Concurrency Benchmarks
-
-| Scenario | Latency | Memory |
-|----------|---------|--------|
-| 10 Concurrent Commands | 4.88 μs | 1.19 KB |
-| 100 Concurrent Commands | 48.8 μs | 11.9 KB |
-| 200 Concurrent Commands | 97.8 μs | 23.8 KB |
-| 100 Concurrent Events | 50.3 μs | 45.4 KB |
+> **Note**: Catga's value extends beyond raw speed - it provides **distributed messaging** (Redis/NATS), **Event Sourcing**, **Outbox/Inbox patterns**, and **Native AOT** support that MediatR doesn't offer.
 
 ---
 
@@ -72,7 +57,7 @@
 |---------|-------------|
 | **Low Memory** | 32-88 B/op single, 8.8 KB/100 batch (4x less than MediatR) |
 | **Native AOT** | Full support, zero reflection, trimming safe |
-| **Source Generator** | Compile-time handler registration, zero runtime overhead |
+| **Source Generator** | Compile-time handler discovery, zero runtime overhead |
 | **Distributed** | Lock, Rate Limiting, Leader Election, Event Sourcing |
 | **Multi-Transport** | Redis Streams, NATS JetStream, In-Memory |
 | **Resilience** | Polly integration (Retry, Circuit Breaker, Timeout) |
@@ -147,6 +132,9 @@ var result = await mediator.SendAsync<CreateOrderCommand, Order>(
 
 | Aspect | Catga | MediatR |
 |--------|-------|---------|
+| **Event Performance** | **119 ns** ✅ | 147 ns |
+| **Query Performance** | **205 ns** ✅ | 208 ns |
+| **Command Performance** | 206 ns | **185 ns** ✅ |
 | **Memory Efficiency** | **32-88 B/op** | 288-424 B/op |
 | **Batch Memory** | **8.8 KB/100 ops** | 35.2 KB/100 ops |
 | **Native AOT** | ✅ Full support | ⚠️ Limited |
@@ -156,17 +144,18 @@ var result = await mediator.SendAsync<CreateOrderCommand, Order>(
 
 ### Choose Catga When
 
+- ✅ **Event-heavy** workloads (19% faster event publishing)
 - ✅ Need **distributed messaging** (Redis Streams, NATS JetStream)
 - ✅ Building **event-sourced** systems
 - ✅ Require **exactly-once delivery** (Outbox/Inbox pattern)
 - ✅ **Native AOT** deployment (containers, serverless)
-- ✅ **Memory-constrained** environments (4x less batch memory)
+- ✅ **Memory-constrained** environments (4-11x less allocation)
 - ✅ Need **observability** (OpenTelemetry tracing, metrics)
 
 ### Choose MediatR When
 
 - ✅ Simple **in-memory** mediator pattern
-- ✅ Need **fastest single-operation latency**
+- ✅ **Command-heavy** workloads (11% faster commands)
 - ✅ No distributed requirements
 - ✅ Existing MediatR codebase
 

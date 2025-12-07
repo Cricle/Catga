@@ -3,9 +3,11 @@ using Catga.Abstractions;
 using Catga.DependencyInjection;
 using Catga.EventSourcing;
 using Catga.Pipeline;
+using Catga.Persistence.InMemory.Stores;
 using Catga.Resilience;
 using OrderSystem.Api.Behaviors;
 using OrderSystem.Api.Domain;
+using OrderSystem.Api.EventSourcing;
 using OrderSystem.Api.Handlers;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Services;
@@ -95,6 +97,34 @@ builder.Services.AddSingleton<IEventHandler<OrderConfirmedEvent>, OrderConfirmed
 // Time Travel Service
 // ============================================
 builder.Services.AddTimeTravelService<OrderAggregate>();
+
+// ============================================
+// Event Sourcing Features (NEW)
+// ============================================
+
+// Projections
+builder.Services.AddSingleton<OrderSummaryProjection>();
+builder.Services.AddSingleton<CustomerStatsProjection>();
+builder.Services.AddSingleton<InMemoryProjectionCheckpointStore>();
+
+// Subscriptions
+builder.Services.AddSingleton<InMemorySubscriptionStore>();
+builder.Services.AddSingleton<OrderEventSubscriptionHandler>();
+builder.Services.AddSingleton<OrderNotificationHandler>();
+
+// Event Versioning
+builder.Services.AddOrderEventVersioning();
+
+// Audit & Compliance
+builder.Services.AddSingleton<InMemoryAuditLogStore>();
+builder.Services.AddSingleton<IAuditLogStore>(sp => sp.GetRequiredService<InMemoryAuditLogStore>());
+builder.Services.AddSingleton<InMemoryGdprStore>();
+builder.Services.AddSingleton<IGdprStore>(sp => sp.GetRequiredService<InMemoryGdprStore>());
+builder.Services.AddSingleton<OrderAuditService>();
+
+// Enhanced Snapshots
+builder.Services.AddSingleton<EnhancedInMemorySnapshotStore>();
+builder.Services.AddSingleton<IEnhancedSnapshotStore>(sp => sp.GetRequiredService<EnhancedInMemorySnapshotStore>());
 
 // ============================================
 // Swagger & Health Checks
@@ -273,6 +303,158 @@ timeTravelGroup.MapGet("/orders/{orderId}/timeline", async (
 
     return Results.Ok(timeline);
 }).WithDescription("Get complete timeline with state at each version");
+
+// ============================================
+// Projection Endpoints (NEW)
+// ============================================
+var projectionGroup = app.MapGroup("/api/projections").WithTags("Projections");
+
+projectionGroup.MapGet("/order-summary", (OrderSummaryProjection projection) =>
+{
+    return Results.Ok(new
+    {
+        totalOrders = projection.TotalOrders,
+        totalRevenue = projection.TotalRevenue,
+        ordersByStatus = projection.OrdersByStatus,
+        orders = projection.Orders.Values.Take(10)
+    });
+}).WithDescription("Get order summary projection data");
+
+projectionGroup.MapPost("/order-summary/rebuild", async (
+    OrderSummaryProjection projection,
+    InMemoryProjectionCheckpointStore checkpointStore,
+    IEventStore eventStore) =>
+{
+    var rebuilder = new ProjectionRebuilder<OrderSummaryProjection>(eventStore, checkpointStore, projection, projection.Name);
+    await rebuilder.RebuildAsync();
+    return Results.Ok(new { message = "Projection rebuilt", totalOrders = projection.TotalOrders });
+}).WithDescription("Rebuild order summary projection from events");
+
+projectionGroup.MapGet("/customer-stats", (CustomerStatsProjection projection) =>
+{
+    return Results.Ok(projection.Stats.Values);
+}).WithDescription("Get customer statistics projection");
+
+// ============================================
+// Subscription Endpoints (NEW)
+// ============================================
+var subscriptionGroup = app.MapGroup("/api/subscriptions").WithTags("Subscriptions");
+
+subscriptionGroup.MapGet("/", async (InMemorySubscriptionStore store) =>
+{
+    var subs = await store.ListAsync();
+    return Results.Ok(subs.Select(s => new
+    {
+        s.Name,
+        s.StreamPattern,
+        s.Position,
+        s.ProcessedCount,
+        s.LastProcessedAt
+    }));
+}).WithDescription("List all subscriptions");
+
+subscriptionGroup.MapPost("/", async (
+    string name,
+    string pattern,
+    InMemorySubscriptionStore store) =>
+{
+    var sub = new PersistentSubscription(name, pattern);
+    await store.SaveAsync(sub);
+    return Results.Created($"/api/subscriptions/{name}", new { name, pattern });
+}).WithDescription("Create a new subscription");
+
+subscriptionGroup.MapPost("/{name}/process", async (
+    string name,
+    InMemorySubscriptionStore store,
+    IEventStore eventStore,
+    OrderEventSubscriptionHandler handler) =>
+{
+    var runner = new SubscriptionRunner(eventStore, store, handler);
+    await runner.RunOnceAsync(name);
+    var sub = await store.LoadAsync(name);
+    return Results.Ok(new { name, processedCount = sub?.ProcessedCount ?? 0 });
+}).WithDescription("Process events for a subscription");
+
+// ============================================
+// Audit & Compliance Endpoints (NEW)
+// ============================================
+var auditGroup = app.MapGroup("/api/audit").WithTags("Audit & Compliance");
+
+auditGroup.MapGet("/logs/{streamId}", async (string streamId, OrderAuditService auditService) =>
+{
+    var logs = await auditService.GetLogsAsync(streamId);
+    return Results.Ok(logs);
+}).WithDescription("Get audit logs for a stream");
+
+auditGroup.MapPost("/verify/{streamId}", async (string streamId, OrderAuditService auditService) =>
+{
+    var result = await auditService.VerifyStreamAsync(streamId);
+    return Results.Ok(new { streamId, result.IsValid, result.Hash, result.Error });
+}).WithDescription("Verify stream integrity");
+
+auditGroup.MapPost("/gdpr/erasure-request", async (
+    string customerId,
+    string requestedBy,
+    OrderAuditService auditService) =>
+{
+    await auditService.RequestCustomerErasureAsync(customerId, requestedBy);
+    return Results.Accepted();
+}).WithDescription("Request GDPR data erasure for a customer");
+
+auditGroup.MapGet("/gdpr/pending-requests", async (OrderAuditService auditService) =>
+{
+    var requests = await auditService.GetPendingErasureRequestsAsync();
+    return Results.Ok(requests);
+}).WithDescription("Get pending GDPR erasure requests");
+
+// ============================================
+// Snapshot Endpoints (NEW)
+// ============================================
+var snapshotGroup = app.MapGroup("/api/snapshots").WithTags("Snapshots");
+
+snapshotGroup.MapPost("/orders/{orderId}", async (
+    string orderId,
+    IEnhancedSnapshotStore snapshotStore,
+    ITimeTravelService<OrderAggregate> timeTravelService) =>
+{
+    var streamId = $"OrderAggregate-{orderId}";
+    var state = await timeTravelService.GetStateAtVersionAsync(orderId, long.MaxValue);
+    if (state == null) return Results.NotFound();
+
+    await snapshotStore.SaveAsync(streamId, state, state.Version);
+    return Results.Ok(new { streamId, version = state.Version, message = "Snapshot created" });
+}).WithDescription("Create a snapshot for an order");
+
+snapshotGroup.MapGet("/orders/{orderId}/history", async (
+    string orderId,
+    IEnhancedSnapshotStore snapshotStore) =>
+{
+    var streamId = $"OrderAggregate-{orderId}";
+    var history = await snapshotStore.GetSnapshotHistoryAsync(streamId);
+    return Results.Ok(history);
+}).WithDescription("Get snapshot history for an order");
+
+snapshotGroup.MapGet("/orders/{orderId}/version/{version:long}", async (
+    string orderId,
+    long version,
+    IEnhancedSnapshotStore snapshotStore) =>
+{
+    var streamId = $"OrderAggregate-{orderId}";
+    var snapshot = await snapshotStore.LoadAtVersionAsync<OrderAggregate>(streamId, version);
+    if (!snapshot.HasValue) return Results.NotFound();
+
+    return Results.Ok(new
+    {
+        version = snapshot.Value.Version,
+        state = new
+        {
+            snapshot.Value.State.Id,
+            snapshot.Value.State.CustomerId,
+            snapshot.Value.State.TotalAmount,
+            snapshot.Value.State.Status
+        }
+    });
+}).WithDescription("Load snapshot at specific version");
 
 app.Run();
 

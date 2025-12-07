@@ -4,6 +4,7 @@ using Catga.DependencyInjection;
 using Catga.EventSourcing;
 using Catga.Pipeline;
 using Catga.Persistence.InMemory.Stores;
+using Catga.Persistence.Stores;
 using Catga.Resilience;
 using OrderSystem.Api.Behaviors;
 using OrderSystem.Api.Domain;
@@ -57,9 +58,12 @@ switch (persistence.ToLower())
     case "redis":
         var redisConnPersist = Environment.GetEnvironmentVariable("REDIS_CONNECTION") ?? "localhost:6379";
         builder.Services.AddRedisPersistence(redisConnPersist);
+        builder.Services.AddRedisEventStore();
+        builder.Services.AddRedisSnapshotStore();
         break;
     default:
         builder.Services.AddInMemoryPersistence();
+        builder.Services.AddSingleton<IEventStore, InMemoryEventStore>();
         break;
 }
 

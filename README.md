@@ -125,6 +125,61 @@ var result = await mediator.SendAsync<CreateOrderCommand, Order>(
 | `Catga.Serialization.MemoryPack` | High-performance binary serialization |
 | `Catga.AspNetCore` | ASP.NET Core integration |
 | `Catga.Testing` | Testing utilities |
+| `Catga.Cli` | CLI tool for event sourcing management |
+
+---
+
+## 🗄️ Event Sourcing
+
+Catga provides a complete event sourcing solution:
+
+```csharp
+// Event Store
+await eventStore.AppendAsync("Order-123", new[] { orderCreated, itemAdded });
+var stream = await eventStore.ReadAsync("Order-123");
+
+// Projections
+public class OrderSummaryProjection : IProjection
+{
+    public string Name => "OrderSummary";
+    public ValueTask ApplyAsync(IEvent @event, CancellationToken ct) { /* ... */ }
+    public ValueTask ResetAsync(CancellationToken ct) { /* ... */ }
+}
+
+// Subscriptions
+var subscription = new PersistentSubscription("order-processor", "Order-*");
+var runner = new SubscriptionRunner(eventStore, subscriptionStore, handler);
+await runner.RunOnceAsync("order-processor");
+
+// Snapshots
+await snapshotStore.SaveAsync("Order-123", aggregate, version);
+var snapshot = await snapshotStore.LoadAtVersionAsync<OrderAggregate>("Order-123", version);
+
+// Time Travel
+var stateAtV5 = await timeTravelService.GetStateAtVersionAsync("order-1", 5);
+var history = await timeTravelService.GetVersionHistoryAsync("order-1");
+
+// Audit & Compliance
+await auditStore.LogAsync(new AuditLogEntry { StreamId, Action, UserId });
+var result = await verifier.VerifyStreamAsync("Order-123"); // Immutability check
+```
+
+---
+
+## 🛠️ CLI Tool
+
+```bash
+# Install
+dotnet tool install -g Catga.Cli
+
+# Commands
+catga-cli events list                    # List event streams
+catga-cli events read Order-123          # Read events from stream
+catga-cli projections list               # List projections
+catga-cli projections rebuild OrderSummary  # Rebuild projection
+catga-cli flows list                     # List flows
+catga-cli streams verify Order-123       # Verify stream integrity
+```
 
 ---
 

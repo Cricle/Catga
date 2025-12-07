@@ -3,34 +3,64 @@ using Catga.Abstractions;
 namespace Catga.EventSourcing;
 
 /// <summary>
-/// Event store interface for event sourcing
+/// Event store interface for event sourcing.
 /// </summary>
 public interface IEventStore
 {
     /// <summary>
-    /// Append events to a stream
+    /// Append events to a stream.
     /// </summary>
-    public ValueTask AppendAsync(
+    ValueTask AppendAsync(
         string streamId,
         IReadOnlyList<IEvent> events,
         long expectedVersion = -1,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Read events from a stream
+    /// Read events from a stream.
     /// </summary>
-    public ValueTask<EventStream> ReadAsync(
+    ValueTask<EventStream> ReadAsync(
         string streamId,
         long fromVersion = 0,
         int maxCount = int.MaxValue,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Get current version of a stream
+    /// Get current version of a stream.
     /// </summary>
-    public ValueTask<long> GetVersionAsync(
+    ValueTask<long> GetVersionAsync(
         string streamId,
         CancellationToken cancellationToken = default);
+
+    #region Time Travel API
+
+    /// <summary>
+    /// Read events up to a specific version (inclusive).
+    /// Used for time travel queries to reconstruct state at a specific version.
+    /// </summary>
+    ValueTask<EventStream> ReadToVersionAsync(
+        string streamId,
+        long toVersion,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Read events up to a specific timestamp (inclusive).
+    /// Used for time travel queries to reconstruct state at a specific point in time.
+    /// </summary>
+    ValueTask<EventStream> ReadToTimestampAsync(
+        string streamId,
+        DateTime upperBound,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get version history with timestamps for a stream.
+    /// Returns metadata about each version without loading full event data.
+    /// </summary>
+    ValueTask<IReadOnlyList<VersionInfo>> GetVersionHistoryAsync(
+        string streamId,
+        CancellationToken cancellationToken = default);
+
+    #endregion
 }
 
 /// <summary>
@@ -55,7 +85,22 @@ public sealed class StoredEvent
 }
 
 /// <summary>
-/// Exception thrown when expected version doesn't match
+/// Version information for time travel queries.
+/// </summary>
+public sealed class VersionInfo
+{
+    /// <summary>Event version (0-based).</summary>
+    public long Version { get; init; }
+
+    /// <summary>Timestamp when the event was stored.</summary>
+    public DateTime Timestamp { get; init; }
+
+    /// <summary>Event type name.</summary>
+    public string EventType { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Exception thrown when expected version doesn't match.
 /// </summary>
 public sealed class ConcurrencyException : Exception
 {

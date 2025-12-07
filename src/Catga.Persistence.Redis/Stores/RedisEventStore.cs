@@ -211,6 +211,181 @@ public sealed partial class RedisEventStore : IEventStore
         return value.HasValue ? (long)value : -1;
     }
 
+    #region Time Travel API
+
+    public async ValueTask<EventStream> ReadToVersionAsync(
+        string streamId,
+        long toVersion,
+        CancellationToken cancellationToken = default)
+    {
+        return await _provider.ExecutePersistenceAsync(async ct =>
+        {
+            var start = Stopwatch.GetTimestamp();
+            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.ReadToVersion", ActivityKind.Internal);
+
+            ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
+
+            var db = _redis.GetDatabase();
+            var streamKey = _prefix + streamId;
+            var storedEvents = new List<StoredEvent>();
+
+            try
+            {
+                var entries = await db.StreamReadAsync(streamKey, "0-0");
+                if (entries.Length == 0)
+                {
+                    return new EventStream { StreamId = streamId, Version = -1, Events = [] };
+                }
+
+                foreach (var entry in entries)
+                {
+                    var version = (long)entry["version"];
+                    if (version > toVersion) break;
+
+                    var typeName = (string)entry["type"]!;
+                    var data = (byte[])entry["data"]!;
+                    var timestamp = (long)entry["timestamp"];
+
+                    var eventType = _registry.Resolve(typeName);
+                    if (eventType == null)
+                    {
+                        LogUnknownEventType(_logger, typeName, streamId);
+                        continue;
+                    }
+
+                    var @event = (IEvent?)_serializer.Deserialize(data, eventType);
+                    if (@event == null) continue;
+
+                    storedEvents.Add(new StoredEvent
+                    {
+                        Version = version,
+                        Event = @event,
+                        Timestamp = new DateTime(timestamp, DateTimeKind.Utc),
+                        EventType = eventType.Name
+                    });
+                }
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains("NOGROUP") || ex.Message.Contains("no such key"))
+            {
+                return new EventStream { StreamId = streamId, Version = -1, Events = [] };
+            }
+
+            var finalVersion = storedEvents.Count > 0 ? storedEvents[^1].Version : -1;
+
+            CatgaDiagnostics.EventStoreReads.Add(1);
+            CatgaDiagnostics.EventStoreReadDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+
+            return new EventStream { StreamId = streamId, Version = finalVersion, Events = storedEvents };
+        }, cancellationToken);
+    }
+
+    public async ValueTask<EventStream> ReadToTimestampAsync(
+        string streamId,
+        DateTime upperBound,
+        CancellationToken cancellationToken = default)
+    {
+        return await _provider.ExecutePersistenceAsync(async ct =>
+        {
+            var start = Stopwatch.GetTimestamp();
+            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.ReadToTimestamp", ActivityKind.Internal);
+
+            ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
+
+            var db = _redis.GetDatabase();
+            var streamKey = _prefix + streamId;
+            var storedEvents = new List<StoredEvent>();
+            var upperBoundTicks = upperBound.Ticks;
+
+            try
+            {
+                var entries = await db.StreamReadAsync(streamKey, "0-0");
+                if (entries.Length == 0)
+                {
+                    return new EventStream { StreamId = streamId, Version = -1, Events = [] };
+                }
+
+                foreach (var entry in entries)
+                {
+                    var timestamp = (long)entry["timestamp"];
+                    if (timestamp > upperBoundTicks) break;
+
+                    var version = (long)entry["version"];
+                    var typeName = (string)entry["type"]!;
+                    var data = (byte[])entry["data"]!;
+
+                    var eventType = _registry.Resolve(typeName);
+                    if (eventType == null)
+                    {
+                        LogUnknownEventType(_logger, typeName, streamId);
+                        continue;
+                    }
+
+                    var @event = (IEvent?)_serializer.Deserialize(data, eventType);
+                    if (@event == null) continue;
+
+                    storedEvents.Add(new StoredEvent
+                    {
+                        Version = version,
+                        Event = @event,
+                        Timestamp = new DateTime(timestamp, DateTimeKind.Utc),
+                        EventType = eventType.Name
+                    });
+                }
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains("NOGROUP") || ex.Message.Contains("no such key"))
+            {
+                return new EventStream { StreamId = streamId, Version = -1, Events = [] };
+            }
+
+            var finalVersion = storedEvents.Count > 0 ? storedEvents[^1].Version : -1;
+
+            CatgaDiagnostics.EventStoreReads.Add(1);
+            CatgaDiagnostics.EventStoreReadDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+
+            return new EventStream { StreamId = streamId, Version = finalVersion, Events = storedEvents };
+        }, cancellationToken);
+    }
+
+    public async ValueTask<IReadOnlyList<VersionInfo>> GetVersionHistoryAsync(
+        string streamId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _provider.ExecutePersistenceAsync(async ct =>
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
+
+            var db = _redis.GetDatabase();
+            var streamKey = _prefix + streamId;
+            var history = new List<VersionInfo>();
+
+            try
+            {
+                var entries = await db.StreamReadAsync(streamKey, "0-0");
+                foreach (var entry in entries)
+                {
+                    var version = (long)entry["version"];
+                    var typeName = (string)entry["type"]!;
+                    var timestamp = (long)entry["timestamp"];
+
+                    history.Add(new VersionInfo
+                    {
+                        Version = version,
+                        Timestamp = new DateTime(timestamp, DateTimeKind.Utc),
+                        EventType = typeName.Contains('.') ? typeName[(typeName.LastIndexOf('.') + 1)..] : typeName
+                    });
+                }
+            }
+            catch (RedisServerException ex) when (ex.Message.Contains("NOGROUP") || ex.Message.Contains("no such key"))
+            {
+                return (IReadOnlyList<VersionInfo>)Array.Empty<VersionInfo>();
+            }
+
+            return (IReadOnlyList<VersionInfo>)history;
+        }, cancellationToken);
+    }
+
+    #endregion
+
     [LoggerMessage(Level = LogLevel.Debug, Message = "Events appended to stream {StreamId}: count={Count}, version={Version}")]
     private static partial void LogEventsAppended(ILogger logger, string streamId, int count, long version);
 

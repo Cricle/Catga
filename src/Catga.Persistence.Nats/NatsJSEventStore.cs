@@ -253,7 +253,6 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
 
     private IEvent DeserializeEventFromMessage(NatsJSMsg<byte[]> msg)
     {
-        // 从 headers 获取事件类型（优先使用 AssemblyQualifiedName）
         var eventTypeName = msg.Headers?["EventType"];
         if (string.IsNullOrEmpty(eventTypeName))
             throw new InvalidOperationException("Event type not found in message headers");
@@ -271,4 +270,192 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
 
     private static Type GetRuntimeTypeForSerialization(object instance)
         => instance.GetType();
+
+    #region Time Travel API
+
+    public async ValueTask<EventStream> ReadToVersionAsync(
+        string streamId,
+        long toVersion,
+        CancellationToken cancellationToken = default)
+    {
+        return await provider.ExecutePersistenceAsync(async ct =>
+        {
+            var start = Stopwatch.GetTimestamp();
+            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.ReadToVersion", ActivityKind.Internal);
+            ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
+
+            await EnsureInitializedAsync(ct);
+
+            var subject = $"{StreamName}.{streamId}";
+            var storedEvents = new List<StoredEvent>();
+
+            try
+            {
+                var consumerName = $"ttv-{streamId}-{Guid.NewGuid():N}";
+                var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                    StreamName,
+                    new ConsumerConfig
+                    {
+                        Name = consumerName,
+                        FilterSubject = subject,
+                        AckPolicy = ConsumerConfigAckPolicy.None,
+                        DeliverPolicy = ConsumerConfigDeliverPolicy.All
+                    },
+                    ct);
+
+                await foreach (var msg in consumer.FetchAsync<byte[]>(
+                    new NatsJSFetchOpts { MaxMsgs = (int)(toVersion + 1) },
+                    cancellationToken: ct))
+                {
+                    if (msg.Data != null && msg.Data.Length > 0)
+                    {
+                        var @event = DeserializeEventFromMessage(msg);
+                        var version = (long)(msg.Metadata?.Sequence.Stream ?? 0UL) - 1;
+
+                        if (version > toVersion) break;
+
+                        storedEvents.Add(new StoredEvent
+                        {
+                            Version = version,
+                            Event = @event,
+                            Timestamp = msg.Metadata?.Timestamp.UtcDateTime ?? DateTime.UtcNow,
+                            EventType = @event.GetType().Name
+                        });
+                    }
+                }
+            }
+            catch (NatsJSApiException ex) when (ex.Error.Code == 404)
+            {
+                return new EventStream { StreamId = streamId, Version = -1, Events = Array.Empty<StoredEvent>() };
+            }
+
+            var finalVersion = storedEvents.Count > 0 ? storedEvents[^1].Version : -1;
+            CatgaDiagnostics.EventStoreReads.Add(1);
+            CatgaDiagnostics.EventStoreReadDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+
+            return new EventStream { StreamId = streamId, Version = finalVersion, Events = storedEvents };
+        }, cancellationToken);
+    }
+
+    public async ValueTask<EventStream> ReadToTimestampAsync(
+        string streamId,
+        DateTime upperBound,
+        CancellationToken cancellationToken = default)
+    {
+        return await provider.ExecutePersistenceAsync(async ct =>
+        {
+            var start = Stopwatch.GetTimestamp();
+            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.ReadToTimestamp", ActivityKind.Internal);
+            ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
+
+            await EnsureInitializedAsync(ct);
+
+            var subject = $"{StreamName}.{streamId}";
+            var storedEvents = new List<StoredEvent>();
+
+            try
+            {
+                var consumerName = $"ttt-{streamId}-{Guid.NewGuid():N}";
+                var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                    StreamName,
+                    new ConsumerConfig
+                    {
+                        Name = consumerName,
+                        FilterSubject = subject,
+                        AckPolicy = ConsumerConfigAckPolicy.None,
+                        DeliverPolicy = ConsumerConfigDeliverPolicy.All
+                    },
+                    ct);
+
+                await foreach (var msg in consumer.FetchAsync<byte[]>(
+                    new NatsJSFetchOpts { MaxMsgs = int.MaxValue },
+                    cancellationToken: ct))
+                {
+                    if (msg.Data != null && msg.Data.Length > 0)
+                    {
+                        var timestamp = msg.Metadata?.Timestamp.UtcDateTime ?? DateTime.UtcNow;
+                        if (timestamp > upperBound) break;
+
+                        var @event = DeserializeEventFromMessage(msg);
+                        var version = (long)(msg.Metadata?.Sequence.Stream ?? 0UL) - 1;
+
+                        storedEvents.Add(new StoredEvent
+                        {
+                            Version = version,
+                            Event = @event,
+                            Timestamp = timestamp,
+                            EventType = @event.GetType().Name
+                        });
+                    }
+                }
+            }
+            catch (NatsJSApiException ex) when (ex.Error.Code == 404)
+            {
+                return new EventStream { StreamId = streamId, Version = -1, Events = Array.Empty<StoredEvent>() };
+            }
+
+            var finalVersion = storedEvents.Count > 0 ? storedEvents[^1].Version : -1;
+            CatgaDiagnostics.EventStoreReads.Add(1);
+            CatgaDiagnostics.EventStoreReadDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+
+            return new EventStream { StreamId = streamId, Version = finalVersion, Events = storedEvents };
+        }, cancellationToken);
+    }
+
+    public async ValueTask<IReadOnlyList<VersionInfo>> GetVersionHistoryAsync(
+        string streamId,
+        CancellationToken cancellationToken = default)
+    {
+        return await provider.ExecutePersistenceAsync(async ct =>
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
+
+            await EnsureInitializedAsync(ct);
+
+            var subject = $"{StreamName}.{streamId}";
+            var history = new List<VersionInfo>();
+
+            try
+            {
+                var consumerName = $"hist-{streamId}-{Guid.NewGuid():N}";
+                var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                    StreamName,
+                    new ConsumerConfig
+                    {
+                        Name = consumerName,
+                        FilterSubject = subject,
+                        AckPolicy = ConsumerConfigAckPolicy.None,
+                        DeliverPolicy = ConsumerConfigDeliverPolicy.All
+                    },
+                    ct);
+
+                await foreach (var msg in consumer.FetchAsync<byte[]>(
+                    new NatsJSFetchOpts { MaxMsgs = int.MaxValue },
+                    cancellationToken: ct))
+                {
+                    if (msg.Data != null && msg.Data.Length > 0)
+                    {
+                        var version = (long)(msg.Metadata?.Sequence.Stream ?? 0UL) - 1;
+                        var timestamp = msg.Metadata?.Timestamp.UtcDateTime ?? DateTime.UtcNow;
+                        var eventTypeName = msg.Headers?["EventType"].ToString() ?? "Unknown";
+
+                        history.Add(new VersionInfo
+                        {
+                            Version = version,
+                            Timestamp = timestamp,
+                            EventType = eventTypeName.Contains('.') ? eventTypeName[(eventTypeName.LastIndexOf('.') + 1)..] : eventTypeName
+                        });
+                    }
+                }
+            }
+            catch (NatsJSApiException ex) when (ex.Error.Code == 404)
+            {
+                return (IReadOnlyList<VersionInfo>)Array.Empty<VersionInfo>();
+            }
+
+            return (IReadOnlyList<VersionInfo>)history;
+        }, cancellationToken);
+    }
+
+    #endregion
 }

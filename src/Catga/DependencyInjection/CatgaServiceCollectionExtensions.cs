@@ -2,6 +2,7 @@ using Catga;
 using Catga.Configuration;
 using Catga.DependencyInjection;
 using Catga.DistributedId;
+using Catga.EventSourcing;
 using Catga.Observability;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Diagnostics;
@@ -127,5 +128,16 @@ public static class CatgaServiceCollectionExtensions
         {
             CatgaDiagnostics.DIRegistrationDuration.Record(totalMilliseconds, tag);
         }
+    }
+
+    /// <summary>
+    /// Adds time travel service for the specified aggregate type.
+    /// </summary>
+    /// <typeparam name="TAggregate">The aggregate type.</typeparam>
+    public static IServiceCollection AddTimeTravelService<TAggregate>(this IServiceCollection services)
+        where TAggregate : class, IAggregateRoot, new()
+    {
+        services.TryAddSingleton<ITimeTravelService<TAggregate>, TimeTravelService<TAggregate>>();
+        return services;
     }
 }

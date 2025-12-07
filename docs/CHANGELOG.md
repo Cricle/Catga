@@ -7,6 +7,38 @@
 
 ---
 
+## [0.1.0] - 2025-12-07
+
+### 🎉 事件溯源完整实现！
+
+**核心功能**:
+- ✅ 97 个新测试全部通过
+- ✅ 完整 Event Sourcing 支持
+- ✅ 多后端支持 (InMemory/Redis/NATS)
+
+#### Event Sourcing 核心
+- ✅ **Event Store** - 事件存储 (InMemory/Redis/NATS)
+- ✅ **Projections** - 事件投影 (CatchUp/Live/Rebuild)
+- ✅ **Subscriptions** - 持久订阅 (Pattern matching)
+- ✅ **Enhanced Snapshots** - 增强快照 (版本历史/时间旅行)
+- ✅ **Time Travel** - 时间旅行查询 (任意版本状态重建)
+- ✅ **Audit & Compliance** - 审计日志、不可变性验证、GDPR 支持
+- ✅ **Event Versioning** - 事件版本升级 (Upcasters)
+
+#### 工具
+- ✅ **Catga.Cli** - CLI 工具 (事件查询/投影重建/Flow管理)
+- ✅ **Catga.Dashboard** - Web 监控面板
+
+#### OrderSystem.Api 示例
+- ✅ 完整 UI 展示所有功能 (Time Travel/Projections/Subscriptions/Audit/Snapshots)
+- ✅ 新增 API 端点组
+
+#### 文档
+- ✅ Event Sourcing 完整指南 (`docs/articles/event-sourcing.md`)
+- ✅ README 更新
+
+---
+
 ## [Unreleased]
 
 ### Added

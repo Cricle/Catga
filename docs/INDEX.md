@@ -40,13 +40,25 @@
 
 | 文档 | 说明 |
 |------|------|
+| [事件溯源指南](./articles/event-sourcing.md) | 完整 Event Sourcing 指南 ⭐ |
 | [Flow DSL](./guides/flow-dsl.md) | 分布式事务 DSL（Saga 模式） |
 | [分布式事务](./patterns/DISTRIBUTED-TRANSACTION-V2.md) | Outbox/Inbox 模式 |
-| [事件溯源](./architecture/ARCHITECTURE.md) | Event Sourcing 实现 |
 | [分布式追踪](./observability/DISTRIBUTED-TRACING-GUIDE.md) | OpenTelemetry 集成 |
 | [Jaeger 完整指南](./observability/JAEGER-COMPLETE-GUIDE.md) | 分布式追踪可视化 |
 | [监控指标](./production/MONITORING-GUIDE.md) | Prometheus + Grafana |
 | [分布式 ID](./guides/distributed-id.md) | Snowflake ID 生成 |
+
+### 事件溯源功能
+
+| 功能 | 说明 |
+|------|------|
+| Event Store | 事件存储（InMemory/Redis/NATS） |
+| Projections | 事件投影（读模型构建） |
+| Subscriptions | 持久订阅（事件处理） |
+| Snapshots | 快照管理（状态优化） |
+| Time Travel | 时间旅行（历史状态查询） |
+| Audit & GDPR | 审计日志、数据删除 |
+| Event Versioning | 事件版本升级 |
 
 ### 序列化
 

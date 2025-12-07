@@ -255,7 +255,81 @@ public sealed class NatsJSOutboxStore(INatsConnection connection, IMessageSerial
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default)
     {
-        await provider.ExecutePersistenceAsync(ct => new ValueTask(), cancellationToken);
+        await provider.ExecutePersistenceAsync(async ct =>
+        {
+            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Outbox.DeletePublished", ActivityKind.Internal);
+            await EnsureInitializedAsync(ct);
+
+            var cutoffTime = DateTime.UtcNow.Subtract(retentionPeriod);
+            var deletedCount = 0;
+
+            try
+            {
+                // Create a temporary consumer to scan all messages
+                var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                    StreamName,
+                    new ConsumerConfig
+                    {
+                        Name = $"outbox-cleaner-{Guid.NewGuid():N}",
+                        AckPolicy = ConsumerConfigAckPolicy.None,
+                        DeliverPolicy = ConsumerConfigDeliverPolicy.All
+                    },
+                    ct);
+
+                var toDelete = new List<ulong>();
+
+                await foreach (var msg in consumer.FetchAsync<byte[]>(
+                    new NatsJSFetchOpts { MaxMsgs = 1000 },
+                    cancellationToken: ct))
+                {
+                    if (msg.Data != null && msg.Data.Length > 0)
+                    {
+                        var outboxMsg = (OutboxMessage?)serializer.Deserialize(msg.Data, typeof(OutboxMessage));
+                        if (outboxMsg != null &&
+                            outboxMsg.Status == OutboxStatus.Published &&
+                            outboxMsg.PublishedAt.HasValue &&
+                            outboxMsg.PublishedAt.Value < cutoffTime)
+                        {
+                            // Mark for deletion by sequence
+                            if (msg.Metadata?.Sequence.Stream > 0)
+                            {
+                                toDelete.Add(msg.Metadata.Value.Sequence.Stream);
+                            }
+                        }
+                    }
+                }
+
+                // Delete messages by sequence
+                foreach (var seq in toDelete)
+                {
+                    try
+                    {
+                        await JetStream.DeleteMessageAsync(StreamName, new StreamMsgDeleteRequest { Seq = seq }, ct);
+                        deletedCount++;
+                    }
+                    catch (NatsJSApiException) { /* ignore individual failures */ }
+                }
+
+                // Clean up temporary consumer
+                try
+                {
+                    await JetStream.DeleteConsumerAsync(StreamName, consumer.Info.Name, ct);
+                }
+                catch { /* ignore */ }
+
+                activity?.AddEvent(new System.Diagnostics.ActivityEvent("outbox.delete_published.done",
+                    tags: new System.Diagnostics.ActivityTagsCollection
+                    {
+                        { "deleted", deletedCount },
+                        { "retention_hours", retentionPeriod.TotalHours }
+                    }));
+            }
+            catch (NatsJSApiException ex) when (ex.Error.Code == 404)
+            {
+                // Stream doesn't exist
+                activity?.AddEvent(new System.Diagnostics.ActivityEvent("outbox.delete_published.not_found"));
+            }
+        }, cancellationToken);
     }
 
 }

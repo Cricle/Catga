@@ -18,45 +18,45 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<CatgaMediator> _logger;
-
+    private readonly bool _enableLogging;
+    private readonly bool _enableTracing;
 
     public CatgaMediator(
         IServiceProvider serviceProvider,
         ILogger<CatgaMediator> logger)
+        : this(serviceProvider, logger, serviceProvider.GetService<CatgaOptions>() ?? new CatgaOptions())
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
     }
 
-    // Back-compat overload used by tests
     public CatgaMediator(
         IServiceProvider serviceProvider,
         ILogger<CatgaMediator> logger,
         CatgaOptions options)
-        : this(serviceProvider, logger)
     {
-        // Currently unused, but kept for API compatibility
-        _ = options;
+        _serviceProvider = serviceProvider;
+        _logger = logger;
+        _enableLogging = options.EnableLogging;
+        _enableTracing = options.EnableTracing;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public async ValueTask<CatgaResult<TResponse>> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
     {
-        var startTimestamp = Stopwatch.GetTimestamp();
-        var reqType = TypeNameCache<TRequest>.Name;
+        var startTimestamp = _enableTracing ? Stopwatch.GetTimestamp() : 0;
+        var reqType = _enableLogging || _enableTracing ? TypeNameCache<TRequest>.Name : null;
 
-        // Minimal hooks: no-op unless tracing/metrics explicitly enabled
-        using var activity = ObservabilityHooks.StartCommand(reqType, request);
+        // Only start activity if tracing is enabled
+        using var activity = _enableTracing ? ObservabilityHooks.StartCommand(reqType!, request) : null;
 
         if (request is null)
         {
             var ex = new CatgaException("Request is null");
-            ObservabilityHooks.RecordCommandError(reqType, ex, activity);
-            CatgaLog.CommandFailed(_logger, ex, reqType, null, "Request is null");
+            if (_enableTracing) ObservabilityHooks.RecordCommandError(reqType!, ex, activity);
+            if (_enableLogging) CatgaLog.CommandFailed(_logger, ex, reqType ?? "Unknown", null, "Request is null");
             return CatgaResult<TResponse>.Failure(ex.Message, ex);
         }
 
-        CatgaLog.CommandExecuting(_logger, reqType, request.MessageId, request.CorrelationId);
+        if (_enableLogging) CatgaLog.CommandExecuting(_logger, reqType!, request.MessageId, request.CorrelationId);
 
         try
         {
@@ -87,8 +87,8 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
             var handler = scopedProvider.GetService<IRequestHandler<TRequest, TResponse>>();
             if (handler == null)
             {
-                ObservabilityHooks.RecordCommandError(reqType, new HandlerNotFoundException(reqType), activity);
-                return CatgaResult<TResponse>.Failure($"No handler for {reqType}", new HandlerNotFoundException(reqType));
+                if (_enableTracing) ObservabilityHooks.RecordCommandError(reqType ?? TypeNameCache<TRequest>.Name, new HandlerNotFoundException(TypeNameCache<TRequest>.Name), activity);
+                return CatgaResult<TResponse>.Failure($"No handler for {TypeNameCache<TRequest>.Name}", new HandlerNotFoundException(TypeNameCache<TRequest>.Name));
             }
 
             return await ExecuteRequestWithMetricsAsync(handler, request,
@@ -96,9 +96,12 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         }
         catch (Exception ex)
         {
-            ObservabilityHooks.RecordCommandError(reqType, ex, activity);
-            RecordException(activity as Activity, ex);
-            CatgaLog.CommandFailed(_logger, ex, reqType, request.MessageId, ex.Message);
+            if (_enableTracing)
+            {
+                ObservabilityHooks.RecordCommandError(reqType ?? TypeNameCache<TRequest>.Name, ex, activity);
+                RecordException(activity as Activity, ex);
+            }
+            if (_enableLogging) CatgaLog.CommandFailed(_logger, ex, reqType ?? TypeNameCache<TRequest>.Name, request.MessageId, ex.Message);
             return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PipelineFailed, isRetryable: false));
         }
     }
@@ -118,7 +121,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         IServiceProvider scopedProvider,
         Activity? activity,
         IMessage? message,
-        string reqType,
+        string? reqType,
         long startTimestamp,
         CancellationToken cancellationToken)
         where TRequest : IRequest<TResponse>
@@ -127,24 +130,33 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>>
             ?? behaviors.ToArray();
 
-        // Record pipeline behavior count
-        ObservabilityHooks.RecordPipelineBehaviorCount(reqType, behaviorsList.Count);
+        // Record pipeline behavior count (only if tracing enabled)
+        if (_enableTracing) ObservabilityHooks.RecordPipelineBehaviorCount(reqType ?? TypeNameCache<TRequest>.Name, behaviorsList.Count);
 
-        // Measure pipeline execution duration separately
-        var pipelineStart = Stopwatch.GetTimestamp();
+        // Measure pipeline execution duration separately (only if tracing enabled)
+        var pipelineStart = _enableTracing ? Stopwatch.GetTimestamp() : 0;
         var result = behaviorsList.Count == 0
             ? await ExecuteRequestDirectAsync(handler, request, cancellationToken)
             : await PipelineExecutor.ExecuteAsync(request, handler, behaviorsList, cancellationToken);
-        var pipelineElapsedTicks = Stopwatch.GetTimestamp() - pipelineStart;
-        var pipelineDurationMs = pipelineElapsedTicks * 1000.0 / Stopwatch.Frequency;
-        ObservabilityHooks.RecordPipelineDuration(reqType, pipelineDurationMs);
 
-        // Record metrics and logs
-        var duration = GetElapsedMilliseconds(startTimestamp);
-        ObservabilityHooks.RecordCommandResult(reqType, result.IsSuccess, duration, activity);
-        CatgaLog.CommandExecuted(_logger, reqType, message?.MessageId, duration, result.IsSuccess);
-        if (!result.IsSuccess)
-            CatgaLog.CommandFailed(_logger, result.Exception, reqType, message?.MessageId, result.Error ?? "Unknown");
+        if (_enableTracing)
+        {
+            var pipelineElapsedTicks = Stopwatch.GetTimestamp() - pipelineStart;
+            var pipelineDurationMs = pipelineElapsedTicks * 1000.0 / Stopwatch.Frequency;
+            ObservabilityHooks.RecordPipelineDuration(reqType ?? TypeNameCache<TRequest>.Name, pipelineDurationMs);
+
+            // Record metrics
+            var duration = GetElapsedMilliseconds(startTimestamp);
+            ObservabilityHooks.RecordCommandResult(reqType ?? TypeNameCache<TRequest>.Name, result.IsSuccess, duration, activity);
+        }
+
+        if (_enableLogging)
+        {
+            var duration = _enableTracing ? GetElapsedMilliseconds(startTimestamp) : 0;
+            CatgaLog.CommandExecuted(_logger, reqType ?? TypeNameCache<TRequest>.Name, message?.MessageId, duration, result.IsSuccess);
+            if (!result.IsSuccess)
+                CatgaLog.CommandFailed(_logger, result.Exception, reqType ?? TypeNameCache<TRequest>.Name, message?.MessageId, result.Error ?? "Unknown");
+        }
 
         return result;
     }
@@ -163,11 +175,11 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         if (@event is null)
             return;
 
-        var eventType = TypeNameCache<TEvent>.Name;
+        var eventType = _enableLogging || _enableTracing ? TypeNameCache<TEvent>.Name : null;
 
-        using var activity = ObservabilityHooks.StartEventPublish(eventType, @event);
+        using var activity = _enableTracing ? ObservabilityHooks.StartEventPublish(eventType!, @event) : null;
 
-        CatgaLog.EventPublishing(_logger, eventType, @event.MessageId);
+        if (_enableLogging) CatgaLog.EventPublishing(_logger, eventType!, @event.MessageId);
 
         using var scope = _serviceProvider.CreateScope();
         var scopedProvider = scope.ServiceProvider;
@@ -178,7 +190,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         {
             if (dispatchedTask != null)
                 await dispatchedTask.ConfigureAwait(false);
-            CatgaLog.EventPublished(_logger, eventType, @event.MessageId, 0);
+            if (_enableLogging) CatgaLog.EventPublished(_logger, eventType!, @event.MessageId, 0);
             return;
         }
 
@@ -203,16 +215,16 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
             if (count == 0)
             {
-                CatgaLog.EventPublished(_logger, eventType, @event.MessageId, 0);
+                if (_enableLogging) CatgaLog.EventPublished(_logger, eventType!, @event.MessageId, 0);
                 return;
             }
 
-            ObservabilityHooks.RecordEventPublished(eventType, count);
+            if (_enableTracing) ObservabilityHooks.RecordEventPublished(eventType!, count);
 
             if (count == 1)
             {
                 await HandleEventSafelyAsync(arr[0], @event, cancellationToken).ConfigureAwait(false);
-                CatgaLog.EventPublished(_logger, eventType, @event.MessageId, 1);
+                if (_enableLogging) CatgaLog.EventPublished(_logger, eventType!, @event.MessageId, 1);
                 return;
             }
 
@@ -253,7 +265,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
                 }
             }
 
-            CatgaLog.EventPublished(_logger, eventType, @event?.MessageId, count);
+            if (_enableLogging) CatgaLog.EventPublished(_logger, eventType!, @event?.MessageId, count);
         }
         finally
         {
@@ -263,36 +275,39 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
     private async Task HandleEventSafelyAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(IEventHandler<TEvent> handler, TEvent @event, CancellationToken cancellationToken) where TEvent : IEvent
     {
-        var handlerType = handler.GetType().Name;
-        var eventType = typeof(TEvent).Name;
+        Activity? activity = null;
+        string? handlerType = null;
+        string? eventType = null;
+        long startTimestamp = 0;
 
-        // Optimize: Create activity only if there are active listeners
-        using var activity = CatgaActivitySource.Source.HasListeners()
-            ? CatgaActivitySource.Source.StartActivity($"Handle: {eventType}", ActivityKind.Consumer)
-            : null;
-
-        if (activity != null)
+        if (_enableTracing && CatgaActivitySource.Source.HasListeners())
         {
-            activity.SetTag(CatgaActivitySource.Tags.CatgaType, "event");
-            activity.SetTag(CatgaActivitySource.Tags.EventType, eventType);
-            activity.SetTag(CatgaActivitySource.Tags.HandlerType, handlerType);
+            handlerType = handler.GetType().Name;
+            eventType = typeof(TEvent).Name;
+            activity = CatgaActivitySource.Source.StartActivity($"Handle: {eventType}", ActivityKind.Consumer);
 
-            // Record event reception
-            activity.AddActivityEvent(
-                CatgaActivitySource.Events.EventReceived,
-                ("event.type", eventType),
-                ("handler", handlerType));
+            if (activity != null)
+            {
+                activity.SetTag(CatgaActivitySource.Tags.CatgaType, "event");
+                activity.SetTag(CatgaActivitySource.Tags.EventType, eventType);
+                activity.SetTag(CatgaActivitySource.Tags.HandlerType, handlerType);
 
-            activity.SetTag("catga.event.id", @event.MessageId);
-            if (@event.CorrelationId.HasValue)
-                activity.SetTag("catga.correlation_id", @event.CorrelationId.Value);
+                activity.AddActivityEvent(
+                    CatgaActivitySource.Events.EventReceived,
+                    ("event.type", eventType),
+                    ("handler", handlerType));
 
-            // Zero-GC enrichment via interface (implemented by source-generated classes or manual)
-            if (@event is IActivityTagProvider enricher && activity != null)
-                enricher.Enrich(activity);
+                activity.SetTag("catga.event.id", @event.MessageId);
+                if (@event.CorrelationId.HasValue)
+                    activity.SetTag("catga.correlation_id", @event.CorrelationId.Value);
+
+                if (@event is IActivityTagProvider enricher)
+                    enricher.Enrich(activity);
+
+                startTimestamp = Stopwatch.GetTimestamp();
+            }
         }
 
-        var startTimestamp = Stopwatch.GetTimestamp();
         try
         {
             await handler.HandleAsync(@event, cancellationToken).ConfigureAwait(false);
@@ -305,7 +320,12 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         }
         catch (Exception ex)
         {
-            CatgaLog.EventHandlerFailed(_logger, ex, eventType, @event.MessageId, handlerType);
+            if (_enableLogging)
+            {
+                handlerType ??= handler.GetType().Name;
+                eventType ??= typeof(TEvent).Name;
+                CatgaLog.EventHandlerFailed(_logger, ex, eventType, @event.MessageId, handlerType);
+            }
 
             if (activity != null)
             {
@@ -317,6 +337,10 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
                 activity.SetTag("exception.stacktrace", ex.StackTrace);
                 activity.SetStatus(ActivityStatusCode.Error, ex.Message);
             }
+        }
+        finally
+        {
+            activity?.Dispose();
         }
     }
 

@@ -34,8 +34,9 @@ public static class CatgaServiceCollectionExtensions
         // Users can override this by calling .UseWorkerId(n) or .UseWorkerIdFromEnvironment()
         services.TryAddSingleton<IDistributedIdGenerator>(sp => new SnowflakeIdGenerator(GetWorkerIdFromEnvironmentOrRandom("CATGA_WORKER_ID")));
 
-        // Enable observability hooks by default (no-op unless a listener is registered)
-        ObservabilityHooks.Enable();
+        // Enable observability hooks only if tracing is enabled (default: true)
+        if (options.EnableTracing)
+            ObservabilityHooks.Enable();
 
         services.TryAddSingleton<IEventTypeRegistry, DefaultEventTypeRegistry>();
 
@@ -84,9 +85,47 @@ public static class CatgaServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
 
-        var builder = services.AddCatga();
-        configure(builder.Options);
+        var sw = Stopwatch.StartNew();
 
-        return builder;
+        // Create and configure options BEFORE registering services
+        var options = new CatgaOptions();
+        configure(options);
+        services.TryAddSingleton(options);
+
+        // Register core services
+        services.TryAddScoped<ICatgaMediator, CatgaMediator>();
+
+        // Register default SnowflakeIdGenerator
+        services.TryAddSingleton<IDistributedIdGenerator>(sp => new SnowflakeIdGenerator(GetWorkerIdFromEnvironmentOrRandom("CATGA_WORKER_ID")));
+
+        // Enable observability hooks only if tracing is enabled
+        if (options.EnableTracing)
+            ObservabilityHooks.Enable();
+
+        services.TryAddSingleton<IEventTypeRegistry, DefaultEventTypeRegistry>();
+
+        Catga.Generated.GeneratedBootstrapRegistry.Apply(services);
+        var conv = Catga.Generated.GeneratedBootstrapRegistry.EndpointConvention;
+        if (conv is not null && options.EndpointNamingConvention is null)
+            options.EndpointNamingConvention = conv;
+        var builder = new CatgaServiceBuilder(services, options);
+
+        sw.Stop();
+        var totalMilliseconds = sw.Elapsed.TotalMilliseconds;
+        var tag = new KeyValuePair<string, object?>("component", "DI.Core");
+        try
+        {
+            CatgaDiagnostics.DIRegistrationsCompleted.Add(1, tag);
+            return builder;
+        }
+        catch
+        {
+            CatgaDiagnostics.DIRegistrationsFailed.Add(1, tag);
+            throw;
+        }
+        finally
+        {
+            CatgaDiagnostics.DIRegistrationDuration.Record(totalMilliseconds, tag);
+        }
     }
 }

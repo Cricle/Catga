@@ -45,7 +45,49 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public async ValueTask<CatgaResult<TResponse>> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
+    public ValueTask<CatgaResult<TResponse>> SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse>
+    {
+        // Ultra fast-path: minimal mode with no logging/tracing
+        if (!_enableLogging && !_enableTracing)
+            return SendAsyncFast<TRequest, TResponse>(request, cancellationToken);
+
+        return SendAsyncWithObservability<TRequest, TResponse>(request, cancellationToken);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ValueTask<CatgaResult<TResponse>> SendAsyncFast<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, CancellationToken cancellationToken) where TRequest : IRequest<TResponse>
+    {
+        // Zero-overhead path: no logging, no tracing, no activity
+        var handler = GetCachedHandler<TRequest, TResponse>();
+        if (handler == null)
+            return ValueTask.FromResult(CatgaResult<TResponse>.Failure($"No handler for {TypeNameCache<TRequest>.Name}", new HandlerNotFoundException(TypeNameCache<TRequest>.Name)));
+
+        var behaviorsList = GetCachedBehaviors<TRequest, TResponse>();
+        if (behaviorsList.Count == 0)
+            return ExecuteRequestDirectAsync(handler, request, cancellationToken);
+
+        return ExecuteWithBehaviorsAsync(handler, request, behaviorsList, cancellationToken);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private async ValueTask<CatgaResult<TResponse>> ExecuteWithBehaviorsAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(
+        IRequestHandler<TRequest, TResponse> handler,
+        TRequest request,
+        IList<IPipelineBehavior<TRequest, TResponse>> behaviors,
+        CancellationToken cancellationToken) where TRequest : IRequest<TResponse>
+    {
+        // Build pipeline from behaviors
+        PipelineDelegate<TResponse> next = () => handler.HandleAsync(request, cancellationToken);
+        for (var i = behaviors.Count - 1; i >= 0; i--)
+        {
+            var behavior = behaviors[i];
+            var currentNext = next;
+            next = () => behavior.HandleAsync(request, currentNext, cancellationToken);
+        }
+        return await next().ConfigureAwait(false);
+    }
+
+    private async ValueTask<CatgaResult<TResponse>> SendAsyncWithObservability<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(TRequest request, CancellationToken cancellationToken) where TRequest : IRequest<TResponse>
     {
         var startTimestamp = _enableTracing ? Stopwatch.GetTimestamp() : 0;
         var reqType = _enableLogging || _enableTracing ? TypeNameCache<TRequest>.Name : null;

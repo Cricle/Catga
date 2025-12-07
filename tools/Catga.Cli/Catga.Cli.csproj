@@ -8,6 +8,10 @@
     <AssemblyName>Catga.Cli</AssemblyName>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>catga-cli</ToolCommandName>
+    <PackageId>Catga.Cli</PackageId>
+    <Description>Catga CLI - Event Sourcing Management Tool. Commands for events, projections, flows, and streams management.</Description>
+    <PackageIcon></PackageIcon>
+    <PackageReadmeFile></PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>

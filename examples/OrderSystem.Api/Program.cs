@@ -13,10 +13,18 @@ var builder = WebApplication.CreateBuilder(args);
 // ============================================
 // Catga Configuration (Best Practices)
 // ============================================
+// Use Minimal() for production (disables logging/tracing for max performance)
+// Use ForDevelopment() for development (enables detailed logging)
+var isDevelopment = builder.Environment.IsDevelopment();
 builder.Services
-    .AddCatga()
-    .UseMemoryPack()           // High-performance binary serialization
-    .ForDevelopment();         // Development mode with detailed logging
+    .AddCatga(options =>
+    {
+        if (isDevelopment)
+            options.ForDevelopment();  // Detailed logging for debugging
+        else
+            options.Minimal();         // Max performance for production
+    })
+    .UseMemoryPack();                  // High-performance binary serialization
 
 // Transport configuration (env: CATGA_TRANSPORT = InMemory | Redis | NATS)
 var transport = Environment.GetEnvironmentVariable("CATGA_TRANSPORT") ?? "InMemory";
@@ -55,26 +63,29 @@ builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
 
 // ============================================
 // Pipeline Behaviors (Cross-cutting concerns)
+// Note: Use AddSingleton for stateless behaviors (better performance)
 // ============================================
-builder.Services.AddScoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
-builder.Services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+builder.Services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+builder.Services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
 // ============================================
 // Command/Query Handlers
+// Note: Use AddSingleton for stateless handlers (better performance)
 // ============================================
-builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderHandler>();
-builder.Services.AddScoped<IRequestHandler<CreateOrderFlowCommand, OrderCreatedResult>, CreateOrderFlowHandler>();
-builder.Services.AddScoped<IRequestHandler<CancelOrderCommand>, CancelOrderHandler>();
-builder.Services.AddScoped<IRequestHandler<GetOrderQuery, Order?>, GetOrderHandler>();
-builder.Services.AddScoped<IRequestHandler<GetUserOrdersQuery, List<Order>>, GetUserOrdersHandler>();
+builder.Services.AddSingleton<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderHandler>();
+builder.Services.AddSingleton<IRequestHandler<CreateOrderFlowCommand, OrderCreatedResult>, CreateOrderFlowHandler>();
+builder.Services.AddSingleton<IRequestHandler<CancelOrderCommand>, CancelOrderHandler>();
+builder.Services.AddSingleton<IRequestHandler<GetOrderQuery, Order?>, GetOrderHandler>();
+builder.Services.AddSingleton<IRequestHandler<GetUserOrdersQuery, List<Order>>, GetUserOrdersHandler>();
 
 // ============================================
 // Event Handlers (Multiple handlers per event)
+// Note: Use AddSingleton for stateless handlers (better performance)
 // ============================================
-builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedEventHandler>();
-builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, SendOrderNotificationHandler>();
-builder.Services.AddScoped<IEventHandler<OrderCancelledEvent>, OrderCancelledEventHandler>();
-builder.Services.AddScoped<IEventHandler<OrderConfirmedEvent>, OrderConfirmedEventHandler>();
+builder.Services.AddSingleton<IEventHandler<OrderCreatedEvent>, OrderCreatedEventHandler>();
+builder.Services.AddSingleton<IEventHandler<OrderCreatedEvent>, SendOrderNotificationHandler>();
+builder.Services.AddSingleton<IEventHandler<OrderCancelledEvent>, OrderCancelledEventHandler>();
+builder.Services.AddSingleton<IEventHandler<OrderConfirmedEvent>, OrderConfirmedEventHandler>();
 
 // ============================================
 // Swagger & Health Checks

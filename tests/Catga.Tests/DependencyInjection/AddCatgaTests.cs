@@ -134,7 +134,7 @@ public class AddCatgaTests
     }
 
     [Fact]
-    public void AddCatga_MediatorShouldBeScoped()
+    public void AddCatga_MediatorShouldBeSingleton()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -153,8 +153,8 @@ public class AddCatgaTests
             mediator2 = scope2.ServiceProvider.GetRequiredService<ICatgaMediator>();
         }
 
-        // Assert - Different scopes should get different instances
-        mediator1.Should().NotBeSameAs(mediator2);
+        // Assert - Singleton: same instance across scopes for performance
+        mediator1.Should().BeSameAs(mediator2);
     }
 
     [Fact]

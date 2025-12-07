@@ -65,7 +65,7 @@ public class CatgaMediatorAdditionalTests
     // ==================== Options Configuration ====================
 
     [Fact]
-    public async Task Constructor_WithNullOptions_ShouldUseDefaultOptions()
+    public async Task Constructor_WithDefaultOptions_ShouldWork()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -75,8 +75,8 @@ public class CatgaMediatorAdditionalTests
 
         var sp = services.BuildServiceProvider();
 
-        // Act - Pass null options
-        var mediator = new CatgaMediator(sp, sp.GetRequiredService<ILogger<CatgaMediator>>(), options: null!);
+        // Act - Use default options via DI constructor
+        var mediator = new CatgaMediator(sp, sp.GetRequiredService<ILogger<CatgaMediator>>());
         var command = new TestCommand { Data = "test" };
         var result = await mediator.SendAsync<TestCommand, TestResponse>(command);
 

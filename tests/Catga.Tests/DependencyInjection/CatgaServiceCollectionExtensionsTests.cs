@@ -37,7 +37,7 @@ public class CatgaServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddCatga_ShouldRegisterMediatorAsScoped()
+    public void AddCatga_ShouldRegisterMediatorAsSingleton()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -48,7 +48,7 @@ public class CatgaServiceCollectionExtensionsTests
         // Assert
         var mediatorDescriptor = services.FirstOrDefault(sd => sd.ServiceType == typeof(ICatgaMediator));
         mediatorDescriptor.Should().NotBeNull();
-        mediatorDescriptor!.Lifetime.Should().Be(Microsoft.Extensions.DependencyInjection.ServiceLifetime.Scoped);
+        mediatorDescriptor!.Lifetime.Should().Be(Microsoft.Extensions.DependencyInjection.ServiceLifetime.Singleton);
         mediatorDescriptor.ImplementationType.Should().Be(typeof(CatgaMediator));
     }
 
@@ -319,7 +319,7 @@ public class CatgaServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddCatga_WithScopedMediator_ShouldCreateNewInstancePerScope()
+    public void AddCatga_WithSingletonMediator_ShouldReuseSameInstanceAcrossScopes()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -341,8 +341,8 @@ public class CatgaServiceCollectionExtensionsTests
             mediator2 = scope2.ServiceProvider.GetRequiredService<ICatgaMediator>();
         }
 
-        // Assert
-        mediator1.Should().NotBeSameAs(mediator2);
+        // Assert - Singleton: same instance across scopes for performance
+        mediator1.Should().BeSameAs(mediator2);
     }
 
     [Fact]

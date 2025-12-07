@@ -242,4 +242,12 @@ public sealed class FlowStateAttribute : Attribute
 {
 }
 
+/// <summary>
+/// Marks a property to be excluded from flow state change tracking.
+/// </summary>
+[AttributeUsage(AttributeTargets.Property, Inherited = false)]
+public sealed class FlowStateIgnoreAttribute : Attribute
+{
+}
+
 #endregion

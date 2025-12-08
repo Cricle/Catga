@@ -6,6 +6,8 @@ using Xunit;
 
 namespace Catga.Tests.Core;
 
+// All async tests have 10s timeout to prevent hanging
+
 /// <summary>
 /// Unit tests for GracefulRecoveryManager.
 /// </summary>
@@ -43,7 +45,7 @@ public class GracefulRecoveryManagerTests
         true.Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = 10000)]
     public async Task RecoverAsync_WithNoComponents_ReturnsEmptyResult()
     {
         // Arrange
@@ -57,7 +59,7 @@ public class GracefulRecoveryManagerTests
         result.Failed.Should().Be(0);
     }
 
-    [Fact]
+    [Fact(Timeout = 10000)]
     public async Task RecoverAsync_WithHealthyComponent_ReturnsSuccess()
     {
         // Arrange
@@ -75,7 +77,7 @@ public class GracefulRecoveryManagerTests
         result.IsSuccess.Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = 10000)]
     public async Task RecoverAsync_WithFailingComponent_ReturnsFailure()
     {
         // Arrange
@@ -94,7 +96,7 @@ public class GracefulRecoveryManagerTests
         result.IsSuccess.Should().BeFalse();
     }
 
-    [Fact]
+    [Fact(Timeout = 10000)]
     public async Task RecoverAsync_WithMixedComponents_ReturnsCorrectCounts()
     {
         // Arrange
@@ -118,7 +120,7 @@ public class GracefulRecoveryManagerTests
         result.Failed.Should().Be(1);
     }
 
-    [Fact]
+    [Fact(Timeout = 10000)]
     public async Task RecoverAsync_SetsIsRecoveringDuringRecovery()
     {
         // Arrange
@@ -139,7 +141,7 @@ public class GracefulRecoveryManagerTests
         manager.IsRecovering.Should().BeFalse();
     }
 
-    [Fact]
+    [Fact(Timeout = 10000)]
     public async Task RecoverAsync_ConcurrentCalls_ReturnsAlreadyRecovering()
     {
         // Arrange
@@ -165,7 +167,7 @@ public class GracefulRecoveryManagerTests
         secondRecovery.Should().Be(RecoveryResult.AlreadyRecovering);
     }
 
-    [Fact]
+    [Fact(Timeout = 10000)]
     public async Task RecoverAsync_WithCancellation_ThrowsOperationCanceledException()
     {
         // Arrange

@@ -9,6 +9,7 @@ using Xunit;
 
 namespace Catga.Tests.Distributed;
 
+[Trait("Requires", "Docker")]
 public class RateLimiterTests : IAsyncLifetime
 {
     private RedisContainer? _container;

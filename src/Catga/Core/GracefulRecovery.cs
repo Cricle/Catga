@@ -29,9 +29,23 @@ public sealed partial class GracefulRecoveryManager
 
     public async Task<RecoveryResult> RecoverAsync(CancellationToken cancellationToken = default)
     {
-        await _recoveryLock.WaitAsync(cancellationToken);
+        // Quick check without lock - if already recovering, return immediately
+        if (_isRecovering)
+        {
+            LogRecoveryInProgress();
+            return RecoveryResult.AlreadyRecovering;
+        }
+
+        // Try to acquire lock without blocking
+        if (!await _recoveryLock.WaitAsync(0, cancellationToken))
+        {
+            LogRecoveryInProgress();
+            return RecoveryResult.AlreadyRecovering;
+        }
+
         try
         {
+            // Double-check after acquiring lock
             if (_isRecovering)
             {
                 LogRecoveryInProgress();

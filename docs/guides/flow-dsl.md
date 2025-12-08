@@ -145,6 +145,60 @@ flow.Send(s => new ApplyDiscountCommand(s.OrderId!))
     .OnlyWhen(s => s.HasDiscount);
 ```
 
+### Branching
+
+#### If/ElseIf/Else
+Execute different branches based on conditions:
+
+```csharp
+flow.Send(s => new ValidateOrderCommand(s.OrderId!))
+    .Into(s => s.IsValid);
+
+flow.If(s => s.IsValid)
+        .Send(s => new ProcessPaymentCommand(s.OrderId!, s.Amount))
+            .Into(s => s.PaymentId)
+        .If(s => s.PaymentId != null)  // Nested If
+            .Send(s => new ShipOrderCommand(s.OrderId!))
+        .Else()
+            .Send(s => new RejectOrderCommand(s.OrderId!, "Payment failed"))
+        .EndIf()
+    .ElseIf(s => s.Amount < 100)
+        .Send(s => new ProcessSmallOrderCommand(s.OrderId!))
+    .Else()
+        .Send(s => new RejectOrderCommand(s.OrderId!, "Validation failed"))
+    .EndIf();
+```
+
+#### Switch/Case
+Execute different branches based on a value:
+
+```csharp
+flow.Switch(s => s.PaymentMethod)
+    .Case("CreditCard", f => f
+        .Send(s => new ProcessCreditCardCommand(s.OrderId!))
+            .Into(s => s.PaymentId))
+    .Case("PayPal", f => f
+        .Send(s => new ProcessPayPalCommand(s.OrderId!))
+            .Into(s => s.PaymentId))
+    .Default(f => f
+        .Send(s => new ProcessBankTransferCommand(s.OrderId!))
+            .Into(s => s.PaymentId))
+    .EndSwitch();
+```
+
+#### Chaining After Into
+You can chain `If` or `Switch` directly after `Into`:
+
+```csharp
+flow.Send(s => new ValidateOrderCommand(s.OrderId!))
+    .Into(s => s.IsValid)
+    .If(s => s.IsValid)
+        .Send(s => new ProcessOrderCommand(s.OrderId!))
+    .Else()
+        .Send(s => new RejectOrderCommand(s.OrderId!))
+    .EndIf();
+```
+
 ### Optional Steps
 
 #### Optional

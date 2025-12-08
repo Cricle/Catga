@@ -120,3 +120,9 @@ public class GeneratedBootstrapRegistryTests
         act.Should().NotThrow();
     }
 }
+
+
+
+
+
+

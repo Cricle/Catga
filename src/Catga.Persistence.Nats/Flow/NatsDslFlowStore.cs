@@ -269,7 +269,7 @@ public sealed class NatsDslFlowStore : IDslFlowStore
     private record StoredSnapshot<TState>(
         string FlowId,
         TState State,
-        int CurrentStep,
+        int[] PositionPath,
         DslFlowStatus Status,
         string? Error,
         string? WaitConditionId,
@@ -278,12 +278,21 @@ public sealed class NatsDslFlowStore : IDslFlowStore
         int Version) where TState : class, IFlowState
     {
         public StoredSnapshot(FlowSnapshot<TState> snapshot)
-            : this(snapshot.FlowId, snapshot.State, snapshot.CurrentStep, snapshot.Status,
+            : this(snapshot.FlowId, snapshot.State, snapshot.Position.Path, snapshot.Status,
                    snapshot.Error, snapshot.WaitCondition?.CorrelationId, snapshot.CreatedAt,
                    snapshot.UpdatedAt, snapshot.Version)
         { }
 
-        public FlowSnapshot<TState> ToSnapshot() => new(
-            FlowId, State, CurrentStep, Status, Error, null, CreatedAt, UpdatedAt, Version);
+        public FlowSnapshot<TState> ToSnapshot() => new()
+        {
+            FlowId = FlowId,
+            State = State,
+            Position = new FlowPosition(PositionPath),
+            Status = Status,
+            Error = Error,
+            CreatedAt = CreatedAt,
+            UpdatedAt = UpdatedAt,
+            Version = Version
+        };
     }
 }

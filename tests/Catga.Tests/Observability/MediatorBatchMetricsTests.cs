@@ -77,3 +77,9 @@ public class MediatorBatchMetricsTests
         public ValueTask<T> ExecuteTransportSendAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken) => action(cancellationToken);
     }
 }
+
+
+
+
+
+

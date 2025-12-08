@@ -249,3 +249,9 @@ public class OrderSystemFlowE2ETests : IClassFixture<WebApplicationFactory<Order
     private record DemoCreateResult(string OrderId, int EventCount, string Message);
     private record VerifyResult(string StreamId, bool IsValid, string Hash, string? Error);
 }
+
+
+
+
+
+

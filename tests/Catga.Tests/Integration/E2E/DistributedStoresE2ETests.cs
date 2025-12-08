@@ -303,3 +303,6 @@ public partial class E2ETestAggregate
     public string Id { get; set; } = string.Empty;
     public int Counter { get; set; }
 }
+
+
+

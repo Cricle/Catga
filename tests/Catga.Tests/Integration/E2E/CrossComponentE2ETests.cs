@@ -227,16 +227,11 @@ public sealed class CrossComponentE2ETests : IAsyncLifetime
         {
             var childId = $"child-{Guid.NewGuid():N}";
             childFlowIds.Add(childId);
-            var snapshot = new FlowSnapshot<CrossTestFlowState>(
+            var snapshot = FlowSnapshot<CrossTestFlowState>.Create(
                 childId,
                 new CrossTestFlowState { Counter = i },
-                CurrentStep: 0,
-                Status: DslFlowStatus.Running,
-                Error: null,
-                WaitCondition: null,
-                CreatedAt: DateTime.UtcNow,
-                UpdatedAt: DateTime.UtcNow,
-                Version: 0);
+                currentStep: 0,
+                status: DslFlowStatus.Running);
             await dslFlowStore.CreateAsync(snapshot);
         }
 

@@ -278,3 +278,9 @@ public class LoggingBehaviorSimpleTests
     }
 }
 
+
+
+
+
+
+

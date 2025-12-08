@@ -475,3 +475,9 @@ public partial record QoS2Message(int Id, string Name) : IMessage
     public DeliveryMode DeliveryMode => DeliveryMode.WaitForResult;
 }
 
+
+
+
+
+
+

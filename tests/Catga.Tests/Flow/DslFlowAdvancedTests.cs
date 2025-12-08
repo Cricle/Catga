@@ -274,8 +274,7 @@ public class DslFlowAdvancedTests
         for (int i = 0; i < 100; i++)
         {
             var flowId = $"concurrent-{i}";
-            var snapshot = new FlowSnapshot<TestFlowState>(
-                flowId,
+            var snapshot = FlowSnapshot<TestFlowState>.Create(flowId,
                 new TestFlowState { FlowId = flowId, Value = $"value-{i}" },
                 0, DslFlowStatus.Running, null, null,
                 DateTime.UtcNow, DateTime.UtcNow, 0);
@@ -1214,16 +1213,15 @@ public class DslFlowAdvancedTests
         var mediator = Substitute.For<ICatgaMediator>();
         var store = new InMemoryDslFlowStore();
         var state = new TestFlowState { FlowId = "completed-flow" };
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            "completed-flow",
+        var snapshot = FlowSnapshot<TestFlowState>.Create("completed-flow",
             state,
-            CurrentStep: 1,
-            Status: DslFlowStatus.Completed,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 1,
+            status: DslFlowStatus.Completed,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 0);
         await store.CreateAsync(snapshot);
 
         var config = new SimpleFlowConfig();
@@ -1244,16 +1242,15 @@ public class DslFlowAdvancedTests
         var mediator = Substitute.For<ICatgaMediator>();
         var store = new InMemoryDslFlowStore();
         var state = new TestFlowState { FlowId = "failed-flow" };
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            "failed-flow",
+        var snapshot = FlowSnapshot<TestFlowState>.Create("failed-flow",
             state,
-            CurrentStep: 1,
-            Status: DslFlowStatus.Failed,
-            Error: "Previous failure",
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 1,
+            status: DslFlowStatus.Failed,
+            error: "Previous failure",
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 0);
         await store.CreateAsync(snapshot);
 
         var config = new SimpleFlowConfig();
@@ -1274,16 +1271,15 @@ public class DslFlowAdvancedTests
         var mediator = Substitute.For<ICatgaMediator>();
         var store = new InMemoryDslFlowStore();
         var state = new TestFlowState { FlowId = "cancelled-flow" };
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            "cancelled-flow",
+        var snapshot = FlowSnapshot<TestFlowState>.Create("cancelled-flow",
             state,
-            CurrentStep: 1,
-            Status: DslFlowStatus.Cancelled,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 1,
+            status: DslFlowStatus.Cancelled,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 0);
         await store.CreateAsync(snapshot);
 
         var config = new SimpleFlowConfig();
@@ -1304,16 +1300,15 @@ public class DslFlowAdvancedTests
         var mediator = Substitute.For<ICatgaMediator>();
         var store = new InMemoryDslFlowStore();
         var state = new TestFlowState { FlowId = "to-cancel" };
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            "to-cancel",
+        var snapshot = FlowSnapshot<TestFlowState>.Create("to-cancel",
             state,
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 0,
+            status: DslFlowStatus.Running,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 0);
         await store.CreateAsync(snapshot);
 
         var config = new SimpleFlowConfig();
@@ -1351,16 +1346,15 @@ public class DslFlowAdvancedTests
         var mediator = Substitute.For<ICatgaMediator>();
         var store = new InMemoryDslFlowStore();
         var state = new TestFlowState { FlowId = "get-test", Value = "test-value" };
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            "get-test",
+        var snapshot = FlowSnapshot<TestFlowState>.Create("get-test",
             state,
-            CurrentStep: 2,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 1);
+            currentStep: 2,
+            status: DslFlowStatus.Running,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 1);
         await store.CreateAsync(snapshot);
 
         var config = new SimpleFlowConfig();
@@ -1372,7 +1366,7 @@ public class DslFlowAdvancedTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal("get-test", result.FlowId);
-        Assert.Equal(2, result.CurrentStep);
+        Assert.Equal(2, result.Position.CurrentIndex);
         Assert.Equal("test-value", result.State.Value);
     }
 
@@ -1527,16 +1521,15 @@ public class DslFlowAdvancedTests
         // Arrange
         var store = new InMemoryDslFlowStore();
         var state = new TestFlowState { FlowId = "snapshot-test", Value = "test-value" };
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            "snapshot-test",
+        var snapshot = FlowSnapshot<TestFlowState>.Create("snapshot-test",
             state,
-            CurrentStep: 5,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 1);
+            currentStep: 5,
+            status: DslFlowStatus.Running,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 1);
 
         await store.CreateAsync(snapshot);
 
@@ -1546,7 +1539,7 @@ public class DslFlowAdvancedTests
         // Assert
         Assert.NotNull(retrieved);
         Assert.Equal("snapshot-test", retrieved.FlowId);
-        Assert.Equal(5, retrieved.CurrentStep);
+        Assert.Equal(5, retrieved.Position.CurrentIndex);
         Assert.Equal(DslFlowStatus.Running, retrieved.Status);
         Assert.Null(retrieved.Error);
         Assert.Null(retrieved.WaitCondition);
@@ -1560,16 +1553,15 @@ public class DslFlowAdvancedTests
         // Arrange
         var store = new InMemoryDslFlowStore();
         var state = new TestFlowState { FlowId = "error-snapshot" };
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            "error-snapshot",
+        var snapshot = FlowSnapshot<TestFlowState>.Create("error-snapshot",
             state,
-            CurrentStep: 2,
-            Status: DslFlowStatus.Failed,
-            Error: "Test error message",
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 2,
+            status: DslFlowStatus.Failed,
+            error: "Test error message",
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 0);
 
         await store.CreateAsync(snapshot);
 
@@ -1601,16 +1593,15 @@ public class DslFlowAdvancedTests
             Step = 2
         };
 
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            "wait-snapshot",
+        var snapshot = FlowSnapshot<TestFlowState>.Create("wait-snapshot",
             state,
-            CurrentStep: 2,
-            Status: DslFlowStatus.Suspended,
-            Error: null,
-            WaitCondition: waitCondition,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 2,
+            status: DslFlowStatus.Suspended,
+            error: null,
+            waitCondition: waitCondition,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 0);
 
         await store.CreateAsync(snapshot);
 
@@ -1631,16 +1622,15 @@ public class DslFlowAdvancedTests
         // Arrange
         var store = new InMemoryDslFlowStore();
         var state = new TestFlowState { FlowId = "version-test" };
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            "version-test",
+        var snapshot = FlowSnapshot<TestFlowState>.Create("version-test",
             state,
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 0,
+            status: DslFlowStatus.Running,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 0);
 
         await store.CreateAsync(snapshot);
 
@@ -1648,13 +1638,13 @@ public class DslFlowAdvancedTests
         for (int i = 1; i <= 5; i++)
         {
             var current = await store.GetAsync<TestFlowState>("version-test");
-            var updated = current! with { CurrentStep = i, Version = i };
+            var updated = current! with { Position = new FlowPosition([i]), Version = i };
             await store.UpdateAsync(updated);
         }
 
         // Assert
         var final = await store.GetAsync<TestFlowState>("version-test");
-        Assert.Equal(5, final!.CurrentStep);
+        Assert.Equal(5, final!.Position.CurrentIndex);
         Assert.Equal(5, final.Version);
     }
 
@@ -2417,16 +2407,15 @@ public class DslFlowAdvancedTests
 
         // Pre-create a suspended flow at step 2
         var state = new TestFlowState { FlowId = "resume-test" };
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            "resume-test",
+        var snapshot = FlowSnapshot<TestFlowState>.Create("resume-test",
             state,
-            CurrentStep: 2,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 2,
+            status: DslFlowStatus.Running,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 0);
         await store.CreateAsync(snapshot);
 
         var config = new E2EMultiStepFlowConfig();
@@ -3211,3 +3200,9 @@ public class DslFlowAdvancedTests
 
     #endregion
 }
+
+
+
+
+
+

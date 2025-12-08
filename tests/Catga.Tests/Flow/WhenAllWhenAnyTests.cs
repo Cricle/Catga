@@ -77,8 +77,7 @@ public class WhenAllWhenAnyTests
             ]
         };
 
-        var snapshot = new FlowSnapshot<OrderFlowState>(
-            "parent-1", state, 0, DslFlowStatus.Suspended, null, waitCondition,
+        var snapshot = FlowSnapshot<OrderFlowState>.Create("parent-1", state, 0, DslFlowStatus.Suspended, null, waitCondition,
             DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow, 1);
 
         _store.GetAsync<OrderFlowState>("parent-1", Arg.Any<CancellationToken>())
@@ -124,8 +123,7 @@ public class WhenAllWhenAnyTests
             ]
         };
 
-        var snapshot = new FlowSnapshot<OrderFlowState>(
-            "parent-1", state, 0, DslFlowStatus.Suspended, null, waitCondition,
+        var snapshot = FlowSnapshot<OrderFlowState>.Create("parent-1", state, 0, DslFlowStatus.Suspended, null, waitCondition,
             DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow, 1);
 
         _store.GetAsync<OrderFlowState>("parent-1", Arg.Any<CancellationToken>())
@@ -169,8 +167,7 @@ public class WhenAllWhenAnyTests
             Results = [new FlowCompletedEventData { FlowId = "child-1", Success = true }]
         };
 
-        var snapshot = new FlowSnapshot<OrderFlowState>(
-            "parent-1", state, 0, DslFlowStatus.Suspended, null, waitCondition,
+        var snapshot = FlowSnapshot<OrderFlowState>.Create("parent-1", state, 0, DslFlowStatus.Suspended, null, waitCondition,
             DateTime.UtcNow.AddMinutes(-10), DateTime.UtcNow, 1);
 
         _store.GetAsync<OrderFlowState>("parent-1", Arg.Any<CancellationToken>())
@@ -217,8 +214,7 @@ public class WhenAllWhenAnyTests
             Results = [new FlowCompletedEventData { FlowId = "child-1", Success = true, Result = "pay-123" }]
         };
 
-        var snapshot = new FlowSnapshot<OrderFlowState>(
-            "parent-1", state, 0, DslFlowStatus.Suspended, null, waitCondition,
+        var snapshot = FlowSnapshot<OrderFlowState>.Create("parent-1", state, 0, DslFlowStatus.Suspended, null, waitCondition,
             DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow, 1);
 
         _store.GetAsync<OrderFlowState>("parent-1", Arg.Any<CancellationToken>())
@@ -260,8 +256,7 @@ public class WhenAllWhenAnyTests
             Results = [new FlowCompletedEventData { FlowId = "child-1", Success = true, Result = "pay-primary-123" }]
         };
 
-        var snapshot = new FlowSnapshot<OrderFlowState>(
-            "parent-1", state, 0, DslFlowStatus.Suspended, null, waitCondition,
+        var snapshot = FlowSnapshot<OrderFlowState>.Create("parent-1", state, 0, DslFlowStatus.Suspended, null, waitCondition,
             DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow, 1);
 
         _store.GetAsync<OrderFlowState>("parent-1", Arg.Any<CancellationToken>())
@@ -306,8 +301,7 @@ public class WhenAllWhenAnyTests
             ]
         };
 
-        var snapshot = new FlowSnapshot<OrderFlowState>(
-            "parent-1", state, 0, DslFlowStatus.Suspended, null, waitCondition,
+        var snapshot = FlowSnapshot<OrderFlowState>.Create("parent-1", state, 0, DslFlowStatus.Suspended, null, waitCondition,
             DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow, 1);
 
         _store.GetAsync<OrderFlowState>("parent-1", Arg.Any<CancellationToken>())
@@ -526,3 +520,9 @@ public class WhenAnyWithResultFlowConfig : FlowConfig<OrderFlowState>
 }
 
 #endregion
+
+
+
+
+
+

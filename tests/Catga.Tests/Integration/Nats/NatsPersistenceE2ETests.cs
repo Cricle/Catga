@@ -482,16 +482,11 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
         if (_nats is null) return;
         var store = new NatsDslFlowStore(_nats, _serializer, $"dslflows_{Guid.NewGuid():N}");
         var flowId = $"dsl-{Guid.NewGuid():N}";
-        var snapshot = new FlowSnapshot<NatsTestFlowState>(
+        var snapshot = FlowSnapshot<NatsTestFlowState>.Create(
             flowId,
             new NatsTestFlowState { Counter = 0 },
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 0,
+            status: DslFlowStatus.Running);
 
         var created = await store.CreateAsync(snapshot);
         var loaded = await store.GetAsync<NatsTestFlowState>(flowId);
@@ -506,19 +501,14 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
         if (_nats is null) return;
         var store = new NatsDslFlowStore(_nats, _serializer, $"dslflows_upd_{Guid.NewGuid():N}");
         var flowId = $"dsl-{Guid.NewGuid():N}";
-        var snapshot = new FlowSnapshot<NatsTestFlowState>(
+        var snapshot = FlowSnapshot<NatsTestFlowState>.Create(
             flowId,
             new NatsTestFlowState { Counter = 0 },
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 0,
+            status: DslFlowStatus.Running);
 
         await store.CreateAsync(snapshot);
-        var updated = await store.UpdateAsync(snapshot with { CurrentStep = 1 });
+        var updated = await store.UpdateAsync(snapshot with { Position = new FlowPosition([1]) });
 
         updated.Should().BeTrue();
     }

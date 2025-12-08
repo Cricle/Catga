@@ -272,3 +272,9 @@ public sealed partial class MemoryPackSerializerExtendedTests
 
     #endregion
 }
+
+
+
+
+
+

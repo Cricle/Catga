@@ -113,3 +113,9 @@ public class DefaultEventTypeRegistryTests
         public long MessageId { get; init; }
     }
 }
+
+
+
+
+
+

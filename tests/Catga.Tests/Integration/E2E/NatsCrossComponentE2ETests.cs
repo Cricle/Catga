@@ -170,13 +170,13 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
         await flowStore.CreateAsync(mainFlow);
 
         // Create DSL flow with parallel branches
-        var dslFlow = new FlowSnapshot<NatsCrossTestFlowState>(
+        var dslFlow = FlowSnapshot<NatsCrossTestFlowState>.Create(
             flowId,
             new NatsCrossTestFlowState { Counter = 0 },
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: new WaitCondition
+            currentStep: 0,
+            status: DslFlowStatus.Running,
+            error: null,
+            waitCondition: new WaitCondition
             {
                 FlowId = flowId,
                 FlowType = "NatsParallelTestFlow",
@@ -187,15 +187,15 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
                 Timeout = TimeSpan.FromMinutes(5),
                 CreatedAt = DateTime.UtcNow
             },
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 0);
         await dslFlowStore.CreateAsync(dslFlow);
 
         // Complete branches - update DSL flow
         var updatedDsl = dslFlow with
         {
-            CurrentStep = 1,
+            Position = new FlowPosition([1]),
             WaitCondition = null,
             UpdatedAt = DateTime.UtcNow,
             Version = 1
@@ -205,7 +205,7 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
         // Verify
         var loadedDsl = await dslFlowStore.GetAsync<NatsCrossTestFlowState>(flowId);
         loadedDsl.Should().NotBeNull();
-        loadedDsl!.CurrentStep.Should().Be(1);
+        loadedDsl!.Position.CurrentIndex.Should().Be(1);
     }
 
     [Fact]
@@ -518,3 +518,6 @@ public partial class NatsCrossTestFlowState : IFlowState
 }
 
 #endregion
+
+
+

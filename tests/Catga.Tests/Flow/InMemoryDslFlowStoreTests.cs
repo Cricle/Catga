@@ -277,16 +277,15 @@ public class InMemoryDslFlowStoreTests
 
     private static FlowSnapshot<TestFlowState> CreateSnapshot(string flowId, TestFlowState state)
     {
-        return new FlowSnapshot<TestFlowState>(
-            flowId,
+        return FlowSnapshot<TestFlowState>.Create(flowId,
             state,
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 0,
+            status: DslFlowStatus.Running,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 0);
     }
 
     private static WaitCondition CreateWaitCondition(string correlationId)
@@ -333,3 +332,9 @@ public class TestFlowState : IFlowState
 }
 
 #endregion
+
+
+
+
+
+

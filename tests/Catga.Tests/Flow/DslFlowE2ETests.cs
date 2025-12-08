@@ -17,17 +17,11 @@ public class DslFlowE2ETests
         var store = new InMemoryDslFlowStore();
 
         var state = new TestFlowState { OrderId = "ORD-005", Amount = 100 };
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            FlowId: "flow-001",
-            State: state,
-            CurrentStep: 2,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 1
-        );
+        var snapshot = FlowSnapshot<TestFlowState>.Create(
+            flowId: "flow-001",
+            state: state,
+            currentStep: 2,
+            status: DslFlowStatus.Running);
 
         // Act
         var created = await store.CreateAsync(snapshot);
@@ -37,7 +31,7 @@ public class DslFlowE2ETests
         created.Should().BeTrue();
         retrieved.Should().NotBeNull();
         retrieved!.State.OrderId.Should().Be("ORD-005");
-        retrieved.CurrentStep.Should().Be(2);
+        retrieved.Position.CurrentIndex.Should().Be(2);
     }
 
     [Fact]
@@ -47,31 +41,25 @@ public class DslFlowE2ETests
         var store = new InMemoryDslFlowStore();
 
         var state = new TestFlowState { OrderId = "ORD-006", Amount = 100 };
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            FlowId: "flow-002",
-            State: state,
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 1
-        );
+        var snapshot = FlowSnapshot<TestFlowState>.Create(
+            flowId: "flow-002",
+            state: state,
+            currentStep: 0,
+            status: DslFlowStatus.Running);
 
         await store.CreateAsync(snapshot);
 
         // Act - Update state
         state.Amount = 200;
         state.MarkChanged(0);
-        var updatedSnapshot = snapshot with { CurrentStep = 3, Status = DslFlowStatus.Completed, UpdatedAt = DateTime.UtcNow };
+        var updatedSnapshot = snapshot with { Position = new FlowPosition([3]), Status = DslFlowStatus.Completed, UpdatedAt = DateTime.UtcNow };
 
         var updated = await store.UpdateAsync(updatedSnapshot);
         var retrieved = await store.GetAsync<TestFlowState>("flow-002");
 
         // Assert
         updated.Should().BeTrue();
-        retrieved!.CurrentStep.Should().Be(3);
+        retrieved!.Position.CurrentIndex.Should().Be(3);
         retrieved.Status.Should().Be(DslFlowStatus.Completed);
     }
 
@@ -82,17 +70,11 @@ public class DslFlowE2ETests
         var store = new InMemoryDslFlowStore();
 
         var state = new TestFlowState { OrderId = "ORD-007" };
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            FlowId: "flow-003",
-            State: state,
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 1
-        );
+        var snapshot = FlowSnapshot<TestFlowState>.Create(
+            flowId: "flow-003",
+            state: state,
+            currentStep: 0,
+            status: DslFlowStatus.Running);
 
         await store.CreateAsync(snapshot);
 
@@ -181,28 +163,26 @@ public class DslFlowE2ETests
         var state1 = new TestFlowState { OrderId = "ORD-A", Amount = 100 };
         var state2 = new TestFlowState { OrderId = "ORD-B", Amount = 200 };
 
-        var snapshot1 = new FlowSnapshot<TestFlowState>(
-            FlowId: "flow-a",
-            State: state1,
-            CurrentStep: 1,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 1
+        var snapshot1 = FlowSnapshot<TestFlowState>.Create(flowId: "flow-a",
+            state: state1,
+            currentStep: 1,
+            status: DslFlowStatus.Running,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 1
         );
 
-        var snapshot2 = new FlowSnapshot<TestFlowState>(
-            FlowId: "flow-b",
-            State: state2,
-            CurrentStep: 2,
-            Status: DslFlowStatus.Completed,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 1
+        var snapshot2 = FlowSnapshot<TestFlowState>.Create(flowId: "flow-b",
+            state: state2,
+            currentStep: 2,
+            status: DslFlowStatus.Completed,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 1
         );
 
         // Act
@@ -214,11 +194,11 @@ public class DslFlowE2ETests
 
         // Assert
         retrieved1!.State.OrderId.Should().Be("ORD-A");
-        retrieved1.CurrentStep.Should().Be(1);
+        retrieved1.Position.CurrentIndex.Should().Be(1);
         retrieved1.Status.Should().Be(DslFlowStatus.Running);
 
         retrieved2!.State.OrderId.Should().Be("ORD-B");
-        retrieved2.CurrentStep.Should().Be(2);
+        retrieved2.Position.CurrentIndex.Should().Be(2);
         retrieved2.Status.Should().Be(DslFlowStatus.Completed);
     }
 
@@ -229,16 +209,15 @@ public class DslFlowE2ETests
         var store = new InMemoryDslFlowStore();
 
         var state = new TestFlowState { OrderId = "ORD-CONCURRENT" };
-        var snapshot = new FlowSnapshot<TestFlowState>(
-            FlowId: "flow-concurrent",
-            State: state,
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 1
+        var snapshot = FlowSnapshot<TestFlowState>.Create(flowId: "flow-concurrent",
+            state: state,
+            currentStep: 0,
+            status: DslFlowStatus.Running,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 1
         );
 
         await store.CreateAsync(snapshot);
@@ -246,7 +225,7 @@ public class DslFlowE2ETests
         // Act - Simulate concurrent updates
         var tasks = Enumerable.Range(1, 5).Select(async i =>
         {
-            var updated = snapshot with { CurrentStep = i, UpdatedAt = DateTime.UtcNow };
+            var updated = snapshot with { Position = new FlowPosition([i]), UpdatedAt = DateTime.UtcNow };
             await store.UpdateAsync(updated);
         });
 
@@ -256,7 +235,7 @@ public class DslFlowE2ETests
 
         // Assert - One of the updates should have succeeded
         retrieved.Should().NotBeNull();
-        retrieved!.CurrentStep.Should().BeInRange(1, 5);
+        retrieved!.Position.CurrentIndex.Should().BeInRange(1, 5);
     }
 
     #endregion
@@ -280,3 +259,9 @@ public class DslFlowE2ETests
 
     #endregion
 }
+
+
+
+
+
+

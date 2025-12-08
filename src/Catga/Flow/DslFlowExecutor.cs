@@ -59,16 +59,16 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
 
         DslFlowTelemetry.FlowsStarted.Add(1, new KeyValuePair<string, object?>("flow.name", flowName));
 
-        var snapshot = new FlowSnapshot<TState>(
-            state.FlowId,
-            state,
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+        var snapshot = new FlowSnapshot<TState>
+        {
+            FlowId = state.FlowId!,
+            State = state,
+            Position = FlowPosition.Initial,
+            Status = DslFlowStatus.Running,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            Version = 0
+        };
 
         await _store.CreateAsync(snapshot, cancellationToken);
 
@@ -110,7 +110,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         // Handle suspended flow - check wait condition
         if (snapshot.Status == DslFlowStatus.Suspended)
         {
-            var correlationId = $"{flowId}-step-{snapshot.CurrentStep}";
+            var correlationId = $"{flowId}-step-{snapshot.Position.CurrentIndex}";
             var waitCondition = await _store.GetWaitConditionAsync(correlationId, cancellationToken);
 
             if (waitCondition != null)
@@ -120,11 +120,11 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
                     return resumeResult.Value;
 
                 // Wait condition satisfied, continue from next step
-                return await ExecuteFromStepAsync(snapshot, snapshot.CurrentStep + 1, cancellationToken);
+                return await ExecuteFromStepAsync(snapshot, snapshot.Position.CurrentIndex + 1, cancellationToken);
             }
         }
 
-        return await ExecuteFromStepAsync(snapshot, snapshot.CurrentStep, cancellationToken);
+        return await ExecuteFromStepAsync(snapshot, snapshot.Position.CurrentIndex, cancellationToken);
     }
 
     private async Task<DslFlowResult<TState>?> CheckAndResumeFromWaitConditionAsync(
@@ -133,12 +133,12 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         CancellationToken cancellationToken)
     {
         var state = snapshot.State;
-        var step = _config.Steps[snapshot.CurrentStep];
+        var step = _config.Steps[snapshot.Position.CurrentIndex];
 
         // Check timeout
         if (DateTime.UtcNow - waitCondition.CreatedAt > waitCondition.Timeout)
         {
-            await UpdateSnapshotAsync(snapshot, state, snapshot.CurrentStep, DslFlowStatus.Failed, "WhenAll/WhenAny timeout", cancellationToken);
+            await UpdateSnapshotAsync(snapshot, state, snapshot.Position, DslFlowStatus.Failed, "WhenAll/WhenAny timeout", cancellationToken);
             return DslFlowResult<TState>.Failure(DslFlowStatus.Failed, "WhenAll/WhenAny timeout");
         }
 
@@ -166,7 +166,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
                     catch { }
                 }
 
-                await UpdateSnapshotAsync(snapshot, state, snapshot.CurrentStep, DslFlowStatus.Failed, failedChild.Error, cancellationToken);
+                await UpdateSnapshotAsync(snapshot, state, snapshot.Position, DslFlowStatus.Failed, failedChild.Error, cancellationToken);
                 return DslFlowResult<TState>.Failure(DslFlowStatus.Failed, failedChild.Error);
             }
         }
@@ -185,7 +185,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             {
                 // All failed
                 var lastError = waitCondition.Results.LastOrDefault()?.Error ?? "All child flows failed";
-                await UpdateSnapshotAsync(snapshot, state, snapshot.CurrentStep, DslFlowStatus.Failed, lastError, cancellationToken);
+                await UpdateSnapshotAsync(snapshot, state, snapshot.Position, DslFlowStatus.Failed, lastError, cancellationToken);
                 return DslFlowResult<TState>.Failure(DslFlowStatus.Failed, lastError);
             }
             else
@@ -234,7 +234,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         {
             if (cancellationToken.IsCancellationRequested)
             {
-                await UpdateSnapshotAsync(snapshot, state, i, DslFlowStatus.Cancelled, null, cancellationToken);
+                await UpdateSnapshotAsync(snapshot, state, StepToPosition(i), DslFlowStatus.Cancelled, null, cancellationToken);
                 return DslFlowResult<TState>.Failure(DslFlowStatus.Cancelled, "Flow was cancelled");
             }
 
@@ -255,7 +255,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             if (result.IsSuspended)
             {
                 // Flow is suspended waiting for child flows
-                await UpdateSnapshotAsync(snapshot, state, i, DslFlowStatus.Suspended, null, cancellationToken);
+                await UpdateSnapshotAsync(snapshot, state, StepToPosition(i), DslFlowStatus.Suspended, null, cancellationToken);
                 return DslFlowResult<TState>.Success(state, DslFlowStatus.Suspended);
             }
 
@@ -288,7 +288,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
                     await _mediator.PublishAsync(failedEvent, cancellationToken);
                 }
 
-                await UpdateSnapshotAsync(snapshot, state, i, DslFlowStatus.Failed, result.Error, cancellationToken);
+                await UpdateSnapshotAsync(snapshot, state, StepToPosition(i), DslFlowStatus.Failed, result.Error, cancellationToken);
                 return DslFlowResult<TState>.Failure(DslFlowStatus.Failed, result.Error);
             }
 
@@ -302,7 +302,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             // Persist after step if tagged
             if (ShouldPersistAfterStep(step))
             {
-                await UpdateSnapshotAsync(snapshot, state, i + 1, DslFlowStatus.Running, null, cancellationToken);
+                await UpdateSnapshotAsync(snapshot, state, StepToPosition(i + 1), DslFlowStatus.Running, null, cancellationToken);
             }
         }
 
@@ -313,7 +313,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             await _mediator.PublishAsync(completedEvent, cancellationToken);
         }
 
-        await UpdateSnapshotAsync(snapshot, state, steps.Count, DslFlowStatus.Completed, null, cancellationToken);
+        await UpdateSnapshotAsync(snapshot, state, StepToPosition(steps.Count), DslFlowStatus.Completed, null, cancellationToken);
         return DslFlowResult<TState>.Success(state, DslFlowStatus.Completed);
     }
 
@@ -338,6 +338,8 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
                 StepType.Publish => await ExecutePublishAsync(state, step, stepIndex, cancellationToken),
                 StepType.WhenAll => await ExecuteWhenAllAsync(state, step, stepIndex, cancellationToken),
                 StepType.WhenAny => await ExecuteWhenAnyAsync(state, step, stepIndex, cancellationToken),
+                StepType.If => await ExecuteIfAsync(state, step, stepIndex, cancellationToken),
+                StepType.Switch => await ExecuteSwitchAsync(state, step, stepIndex, cancellationToken),
                 _ => StepResult.Failed($"Unknown step type: {step.Type}")
             };
         }
@@ -607,10 +609,154 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         return false;
     }
 
+    private async Task<StepResult> ExecuteIfAsync(
+        TState state,
+        FlowStep step,
+        int stepIndex,
+        CancellationToken cancellationToken)
+    {
+        // Evaluate the If condition
+        if (step.BranchCondition == null)
+            return StepResult.Failed("If step has no condition");
+
+        var condition = (Func<TState, bool>)step.BranchCondition;
+        var conditionResult = condition(state);
+
+        // Select the appropriate branch and branch index
+        List<FlowStep>? branchToExecute = null;
+        int branchIndex = 0; // 0 = Then, 1+ = ElseIf, -1 = Else
+
+        if (conditionResult)
+        {
+            branchToExecute = step.ThenBranch;
+            branchIndex = 0;
+        }
+        else if (step.ElseIfBranches != null)
+        {
+            // Check ElseIf branches
+            int elseIfIndex = 1;
+            foreach (var (elseIfCondition, elseIfBranch) in step.ElseIfBranches)
+            {
+                var elseIfFunc = (Func<TState, bool>)elseIfCondition;
+                if (elseIfFunc(state))
+                {
+                    branchToExecute = elseIfBranch;
+                    branchIndex = elseIfIndex;
+                    break;
+                }
+                elseIfIndex++;
+            }
+        }
+
+        // Fall through to Else if no condition matched
+        if (branchToExecute == null && step.ElseBranch != null)
+        {
+            branchToExecute = step.ElseBranch;
+            branchIndex = -1;
+        }
+
+        // Execute the selected branch with position tracking
+        if (branchToExecute != null && branchToExecute.Count > 0)
+        {
+            var branchPosition = new FlowPosition([stepIndex, branchIndex]);
+            var result = await ExecuteBranchStepsAsync(state, branchToExecute, branchPosition, cancellationToken);
+            if (!result.Success)
+                return result;
+        }
+
+        return StepResult.Succeeded();
+    }
+
+    private async Task<StepResult> ExecuteSwitchAsync(
+        TState state,
+        FlowStep step,
+        int stepIndex,
+        CancellationToken cancellationToken)
+    {
+        // Evaluate the Switch selector
+        if (step.SwitchSelector == null)
+            return StepResult.Failed("Switch step has no selector");
+
+        var selectorValue = step.SwitchSelector.DynamicInvoke(state);
+
+        // Find matching case and case index
+        List<FlowStep>? branchToExecute = null;
+        int caseIndex = -1; // -1 = Default
+
+        if (step.Cases != null && selectorValue != null)
+        {
+            int idx = 0;
+            foreach (var (caseValue, caseBranch) in step.Cases)
+            {
+                if (Equals(caseValue, selectorValue))
+                {
+                    branchToExecute = caseBranch;
+                    caseIndex = idx;
+                    break;
+                }
+                idx++;
+            }
+        }
+
+        // Fall through to Default if no case matched
+        if (branchToExecute == null && step.DefaultBranch != null)
+        {
+            branchToExecute = step.DefaultBranch;
+            caseIndex = -1;
+        }
+
+        // Execute the selected branch with position tracking
+        if (branchToExecute != null && branchToExecute.Count > 0)
+        {
+            var branchPosition = new FlowPosition([stepIndex, caseIndex]);
+            var result = await ExecuteBranchStepsAsync(state, branchToExecute, branchPosition, cancellationToken);
+            if (!result.Success)
+                return result;
+        }
+
+        return StepResult.Succeeded();
+    }
+
+    private async Task<StepResult> ExecuteBranchStepsAsync(
+        TState state,
+        List<FlowStep> steps,
+        FlowPosition parentPosition,
+        CancellationToken cancellationToken)
+    {
+        for (int i = 0; i < steps.Count; i++)
+        {
+            var branchStep = steps[i];
+            // Create nested position: parent path + current step index
+            var nestedPosition = parentPosition.EnterBranch(i);
+            var result = await ExecuteStepAsync(state, branchStep, i, cancellationToken);
+
+            if (result.IsSuspended)
+                return result;
+
+            if (!result.Success && !result.Skipped)
+                return result;
+
+            // Apply result to state if step has result setter
+            if (result.Success && result.Result != null && branchStep.ResultSetter != null)
+            {
+                try
+                {
+                    branchStep.ResultSetter.DynamicInvoke(state, result.Result);
+                }
+                catch
+                {
+                    // Ignore setter errors
+                }
+            }
+        }
+
+        return StepResult.Succeeded();
+    }
+
     private async Task UpdateSnapshotAsync(
         FlowSnapshot<TState> original,
         TState state,
-        int currentStep,
+        FlowPosition position,
         DslFlowStatus status,
         string? error,
         CancellationToken cancellationToken)
@@ -618,7 +764,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         var updated = original with
         {
             State = state,
-            CurrentStep = currentStep,
+            Position = position,
             Status = status,
             Error = error,
             UpdatedAt = DateTime.UtcNow,
@@ -627,6 +773,9 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
 
         await _store.UpdateAsync(updated, cancellationToken);
     }
+
+    // Helper to convert step index to position for backward compatibility
+    private FlowPosition StepToPosition(int stepIndex) => new([stepIndex]);
 
     private record struct ExecutedStep(int Index, FlowStep Step);
 

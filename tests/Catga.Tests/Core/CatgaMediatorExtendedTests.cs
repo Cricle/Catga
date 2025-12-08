@@ -167,3 +167,9 @@ public class ScopedCommandHandler : IRequestHandler<ScopedCommand, ScopedRespons
     }
 }
 
+
+
+
+
+
+

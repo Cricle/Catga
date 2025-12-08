@@ -12,3 +12,9 @@ namespace Catga.Tests.Core;
 public class ValidationHelperTests
 {
 }
+
+
+
+
+
+

@@ -366,10 +366,11 @@ public class TestOrderFlowConfig : FlowConfig<TestOrderFlowState>
 
         flow.Send<string>(s => new ProcessPaymentCommand(s.OrderId!, s.TotalAmount - s.Discount))
             .FailIf(p => string.IsNullOrEmpty(p), "Payment failed")
-            .Into(s => s.PaymentId)
             .IfFail(s => new RefundPaymentCommand(s.PaymentId!))
             .OnCompleted<PaymentStepCompletedEvent>(s => new PaymentStepCompletedEvent(s.OrderId!, s.PaymentId!))
             .Tag("payment", "critical", "checkpoint");
+        // Note: Into() now returns IFlowBuilder, so we can't chain Tag() after it
+        // The result is stored via the step's ResultSetter
 
         flow.Publish(s => new OrderCreatedEvent(s.OrderId!))
             .Tag("notification");
@@ -434,3 +435,9 @@ public class DuplicateTagsFlowConfig : FlowConfig<TestOrderFlowState>
 }
 
 #endregion
+
+
+
+
+
+

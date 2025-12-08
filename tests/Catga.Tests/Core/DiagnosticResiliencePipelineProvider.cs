@@ -30,3 +30,9 @@ public sealed class DiagnosticResiliencePipelineProvider : IResiliencePipelinePr
     public ValueTask ExecutePersistenceAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
         => action(cancellationToken);
 }
+
+
+
+
+
+

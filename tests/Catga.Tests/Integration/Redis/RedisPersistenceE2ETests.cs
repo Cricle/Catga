@@ -805,16 +805,11 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
         if (_redis is null) return;
         var store = new RedisDslFlowStore(_redis, _serializer, $"dslflow-{Guid.NewGuid():N}:");
         var flowId = $"dsl-{Guid.NewGuid():N}";
-        var snapshot = new FlowSnapshot<TestFlowState>(
+        var snapshot = FlowSnapshot<TestFlowState>.Create(
             flowId,
             new TestFlowState { Counter = 0 },
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 0,
+            status: DslFlowStatus.Running);
 
         var created = await store.CreateAsync(snapshot);
         var loaded = await store.GetAsync<TestFlowState>(flowId);
@@ -829,19 +824,14 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
         if (_redis is null) return;
         var store = new RedisDslFlowStore(_redis, _serializer, $"dslflow-upd-{Guid.NewGuid():N}:");
         var flowId = $"dsl-{Guid.NewGuid():N}";
-        var snapshot = new FlowSnapshot<TestFlowState>(
+        var snapshot = FlowSnapshot<TestFlowState>.Create(
             flowId,
             new TestFlowState { Counter = 0 },
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 0,
+            status: DslFlowStatus.Running);
 
         await store.CreateAsync(snapshot);
-        var updated = await store.UpdateAsync(snapshot with { CurrentStep = 1 });
+        var updated = await store.UpdateAsync(snapshot with { Position = new FlowPosition([1]) });
 
         updated.Should().BeTrue();
     }
@@ -852,16 +842,11 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
         if (_redis is null) return;
         var store = new RedisDslFlowStore(_redis, _serializer, $"dslflow-del-{Guid.NewGuid():N}:");
         var flowId = $"dsl-{Guid.NewGuid():N}";
-        var snapshot = new FlowSnapshot<TestFlowState>(
+        var snapshot = FlowSnapshot<TestFlowState>.Create(
             flowId,
             new TestFlowState { Counter = 0 },
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 0,
+            status: DslFlowStatus.Running);
 
         await store.CreateAsync(snapshot);
         var deleted = await store.DeleteAsync(flowId);

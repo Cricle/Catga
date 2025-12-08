@@ -295,16 +295,16 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         var flowId = $"dsl-crash-{Guid.NewGuid():N}";
 
         // Create flow with state
-        var snapshot = new FlowSnapshot<NatsFailoverTestFlowState>(
+        var snapshot = FlowSnapshot<NatsFailoverTestFlowState>.Create(
             flowId,
             new NatsFailoverTestFlowState { Counter = 42 },
-            CurrentStep: 3,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 5);
+            currentStep: 3,
+            status: DslFlowStatus.Running,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 5);
         await dslFlowStore.CreateAsync(snapshot);
 
         // Simulate crash - create new store instance
@@ -313,7 +313,7 @@ public class NatsFailoverE2ETests : IAsyncLifetime
 
         recovered.Should().NotBeNull();
         recovered!.State.Counter.Should().Be(42);
-        recovered.CurrentStep.Should().Be(3);
+        recovered.Position.CurrentIndex.Should().Be(3);
         recovered.Version.Should().Be(5);
     }
 
@@ -326,16 +326,16 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         var dslFlowStore = new NatsDslFlowStore(_nats, _serializer, bucket);
         var flowId = $"dsl-concurrent-{Guid.NewGuid():N}";
 
-        var snapshot = new FlowSnapshot<NatsFailoverTestFlowState>(
+        var snapshot = FlowSnapshot<NatsFailoverTestFlowState>.Create(
             flowId,
             new NatsFailoverTestFlowState { Counter = 0 },
-            CurrentStep: 0,
-            Status: DslFlowStatus.Running,
-            Error: null,
-            WaitCondition: null,
-            CreatedAt: DateTime.UtcNow,
-            UpdatedAt: DateTime.UtcNow,
-            Version: 0);
+            currentStep: 0,
+            status: DslFlowStatus.Running,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 0);
         await dslFlowStore.CreateAsync(snapshot);
 
         var successCount = 0;
@@ -564,3 +564,6 @@ public partial class NatsFailoverTestAggregate
 }
 
 #endregion
+
+
+

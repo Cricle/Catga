@@ -34,21 +34,100 @@ public interface IFlowState
 
 #endregion
 
+#region Flow Position
+
+/// <summary>
+/// Flow execution position supporting nested branches.
+/// </summary>
+public record FlowPosition
+{
+    /// <summary>Path through the flow. Each element is a step index within current scope.</summary>
+    public int[] Path { get; init; }
+
+    public FlowPosition(int[] path) => Path = path ?? [0];
+
+    /// <summary>Create initial position at step 0.</summary>
+    public static FlowPosition Initial => new([0]);
+
+    /// <summary>Current step index (last element of path).</summary>
+    public int CurrentIndex => Path.Length > 0 ? Path[^1] : 0;
+
+    /// <summary>Depth in branch hierarchy (0 = top level).</summary>
+    public int Depth => Path.Length - 1;
+
+    /// <summary>Whether currently inside a branch.</summary>
+    public bool IsInBranch => Path.Length > 1;
+
+    /// <summary>Advance to next step in current scope.</summary>
+    public FlowPosition Advance() => Path.Length == 0
+        ? new([1])
+        : new([.. Path[..^1], Path[^1] + 1]);
+
+    /// <summary>Enter a branch at given step index.</summary>
+    public FlowPosition EnterBranch(int stepIndex) => new([.. Path, stepIndex]);
+
+    /// <summary>Exit current branch scope.</summary>
+    public FlowPosition ExitBranch() => Path.Length <= 1
+        ? this
+        : new(Path[..^1]);
+
+    /// <summary>Get parent position (one level up).</summary>
+    public FlowPosition Parent => ExitBranch();
+}
+
+/// <summary>Branch type for If/Switch.</summary>
+public enum BranchType { Then, Else, Case, Default }
+
+#endregion
+
 #region Flow Snapshot
 
 /// <summary>
-/// Persistent flow snapshot.
+/// Persistent flow snapshot with position support for branching.
 /// </summary>
-public record FlowSnapshot<TState>(
-    string FlowId,
-    TState State,
-    int CurrentStep,
-    DslFlowStatus Status,
-    string? Error,
-    WaitCondition? WaitCondition,
-    DateTime CreatedAt,
-    DateTime UpdatedAt,
-    int Version) where TState : class, IFlowState;
+public record FlowSnapshot<TState> where TState : class, IFlowState
+{
+    public required string FlowId { get; init; }
+    public required TState State { get; init; }
+    public FlowPosition Position { get; init; } = FlowPosition.Initial;
+    public DslFlowStatus Status { get; init; } = DslFlowStatus.Pending;
+    public string? Error { get; init; }
+    public WaitCondition? WaitCondition { get; init; }
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; init; } = DateTime.UtcNow;
+    public int Version { get; init; } = 1;
+
+    /// <summary>Create a new snapshot with updated position.</summary>
+    public FlowSnapshot<TState> WithPosition(FlowPosition position)
+        => this with { Position = position, UpdatedAt = DateTime.UtcNow };
+
+    /// <summary>Create a new snapshot with advanced position.</summary>
+    public FlowSnapshot<TState> Advance()
+        => WithPosition(Position.Advance());
+
+    /// <summary>Create snapshot from legacy parameters (for backward compatibility).</summary>
+    public static FlowSnapshot<TState> Create(
+        string flowId,
+        TState state,
+        int currentStep,
+        DslFlowStatus status,
+        string? error = null,
+        WaitCondition? waitCondition = null,
+        DateTime? createdAt = null,
+        DateTime? updatedAt = null,
+        int version = 1) => new()
+    {
+        FlowId = flowId,
+        State = state,
+        Position = new FlowPosition([currentStep]),
+        Status = status,
+        Error = error,
+        WaitCondition = waitCondition,
+        CreatedAt = createdAt ?? DateTime.UtcNow,
+        UpdatedAt = updatedAt ?? DateTime.UtcNow,
+        Version = version
+    };
+}
 
 #endregion
 
@@ -188,12 +267,13 @@ public record FlowCompletedEventData
 /// </summary>
 public enum DslFlowStatus : byte
 {
-    Running = 0,
-    Suspended = 1,
-    Compensating = 2,
-    Completed = 3,
-    Failed = 4,
-    Cancelled = 5
+    Pending = 0,
+    Running = 1,
+    Suspended = 2,
+    Compensating = 3,
+    Completed = 4,
+    Failed = 5,
+    Cancelled = 6
 }
 
 #endregion

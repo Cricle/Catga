@@ -12,3 +12,6 @@ public partial record EventStoreTestEvent : IEvent
     public required string Data { get; init; }
     public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
 }
+
+
+

@@ -257,8 +257,7 @@ public class DslFlowExecutorTests
         var state = new SimpleFlowState { FlowId = "flow-1", OrderId = "order-1" };
         var executor = CreateExecutor(config);
 
-        var snapshot = new FlowSnapshot<SimpleFlowState>(
-            "flow-1", state, 1, DslFlowStatus.Running, null, null, DateTime.UtcNow, DateTime.UtcNow, 1);
+        var snapshot = FlowSnapshot<SimpleFlowState>.Create("flow-1", state, 1, DslFlowStatus.Running, null, null, DateTime.UtcNow, DateTime.UtcNow, 1);
 
         _store.GetAsync<SimpleFlowState>("flow-1", Arg.Any<CancellationToken>())
             .Returns(snapshot);
@@ -287,8 +286,7 @@ public class DslFlowExecutorTests
         var state = new SimpleFlowState { FlowId = "flow-1", OrderId = "order-1" };
         var executor = CreateExecutor(config);
 
-        var snapshot = new FlowSnapshot<SimpleFlowState>(
-            "flow-1", state, 1, DslFlowStatus.Completed, null, null, DateTime.UtcNow, DateTime.UtcNow, 1);
+        var snapshot = FlowSnapshot<SimpleFlowState>.Create("flow-1", state, 1, DslFlowStatus.Completed, null, null, DateTime.UtcNow, DateTime.UtcNow, 1);
 
         _store.GetAsync<SimpleFlowState>("flow-1", Arg.Any<CancellationToken>())
             .Returns(snapshot);
@@ -312,8 +310,7 @@ public class DslFlowExecutorTests
         var state = new SimpleFlowState { FlowId = "flow-1", OrderId = "order-1" };
         var executor = CreateExecutor(config);
 
-        var snapshot = new FlowSnapshot<SimpleFlowState>(
-            "flow-1", state, 0, DslFlowStatus.Failed, "Previous error", null, DateTime.UtcNow, DateTime.UtcNow, 1);
+        var snapshot = FlowSnapshot<SimpleFlowState>.Create("flow-1", state, 0, DslFlowStatus.Failed, "Previous error", null, DateTime.UtcNow, DateTime.UtcNow, 1);
 
         _store.GetAsync<SimpleFlowState>("flow-1", Arg.Any<CancellationToken>())
             .Returns(snapshot);
@@ -462,8 +459,7 @@ public class DslFlowExecutorTests
         var executor = CreateExecutor(config);
 
         var state = new SimpleFlowState { FlowId = "flow-1", OrderId = "order-1" };
-        var snapshot = new FlowSnapshot<SimpleFlowState>(
-            "flow-1", state, 0, DslFlowStatus.Running, null, null, DateTime.UtcNow, DateTime.UtcNow, 1);
+        var snapshot = FlowSnapshot<SimpleFlowState>.Create("flow-1", state, 0, DslFlowStatus.Running, null, null, DateTime.UtcNow, DateTime.UtcNow, 1);
 
         _store.GetAsync<SimpleFlowState>("flow-1", Arg.Any<CancellationToken>())
             .Returns(snapshot);
@@ -640,8 +636,8 @@ public class MultiStepCompensationFlowConfig : FlowConfig<SimpleFlowState>
             .IfFail(s => new DeleteOrderCommand(s.OrderId!));
 
         flow.Send<string>(s => new ProcessPaymentCommand(s.OrderId!, s.TotalAmount))
-            .Into(s => s.PaymentId)
-            .IfFail(s => new RefundPaymentCommand(s.PaymentId!));
+            .IfFail(s => new RefundPaymentCommand(s.PaymentId!))
+            .Into(s => s.PaymentId);
 
         flow.Send(s => new ShipOrderCommand(s.OrderId!))
             .IfFail(s => new CancelShipmentCommand(s.OrderId!));
@@ -726,3 +722,9 @@ public class StepHooksFlowConfig : FlowConfig<SimpleFlowState>
 }
 
 #endregion
+
+
+
+
+
+

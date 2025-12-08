@@ -110,3 +110,9 @@ public class ErrorInfoTests
         error.Details.Should().Be("Extra info");
     }
 }
+
+
+
+
+
+

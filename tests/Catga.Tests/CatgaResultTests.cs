@@ -71,3 +71,9 @@ public class CatgaResultTests
         result.Error.Should().Be("Error occurred");
     }
 }
+
+
+
+
+
+

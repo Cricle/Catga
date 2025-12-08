@@ -52,3 +52,9 @@ public class CatgaTelemetryTests
         CatgaDiagnostics.Meter.Name.Should().NotBeNullOrEmpty();
     }
 }
+
+
+
+
+
+

@@ -322,3 +322,9 @@ public partial record ComplexMessage(
 [MemoryPackable]
 public partial record NestedData(int Value, string Description);
 
+
+
+
+
+
+

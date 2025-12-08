@@ -215,3 +215,9 @@ public class MessageCompressorTests
         result.Should().BeEquivalentTo(data);
     }
 }
+
+
+
+
+
+

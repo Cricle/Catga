@@ -248,3 +248,9 @@ public record TestRequest(string Value) : IRequest<TestResponse>
 
 public record TestResponse(string Message);
 
+
+
+
+
+
+

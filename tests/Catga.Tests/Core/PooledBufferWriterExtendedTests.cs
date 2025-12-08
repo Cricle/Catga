@@ -315,3 +315,9 @@ public class PooledBufferWriterExtendedTests
         writer.WrittenSpan[49].Should().Be(49);
     }
 }
+
+
+
+
+
+

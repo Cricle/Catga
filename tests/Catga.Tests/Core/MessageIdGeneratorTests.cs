@@ -226,3 +226,9 @@ public partial class ManualMessageIdCommand : IRequest
     public string Data { get; set; } = string.Empty;
 }
 
+
+
+
+
+
+

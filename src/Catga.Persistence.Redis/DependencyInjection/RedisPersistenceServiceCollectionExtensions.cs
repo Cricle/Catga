@@ -321,4 +321,29 @@ public static class RedisPersistenceServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Add Redis message scheduler.
+    /// </summary>
+    public static IServiceCollection AddRedisMessageScheduler(
+        this IServiceCollection services,
+        Action<Catga.Scheduling.MessageSchedulerOptions>? configure = null)
+    {
+        if (configure != null)
+            services.Configure(configure);
+        else
+            services.TryAddSingleton(Options.Create(new Catga.Scheduling.MessageSchedulerOptions()));
+
+        services.TryAddSingleton<Catga.Scheduling.IMessageScheduler>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var mediator = sp.GetRequiredService<ICatgaMediator>();
+            var options = sp.GetRequiredService<IOptions<Catga.Scheduling.MessageSchedulerOptions>>();
+            var logger = sp.GetRequiredService<ILogger<Catga.Persistence.Redis.Scheduling.RedisMessageScheduler>>();
+            return new Catga.Persistence.Redis.Scheduling.RedisMessageScheduler(redis, serializer, mediator, options, logger);
+        });
+
+        return services;
+    }
 }

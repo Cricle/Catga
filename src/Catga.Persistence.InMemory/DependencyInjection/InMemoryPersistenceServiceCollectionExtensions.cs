@@ -233,6 +233,17 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Adds InMemory DSL flow store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddInMemoryDslFlowStore(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<Catga.Flow.Dsl.IDslFlowStore>(sp =>
+            new InMemoryDslFlowStore(sp.GetRequiredService<IMessageSerializer>()));
+        return services;
+    }
+
+    /// <summary>
     /// Adds complete InMemory persistence (all stores) to the service collection.
     /// </summary>
     public static IServiceCollection AddInMemoryPersistence(

@@ -11,6 +11,7 @@ using Catga.Persistence.Nats.Stores;
 using Catga.DeadLetter;
 using Catga.Idempotency;
 using Catga.Persistence.Nats;
+using Catga.Scheduling;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -313,6 +314,81 @@ public static class NatsPersistenceServiceCollectionExtensions
             var options = Options.Create(new NatsJSStoreOptions());
             configure?.Invoke(options.Value);
             return new NatsJSEncryptionKeyStore(connection, options);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds NATS KV-based distributed lock to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsDistributedLock(
+        this IServiceCollection services,
+        Action<DistributedLockOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        if (configure != null)
+            services.Configure(configure);
+        else
+            services.TryAddSingleton(Options.Create(new DistributedLockOptions()));
+
+        services.TryAddSingleton<IDistributedLock>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var options = sp.GetRequiredService<IOptions<DistributedLockOptions>>();
+            var logger = sp.GetRequiredService<ILogger<Catga.Persistence.Nats.Locking.NatsDistributedLock>>();
+            return new Catga.Persistence.Nats.Locking.NatsDistributedLock(connection, options, logger);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds NATS KV-based rate limiter to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsRateLimiter(
+        this IServiceCollection services,
+        Action<DistributedRateLimiterOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        if (configure != null)
+            services.Configure(configure);
+        else
+            services.TryAddSingleton(Options.Create(new DistributedRateLimiterOptions()));
+
+        services.TryAddSingleton<IDistributedRateLimiter>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var options = sp.GetRequiredService<IOptions<DistributedRateLimiterOptions>>();
+            return new Catga.Persistence.Nats.RateLimiting.NatsRateLimiter(connection, options);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds NATS KV-based message scheduler to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsMessageScheduler(
+        this IServiceCollection services,
+        Action<MessageSchedulerOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        if (configure != null)
+            services.Configure(configure);
+        else
+            services.TryAddSingleton(Options.Create(new MessageSchedulerOptions()));
+
+        services.TryAddSingleton<IMessageScheduler>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var mediator = sp.GetRequiredService<ICatgaMediator>();
+            var options = sp.GetRequiredService<IOptions<MessageSchedulerOptions>>();
+            return new Catga.Persistence.Nats.Scheduling.NatsMessageScheduler(connection, serializer, mediator, options);
         });
 
         return services;

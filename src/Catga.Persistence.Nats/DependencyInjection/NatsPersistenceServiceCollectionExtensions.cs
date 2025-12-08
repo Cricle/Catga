@@ -257,6 +257,68 @@ public static class NatsPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Adds NATS JetStream-based audit log store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsAuditLogStore(
+        this IServiceCollection services,
+        Action<NatsJSStoreOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<IAuditLogStore>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var options = Options.Create(new NatsJSStoreOptions());
+            configure?.Invoke(options.Value);
+            return new NatsJSAuditLogStore(connection, serializer, options);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds NATS KV-based GDPR store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsGdprStore(
+        this IServiceCollection services,
+        Action<NatsJSStoreOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<IGdprStore>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var options = Options.Create(new NatsJSStoreOptions());
+            configure?.Invoke(options.Value);
+            return new NatsJSGdprStore(connection, serializer, options);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds NATS KV-based encryption key store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsEncryptionKeyStore(
+        this IServiceCollection services,
+        Action<NatsJSStoreOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<IEncryptionKeyStore>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var options = Options.Create(new NatsJSStoreOptions());
+            configure?.Invoke(options.Value);
+            return new NatsJSEncryptionKeyStore(connection, options);
+        });
+
+        return services;
+    }
+
+    /// <summary>
     /// Adds complete NATS JetStream persistence (EventStore + Outbox + Inbox) to the service collection.
     /// </summary>
     public static IServiceCollection AddNatsPersistence(

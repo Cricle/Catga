@@ -196,6 +196,19 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Adds InMemory enhanced snapshot store with version history support.
+    /// </summary>
+    public static IServiceCollection AddInMemoryEnhancedSnapshotStore(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<IEnhancedSnapshotStore>(sp =>
+            new InMemoryEnhancedSnapshotStore(sp.GetRequiredService<IMessageSerializer>()));
+        // Also register as ISnapshotStore for compatibility
+        services.TryAddSingleton<ISnapshotStore>(sp => sp.GetRequiredService<IEnhancedSnapshotStore>());
+        return services;
+    }
+
+    /// <summary>
     /// Adds InMemory distributed lock to the service collection.
     /// </summary>
     public static IServiceCollection AddInMemoryDistributedLock(this IServiceCollection services, Action<DistributedLockOptions>? configure = null)

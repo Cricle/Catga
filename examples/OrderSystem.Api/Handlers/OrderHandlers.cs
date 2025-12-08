@@ -9,16 +9,27 @@ using OrderSystem.Api.Services;
 
 namespace OrderSystem.Api.Handlers;
 
-// ============================================
-// Command Handlers
-// ============================================
-
-/// <summary>Simple create order handler.</summary>
-public class CreateOrderHandler(
+/// <summary>
+/// Unified order handler implementing all command, query, and event handlers.
+/// Demonstrates that a single class can handle multiple message types.
+/// </summary>
+public class OrderHandler(
     IOrderRepository orderRepository,
     ICatgaMediator mediator,
-    ILogger<CreateOrderHandler> logger) : IRequestHandler<CreateOrderCommand, OrderCreatedResult>
+    ILogger<OrderHandler> logger)
+    : IRequestHandler<CreateOrderCommand, OrderCreatedResult>,
+      IRequestHandler<CreateOrderFlowCommand, OrderCreatedResult>,
+      IRequestHandler<CancelOrderCommand>,
+      IRequestHandler<GetOrderQuery, Order?>,
+      IRequestHandler<GetUserOrdersQuery, List<Order>>,
+      IEventHandler<OrderCreatedEvent>,
+      IEventHandler<OrderCancelledEvent>,
+      IEventHandler<OrderConfirmedEvent>
 {
+    // ============================================
+    // Command Handlers
+    // ============================================
+
     public async ValueTask<CatgaResult<OrderCreatedResult>> HandleAsync(CreateOrderCommand request, CancellationToken ct = default)
     {
         var order = new Order
@@ -34,25 +45,15 @@ public class CreateOrderHandler(
         await orderRepository.SaveAsync(order, ct);
         logger.LogInformation("Order {OrderId} created", order.OrderId);
 
-        // Publish event for other handlers
         await mediator.PublishAsync(new OrderCreatedEvent(order.OrderId, order.CustomerId, order.TotalAmount, order.CreatedAt), ct);
-
         return CatgaResult<OrderCreatedResult>.Success(new OrderCreatedResult(order.OrderId, order.TotalAmount, order.CreatedAt));
     }
-}
 
-/// <summary>Create order using Flow pattern with automatic compensation.</summary>
-public class CreateOrderFlowHandler(
-    IOrderRepository orderRepository,
-    ICatgaMediator mediator,
-    ILogger<CreateOrderFlowHandler> logger) : IRequestHandler<CreateOrderFlowCommand, OrderCreatedResult>
-{
     public async ValueTask<CatgaResult<OrderCreatedResult>> HandleAsync(CreateOrderFlowCommand request, CancellationToken ct = default)
     {
-        var orderId = $"ORD-{Guid.NewGuid():N}"[..16];
         var order = new Order
         {
-            OrderId = orderId,
+            OrderId = $"ORD-{Guid.NewGuid():N}"[..16],
             CustomerId = request.CustomerId,
             Items = request.Items,
             TotalAmount = request.Items.Sum(i => i.Subtotal),
@@ -62,40 +63,28 @@ public class CreateOrderFlowHandler(
 
         try
         {
-            // Step 1: Save order
             await orderRepository.SaveAsync(order, ct);
-            logger.LogInformation("Step 1: Order {OrderId} saved", order.OrderId);
+            logger.LogInformation("Flow Step 1: Order {OrderId} saved", order.OrderId);
 
-            // Step 2: Reserve stock (simulated)
-            logger.LogInformation("Step 2: Stock reserved for {OrderId}", order.OrderId);
+            logger.LogInformation("Flow Step 2: Stock reserved for {OrderId}", order.OrderId);
 
-            // Step 3: Confirm order
             order.Status = OrderStatus.Confirmed;
             order.UpdatedAt = DateTime.UtcNow;
             await orderRepository.UpdateAsync(order, ct);
-            logger.LogInformation("Step 3: Order {OrderId} confirmed", order.OrderId);
+            logger.LogInformation("Flow Step 3: Order {OrderId} confirmed", order.OrderId);
 
-            // Step 4: Publish event
             await mediator.PublishAsync(new OrderConfirmedEvent(order.OrderId, DateTime.UtcNow), ct);
-
             return CatgaResult<OrderCreatedResult>.Success(new OrderCreatedResult(order.OrderId, order.TotalAmount, order.CreatedAt));
         }
         catch (Exception ex)
         {
-            // Compensation: Mark as failed
             order.Status = OrderStatus.Failed;
             await orderRepository.UpdateAsync(order, ct);
             logger.LogWarning(ex, "Order {OrderId} failed, compensation executed", order.OrderId);
             return CatgaResult<OrderCreatedResult>.Failure($"Order creation failed: {ex.Message}");
         }
     }
-}
 
-public class CancelOrderHandler(
-    IOrderRepository orderRepository,
-    ICatgaMediator mediator,
-    ILogger<CancelOrderHandler> logger) : IRequestHandler<CancelOrderCommand>
-{
     public async ValueTask<CatgaResult> HandleAsync(CancelOrderCommand request, CancellationToken ct = default)
     {
         var order = await orderRepository.GetByIdAsync(request.OrderId, ct);
@@ -109,66 +98,59 @@ public class CancelOrderHandler(
         await orderRepository.UpdateAsync(order, ct);
         logger.LogInformation("Order {OrderId} cancelled", request.OrderId);
         await mediator.PublishAsync(new OrderCancelledEvent(request.OrderId, request.Reason, order.CancelledAt!.Value), ct);
-
         return CatgaResult.Success();
     }
-}
 
-public class GetOrderHandler(IOrderRepository orderRepository) : IRequestHandler<GetOrderQuery, Order?>
-{
+    // ============================================
+    // Query Handlers
+    // ============================================
+
     public async ValueTask<CatgaResult<Order?>> HandleAsync(GetOrderQuery request, CancellationToken ct = default)
     {
         var order = await orderRepository.GetByIdAsync(request.OrderId, ct);
         return CatgaResult<Order?>.Success(order);
     }
-}
 
-public class GetUserOrdersHandler(IOrderRepository orderRepository) : IRequestHandler<GetUserOrdersQuery, List<Order>>
-{
     public async ValueTask<CatgaResult<List<Order>>> HandleAsync(GetUserOrdersQuery request, CancellationToken ct = default)
     {
         var orders = await orderRepository.GetByCustomerIdAsync(request.CustomerId, ct);
         return CatgaResult<List<Order>>.Success(orders);
     }
-}
 
-// ============================================
-// Event Handlers (Pub/Sub)
-// ============================================
+    // ============================================
+    // Event Handlers
+    // ============================================
 
-public class OrderCreatedEventHandler(ILogger<OrderCreatedEventHandler> logger) : IEventHandler<OrderCreatedEvent>
-{
     public ValueTask HandleAsync(OrderCreatedEvent @event, CancellationToken ct = default)
     {
-        logger.LogInformation("Order created: {OrderId}, Customer: {CustomerId}, Amount: {Amount:C}",
+        logger.LogInformation("Event: Order created - {OrderId}, Customer: {CustomerId}, Amount: {Amount:C}",
             @event.OrderId, @event.CustomerId, @event.TotalAmount);
         return ValueTask.CompletedTask;
     }
+
+    public ValueTask HandleAsync(OrderCancelledEvent @event, CancellationToken ct = default)
+    {
+        logger.LogInformation("Event: Order cancelled - {OrderId}, Reason: {Reason}",
+            @event.OrderId, @event.Reason ?? "Not specified");
+        return ValueTask.CompletedTask;
+    }
+
+    public ValueTask HandleAsync(OrderConfirmedEvent @event, CancellationToken ct = default)
+    {
+        logger.LogInformation("Event: Order confirmed - {OrderId}", @event.OrderId);
+        return ValueTask.CompletedTask;
+    }
 }
 
-public class SendOrderNotificationHandler(ILogger<SendOrderNotificationHandler> logger) : IEventHandler<OrderCreatedEvent>
+/// <summary>
+/// Secondary event handler demonstrating multiple handlers for same event.
+/// </summary>
+public class OrderNotificationHandler(ILogger<OrderNotificationHandler> logger) : IEventHandler<OrderCreatedEvent>
 {
     public ValueTask HandleAsync(OrderCreatedEvent @event, CancellationToken ct = default)
     {
-        logger.LogInformation("Notification sent for order {OrderId} to customer {CustomerId}", @event.OrderId, @event.CustomerId);
-        return ValueTask.CompletedTask;
-    }
-}
-
-public class OrderCancelledEventHandler(ILogger<OrderCancelledEventHandler> logger) : IEventHandler<OrderCancelledEvent>
-{
-    public ValueTask HandleAsync(OrderCancelledEvent @event, CancellationToken ct = default)
-    {
-        logger.LogInformation("Order cancelled: {OrderId}, Reason: {Reason}", @event.OrderId, @event.Reason ?? "Not specified");
-        return ValueTask.CompletedTask;
-    }
-}
-
-public class OrderConfirmedEventHandler(ILogger<OrderConfirmedEventHandler> logger) : IEventHandler<OrderConfirmedEvent>
-{
-    public ValueTask HandleAsync(OrderConfirmedEvent @event, CancellationToken ct = default)
-    {
-        logger.LogInformation("Order confirmed: {OrderId}", @event.OrderId);
+        logger.LogInformation("Notification: Sending email for order {OrderId} to customer {CustomerId}",
+            @event.OrderId, @event.CustomerId);
         return ValueTask.CompletedTask;
     }
 }

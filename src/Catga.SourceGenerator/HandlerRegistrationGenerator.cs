@@ -32,23 +32,26 @@ public sealed class HandlerRegistrationGenerator : IIncrementalGenerator
             ctx.AddSource("CatgaHandlerAttributes.g.cs", SourceText.From(AttributeSource, Encoding.UTF8));
         });
 
-        // Discover all handler implementations
+        // Discover all handler implementations (returns list per class)
         var handlers = context.SyntaxProvider
             .CreateSyntaxProvider(
                 static (node, _) => node is ClassDeclarationSyntax { BaseList: not null },
-                static (ctx, _) => ExtractHandlerInfo(ctx))
-            .Where(static h => h is not null)
+                static (ctx, _) => ExtractAllHandlerInfo(ctx))
+            .Where(static h => h is not null && h.Count > 0)
             .Collect();
 
         context.RegisterSourceOutput(handlers, static (spc, items) =>
         {
-            var list = items.Where(i => i is not null).ToList();
+            var list = items.Where(i => i is not null).SelectMany(i => i!).ToList();
             spc.AddSource("CatgaHandlerRegistrations.g.cs",
                 SourceText.From(GenerateRegistrations(list!), Encoding.UTF8));
         });
     }
 
-    private static HandlerRegistration? ExtractHandlerInfo(GeneratorSyntaxContext context)
+    /// <summary>
+    /// Extracts ALL handler interfaces from a single class (supports multi-interface handlers).
+    /// </summary>
+    private static List<HandlerRegistration>? ExtractAllHandlerInfo(GeneratorSyntaxContext context)
     {
         var classDecl = (ClassDeclarationSyntax)context.Node;
         if (context.SemanticModel.GetDeclaredSymbol(classDecl) is not INamedTypeSymbol { IsAbstract: false } symbol)
@@ -76,7 +79,10 @@ public sealed class HandlerRegistrationGenerator : IIncrementalGenerator
             order = o;
         }
 
-        // Check all interfaces
+        var registrations = new List<HandlerRegistration>();
+        var implType = symbol.ToDisplayString();
+
+        // Check ALL interfaces (not just first match)
         foreach (var iface in symbol.AllInterfaces)
         {
             var ifaceName = iface.OriginalDefinition.ToDisplayString();
@@ -84,81 +90,86 @@ public sealed class HandlerRegistrationGenerator : IIncrementalGenerator
             // IRequestHandler<TRequest, TResponse>
             if (ifaceName == RequestHandler2 && iface.TypeArguments.Length == 2)
             {
-                return new HandlerRegistration(
+                registrations.Add(new HandlerRegistration(
                     HandlerCategory.RequestHandler,
-                    symbol.ToDisplayString(),
+                    implType,
                     $"Catga.Abstractions.IRequestHandler<{iface.TypeArguments[0].ToDisplayString()}, {iface.TypeArguments[1].ToDisplayString()}>",
-                    lifetime, order, false);
+                    lifetime, order, false));
+                continue;
             }
 
             // IRequestHandler<TRequest> (no response)
             if (ifaceName == RequestHandler1 && iface.TypeArguments.Length == 1)
             {
-                return new HandlerRegistration(
+                registrations.Add(new HandlerRegistration(
                     HandlerCategory.RequestHandler,
-                    symbol.ToDisplayString(),
+                    implType,
                     $"Catga.Abstractions.IRequestHandler<{iface.TypeArguments[0].ToDisplayString()}>",
-                    lifetime, order, false);
+                    lifetime, order, false));
+                continue;
             }
 
             // IEventHandler<TEvent>
             if (ifaceName == EventHandlerGeneric && iface.TypeArguments.Length == 1)
             {
-                return new HandlerRegistration(
+                registrations.Add(new HandlerRegistration(
                     HandlerCategory.EventHandler,
-                    symbol.ToDisplayString(),
+                    implType,
                     $"Catga.Abstractions.IEventHandler<{iface.TypeArguments[0].ToDisplayString()}>",
-                    lifetime, order, false);
+                    lifetime, order, false));
+                continue;
             }
 
             // IEventHandler (non-generic)
             if (ifaceName == EventHandlerNonGeneric)
             {
-                return new HandlerRegistration(
+                registrations.Add(new HandlerRegistration(
                     HandlerCategory.EventHandler,
-                    symbol.ToDisplayString(),
+                    implType,
                     "Catga.Abstractions.IEventHandler",
-                    lifetime, order, false);
+                    lifetime, order, false));
+                continue;
             }
 
             // IPipelineBehavior<,>
             if (ifaceName == PipelineBehavior && iface.TypeArguments.Length == 2)
             {
-                // Check if it's open generic
                 var isOpenGeneric = symbol.TypeParameters.Length > 0;
-                // For open generic, use the unconstructed type name
                 var implTypeName = isOpenGeneric
                     ? symbol.ConstructUnboundGenericType().ToDisplayString()
-                    : symbol.ToDisplayString();
-                return new HandlerRegistration(
+                    : implType;
+                registrations.Add(new HandlerRegistration(
                     HandlerCategory.PipelineBehavior,
                     implTypeName,
                     "Catga.Pipeline.IPipelineBehavior<,>",
-                    lifetime, order, isOpenGeneric);
+                    lifetime, order, isOpenGeneric));
+                continue;
             }
 
             // IProjection
             if (ifaceName == Projection)
             {
-                return new HandlerRegistration(
+                registrations.Add(new HandlerRegistration(
                     HandlerCategory.Projection,
-                    symbol.ToDisplayString(),
+                    implType,
                     "Catga.EventSourcing.IProjection",
-                    lifetime, order, false);
+                    lifetime, order, false));
+                continue;
             }
 
             // IEventUpgrader
             if (ifaceName == EventUpgrader)
             {
-                return new HandlerRegistration(
+                registrations.Add(new HandlerRegistration(
                     HandlerCategory.EventUpgrader,
-                    symbol.ToDisplayString(),
+                    implType,
                     "Catga.EventSourcing.IEventUpgrader",
-                    lifetime, order, false);
+                    lifetime, order, false));
+                continue;
             }
         }
 
-        return null;
+        return registrations.Count > 0 ? registrations : null;
     }
 
     private static string GenerateRegistrations(IReadOnlyList<HandlerRegistration> handlers)

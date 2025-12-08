@@ -138,7 +138,10 @@ public sealed class AggregateRepository<[DynamicallyAccessedMembers(DynamicallyA
             return;
 
         var streamId = GetStreamId(aggregate.Id);
+        // For new aggregates (Version == uncommitted.Count), use -1 to indicate new stream
         var expectedVersion = aggregate.Version - uncommitted.Count;
+        if (expectedVersion == 0)
+            expectedVersion = -1; // New stream
 
         await _eventStore.AppendAsync(streamId, uncommitted, expectedVersion, ct);
         aggregate.ClearUncommittedEvents();

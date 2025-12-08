@@ -145,13 +145,18 @@ public class GracefulRecoveryManagerTests
         // Arrange
         var manager = new GracefulRecoveryManager(_logger);
         var tcs = new TaskCompletionSource();
+        var recoveryStarted = new TaskCompletionSource();
         var component = Substitute.For<IRecoverableComponent>();
-        component.RecoverAsync(Arg.Any<CancellationToken>()).Returns(tcs.Task);
+        component.RecoverAsync(Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            recoveryStarted.TrySetResult();
+            await tcs.Task;
+        });
         manager.RegisterComponent(component);
 
         // Act
         var firstRecovery = manager.RecoverAsync();
-        await Task.Delay(10); // Let first recovery start
+        await recoveryStarted.Task.WaitAsync(TimeSpan.FromSeconds(5)); // Wait for first recovery to start
         var secondRecovery = await manager.RecoverAsync();
         tcs.SetResult();
         await firstRecovery;

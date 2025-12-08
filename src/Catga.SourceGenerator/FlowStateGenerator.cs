@@ -66,12 +66,17 @@ public class FlowStateGenerator : IIncrementalGenerator
             if (prop.GetAttributes().Any(a => a.AttributeClass?.Name == "FlowStateIgnoreAttribute"))
                 continue;
 
+            // Check if property has auto-implemented getter/setter (no body)
+            var propSyntax = prop.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() as PropertyDeclarationSyntax;
+            var isAutoProperty = propSyntax?.AccessorList?.Accessors.All(a => a.Body == null && a.ExpressionBody == null) ?? false;
+
             properties.Add(new PropertyInfo
             {
                 Name = prop.Name,
                 Type = prop.Type.ToDisplayString(),
                 IsNullable = prop.Type.NullableAnnotation == NullableAnnotation.Annotated ||
-                            prop.Type.IsReferenceType
+                            prop.Type.IsReferenceType,
+                IsAutoProperty = isAutoProperty
             });
         }
 
@@ -118,6 +123,22 @@ public class FlowStateGenerator : IIncrementalGenerator
         sb.AppendLine("    public string? FlowId { get; set; }");
         sb.AppendLine();
 
+        // Generate Set methods with auto change tracking for each property
+        for (int i = 0; i < info.Properties.Count; i++)
+        {
+            var prop = info.Properties[i];
+            sb.AppendLine($"    /// <summary>Set {prop.Name} with automatic change tracking.</summary>");
+            sb.AppendLine($"    public void Set{prop.Name}({prop.Type} value)");
+            sb.AppendLine("    {");
+            sb.AppendLine($"        if (!EqualityComparer<{prop.Type}>.Default.Equals({prop.Name}, value))");
+            sb.AppendLine("        {");
+            sb.AppendLine($"            {prop.Name} = value;");
+            sb.AppendLine($"            _flowState_changedMask |= (1 << {i});");
+            sb.AppendLine("        }");
+            sb.AppendLine("    }");
+            sb.AppendLine();
+        }
+
         // IFlowState implementation
         sb.AppendLine("    public bool HasChanges => _flowState_changedMask != 0;");
         sb.AppendLine();
@@ -159,5 +180,6 @@ public class FlowStateGenerator : IIncrementalGenerator
         public string Name { get; set; } = "";
         public string Type { get; set; } = "";
         public bool IsNullable { get; set; }
+        public bool IsAutoProperty { get; set; }
     }
 }

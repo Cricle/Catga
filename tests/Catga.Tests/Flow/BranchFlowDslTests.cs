@@ -662,6 +662,91 @@ public class BranchFlowDslTests
     }
 
     #endregion
+
+    #region Recovery Tests
+
+    [Fact]
+    public void FlowPosition_EnterBranch_CreatesNestedPath()
+    {
+        // Arrange
+        var position = new FlowPosition([1]);
+
+        // Act
+        var nested = position.EnterBranch(0); // Enter Then branch
+        var deepNested = nested.EnterBranch(2); // Enter step 2 in branch
+
+        // Assert
+        Assert.Equal(new[] { 1, 0 }, nested.Path);
+        Assert.Equal(new[] { 1, 0, 2 }, deepNested.Path);
+        Assert.True(nested.IsInBranch);
+        Assert.Equal(1, nested.Depth);
+    }
+
+    [Fact]
+    public void FlowPosition_ExitBranch_ReturnsParentPath()
+    {
+        // Arrange
+        var nested = new FlowPosition([1, 0, 2]);
+
+        // Act
+        var parent = nested.ExitBranch();
+        var grandparent = parent.ExitBranch();
+
+        // Assert
+        Assert.Equal(new[] { 1, 0 }, parent.Path);
+        Assert.Equal(new[] { 1 }, grandparent.Path);
+    }
+
+    [Fact]
+    public void FlowPosition_Advance_IncrementsLastElement()
+    {
+        // Arrange
+        var position = new FlowPosition([1, 0, 2]);
+
+        // Act
+        var advanced = position.Advance();
+
+        // Assert
+        Assert.Equal(new[] { 1, 0, 3 }, advanced.Path);
+    }
+
+    [Fact]
+    public async Task E2E_BranchRecovery_StoresNestedPosition()
+    {
+        // Arrange
+        var store = new InMemoryDslFlowStore();
+        var state = new OrderFlowState
+        {
+            FlowId = "flow-recovery-001",
+            OrderId = "ORD-REC-001",
+            IsValid = true
+        };
+
+        // Create snapshot at nested position [1, 0, 1] (If step 1, Then branch, step 1)
+        var nestedPosition = new FlowPosition([1, 0, 1]);
+        var snapshot = new FlowSnapshot<OrderFlowState>
+        {
+            FlowId = "flow-recovery-001",
+            State = state,
+            Position = nestedPosition,
+            Status = DslFlowStatus.Running,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            Version = 1
+        };
+
+        // Act
+        await store.CreateAsync(snapshot);
+        var retrieved = await store.GetAsync<OrderFlowState>("flow-recovery-001");
+
+        // Assert
+        retrieved.Should().NotBeNull();
+        retrieved!.Position.Path.Should().BeEquivalentTo(new[] { 1, 0, 1 });
+        retrieved.Position.IsInBranch.Should().BeTrue();
+        retrieved.Position.Depth.Should().Be(2);
+    }
+
+    #endregion
 }
 
 

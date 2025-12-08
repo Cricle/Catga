@@ -777,6 +777,115 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
     // Helper to convert step index to position for backward compatibility
     private FlowPosition StepToPosition(int stepIndex) => new([stepIndex]);
 
+    /// <summary>
+    /// Get the step at a given position, navigating through branches.
+    /// </summary>
+    private FlowStep? GetStepAtPosition(FlowPosition position)
+    {
+        if (position.Path.Length == 0)
+            return null;
+
+        var steps = _config.Steps;
+        FlowStep? current = null;
+
+        for (int depth = 0; depth < position.Path.Length; depth++)
+        {
+            var index = position.Path[depth];
+
+            if (depth == 0)
+            {
+                // Top level
+                if (index < 0 || index >= steps.Count)
+                    return null;
+                current = steps[index];
+            }
+            else if (current != null)
+            {
+                // Inside a branch - index is branch selector or step index
+                List<FlowStep>? branchSteps = null;
+
+                if (current.Type == StepType.If)
+                {
+                    var branchIndex = position.Path[depth];
+                    if (branchIndex == 0)
+                        branchSteps = current.ThenBranch;
+                    else if (branchIndex == -1)
+                        branchSteps = current.ElseBranch;
+                    else if (current.ElseIfBranches != null && branchIndex > 0 && branchIndex <= current.ElseIfBranches.Count)
+                        branchSteps = current.ElseIfBranches[branchIndex - 1].Steps;
+                }
+                else if (current.Type == StepType.Switch)
+                {
+                    var caseIndex = position.Path[depth];
+                    if (caseIndex == -1)
+                        branchSteps = current.DefaultBranch;
+                    else if (current.Cases != null)
+                    {
+                        var caseList = current.Cases.Values.ToList();
+                        if (caseIndex >= 0 && caseIndex < caseList.Count)
+                            branchSteps = caseList[caseIndex];
+                    }
+                }
+
+                if (branchSteps == null)
+                    return null;
+
+                // Next element is step index within branch
+                depth++;
+                if (depth >= position.Path.Length)
+                    return null;
+
+                var stepIndex = position.Path[depth];
+                if (stepIndex < 0 || stepIndex >= branchSteps.Count)
+                    return null;
+
+                current = branchSteps[stepIndex];
+            }
+        }
+
+        return current;
+    }
+
+    /// <summary>
+    /// Get the branch steps at a given position.
+    /// </summary>
+    private List<FlowStep>? GetBranchStepsAtPosition(FlowPosition position)
+    {
+        if (position.Path.Length < 2)
+            return null;
+
+        var parentPosition = new FlowPosition(position.Path[..^1]);
+        var step = GetStepAtPosition(new FlowPosition(position.Path[..^2]));
+
+        if (step == null)
+            return null;
+
+        var branchIndex = position.Path[^2];
+
+        if (step.Type == StepType.If)
+        {
+            if (branchIndex == 0)
+                return step.ThenBranch;
+            if (branchIndex == -1)
+                return step.ElseBranch;
+            if (step.ElseIfBranches != null && branchIndex > 0 && branchIndex <= step.ElseIfBranches.Count)
+                return step.ElseIfBranches[branchIndex - 1].Steps;
+        }
+        else if (step.Type == StepType.Switch)
+        {
+            if (branchIndex == -1)
+                return step.DefaultBranch;
+            if (step.Cases != null)
+            {
+                var caseList = step.Cases.Values.ToList();
+                if (branchIndex >= 0 && branchIndex < caseList.Count)
+                    return caseList[branchIndex];
+            }
+        }
+
+        return null;
+    }
+
     private record struct ExecutedStep(int Index, FlowStep Step);
 
     private readonly struct StepResult

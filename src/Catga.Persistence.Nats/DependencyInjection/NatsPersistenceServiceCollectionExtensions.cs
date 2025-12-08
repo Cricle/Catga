@@ -420,47 +420,25 @@ public static class NatsPersistenceServiceCollectionExtensions
 }
 
 /// <summary>
-/// Configuration options for NATS JetStream Persistence
+/// NATS persistence options. Only stream/bucket names - use NATS native config for advanced settings.
 /// </summary>
 public sealed class NatsPersistenceOptions
 {
-    /// <summary>
-    /// JetStream stream name for Event Store (default: "CATGA_EVENTS")
-    /// </summary>
+    /// <summary>Stream name prefix (default: "CATGA").</summary>
+    public string StreamPrefix { get; set; } = "CATGA";
+
+    /// <summary>Event stream name (default: "{StreamPrefix}_EVENTS").</summary>
     public string? EventStreamName { get; set; }
 
-    /// <summary>
-    /// JetStream stream name for Outbox Store (default: "CATGA_OUTBOX")
-    /// </summary>
+    /// <summary>Outbox stream name (default: "{StreamPrefix}_OUTBOX").</summary>
     public string? OutboxStreamName { get; set; }
 
-    /// <summary>
-    /// JetStream stream name for Inbox Store (default: "CATGA_INBOX")
-    /// </summary>
+    /// <summary>Inbox stream name (default: "{StreamPrefix}_INBOX").</summary>
     public string? InboxStreamName { get; set; }
 
-    /// <summary>
-    /// KV bucket name for Flow Store (default: "flows")
-    /// </summary>
-    public string? FlowBucketName { get; set; }
+    /// <summary>Flow KV bucket name (default: "flows").</summary>
+    public string FlowBucketName { get; set; } = "flows";
 
-    /// <summary>
-    /// KV bucket name for DSL Flow Store (default: "dslflows")
-    /// </summary>
-    public string? DslFlowBucketName { get; set; }
-
-    /// <summary>
-    /// Store options for Event Store
-    /// </summary>
-    public NatsJSStoreOptions? EventStoreOptions { get; set; }
-
-    /// <summary>
-    /// Store options for Outbox Store
-    /// </summary>
-    public NatsJSStoreOptions? OutboxStoreOptions { get; set; }
-
-    /// <summary>
-    /// Store options for Inbox Store
-    /// </summary>
-    public NatsJSStoreOptions? InboxStoreOptions { get; set; }
+    /// <summary>DSL Flow KV bucket name (default: "dslflows").</summary>
+    public string DslFlowBucketName { get; set; } = "dslflows";
 }

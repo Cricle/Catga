@@ -13,7 +13,9 @@ public abstract class NatsJSStoreBase(INatsConnection connection, string streamN
     protected readonly NatsJSStoreOptions Options = options ?? new() { StreamName = streamName };
 
     protected abstract string[] GetSubjects();
-    protected virtual StreamConfig CreateStreamConfig() => Options.CreateStreamConfig(StreamName, GetSubjects());
+
+    protected virtual StreamConfig CreateStreamConfig()
+        => Options.CreateDefaultStreamConfig(StreamName, GetSubjects());
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected async ValueTask EnsureInitializedAsync(CancellationToken ct = default)

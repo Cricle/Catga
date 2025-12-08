@@ -4,11 +4,8 @@ using Catga.DependencyInjection;
 using Catga.EventSourcing;
 using Catga.Persistence.InMemory.Stores;
 using Catga.Persistence.Stores;
-using Catga.Pipeline;
 using Catga.Resilience;
-using MemoryPack;
 using OrderSystem.Api.Domain;
-using OrderSystem.Api.Handlers;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Services;
 
@@ -45,33 +42,14 @@ else
 }
 
 // ============================================
-// 2. Application Services
+// 2. Application Services (Auto-registered by source generator)
 // ============================================
+builder.Services.AddCatgaHandlers(); // Auto-registers all handlers, behaviors, projections
+
+// Infrastructure services (not auto-discovered)
 builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
-
-// Command/Query Handlers
-builder.Services.AddSingleton<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, CreateOrderHandler>();
-builder.Services.AddSingleton<IRequestHandler<CreateOrderFlowCommand, OrderCreatedResult>, CreateOrderFlowHandler>();
-builder.Services.AddSingleton<IRequestHandler<CancelOrderCommand>, CancelOrderHandler>();
-builder.Services.AddSingleton<IRequestHandler<GetOrderQuery, Order?>, GetOrderHandler>();
-builder.Services.AddSingleton<IRequestHandler<GetUserOrdersQuery, List<Order>>, GetUserOrdersHandler>();
-
-// Event Handlers (multiple handlers per event)
-builder.Services.AddSingleton<IEventHandler<OrderCreatedEvent>, OrderCreatedEventHandler>();
-builder.Services.AddSingleton<IEventHandler<OrderCreatedEvent>, SendOrderNotificationHandler>();
-builder.Services.AddSingleton<IEventHandler<OrderCancelledEvent>, OrderCancelledEventHandler>();
-builder.Services.AddSingleton<IEventHandler<OrderConfirmedEvent>, OrderConfirmedEventHandler>();
-
-// Pipeline Behaviors (cross-cutting concerns)
-builder.Services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
-builder.Services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-
-// Event Sourcing: Projections, Subscriptions, Audit, Snapshots
-builder.Services.AddSingleton<OrderSummaryProjection>();
-builder.Services.AddSingleton<CustomerStatsProjection>();
 builder.Services.AddSingleton<InMemoryProjectionCheckpointStore>();
 builder.Services.AddSingleton<InMemorySubscriptionStore>();
-builder.Services.AddSingleton<OrderEventSubscriptionHandler>();
 builder.Services.AddSingleton<InMemoryAuditLogStore>();
 builder.Services.AddSingleton<IAuditLogStore>(sp => sp.GetRequiredService<InMemoryAuditLogStore>());
 builder.Services.AddSingleton<InMemoryGdprStore>();

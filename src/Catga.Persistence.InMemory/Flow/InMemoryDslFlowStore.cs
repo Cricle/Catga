@@ -14,6 +14,7 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
     private readonly IMessageSerializer _serializer;
     private readonly ConcurrentDictionary<string, FlowEntry> _flows = new();
     private readonly ConcurrentDictionary<string, WaitCondition> _waitConditions = new();
+    private readonly ConcurrentDictionary<string, ForEachProgress> _forEachProgress = new();
 
     public InMemoryDslFlowStore(IMessageSerializer serializer)
     {
@@ -90,6 +91,27 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
             .Where(c => c.CreatedAt + c.Timeout < now)
             .ToList();
         return Task.FromResult<IReadOnlyList<WaitCondition>>(timedOut);
+    }
+
+    public Task SaveForEachProgressAsync(string flowId, int stepIndex, ForEachProgress progress, CancellationToken ct = default)
+    {
+        var key = $"{flowId}:{stepIndex}";
+        _forEachProgress.AddOrUpdate(key, progress, (_, _) => progress);
+        return Task.CompletedTask;
+    }
+
+    public Task<ForEachProgress?> GetForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        var key = $"{flowId}:{stepIndex}";
+        _forEachProgress.TryGetValue(key, out var progress);
+        return Task.FromResult(progress);
+    }
+
+    public Task ClearForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        var key = $"{flowId}:{stepIndex}";
+        _forEachProgress.TryRemove(key, out _);
+        return Task.CompletedTask;
     }
 
     private sealed class FlowEntry

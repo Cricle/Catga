@@ -32,6 +32,7 @@ public sealed class NatsDslFlowStore : IDslFlowStore
     }
 
     private static string EncodeKey(string id) => id.Replace(":", "_C_").Replace("/", "_S_").Replace(".", "_D_");
+    private static string EncodeKey(string flowId, int stepIndex) => EncodeKey($"{flowId}:foreach:{stepIndex}");
 
     private async ValueTask EnsureInitializedAsync(CancellationToken ct)
     {
@@ -263,6 +264,58 @@ public sealed class NatsDslFlowStore : IDslFlowStore
         }
 
         return results;
+    }
+
+    public async Task SaveForEachProgressAsync(string flowId, int stepIndex, ForEachProgress progress, CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync(ct);
+
+        var key = EncodeKey(flowId, stepIndex);
+        var data = _serializer.Serialize(progress);
+
+        try
+        {
+            await _store!.CreateAsync(key, data, cancellationToken: ct);
+        }
+        catch (NatsKVCreateException)
+        {
+            // Already exists, update it
+            try
+            {
+                var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
+                await _store!.UpdateAsync(key, data, entry.Revision, cancellationToken: ct);
+            }
+            catch { /* ignore */ }
+        }
+    }
+
+    public async Task<ForEachProgress?> GetForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync(ct);
+
+        var key = EncodeKey(flowId, stepIndex);
+        try
+        {
+            var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
+            if (entry.Value == null) return null;
+            return _serializer.Deserialize<ForEachProgress>(entry.Value);
+        }
+        catch (NatsKVKeyNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    public async Task ClearForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync(ct);
+
+        var key = EncodeKey(flowId, stepIndex);
+        try
+        {
+            await _store!.DeleteAsync(key, cancellationToken: ct);
+        }
+        catch (NatsKVKeyNotFoundException) { /* already deleted */ }
     }
 
     // Internal storage format

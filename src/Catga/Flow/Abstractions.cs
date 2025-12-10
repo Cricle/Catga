@@ -78,6 +78,28 @@ public record FlowPosition
 /// <summary>Branch type for If/Switch.</summary>
 public enum BranchType { Then, Else, Case, Default }
 
+/// <summary>ForEach failure handling strategy.</summary>
+public enum ForEachFailureHandling
+{
+    /// <summary>Stop on first failure.</summary>
+    StopOnFirstFailure,
+    /// <summary>Continue processing remaining items on failure.</summary>
+    ContinueOnFailure
+}
+
+/// <summary>ForEach processing progress for recovery.</summary>
+public record ForEachProgress
+{
+    /// <summary>Current item index being processed.</summary>
+    public int CurrentIndex { get; init; }
+    /// <summary>Total number of items to process.</summary>
+    public int TotalCount { get; init; }
+    /// <summary>Indices of successfully completed items.</summary>
+    public List<int> CompletedIndices { get; init; } = [];
+    /// <summary>Indices of failed items.</summary>
+    public List<int> FailedIndices { get; init; } = [];
+}
+
 #endregion
 
 #region Flow Snapshot
@@ -167,6 +189,15 @@ public interface IDslFlowStore
 
     /// <summary>Get timed out wait conditions.</summary>
     Task<IReadOnlyList<WaitCondition>> GetTimedOutWaitConditionsAsync(CancellationToken ct = default);
+
+    /// <summary>Save ForEach progress for recovery.</summary>
+    Task SaveForEachProgressAsync(string flowId, int stepIndex, ForEachProgress progress, CancellationToken ct = default);
+
+    /// <summary>Get ForEach progress for recovery.</summary>
+    Task<ForEachProgress?> GetForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default);
+
+    /// <summary>Clear ForEach progress.</summary>
+    Task ClearForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default);
 }
 
 #endregion

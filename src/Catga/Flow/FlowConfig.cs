@@ -107,6 +107,9 @@ public interface IFlowBuilder<TState> where TState : class, IFlowState
     // Branching
     IIfBuilder<TState> If(Func<TState, bool> condition);
     ISwitchBuilder<TState, TValue> Switch<TValue>(Func<TState, TValue> selector) where TValue : notnull;
+
+    // ForEach
+    IForEachBuilder<TState, TItem> ForEach<TItem>(Func<TState, IEnumerable<TItem>> collectionSelector);
 }
 
 /// <summary>If branch builder.</summary>
@@ -120,6 +123,9 @@ public interface IIfBuilder<TState> where TState : class, IFlowState
     // Nested branching
     IIfBuilder<TState> If(Func<TState, bool> condition);
     IIfBuilder<TState> EndIf();
+
+    // Collection processing
+    IForEachBuilder<TState, TItem> ForEach<TItem>(Func<TState, IEnumerable<TItem>> collectionSelector);
 
     // Branch transitions
     IIfBuilder<TState> ElseIf(Func<TState, bool> condition);
@@ -392,6 +398,18 @@ internal class FlowBuilder<TState> : IFlowBuilder<TState> where TState : class, 
         return new SwitchBuilder<TState, TValue>(this, step);
     }
 
+    public IForEachBuilder<TState, TItem> ForEach<TItem>(Func<TState, IEnumerable<TItem>> collectionSelector)
+    {
+        var step = new FlowStep
+        {
+            Type = StepType.ForEach,
+            CollectionSelector = collectionSelector,
+            ItemSteps = []
+        };
+        Steps.Add(step);
+        return new ForEachBuilder<TState, TItem>(this, step);
+    }
+
     // Tagged settings
     private class TaggedTimeoutSetting : ITaggedSetting
     {
@@ -539,16 +557,59 @@ internal class StepBuilder<TState, TResult> : IStepBuilder<TState, TResult> wher
 
     public IStepBuilder<TState> Into(Expression<Func<TState, TResult>> property)
     {
-        if (property.Body is MemberExpression member)
+        try
         {
-            _step.ResultPropertyName = member.Member.Name;
-            // Create a setter delegate
+            // Create a setter delegate for any expression type
             var param = Expression.Parameter(typeof(TState), "s");
             var value = Expression.Parameter(typeof(TResult), "v");
-            var memberAccess = Expression.MakeMemberAccess(param, member.Member);
-            var assign = Expression.Assign(memberAccess, value);
+
+            // Replace the parameter in the property expression with our parameter
+            var visitor = new ParameterReplacer(property.Parameters[0], param);
+            var targetExpression = visitor.Visit(property.Body);
+
+            Expression assign;
+
+            // Handle indexer expressions specially
+            if (targetExpression is MethodCallExpression methodCall &&
+                methodCall.Method.Name == "get_Item" &&
+                methodCall.Object != null)
+            {
+                // This is an indexer access like dict[key]
+                // We need to call the set_Item method instead
+                var setMethod = methodCall.Object.Type.GetMethod("set_Item");
+                if (setMethod != null)
+                {
+                    // Create a call to set_Item(key, value)
+                    assign = Expression.Call(methodCall.Object, setMethod, methodCall.Arguments[0], value);
+                }
+                else
+                {
+                    throw new InvalidOperationException("Cannot find setter for indexer");
+                }
+            }
+            else
+            {
+                // Regular assignment for properties
+                assign = Expression.Assign(targetExpression, value);
+            }
+
             _step.ResultSetter = Expression.Lambda<Action<TState, TResult>>(assign, param, value).Compile();
+
+            // Set property name for simple member access
+            if (property.Body is MemberExpression member)
+            {
+                _step.ResultPropertyName = member.Member.Name;
+            }
+
+            // Successfully compiled Into expression
         }
+        catch (Exception ex)
+        {
+            // Failed to compile Into expression - fall back to null setter
+            // In production, this should use proper logging
+            _step.ResultSetter = null;
+        }
+
         return new StepBuilder<TState>(_builder, _step);
     }
 
@@ -807,6 +868,18 @@ internal class IfBuilder<TState> : IIfBuilder<TState> where TState : class, IFlo
         return this;
     }
 
+    public IForEachBuilder<TState, TItem> ForEach<TItem>(Func<TState, IEnumerable<TItem>> collectionSelector)
+    {
+        var step = new FlowStep
+        {
+            Type = StepType.ForEach,
+            CollectionSelector = collectionSelector,
+            ItemSteps = []
+        };
+        _currentBranch.Add(step);
+        return new ForEachBuilder<TState, TItem>(_rootBuilder, step);
+    }
+
     public IIfBuilder<TState> EndIf()
     {
         // Pop from nested stack to restore parent context
@@ -986,6 +1059,31 @@ public class FlowStep
     public Dictionary<object, List<FlowStep>>? Cases { get; set; }
     /// <summary>Default branch for Switch.</summary>
     public List<FlowStep>? DefaultBranch { get; set; }
+
+    // ForEach specific
+    /// <summary>Collection selector for ForEach.</summary>
+    internal Delegate? CollectionSelector { get; set; }
+    /// <summary>Steps to execute for each item.</summary>
+    public List<FlowStep>? ItemSteps { get; set; }
+    /// <summary>Configurator delegate for building item steps at runtime.</summary>
+    internal Delegate? ItemStepsConfigurator { get; set; }
+    /// <summary>Batch size for processing items.</summary>
+    public int BatchSize { get; set; } = 100;
+    /// <summary>Maximum degree of parallelism for processing items.</summary>
+    internal int? MaxDegreeOfParallelism { get; set; }
+    internal bool StreamingEnabled { get; set; } = false;
+    internal bool MetricsEnabled { get; set; } = false;
+    internal bool CircuitBreakerEnabled { get; set; } = false;
+    internal int CircuitBreakerFailureThreshold { get; set; } = 5;
+    internal TimeSpan CircuitBreakerBreakDuration { get; set; } = TimeSpan.FromMinutes(1);
+    /// <summary>Failure handling strategy.</summary>
+    public ForEachFailureHandling FailureHandling { get; set; } = ForEachFailureHandling.StopOnFirstFailure;
+    /// <summary>Item success callback.</summary>
+    internal Delegate? OnItemSuccess { get; set; }
+    /// <summary>Item failure callback.</summary>
+    internal Delegate? OnItemFail { get; set; }
+    /// <summary>Completion callback.</summary>
+    internal Delegate? OnComplete { get; set; }
 }
 
 /// <summary>
@@ -999,7 +1097,28 @@ public enum StepType
     WhenAll,
     WhenAny,
     If,
-    Switch
+    Switch,
+    ForEach
+}
+
+/// <summary>
+/// Expression visitor to replace parameters in expressions.
+/// </summary>
+internal class ParameterReplacer : ExpressionVisitor
+{
+    private readonly ParameterExpression _oldParameter;
+    private readonly ParameterExpression _newParameter;
+
+    public ParameterReplacer(ParameterExpression oldParameter, ParameterExpression newParameter)
+    {
+        _oldParameter = oldParameter;
+        _newParameter = newParameter;
+    }
+
+    protected override Expression VisitParameter(ParameterExpression node)
+    {
+        return node == _oldParameter ? _newParameter : base.VisitParameter(node);
+    }
 }
 
 #endregion

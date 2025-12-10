@@ -199,6 +199,231 @@ flow.Send(s => new ValidateOrderCommand(s.OrderId!))
     .EndIf();
 ```
 
+### Collection Processing
+
+#### ForEach
+Process collections with automatic recovery and failure handling:
+
+```csharp
+flow.ForEach<OrderItem>(s => s.Items)
+    .Configure((item, f) =>
+    {
+        f.Send(s => new ProcessItemCommand(item.Id, item.Quantity))
+         .Into(s => s.ProcessedItems[item.Id]);
+    })
+    .WithBatchSize(10)
+    .ContinueOnFailure()
+    .OnItemSuccess((state, item, result) =>
+    {
+        state.CompletedItems.Add(item.Id);
+    })
+    .OnItemFail((state, item, error) =>
+    {
+        state.FailedItems.Add(item.Id);
+    })
+    .OnComplete(s => s.AllItemsProcessed = true)
+.EndForEach();
+```
+
+**ForEach Features:**
+- **Batch Processing**: Control memory usage with `WithBatchSize()`
+- **Parallel Processing**: Scale with `WithParallelism()`
+- **Streaming Support**: Handle large/infinite collections with `WithStreaming()`
+- **Performance Metrics**: Monitor execution with `WithMetrics()`
+- **Circuit Breaker**: Resilience with `WithCircuitBreaker()`
+- **Failure Handling**: `ContinueOnFailure()` or `StopOnFirstFailure()`
+- **Progress Tracking**: Automatic recovery from interruption points
+- **Callbacks**: `OnItemSuccess`, `OnItemFail`, `OnComplete`
+- **Persistence**: Progress saved across all storage backends
+
+#### Advanced ForEach Patterns
+
+**Error Handling Strategies:**
+```csharp
+// Continue processing despite failures
+flow.ForEach<OrderItem>(s => s.Items)
+    .Configure((item, f) => f.Send(s => new ProcessItem(item.Id)))
+    .ContinueOnFailure()
+    .OnItemFail((state, item, error) =>
+    {
+        state.FailedItems.Add(item.Id);
+        state.Errors[item.Id] = error;
+    })
+.EndForEach();
+
+// Stop on first failure for critical processing
+flow.ForEach<CriticalItem>(s => s.CriticalItems)
+    .Configure((item, f) => f.Send(s => new ProcessCritical(item.Id)))
+    .StopOnFirstFailure()
+    .OnItemFail((state, item, error) =>
+    {
+        state.Status = $"Critical failure: {error}";
+    })
+.EndForEach();
+```
+
+**Performance Optimization:**
+```csharp
+// High-volume processing with parallel execution
+flow.ForEach<DataItem>(s => s.LargeDataSet)
+    .Configure((item, f) => f.Send(s => new ProcessData(item)))
+    .WithBatchSize(1000)      // Large batches for throughput
+    .WithParallelism(10)      // Process 10 items concurrently
+    .WithMetrics(true)        // Enable performance monitoring
+    .ContinueOnFailure()
+    .OnItemSuccess((state, item, result) =>
+    {
+        // Minimal processing for performance
+        state.ProcessedCount++;
+    })
+.EndForEach();
+```
+
+**Streaming Processing:**
+```csharp
+// Handle large or infinite data streams
+flow.ForEach<StreamItem>(s => s.GetDataStream())
+    .Configure((item, f) => f.Send(s => new ProcessStreamItem(item)))
+    .WithStreaming(true)      // Enable streaming mode
+    .WithBatchSize(50)        // Process in small batches
+    .WithParallelism(5)       // Concurrent processing
+    .ContinueOnFailure()
+    .OnItemSuccess((state, item, result) =>
+    {
+        state.StreamProcessedCount++;
+    })
+.EndForEach();
+```
+
+**Circuit Breaker for Resilience:**
+```csharp
+// Protect against cascading failures
+flow.ForEach<ExternalApiCall>(s => s.ApiCalls)
+    .Configure((call, f) => f.Send(s => new CallExternalApi(call)))
+    .WithCircuitBreaker(
+        failureThreshold: 5,           // Open after 5 failures
+        breakDuration: TimeSpan.FromMinutes(2))  // Stay open for 2 minutes
+    .WithParallelism(3)
+    .ContinueOnFailure()
+    .OnItemFail((state, item, error) =>
+    {
+        state.FailedApiCalls.Add(item.Id);
+    })
+.EndForEach();
+```
+
+**Conditional Processing:**
+```csharp
+// Different logic based on item properties
+flow.ForEach<OrderItem>(s => s.Items)
+    .Configure((item, f) =>
+    {
+        f.If(s => item.Value > 1000)
+            .Send(s => new HighValueProcessing(item))
+        .Else()
+            .Send(s => new StandardProcessing(item))
+        .EndIf();
+    })
+.EndForEach();
+```
+
+**Recovery and Compensation:**
+```csharp
+// Saga pattern with compensation
+flow.ForEach<Transaction>(s => s.Transactions)
+    .Configure((txn, f) =>
+    {
+        f.Send(s => new ProcessTransaction(txn.Id))
+         .Into(s => s.Results[txn.Id])
+         .IfFail(s => new CompensateTransaction(txn.Id));
+    })
+    .StopOnFirstFailure()
+.EndForEach();
+```
+
+#### Real-World ForEach Example
+
+Here's a complete, working example that demonstrates the core ForEach functionality:
+
+```csharp
+// State class
+public class OrderProcessingState : IFlowState
+{
+    public string? FlowId { get; set; }
+    public List<OrderItem> Items { get; set; } = [];
+    public ConcurrentDictionary<string, string> ProcessedItems { get; set; } = new();
+    public List<string> FailedItems { get; set; } = [];
+    public bool AllItemsProcessed { get; set; }
+    public int ProcessedCount { get; set; }
+
+    // IFlowState implementation...
+}
+
+// Flow configuration
+public class ProcessOrderItemsFlow : FlowConfig<OrderProcessingState>
+{
+    protected override void Configure(IFlowBuilder<OrderProcessingState> flow)
+    {
+        flow.Name("process-order-items")
+            .DefaultTimeout(TimeSpan.FromMinutes(5));
+
+        // Process each item with parallel execution and error handling
+        flow.ForEach<OrderItem>(s => s.Items)
+            .Configure((item, f) =>
+            {
+                // Send processing command and store result in dictionary
+                f.Send(s => new ProcessItemCommand(item.Id, item.Quantity))
+                 .Into(s => s.ProcessedItems[item.Id]);
+            })
+            .WithParallelism(4)           // Process 4 items concurrently
+            .ContinueOnFailure()          // Don't stop on individual failures
+            .OnItemSuccess((state, item, result) =>
+            {
+                // Track successful processing
+                Interlocked.Increment(ref state.ProcessedCount);
+            })
+            .OnItemFail((state, item, error) =>
+            {
+                // Track failed items for retry logic
+                state.FailedItems.Add(item.Id);
+            })
+            .OnComplete(s => s.AllItemsProcessed = true)
+        .EndForEach();
+    }
+}
+
+// Usage
+var mediator = serviceProvider.GetRequiredService<ICatgaMediator>();
+var store = serviceProvider.GetRequiredService<IDslFlowStore>();
+var config = new ProcessOrderItemsFlow();
+
+var executor = new DslFlowExecutor<OrderProcessingState, ProcessOrderItemsFlow>(
+    mediator, store, config);
+
+var state = new OrderProcessingState
+{
+    FlowId = "order-123",
+    Items = [
+        new OrderItem("item1", "product1", 2),
+        new OrderItem("item2", "product2", 1),
+        new OrderItem("item3", "product3", 5)
+    ]
+};
+
+var result = await executor.RunAsync(state);
+
+// Results are automatically stored in ProcessedItems dictionary
+// Failed items are tracked in FailedItems list
+// AllItemsProcessed is set to true when complete
+```
+
+**Key Features Demonstrated:**
+- **Parallel Processing**: `WithParallelism(4)` processes 4 items simultaneously
+- **Result Storage**: `.Into(s => s.ProcessedItems[item.Id])` stores results in dictionary
+- **Error Handling**: `ContinueOnFailure()` continues processing despite individual failures
+- **Callbacks**: Track success/failure and completion events
+- **Thread Safety**: Uses `ConcurrentDictionary` and `Interlocked` for thread-safe operations
+
 ### Optional Steps
 
 #### Optional

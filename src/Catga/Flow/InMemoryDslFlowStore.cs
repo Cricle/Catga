@@ -10,6 +10,7 @@ public class InMemoryDslFlowStore : IDslFlowStore
 {
     private readonly ConcurrentDictionary<string, object> _flows = new();
     private readonly ConcurrentDictionary<string, WaitCondition> _waitConditions = new();
+    private readonly ConcurrentDictionary<string, ForEachProgress> _forEachProgress = new();
 
     public Task<bool> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(FlowSnapshot<TState> snapshot, CancellationToken ct = default)
         where TState : class, IFlowState
@@ -78,6 +79,27 @@ public class InMemoryDslFlowStore : IDslFlowStore
         return Task.FromResult<IReadOnlyList<WaitCondition>>(timedOut);
     }
 
+    public Task SaveForEachProgressAsync(string flowId, int stepIndex, ForEachProgress progress, CancellationToken ct = default)
+    {
+        var key = $"{flowId}:{stepIndex}";
+        _forEachProgress.AddOrUpdate(key, progress, (_, _) => progress);
+        return Task.CompletedTask;
+    }
+
+    public Task<ForEachProgress?> GetForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        var key = $"{flowId}:{stepIndex}";
+        _forEachProgress.TryGetValue(key, out var progress);
+        return Task.FromResult(progress);
+    }
+
+    public Task ClearForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        var key = $"{flowId}:{stepIndex}";
+        _forEachProgress.TryRemove(key, out _);
+        return Task.CompletedTask;
+    }
+
     /// <summary>
     /// Clear all data (for testing).
     /// </summary>
@@ -85,5 +107,6 @@ public class InMemoryDslFlowStore : IDslFlowStore
     {
         _flows.Clear();
         _waitConditions.Clear();
+        _forEachProgress.Clear();
     }
 }

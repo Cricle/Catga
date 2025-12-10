@@ -340,6 +340,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
                 StepType.WhenAny => await ExecuteWhenAnyAsync(state, step, stepIndex, cancellationToken),
                 StepType.If => await ExecuteIfAsync(state, step, stepIndex, cancellationToken),
                 StepType.Switch => await ExecuteSwitchAsync(state, step, stepIndex, cancellationToken),
+                StepType.ForEach => await ExecuteForEachAsync(state, step, stepIndex, cancellationToken),
                 _ => StepResult.Failed($"Unknown step type: {step.Type}")
             };
         }
@@ -884,6 +885,245 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         }
 
         return null;
+    }
+
+    private async Task<StepResult> ExecuteForEachAsync(
+        TState state,
+        FlowStep step,
+        int stepIndex,
+        CancellationToken cancellationToken)
+    {
+        if (step.CollectionSelector == null)
+            return StepResult.Failed("No collection selector configured for ForEach");
+
+        try
+        {
+            // Get the collection to iterate over
+            var collection = step.CollectionSelector.DynamicInvoke(state);
+            if (collection == null)
+                return StepResult.Succeeded(); // Empty collection, nothing to process
+
+            // Convert to enumerable
+            if (collection is not System.Collections.IEnumerable enumerable)
+                return StepResult.Failed("Collection selector did not return an enumerable");
+
+            var items = enumerable.Cast<object>().ToList();
+            if (items.Count == 0)
+            {
+                // Execute OnComplete callback even for empty collections
+                if (step.OnComplete != null)
+                {
+                    try
+                    {
+                        step.OnComplete.DynamicInvoke(state);
+                    }
+                    catch
+                    {
+                        // Ignore callback errors
+                    }
+                }
+                return StepResult.Succeeded(); // Empty collection
+            }
+
+            // Determine parallelism
+            var maxDegreeOfParallelism = step.MaxDegreeOfParallelism ?? 1;
+
+            if (maxDegreeOfParallelism <= 1)
+            {
+                // Sequential processing
+                return await ProcessItemsSequentially(state, step, items, cancellationToken);
+            }
+            else
+            {
+                // Parallel processing
+                return await ProcessItemsInParallel(state, step, items, maxDegreeOfParallelism, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            return StepResult.Failed($"ForEach execution failed: {ex.Message}");
+        }
+    }
+
+    private async Task<StepResult> ProcessItemsSequentially(
+        TState state,
+        FlowStep step,
+        List<object> items,
+        CancellationToken cancellationToken)
+    {
+        // Process each item sequentially
+        foreach (var (item, index) in items.Select((item, index) => (item, index)))
+        {
+            var result = await ProcessSingleItemAsync(state, step, item, index, cancellationToken);
+            if (!result.Success && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
+            {
+                return result;
+            }
+        }
+
+        // Execute OnComplete callback if present
+        if (step.OnComplete != null)
+        {
+            try
+            {
+                step.OnComplete.DynamicInvoke(state);
+            }
+            catch
+            {
+                // Ignore callback errors
+            }
+        }
+
+        return StepResult.Succeeded();
+    }
+
+    private async Task<StepResult> ProcessItemsInParallel(
+        TState state,
+        FlowStep step,
+        List<object> items,
+        int maxDegreeOfParallelism,
+        CancellationToken cancellationToken)
+    {
+        using var semaphore = new SemaphoreSlim(maxDegreeOfParallelism, maxDegreeOfParallelism);
+        var tasks = new List<Task<StepResult>>();
+
+        // Create tasks for parallel processing
+        foreach (var (item, index) in items.Select((item, index) => (item, index)))
+        {
+            var task = ProcessSingleItemWithSemaphoreAsync(semaphore, state, step, item, index, cancellationToken);
+            tasks.Add(task);
+        }
+
+        // Wait for all tasks to complete
+        var results = await Task.WhenAll(tasks);
+
+        // Check for failures
+        var failures = results.Where(r => !r.Success).ToList();
+        if (failures.Any() && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
+        {
+            return failures.First();
+        }
+
+        // Execute OnComplete callback if present
+        if (step.OnComplete != null)
+        {
+            try
+            {
+                step.OnComplete.DynamicInvoke(state);
+            }
+            catch
+            {
+                // Ignore callback errors
+            }
+        }
+
+        return StepResult.Succeeded();
+    }
+
+    private async Task<StepResult> ProcessSingleItemWithSemaphoreAsync(
+        SemaphoreSlim semaphore,
+        TState state,
+        FlowStep step,
+        object item,
+        int index,
+        CancellationToken cancellationToken)
+    {
+        await semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            return await ProcessSingleItemAsync(state, step, item, index, cancellationToken);
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
+
+    private async Task<StepResult> ProcessSingleItemAsync(
+        TState state,
+        FlowStep step,
+        object item,
+        int index,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Execute ItemStepsConfigurator if available
+            if (step.ItemStepsConfigurator != null)
+            {
+                // Create a temporary flow builder to capture configured steps
+                var tempBuilder = new FlowBuilder<TState>();
+                step.ItemStepsConfigurator.DynamicInvoke(item, tempBuilder);
+
+                // Execute the configured steps
+                foreach (var configuredStep in tempBuilder.Steps)
+                {
+                    var stepResult = await ExecuteStepAsync(state, configuredStep, index, cancellationToken);
+                    if (!stepResult.Success)
+                    {
+                        // Handle failure
+                        if (step.OnItemFail != null)
+                        {
+                            try
+                            {
+                                step.OnItemFail.DynamicInvoke(state, item, stepResult.Error);
+                            }
+                            catch
+                            {
+                                // Ignore callback errors
+                            }
+                        }
+                        return StepResult.Failed($"ForEach failed on item {index}: {stepResult.Error}");
+                    }
+
+                    // Apply result to state if step has result setter (from .Into())
+                    if (stepResult.Success && stepResult.Result != null && configuredStep.ResultSetter != null)
+                    {
+                        try
+                        {
+                            configuredStep.ResultSetter.DynamicInvoke(state, stepResult.Result);
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log the error but continue processing
+                            // In production, this should use proper logging
+                        }
+                    }
+
+                    // Apply result using OnItemSuccess callback if available
+                    if (stepResult.Success && step.OnItemSuccess != null)
+                    {
+                        try
+                        {
+                            step.OnItemSuccess.DynamicInvoke(state, item, stepResult.Result);
+                        }
+                        catch
+                        {
+                            // Ignore callback errors
+                        }
+                    }
+                }
+            }
+
+            return StepResult.Succeeded();
+        }
+        catch (Exception ex)
+        {
+            // Handle item processing failure
+            if (step.OnItemFail != null)
+            {
+                try
+                {
+                    step.OnItemFail.DynamicInvoke(state, item, ex.Message);
+                }
+                catch
+                {
+                    // Ignore callback errors
+                }
+            }
+
+            return StepResult.Failed($"ForEach failed on item {index}: {ex.Message}");
+        }
     }
 
     private record struct ExecutedStep(int Index, FlowStep Step);

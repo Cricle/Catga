@@ -60,6 +60,7 @@
 | **Source Generator** | Compile-time handler discovery, zero runtime overhead |
 | **Distributed** | Lock, Rate Limiting, Leader Election, Event Sourcing |
 | **Multi-Transport** | Redis Streams, NATS JetStream, In-Memory |
+| **Flow DSL** | Distributed workflows, ForEach parallel processing, Sagas |
 | **Resilience** | Polly integration (Retry, Circuit Breaker, Timeout) |
 | **Observability** | OpenTelemetry tracing, Metrics, Structured logging |
 | **Reliability** | Outbox/Inbox pattern, Idempotency, Dead Letter Queue |
@@ -166,6 +167,73 @@ var result = await verifier.VerifyStreamAsync("Order-123"); // Immutability chec
 
 ---
 
+## 🔄 Flow DSL (Distributed Workflows)
+
+Catga includes a powerful Flow DSL for building distributed workflows and sagas:
+
+```csharp
+// Define workflow state
+public class OrderFlowState : IFlowState
+{
+    public string? FlowId { get; set; }
+    public List<OrderItem> Items { get; set; } = [];
+    public ConcurrentDictionary<string, string> ProcessedItems { get; set; } = new();
+    public bool AllItemsProcessed { get; set; }
+}
+
+// Define workflow
+public class ProcessOrderFlow : FlowConfig<OrderFlowState>
+{
+    protected override void Configure(IFlowBuilder<OrderFlowState> flow)
+    {
+        flow.Name("process-order")
+            .DefaultTimeout(TimeSpan.FromMinutes(5));
+
+        // Sequential steps
+        flow.Send(s => new ReserveInventoryCommand(s.OrderId))
+            .Into(s => s.ReservationId)
+            .IfFail(s => new ReleaseInventoryCommand(s.ReservationId));
+
+        // Parallel processing with ForEach
+        flow.ForEach<OrderItem>(s => s.Items)
+            .Configure((item, f) =>
+            {
+                f.Send(s => new ProcessItemCommand(item.Id, item.Quantity))
+                 .Into(s => s.ProcessedItems[item.Id]);
+            })
+            .WithParallelism(4)           // Process 4 items concurrently
+            .ContinueOnFailure()          // Don't stop on individual failures
+            .OnItemSuccess((state, item, result) =>
+            {
+                // Track successful processing
+                state.ProcessedCount++;
+            })
+            .OnComplete(s => s.AllItemsProcessed = true)
+        .EndForEach();
+
+        // Conditional logic
+        flow.If(s => s.AllItemsProcessed)
+            .Send(s => new CompleteOrderCommand(s.OrderId))
+        .EndIf();
+    }
+}
+
+// Execute workflow
+var executor = new DslFlowExecutor<OrderFlowState, ProcessOrderFlow>(mediator, store, config);
+var result = await executor.RunAsync(state);
+```
+
+### Flow DSL Features
+
+- **🔄 ForEach Processing**: Parallel collection processing with configurable concurrency
+- **🎯 Conditional Logic**: If/ElseIf/Else and Switch/Case constructs
+- **⚡ Parallel Execution**: WhenAll/WhenAny for concurrent operations
+- **🛡️ Error Handling**: Automatic compensation and retry strategies
+- **💾 State Management**: Automatic persistence and recovery
+- **📊 Progress Tracking**: Built-in progress monitoring and resumption
+
+---
+
 ## 🛠️ CLI Tool
 
 ```bash
@@ -255,6 +323,7 @@ builder.Services.AddCatga()
 | Topic | Description |
 |-------|-------------|
 | [Getting Started](./docs/articles/getting-started.md) | First steps with Catga |
+| [Flow DSL Guide](./docs/guides/flow-dsl.md) | Distributed workflows and ForEach processing |
 | [Architecture](./docs/architecture/ARCHITECTURE.md) | Deep dive into internals |
 | [Configuration](./docs/articles/configuration.md) | All configuration options |
 | [OpenTelemetry](./docs/articles/opentelemetry-integration.md) | Tracing and metrics |

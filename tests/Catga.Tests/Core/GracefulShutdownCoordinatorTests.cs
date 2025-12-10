@@ -146,7 +146,7 @@ public class GracefulShutdownCoordinatorTests
     }
 
     [Fact]
-    public void ShutdownToken_CanBeUsedForCancellation()
+    public async Task ShutdownToken_CanBeUsedForCancellation()
     {
         // Arrange
         var coordinator = new GracefulShutdownCoordinator(_logger);
@@ -166,7 +166,7 @@ public class GracefulShutdownCoordinatorTests
         });
 
         coordinator.RequestShutdown();
-        task.Wait(TimeSpan.FromSeconds(1));
+        await task.WaitAsync(TimeSpan.FromSeconds(1));
 
         // Assert
         taskCompleted.Should().BeTrue();

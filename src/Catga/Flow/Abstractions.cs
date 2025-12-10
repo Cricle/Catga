@@ -243,6 +243,9 @@ public readonly record struct DslFlowResult<TState>(
 
     public static DslFlowResult<TState> Failure(DslFlowStatus status, string? error, int steps = 0)
         => new(false, default, status, steps, error);
+
+    public static DslFlowResult<TState> Failure(TState? state, DslFlowStatus status, string? error, int steps = 0)
+        => new(false, state, status, steps, error);
 }
 
 #endregion

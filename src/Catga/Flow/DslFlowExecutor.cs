@@ -102,7 +102,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             return DslFlowResult<TState>.Success(snapshot.State, DslFlowStatus.Completed);
 
         if (snapshot.Status == DslFlowStatus.Failed)
-            return DslFlowResult<TState>.Failure(DslFlowStatus.Failed, snapshot.Error);
+            return DslFlowResult<TState>.Failure(snapshot.State, DslFlowStatus.Failed, snapshot.Error);
 
         if (snapshot.Status == DslFlowStatus.Cancelled)
             return DslFlowResult<TState>.Failure(DslFlowStatus.Cancelled, "Flow was cancelled");
@@ -124,6 +124,12 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             }
         }
 
+        // Handle branch position recovery
+        if (snapshot.Position.Depth > 0)
+        {
+            return await ResumeFromBranchPositionAsync(snapshot, cancellationToken);
+        }
+
         return await ExecuteFromStepAsync(snapshot, snapshot.Position.CurrentIndex, cancellationToken);
     }
 
@@ -139,7 +145,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         if (DateTime.UtcNow - waitCondition.CreatedAt > waitCondition.Timeout)
         {
             await UpdateSnapshotAsync(snapshot, state, snapshot.Position, DslFlowStatus.Failed, "WhenAll/WhenAny timeout", cancellationToken);
-            return DslFlowResult<TState>.Failure(DslFlowStatus.Failed, "WhenAll/WhenAny timeout");
+            return DslFlowResult<TState>.Failure(state, DslFlowStatus.Failed, "WhenAll/WhenAny timeout");
         }
 
         // Check if wait condition is satisfied
@@ -167,7 +173,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
                 }
 
                 await UpdateSnapshotAsync(snapshot, state, snapshot.Position, DslFlowStatus.Failed, failedChild.Error, cancellationToken);
-                return DslFlowResult<TState>.Failure(DslFlowStatus.Failed, failedChild.Error);
+                return DslFlowResult<TState>.Failure(state, DslFlowStatus.Failed, failedChild.Error);
             }
         }
         else // WaitType.Any
@@ -186,7 +192,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
                 // All failed
                 var lastError = waitCondition.Results.LastOrDefault()?.Error ?? "All child flows failed";
                 await UpdateSnapshotAsync(snapshot, state, snapshot.Position, DslFlowStatus.Failed, lastError, cancellationToken);
-                return DslFlowResult<TState>.Failure(DslFlowStatus.Failed, lastError);
+                return DslFlowResult<TState>.Failure(state, DslFlowStatus.Failed, lastError);
             }
             else
             {
@@ -289,7 +295,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
                 }
 
                 await UpdateSnapshotAsync(snapshot, state, StepToPosition(i), DslFlowStatus.Failed, result.Error, cancellationToken);
-                return DslFlowResult<TState>.Failure(DslFlowStatus.Failed, result.Error);
+                return DslFlowResult<TState>.Failure(state, DslFlowStatus.Failed, result.Error);
             }
 
             // Publish OnStepCompleted event
@@ -636,7 +642,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         {
             // Check ElseIf branches
             int elseIfIndex = 1;
-            foreach (var (elseIfCondition, elseIfBranch) in step.ElseIfBranches)
+            foreach (var (elseIfCondition, elseIfBranch)in step.ElseIfBranches)
             {
                 var elseIfFunc = (Func<TState, bool>)elseIfCondition;
                 if (elseIfFunc(state))
@@ -907,6 +913,13 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             if (collection is not System.Collections.IEnumerable enumerable)
                 return StepResult.Failed("Collection selector did not return an enumerable");
 
+            // Check if streaming is enabled for memory optimization
+            if (step.StreamingEnabled)
+            {
+                // Stream processing - don't materialize the entire collection
+                return await ProcessItemsStreaming(state, step, enumerable, cancellationToken);
+            }
+
             var items = enumerable.Cast<object>().ToList();
             if (items.Count == 0)
             {
@@ -1123,6 +1136,323 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             }
 
             return StepResult.Failed($"ForEach failed on item {index}: {ex.Message}");
+        }
+    }
+
+    private async Task<DslFlowResult<TState>> ResumeFromBranchPositionAsync(
+        FlowSnapshot<TState> snapshot,
+        CancellationToken cancellationToken)
+    {
+        var state = snapshot.State;
+        var position = snapshot.Position;
+
+        // Navigate to the correct branch and resume execution
+        var stepIndex = position.Path[0]; // First element is the main step index
+        if (stepIndex >= _config.Steps.Count)
+        {
+            return DslFlowResult<TState>.Failure(DslFlowStatus.Failed,
+                $"Invalid step index {stepIndex} in position {string.Join(",", position.Path)}");
+        }
+
+        var step = _config.Steps[stepIndex];
+
+        // Resume execution from the branch position
+        var result = await ResumeBranchStepAsync(state, step, position, stepIndex, cancellationToken);
+
+        if (!result.Success)
+        {
+            await UpdateSnapshotAsync(snapshot, state, position, DslFlowStatus.Failed, result.Error, cancellationToken);
+            return DslFlowResult<TState>.Failure(state, DslFlowStatus.Failed, result.Error);
+        }
+
+        // Continue with remaining steps after the branch step
+        return await ExecuteFromStepAsync(snapshot, stepIndex + 1, cancellationToken);
+    }
+
+    private async Task<StepResult> ResumeBranchStepAsync(
+        TState state,
+        FlowStep step,
+        FlowPosition position,
+        int stepIndex,
+        CancellationToken cancellationToken)
+    {
+        // Handle different step types for resumption
+        return step.Type switch
+        {
+            StepType.ForEach => await ResumeForEachAsync(state, step, position, stepIndex, cancellationToken),
+            StepType.If or StepType.Switch => await ExecuteStepAsync(state, step, stepIndex, cancellationToken),
+            _ => await ExecuteStepAsync(state, step, stepIndex, cancellationToken)
+        };
+    }
+
+    private async Task<StepResult> ResumeForEachAsync(
+        TState state,
+        FlowStep step,
+        FlowPosition position,
+        int stepIndex,
+        CancellationToken cancellationToken)
+    {
+        if (step.CollectionSelector == null)
+            return StepResult.Failed("No collection selector configured for ForEach");
+
+        try
+        {
+            // Get the collection to iterate over
+            var collection = step.CollectionSelector.DynamicInvoke(state);
+            if (collection == null)
+                return StepResult.Succeeded(); // Empty collection, nothing to process
+
+            // Convert to enumerable
+            if (collection is not System.Collections.IEnumerable enumerable)
+                return StepResult.Failed("Collection selector did not return an enumerable");
+
+            var items = enumerable.Cast<object>().ToList();
+            if (items.Count == 0)
+                return StepResult.Succeeded(); // Empty collection
+
+            // Get ForEach progress to determine where to resume
+            var flowId = state.FlowId ?? throw new InvalidOperationException("FlowId is required for ForEach recovery");
+            var progress = await _store.GetForEachProgressAsync(flowId, stepIndex, cancellationToken);
+            if (progress == null)
+            {
+                // No progress found, start from the beginning
+                return await ExecuteForEachAsync(state, step, stepIndex, cancellationToken);
+            }
+
+            // Resume from the current index in the progress
+            var startIndex = progress.CurrentIndex;
+            if (startIndex >= items.Count)
+            {
+                // All items already processed
+                if (step.OnComplete != null)
+                {
+                    try
+                    {
+                        step.OnComplete.DynamicInvoke(state);
+                    }
+                    catch
+                    {
+                        // Ignore callback errors
+                    }
+                }
+                return StepResult.Succeeded();
+            }
+
+            // Process remaining items
+            var remainingItems = items.Skip(startIndex).ToList();
+            var maxDegreeOfParallelism = step.MaxDegreeOfParallelism ?? 1;
+
+            if (maxDegreeOfParallelism <= 1)
+            {
+                // Sequential processing from resume point
+                return await ProcessItemsSequentiallyFromIndex(state, step, items, startIndex, cancellationToken);
+            }
+            else
+            {
+                // Parallel processing from resume point
+                return await ProcessItemsInParallelFromIndex(state, step, items, startIndex, maxDegreeOfParallelism, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            return StepResult.Failed($"ForEach failed: {ex.Message}");
+        }
+    }
+
+    private async Task<StepResult> ProcessItemsSequentiallyFromIndex(
+        TState state,
+        FlowStep step,
+        List<object> items,
+        int startIndex,
+        CancellationToken cancellationToken)
+    {
+        // Process each item sequentially starting from the specified index
+        for (int i = startIndex; i < items.Count; i++)
+        {
+            var item = items[i];
+            var result = await ProcessSingleItemAsync(state, step, item, i, cancellationToken);
+            if (!result.Success && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
+            {
+                return result;
+            }
+        }
+
+        // Execute OnComplete callback if present
+        if (step.OnComplete != null)
+        {
+            try
+            {
+                step.OnComplete.DynamicInvoke(state);
+            }
+            catch
+            {
+                // Ignore callback errors
+            }
+        }
+
+        return StepResult.Succeeded();
+    }
+
+    private async Task<StepResult> ProcessItemsInParallelFromIndex(
+        TState state,
+        FlowStep step,
+        List<object> items,
+        int startIndex,
+        int maxDegreeOfParallelism,
+        CancellationToken cancellationToken)
+    {
+        // Process remaining items in parallel
+        var remainingItems = items.Skip(startIndex).ToList();
+        using var semaphore = new SemaphoreSlim(maxDegreeOfParallelism, maxDegreeOfParallelism);
+        var tasks = new List<Task<StepResult>>();
+
+        try
+        {
+            foreach (var (item, relativeIndex) in remainingItems.Select((item, index) => (item, index)))
+            {
+                var actualIndex = startIndex + relativeIndex;
+                tasks.Add(ProcessItemWithSemaphore(state, step, item, actualIndex, semaphore, cancellationToken));
+            }
+
+            var results = await Task.WhenAll(tasks);
+
+            // Check for failures
+            var firstFailure = results.FirstOrDefault(r => !r.Success);
+            if (firstFailure.Success == false && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
+            {
+                return firstFailure;
+            }
+
+            // Execute OnComplete callback if present
+            if (step.OnComplete != null)
+            {
+                try
+                {
+                    step.OnComplete.DynamicInvoke(state);
+                }
+                catch
+                {
+                    // Ignore callback errors
+                }
+            }
+
+            return StepResult.Succeeded();
+        }
+        catch (Exception ex)
+        {
+            return StepResult.Failed($"Parallel processing failed: {ex.Message}");
+        }
+    }
+
+    private async Task<StepResult> ProcessItemsStreaming(
+        TState state,
+        FlowStep step,
+        System.Collections.IEnumerable enumerable,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var batchSize = step.BatchSize;
+            var index = 0;
+            var batch = new List<object>(batchSize);
+
+            // Process items in small batches to control memory usage
+            foreach (var item in enumerable)
+            {
+                batch.Add(item);
+
+                // Process batch when it's full
+                if (batch.Count >= batchSize)
+                {
+                    var result = await ProcessBatch(state, step, batch, index - batch.Count + 1, cancellationToken);
+                    if (!result.Success && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
+                    {
+                        return result;
+                    }
+
+                    // Clear batch to free memory
+                    batch.Clear();
+
+                    // Force garbage collection periodically for large streams
+                    if (index % (batchSize * 10) == 0)
+                    {
+                        GC.Collect(0, GCCollectionMode.Optimized);
+                    }
+                }
+
+                index++;
+            }
+
+            // Process remaining items in the final batch
+            if (batch.Count > 0)
+            {
+                var result = await ProcessBatch(state, step, batch, index - batch.Count, cancellationToken);
+                if (!result.Success && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
+                {
+                    return result;
+                }
+            }
+
+            // Execute OnComplete callback if present
+            if (step.OnComplete != null)
+            {
+                try
+                {
+                    step.OnComplete.DynamicInvoke(state);
+                }
+                catch
+                {
+                    // Ignore callback errors
+                }
+            }
+
+            return StepResult.Succeeded();
+        }
+        catch (Exception ex)
+        {
+            return StepResult.Failed($"Streaming ForEach failed: {ex.Message}");
+        }
+    }
+
+    private async Task<StepResult> ProcessBatch(
+        TState state,
+        FlowStep step,
+        List<object> batch,
+        int startIndex,
+        CancellationToken cancellationToken)
+    {
+        // Process each item in the batch sequentially
+        for (int i = 0; i < batch.Count; i++)
+        {
+            var item = batch[i];
+            var itemIndex = startIndex + i;
+            var result = await ProcessSingleItemAsync(state, step, item, itemIndex, cancellationToken);
+
+            if (!result.Success && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
+            {
+                return result;
+            }
+        }
+
+        return StepResult.Succeeded();
+    }
+
+    private async Task<StepResult> ProcessItemWithSemaphore(
+        TState state,
+        FlowStep step,
+        object item,
+        int index,
+        SemaphoreSlim semaphore,
+        CancellationToken cancellationToken)
+    {
+        await semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            return await ProcessSingleItemAsync(state, step, item, index, cancellationToken);
+        }
+        finally
+        {
+            semaphore.Release();
         }
     }
 

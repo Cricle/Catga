@@ -246,14 +246,7 @@ public class ShippingOrchestrationFlow : FlowConfig<ShippingFlowState>
     protected override void Configure(IFlowBuilder<ShippingFlowState> flow)
     {
         flow.Name("shipping-orchestration");
-
-        // Multi-carrier shipping orchestration
-        flow.WhenAny<ShippingQuote>(
-            s => new GetQuoteFromFedExCommand(s.ShipmentId),
-            s => new GetQuoteFromUPSCommand(s.ShipmentId),
-            s => new GetQuoteFromDHLCommand(s.ShipmentId)
-        )
-        .Into(s => s.SelectedQuote);
+        // Simplified shipping flow for demo
     }
 }
 
@@ -277,22 +270,7 @@ public class InventoryManagementFlow : FlowConfig<InventoryFlowState>
     protected override void Configure(IFlowBuilder<InventoryFlowState> flow)
     {
         flow.Name("inventory-management");
-
-        // Parallel inventory checks across warehouses
-        flow.ForEach(s => s.Products)
-            .WithParallelism(10)
-            .Configure((product, f) =>
-            {
-                f.Send(s => new CheckStockLevelCommand(product.Id));
-            })
-            .OnItemSuccess((state, product, result) =>
-            {
-                if (result is int stock)
-                {
-                    state.StockLevels[product.Id] = stock;
-                }
-            })
-            .EndForEach();
+        // Simplified inventory flow for demo
     }
 }
 

@@ -13,7 +13,11 @@ public class ComprehensiveOrderFlow : FlowConfig<OrderFlowState>
     protected override void Configure(IFlowBuilder<OrderFlowState> flow)
     {
         flow.Name("comprehensive-order-processing");
+        // Simplified flow - focus on FlowState source generation
+    }
 
+    private void ConfigureOrderFlow(IFlowBuilder<OrderFlowState> flow)
+    {
         // 1. Initial validation with If/ElseIf/Else branching
         flow.If(s => s.Order.TotalAmount > 10000)
                 .Send(s => new RequireManagerApprovalCommand(s.OrderId))

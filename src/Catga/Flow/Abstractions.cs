@@ -364,4 +364,13 @@ public sealed class FlowStateIgnoreAttribute : Attribute
 {
 }
 
+/// <summary>
+/// Marks a backing field for automatic property generation with change tracking.
+/// Used within [FlowState] classes to define trackable fields.
+/// </summary>
+[AttributeUsage(AttributeTargets.Field, Inherited = false)]
+public sealed class FlowStateFieldAttribute : Attribute
+{
+}
+
 #endregion

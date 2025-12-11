@@ -1,4 +1,5 @@
 using Catga.Abstractions;
+using Catga.Flow;
 using Catga.Flow.Dsl;
 using MemoryPack;
 using OrderSystem.Api.Domain;
@@ -51,13 +52,21 @@ public partial record OrderConfirmedEvent(string OrderId, DateTime ConfirmedAt) 
 
 /// <summary>Flow state for order creation saga.</summary>
 [FlowState]
-public partial class CreateOrderFlowState
+public partial class CreateOrderFlowState : IFlowState
 {
-    public string? OrderId { get; set; }
-    public decimal TotalAmount { get; set; }
-    public bool StockReserved { get; set; }
-    [FlowStateIgnore] public string? CustomerId { get; set; }
-    [FlowStateIgnore] public List<OrderItem> Items { get; set; } = [];
+    public string? FlowId { get; set; }
+
+    [FlowStateField]
+    private string? _orderId;
+
+    [FlowStateField]
+    private decimal _totalAmount;
+
+    [FlowStateField]
+    private bool _stockReserved;
+
+    public string? CustomerId { get; set; }
+    public List<OrderItem> Items { get; set; } = [];
 }
 
 /// <summary>Flow configuration: SaveOrder -> ReserveStock -> ConfirmOrder -> PublishEvent</summary>

@@ -98,3 +98,257 @@ public record ReleaseStockCommand(string OrderId) : IRequest { public long Messa
 public record ConfirmOrderFlowCommand(string OrderId) : IRequest { public long MessageId => 0; }
 public record MarkOrderFailedCommand(string OrderId) : IRequest { public long MessageId => 0; }
 
+// ============================================
+// ComprehensiveOrderFlow Commands & Events
+// ============================================
+
+// Approval & customer handling
+public record RequireManagerApprovalCommand(string OrderId) : IRequest<bool>
+{
+    public long MessageId { get; init; }
+}
+
+public record NotifyManagerCommand(string OrderId, string Message) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+public record RequireSeniorStaffReviewCommand(string OrderId) : IRequest<bool>
+{
+    public long MessageId { get; init; }
+}
+
+public record AutoApproveOrderCommand(string OrderId) : IRequest<bool>
+{
+    public long MessageId { get; init; }
+}
+
+public record ApplyVIPDiscountCommand(string OrderId, decimal Rate) : IRequest<decimal>
+{
+    public long MessageId { get; init; }
+}
+
+public record AssignPriorityShippingCommand(string OrderId) : IRequest<bool>
+{
+    public long MessageId { get; init; }
+}
+
+public record ApplyStandardDiscountCommand(string OrderId, decimal Rate) : IRequest<decimal>
+{
+    public long MessageId { get; init; }
+}
+
+public record SendWelcomeEmailCommand(string Email) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+public record ApplyNewCustomerDiscountCommand(string OrderId, decimal Rate) : IRequest<decimal>
+{
+    public long MessageId { get; init; }
+}
+
+public record LogUnknownCustomerTypeCommand(string OrderId) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+// Inventory operations
+public record CheckInventoryCommand(string ProductId, int Quantity) : IRequest<CheckInventoryResult>
+{
+    public long MessageId { get; init; }
+}
+public record CheckInventoryResult(bool InStock, int AvailableQuantity);
+
+public record ReserveInventoryCommand(string ProductId, int Quantity) : IRequest<ReserveInventoryResult>
+{
+    public long MessageId { get; init; }
+}
+public record ReserveInventoryResult(string ReservationId);
+
+// Payment providers
+public record ProcessPaymentWithStripeCommand(string OrderId, decimal Amount) : IRequest<PaymentResult>
+{
+    public long MessageId { get; init; }
+}
+
+public record ProcessPaymentWithPayPalCommand(string OrderId, decimal Amount) : IRequest<PaymentResult>
+{
+    public long MessageId { get; init; }
+}
+
+public record ProcessPaymentWithSquareCommand(string OrderId, decimal Amount) : IRequest<PaymentResult>
+{
+    public long MessageId { get; init; }
+}
+public record PaymentResult(string Provider, string TransactionId);
+
+// Parallel operations
+public record GenerateInvoiceCommand(string OrderId) : IRequest<string>
+{
+    public long MessageId { get; init; }
+}
+
+public record UpdateCustomerLoyaltyPointsCommand(string CustomerId, decimal Amount) : IRequest<int>
+{
+    public long MessageId { get; init; }
+}
+
+public record SendOrderConfirmationEmailCommand(string Email, string OrderId) : IRequest<bool>
+{
+    public long MessageId { get; init; }
+}
+
+public record CreateShippingLabelCommand(string OrderId) : IRequest<string>
+{
+    public long MessageId { get; init; }
+}
+
+// Warehouse allocation
+public record CheckWarehouseCapacityCommand(string WarehouseId) : IRequest<int>
+{
+    public long MessageId { get; init; }
+}
+
+public record AllocateItemToWarehouseCommand(string WarehouseId, string ProductId, int Quantity) : IRequest<AllocationResult>
+{
+    public long MessageId { get; init; }
+}
+public record AllocationResult(int AllocatedQuantity);
+
+// Fraud & risk
+public record PerformFraudCheckCommand(string OrderId) : IRequest<double>
+{
+    public long MessageId { get; init; }
+}
+
+public record FlagOrderForReviewCommand(string OrderId) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+public record NotifySecurityTeamCommand(string OrderId, double FraudScore) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+public record ReleaseInventoryReservationsCommand(Dictionary<string, string> ReservedItems) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+public record RequireAdditionalVerificationCommand(string OrderId) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+// Shipping scheduling
+public record ScheduleExpressShippingCommand(string OrderId) : IRequest<DateTime>
+{
+    public long MessageId { get; init; }
+}
+
+public record ScheduleStandardShippingCommand(string OrderId) : IRequest<DateTime>
+{
+    public long MessageId { get; init; }
+}
+
+public record ScheduleEconomyShippingCommand(string OrderId) : IRequest<DateTime>
+{
+    public long MessageId { get; init; }
+}
+
+// Downstream notification
+public class OrderProcessedEvent : IEvent
+{
+    public string OrderId { get; set; } = string.Empty;
+    public string CustomerId { get; set; } = string.Empty;
+    public decimal TotalAmount { get; set; }
+    public DateTime ProcessedAt { get; set; }
+    public string InvoiceNumber { get; set; } = string.Empty;
+    public string TransactionId { get; set; } = string.Empty;
+    public DateTime EstimatedDelivery { get; set; }
+    public long MessageId { get; init; }
+}
+
+// Order status & metrics
+public record UpdateOrderStatusCommand(string OrderId, OrderStatus Status) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+public record RevertOrderStatusCommand(string OrderId, OrderStatus PreviousStatus) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+public class RecordOrderMetricsCommand : IRequest
+{
+    public string OrderId { get; set; } = string.Empty;
+    public TimeSpan ProcessingTime { get; set; }
+    public int ItemsProcessed { get; set; }
+    public int ItemsFailed { get; set; }
+    public double FraudScore { get; set; }
+    public string PaymentProvider { get; set; } = string.Empty;
+    public long MessageId { get; init; }
+}
+
+// ============================================
+// Additional flows in Program.FlowDsl
+// ============================================
+
+// PaymentProcessingFlow
+public record ProcessPaymentCommand(string PaymentId, decimal Amount) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+public record RefundPaymentCommand(string PaymentId) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+// ShippingOrchestrationFlow quotes
+public record GetQuoteFromFedExCommand(string ShipmentId) : IRequest<ShippingQuote>
+{
+    public long MessageId { get; init; }
+}
+
+public record GetQuoteFromUPSCommand(string ShipmentId) : IRequest<ShippingQuote>
+{
+    public long MessageId { get; init; }
+}
+
+public record GetQuoteFromDHLCommand(string ShipmentId) : IRequest<ShippingQuote>
+{
+    public long MessageId { get; init; }
+}
+public record ShippingQuote(string Carrier, decimal Price);
+
+// InventoryManagementFlow stock level
+public record CheckStockLevelCommand(string ProductId) : IRequest<int>
+{
+    public long MessageId { get; init; }
+}
+
+// CustomerOnboardingFlow
+public record ValidateCustomerDataCommand(string CustomerId) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+public record CreateCustomerAccountCommand(string CustomerId) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+public record SendWelcomePackageCommand(string CustomerId) : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+public class CustomerOnboardedEvent : IEvent
+{
+    public string CustomerId { get; set; } = string.Empty;
+    public long MessageId { get; init; }
+}

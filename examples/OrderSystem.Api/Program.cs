@@ -2,6 +2,7 @@ using Catga;
 using Catga.Abstractions;
 using Catga.DependencyInjection;
 using Catga.EventSourcing;
+using Catga.Flow.Extensions;
 using Catga.Persistence.InMemory.Stores;
 using Catga.Persistence.Stores;
 using Catga.Resilience;
@@ -40,6 +41,15 @@ else
     builder.Services.AddInMemoryPersistence();
     builder.Services.AddSingleton<IEventStore, InMemoryEventStore>();
 }
+
+// Flow DSL: Use source-generated registration
+builder.Services.AddFlowDsl(options =>
+{
+    options.AutoRegisterFlows = true;
+    options.EnableMetrics = true;
+    options.MaxRetryAttempts = 3;
+    options.StepTimeout = TimeSpan.FromMinutes(5);
+});
 
 // ============================================
 // 2. Application Services (Auto-registered by source generator)

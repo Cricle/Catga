@@ -200,7 +200,11 @@ public sealed class ServiceRegistrationGenerator : IIncrementalGenerator
         sb.AppendLine("        [ModuleInitializer]");
         sb.AppendLine("        internal static void Initialize()");
         sb.AppendLine("        {");
-        sb.AppendLine("            global::Catga.Generated.GeneratedBootstrapRegistry.Register(static services => global::Catga.DependencyInjection.CatgaGeneratedServiceRegistrations.AddGeneratedServices(services));");
+        sb.AppendLine("            global::Catga.Generated.GeneratedBootstrapRegistry.Register(static services =>");
+        sb.AppendLine("            {");
+        sb.AppendLine("                global::Catga.DependencyInjection.CatgaGeneratedServiceRegistrations.AddGeneratedServices(services);");
+        sb.AppendLine("                global::Catga.DependencyInjection.CatgaGeneratedFlowRegistrations.AddGeneratedFlows(services);");
+        sb.AppendLine("            });");
         sb.AppendLine("        }");
         sb.AppendLine("    }");
         sb.AppendLine("}");

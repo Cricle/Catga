@@ -229,17 +229,16 @@ public class PaymentProcessingFlow : FlowConfig<PaymentFlowState>
     }
 }
 
-public class PaymentFlowState : IFlowState
+[FlowState]
+public partial class PaymentFlowState : IFlowState
 {
     public string? FlowId { get; set; }
-    public string PaymentId { get; set; } = string.Empty;
-    public decimal Amount { get; set; }
-    public bool HasChanges => true;
-    public int GetChangedMask() => 0;
-    public bool IsFieldChanged(int fieldIndex) => false;
-    public void ClearChanges() { }
-    public void MarkChanged(int fieldIndex) { }
-    public IEnumerable<string> GetChangedFieldNames() { yield break; }
+
+    [FlowStateField]
+    private string _paymentId = string.Empty;
+
+    [FlowStateField]
+    private decimal _amount;
 }
 
 public class ShippingOrchestrationFlow : FlowConfig<ShippingFlowState>
@@ -258,18 +257,19 @@ public class ShippingOrchestrationFlow : FlowConfig<ShippingFlowState>
     }
 }
 
-public class ShippingFlowState : IFlowState
+[FlowState]
+public partial class ShippingFlowState : IFlowState
 {
     public string? FlowId { get; set; }
-    public string ShipmentId { get; set; } = string.Empty;
-    public string SelectedCarrier { get; set; } = string.Empty;
-    public ShippingQuote? SelectedQuote { get; set; }
-    public bool HasChanges => true;
-    public int GetChangedMask() => 0;
-    public bool IsFieldChanged(int fieldIndex) => false;
-    public void ClearChanges() { }
-    public void MarkChanged(int fieldIndex) { }
-    public IEnumerable<string> GetChangedFieldNames() { yield break; }
+
+    [FlowStateField]
+    private string _shipmentId = string.Empty;
+
+    [FlowStateField]
+    private string _selectedCarrier = string.Empty;
+
+    [FlowStateField]
+    private ShippingQuote? _selectedQuote;
 }
 
 public class InventoryManagementFlow : FlowConfig<InventoryFlowState>
@@ -296,17 +296,16 @@ public class InventoryManagementFlow : FlowConfig<InventoryFlowState>
     }
 }
 
-public class InventoryFlowState : IFlowState
+[FlowState]
+public partial class InventoryFlowState : IFlowState
 {
     public string? FlowId { get; set; }
-    public List<Product> Products { get; set; } = new();
-    public Dictionary<string, int> StockLevels { get; set; } = new();
-    public bool HasChanges => true;
-    public int GetChangedMask() => 0;
-    public bool IsFieldChanged(int fieldIndex) => false;
-    public void ClearChanges() { }
-    public void MarkChanged(int fieldIndex) { }
-    public IEnumerable<string> GetChangedFieldNames() { yield break; }
+
+    [FlowStateField]
+    private List<Product> _products = new();
+
+    [FlowStateField]
+    private int _totalQuantity;
 }
 
 public class CustomerOnboardingFlow : FlowConfig<CustomerFlowState>
@@ -323,16 +322,13 @@ public class CustomerOnboardingFlow : FlowConfig<CustomerFlowState>
     }
 }
 
-public class CustomerFlowState : IFlowState
+[FlowState]
+public partial class CustomerFlowState : IFlowState
 {
     public string? FlowId { get; set; }
-    public string CustomerId { get; set; } = string.Empty;
-    public bool HasChanges => true;
-    public int GetChangedMask() => 0;
-    public bool IsFieldChanged(int fieldIndex) => false;
-    public void ClearChanges() { }
-    public void MarkChanged(int fieldIndex) { }
-    public IEnumerable<string> GetChangedFieldNames() { yield break; }
+
+    [FlowStateField]
+    private string _customerId = string.Empty;
 }
 
 // Supporting classes

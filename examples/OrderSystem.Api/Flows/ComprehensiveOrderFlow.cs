@@ -224,62 +224,88 @@ public class ComprehensiveOrderFlow : FlowConfig<OrderFlowState>
     }
 }
 
-/// <summary>
-/// Complete order flow state with all tracking fields.
-/// </summary>
-public class OrderFlowState : IFlowState
+[FlowState]
+public partial class OrderFlowState : IFlowState
 {
     public string? FlowId { get; set; }
-    public string OrderId { get; set; } = string.Empty;
-    public Order Order { get; set; } = new();
-    public DateTime StartedAt { get; set; } = DateTime.UtcNow;
 
-    // Approval and validation
-    public bool RequiresApproval { get; set; }
-    public bool RequiresReview { get; set; }
-    public bool IsApproved { get; set; }
+    [FlowStateField]
+    private string _orderId = string.Empty;
 
-    // Inventory tracking
-    public List<string> OutOfStockItems { get; set; } = new();
-    public Dictionary<string, int> AvailableQuantities { get; set; } = new();
-    public Dictionary<string, string> ReservedItems { get; set; } = new();
-    public HashSet<string> ProcessedItems { get; set; } = new();
-    public List<string> FailedItems { get; set; } = new();
+    [FlowStateField]
+    private Order _order = new();
 
-    // Payment
-    public PaymentResult? PaymentResult { get; set; }
-    public bool PaymentProcessed { get; set; }
-    public string PaymentProvider { get; set; } = string.Empty;
-    public string TransactionId { get; set; } = string.Empty;
+    [FlowStateField]
+    private DateTime _startedAt = DateTime.UtcNow;
 
-    // Fulfillment
-    public string InvoiceNumber { get; set; } = string.Empty;
-    public int LoyaltyPointsAwarded { get; set; }
-    public bool EmailSent { get; set; }
-    public string ShippingLabel { get; set; } = string.Empty;
-    public DateTime EstimatedDelivery { get; set; }
+    [FlowStateField]
+    private bool _requiresApproval;
 
-    // Warehouse allocation
-    public List<Warehouse> Warehouses { get; set; } = new();
-    public Dictionary<string, int> WarehouseCapacities { get; set; } = new();
-    public List<WarehouseAllocation> WarehouseAllocations { get; set; } = new();
+    [FlowStateField]
+    private bool _requiresReview;
 
-    // Risk and fraud
-    public double FraudScore { get; set; }
+    [FlowStateField]
+    private bool _isApproved;
 
-    // Progress tracking
-    public decimal ProcessingProgress { get; set; }
-    public List<string> Errors { get; set; } = new();
+    [FlowStateField]
+    private List<string> _outOfStockItems = new();
 
-    // IFlowState implementation
-    public bool HasChanges => _changedFields.Any();
-    private readonly HashSet<string> _changedFields = new();
+    [FlowStateField]
+    private Dictionary<string, int> _availableQuantities = new();
 
-    public int GetChangedMask() => 0;
-    public bool IsFieldChanged(int fieldIndex) => false;
-    public void ClearChanges() => _changedFields.Clear();
-    public void MarkChanged(int fieldIndex) => _changedFields.Add(fieldIndex.ToString());
-    public IEnumerable<string> GetChangedFieldNames() => _changedFields;
+    [FlowStateField]
+    private Dictionary<string, string> _reservedItems = new();
+
+    [FlowStateField]
+    private HashSet<string> _processedItems = new();
+
+    [FlowStateField]
+    private List<string> _failedItems = new();
+
+    [FlowStateField]
+    private PaymentResult? _paymentResult;
+
+    [FlowStateField]
+    private bool _paymentProcessed;
+
+    [FlowStateField]
+    private string _paymentProvider = string.Empty;
+
+    [FlowStateField]
+    private string _transactionId = string.Empty;
+
+    [FlowStateField]
+    private string _invoiceNumber = string.Empty;
+
+    [FlowStateField]
+    private int _loyaltyPointsAwarded;
+
+    [FlowStateField]
+    private bool _emailSent;
+
+    [FlowStateField]
+    private string _shippingLabel = string.Empty;
+
+    [FlowStateField]
+    private DateTime _estimatedDelivery;
+
+    [FlowStateField]
+    private List<Warehouse> _warehouses = new();
+
+    [FlowStateField]
+    private Dictionary<string, int> _warehouseCapacities = new();
+
+    [FlowStateField]
+    private List<WarehouseAllocation> _warehouseAllocations = new();
+
+    [FlowStateField]
+    private double _fraudScore;
+
+    [FlowStateField]
+    private decimal _processingProgress;
+
+    [FlowStateField]
+    private List<string> _errors = new();
 }
 
 // Supporting models

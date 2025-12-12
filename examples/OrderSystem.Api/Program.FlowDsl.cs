@@ -246,7 +246,26 @@ public class ShippingOrchestrationFlow : FlowConfig<ShippingFlowState>
     protected override void Configure(IFlowBuilder<ShippingFlowState> flow)
     {
         flow.Name("shipping-orchestration");
-        // Simplified shipping flow for demo
+
+        // Get shipping quotes from multiple carriers in parallel
+        flow.ForEach(s => new[] { "FedEx", "UPS", "DHL" })
+            .WithParallelism(3)
+            .Configure((carrier, f) =>
+            {
+                // Simulate getting quote from carrier
+            })
+            .OnComplete(s =>
+            {
+                // Select the cheapest quote
+                s.SelectedCarrier = "FedEx";
+                s.SelectedQuote = new ShippingQuote
+                {
+                    Carrier = "FedEx",
+                    Cost = 50m,
+                    EstimatedDays = 3
+                };
+            })
+            .EndForEach();
     }
 }
 
@@ -270,7 +289,21 @@ public class InventoryManagementFlow : FlowConfig<InventoryFlowState>
     protected override void Configure(IFlowBuilder<InventoryFlowState> flow)
     {
         flow.Name("inventory-management");
-        // Simplified inventory flow for demo
+
+        // Process inventory for all products in parallel
+        flow.ForEach(s => s.Products)
+            .WithParallelism(5)
+            .Configure((product, f) =>
+            {
+                // Process each product
+            })
+            .ContinueOnFailure()
+            .OnComplete(s =>
+            {
+                // Inventory processing complete
+                s.TotalQuantity = s.Products.Count * 10;
+            })
+            .EndForEach();
     }
 }
 

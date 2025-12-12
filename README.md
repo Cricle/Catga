@@ -323,12 +323,14 @@ builder.Services.AddCatga()
 | Topic | Description |
 |-------|-------------|
 | [Getting Started](./docs/articles/getting-started.md) | First steps with Catga |
-| [Flow DSL Guide](./docs/guides/flow-dsl.md) | Distributed workflows and ForEach processing |
+| [Flow DSL Guide](./docs/guides/flow-dsl.md) | Distributed workflows and ForEach parallel processing |
 | [Architecture](./docs/architecture/ARCHITECTURE.md) | Deep dive into internals |
 | [Configuration](./docs/articles/configuration.md) | All configuration options |
+| [Event Sourcing](./docs/articles/event-sourcing.md) | Complete event sourcing guide |
 | [OpenTelemetry](./docs/articles/opentelemetry-integration.md) | Tracing and metrics |
 | [Distributed Tracing](./docs/observability/DISTRIBUTED-TRACING-GUIDE.md) | End-to-end tracing |
 | [E2E Scenarios](./docs/examples/e2e-scenarios.md) | Distributed validation |
+| [Examples](./examples/README.md) | OrderSystem demo with multiple persistence backends |
 
 ---
 

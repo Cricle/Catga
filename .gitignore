@@ -417,3 +417,6 @@ build_all.txt
 # Temporary directories
 /logs/
 /.tools/
+
+# BenchmarkDotNet output
+BenchmarkDotNet.Artifacts/

@@ -82,77 +82,6 @@ internal static partial class CatgaLog
     [LoggerMessage(EventId = 8001, Level = LogLevel.Information, Message = "High throughput detected [MessagesPerSecond={MessagesPerSecond}]")]
     public static partial void HighThroughputDetected(ILogger logger, long messagesPerSecond);
 
-    // NATS Transport Detailed Logs (7100-7199)
-    [LoggerMessage(EventId = 7100, Level = LogLevel.Debug, Message = "Published to NATS Core (QoS 0 - fire-and-forget): {MessageId}")]
-    public static partial void NatsPublishedCore(ILogger logger, long? messageId);
-
-    [LoggerMessage(EventId = 7101, Level = LogLevel.Debug, Message = "Published to JetStream (QoS 1 - at-least-once): {MessageId}, Seq: {Seq}, Duplicate: {Dup}")]
-    public static partial void NatsPublishedQoS1(ILogger logger, long? messageId, ulong Seq, bool Dup);
-
-    [LoggerMessage(EventId = 7102, Level = LogLevel.Debug, Message = "Published to JetStream (QoS 2 - exactly-once): {MessageId}, Seq: {Seq}, Duplicate: {Dup}")]
-    public static partial void NatsPublishedQoS2(ILogger logger, long? messageId, ulong Seq, bool Dup);
-
-    [LoggerMessage(EventId = 7103, Level = LogLevel.Error, Message = "NATS publish failed for subject {Subject}, MessageId: {MessageId}")]
-    public static partial void NatsPublishFailed(ILogger logger, Exception? exception, string Subject, long? MessageId);
-
-    [LoggerMessage(EventId = 7104, Level = LogLevel.Debug, Message = "Published batch item to JetStream: Seq={Seq}, Dup={Dup}")]
-    public static partial void NatsBatchPublishedJetStream(ILogger logger, ulong Seq, bool Dup);
-
-    [LoggerMessage(EventId = 7105, Level = LogLevel.Error, Message = "NATS batch publish failed for subject {Subject}")]
-    public static partial void NatsBatchPublishFailed(ILogger logger, Exception? exception, string Subject);
-
-    [LoggerMessage(EventId = 7106, Level = LogLevel.Warning, Message = "Received empty message from subject {Subject}")]
-    public static partial void NatsEmptyMessage(ILogger logger, string Subject);
-
-    [LoggerMessage(EventId = 7107, Level = LogLevel.Warning, Message = "Failed to deserialize message from subject {Subject}")]
-    public static partial void NatsDeserializeFailed(ILogger logger, string Subject);
-
-    [LoggerMessage(EventId = 7108, Level = LogLevel.Debug, Message = "Dropped duplicate message {MessageId} (QoS={QoS}) on subject {Subject}")]
-    public static partial void NatsDroppedDuplicate(ILogger logger, long? MessageId, int QoS, string Subject);
-
-    [LoggerMessage(EventId = 7109, Level = LogLevel.Error, Message = "Error processing message from subject {Subject}")]
-    public static partial void NatsProcessingError(ILogger logger, Exception? exception, string Subject);
-
-    // Redis Outbox Persistence Logs (5200-5299)
-    [LoggerMessage(EventId = 5200, Level = LogLevel.Debug, Message = "Added message {MessageId} to outbox persistence")]
-    public static partial void OutboxAdded(ILogger logger, long MessageId);
-
-    [LoggerMessage(EventId = 5201, Level = LogLevel.Warning, Message = "Failed to add message {MessageId} to outbox (transaction failed)")]
-    public static partial void OutboxAddFailed(ILogger logger, long MessageId);
-
-    [LoggerMessage(EventId = 5202, Level = LogLevel.Error, Message = "Failed to deserialize outbox message {MessageId}")]
-    public static partial void OutboxDeserializeFailed(ILogger logger, Exception? exception, long MessageId);
-
-    [LoggerMessage(EventId = 5203, Level = LogLevel.Debug, Message = "Marked message {MessageId} as published")]
-    public static partial void OutboxMarkedPublished(ILogger logger, long MessageId);
-
-    [LoggerMessage(EventId = 5204, Level = LogLevel.Warning, Message = "Message {MessageId} not found in outbox")]
-    public static partial void OutboxMessageNotFound(ILogger logger, long MessageId);
-
-    [LoggerMessage(EventId = 5205, Level = LogLevel.Warning, Message = "Message {MessageId} failed after {RetryCount} retries: {Error}")]
-    public static partial void OutboxMessageFailedAfterRetries(ILogger logger, long MessageId, int RetryCount, string Error);
-
-    [LoggerMessage(EventId = 5206, Level = LogLevel.Debug, Message = "Message {MessageId} failed (retry {RetryCount}/{MaxRetries}): {Error}")]
-    public static partial void OutboxMessageRetry(ILogger logger, long MessageId, int RetryCount, int MaxRetries, string Error);
-
-    [LoggerMessage(EventId = 5207, Level = LogLevel.Information, Message = "Cleaned up {Count} old outbox entries")]
-    public static partial void OutboxCleanup(ILogger logger, long Count);
-
-    // Redis Inbox Persistence Logs (5100-5199)
-    [LoggerMessage(EventId = 5100, Level = LogLevel.Debug, Message = "Locked message {MessageId} for processing")]
-    public static partial void InboxLocked(ILogger logger, long MessageId);
-
-    [LoggerMessage(EventId = 5101, Level = LogLevel.Debug, Message = "Message {MessageId} already processed or locked")]
-    public static partial void InboxAlreadyProcessedOrLocked(ILogger logger, long MessageId);
-
-    [LoggerMessage(EventId = 5102, Level = LogLevel.Debug, Message = "Marked message {MessageId} as processed")]
-    public static partial void InboxMarkedProcessed(ILogger logger, long MessageId);
-
-    [LoggerMessage(EventId = 5103, Level = LogLevel.Debug, Message = "Released lock on message {MessageId}")]
-    public static partial void InboxReleasedLock(ILogger logger, long MessageId);
-
-    [LoggerMessage(EventId = 5104, Level = LogLevel.Debug, Message = "Redis inbox uses TTL for cleanup")]
-    public static partial void InboxTTL(ILogger logger);
 
     // Inbox Behavior Logs (4100-4199)
     [LoggerMessage(EventId = 4100, Level = LogLevel.Debug, Message = "No MessageId found for {RequestType}, skipping inbox check")]
@@ -206,15 +135,11 @@ internal static partial class CatgaLog
     [LoggerMessage(EventId = 5300, Level = LogLevel.Warning, Message = "Type mismatch for message {MessageId}: expected {Expected}, got {Actual}")]
     public static partial void IdempotencyTypeMismatch(ILogger logger, long MessageId, string? Expected, string? Actual);
 
-    [LoggerMessage(EventId = 5301, Level = LogLevel.Debug, Message = "Marked message {MessageId} as processed in Redis idempotency store")]
+    [LoggerMessage(EventId = 5301, Level = LogLevel.Debug, Message = "Marked message {MessageId} as processed in idempotency store")]
     public static partial void IdempotencyMarkedProcessed(ILogger logger, long MessageId);
 
     // Dead Letter Queue
     [LoggerMessage(EventId = 6002, Level = LogLevel.Error, Message = "Failed to send message to DeadLetterQueue")]
     public static partial void DLQSendFailed(ILogger logger, Exception? exception);
-
-    // InMemory Transport
-    [LoggerMessage(EventId = 7010, Level = LogLevel.Warning, Message = "QoS 0 message processing failed, discarding. MessageId: {MessageId}, Type: {MessageType}")]
-    public static partial void InMemoryQoS0ProcessingFailed(ILogger logger, Exception? exception, long? MessageId, string MessageType);
 }
 

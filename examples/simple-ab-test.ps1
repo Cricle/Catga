@@ -67,7 +67,7 @@ $orderJson = Join-Path $scriptDir "order.json"
 '{"customerId":"C001","items":[{"productId":"P1","productName":"Test","quantity":1,"unitPrice":100}]}' | Out-File -FilePath $orderJson -Encoding UTF8 -NoNewline
 
 # Start API
-Write-Host "`nStarting API..." -ForegroundColor Yellow
+Write-Host "`nStarting API on $baseUrl..." -ForegroundColor Yellow
 $apiJob = Start-Job -ScriptBlock {
     param($dir, $transport, $persistence, $redis, $nats, $urls)
     $env:CATGA_TRANSPORT = $transport
@@ -77,7 +77,7 @@ $apiJob = Start-Job -ScriptBlock {
     $env:ASPNETCORE_URLS = $urls
     Set-Location $dir
     dotnet run --project OrderSystem.Api -c Release --no-build 2>&1
-} -ArgumentList $scriptDir, $env:CATGA_TRANSPORT, $env:CATGA_PERSISTENCE, $env:REDIS_CONNECTION, $env:NATS_URL, $env:ASPNETCORE_URLS
+} -ArgumentList $scriptDir, $env:CATGA_TRANSPORT, $env:CATGA_PERSISTENCE, $env:REDIS_CONNECTION, $env:NATS_URL, $baseUrl
 
 # Wait for API
 $timeout = 30

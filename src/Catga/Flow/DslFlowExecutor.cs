@@ -29,7 +29,7 @@ public static class DslFlowTelemetry
 /// <summary>
 /// Executes flows defined by FlowConfig DSL.
 /// </summary>
-public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState, TConfig> : IFlow<TState>
+public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState, TConfig> : IFlow<TState>
     where TState : class, IFlowState, new()
     where TConfig : FlowConfig<TState>
 {

@@ -304,9 +304,14 @@ public partial class DslFlowExecutor<TState, TConfig>
 
         try
         {
-            // This is a placeholder - actual implementation would require
-            // resolving the flow type from the service provider
-            // For now, just return success
+            // Create the nested flow state using the factory
+            var nestedState = step.RequestFactory.DynamicInvoke(state) as IFlowState;
+            if (nestedState == null)
+                return StepResult.Failed("CallFlow factory did not produce a valid IFlowState");
+
+            // For now, we return success as the actual recursive flow execution
+            // would require access to the service provider to resolve the flow executor
+            // This is a placeholder for future implementation
             return StepResult.Succeeded();
         }
         catch (Exception ex)

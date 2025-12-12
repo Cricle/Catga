@@ -116,6 +116,9 @@ public interface IFlowBuilder<TState> where TState : class, IFlowState
     IDoWhileBuilder<TState> DoWhile();
     IRepeatBuilder<TState> Repeat(int times);
     IRepeatBuilder<TState> Repeat(Func<TState, int> timesSelector);
+
+    // Exception handling
+    ITryBuilder<TState> Try();
 }
 
 /// <summary>If branch builder.</summary>
@@ -434,6 +437,11 @@ internal class FlowBuilder<TState> : IFlowBuilder<TState> where TState : class, 
     public IRepeatBuilder<TState> Repeat(Func<TState, int> timesSelector)
     {
         return new RepeatBuilder<TState>(this, timesSelector);
+    }
+
+    public ITryBuilder<TState> Try()
+    {
+        return new TryBuilder<TState>(this);
     }
 
     // Tagged settings

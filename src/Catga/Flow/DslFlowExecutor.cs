@@ -184,7 +184,14 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
                 // Store result if configured
                 if (step.ResultSetter != null && successChild.Result != null)
                 {
-                    step.ResultSetter.DynamicInvoke(state, successChild.Result);
+                    if (step.CompiledStep != null)
+                    {
+                        step.CompiledStep.ExecuteResultSetter(state, successChild.Result);
+                    }
+                    else
+                    {
+                        step.ResultSetter.DynamicInvoke(state, successChild.Result);
+                    }
                 }
             }
             else if (waitCondition.CompletedCount >= waitCondition.ExpectedCount)
@@ -551,7 +558,17 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         if (step.RequestFactory == null)
             return StepResult.Failed("No event factory configured");
 
-        var @event = step.RequestFactory.DynamicInvoke(state) as IEvent;
+        object? eventObj;
+        if (step.CompiledStep != null)
+        {
+            eventObj = step.CompiledStep.ExecuteRequestFactory(state);
+        }
+        else
+        {
+            eventObj = step.RequestFactory.DynamicInvoke(state);
+        }
+
+        var @event = eventObj as IEvent;
         if (@event == null)
             return StepResult.Failed("Event factory returned null");
 
@@ -572,6 +589,8 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         var childFlowIds = new List<string>();
         foreach (var factory in step.ChildRequestFactories)
         {
+            // Note: ChildRequestFactories are stored as Delegate, not CompiledStep
+            // They need to be handled by source generator for each specific factory
             var request = factory.DynamicInvoke(state);
             if (request is IRequest req)
             {

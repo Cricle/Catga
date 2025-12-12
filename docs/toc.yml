@@ -34,6 +34,8 @@
       href: guides/memory-optimization-guide.md
     - name: Mediator Auto-Batching
       href: guides/mediator-auto-batching.md
+    - name: Analyzers
+      href: guides/analyzers.md
 - name: Observability
   items:
     - name: OpenTelemetry Integration

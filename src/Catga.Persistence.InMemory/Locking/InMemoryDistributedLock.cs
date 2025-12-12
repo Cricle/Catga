@@ -116,12 +116,7 @@ public sealed partial class InMemoryDistributedLock : IDistributedLock
         return ValueTask.FromResult(false);
     }
 
-    private static string GenerateLockId()
-    {
-        Span<byte> buffer = stackalloc byte[16];
-        Guid.NewGuid().TryWriteBytes(buffer);
-        return Convert.ToBase64String(buffer);
-    }
+    private static string GenerateLockId() => Catga.Core.IdGenerator.NewBase64Id();
 
     #region Logging
 

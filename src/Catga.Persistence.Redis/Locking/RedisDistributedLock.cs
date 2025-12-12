@@ -113,13 +113,7 @@ public sealed partial class RedisDistributedLock(IConnectionMultiplexer redis, I
 
     private string GetKey(string resource) => string.Concat(_opts.KeyPrefix, resource);
 
-    private static string GenerateLockId()
-    {
-        // Use stack-allocated buffer for GUID
-        Span<byte> buffer = stackalloc byte[16];
-        Guid.NewGuid().TryWriteBytes(buffer);
-        return Convert.ToBase64String(buffer);
-    }
+    private static string GenerateLockId() => Catga.Core.IdGenerator.NewBase64Id();
 
     internal async ValueTask ReleaseLockAsync(IDatabase db, string key, string lockId)
     {

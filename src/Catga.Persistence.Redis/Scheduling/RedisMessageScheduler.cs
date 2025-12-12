@@ -254,12 +254,7 @@ public sealed partial class RedisMessageScheduler(IConnectionMultiplexer redis, 
         await db.SortedSetRemoveAsync(SetKey, scheduleId);
     }
 
-    private static string GenerateScheduleId()
-    {
-        Span<byte> buffer = stackalloc byte[16];
-        Guid.NewGuid().TryWriteBytes(buffer);
-        return Convert.ToBase64String(buffer).TrimEnd('=');
-    }
+    private static string GenerateScheduleId() => Catga.Core.IdGenerator.NewBase64IdNoPadding();
 
     public void Dispose() => _cts.Dispose();
 

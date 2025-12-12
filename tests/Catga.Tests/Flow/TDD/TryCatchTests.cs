@@ -305,6 +305,7 @@ public class TryCatchTestState : IFlowState
     public List<string> ExecutedBlocks { get; set; } = new();
     public Exception CaughtException { get; set; }
     public Dictionary<string, object> Variables { get; set; } = new();
+    public bool HasChanges { get; set; }
 }
 
 // Test flow configurations
@@ -432,9 +433,10 @@ public class WhileWithinTryFlow : FlowConfig<TryCatchTestState>
 }
 
 // Test commands
-public class TestCommand : IRequest
+public class TestCommand : IRequest, IMessage
 {
     public string FlowId { get; set; }
+    public string MessageId { get; set; } = Guid.NewGuid().ToString();
 }
 
 public class SuccessResponse : IResponse

@@ -325,6 +325,7 @@ public class SafetyTestState : IFlowState
     public long AllocatedMemory { get; set; }
     public bool IsDeadlocked { get; set; }
     public Dictionary<string, object> Variables { get; set; } = new();
+    public bool HasChanges { get; set; }
 }
 
 // Test flow configurations
@@ -456,20 +457,23 @@ public class DeadlockFlow : FlowConfig<SafetyTestState>
 }
 
 // Test commands
-public class SafetyTestCommand : IRequest
+public class SafetyTestCommand : IRequest, IMessage
 {
     public string FlowId { get; set; }
+    public string MessageId { get; set; } = Guid.NewGuid().ToString();
 }
 
-public class SlowSafetyTestCommand : IRequest
+public class SlowSafetyTestCommand : IRequest, IMessage
 {
     public string FlowId { get; set; }
     public int DelayMs { get; set; }
+    public string MessageId { get; set; } = Guid.NewGuid().ToString();
 }
 
-public class DeadlockTestCommand : IRequest
+public class DeadlockTestCommand : IRequest, IMessage
 {
     public string FlowId { get; set; }
+    public string MessageId { get; set; } = Guid.NewGuid().ToString();
 }
 
 public class SuccessResponse : IResponse

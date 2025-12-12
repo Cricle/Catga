@@ -295,6 +295,7 @@ public class WhileTestState : IFlowState
     public int Counter { get; set; }
     public List<string> ExecutionLog { get; set; } = new();
     public Dictionary<string, object> Variables { get; set; } = new();
+    public bool HasChanges { get; set; }
 }
 
 // Test flow configurations
@@ -387,15 +388,17 @@ public class NestedWhileFlow : FlowConfig<WhileTestState>
 }
 
 // Test commands
-public class IncrementCommand : IRequest
+public class IncrementCommand : IRequest, IMessage
 {
     public string FlowId { get; set; }
+    public string MessageId { get; set; } = Guid.NewGuid().ToString();
 }
 
-public class SlowCommand : IRequest
+public class SlowCommand : IRequest, IMessage
 {
     public string FlowId { get; set; }
     public int DelayMs { get; set; }
+    public string MessageId { get; set; } = Guid.NewGuid().ToString();
 }
 
 public class SuccessResponse : IResponse

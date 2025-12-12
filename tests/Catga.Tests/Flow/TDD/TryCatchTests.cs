@@ -42,7 +42,7 @@ public class TryCatchTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<IRequest>())
-            .Returns(x => throw new InvalidOperationException("Test exception"));
+            .Returns(_ => Task.FromException(new InvalidOperationException("Test exception")));
 
         var store = new InMemoryDslFlowStore();
         var config = new SimpleTryFlow();
@@ -114,7 +114,7 @@ public class TryCatchTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<IRequest>())
-            .Returns(x => throw new InvalidOperationException("Test exception"));
+            .Returns(_ => Task.FromException(new InvalidOperationException("Test exception")));
 
         var store = new InMemoryDslFlowStore();
         var config = new SimpleTryFlow();
@@ -229,7 +229,7 @@ public class TryCatchTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<IRequest>())
-            .Returns(x => { throw new InvalidOperationException("Test exception"); });
+            .Returns(_ => Task.FromException(new InvalidOperationException("Test exception")));
 
         var store = new InMemoryDslFlowStore();
         var config = new SimpleTryFlow();

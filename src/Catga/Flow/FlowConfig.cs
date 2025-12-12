@@ -110,6 +110,12 @@ public interface IFlowBuilder<TState> where TState : class, IFlowState
 
     // ForEach
     IForEachBuilder<TState, TItem> ForEach<TItem>(Func<TState, IEnumerable<TItem>> collectionSelector);
+
+    // Loops
+    IWhileBuilder<TState> While(Func<TState, bool> condition);
+    IDoWhileBuilder<TState> DoWhile();
+    IRepeatBuilder<TState> Repeat(int times);
+    IRepeatBuilder<TState> Repeat(Func<TState, int> timesSelector);
 }
 
 /// <summary>If branch builder.</summary>
@@ -408,6 +414,26 @@ internal class FlowBuilder<TState> : IFlowBuilder<TState> where TState : class, 
         };
         Steps.Add(step);
         return new ForEachBuilder<TState, TItem>(this, step);
+    }
+
+    public IWhileBuilder<TState> While(Func<TState, bool> condition)
+    {
+        return new WhileBuilder<TState>(this, condition);
+    }
+
+    public IDoWhileBuilder<TState> DoWhile()
+    {
+        return new DoWhileBuilder<TState>(this);
+    }
+
+    public IRepeatBuilder<TState> Repeat(int times)
+    {
+        return new RepeatBuilder<TState>(this, times);
+    }
+
+    public IRepeatBuilder<TState> Repeat(Func<TState, int> timesSelector)
+    {
+        return new RepeatBuilder<TState>(this, timesSelector);
     }
 
     // Tagged settings

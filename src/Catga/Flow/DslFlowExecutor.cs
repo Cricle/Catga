@@ -375,8 +375,17 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         if (step.RequestFactory == null)
             return StepResult.Failed("No request factory configured");
 
-        // Create the request
-        var request = step.RequestFactory.DynamicInvoke(state);
+        // Create the request using compiled step if available, otherwise fallback to DynamicInvoke
+        object? request;
+        if (step.CompiledStep != null)
+        {
+            request = step.CompiledStep.ExecuteRequestFactory(state);
+        }
+        else
+        {
+            request = step.RequestFactory.DynamicInvoke(state);
+        }
+
         if (request == null)
             return StepResult.Failed("Request factory returned null");
 
@@ -406,25 +415,80 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
 
                     if (task != null)
                     {
-                        // Await the ValueTask
-                        await ((dynamic)task).ConfigureAwait(false);
-                        var catgaResult = ((dynamic)task).Result;
+                        // Use reflection to await and get result instead of dynamic
+                        var taskType = task.GetType();
 
-                        bool isSuccess = catgaResult.IsSuccess;
-                        string? error = catgaResult.Error;
-                        resultValue = catgaResult.Value;
+                        // Get ConfigureAwait method
+                        var configureAwaitMethod = taskType.GetMethod("ConfigureAwait",
+                            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                        var configuredTask = configureAwaitMethod?.Invoke(task, new object[] { false });
 
-                        if (!isSuccess)
+                        // Get GetAwaiter method
+                        var getAwaiterMethod = configuredTask?.GetType().GetMethod("GetAwaiter",
+                            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                        var awaiter = getAwaiterMethod?.Invoke(configuredTask, Array.Empty<object>());
+
+                        // Get IsCompleted property
+                        var isCompletedProp = awaiter?.GetType().GetProperty("IsCompleted",
+                            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+
+                        // Get GetResult method
+                        var getResultMethod = awaiter?.GetType().GetMethod("GetResult",
+                            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+
+                        // For now, use a simpler approach: cast to ValueTask and handle
+                        try
                         {
-                            if (step.IsOptional)
-                                return StepResult.Skip();
-                            return StepResult.Failed(error ?? "Request failed");
+                            // Try to get Result property directly (works for Task<T>)
+                            var resultProp = taskType.GetProperty("Result",
+                                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+
+                            if (resultProp != null)
+                            {
+                                // Wait for task to complete
+                                var waitMethod = taskType.GetMethod("Wait", System.Type.EmptyTypes);
+                                waitMethod?.Invoke(task, Array.Empty<object>());
+
+                                var catgaResult = resultProp.GetValue(task);
+                                if (catgaResult != null)
+                                {
+                                    var resultType_obj = catgaResult.GetType();
+                                    bool isSuccess = (bool)(resultType_obj.GetProperty("IsSuccess")?.GetValue(catgaResult) ?? false);
+                                    string? error = (string?)(resultType_obj.GetProperty("Error")?.GetValue(catgaResult));
+                                    resultValue = resultType_obj.GetProperty("Value")?.GetValue(catgaResult);
+
+                                    if (!isSuccess)
+                                    {
+                                        if (step.IsOptional)
+                                            return StepResult.Skip();
+                                        return StepResult.Failed(error ?? "Request failed");
+                                    }
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Fallback: reflection failed, return error
+                            return StepResult.Failed("Failed to invoke SendAsync");
                         }
 
                         // Check FailIf condition on result
-                        if (step.HasFailCondition && step.FailConditionFactory != null && resultValue != null)
+                        if (step.HasFailCondition && resultValue != null)
                         {
-                            var shouldFail = (bool)(step.FailConditionFactory.DynamicInvoke(resultValue) ?? false);
+                            bool shouldFail;
+                            if (step.CompiledStep != null)
+                            {
+                                shouldFail = step.CompiledStep.ExecuteFailCondition(resultValue);
+                            }
+                            else if (step.FailConditionFactory != null)
+                            {
+                                shouldFail = (bool)(step.FailConditionFactory.DynamicInvoke(resultValue) ?? false);
+                            }
+                            else
+                            {
+                                shouldFail = false;
+                            }
+
                             if (shouldFail)
                             {
                                 return StepResult.Failed(step.FailConditionMessage ?? "FailIf condition met");
@@ -432,9 +496,16 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
                         }
 
                         // Set result on state
-                        if (step.ResultSetter != null && resultValue != null)
+                        if (resultValue != null)
                         {
-                            step.ResultSetter.DynamicInvoke(state, resultValue);
+                            if (step.CompiledStep != null)
+                            {
+                                step.CompiledStep.ExecuteResultSetter(state, resultValue);
+                            }
+                            else if (step.ResultSetter != null)
+                            {
+                                step.ResultSetter.DynamicInvoke(state, resultValue);
+                            }
                         }
                     }
                 }
@@ -587,7 +658,16 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
 
             try
             {
-                var compensation = executed.Step.CompensationFactory.DynamicInvoke(state);
+                object? compensation;
+                if (executed.Step.CompiledStep != null)
+                {
+                    compensation = executed.Step.CompiledStep.ExecuteCompensation(state);
+                }
+                else
+                {
+                    compensation = executed.Step.CompensationFactory.DynamicInvoke(state);
+                }
+
                 if (compensation is IRequest request)
                 {
                     await _mediator.SendAsync(request, cancellationToken);
@@ -910,7 +990,16 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         try
         {
             // Get the collection to iterate over
-            var collection = step.CollectionSelector.DynamicInvoke(state);
+            System.Collections.IEnumerable? collection;
+            if (step.CompiledStep != null)
+            {
+                collection = step.CompiledStep.ExecuteCollectionSelector(state);
+            }
+            else
+            {
+                collection = step.CollectionSelector.DynamicInvoke(state) as System.Collections.IEnumerable;
+            }
+
             if (collection == null)
                 return StepResult.Succeeded(); // Empty collection, nothing to process
 
@@ -929,7 +1018,11 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
             if (items.Count == 0)
             {
                 // Execute OnComplete callback even for empty collections
-                if (step.OnComplete != null)
+                if (step.CompiledStep != null)
+                {
+                    step.CompiledStep.ExecuteOnComplete(state);
+                }
+                else if (step.OnComplete != null)
                 {
                     try
                     {
@@ -980,7 +1073,11 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         }
 
         // Execute OnComplete callback if present
-        if (step.OnComplete != null)
+        if (step.CompiledStep != null)
+        {
+            step.CompiledStep.ExecuteOnComplete(state);
+        }
+        else if (step.OnComplete != null)
         {
             try
             {
@@ -1023,7 +1120,11 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         }
 
         // Execute OnComplete callback if present
-        if (step.OnComplete != null)
+        if (step.CompiledStep != null)
+        {
+            step.CompiledStep.ExecuteOnComplete(state);
+        }
+        else if (step.OnComplete != null)
         {
             try
             {
@@ -1080,7 +1181,11 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
                     if (!stepResult.Success)
                     {
                         // Handle failure
-                        if (step.OnItemFail != null)
+                        if (step.CompiledStep != null)
+                        {
+                            step.CompiledStep.ExecuteOnItemFail(state, item, stepResult.Error);
+                        }
+                        else if (step.OnItemFail != null)
                         {
                             try
                             {
@@ -1099,7 +1204,14 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
                     {
                         try
                         {
-                            configuredStep.ResultSetter.DynamicInvoke(state, stepResult.Result);
+                            if (configuredStep.CompiledStep != null)
+                            {
+                                configuredStep.CompiledStep.ExecuteResultSetter(state, stepResult.Result);
+                            }
+                            else
+                            {
+                                configuredStep.ResultSetter.DynamicInvoke(state, stepResult.Result);
+                            }
                         }
                         catch (Exception)
                         {
@@ -1109,15 +1221,22 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
                     }
 
                     // Apply result using OnItemSuccess callback if available
-                    if (stepResult.Success && step.OnItemSuccess != null)
+                    if (stepResult.Success)
                     {
-                        try
+                        if (step.CompiledStep != null)
                         {
-                            step.OnItemSuccess.DynamicInvoke(state, item, stepResult.Result);
+                            step.CompiledStep.ExecuteOnItemSuccess(state, item, stepResult.Result);
                         }
-                        catch
+                        else if (step.OnItemSuccess != null)
                         {
-                            // Ignore callback errors
+                            try
+                            {
+                                step.OnItemSuccess.DynamicInvoke(state, item, stepResult.Result);
+                            }
+                            catch
+                            {
+                                // Ignore callback errors
+                            }
                         }
                     }
                 }
@@ -1128,7 +1247,11 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         catch (Exception ex)
         {
             // Handle item processing failure
-            if (step.OnItemFail != null)
+            if (step.CompiledStep != null)
+            {
+                step.CompiledStep.ExecuteOnItemFail(state, item, ex.Message);
+            }
+            else if (step.OnItemFail != null)
             {
                 try
                 {
@@ -1283,7 +1406,11 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         }
 
         // Execute OnComplete callback if present
-        if (step.OnComplete != null)
+        if (step.CompiledStep != null)
+        {
+            step.CompiledStep.ExecuteOnComplete(state);
+        }
+        else if (step.OnComplete != null)
         {
             try
             {

@@ -1243,6 +1243,10 @@ public class FlowStep
     internal Delegate? OnCompletedFactory { get; set; }
     internal Delegate? OnFailedFactory { get; set; }
 
+    // Compiled execution logic (set by source generator)
+    /// <summary>Compiled flow step with serializable execution logic. Set by source generator.</summary>
+    internal CompiledFlowStep? CompiledStep { get; set; }
+
     // WhenAll/WhenAny specific
     internal List<Delegate>? ChildRequestFactories { get; set; }
 

@@ -7,6 +7,28 @@ using OrderSystem.Api.Domain;
 namespace OrderSystem.Api.Messages;
 
 // ============================================
+// Base Command Classes (reduce boilerplate)
+// ============================================
+
+/// <summary>Base class for simple flow commands without response.</summary>
+public abstract record BaseFlowCommand : IRequest
+{
+    public long MessageId => 0;
+}
+
+/// <summary>Base class for commands with response.</summary>
+public abstract record BaseCommand : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+/// <summary>Base class for commands with typed response.</summary>
+public abstract record BaseCommand<TResponse> : IRequest<TResponse>
+{
+    public long MessageId { get; init; }
+}
+
+// ============================================
 // Commands & Queries
 // ============================================
 
@@ -52,10 +74,8 @@ public partial record OrderConfirmedEvent(string OrderId, DateTime ConfirmedAt) 
 
 /// <summary>Flow state for order creation saga.</summary>
 [FlowState]
-public partial class CreateOrderFlowState : IFlowState
+public partial class CreateOrderFlowState : BaseFlowState
 {
-    public string? FlowId { get; set; }
-
     [FlowStateField]
     private string? _orderId;
 
@@ -100,172 +120,65 @@ public class CreateOrderFlowConfig : FlowConfig<CreateOrderFlowState>
 }
 
 // Flow-specific commands (internal)
-public record SaveOrderFlowCommand(string OrderId, string CustomerId, List<OrderItem> Items, decimal TotalAmount) : IRequest { public long MessageId => 0; }
-public record DeleteOrderFlowCommand(string OrderId) : IRequest { public long MessageId => 0; }
-public record ReserveStockCommand(string OrderId, List<OrderItem> Items) : IRequest { public long MessageId => 0; }
-public record ReleaseStockCommand(string OrderId) : IRequest { public long MessageId => 0; }
-public record ConfirmOrderFlowCommand(string OrderId) : IRequest { public long MessageId => 0; }
-public record MarkOrderFailedCommand(string OrderId) : IRequest { public long MessageId => 0; }
+public record SaveOrderFlowCommand(string OrderId, string CustomerId, List<OrderItem> Items, decimal TotalAmount) : BaseFlowCommand;
+public record DeleteOrderFlowCommand(string OrderId) : BaseFlowCommand;
+public record ReserveStockCommand(string OrderId, List<OrderItem> Items) : BaseFlowCommand;
+public record ReleaseStockCommand(string OrderId) : BaseFlowCommand;
+public record ConfirmOrderFlowCommand(string OrderId) : BaseFlowCommand;
+public record MarkOrderFailedCommand(string OrderId) : BaseFlowCommand;
 
 // ============================================
 // ComprehensiveOrderFlow Commands & Events
 // ============================================
 
 // Approval & customer handling
-public record RequireManagerApprovalCommand(string OrderId) : IRequest<bool>
-{
-    public long MessageId { get; init; }
-}
-
-public record NotifyManagerCommand(string OrderId, string Message) : IRequest
-{
-    public long MessageId { get; init; }
-}
-
-public record RequireSeniorStaffReviewCommand(string OrderId) : IRequest<bool>
-{
-    public long MessageId { get; init; }
-}
-
-public record AutoApproveOrderCommand(string OrderId) : IRequest<bool>
-{
-    public long MessageId { get; init; }
-}
-
-public record ApplyVIPDiscountCommand(string OrderId, decimal Rate) : IRequest<decimal>
-{
-    public long MessageId { get; init; }
-}
-
-public record AssignPriorityShippingCommand(string OrderId) : IRequest<bool>
-{
-    public long MessageId { get; init; }
-}
-
-public record ApplyStandardDiscountCommand(string OrderId, decimal Rate) : IRequest<decimal>
-{
-    public long MessageId { get; init; }
-}
-
-public record SendWelcomeEmailCommand(string Email) : IRequest
-{
-    public long MessageId { get; init; }
-}
-
-public record ApplyNewCustomerDiscountCommand(string OrderId, decimal Rate) : IRequest<decimal>
-{
-    public long MessageId { get; init; }
-}
-
-public record LogUnknownCustomerTypeCommand(string OrderId) : IRequest
-{
-    public long MessageId { get; init; }
-}
+public record RequireManagerApprovalCommand(string OrderId) : BaseCommand<bool>;
+public record NotifyManagerCommand(string OrderId, string Message) : BaseCommand;
+public record RequireSeniorStaffReviewCommand(string OrderId) : BaseCommand<bool>;
+public record AutoApproveOrderCommand(string OrderId) : BaseCommand<bool>;
+public record ApplyVIPDiscountCommand(string OrderId, decimal Rate) : BaseCommand<decimal>;
+public record AssignPriorityShippingCommand(string OrderId) : BaseCommand<bool>;
+public record ApplyStandardDiscountCommand(string OrderId, decimal Rate) : BaseCommand<decimal>;
+public record SendWelcomeEmailCommand(string Email) : BaseCommand;
+public record ApplyNewCustomerDiscountCommand(string OrderId, decimal Rate) : BaseCommand<decimal>;
+public record LogUnknownCustomerTypeCommand(string OrderId) : BaseCommand;
 
 // Inventory operations
-public record CheckInventoryCommand(string ProductId, int Quantity) : IRequest<CheckInventoryResult>
-{
-    public long MessageId { get; init; }
-}
+public record CheckInventoryCommand(string ProductId, int Quantity) : BaseCommand<CheckInventoryResult>;
 public record CheckInventoryResult(bool InStock, int AvailableQuantity);
 
-public record ReserveInventoryCommand(string ProductId, int Quantity) : IRequest<ReserveInventoryResult>
-{
-    public long MessageId { get; init; }
-}
+public record ReserveInventoryCommand(string ProductId, int Quantity) : BaseCommand<ReserveInventoryResult>;
 public record ReserveInventoryResult(string ReservationId);
 
 // Payment providers
-public record ProcessPaymentWithStripeCommand(string OrderId, decimal Amount) : IRequest<PaymentResult>
-{
-    public long MessageId { get; init; }
-}
-
-public record ProcessPaymentWithPayPalCommand(string OrderId, decimal Amount) : IRequest<PaymentResult>
-{
-    public long MessageId { get; init; }
-}
-
-public record ProcessPaymentWithSquareCommand(string OrderId, decimal Amount) : IRequest<PaymentResult>
-{
-    public long MessageId { get; init; }
-}
+public record ProcessPaymentWithStripeCommand(string OrderId, decimal Amount) : BaseCommand<PaymentResult>;
+public record ProcessPaymentWithPayPalCommand(string OrderId, decimal Amount) : BaseCommand<PaymentResult>;
+public record ProcessPaymentWithSquareCommand(string OrderId, decimal Amount) : BaseCommand<PaymentResult>;
 public record PaymentResult(string Provider, string TransactionId);
 
 // Parallel operations
-public record GenerateInvoiceCommand(string OrderId) : IRequest<string>
-{
-    public long MessageId { get; init; }
-}
+public record GenerateInvoiceCommand(string OrderId) : BaseCommand<string>;
+public record UpdateCustomerLoyaltyPointsCommand(string CustomerId, decimal Amount) : BaseCommand<int>;
+public record SendOrderConfirmationEmailCommand(string Email, string OrderId) : BaseCommand<bool>;
 
-public record UpdateCustomerLoyaltyPointsCommand(string CustomerId, decimal Amount) : IRequest<int>
-{
-    public long MessageId { get; init; }
-}
-
-public record SendOrderConfirmationEmailCommand(string Email, string OrderId) : IRequest<bool>
-{
-    public long MessageId { get; init; }
-}
-
-public record CreateShippingLabelCommand(string OrderId) : IRequest<string>
-{
-    public long MessageId { get; init; }
-}
+public record CreateShippingLabelCommand(string OrderId) : BaseCommand<string>;
 
 // Warehouse allocation
-public record CheckWarehouseCapacityCommand(string WarehouseId) : IRequest<int>
-{
-    public long MessageId { get; init; }
-}
-
-public record AllocateItemToWarehouseCommand(string WarehouseId, string ProductId, int Quantity) : IRequest<AllocationResult>
-{
-    public long MessageId { get; init; }
-}
+public record CheckWarehouseCapacityCommand(string WarehouseId) : BaseCommand<int>;
+public record AllocateItemToWarehouseCommand(string WarehouseId, string ProductId, int Quantity) : BaseCommand<AllocationResult>;
 public record AllocationResult(int AllocatedQuantity);
 
 // Fraud & risk
-public record PerformFraudCheckCommand(string OrderId) : IRequest<double>
-{
-    public long MessageId { get; init; }
-}
-
-public record FlagOrderForReviewCommand(string OrderId) : IRequest
-{
-    public long MessageId { get; init; }
-}
-
-public record NotifySecurityTeamCommand(string OrderId, double FraudScore) : IRequest
-{
-    public long MessageId { get; init; }
-}
-
-public record ReleaseInventoryReservationsCommand(Dictionary<string, string> ReservedItems) : IRequest
-{
-    public long MessageId { get; init; }
-}
-
-public record RequireAdditionalVerificationCommand(string OrderId) : IRequest
-{
-    public long MessageId { get; init; }
-}
+public record PerformFraudCheckCommand(string OrderId) : BaseCommand<double>;
+public record FlagOrderForReviewCommand(string OrderId) : BaseCommand;
+public record NotifySecurityTeamCommand(string OrderId, double FraudScore) : BaseCommand;
+public record ReleaseInventoryReservationsCommand(Dictionary<string, string> ReservedItems) : BaseCommand;
+public record RequireAdditionalVerificationCommand(string OrderId) : BaseCommand;
 
 // Shipping scheduling
-public record ScheduleExpressShippingCommand(string OrderId) : IRequest<DateTime>
-{
-    public long MessageId { get; init; }
-}
-
-public record ScheduleStandardShippingCommand(string OrderId) : IRequest<DateTime>
-{
-    public long MessageId { get; init; }
-}
-
-public record ScheduleEconomyShippingCommand(string OrderId) : IRequest<DateTime>
-{
-    public long MessageId { get; init; }
-}
+public record ScheduleExpressShippingCommand(string OrderId) : BaseCommand<DateTime>;
+public record ScheduleStandardShippingCommand(string OrderId) : BaseCommand<DateTime>;
+public record ScheduleEconomyShippingCommand(string OrderId) : BaseCommand<DateTime>;
 
 // Downstream notification
 public class OrderProcessedEvent : IEvent
@@ -281,15 +194,8 @@ public class OrderProcessedEvent : IEvent
 }
 
 // Order status & metrics
-public record UpdateOrderStatusCommand(string OrderId, OrderStatus Status) : IRequest
-{
-    public long MessageId { get; init; }
-}
-
-public record RevertOrderStatusCommand(string OrderId, OrderStatus PreviousStatus) : IRequest
-{
-    public long MessageId { get; init; }
-}
+public record UpdateOrderStatusCommand(string OrderId, OrderStatus Status) : BaseCommand;
+public record RevertOrderStatusCommand(string OrderId, OrderStatus PreviousStatus) : BaseCommand;
 
 public class RecordOrderMetricsCommand : IRequest
 {

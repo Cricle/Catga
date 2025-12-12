@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
-using Catga.Flow;
 using Catga.Flow.Dsl;
 using NATS.Client.Core;
 using NATS.Client.KeyValueStore;
@@ -12,7 +11,7 @@ namespace Catga.Persistence.Nats.Flow;
 /// NATS KV-based DSL flow store with revision-based optimistic locking.
 /// Supports distributed flow execution with WaitCondition for WhenAll/WhenAny.
 /// </summary>
-public class NatsDslFlowStore : IDslFlowStore
+public sealed class NatsDslFlowStore : IDslFlowStore
 {
     private readonly INatsConnection _nats;
     private readonly IMessageSerializer _serializer;
@@ -24,8 +23,6 @@ public class NatsDslFlowStore : IDslFlowStore
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private bool _initialized;
 
-    private IMessageSerializer Serializer => _serializer;
-
     public NatsDslFlowStore(INatsConnection nats, IMessageSerializer serializer, string bucketName = "dslflows")
     {
         _nats = nats;
@@ -33,13 +30,6 @@ public class NatsDslFlowStore : IDslFlowStore
         _bucketName = bucketName;
         _waitBucket = $"{bucketName}_wait";
     }
-
-    private byte[] SerializeWaitCondition(WaitCondition condition) => _serializer.Serialize(condition, typeof(WaitCondition));
-    private WaitCondition? DeserializeWaitCondition(byte[] data) => _serializer.Deserialize(data, typeof(WaitCondition)) as WaitCondition;
-    private byte[] SerializeForEachProgress(ForEachProgress progress) => _serializer.Serialize(progress, typeof(ForEachProgress));
-    private ForEachProgress? DeserializeForEachProgress(byte[] data) => _serializer.Deserialize(data, typeof(ForEachProgress)) as ForEachProgress;
-    private byte[] SerializeLoopProgress(LoopProgress progress) => _serializer.Serialize(progress, typeof(LoopProgress));
-    private LoopProgress? DeserializeLoopProgress(byte[] data) => _serializer.Deserialize(data, typeof(LoopProgress)) as LoopProgress;
 
     private static string EncodeKey(string id) => id.Replace(":", "_C_").Replace("/", "_S_").Replace(".", "_D_");
     private static string EncodeKey(string flowId, int stepIndex) => EncodeKey($"{flowId}:foreach:{stepIndex}");
@@ -86,7 +76,7 @@ public class NatsDslFlowStore : IDslFlowStore
 
         var key = EncodeKey(snapshot.FlowId);
         var stored = new StoredSnapshot<TState>(snapshot);
-        var data = Serializer.Serialize(stored);
+        var data = _serializer.Serialize(stored);
 
         try
         {
@@ -111,7 +101,7 @@ public class NatsDslFlowStore : IDslFlowStore
             var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
             if (entry.Value == null) return null;
 
-            var stored = Serializer.Deserialize<StoredSnapshot<TState>>(entry.Value);
+            var stored = _serializer.Deserialize<StoredSnapshot<TState>>(entry.Value);
             return stored?.ToSnapshot();
         }
         catch (NatsKVKeyNotFoundException)
@@ -138,13 +128,13 @@ public class NatsDslFlowStore : IDslFlowStore
             return false;
         }
 
-        var current = Serializer.Deserialize<StoredSnapshot<TState>>(entry.Value!);
+        var current = _serializer.Deserialize<StoredSnapshot<TState>>(entry.Value!);
         if (current == null || current.Version != snapshot.Version)
             return false;
 
         var newSnapshot = snapshot with { Version = snapshot.Version + 1, UpdatedAt = DateTime.UtcNow };
         var stored = new StoredSnapshot<TState>(newSnapshot);
-        var data = Serializer.Serialize(stored);
+        var data = _serializer.Serialize(stored);
 
         try
         {
@@ -178,7 +168,7 @@ public class NatsDslFlowStore : IDslFlowStore
         await EnsureInitializedAsync(ct);
 
         var key = EncodeKey(correlationId);
-        var data = SerializeWaitCondition(condition);
+        var data = _serializer.Serialize(condition);
 
         try
         {
@@ -205,7 +195,7 @@ public class NatsDslFlowStore : IDslFlowStore
         {
             var entry = await _waitStore!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
             if (entry.Value == null) return null;
-            return DeserializeWaitCondition(entry.Value);
+            return _serializer.Deserialize<WaitCondition>(entry.Value);
         }
         catch (NatsKVKeyNotFoundException)
         {
@@ -218,7 +208,7 @@ public class NatsDslFlowStore : IDslFlowStore
         await EnsureInitializedAsync(ct);
 
         var key = EncodeKey(correlationId);
-        var data = SerializeWaitCondition(condition);
+        var data = _serializer.Serialize(condition);
 
         try
         {
@@ -264,7 +254,7 @@ public class NatsDslFlowStore : IDslFlowStore
                 var entry = await _waitStore!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
                 if (entry.Value == null) continue;
 
-                var condition = DeserializeWaitCondition(entry.Value);
+                var condition = _serializer.Deserialize<WaitCondition>(entry.Value);
                 if (condition != null && condition.CreatedAt.Add(condition.Timeout) <= now)
                 {
                     results.Add(condition);
@@ -281,7 +271,7 @@ public class NatsDslFlowStore : IDslFlowStore
         await EnsureInitializedAsync(ct);
 
         var key = EncodeKey(flowId, stepIndex);
-        var data = SerializeForEachProgress(progress);
+        var data = _serializer.Serialize(progress);
 
         try
         {
@@ -308,7 +298,7 @@ public class NatsDslFlowStore : IDslFlowStore
         {
             var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
             if (entry.Value == null) return null;
-            return DeserializeForEachProgress(entry.Value);
+            return _serializer.Deserialize<ForEachProgress>(entry.Value);
         }
         catch (NatsKVKeyNotFoundException)
         {
@@ -321,58 +311,6 @@ public class NatsDslFlowStore : IDslFlowStore
         await EnsureInitializedAsync(ct);
 
         var key = EncodeKey(flowId, stepIndex);
-        try
-        {
-            await _store!.DeleteAsync(key, cancellationToken: ct);
-        }
-        catch (NatsKVKeyNotFoundException) { /* already deleted */ }
-    }
-
-    public async Task SaveLoopProgressAsync(string flowId, int stepIndex, LoopProgress progress, CancellationToken ct = default)
-    {
-        await EnsureInitializedAsync(ct);
-
-        var key = EncodeKey($"{flowId}:loop:{stepIndex}");
-        var data = SerializeLoopProgress(progress);
-
-        try
-        {
-            await _store!.CreateAsync(key, data, cancellationToken: ct);
-        }
-        catch (NatsKVCreateException)
-        {
-            // Already exists, update it
-            try
-            {
-                var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
-                await _store!.UpdateAsync(key, data, entry.Revision, cancellationToken: ct);
-            }
-            catch { /* ignore */ }
-        }
-    }
-
-    public async Task<LoopProgress?> GetLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
-    {
-        await EnsureInitializedAsync(ct);
-
-        var key = EncodeKey($"{flowId}:loop:{stepIndex}");
-        try
-        {
-            var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
-            if (entry.Value == null) return null;
-            return DeserializeLoopProgress(entry.Value);
-        }
-        catch (NatsKVKeyNotFoundException)
-        {
-            return null;
-        }
-    }
-
-    public async Task ClearLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
-    {
-        await EnsureInitializedAsync(ct);
-
-        var key = EncodeKey($"{flowId}:loop:{stepIndex}");
         try
         {
             await _store!.DeleteAsync(key, cancellationToken: ct);

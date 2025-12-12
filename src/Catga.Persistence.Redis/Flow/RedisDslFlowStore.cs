@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Catga.Abstractions;
-using Catga.Flow;
 using Catga.Flow.Dsl;
 using StackExchange.Redis;
 
@@ -11,13 +10,11 @@ namespace Catga.Persistence.Redis.Flow;
 /// Redis DSL flow store with atomic Lua scripts.
 /// Supports distributed flow execution with WaitCondition for WhenAll/WhenAny.
 /// </summary>
-public class RedisDslFlowStore : IDslFlowStore
+public sealed class RedisDslFlowStore : IDslFlowStore
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly IMessageSerializer _serializer;
     private readonly string _prefix;
-
-    private IMessageSerializer Serializer => _serializer;
 
     // Lua scripts for atomic operations
     private const string CreateScript = @"
@@ -48,13 +45,6 @@ public class RedisDslFlowStore : IDslFlowStore
         _prefix = prefix;
     }
 
-    private byte[] SerializeWaitCondition(WaitCondition condition) => _serializer.Serialize(condition, typeof(WaitCondition));
-    private WaitCondition? DeserializeWaitCondition(byte[] data) => _serializer.Deserialize(data, typeof(WaitCondition)) as WaitCondition;
-    private byte[] SerializeForEachProgress(ForEachProgress progress) => _serializer.Serialize(progress, typeof(ForEachProgress));
-    private ForEachProgress? DeserializeForEachProgress(byte[] data) => _serializer.Deserialize(data, typeof(ForEachProgress)) as ForEachProgress;
-    private byte[] SerializeLoopProgress(LoopProgress progress) => _serializer.Serialize(progress, typeof(LoopProgress));
-    private LoopProgress? DeserializeLoopProgress(byte[] data) => _serializer.Deserialize(data, typeof(LoopProgress)) as LoopProgress;
-
     public async Task<bool> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(FlowSnapshot<TState> snapshot, CancellationToken ct = default)
         where TState : class, IFlowState
     {
@@ -62,7 +52,7 @@ public class RedisDslFlowStore : IDslFlowStore
         var key = _prefix + snapshot.FlowId;
         var indexKey = _prefix + "index";
 
-        var data = Serializer.Serialize(new StoredSnapshot<TState>(snapshot));
+        var data = _serializer.Serialize(new StoredSnapshot<TState>(snapshot));
 
         var result = await db.ScriptEvaluateAsync(CreateScript,
             [key, indexKey],
@@ -80,7 +70,7 @@ public class RedisDslFlowStore : IDslFlowStore
         var data = await db.StringGetAsync(key);
         if (data.IsNullOrEmpty) return null;
 
-        var stored = Serializer.Deserialize<StoredSnapshot<TState>>((byte[])data!);
+        var stored = _serializer.Deserialize<StoredSnapshot<TState>>((byte[])data!);
         return stored?.ToSnapshot();
     }
 
@@ -91,7 +81,7 @@ public class RedisDslFlowStore : IDslFlowStore
         var key = _prefix + snapshot.FlowId;
 
         var newSnapshot = snapshot with { Version = snapshot.Version + 1, UpdatedAt = DateTime.UtcNow };
-        var data = Serializer.Serialize(new StoredSnapshot<TState>(newSnapshot));
+        var data = _serializer.Serialize(new StoredSnapshot<TState>(newSnapshot));
 
         var result = await db.ScriptEvaluateAsync(UpdateScript,
             [key],
@@ -119,7 +109,7 @@ public class RedisDslFlowStore : IDslFlowStore
         var key = _prefix + "wait:" + correlationId;
         var indexKey = _prefix + "wait:index";
 
-        var data = SerializeWaitCondition(condition);
+        var data = _serializer.Serialize(condition);
         await db.StringSetAsync(key, data);
         var timeoutAt = condition.CreatedAt.Add(condition.Timeout);
         await db.SortedSetAddAsync(indexKey, correlationId, new DateTimeOffset(timeoutAt).ToUnixTimeMilliseconds());
@@ -133,7 +123,7 @@ public class RedisDslFlowStore : IDslFlowStore
         var data = await db.StringGetAsync(key);
         if (data.IsNullOrEmpty) return null;
 
-        return DeserializeWaitCondition((byte[])data!);
+        return _serializer.Deserialize<WaitCondition>((byte[])data!);
     }
 
     public async Task UpdateWaitConditionAsync(string correlationId, WaitCondition condition, CancellationToken ct = default)
@@ -141,7 +131,7 @@ public class RedisDslFlowStore : IDslFlowStore
         var db = _redis.GetDatabase();
         var key = _prefix + "wait:" + correlationId;
 
-        var data = SerializeWaitCondition(condition);
+        var data = _serializer.Serialize(condition);
         await db.StringSetAsync(key, data);
     }
 
@@ -180,7 +170,7 @@ public class RedisDslFlowStore : IDslFlowStore
         var db = _redis.GetDatabase();
         var key = _prefix + "foreach:" + flowId + ":" + stepIndex;
 
-        var data = SerializeForEachProgress(progress);
+        var data = _serializer.Serialize(progress);
         await db.StringSetAsync(key, data);
     }
 
@@ -192,41 +182,13 @@ public class RedisDslFlowStore : IDslFlowStore
         var data = await db.StringGetAsync(key);
         if (data.IsNullOrEmpty) return null;
 
-        return DeserializeForEachProgress((byte[])data!);
+        return _serializer.Deserialize<ForEachProgress>((byte[])data!);
     }
 
     public async Task ClearForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
         var key = _prefix + "foreach:" + flowId + ":" + stepIndex;
-
-        await db.KeyDeleteAsync(key);
-    }
-
-    public async Task SaveLoopProgressAsync(string flowId, int stepIndex, LoopProgress progress, CancellationToken ct = default)
-    {
-        var db = _redis.GetDatabase();
-        var key = _prefix + "loop:" + flowId + ":" + stepIndex;
-
-        var data = SerializeLoopProgress(progress);
-        await db.StringSetAsync(key, data);
-    }
-
-    public async Task<LoopProgress?> GetLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
-    {
-        var db = _redis.GetDatabase();
-        var key = _prefix + "loop:" + flowId + ":" + stepIndex;
-
-        var data = await db.StringGetAsync(key);
-        if (data.IsNullOrEmpty) return null;
-
-        return DeserializeLoopProgress((byte[])data!);
-    }
-
-    public async Task ClearLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
-    {
-        var db = _redis.GetDatabase();
-        var key = _prefix + "loop:" + flowId + ":" + stepIndex;
 
         await db.KeyDeleteAsync(key);
     }

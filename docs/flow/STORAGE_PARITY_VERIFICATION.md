@@ -274,6 +274,6 @@ Monitor these metrics in production:
 
 - [Flow DSL Architecture](../guides/flow-dsl.md)
 - [Storage Parity](./storage-parity.md)
-- [Performance Benchmarks](../BENCHMARK-RESULTS.md)
+- [Performance Benchmarks](../BENCHMARK_RESULTS.md)
 - [Flow DSL Best Practices](../guides/flow-dsl-best-practices.md)
 - [Error Handling](../guides/error-handling.md)

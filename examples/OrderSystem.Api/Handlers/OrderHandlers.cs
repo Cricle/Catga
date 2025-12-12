@@ -27,29 +27,20 @@ public class OrderHandler(
       IEventHandler<OrderConfirmedEvent>
 {
     // ============================================
-    // Helper Methods
-    // ============================================
-
-    private Order CreateOrder(string customerId, List<OrderItem> items, OrderStatus status = OrderStatus.Confirmed)
-    {
-        return new Order
-        {
-            OrderId = $"ORD-{Guid.NewGuid():N}"[..16],
-            CustomerId = customerId,
-            Items = items,
-            TotalAmount = items.Sum(i => i.Subtotal),
-            Status = status,
-            CreatedAt = DateTime.UtcNow
-        };
-    }
-
-    // ============================================
     // Command Handlers
     // ============================================
 
     public async ValueTask<CatgaResult<OrderCreatedResult>> HandleAsync(CreateOrderCommand request, CancellationToken ct = default)
     {
-        var order = CreateOrder(request.CustomerId, request.Items);
+        var order = new Order
+        {
+            OrderId = $"ORD-{Guid.NewGuid():N}"[..16],
+            CustomerId = request.CustomerId,
+            Items = request.Items,
+            TotalAmount = request.Items.Sum(i => i.Subtotal),
+            Status = OrderStatus.Confirmed,
+            CreatedAt = DateTime.UtcNow
+        };
 
         await orderRepository.SaveAsync(order, ct);
         logger.LogInformation("Order {OrderId} created", order.OrderId);
@@ -60,7 +51,15 @@ public class OrderHandler(
 
     public async ValueTask<CatgaResult<OrderCreatedResult>> HandleAsync(CreateOrderFlowCommand request, CancellationToken ct = default)
     {
-        var order = CreateOrder(request.CustomerId, request.Items, OrderStatus.Pending);
+        var order = new Order
+        {
+            OrderId = $"ORD-{Guid.NewGuid():N}"[..16],
+            CustomerId = request.CustomerId,
+            Items = request.Items,
+            TotalAmount = request.Items.Sum(i => i.Subtotal),
+            Status = OrderStatus.Pending,
+            CreatedAt = DateTime.UtcNow
+        };
 
         try
         {

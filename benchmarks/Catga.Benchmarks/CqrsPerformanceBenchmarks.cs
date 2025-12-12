@@ -95,7 +95,7 @@ public class CqrsPerformanceBenchmarks
 [MemoryPackable]
 public partial record BenchCommand(int Id, string Data) : IRequest<BenchCommandResult>
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 [MemoryPackable]
@@ -104,7 +104,7 @@ public partial record BenchCommandResult(int Id, string ProcessedData);
 [MemoryPackable]
 public partial record BenchQuery(int Id) : IRequest<BenchQueryResult>
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 [MemoryPackable]
@@ -113,7 +113,7 @@ public partial record BenchQueryResult(int Id, string Data);
 [MemoryPackable]
 public partial record BenchEvent(int Id, string Data) : IEvent
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 // Benchmark handlers - minimal logic for pure framework overhead measurement

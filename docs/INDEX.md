@@ -42,8 +42,10 @@
 |------|------|
 | [事件溯源指南](./articles/event-sourcing.md) | 完整 Event Sourcing 指南 ⭐ |
 | [Flow DSL](./guides/flow-dsl.md) | 分布式事务 DSL（Saga 模式） |
+| [分布式事务](./patterns/DISTRIBUTED-TRANSACTION-V2.md) | Outbox/Inbox 模式 |
 | [分布式追踪](./observability/DISTRIBUTED-TRACING-GUIDE.md) | OpenTelemetry 集成 |
-| [Flow DSL 最佳实践](./guides/flow-dsl-best-practices.md) | Flow DSL 设计模式 |
+| [Jaeger 完整指南](./observability/JAEGER-COMPLETE-GUIDE.md) | 分布式追踪可视化 |
+| [监控指标](./production/MONITORING-GUIDE.md) | Prometheus + Grafana |
 | [分布式 ID](./guides/distributed-id.md) | Snowflake ID 生成 |
 
 ### 事件溯源功能

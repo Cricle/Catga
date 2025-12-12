@@ -352,7 +352,7 @@ public async Task OrderFlow_CompleteScenario_ProcessesSuccessfully()
 
 - [Flow DSL Guide](../../docs/guides/flow-dsl.md)
 - [Storage Parity Verification](../../docs/flow/STORAGE_PARITY_VERIFICATION.md)
-- [Performance Benchmarks](../../docs/BENCHMARK-RESULTS.md)
+- [Performance Benchmarks](../../docs/BENCHMARK_RESULTS.md)
 - [Error Handling Guide](../../docs/guides/error-handling.md)
 
 ## 🤝 Contributing

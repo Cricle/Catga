@@ -103,7 +103,7 @@ public class ConcurrencyPerformanceBenchmarks
 [MemoryPackable]
 public partial record ConcurrentCommand(int Id) : IRequest<ConcurrentResult>
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 [MemoryPackable]
@@ -112,7 +112,7 @@ public partial record ConcurrentResult(int Id, long Timestamp);
 [MemoryPackable]
 public partial record ConcurrentEvent(int Id) : IEvent
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 public class ConcurrentCommandHandler : IRequestHandler<ConcurrentCommand, ConcurrentResult>

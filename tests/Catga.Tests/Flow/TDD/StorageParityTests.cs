@@ -159,7 +159,7 @@ public class StorageParityTests
     {
         return storeType switch
         {
-            "InMemory" => new Catga.Flow.Dsl.InMemoryDslFlowStore(),
+            "InMemory" => new InMemoryStore(CreateTestSerializer()),
             "Redis" => CreateRedisStore(),
             "Nats" => CreateNatsStore(),
             _ => throw new ArgumentException($"Unknown store type: {storeType}")
@@ -196,14 +196,14 @@ public class StorageParityTests
     {
         // TODO: Create Redis store with test configuration
         // For now, return InMemory as placeholder
-        return new Catga.Flow.Dsl.InMemoryDslFlowStore();
+        return new InMemoryStore(CreateTestSerializer());
     }
 
     private static IDslFlowStore CreateNatsStore()
     {
         // TODO: Create NATS store with test configuration
         // For now, return InMemory as placeholder
-        return new Catga.Flow.Dsl.InMemoryDslFlowStore();
+        return new InMemoryStore(CreateTestSerializer());
     }
 
     private static FlowSnapshot<TestFlowState> CreateTestSnapshot()

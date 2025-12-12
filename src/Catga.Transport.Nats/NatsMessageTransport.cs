@@ -18,9 +18,6 @@ namespace Catga.Transport.Nats;
 public class NatsMessageTransport(INatsConnection connection, IMessageSerializer serializer, ILogger<NatsMessageTransport> logger, IResiliencePipelineProvider provider, NatsTransportOptions? options = null)
     : IMessageTransport, IAsyncDisposable
 {
-#pragma warning disable IDE0052
-    private readonly ILogger<NatsMessageTransport> _logger = logger;
-#pragma warning restore IDE0052
     private readonly NatsJSContext _js = new(connection);
     private readonly string _prefix = (options?.SubjectPrefix ?? "catga").TrimEnd('.');
     private readonly Func<Type, string>? _naming = options?.Naming;
@@ -133,7 +130,7 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
         if (options?.Batch is { EnableAutoBatching: true } batchOptions)
         {
             Enqueue(subject, payload, headers, qos, batchOptions);
-            System.Diagnostics.Activity.Current?.AddActivityEvent("Messaging.Publish.Enqueued",
+            System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.NatsPublishEnqueued,
                 ("subject", subject),
                 ("qos", (int)qos));
             return; // queued for background flush
@@ -149,7 +146,8 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                     await provider.ExecuteTransportPublishAsync(ct =>
                         connection.PublishAsync(subject, payload, headers: headers, cancellationToken: ct),
                         cancellationToken);
-                    System.Diagnostics.Activity.Current?.AddActivityEvent("Messaging.Publish.Sent",
+                    CatgaLog.NatsPublishedCore(logger, ctx.MessageId);
+                    System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.NatsPublishSent,
                         ("subject", subject),
                         ("qos", (int)qos));
                     break;
@@ -160,7 +158,8 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                     var ack1 = await provider.ExecuteTransportPublishAsync(ct =>
                         _js!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: ct),
                         cancellationToken);
-                    System.Diagnostics.Activity.Current?.AddActivityEvent("Messaging.Publish.Sent",
+                    CatgaLog.NatsPublishedQoS1(logger, ctx.MessageId, ack1.Seq, ack1.Duplicate);
+                    System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.NatsPublishSent,
                         ("subject", subject),
                         ("qos", (int)qos),
                         ("seq", (long)ack1.Seq),
@@ -174,7 +173,8 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                     var ack2 = await provider.ExecuteTransportPublishAsync(ct =>
                         _js!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: ct),
                         cancellationToken);
-                    System.Diagnostics.Activity.Current?.AddActivityEvent("Messaging.Publish.Sent",
+                    CatgaLog.NatsPublishedQoS2(logger, ctx.MessageId, ack2.Seq, ack2.Duplicate);
+                    System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.NatsPublishSent,
                         ("subject", subject),
                         ("qos", (int)qos),
                         ("seq", (long)ack2.Seq),
@@ -196,7 +196,10 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                     new KeyValuePair<string, object?>("destination", subject),
                     new KeyValuePair<string, object?>("reason", "publish"));
             }
+            CatgaLog.NatsPublishFailed(logger, ex, subject, ctx.MessageId);
             System.Diagnostics.Activity.Current?.SetError(ex);
+            System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.NatsPublishFailed,
+                ("subject", subject));
             throw;
         }
     }
@@ -242,6 +245,9 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                     }
                     if (msg.Data == null || msg.Data.Length == 0)
                     {
+                        CatgaLog.NatsEmptyMessage(logger, subject);
+                        activity?.AddActivityEvent(CatgaActivitySource.Events.NatsReceiveEmpty,
+                            ("subject", subject));
                         if (ObservabilityHooks.IsEnabled)
                         {
                             CatgaDiagnostics.MessagesFailed.Add(1,
@@ -254,7 +260,7 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                     var deserStart = Stopwatch.GetTimestamp();
                     var message = serializer.Deserialize<TMessage>(msg.Data);
                     var deserMs = (Stopwatch.GetTimestamp() - deserStart) * 1000.0 / Stopwatch.Frequency;
-                    activity?.AddActivityEvent("Messaging.Receive.Deserialized",
+                    activity?.AddActivityEvent(CatgaActivitySource.Events.NatsReceiveDeserialized,
                         ("message.type", typeof(TMessage).Name),
                         ("duration.ms", deserMs),
                         ("payload.size", msg.Data.Length));
@@ -265,6 +271,7 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                     }
                     if (message == null)
                     {
+                        CatgaLog.NatsDeserializeFailed(logger, subject);
                         if (ObservabilityHooks.IsEnabled)
                         {
                             CatgaDiagnostics.MessagesFailed.Add(1,
@@ -297,13 +304,11 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                         {
                             if (now - ts <= DedupTtl.Ticks)
                             {
-                                if (ObservabilityHooks.IsEnabled)
-                                {
-                                    CatgaDiagnostics.NatsDedupDrops.Add(1);
-                                    activity?.AddActivityEvent("NatsReceiveDroppedDuplicate",
-                                        ("message.id", messageId),
-                                        ("qos", qosHeader));
-                                }
+                                CatgaLog.NatsDroppedDuplicate(logger, messageId, qosHeader, subject);
+                                CatgaDiagnostics.NatsDedupDrops.Add(1);
+                                activity?.AddActivityEvent(CatgaActivitySource.Events.NatsReceiveDroppedDuplicate,
+                                    ("message.id", messageId),
+                                    ("qos", qosHeader));
                                 continue;
                             }
                             _dedup[messageId.Value] = now;
@@ -331,13 +336,13 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                     var handlerStart = Stopwatch.GetTimestamp();
                     await handler(message, context);
                     var handlerMs = (Stopwatch.GetTimestamp() - handlerStart) * 1000.0 / Stopwatch.Frequency;
-                    activity?.AddActivityEvent("Messaging.Receive.Handler",
+                    activity?.AddActivityEvent(CatgaActivitySource.Events.NatsReceiveHandler,
                         ("subject", subject),
                         ("duration.ms", handlerMs));
-                    activity?.AddActivityEvent("Messaging.Receive.Processed",
+                    activity?.AddActivityEvent(CatgaActivitySource.Events.NatsReceiveProcessed,
                         ("subject", subject));
                 }
-                catch (Exception ex) { activity?.SetError(ex); }
+                catch (Exception ex) { CatgaLog.NatsProcessingError(logger, ex, subject); activity?.SetError(ex); }
             }
         }, cancellationToken);
         _subs[subject] = task;
@@ -423,7 +428,8 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                             _js!.PublishAsync(subject: Subject, data: Payload,
                                 opts: new NatsJSPubOpts { MsgId = Headers["MessageId"].ToString() }, headers: Headers, cancellationToken: ct),
                             _cts.Token);
-                        batchSpan?.AddActivityEvent("Batch.Item.Sent",
+                        CatgaLog.NatsBatchPublishedJetStream(logger, ack.Seq, ack.Duplicate);
+                        batchSpan?.AddActivityEvent(CatgaActivitySource.Events.NatsBatchItemSent,
                             ("subject", Subject),
                             ("qos", (int)QoS),
                             ("seq", (long)ack.Seq),
@@ -433,12 +439,13 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
             }
             catch (Exception ex)
             {
+                CatgaLog.NatsBatchPublishFailed(logger, ex, Subject);
                 CatgaDiagnostics.MessagesFailed.Add(1,
                     new KeyValuePair<string, object?>("component", "Transport.NATS"),
                     new KeyValuePair<string, object?>("destination", Subject),
                     new KeyValuePair<string, object?>("reason", "batch_item"));
                 batchSpan?.SetError(ex);
-                batchSpan?.AddActivityEvent("Batch.Item.Failed",
+                batchSpan?.AddActivityEvent(CatgaActivitySource.Events.NatsBatchItemFailed,
                     ("subject", Subject));
             }
         }

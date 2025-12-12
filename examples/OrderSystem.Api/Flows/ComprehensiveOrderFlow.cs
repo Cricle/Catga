@@ -43,8 +43,10 @@ public class ComprehensiveOrderFlow : FlowConfig<OrderFlowState>
 }
 
 [FlowState]
-public partial class OrderFlowState : BaseFlowState
+public partial class OrderFlowState : IFlowState
 {
+    public string? FlowId { get; set; }
+
     [FlowStateField]
     private string _orderId = string.Empty;
 

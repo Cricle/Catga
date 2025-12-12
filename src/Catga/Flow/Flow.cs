@@ -158,7 +158,7 @@ public sealed class FlowExecutor
         finally
         {
             cts.Cancel();
-            try { await heartbeatTask; } catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Heartbeat task cleanup error: {ex.Message}"); }
+            try { await heartbeatTask; } catch { }
         }
     }
 
@@ -173,7 +173,7 @@ public sealed class FlowExecutor
                 await _store.HeartbeatAsync(state.Id, _nodeId, state.Version, ct);
             }
             catch (OperationCanceledException) { break; }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Heartbeat error: {ex.Message}"); }
+            catch { }
         }
     }
 }
@@ -308,7 +308,7 @@ public sealed class Flow
         {
             var compensate = _steps[i].Compensate;
             if (compensate == null) continue;
-            try { await compensate(ct); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Compensation error at step {i}: {ex.Message}"); }
+            try { await compensate(ct); } catch { }
         }
     }
 
@@ -318,7 +318,7 @@ public sealed class Flow
         {
             var compensate = _steps[i].Compensate;
             if (compensate == null) continue;
-            try { await compensate(ct); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Compensation error at step {i}: {ex.Message}"); }
+            try { await compensate(ct); } catch { }
         }
     }
 }
@@ -388,13 +388,13 @@ public abstract class FlowRecoveryService : IDisposable
                                 state.Error = result.Error;
                                 await _store.UpdateAsync(state, CancellationToken.None);
                             }
-                            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Resume flow error: {ex.Message}"); }
+                            catch { }
                         }, ct);
                     }
                 }
             }
             catch (OperationCanceledException) { break; }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Recovery scan error: {ex.Message}"); }
+            catch { }
         }
     }
 

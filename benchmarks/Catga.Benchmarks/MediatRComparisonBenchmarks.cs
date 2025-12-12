@@ -179,13 +179,13 @@ public class MediatRComparisonBenchmarks
 [MemoryPackable]
 public partial record CatgaTestCommand(int Id, string Data) : Catga.Abstractions.IRequest<CatgaTestResult>
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 [MemoryPackable]
 public partial record CatgaTestQuery(int Id) : Catga.Abstractions.IRequest<CatgaTestResult>
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 [MemoryPackable]
@@ -194,7 +194,7 @@ public partial record CatgaTestResult(int Id, string ProcessedData);
 [MemoryPackable]
 public partial record CatgaTestEvent(int Id, string Data) : IEvent
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 public class CatgaTestCommandHandler : Catga.Abstractions.IRequestHandler<CatgaTestCommand, CatgaTestResult>

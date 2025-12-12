@@ -215,7 +215,7 @@ public partial record CreateOrderCommand(
     decimal TotalAmount
 ) : IRequest<CreateOrderResult>
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 [MemoryPackable]
@@ -232,7 +232,7 @@ public partial record ProcessPaymentCommand(
     string PaymentMethod
 ) : IRequest<ProcessPaymentResult>
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 [MemoryPackable]
@@ -266,7 +266,7 @@ internal sealed class NoopResiliencePipelineProvider : IResiliencePipelineProvid
 [MemoryPackable]
 public partial record GetOrderQuery(int OrderId) : IRequest<GetOrderResult>
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 [MemoryPackable]
@@ -280,7 +280,7 @@ public partial record GetOrderResult(
 [MemoryPackable]
 public partial record GetUserOrdersQuery(int UserId) : IRequest<GetUserOrdersResult>
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 [MemoryPackable]
@@ -303,7 +303,7 @@ public partial record OrderCreatedEvent(
     decimal TotalAmount
 ) : IEvent
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 [MemoryPackable]
@@ -314,7 +314,7 @@ public partial record PaymentProcessedEvent(
     string TransactionId
 ) : IEvent
 {
-    public long MessageId { get; init; }
+    public long MessageId { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 #endregion

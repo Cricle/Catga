@@ -98,7 +98,6 @@ public interface IFlowBuilder<TState> where TState : class, IFlowState
     IStepBuilder<TState, TResult> Send<TResult>(Func<TState, IRequest<TResult>> factory);
     IQueryBuilder<TState, TResult> Query<TResult>(Func<TState, IRequest<TResult>> factory);
     IPublishBuilder<TState> Publish<TEvent>(Func<TState, TEvent> factory) where TEvent : IEvent;
-    IFlowBuilder<TState> Into(Action<TState> action);
 
     // Parallel
     IWhenAllBuilder<TState> WhenAll(params Func<TState, IRequest>[] requests);
@@ -111,141 +110,6 @@ public interface IFlowBuilder<TState> where TState : class, IFlowState
 
     // ForEach
     IForEachBuilder<TState, TItem> ForEach<TItem>(Func<TState, IEnumerable<TItem>> collectionSelector);
-
-    // Loops
-    IWhileBuilder<TState> While(Func<TState, bool> condition);
-    IDoWhileBuilder<TState> DoWhile();
-    IRepeatBuilder<TState> Repeat(int times);
-    IRepeatBuilder<TState> Repeat(Func<TState, int> timesSelector);
-
-    // Exception handling
-    ITryBuilder<TState> Try();
-
-    // Expression-based conditions
-    IWhenBuilder<TState> When(Expression<Func<TState, bool>> condition);
-
-    // Recursive flow calls
-    IFlowBuilder<TState> CallFlow<TFlow>(Func<TState, IFlowState> stateFactory)
-        where TFlow : FlowConfig<TState>;
-}
-
-/// <summary>When branch builder (Expression-based condition).</summary>
-public interface IWhenBuilder<TState> where TState : class, IFlowState
-{
-    // Steps within When branch
-    IWhenBuilder<TState> Send<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest;
-    IWhenBuilder<TState, TResult> Send<TResult>(Func<TState, IRequest<TResult>> factory);
-    IWhenBuilder<TState> Query<TResult>(Func<TState, IRequest<TResult>> factory);
-    IWhenBuilder<TState> Publish<TEvent>(Func<TState, TEvent> factory) where TEvent : IEvent;
-    IWhenBuilder<TState> If(Func<TState, bool> condition);
-    IWhenBuilder<TState> ForEach<TItem>(Func<TState, IEnumerable<TItem>> collectionSelector);
-    IWhenBuilder<TState> While(Func<TState, bool> condition);
-    IWhenBuilder<TState> Try();
-
-    /// <summary>End the when block.</summary>
-    IFlowBuilder<TState> EndWhen();
-}
-
-/// <summary>When branch builder with result.</summary>
-public interface IWhenBuilder<TState, TResult> where TState : class, IFlowState
-{
-    /// <summary>Set the result into a property.</summary>
-    IWhenBuilder<TState> Into(Expression<Func<TState, TResult>> property);
-}
-
-/// <summary>Simple When builder implementation.</summary>
-internal class SimpleWhenBuilder<TState> : IWhenBuilder<TState> where TState : class, IFlowState
-{
-    private readonly FlowBuilder<TState> _flowBuilder;
-    private readonly FlowStep _whenStep;
-
-    public SimpleWhenBuilder(FlowBuilder<TState> flowBuilder, FlowStep whenStep)
-    {
-        _flowBuilder = flowBuilder;
-        _whenStep = whenStep;
-    }
-
-    public IWhenBuilder<TState> Send<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest
-    {
-        if (_whenStep.ThenBranch != null)
-        {
-            _whenStep.ThenBranch.Add(new FlowStep { Type = StepType.Send, RequestFactory = factory });
-        }
-        return this;
-    }
-
-    public IWhenBuilder<TState, TResult> Send<TResult>(Func<TState, IRequest<TResult>> factory)
-    {
-        if (_whenStep.ThenBranch != null)
-        {
-            _whenStep.ThenBranch.Add(new FlowStep { Type = StepType.Send, RequestFactory = factory, HasResult = true });
-        }
-        return new SimpleWhenBuilderWithResult<TState, TResult>(this);
-    }
-
-    public IWhenBuilder<TState> Query<TResult>(Func<TState, IRequest<TResult>> factory)
-    {
-        if (_whenStep.ThenBranch != null)
-        {
-            _whenStep.ThenBranch.Add(new FlowStep { Type = StepType.Query, RequestFactory = factory, HasResult = true });
-        }
-        return this;
-    }
-
-    public IWhenBuilder<TState> Publish<TEvent>(Func<TState, TEvent> factory) where TEvent : IEvent
-    {
-        if (_whenStep.ThenBranch != null)
-        {
-            _whenStep.ThenBranch.Add(new FlowStep { Type = StepType.Publish, RequestFactory = factory });
-        }
-        return this;
-    }
-
-    public IWhenBuilder<TState> If(Func<TState, bool> condition)
-    {
-        // Nested If not supported in When for simplicity
-        return this;
-    }
-
-    public IWhenBuilder<TState> ForEach<TItem>(Func<TState, IEnumerable<TItem>> collectionSelector)
-    {
-        // Nested ForEach not supported in When for simplicity
-        return this;
-    }
-
-    public IWhenBuilder<TState> While(Func<TState, bool> condition)
-    {
-        // Nested While not supported in When for simplicity
-        return this;
-    }
-
-    public IWhenBuilder<TState> Try()
-    {
-        // Nested Try not supported in When for simplicity
-        return this;
-    }
-
-    public IFlowBuilder<TState> EndWhen()
-    {
-        return _flowBuilder;
-    }
-}
-
-/// <summary>Simple When builder with result.</summary>
-internal class SimpleWhenBuilderWithResult<TState, TResult> : IWhenBuilder<TState, TResult> where TState : class, IFlowState
-{
-    private readonly SimpleWhenBuilder<TState> _whenBuilder;
-
-    public SimpleWhenBuilderWithResult(SimpleWhenBuilder<TState> whenBuilder)
-    {
-        _whenBuilder = whenBuilder;
-    }
-
-    public IWhenBuilder<TState> Into(Expression<Func<TState, TResult>> property)
-    {
-        // Result setter not implemented for simplicity
-        return _whenBuilder;
-    }
 }
 
 /// <summary>If branch builder.</summary>
@@ -255,7 +119,6 @@ public interface IIfBuilder<TState> where TState : class, IFlowState
     IIfBuilder<TState> Send<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest;
     IIfBuilder<TState, TResult> Send<TResult>(Func<TState, IRequest<TResult>> factory);
     IIfBuilder<TState> Publish<TEvent>(Func<TState, TEvent> factory) where TEvent : IEvent;
-    IIfBuilder<TState> Into(Action<TState> action);
 
     // Nested branching
     IIfBuilder<TState> If(Func<TState, bool> condition);
@@ -474,13 +337,6 @@ internal class FlowBuilder<TState> : IFlowBuilder<TState> where TState : class, 
         return new PublishBuilder<TState>(step);
     }
 
-    public IFlowBuilder<TState> Into(Action<TState> action)
-    {
-        var step = new FlowStep { Type = StepType.Send, RequestFactory = action };
-        Steps.Add(step);
-        return this;
-    }
-
     public IWhenAllBuilder<TState> WhenAll(params Func<TState, IRequest>[] requests)
     {
         var step = new FlowStep
@@ -552,59 +408,6 @@ internal class FlowBuilder<TState> : IFlowBuilder<TState> where TState : class, 
         };
         Steps.Add(step);
         return new ForEachBuilder<TState, TItem>(this, step);
-    }
-
-    public IWhileBuilder<TState> While(Func<TState, bool> condition)
-    {
-        return new WhileBuilder<TState>(this, condition);
-    }
-
-    public IDoWhileBuilder<TState> DoWhile()
-    {
-        return new DoWhileBuilder<TState>(this);
-    }
-
-    public IRepeatBuilder<TState> Repeat(int times)
-    {
-        return new RepeatBuilder<TState>(this, times);
-    }
-
-    public IRepeatBuilder<TState> Repeat(Func<TState, int> timesSelector)
-    {
-        return new RepeatBuilder<TState>(this, timesSelector);
-    }
-
-    public ITryBuilder<TState> Try()
-    {
-        return new TryBuilder<TState>(this);
-    }
-
-    public IWhenBuilder<TState> When(Expression<Func<TState, bool>> condition)
-    {
-        // Create a step with Expression-based condition
-        var step = new FlowStep
-        {
-            Type = StepType.If,
-            BranchCondition = condition.Compile(),
-            ThenBranch = []
-        };
-        Steps.Add(step);
-
-        // Return a simple builder that adds steps to ThenBranch
-        return new SimpleWhenBuilder<TState>(this, step);
-    }
-
-    public IFlowBuilder<TState> CallFlow<TFlow>(Func<TState, IFlowState> stateFactory)
-        where TFlow : FlowConfig<TState>
-    {
-        var step = new FlowStep
-        {
-            Type = StepType.CallFlow,
-            RequestFactory = stateFactory,
-            Metadata = typeof(TFlow).FullName
-        };
-        Steps.Add(step);
-        return this;
     }
 
     // Tagged settings
@@ -1032,13 +835,6 @@ internal class IfBuilder<TState> : IIfBuilder<TState> where TState : class, IFlo
         return this;
     }
 
-    public IIfBuilder<TState> Into(Action<TState> action)
-    {
-        var step = new FlowStep { Type = StepType.Send, RequestFactory = action };
-        _currentBranch.Add(step);
-        return this;
-    }
-
     public IIfBuilder<TState> If(Func<TState, bool> condition)
     {
         // Nested If - add to current branch and switch context
@@ -1243,10 +1039,6 @@ public class FlowStep
     internal Delegate? OnCompletedFactory { get; set; }
     internal Delegate? OnFailedFactory { get; set; }
 
-    // Compiled execution logic (set by source generator)
-    /// <summary>Compiled flow step with serializable execution logic. Set by source generator.</summary>
-    internal CompiledFlowStep? CompiledStep { get; set; }
-
     // WhenAll/WhenAny specific
     internal List<Delegate>? ChildRequestFactories { get; set; }
 
@@ -1292,32 +1084,6 @@ public class FlowStep
     internal Delegate? OnItemFail { get; set; }
     /// <summary>Completion callback.</summary>
     internal Delegate? OnComplete { get; set; }
-
-    // Loop specific (While/DoWhile/Repeat)
-    /// <summary>Loop condition for While/DoWhile.</summary>
-    internal Delegate? LoopCondition { get; set; }
-    /// <summary>Loop iteration count for Repeat.</summary>
-    internal int? RepeatCount { get; set; }
-    /// <summary>Loop iteration count selector for Repeat.</summary>
-    internal Delegate? RepeatCountSelector { get; set; }
-    /// <summary>Steps to execute in loop body.</summary>
-    public List<FlowStep>? LoopSteps { get; set; }
-    /// <summary>Break condition for loops.</summary>
-    internal Delegate? BreakCondition { get; set; }
-    /// <summary>Continue condition for loops.</summary>
-    internal Delegate? ContinueCondition { get; set; }
-
-    // Try-Catch specific
-    /// <summary>Steps in try block.</summary>
-    public List<FlowStep>? TrySteps { get; set; }
-    /// <summary>Catch handlers: (ExceptionType, Handler).</summary>
-    public List<(Type ExceptionType, Delegate Handler)>? CatchHandlers { get; set; }
-    /// <summary>Finally block handler.</summary>
-    internal Delegate? FinallyHandler { get; set; }
-
-    // Metadata
-    /// <summary>Metadata for flow type or other information.</summary>
-    public string? Metadata { get; set; }
 }
 
 /// <summary>
@@ -1332,12 +1098,7 @@ public enum StepType
     WhenAny,
     If,
     Switch,
-    ForEach,
-    While,
-    DoWhile,
-    Repeat,
-    Try,
-    CallFlow
+    ForEach
 }
 
 /// <summary>

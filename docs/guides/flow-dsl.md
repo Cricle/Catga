@@ -1,16 +1,6 @@
 # Flow DSL Guide
 
-Catga Flow DSL provides a fluent API for defining distributed workflows with complete control flow support, including loops, exception handling, branching, parallel execution, and state management.
-
-## 🎯 完整的控制流支持
-
-**Flow DSL 现已支持完整的控制流构造**:
-- **🔄 循环**: While、DoWhile、Repeat（带迭代限制和超时）
-- **⚠️ 异常处理**: Try-Catch-Finally（多个 Catch 块、异常恢复）
-- **🔀 分支**: If/ElseIf/Else、Switch/Case、Expression-based When 条件
-- **⚡ 并行处理**: ForEach 并行迭代（可配置并发度）
-- **🔗 递归调用**: CallFlow 支持流的递归调用
-- **💾 存储对等性**: InMemory、Redis、NATS 完全对等
+Catga Flow DSL provides a fluent API for defining distributed transactions (sagas) with automatic compensation, parallel execution, and state management.
 
 ## 🎯 企业级性能验证
 

@@ -9,52 +9,56 @@ namespace Catga.Persistence.InMemory.Flow;
 /// <summary>
 /// In-memory DSL flow store for development/testing.
 /// </summary>
-public class InMemoryDslFlowStore : IDslFlowStore
+public sealed class InMemoryDslFlowStore : IDslFlowStore
 {
-    private readonly ConcurrentDictionary<string, object> _snapshots = new();
+    private readonly IMessageSerializer _serializer;
+    private readonly ConcurrentDictionary<string, FlowEntry> _flows = new();
     private readonly ConcurrentDictionary<string, WaitCondition> _waitConditions = new();
     private readonly ConcurrentDictionary<string, ForEachProgress> _forEachProgress = new();
-    private readonly ConcurrentDictionary<string, LoopProgress> _loopProgress = new();
-    private readonly ConcurrentDictionary<string, long> _versions = new();
 
-    public InMemoryDslFlowStore() { }
-
-    public InMemoryDslFlowStore(IMessageSerializer? serializer) { }
+    public InMemoryDslFlowStore(IMessageSerializer serializer)
+    {
+        _serializer = serializer;
+    }
 
     public Task<bool> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
         FlowSnapshot<TState> snapshot, CancellationToken ct = default)
         where TState : class, IFlowState
     {
-        if (!_snapshots.TryAdd(snapshot.FlowId, snapshot))
-            return Task.FromResult(false);
-        _versions[snapshot.FlowId] = 0;
-        return Task.FromResult(true);
+        var data = _serializer.Serialize(snapshot);
+        var entry = new FlowEntry(typeof(TState).FullName ?? typeof(TState).Name, data, 0);
+        return Task.FromResult(_flows.TryAdd(snapshot.FlowId, entry));
     }
 
     public Task<FlowSnapshot<TState>?> GetAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
         string flowId, CancellationToken ct = default)
         where TState : class, IFlowState
     {
-        if (!_snapshots.TryGetValue(flowId, out var obj))
+        if (!_flows.TryGetValue(flowId, out var entry))
             return Task.FromResult<FlowSnapshot<TState>?>(null);
-        return Task.FromResult(obj as FlowSnapshot<TState>);
+
+        var snapshot = _serializer.Deserialize<FlowSnapshot<TState>>(entry.Data);
+        return Task.FromResult(snapshot);
     }
 
     public Task<bool> UpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
         FlowSnapshot<TState> snapshot, CancellationToken ct = default)
         where TState : class, IFlowState
     {
-        if (!_snapshots.ContainsKey(snapshot.FlowId))
+        if (!_flows.TryGetValue(snapshot.FlowId, out var entry))
             return Task.FromResult(false);
-        _snapshots[snapshot.FlowId] = snapshot;
-        _versions[snapshot.FlowId] = snapshot.Version;
+
+        var expectedVersion = snapshot.Version - 1;
+        if (Interlocked.CompareExchange(ref entry.Version, snapshot.Version, expectedVersion) != expectedVersion)
+            return Task.FromResult(false);
+
+        entry.Data = _serializer.Serialize(snapshot);
         return Task.FromResult(true);
     }
 
     public Task<bool> DeleteAsync(string flowId, CancellationToken ct = default)
     {
-        _versions.TryRemove(flowId, out _);
-        return Task.FromResult(_snapshots.TryRemove(flowId, out _));
+        return Task.FromResult(_flows.TryRemove(flowId, out _));
     }
 
     public Task SetWaitConditionAsync(string correlationId, WaitCondition condition, CancellationToken ct = default)
@@ -110,25 +114,17 @@ public class InMemoryDslFlowStore : IDslFlowStore
         return Task.CompletedTask;
     }
 
-    public Task SaveLoopProgressAsync(string flowId, int stepIndex, LoopProgress progress, CancellationToken ct = default)
+    private sealed class FlowEntry
     {
-        var key = $"{flowId}:{stepIndex}";
-        _loopProgress.AddOrUpdate(key, progress, (_, _) => progress);
-        return Task.CompletedTask;
-    }
+        public string TypeName { get; }
+        public byte[] Data { get; set; }
+        public long Version;
 
-    public Task<LoopProgress?> GetLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
-    {
-        var key = $"{flowId}:{stepIndex}";
-        _loopProgress.TryGetValue(key, out var progress);
-        return Task.FromResult(progress);
+        public FlowEntry(string typeName, byte[] data, long version)
+        {
+            TypeName = typeName;
+            Data = data;
+            Version = version;
+        }
     }
-
-    public Task ClearLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
-    {
-        var key = $"{flowId}:{stepIndex}";
-        _loopProgress.TryRemove(key, out _);
-        return Task.CompletedTask;
-    }
-
 }

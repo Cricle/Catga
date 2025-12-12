@@ -2,7 +2,6 @@ using Catga.Flow.Extensions;
 using Catga.Flow.Dsl;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Flows;
-using System.Collections.Generic;
 
 namespace OrderSystem.Api;
 
@@ -231,8 +230,10 @@ public class PaymentProcessingFlow : FlowConfig<PaymentFlowState>
 }
 
 [FlowState]
-public partial class PaymentFlowState : BaseFlowState
+public partial class PaymentFlowState : IFlowState
 {
+    public string? FlowId { get; set; }
+
     [FlowStateField]
     private string _paymentId = string.Empty;
 
@@ -269,8 +270,10 @@ public class ShippingOrchestrationFlow : FlowConfig<ShippingFlowState>
 }
 
 [FlowState]
-public partial class ShippingFlowState : BaseFlowState
+public partial class ShippingFlowState : IFlowState
 {
+    public string? FlowId { get; set; }
+
     [FlowStateField]
     private string _shipmentId = string.Empty;
 
@@ -305,8 +308,10 @@ public class InventoryManagementFlow : FlowConfig<InventoryFlowState>
 }
 
 [FlowState]
-public partial class InventoryFlowState : BaseFlowState
+public partial class InventoryFlowState : IFlowState
 {
+    public string? FlowId { get; set; }
+
     [FlowStateField]
     private List<Product> _products = new();
 
@@ -329,8 +334,10 @@ public class CustomerOnboardingFlow : FlowConfig<CustomerFlowState>
 }
 
 [FlowState]
-public partial class CustomerFlowState : BaseFlowState
+public partial class CustomerFlowState : IFlowState
 {
+    public string? FlowId { get; set; }
+
     [FlowStateField]
     private string _customerId = string.Empty;
 }

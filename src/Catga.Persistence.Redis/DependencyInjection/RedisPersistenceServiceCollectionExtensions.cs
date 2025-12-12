@@ -370,6 +370,25 @@ public static class RedisPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Add Redis GDPR store for managing data erasure requests.
+    /// </summary>
+    public static IServiceCollection AddRedisGdprStore(
+        this IServiceCollection services,
+        string prefix = null)
+    {
+        EnsureRedisConnectionRegistered(services);
+        prefix ??= "gdpr";
+        services.TryAddSingleton<IGdprStore>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            return new RedisGdprStore(redis, serializer, prefix);
+        });
+
+        return services;
+    }
+
+    /// <summary>
     /// Add Redis message scheduler.
     /// </summary>
     public static IServiceCollection AddRedisMessageScheduler(

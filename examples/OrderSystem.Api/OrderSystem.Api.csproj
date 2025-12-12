@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\src\Catga.Transport.Nats\Catga.Transport.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj" />
     <ProjectReference Include="..\..\src\Catga.Persistence.Redis\Catga.Persistence.Redis.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Persistence.Nats\Catga.Persistence.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.AspNetCore\Catga.AspNetCore.csproj" />
     <ProjectReference Include="..\..\src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj" />
     <ProjectReference Include="..\..\src\Catga.Cluster\Catga.Cluster.csproj" />

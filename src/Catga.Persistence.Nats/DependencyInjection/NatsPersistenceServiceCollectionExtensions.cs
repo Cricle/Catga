@@ -194,6 +194,26 @@ public static class NatsPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Adds NATS KV-based enhanced snapshot store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsEnhancedSnapshotStore(
+        this IServiceCollection services,
+        string? bucketName = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<IEnhancedSnapshotStore>(sp =>
+        {
+            var connection = sp.GetRequiredService<INatsConnection>();
+            var serializer = sp.GetRequiredService<IMessageSerializer>();
+            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
+            return new NatsEnhancedSnapshotStore(connection, serializer, provider, bucketName ?? "enhanced-snapshots");
+        });
+
+        return services;
+    }
+
+    /// <summary>
     /// Adds NATS KV-based projection checkpoint store to the service collection.
     /// </summary>
     public static IServiceCollection AddNatsProjectionCheckpointStore(
@@ -365,6 +385,24 @@ public static class NatsPersistenceServiceCollectionExtensions
             var mediator = sp.GetRequiredService<ICatgaMediator>();
             var options = sp.GetRequiredService<IOptions<MessageSchedulerOptions>>();
             return new Catga.Persistence.Nats.Scheduling.NatsMessageScheduler(connection, serializer, mediator, options);
+        });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds NATS connection to the service collection.
+    /// </summary>
+    public static IServiceCollection AddNatsConnection(
+        this IServiceCollection services,
+        string natsUrl = "nats://localhost:4222")
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<INatsConnection>(sp =>
+        {
+            var opts = NatsOpts.Default with { Url = natsUrl };
+            return new NatsConnection(opts);
         });
 
         return services;

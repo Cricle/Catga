@@ -4,8 +4,10 @@ using Catga.DependencyInjection;
 using Catga.EventSourcing;
 using Catga.Flow.Dsl;
 using Catga.Flow.Extensions;
+using Catga.Persistence;
 using Catga.Persistence.InMemory.Flow;
 using Catga.Persistence.InMemory.Stores;
+using Catga.Persistence.Redis.DependencyInjection;
 using Catga.Persistence.Stores;
 using Catga.Resilience;
 using OrderSystem.Api.Domain;
@@ -30,19 +32,67 @@ _ = transport.ToLower() switch
     _ => builder.Services.AddInMemoryTransport()
 };
 
-// Persistence: InMemory (default) | Redis
+// Persistence: InMemory (default) | Redis | NATS
 builder.Services.AddSingleton<IResiliencePipelineProvider, DefaultResiliencePipelineProvider>();
 var persistence = Environment.GetEnvironmentVariable("CATGA_PERSISTENCE") ?? "InMemory";
+
 if (persistence.Equals("redis", StringComparison.OrdinalIgnoreCase))
 {
     var conn = Environment.GetEnvironmentVariable("REDIS_CONNECTION") ?? "localhost:6379";
-    builder.Services.AddRedisPersistence(conn).AddRedisEventStore().AddRedisSnapshotStore().AddRedisDslFlowStore();
+    builder.Services
+        .AddRedisPersistence(conn)
+        .AddRedisEventStore()
+        .AddRedisSnapshotStore()
+        .AddRedisDslFlowStore()
+        .AddRedisProjectionCheckpointStore()
+        .AddRedisSubscriptionStore()
+        .AddRedisAuditLogStore()
+        .AddRedisGdprStore()
+        .AddRedisEnhancedSnapshotStore();
+}
+else if (persistence.Equals("nats", StringComparison.OrdinalIgnoreCase))
+{
+    var natsUrl = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
+    // Register NATS connection first
+    builder.Services.AddSingleton<NATS.Client.Core.INatsConnection>(sp =>
+    {
+        var opts = NATS.Client.Core.NatsOpts.Default with { Url = natsUrl };
+        return new NATS.Client.Core.NatsConnection(opts);
+    });
+    // Then register all NATS persistence stores
+    builder.Services
+        .AddNatsPersistence()
+        .AddNatsEventStore()
+        .AddNatsDslFlowStore()
+        .AddNatsProjectionCheckpointStore()
+        .AddNatsSubscriptionStore()
+        .AddNatsAuditLogStore()
+        .AddNatsGdprStore()
+        .AddNatsEnhancedSnapshotStore();
 }
 else
 {
     builder.Services.AddInMemoryPersistence();
-    builder.Services.AddSingleton<IEventStore, InMemoryEventStore>();
-    builder.Services.AddSingleton<IDslFlowStore, InMemoryDslFlowStore>();
+    builder.Services
+        .AddSingleton<IEventStore, InMemoryEventStore>()
+        .AddSingleton<IDslFlowStore, InMemoryDslFlowStore>()
+        .AddSingleton<IProjectionCheckpointStore, InMemoryProjectionCheckpointStore>()
+        .AddSingleton<ISubscriptionStore, InMemorySubscriptionStore>()
+        .AddSingleton<IAuditLogStore>(sp => sp.GetRequiredService<InMemoryAuditLogStore>())
+        .AddSingleton<IGdprStore>(sp => sp.GetRequiredService<InMemoryGdprStore>())
+        .AddSingleton<IEnhancedSnapshotStore>(sp => sp.GetRequiredService<EnhancedInMemorySnapshotStore>());
+}
+
+// Ensure all persistence stores are registered as interfaces for DI resolution
+if (!persistence.Equals("redis", StringComparison.OrdinalIgnoreCase) && !persistence.Equals("nats", StringComparison.OrdinalIgnoreCase))
+{
+    // Register concrete implementations for InMemory (needed for DI resolution in endpoints)
+    builder.Services
+        .AddSingleton<InMemoryProjectionCheckpointStore>()
+        .AddSingleton<InMemorySubscriptionStore>()
+        .AddSingleton<InMemoryAuditLogStore>()
+        .AddSingleton<InMemoryGdprStore>()
+        .AddSingleton<EnhancedInMemorySnapshotStore>();
 }
 
 // Flow DSL: Use source-generated registration
@@ -61,17 +111,19 @@ builder.Services.AddCatgaHandlers(); // Auto-registers all handlers, behaviors, 
 
 // Infrastructure services (not auto-discovered)
 builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
-builder.Services.AddSingleton<InMemoryProjectionCheckpointStore>();
-builder.Services.AddSingleton<InMemorySubscriptionStore>();
-builder.Services.AddSingleton<InMemoryAuditLogStore>();
-builder.Services.AddSingleton<IAuditLogStore>(sp => sp.GetRequiredService<InMemoryAuditLogStore>());
-builder.Services.AddSingleton<InMemoryGdprStore>();
-builder.Services.AddSingleton<IGdprStore>(sp => sp.GetRequiredService<InMemoryGdprStore>());
 builder.Services.AddSingleton<OrderAuditService>();
-builder.Services.AddSingleton<EnhancedInMemorySnapshotStore>();
-builder.Services.AddSingleton<IEnhancedSnapshotStore>(sp => sp.GetRequiredService<EnhancedInMemorySnapshotStore>());
 builder.Services.AddOrderEventVersioning();
 builder.Services.AddTimeTravelService<OrderAggregate>();
+
+// Register concrete implementations for InMemory persistence (needed for DI resolution)
+if (persistence.Equals("inmemory", StringComparison.OrdinalIgnoreCase) || !persistence.Equals("redis", StringComparison.OrdinalIgnoreCase) && !persistence.Equals("nats", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddSingleton<InMemoryProjectionCheckpointStore>();
+    builder.Services.AddSingleton<InMemorySubscriptionStore>();
+    builder.Services.AddSingleton<InMemoryAuditLogStore>();
+    builder.Services.AddSingleton<InMemoryGdprStore>();
+    builder.Services.AddSingleton<EnhancedInMemorySnapshotStore>();
+}
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -152,7 +204,7 @@ tt.MapGet("/orders/{orderId}/history", async (string orderId, ITimeTravelService
 // Projections (Read Models)
 var proj = app.MapGroup("/api/projections").WithTags("Projections");
 proj.MapGet("/order-summary", (OrderSummaryProjection p) => Results.Ok(new { p.TotalOrders, p.TotalRevenue, p.OrdersByStatus }));
-proj.MapPost("/order-summary/rebuild", async (OrderSummaryProjection p, InMemoryProjectionCheckpointStore cs, IEventStore es) =>
+proj.MapPost("/order-summary/rebuild", async (OrderSummaryProjection p, IProjectionCheckpointStore cs, IEventStore es) =>
 {
     var rebuilder = new ProjectionRebuilder<OrderSummaryProjection>(es, cs, p, p.Name);
     await rebuilder.RebuildAsync();
@@ -162,13 +214,13 @@ proj.MapGet("/customer-stats", (CustomerStatsProjection p) => Results.Ok(p.Stats
 
 // Subscriptions (Persistent event handlers)
 var sub = app.MapGroup("/api/subscriptions").WithTags("Subscriptions");
-sub.MapGet("/", async (InMemorySubscriptionStore s) => Results.Ok((await s.ListAsync()).Select(x => new { x.Name, x.StreamPattern, x.Position, x.ProcessedCount })));
-sub.MapPost("/", async (string name, string pattern, InMemorySubscriptionStore s) =>
+sub.MapGet("/", async (ISubscriptionStore s) => Results.Ok((await s.ListAsync()).Select(x => new { x.Name, x.StreamPattern, x.Position, x.ProcessedCount })));
+sub.MapPost("/", async (string name, string pattern, ISubscriptionStore s) =>
 {
     await s.SaveAsync(new PersistentSubscription(name, pattern));
     return Results.Created($"/api/subscriptions/{name}", new { name, pattern });
 });
-sub.MapPost("/{name}/process", async (string name, InMemorySubscriptionStore s, IEventStore es, OrderEventSubscriptionHandler h) =>
+sub.MapPost("/{name}/process", async (string name, ISubscriptionStore s, IEventStore es, OrderEventSubscriptionHandler h) =>
 {
     var runner = new SubscriptionRunner(es, s, h);
     await runner.RunOnceAsync(name);

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Catga.Abstractions;
 
 namespace Catga.Flow.Dsl;
@@ -19,13 +20,33 @@ public partial class DslFlowExecutor<TState, TConfig>
             return StepResult.Failed("While step has no condition or loop steps");
 
         var condition = (Func<TState, bool>)step.LoopCondition;
-        var loopExecutor = new LoopExecutor<TState>(
-            async (s, steps, _, ct) => await ExecuteLoopStepsAsync(s, steps, ct),
-            maxLoopDepth: 1000,
-            maxIterations: 10000,
-            loopTimeout: TimeSpan.FromMinutes(5));
+        var sw = Stopwatch.StartNew();
+        var iterationCount = 0;
+        const int maxIterations = 10000;
+        var loopTimeout = TimeSpan.FromMinutes(5);
 
-        return await loopExecutor.ExecuteWhileAsync(state, condition, step.LoopSteps, cancellationToken);
+        try
+        {
+            while (condition(state))
+            {
+                if (iterationCount >= maxIterations)
+                    return StepResult.Failed($"Loop iteration limit exceeded: {maxIterations}");
+
+                if (sw.Elapsed > loopTimeout)
+                    return StepResult.Failed($"Loop execution timeout exceeded: {loopTimeout.TotalSeconds}s");
+
+                var result = await ExecuteLoopStepsAsync(state, step.LoopSteps, cancellationToken);
+                if (!result.Success && !result.Skipped)
+                    return result;
+
+                iterationCount++;
+            }
+            return StepResult.Succeeded();
+        }
+        catch (Exception ex)
+        {
+            return StepResult.Failed($"While loop execution failed: {ex.Message}");
+        }
     }
 
     private async Task<StepResult> ExecuteDoWhileAsync(
@@ -38,13 +59,34 @@ public partial class DslFlowExecutor<TState, TConfig>
             return StepResult.Failed("DoWhile step has no condition or loop steps");
 
         var condition = (Func<TState, bool>)step.LoopCondition;
-        var loopExecutor = new LoopExecutor<TState>(
-            async (s, steps, _, ct) => await ExecuteLoopStepsAsync(s, steps, ct),
-            maxLoopDepth: 1000,
-            maxIterations: 10000,
-            loopTimeout: TimeSpan.FromMinutes(5));
+        var sw = Stopwatch.StartNew();
+        var iterationCount = 0;
+        const int maxIterations = 10000;
+        var loopTimeout = TimeSpan.FromMinutes(5);
 
-        return await loopExecutor.ExecuteDoWhileAsync(state, condition, step.LoopSteps, cancellationToken);
+        try
+        {
+            do
+            {
+                if (iterationCount >= maxIterations)
+                    return StepResult.Failed($"Loop iteration limit exceeded: {maxIterations}");
+
+                if (sw.Elapsed > loopTimeout)
+                    return StepResult.Failed($"Loop execution timeout exceeded: {loopTimeout.TotalSeconds}s");
+
+                var result = await ExecuteLoopStepsAsync(state, step.LoopSteps, cancellationToken);
+                if (!result.Success && !result.Skipped)
+                    return result;
+
+                iterationCount++;
+            } while (condition(state));
+
+            return StepResult.Succeeded();
+        }
+        catch (Exception ex)
+        {
+            return StepResult.Failed($"Do-While loop execution failed: {ex.Message}");
+        }
     }
 
     private async Task<StepResult> ExecuteRepeatAsync(
@@ -56,23 +98,52 @@ public partial class DslFlowExecutor<TState, TConfig>
         if (step.LoopSteps == null)
             return StepResult.Failed("Repeat step has no loop steps");
 
-        var loopExecutor = new LoopExecutor<TState>(
-            async (s, steps, _, ct) => await ExecuteLoopStepsAsync(s, steps, ct),
-            maxLoopDepth: 1000,
-            maxIterations: 10000,
-            loopTimeout: TimeSpan.FromMinutes(5));
-
+        int times = 0;
         if (step.RepeatCount.HasValue)
         {
-            return await loopExecutor.ExecuteRepeatAsync(state, step.RepeatCount.Value, step.LoopSteps, cancellationToken);
+            times = step.RepeatCount.Value;
         }
         else if (step.RepeatCountSelector != null)
         {
-            var timesSelector = (Func<TState, int>)step.RepeatCountSelector;
-            return await loopExecutor.ExecuteRepeatAsync(state, timesSelector, step.LoopSteps, cancellationToken);
+            try
+            {
+                var timesSelector = (Func<TState, int>)step.RepeatCountSelector;
+                times = timesSelector(state);
+            }
+            catch (Exception ex)
+            {
+                return StepResult.Failed($"Repeat count selector failed: {ex.Message}");
+            }
+        }
+        else
+        {
+            return StepResult.Failed("Repeat step has no count or count selector");
         }
 
-        return StepResult.Failed("Repeat step has no count or count selector");
+        const int maxIterations = 10000;
+        if (times > maxIterations)
+            return StepResult.Failed($"Repeat count exceeds iteration limit: {times} > {maxIterations}");
+
+        var sw = Stopwatch.StartNew();
+        var loopTimeout = TimeSpan.FromMinutes(5);
+
+        try
+        {
+            for (int i = 0; i < times; i++)
+            {
+                if (sw.Elapsed > loopTimeout)
+                    return StepResult.Failed($"Loop execution timeout exceeded: {loopTimeout.TotalSeconds}s");
+
+                var result = await ExecuteLoopStepsAsync(state, step.LoopSteps, cancellationToken);
+                if (!result.Success && !result.Skipped)
+                    return result;
+            }
+            return StepResult.Succeeded();
+        }
+        catch (Exception ex)
+        {
+            return StepResult.Failed($"Repeat loop execution failed: {ex.Message}");
+        }
     }
 
     private async Task<StepResult> ExecuteTryAsync(
@@ -84,34 +155,55 @@ public partial class DslFlowExecutor<TState, TConfig>
         if (step.TrySteps == null)
             return StepResult.Failed("Try step has no try steps");
 
-        var tryCatchExecutor = new TryCatchExecutor<TState>(
-            async (s, steps, _, ct) => await ExecuteLoopStepsAsync(s, steps, ct));
-
-        // Convert catch handlers from (Type, Delegate) to (Type, Action<TState, Exception>)
-        List<(Type, Action<TState, Exception>)>? catchHandlers = null;
-        if (step.CatchHandlers != null && step.CatchHandlers.Count > 0)
+        try
         {
-            catchHandlers = new List<(Type, Action<TState, Exception>)>();
-            foreach (var (exceptionType, handler) in step.CatchHandlers)
+            var result = await ExecuteLoopStepsAsync(state, step.TrySteps, cancellationToken);
+            if (!result.Success && !result.Skipped)
+                return result;
+
+            return StepResult.Succeeded();
+        }
+        catch (Exception ex)
+        {
+            // Try to find matching catch handler
+            if (step.CatchHandlers != null)
             {
-                var action = (Action<TState, Exception>)handler;
-                catchHandlers.Add((exceptionType, action));
+                foreach (var (exceptionType, handler) in step.CatchHandlers)
+                {
+                    if (exceptionType.IsInstanceOfType(ex))
+                    {
+                        try
+                        {
+                            var action = (Action<TState, Exception>)handler;
+                            action(state, ex);
+                            return StepResult.Succeeded();
+                        }
+                        catch (Exception handlerEx)
+                        {
+                            return StepResult.Failed($"Catch handler failed: {handlerEx.Message}");
+                        }
+                    }
+                }
+            }
+
+            return StepResult.Failed($"Unhandled exception: {ex.Message}");
+        }
+        finally
+        {
+            // Execute finally block
+            if (step.FinallyHandler != null)
+            {
+                try
+                {
+                    var finallyAction = (Action<TState>)step.FinallyHandler;
+                    finallyAction(state);
+                }
+                catch
+                {
+                    // Ignore finally block errors
+                }
             }
         }
-
-        // Get finally handler if present
-        Action<TState>? finallyHandler = null;
-        if (step.FinallyHandler != null)
-        {
-            finallyHandler = (Action<TState>)step.FinallyHandler;
-        }
-
-        return await tryCatchExecutor.ExecuteTryCatchAsync(
-            state,
-            step.TrySteps,
-            catchHandlers,
-            finallyHandler,
-            cancellationToken);
     }
 
     private async Task<StepResult> ExecuteLoopStepsAsync(

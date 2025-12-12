@@ -209,24 +209,28 @@ internal class ExpressionOptimizer : ExpressionVisitor
 
     private static object? EvaluateBinary(ExpressionType nodeType, object? left, object? right)
     {
-        return nodeType switch
+        // Use compiled expression trees instead of dynamic to support serialization
+        try
         {
-            ExpressionType.Add => (dynamic)left + (dynamic)right,
-            ExpressionType.Subtract => (dynamic)left - (dynamic)right,
-            ExpressionType.Multiply => (dynamic)left * (dynamic)right,
-            ExpressionType.Divide => (dynamic)left / (dynamic)right,
-            ExpressionType.Equal => Equals(left, right),
-            ExpressionType.NotEqual => !Equals(left, right),
-            ExpressionType.LessThan => (dynamic)left < (dynamic)right,
-            ExpressionType.LessThanOrEqual => (dynamic)left <= (dynamic)right,
-            ExpressionType.GreaterThan => (dynamic)left > (dynamic)right,
-            ExpressionType.GreaterThanOrEqual => (dynamic)left >= (dynamic)right,
-            ExpressionType.And => (dynamic)left & (dynamic)right,
-            ExpressionType.Or => (dynamic)left | (dynamic)right,
-            ExpressionType.AndAlso => (dynamic)left && (dynamic)right,
-            ExpressionType.OrElse => (dynamic)left || (dynamic)right,
-            _ => null
-        };
+            if (left == null || right == null)
+                return null;
+
+            var leftExpr = Expression.Constant(left);
+            var rightExpr = Expression.Constant(right);
+            var binaryExpr = Expression.MakeBinary(nodeType, leftExpr, rightExpr);
+            var lambda = Expression.Lambda<Func<object>>(Expression.Convert(binaryExpr, typeof(object)));
+            return lambda.Compile()();
+        }
+        catch
+        {
+            // Fallback for unsupported operations
+            return nodeType switch
+            {
+                ExpressionType.Equal => Equals(left, right),
+                ExpressionType.NotEqual => !Equals(left, right),
+                _ => null
+            };
+        }
     }
 }
 

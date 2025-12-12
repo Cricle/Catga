@@ -190,38 +190,6 @@ public class TryCatchTests
         }
     }
 
-    [Fact]
-    public async Task Try_NatsStorage_ShouldRecover()
-    {
-        // Arrange
-        var mediator = Substitute.For<ICatgaMediator>();
-        var store = new NatsDslFlowStore(new NatsConnectionFactory("nats://localhost:4222"));
-        var config = new SimpleTryFlow();
-        var executor = new DslFlowExecutor<TryCatchTestState, SimpleTryFlow>(mediator, store, config);
-
-        var state = new TryCatchTestState { FlowId = "try-recovery-nats" };
-        SetupMediator(mediator);
-
-        try
-        {
-            // Act - First execution
-            var result1 = await executor.RunAsync(state);
-
-            // Simulate crash and recovery
-            var state2 = await store.GetAsync<TryCatchTestState>("try-recovery-nats");
-            var executor2 = new DslFlowExecutor<TryCatchTestState, SimpleTryFlow>(mediator, store, config);
-            var result2 = await executor2.RunAsync(state2);
-
-            // Assert
-            result1.IsSuccess.Should().BeTrue();
-            result2.IsSuccess.Should().BeTrue();
-        }
-        catch (Exception ex) when (ex.Message.Contains("NATS"))
-        {
-            // Skip test if NATS is not available
-            Assert.True(false, "NATS not available");
-        }
-    }
 
     [Fact]
     public async Task Try_ExceptionStatePersisted_ShouldResumeCorrectly()

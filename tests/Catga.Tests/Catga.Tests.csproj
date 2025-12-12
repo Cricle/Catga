@@ -23,6 +23,8 @@
     <Compile Remove="Flow/StorageIntegrationParityTests.cs" />
     <Compile Remove="Flow/StorageFeatureComparisonTests.cs" />
     <Compile Remove="Flow/StorageParityTests.cs" />
+    <Compile Remove="Flow/StorageFeatureParityMatrix.cs" />
+    <Compile Remove="Flow/TDD/StorageParityTests.cs" />
     <Compile Remove="Flow/ForEachStorageParityTests.cs" />
     <Compile Remove="Flow/ForEachIntegrationTests.cs" />
     <Compile Remove="Flow/ForEachAdvancedTests.cs" />

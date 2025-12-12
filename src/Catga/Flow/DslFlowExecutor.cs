@@ -169,7 +169,7 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
                             await _mediator.SendAsync(request, cancellationToken);
                         }
                     }
-                    catch { }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Compensation execution error: {ex.Message}"); }
                 }
 
                 await UpdateSnapshotAsync(snapshot, state, snapshot.Position, DslFlowStatus.Failed, failedChild.Error, cancellationToken);

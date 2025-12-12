@@ -12,9 +12,10 @@ namespace Catga.Persistence.Nats.Flow;
 /// NATS KV-based DSL flow store with revision-based optimistic locking.
 /// Supports distributed flow execution with WaitCondition for WhenAll/WhenAny.
 /// </summary>
-public class NatsDslFlowStore : DslFlowStoreBase, IDslFlowStore
+public class NatsDslFlowStore : IDslFlowStore
 {
     private readonly INatsConnection _nats;
+    private readonly IMessageSerializer _serializer;
     private readonly string _bucketName;
     private readonly string _waitBucket;
     private INatsKVContext? _kv;
@@ -23,13 +24,22 @@ public class NatsDslFlowStore : DslFlowStoreBase, IDslFlowStore
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private bool _initialized;
 
+    private IMessageSerializer Serializer => _serializer;
+
     public NatsDslFlowStore(INatsConnection nats, IMessageSerializer serializer, string bucketName = "dslflows")
-        : base(serializer)
     {
         _nats = nats;
+        _serializer = serializer;
         _bucketName = bucketName;
         _waitBucket = $"{bucketName}_wait";
     }
+
+    private byte[] SerializeWaitCondition(WaitCondition condition) => _serializer.Serialize(condition, typeof(WaitCondition));
+    private WaitCondition? DeserializeWaitCondition(byte[] data) => _serializer.Deserialize(data, typeof(WaitCondition)) as WaitCondition;
+    private byte[] SerializeForEachProgress(ForEachProgress progress) => _serializer.Serialize(progress, typeof(ForEachProgress));
+    private ForEachProgress? DeserializeForEachProgress(byte[] data) => _serializer.Deserialize(data, typeof(ForEachProgress)) as ForEachProgress;
+    private byte[] SerializeLoopProgress(LoopProgress progress) => _serializer.Serialize(progress, typeof(LoopProgress));
+    private LoopProgress? DeserializeLoopProgress(byte[] data) => _serializer.Deserialize(data, typeof(LoopProgress)) as LoopProgress;
 
     private static string EncodeKey(string id) => id.Replace(":", "_C_").Replace("/", "_S_").Replace(".", "_D_");
     private static string EncodeKey(string flowId, int stepIndex) => EncodeKey($"{flowId}:foreach:{stepIndex}");

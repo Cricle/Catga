@@ -42,7 +42,6 @@ public class StorageFeatureParityMatrix
     }
 
     [Theory]
-    [InlineData(typeof(Catga.Flow.Dsl.InMemoryDslFlowStore))]
     [InlineData(typeof(Catga.Persistence.InMemory.Flow.InMemoryDslFlowStore))]
     [InlineData(typeof(Catga.Persistence.Redis.Flow.RedisDslFlowStore))]
     [InlineData(typeof(Catga.Persistence.Nats.Flow.NatsDslFlowStore))]

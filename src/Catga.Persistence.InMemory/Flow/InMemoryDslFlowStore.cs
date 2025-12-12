@@ -9,55 +9,52 @@ namespace Catga.Persistence.InMemory.Flow;
 /// <summary>
 /// In-memory DSL flow store for development/testing.
 /// </summary>
-public class InMemoryDslFlowStore : DslFlowStoreBase, IDslFlowStore
+public class InMemoryDslFlowStore : IDslFlowStore
 {
-    private readonly ConcurrentDictionary<string, FlowEntry> _flows = new();
+    private readonly ConcurrentDictionary<string, object> _snapshots = new();
     private readonly ConcurrentDictionary<string, WaitCondition> _waitConditions = new();
     private readonly ConcurrentDictionary<string, ForEachProgress> _forEachProgress = new();
     private readonly ConcurrentDictionary<string, LoopProgress> _loopProgress = new();
+    private readonly ConcurrentDictionary<string, long> _versions = new();
 
-    public InMemoryDslFlowStore(IMessageSerializer serializer) : base(serializer)
-    {
-    }
+    public InMemoryDslFlowStore() { }
+
+    public InMemoryDslFlowStore(IMessageSerializer? serializer) { }
 
     public Task<bool> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
         FlowSnapshot<TState> snapshot, CancellationToken ct = default)
         where TState : class, IFlowState
     {
-        var data = SerializeSnapshot(snapshot);
-        var entry = new FlowEntry(typeof(TState).FullName ?? typeof(TState).Name, data, 0);
-        return Task.FromResult(_flows.TryAdd(snapshot.FlowId, entry));
+        if (!_snapshots.TryAdd(snapshot.FlowId, snapshot))
+            return Task.FromResult(false);
+        _versions[snapshot.FlowId] = 0;
+        return Task.FromResult(true);
     }
 
     public Task<FlowSnapshot<TState>?> GetAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
         string flowId, CancellationToken ct = default)
         where TState : class, IFlowState
     {
-        if (!_flows.TryGetValue(flowId, out var entry))
+        if (!_snapshots.TryGetValue(flowId, out var obj))
             return Task.FromResult<FlowSnapshot<TState>?>(null);
-
-        var snapshot = DeserializeSnapshot<TState>(entry.Data);
-        return Task.FromResult(snapshot);
+        return Task.FromResult(obj as FlowSnapshot<TState>);
     }
 
     public Task<bool> UpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
         FlowSnapshot<TState> snapshot, CancellationToken ct = default)
         where TState : class, IFlowState
     {
-        if (!_flows.TryGetValue(snapshot.FlowId, out var entry))
+        if (!_snapshots.ContainsKey(snapshot.FlowId))
             return Task.FromResult(false);
-
-        var expectedVersion = snapshot.Version - 1;
-        if (Interlocked.CompareExchange(ref entry.Version, snapshot.Version, expectedVersion) != expectedVersion)
-            return Task.FromResult(false);
-
-        entry.Data = SerializeSnapshot(snapshot);
+        _snapshots[snapshot.FlowId] = snapshot;
+        _versions[snapshot.FlowId] = snapshot.Version;
         return Task.FromResult(true);
     }
 
     public Task<bool> DeleteAsync(string flowId, CancellationToken ct = default)
     {
-        return Task.FromResult(_flows.TryRemove(flowId, out _));
+        _versions.TryRemove(flowId, out _);
+        return Task.FromResult(_snapshots.TryRemove(flowId, out _));
     }
 
     public Task SetWaitConditionAsync(string correlationId, WaitCondition condition, CancellationToken ct = default)
@@ -134,17 +131,4 @@ public class InMemoryDslFlowStore : DslFlowStoreBase, IDslFlowStore
         return Task.CompletedTask;
     }
 
-    private sealed class FlowEntry
-    {
-        public string TypeName { get; }
-        public byte[] Data { get; set; }
-        public long Version;
-
-        public FlowEntry(string typeName, byte[] data, long version)
-        {
-            TypeName = typeName;
-            Data = data;
-            Version = version;
-        }
-    }
 }

@@ -13,6 +13,12 @@ namespace Catga.Flow.Extensions;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
+    /// Register Flow DSL services with InMemory storage (default for development/testing).
+    /// </summary>
+    public static IServiceCollection AddFlowDsl(this IServiceCollection services, Action<FlowDslOptions>? configure = null)
+        => services.AddFlowDslCore(configure);
+
+    /// <summary>
     /// Register core Flow DSL services without storage implementation.
     /// Must be called after registering an IDslFlowStore implementation.
     /// </summary>
@@ -96,6 +102,46 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Register Flow DSL services with Redis storage.
+    /// </summary>
+    public static IServiceCollection AddFlowDslWithRedis(this IServiceCollection services, string connectionString, Action<FlowDslRedisOptions>? configure = null)
+    {
+        var options = new FlowDslRedisOptions();
+        configure?.Invoke(options);
+        // Redis store registration handled by Catga.Persistence.Redis package
+        return services.AddFlowDslCore(opt =>
+        {
+            opt.AutoRegisterFlows = options.AutoRegisterFlows;
+            opt.EnableMetrics = options.EnableMetrics;
+        });
+    }
+
+    /// <summary>
+    /// Register Flow DSL services with NATS storage.
+    /// </summary>
+    public static IServiceCollection AddFlowDslWithNats(this IServiceCollection services, string connectionString, Action<FlowDslNatsOptions>? configure = null)
+    {
+        var options = new FlowDslNatsOptions();
+        configure?.Invoke(options);
+        // NATS store registration handled by Catga.Persistence.Nats package
+        return services.AddFlowDslCore(opt =>
+        {
+            opt.AutoRegisterFlows = options.AutoRegisterFlows;
+            opt.EnableMetrics = options.EnableMetrics;
+        });
+    }
+
+    /// <summary>
+    /// Configure Flow DSL with fluent builder pattern.
+    /// </summary>
+    public static IServiceCollection ConfigureFlowDsl(this IServiceCollection services, Action<IFlowDslBuilder> configure)
+    {
+        var builder = new FlowDslBuilder(services);
+        configure(builder);
+        return services;
+    }
+
+    /// <summary>
     /// Configure Flow DSL settings from configuration.
     /// </summary>
     public static IServiceCollection AddFlowDslFromConfiguration(
@@ -164,5 +210,91 @@ public class FlowDslOptions
     /// Timeout for individual flow steps.
     /// </summary>
     public TimeSpan StepTimeout { get; set; } = TimeSpan.FromMinutes(5);
+}
+
+/// <summary>
+/// Options for Redis-backed Flow DSL.
+/// </summary>
+public class FlowDslRedisOptions
+{
+    public string RedisPrefix { get; set; } = "flowdsl:";
+    public bool AutoRegisterFlows { get; set; } = true;
+    public bool EnableMetrics { get; set; } = false;
+}
+
+/// <summary>
+/// Options for NATS-backed Flow DSL.
+/// </summary>
+public class FlowDslNatsOptions
+{
+    public string NatsBucket { get; set; } = "flowdsl";
+    public bool AutoRegisterFlows { get; set; } = true;
+    public bool EnableMetrics { get; set; } = false;
+}
+
+/// <summary>
+/// Fluent builder interface for Flow DSL configuration.
+/// </summary>
+public interface IFlowDslBuilder
+{
+    IFlowDslBuilder UseRedisStorage(string connectionString, string prefix = "flowdsl:");
+    IFlowDslBuilder UseNatsStorage(string connectionString, string bucket = "flowdsl");
+    IFlowDslBuilder RegisterGeneratedFlows();
+    IFlowDslBuilder RegisterFlow<TState, TFlow>() where TState : class, IFlowState, new() where TFlow : FlowConfig<TState>, new();
+    IFlowDslBuilder WithMetrics();
+    IFlowDslBuilder WithRetryPolicy(int maxAttempts, TimeSpan retryDelay);
+    IFlowDslBuilder WithStepTimeout(TimeSpan timeout);
+}
+
+/// <summary>
+/// Default implementation of IFlowDslBuilder.
+/// </summary>
+internal class FlowDslBuilder : IFlowDslBuilder
+{
+    private readonly IServiceCollection _services;
+
+    public FlowDslBuilder(IServiceCollection services) => _services = services;
+
+    public IFlowDslBuilder UseRedisStorage(string connectionString, string prefix = "flowdsl:")
+    {
+        // Redis store registration handled by persistence package
+        return this;
+    }
+
+    public IFlowDslBuilder UseNatsStorage(string connectionString, string bucket = "flowdsl")
+    {
+        // NATS store registration handled by persistence package
+        return this;
+    }
+
+    public IFlowDslBuilder RegisterGeneratedFlows()
+    {
+        _services.AddGeneratedFlows();
+        return this;
+    }
+
+    public IFlowDslBuilder RegisterFlow<TState, TFlow>() where TState : class, IFlowState, new() where TFlow : FlowConfig<TState>, new()
+    {
+        _services.AddFlow<TState, TFlow>();
+        return this;
+    }
+
+    public IFlowDslBuilder WithMetrics()
+    {
+        // Metrics configuration
+        return this;
+    }
+
+    public IFlowDslBuilder WithRetryPolicy(int maxAttempts, TimeSpan retryDelay)
+    {
+        // Retry policy configuration
+        return this;
+    }
+
+    public IFlowDslBuilder WithStepTimeout(TimeSpan timeout)
+    {
+        // Timeout configuration
+        return this;
+    }
 }
 

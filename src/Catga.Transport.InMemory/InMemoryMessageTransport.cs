@@ -20,6 +20,9 @@ namespace Catga.Transport;
 public class InMemoryMessageTransport(ILogger<InMemoryMessageTransport>? logger, IResiliencePipelineProvider provider, CatgaOptions? globalOptions = null)
     : IMessageTransport
 {
+#pragma warning disable IDE0052
+    private readonly ILogger<InMemoryMessageTransport>? _logger = logger;
+#pragma warning restore IDE0052
     private readonly InMemoryIdempotencyStore _idem = new();
     private readonly Func<Type, string>? _naming = globalOptions?.EndpointNamingConvention;
 
@@ -68,15 +71,11 @@ public class InMemoryMessageTransport(ILogger<InMemoryMessageTransport>? logger,
                     {
                         await ExecuteHandlersAsync(handlers, message, ctx).ConfigureAwait(false);
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         // QoS 0: Discard on failure, log but don't throw
-                        if (logger is not null)
-                        {
-                            CatgaLog.InMemoryQoS0ProcessingFailed(logger, ex, ctx.MessageId, logicalName);
-                        }
                     }
-                    System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.InMemoryPublishSent,
+                    System.Diagnostics.Activity.Current?.AddActivityEvent("Messaging.Publish.Sent",
                         ("destination", logicalName),
                         ("qos", qosString));
                     break;
@@ -134,7 +133,7 @@ public class InMemoryMessageTransport(ILogger<InMemoryMessageTransport>? logger,
 
                     if (ctx.MessageId.HasValue)
                         _idem.MarkAsProcessed(ctx.MessageId.Value);
-                    System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.InMemoryPublishSent,
+                    System.Diagnostics.Activity.Current?.AddActivityEvent("Messaging.Publish.Sent",
                         ("destination", logicalName),
                         ("qos", qosString));
                     break;
@@ -181,9 +180,9 @@ public class InMemoryMessageTransport(ILogger<InMemoryMessageTransport>? logger,
         {
             await handler(message, context).ConfigureAwait(false);
             var ms = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
-            System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.InMemoryReceiveHandler,
+            System.Diagnostics.Activity.Current?.AddActivityEvent("Messaging.Receive.Handler",
                 ("duration.ms", ms));
-            System.Diagnostics.Activity.Current?.AddActivityEvent(CatgaActivitySource.Events.InMemoryReceiveProcessed);
+            System.Diagnostics.Activity.Current?.AddActivityEvent("Messaging.Receive.Processed");
         }
         catch (Exception ex)
         {

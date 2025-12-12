@@ -141,5 +141,46 @@ internal static partial class CatgaLog
     // Dead Letter Queue
     [LoggerMessage(EventId = 6002, Level = LogLevel.Error, Message = "Failed to send message to DeadLetterQueue")]
     public static partial void DLQSendFailed(ILogger logger, Exception? exception);
+
+    // Redis Outbox Persistence Logs (9000-9099)
+    [LoggerMessage(EventId = 9000, Level = LogLevel.Debug, Message = "Outbox message added {MessageId}")]
+    public static partial void OutboxAdded(ILogger logger, long MessageId);
+
+    [LoggerMessage(EventId = 9001, Level = LogLevel.Error, Message = "Outbox message add failed {MessageId}")]
+    public static partial void OutboxAddFailed(ILogger logger, long MessageId);
+
+    [LoggerMessage(EventId = 9002, Level = LogLevel.Warning, Message = "Outbox message deserialize failed {MessageId}")]
+    public static partial void OutboxDeserializeFailed(ILogger logger, Exception? exception, long MessageId);
+
+    [LoggerMessage(EventId = 9003, Level = LogLevel.Warning, Message = "Outbox message not found {MessageId}")]
+    public static partial void OutboxMessageNotFound(ILogger logger, long MessageId);
+
+    [LoggerMessage(EventId = 9004, Level = LogLevel.Debug, Message = "Outbox message marked published {MessageId}")]
+    public static partial void OutboxMarkedPublished(ILogger logger, long MessageId);
+
+    [LoggerMessage(EventId = 9005, Level = LogLevel.Error, Message = "Outbox message failed after retries {MessageId} [RetryCount={RetryCount}, Error={Error}]")]
+    public static partial void OutboxMessageFailedAfterRetries(ILogger logger, long MessageId, int RetryCount, string? Error);
+
+    [LoggerMessage(EventId = 9006, Level = LogLevel.Debug, Message = "Outbox message retry {MessageId} [RetryCount={RetryCount}, MaxRetries={MaxRetries}, Error={Error}]")]
+    public static partial void OutboxMessageRetry(ILogger logger, long MessageId, int RetryCount, int MaxRetries, string? Error);
+
+    [LoggerMessage(EventId = 9007, Level = LogLevel.Debug, Message = "Outbox cleanup completed {Count} messages")]
+    public static partial void OutboxCleanup(ILogger logger, long Count);
+
+    // Redis Inbox Persistence Logs (9100-9199)
+    [LoggerMessage(EventId = 9100, Level = LogLevel.Debug, Message = "Inbox message locked {MessageId}")]
+    public static partial void InboxLocked(ILogger logger, long MessageId);
+
+    [LoggerMessage(EventId = 9101, Level = LogLevel.Debug, Message = "Inbox message already processed or locked {MessageId}")]
+    public static partial void InboxAlreadyProcessedOrLocked(ILogger logger, long MessageId);
+
+    [LoggerMessage(EventId = 9102, Level = LogLevel.Debug, Message = "Inbox message marked processed {MessageId}")]
+    public static partial void InboxMarkedProcessed(ILogger logger, long MessageId);
+
+    [LoggerMessage(EventId = 9103, Level = LogLevel.Debug, Message = "Inbox lock released {MessageId}")]
+    public static partial void InboxReleasedLock(ILogger logger, long MessageId);
+
+    [LoggerMessage(EventId = 9104, Level = LogLevel.Debug, Message = "Inbox TTL cleanup - Redis handles via expiry")]
+    public static partial void InboxTTL(ILogger logger);
 }
 

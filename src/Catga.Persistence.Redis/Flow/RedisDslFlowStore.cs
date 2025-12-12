@@ -11,10 +11,13 @@ namespace Catga.Persistence.Redis.Flow;
 /// Redis DSL flow store with atomic Lua scripts.
 /// Supports distributed flow execution with WaitCondition for WhenAll/WhenAny.
 /// </summary>
-public class RedisDslFlowStore : DslFlowStoreBase, IDslFlowStore
+public class RedisDslFlowStore : IDslFlowStore
 {
     private readonly IConnectionMultiplexer _redis;
+    private readonly IMessageSerializer _serializer;
     private readonly string _prefix;
+
+    private IMessageSerializer Serializer => _serializer;
 
     // Lua scripts for atomic operations
     private const string CreateScript = @"
@@ -39,11 +42,18 @@ public class RedisDslFlowStore : DslFlowStoreBase, IDslFlowStore
         return 1";
 
     public RedisDslFlowStore(IConnectionMultiplexer redis, IMessageSerializer serializer, string prefix = "dslflow:")
-        : base(serializer)
     {
         _redis = redis;
+        _serializer = serializer;
         _prefix = prefix;
     }
+
+    private byte[] SerializeWaitCondition(WaitCondition condition) => _serializer.Serialize(condition, typeof(WaitCondition));
+    private WaitCondition? DeserializeWaitCondition(byte[] data) => _serializer.Deserialize(data, typeof(WaitCondition)) as WaitCondition;
+    private byte[] SerializeForEachProgress(ForEachProgress progress) => _serializer.Serialize(progress, typeof(ForEachProgress));
+    private ForEachProgress? DeserializeForEachProgress(byte[] data) => _serializer.Deserialize(data, typeof(ForEachProgress)) as ForEachProgress;
+    private byte[] SerializeLoopProgress(LoopProgress progress) => _serializer.Serialize(progress, typeof(LoopProgress));
+    private LoopProgress? DeserializeLoopProgress(byte[] data) => _serializer.Deserialize(data, typeof(LoopProgress)) as LoopProgress;
 
     public async Task<bool> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(FlowSnapshot<TState> snapshot, CancellationToken ct = default)
         where TState : class, IFlowState

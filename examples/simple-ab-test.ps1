@@ -72,7 +72,7 @@ $apiJob = Start-Job -ScriptBlock {
     $env:NATS_URL = $nats
     $env:ASPNETCORE_URLS = $urls
     Set-Location $dir
-    dotnet run --project OrderSystem.Api -c Release --no-build 2>&1
+    dotnet run --project OrderSystem.Api -c Release --no-build --no-launch-profile 2>&1
 } -ArgumentList $scriptDir, $env:CATGA_TRANSPORT, $env:CATGA_PERSISTENCE, $env:REDIS_CONNECTION, $env:NATS_URL, $baseUrl
 
 # Wait for API

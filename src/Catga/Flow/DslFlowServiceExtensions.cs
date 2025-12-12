@@ -36,11 +36,11 @@ public static class DslFlowServiceExtensions
     /// <summary>
     /// Adds the flow timeout service.
     /// </summary>
-    public static IServiceCollection AddFlowTimeoutService(this IServiceCollection services, TimeSpan? checkInterval = null)
+    public static IServiceCollection AddFlowTimeoutService(this IServiceCollection services, Action<FlowTimeoutServiceOptions>? configure = null)
     {
-        services.AddSingleton(sp => new FlowTimeoutService(
-            sp.GetRequiredService<IDslFlowStore>(),
-            checkInterval));
+        if (configure != null)
+            services.Configure(configure);
+        services.AddSingleton<FlowTimeoutService>();
         return services;
     }
 

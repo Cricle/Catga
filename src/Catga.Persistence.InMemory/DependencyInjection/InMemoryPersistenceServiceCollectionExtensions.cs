@@ -157,21 +157,24 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     /// <summary>
     /// Adds InMemory idempotency store to the service collection.
     /// </summary>
-    public static IServiceCollection AddInMemoryIdempotencyStore(this IServiceCollection services, TimeSpan? retentionPeriod = null)
+    public static IServiceCollection AddInMemoryIdempotencyStore(this IServiceCollection services, Action<InMemoryIdempotencyStoreOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.TryAddSingleton<IIdempotencyStore>(sp =>
-            new InMemoryIdempotencyStore(sp.GetRequiredService<IMessageSerializer>(), retentionPeriod));
+        if (configure != null)
+            services.Configure(configure);
+        services.TryAddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
         return services;
     }
 
     /// <summary>
     /// Adds InMemory rate limiter to the service collection.
     /// </summary>
-    public static IServiceCollection AddInMemoryRateLimiter(this IServiceCollection services, int limit = 100, TimeSpan? window = null)
+    public static IServiceCollection AddInMemoryRateLimiter(this IServiceCollection services, Action<InMemoryRateLimiterOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.TryAddSingleton<IDistributedRateLimiter>(new InMemoryRateLimiter(limit, window));
+        if (configure != null)
+            services.Configure(configure);
+        services.TryAddSingleton<IDistributedRateLimiter, InMemoryRateLimiter>();
         return services;
     }
 

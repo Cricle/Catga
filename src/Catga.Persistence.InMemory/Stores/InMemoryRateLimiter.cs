@@ -3,8 +3,19 @@ using System.Diagnostics;
 using System.Threading.RateLimiting;
 using Catga.Abstractions;
 using Catga.Observability;
+using Microsoft.Extensions.Options;
 
 namespace Catga.Persistence.InMemory.Stores;
+
+/// <summary>Options for InMemoryRateLimiter.</summary>
+public class InMemoryRateLimiterOptions
+{
+    /// <summary>Default permit limit per window. Default: 100.</summary>
+    public int DefaultLimit { get; set; } = 100;
+
+    /// <summary>Sliding window duration. Default: 1 minute.</summary>
+    public TimeSpan Window { get; set; } = TimeSpan.FromMinutes(1);
+}
 
 /// <summary>In-memory rate limiter using System.Threading.RateLimiting.</summary>
 public sealed class InMemoryRateLimiter : IDistributedRateLimiter, IDisposable
@@ -13,10 +24,10 @@ public sealed class InMemoryRateLimiter : IDistributedRateLimiter, IDisposable
     private readonly int _defaultLimit;
     private readonly TimeSpan _window;
 
-    public InMemoryRateLimiter(int defaultLimit = 100, TimeSpan? defaultWindow = null)
+    public InMemoryRateLimiter(IOptions<InMemoryRateLimiterOptions>? options = null)
     {
-        _defaultLimit = defaultLimit;
-        _window = defaultWindow ?? TimeSpan.FromMinutes(1);
+        _defaultLimit = options?.Value.DefaultLimit ?? 100;
+        _window = options?.Value.Window ?? TimeSpan.FromMinutes(1);
     }
 
     private SlidingWindowRateLimiter GetOrCreateLimiter(string key)

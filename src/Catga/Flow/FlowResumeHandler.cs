@@ -1,4 +1,5 @@
 using Catga.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Catga.Flow.Dsl;
 
@@ -62,6 +63,13 @@ public class FlowResumeHandler(IDslFlowStore store) : IEventHandler<FlowComplete
 /// <summary>
 /// Background service that checks for timed out wait conditions and failed flows.
 /// </summary>
+/// <summary>Options for FlowTimeoutService.</summary>
+public class FlowTimeoutServiceOptions
+{
+    /// <summary>Interval for checking timed out flows. Default: 30 seconds.</summary>
+    public TimeSpan CheckInterval { get; set; } = TimeSpan.FromSeconds(30);
+}
+
 public class FlowTimeoutService : IDisposable
 {
     private readonly IDslFlowStore _store;
@@ -69,10 +77,10 @@ public class FlowTimeoutService : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private Task? _backgroundTask;
 
-    public FlowTimeoutService(IDslFlowStore store, TimeSpan? checkInterval = null)
+    public FlowTimeoutService(IDslFlowStore store, IOptions<FlowTimeoutServiceOptions>? options = null)
     {
         _store = store;
-        _checkInterval = checkInterval ?? TimeSpan.FromSeconds(30);
+        _checkInterval = options?.Value.CheckInterval ?? TimeSpan.FromSeconds(30);
     }
 
     /// <summary>

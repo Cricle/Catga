@@ -46,6 +46,8 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         _config.Build();
     }
 
+    // ========== Public API - Flow Execution ==========
+
     public async Task<DslFlowResult<TState>> RunAsync(TState state, CancellationToken cancellationToken = default)
     {
         state.FlowId ??= Guid.NewGuid().ToString("N");
@@ -226,6 +228,8 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
 
         return await _store.UpdateAsync(cancelled, cancellationToken);
     }
+
+    // ========== Core Execution - Step Processing ==========
 
     private async Task<DslFlowResult<TState>> ExecuteFromStepAsync(
         FlowSnapshot<TState> snapshot,
@@ -781,12 +785,10 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         await _store.UpdateAsync(updated, cancellationToken);
     }
 
-    // Helper to convert step index to position for backward compatibility
+    // ========== Position Navigation - Branch Support ==========
+
     private FlowPosition StepToPosition(int stepIndex) => new([stepIndex]);
 
-    /// <summary>
-    /// Get the step at a given position, navigating through branches.
-    /// </summary>
     private FlowStep? GetStepAtPosition(FlowPosition position)
     {
         if (position.Path.Length == 0)

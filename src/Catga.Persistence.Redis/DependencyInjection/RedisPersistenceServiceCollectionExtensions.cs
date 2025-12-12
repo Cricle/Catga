@@ -33,9 +33,9 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisOutboxPersistence(
         this IServiceCollection services,
-        Action<RedisOutboxOptions>? configure = null)
+        Action<RedisPersistenceOptions>? configure = null)
     {
-        var options = new RedisOutboxOptions();
+        var options = new RedisPersistenceOptions();
         configure?.Invoke(options);
 
         services.TryAddSingleton(options);
@@ -45,7 +45,15 @@ public static class RedisPersistenceServiceCollectionExtensions
             var serializer = sp.GetRequiredService<IMessageSerializer>();
             var logger = sp.GetRequiredService<ILogger<RedisOutboxPersistence>>();
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-            return new RedisOutboxPersistence(redis, serializer, logger, provider, options);
+            var opts = sp.GetRequiredService<RedisPersistenceOptions>();
+            return new RedisOutboxPersistence(redis, serializer, logger, provider,
+                new RedisOutboxOptions
+                {
+                    KeyPrefix = opts.OutboxKeyPrefix,
+                    PublishedRetention = opts.OutboxPublishedRetention,
+                    PollingInterval = opts.OutboxPollingInterval,
+                    BatchSize = opts.OutboxBatchSize
+                });
         });
 
         return services;
@@ -56,9 +64,9 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisInboxPersistence(
         this IServiceCollection services,
-        Action<RedisInboxOptions>? configure = null)
+        Action<RedisPersistenceOptions>? configure = null)
     {
-        var options = new RedisInboxOptions();
+        var options = new RedisPersistenceOptions();
         configure?.Invoke(options);
 
         services.TryAddSingleton(options);
@@ -68,7 +76,14 @@ public static class RedisPersistenceServiceCollectionExtensions
             var serializer = sp.GetRequiredService<IMessageSerializer>();
             var logger = sp.GetRequiredService<ILogger<RedisInboxPersistence>>();
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-            return new RedisInboxPersistence(redis, serializer, logger, provider, options);
+            var opts = sp.GetRequiredService<RedisPersistenceOptions>();
+            return new RedisInboxPersistence(redis, serializer, logger, provider,
+                new RedisInboxOptions
+                {
+                    KeyPrefix = opts.InboxKeyPrefix,
+                    ProcessedRetention = opts.InboxProcessedRetention,
+                    DefaultLockDuration = opts.InboxDefaultLockDuration
+                });
         });
 
         return services;
@@ -79,12 +94,11 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisPersistence(
         this IServiceCollection services,
-        Action<RedisOutboxOptions>? configureOutbox = null,
-        Action<RedisInboxOptions>? configureInbox = null)
+        Action<RedisPersistenceOptions>? configure = null)
     {
-        services.AddRedisOutboxPersistence(configureOutbox);
-        services.AddRedisInboxPersistence(configureInbox);
-        services.AddRedisIdempotencyStore();
+        services.AddRedisOutboxPersistence(configure);
+        services.AddRedisInboxPersistence(configure);
+        services.AddRedisIdempotencyStore(configure);
 
         return services;
     }
@@ -106,9 +120,9 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisIdempotencyStore(
         this IServiceCollection services,
-        Action<RedisIdempotencyOptions>? configure = null)
+        Action<RedisPersistenceOptions>? configure = null)
     {
-        var options = new RedisIdempotencyOptions();
+        var options = new RedisPersistenceOptions();
         configure?.Invoke(options);
 
         services.TryAddSingleton(options);
@@ -118,7 +132,13 @@ public static class RedisPersistenceServiceCollectionExtensions
             var serializer = sp.GetRequiredService<IMessageSerializer>();
             var logger = sp.GetRequiredService<ILogger<RedisIdempotencyStore>>();
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-            return new RedisIdempotencyStore(redis, serializer, logger, provider, options);
+            var opts = sp.GetRequiredService<RedisPersistenceOptions>();
+            return new RedisIdempotencyStore(redis, serializer, logger, provider,
+                new RedisIdempotencyOptions
+                {
+                    KeyPrefix = opts.IdempotencyKeyPrefix,
+                    Expiry = opts.IdempotencyExpiry
+                });
         });
 
         return services;
@@ -162,8 +182,9 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisDslFlowStore(
         this IServiceCollection services,
-        string prefix = "dslflow:")
+        string prefix = null)
     {
+        prefix ??= RedisKeyPrefixes.DslFlow;
         services.TryAddSingleton<IDslFlowStore>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
@@ -179,8 +200,9 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisFlowStore(
         this IServiceCollection services,
-        string prefix = "flow:")
+        string prefix = null)
     {
+        prefix ??= RedisKeyPrefixes.Flow;
         services.TryAddSingleton<IFlowStore>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
@@ -219,9 +241,10 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisEventStore(
         this IServiceCollection services,
-        string prefix = "events:",
+        string prefix = null,
         IEventTypeRegistry? registry = null)
     {
+        prefix ??= RedisKeyPrefixes.Events;
         services.TryAddSingleton<IEventStore>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
@@ -254,8 +277,9 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisProjectionCheckpointStore(
         this IServiceCollection services,
-        string prefix = "projection:checkpoint:")
+        string prefix = null)
     {
+        prefix ??= RedisKeyPrefixes.ProjectionCheckpoint;
         services.TryAddSingleton<IProjectionCheckpointStore>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
@@ -272,8 +296,9 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisSubscriptionStore(
         this IServiceCollection services,
-        string prefix = "subscription:")
+        string prefix = null)
     {
+        prefix ??= RedisKeyPrefixes.Subscription;
         services.TryAddSingleton<ISubscriptionStore>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
@@ -290,8 +315,9 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisEnhancedSnapshotStore(
         this IServiceCollection services,
-        string prefix = "snapshot:enhanced:")
+        string prefix = null)
     {
+        prefix ??= RedisKeyPrefixes.SnapshotEnhanced;
         services.TryAddSingleton<IEnhancedSnapshotStore>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
@@ -308,8 +334,9 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisAuditLogStore(
         this IServiceCollection services,
-        string prefix = "audit:")
+        string prefix = null)
     {
+        prefix ??= RedisKeyPrefixes.Audit;
         services.TryAddSingleton<IAuditLogStore>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();

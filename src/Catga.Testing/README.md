@@ -254,7 +254,7 @@ sw.Elapsed.Should().BeGreaterThanOrEqualTo(TimeSpan.FromSeconds(1));
 
 完整的测试示例请参考：
 - [项目测试 (GitHub)](https://github.com/Cricle/Catga/tree/master/tests/Catga.Tests) - 项目测试
-- [OrderSystem.Api 示例](../../examples/OrderSystem.Api/README.md) - 实际应用测试
+- [OrderSystem 示例](../../examples/README.md) - 实际应用测试
 
 ## 🤝 贡献
 

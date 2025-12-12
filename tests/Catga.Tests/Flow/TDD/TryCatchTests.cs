@@ -228,7 +228,7 @@ public class TryCatchTests
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
         mediator.SendAsync(Arg.Any<IRequest>())
-            .Returns(x => throw new InvalidOperationException("Test exception"));
+            .Returns(x => { throw new InvalidOperationException("Test exception"); });
 
         var store = new InMemoryDslFlowStore();
         var config = new SimpleTryFlow();
@@ -240,7 +240,8 @@ public class TryCatchTests
         var result1 = await executor.RunAsync(state);
 
         // Simulate recovery
-        var state2 = await store.GetAsync<TryCatchTestState>("try-exception-persist");
+        var snapshot2 = await store.GetAsync<TryCatchTestState>("try-exception-persist");
+        var state2 = snapshot2?.State ?? new TryCatchTestState { FlowId = "try-exception-persist" };
         var executor2 = new DslFlowExecutor<TryCatchTestState, SimpleTryFlow>(mediator, store, config);
         var result2 = await executor2.RunAsync(state2);
 
@@ -295,7 +296,7 @@ public class TryCatchTests
     private void SetupMediator(ICatgaMediator mediator)
     {
         mediator.SendAsync(Arg.Any<IRequest>())
-            .Returns(x => Task.CompletedTask);
+            .Returns(Task.CompletedTask);
     }
 }
 

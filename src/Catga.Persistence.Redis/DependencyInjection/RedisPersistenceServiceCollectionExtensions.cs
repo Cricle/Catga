@@ -29,12 +29,26 @@ namespace Catga.DependencyInjection;
 public static class RedisPersistenceServiceCollectionExtensions
 {
     /// <summary>
+    /// Ensure all required Redis dependencies are registered.
+    /// </summary>
+    private static void EnsureRedisConnectionRegistered(IServiceCollection services)
+    {
+        // Check if IConnectionMultiplexer is already registered
+        if (!services.Any(sd => sd.ServiceType == typeof(IConnectionMultiplexer)))
+        {
+            throw new InvalidOperationException(
+                "IConnectionMultiplexer is not registered. " +
+                "Call AddRedisPersistence(connectionString) or register IConnectionMultiplexer manually.");
+        }
+    }
+    /// <summary>
     /// 添加 Redis Outbox 持久化存储 (requires IMessageSerializer to be registered separately)
     /// </summary>
     public static IServiceCollection AddRedisOutboxPersistence(
         this IServiceCollection services,
         Action<RedisPersistenceOptions>? configure = null)
     {
+        EnsureRedisConnectionRegistered(services);
         var options = new RedisPersistenceOptions();
         configure?.Invoke(options);
 
@@ -66,6 +80,7 @@ public static class RedisPersistenceServiceCollectionExtensions
         this IServiceCollection services,
         Action<RedisPersistenceOptions>? configure = null)
     {
+        EnsureRedisConnectionRegistered(services);
         var options = new RedisPersistenceOptions();
         configure?.Invoke(options);
 
@@ -122,6 +137,7 @@ public static class RedisPersistenceServiceCollectionExtensions
         this IServiceCollection services,
         Action<RedisPersistenceOptions>? configure = null)
     {
+        EnsureRedisConnectionRegistered(services);
         var options = new RedisPersistenceOptions();
         configure?.Invoke(options);
 
@@ -184,6 +200,7 @@ public static class RedisPersistenceServiceCollectionExtensions
         this IServiceCollection services,
         string prefix = null)
     {
+        EnsureRedisConnectionRegistered(services);
         prefix ??= RedisKeyPrefixes.DslFlow;
         services.TryAddSingleton<IDslFlowStore>(sp =>
         {
@@ -202,6 +219,7 @@ public static class RedisPersistenceServiceCollectionExtensions
         this IServiceCollection services,
         string prefix = null)
     {
+        EnsureRedisConnectionRegistered(services);
         prefix ??= RedisKeyPrefixes.Flow;
         services.TryAddSingleton<IFlowStore>(sp =>
         {
@@ -244,6 +262,7 @@ public static class RedisPersistenceServiceCollectionExtensions
         string prefix = null,
         IEventTypeRegistry? registry = null)
     {
+        EnsureRedisConnectionRegistered(services);
         prefix ??= RedisKeyPrefixes.Events;
         services.TryAddSingleton<IEventStore>(sp =>
         {
@@ -279,6 +298,7 @@ public static class RedisPersistenceServiceCollectionExtensions
         this IServiceCollection services,
         string prefix = null)
     {
+        EnsureRedisConnectionRegistered(services);
         prefix ??= RedisKeyPrefixes.ProjectionCheckpoint;
         services.TryAddSingleton<IProjectionCheckpointStore>(sp =>
         {
@@ -298,6 +318,7 @@ public static class RedisPersistenceServiceCollectionExtensions
         this IServiceCollection services,
         string prefix = null)
     {
+        EnsureRedisConnectionRegistered(services);
         prefix ??= RedisKeyPrefixes.Subscription;
         services.TryAddSingleton<ISubscriptionStore>(sp =>
         {
@@ -317,6 +338,7 @@ public static class RedisPersistenceServiceCollectionExtensions
         this IServiceCollection services,
         string prefix = null)
     {
+        EnsureRedisConnectionRegistered(services);
         prefix ??= RedisKeyPrefixes.SnapshotEnhanced;
         services.TryAddSingleton<IEnhancedSnapshotStore>(sp =>
         {

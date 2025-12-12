@@ -1,7 +1,13 @@
 - name: Getting Started
   href: articles/getting-started.md
 - name: Architecture
-  href: architecture/ARCHITECTURE.md
+  items:
+    - name: Overview
+      href: architecture/overview.md
+    - name: CQRS Pattern
+      href: architecture/cqrs.md
+    - name: Responsibility Boundary
+      href: architecture/RESPONSIBILITY-BOUNDARY.md
 - name: Configuration
   href: articles/configuration.md
 - name: Performance
@@ -16,10 +22,14 @@
       href: ../examples/README.md
     - name: E2E Scenarios
       href: examples/e2e-scenarios.md
+    - name: Basic Usage
+      href: examples/basic-usage.md
 - name: Guides
   items:
     - name: Source Generator
       href: guides/source-generator.md
+    - name: Source Generator Usage
+      href: guides/source-generator-usage.md
     - name: Error Handling
       href: guides/error-handling.md
     - name: Distributed ID
@@ -28,14 +38,22 @@
       href: guides/serialization.md
     - name: Flow DSL
       href: guides/flow-dsl.md
+    - name: Flow DSL Best Practices
+      href: guides/flow-dsl-best-practices.md
+    - name: Memory Optimization
+      href: guides/memory-optimization-guide.md
+    - name: Auto DI Registration
+      href: guides/auto-di-registration.md
+    - name: Mediator Auto Batching
+      href: guides/mediator-auto-batching.md
+    - name: Analyzers
+      href: guides/analyzers.md
 - name: Observability
   items:
     - name: OpenTelemetry
       href: articles/opentelemetry-integration.md
     - name: Distributed Tracing
       href: observability/DISTRIBUTED-TRACING-GUIDE.md
-    - name: Jaeger Guide
-      href: observability/JAEGER-COMPLETE-GUIDE.md
 - name: Resilience
   href: Resilience.md
 - name: Deployment
@@ -44,5 +62,15 @@
       href: deployment/kubernetes.md
     - name: Native AOT
       href: deployment/native-aot-publishing.md
+    - name: AOT Deployment
+      href: articles/aot-deployment.md
+- name: Event Sourcing
+  href: articles/event-sourcing.md
+- name: Development
+  items:
+    - name: Contributing
+      href: development/CONTRIBUTING.md
+    - name: AI Learning Guide
+      href: development/AI-LEARNING-GUIDE.md
 - name: GitHub
   href: https://github.com/Cricle/Catga

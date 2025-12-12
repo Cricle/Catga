@@ -2,17 +2,17 @@
 
 <img src="./web/favicon.svg" width="100" height="100" alt="Catga Logo"/>
 
-# Catga 文档
+# Catga Documentation
 
-**现代化、高性能的 .NET CQRS/Event Sourcing 框架**
+**High-Performance .NET CQRS/Event Sourcing Framework**
 
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![Native AOT](https://img.shields.io/badge/Native-AOT-success?logo=dotnet)](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Cricle/Catga/blob/master/LICENSE)
 
-**纳秒级延迟 · 百万QPS · 零反射 · 源生成 · 生产就绪**
+**Nanosecond Latency · Zero Reflection · Source Generated · Native AOT Ready**
 
-[📚 完整文档索引](./INDEX.md) · [🚀 快速开始](./articles/getting-started.md) · [📊 性能基准](./BENCHMARK-RESULTS.md) · [💻 示例](./examples/basic-usage.md)
+[📚 Documentation Index](./INDEX.md) · [🚀 Quick Start](./articles/getting-started.md) · [📊 Performance](./BENCHMARK-RESULTS.md) · [💻 Examples](./examples/basic-usage.md)
 
 </div>
 

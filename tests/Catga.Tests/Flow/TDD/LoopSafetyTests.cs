@@ -337,7 +337,7 @@ public class SafetyTestState : IFlowState
 // Test flow configurations
 public class DepthLimitFlow : FlowConfig<SafetyTestState>
 {
-    public override void Configure(IFlowBuilder<SafetyTestState> flow)
+    protected override void Configure(IFlowBuilder<SafetyTestState> flow)
     {
         flow
             .While(s => s.LoopDepth < 2000) // Try to exceed default limit of 1000
@@ -349,7 +349,7 @@ public class DepthLimitFlow : FlowConfig<SafetyTestState>
 
 public class IterationLimitFlow : FlowConfig<SafetyTestState>
 {
-    public override void Configure(IFlowBuilder<SafetyTestState> flow)
+    protected override void Configure(IFlowBuilder<SafetyTestState> flow)
     {
         flow
             .While(s => s.IterationCount < 20000) // Try to exceed default limit of 10000
@@ -361,7 +361,7 @@ public class IterationLimitFlow : FlowConfig<SafetyTestState>
 
 public class TimeoutLimitFlow : FlowConfig<SafetyTestState>
 {
-    public override void Configure(IFlowBuilder<SafetyTestState> flow)
+    protected override void Configure(IFlowBuilder<SafetyTestState> flow)
     {
         flow
             .While(s => true) // Infinite loop to trigger timeout
@@ -379,7 +379,7 @@ public class CustomDepthLimitFlow : FlowConfig<SafetyTestState>
         _depthLimit = depthLimit;
     }
 
-    public override void Configure(IFlowBuilder<SafetyTestState> flow)
+    protected override void Configure(IFlowBuilder<SafetyTestState> flow)
     {
         flow
             .While(s => s.LoopDepth < _depthLimit + 100)
@@ -398,7 +398,7 @@ public class CustomIterationLimitFlow : FlowConfig<SafetyTestState>
         _iterationLimit = iterationLimit;
     }
 
-    public override void Configure(IFlowBuilder<SafetyTestState> flow)
+    protected override void Configure(IFlowBuilder<SafetyTestState> flow)
     {
         flow
             .While(s => s.IterationCount < _iterationLimit + 100)
@@ -417,7 +417,7 @@ public class CustomTimeoutLimitFlow : FlowConfig<SafetyTestState>
         _timeout = timeout;
     }
 
-    public override void Configure(IFlowBuilder<SafetyTestState> flow)
+    protected override void Configure(IFlowBuilder<SafetyTestState> flow)
     {
         flow
             .While(s => true)
@@ -428,7 +428,7 @@ public class CustomTimeoutLimitFlow : FlowConfig<SafetyTestState>
 
 public class SafeLimitFlow : FlowConfig<SafetyTestState>
 {
-    public override void Configure(IFlowBuilder<SafetyTestState> flow)
+    protected override void Configure(IFlowBuilder<SafetyTestState> flow)
     {
         flow
             .While(s => s.IterationCount < 5)
@@ -440,7 +440,7 @@ public class SafeLimitFlow : FlowConfig<SafetyTestState>
 
 public class MemoryIntensiveFlow : FlowConfig<SafetyTestState>
 {
-    public override void Configure(IFlowBuilder<SafetyTestState> flow)
+    protected override void Configure(IFlowBuilder<SafetyTestState> flow)
     {
         flow
             .While(s => s.AllocatedMemory < 2000000000) // Try to allocate 2GB
@@ -452,7 +452,7 @@ public class MemoryIntensiveFlow : FlowConfig<SafetyTestState>
 
 public class DeadlockFlow : FlowConfig<SafetyTestState>
 {
-    public override void Configure(IFlowBuilder<SafetyTestState> flow)
+    protected override void Configure(IFlowBuilder<SafetyTestState> flow)
     {
         flow
             .While(s => !s.IsDeadlocked)

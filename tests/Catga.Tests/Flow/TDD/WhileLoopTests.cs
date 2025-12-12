@@ -307,7 +307,7 @@ public class WhileTestState : IFlowState
 // Test flow configurations
 public class SimpleWhileFlow : FlowConfig<WhileTestState>
 {
-    public override void Configure(IFlowBuilder<WhileTestState> flow)
+    protected override void Configure(IFlowBuilder<WhileTestState> flow)
     {
         flow
             .While(s => s.Counter < 5)
@@ -320,7 +320,7 @@ public class SimpleWhileFlow : FlowConfig<WhileTestState>
 
 public class InfiniteWhileFlow : FlowConfig<WhileTestState>
 {
-    public override void Configure(IFlowBuilder<WhileTestState> flow)
+    protected override void Configure(IFlowBuilder<WhileTestState> flow)
     {
         flow
             .While(s => true) // Infinite loop
@@ -331,7 +331,7 @@ public class InfiniteWhileFlow : FlowConfig<WhileTestState>
 
 public class LargeIterationWhileFlow : FlowConfig<WhileTestState>
 {
-    public override void Configure(IFlowBuilder<WhileTestState> flow)
+    protected override void Configure(IFlowBuilder<WhileTestState> flow)
     {
         flow
             .While(s => s.Counter < 20000) // More than iteration limit
@@ -343,7 +343,7 @@ public class LargeIterationWhileFlow : FlowConfig<WhileTestState>
 
 public class SlowWhileFlow : FlowConfig<WhileTestState>
 {
-    public override void Configure(IFlowBuilder<WhileTestState> flow)
+    protected override void Configure(IFlowBuilder<WhileTestState> flow)
     {
         flow
             .While(s => s.Counter < 100)
@@ -355,7 +355,7 @@ public class SlowWhileFlow : FlowConfig<WhileTestState>
 
 public class SimpleDoWhileFlow : FlowConfig<WhileTestState>
 {
-    public override void Configure(IFlowBuilder<WhileTestState> flow)
+    protected override void Configure(IFlowBuilder<WhileTestState> flow)
     {
         flow
             .DoWhile()
@@ -368,7 +368,7 @@ public class SimpleDoWhileFlow : FlowConfig<WhileTestState>
 
 public class SimpleRepeatFlow : FlowConfig<WhileTestState>
 {
-    public override void Configure(IFlowBuilder<WhileTestState> flow)
+    protected override void Configure(IFlowBuilder<WhileTestState> flow)
     {
         flow
             .Repeat(10)
@@ -381,7 +381,7 @@ public class SimpleRepeatFlow : FlowConfig<WhileTestState>
 
 public class NestedWhileFlow : FlowConfig<WhileTestState>
 {
-    public override void Configure(IFlowBuilder<WhileTestState> flow)
+    protected override void Configure(IFlowBuilder<WhileTestState> flow)
     {
         flow
             .While(s => s.Counter < 25)
@@ -405,9 +405,4 @@ public class SlowCommand : IRequest, IMessage
     public string FlowId { get; set; }
     public int DelayMs { get; set; }
     public long MessageId { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-}
-
-public class SuccessResponse
-{
-    public bool IsSuccess => true;
 }

@@ -124,7 +124,7 @@ public class PerformanceTestState : IFlowState
 /// </summary>
 public class SimplePerformanceFlow : FlowConfig<PerformanceTestState>
 {
-    public override void Configure(IFlowBuilder<PerformanceTestState> flow)
+    protected override void Configure(IFlowBuilder<PerformanceTestState> flow)
     {
         flow
             .Into(s => s.Counter = 1)
@@ -138,7 +138,7 @@ public class SimplePerformanceFlow : FlowConfig<PerformanceTestState>
 /// </summary>
 public class LoopPerformanceFlow : FlowConfig<PerformanceTestState>
 {
-    public override void Configure(IFlowBuilder<PerformanceTestState> flow)
+    protected override void Configure(IFlowBuilder<PerformanceTestState> flow)
     {
         flow
             .While(s => s.Counter < 1000)
@@ -152,7 +152,7 @@ public class LoopPerformanceFlow : FlowConfig<PerformanceTestState>
 /// </summary>
 public class NestedLoopPerformanceFlow : FlowConfig<PerformanceTestState>
 {
-    public override void Configure(IFlowBuilder<PerformanceTestState> flow)
+    protected override void Configure(IFlowBuilder<PerformanceTestState> flow)
     {
         flow
             .Repeat(10)
@@ -169,7 +169,7 @@ public class NestedLoopPerformanceFlow : FlowConfig<PerformanceTestState>
 /// </summary>
 public class BranchingPerformanceFlow : FlowConfig<PerformanceTestState>
 {
-    public override void Configure(IFlowBuilder<PerformanceTestState> flow)
+    protected override void Configure(IFlowBuilder<PerformanceTestState> flow)
     {
         flow
             .If(s => s.Value > 100)

@@ -317,7 +317,7 @@ public class TryCatchTestState : IFlowState
 // Test flow configurations
 public class SimpleTryFlow : FlowConfig<TryCatchTestState>
 {
-    public override void Configure(IFlowBuilder<TryCatchTestState> flow)
+    protected override void Configure(IFlowBuilder<TryCatchTestState> flow)
     {
         flow
             .Try()
@@ -338,7 +338,7 @@ public class SimpleTryFlow : FlowConfig<TryCatchTestState>
 
 public class MultiCatchFlow : FlowConfig<TryCatchTestState>
 {
-    public override void Configure(IFlowBuilder<TryCatchTestState> flow)
+    protected override void Configure(IFlowBuilder<TryCatchTestState> flow)
     {
         flow
             .Try()
@@ -366,7 +366,7 @@ public class MultiCatchFlow : FlowConfig<TryCatchTestState>
 
 public class NestedTryFlow : FlowConfig<TryCatchTestState>
 {
-    public override void Configure(IFlowBuilder<TryCatchTestState> flow)
+    protected override void Configure(IFlowBuilder<TryCatchTestState> flow)
     {
         flow
             .Try()
@@ -397,7 +397,7 @@ public class NestedTryFlow : FlowConfig<TryCatchTestState>
 
 public class TryWithinWhileFlow : FlowConfig<TryCatchTestState>
 {
-    public override void Configure(IFlowBuilder<TryCatchTestState> flow)
+    protected override void Configure(IFlowBuilder<TryCatchTestState> flow)
     {
         flow
             .While(s => s.Counter < 3)
@@ -418,7 +418,7 @@ public class TryWithinWhileFlow : FlowConfig<TryCatchTestState>
 
 public class WhileWithinTryFlow : FlowConfig<TryCatchTestState>
 {
-    public override void Configure(IFlowBuilder<TryCatchTestState> flow)
+    protected override void Configure(IFlowBuilder<TryCatchTestState> flow)
     {
         flow
             .Try()
@@ -443,9 +443,4 @@ public class TestCommand : IRequest, IMessage
 {
     public string FlowId { get; set; }
     public long MessageId { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-}
-
-public class SuccessResponse
-{
-    public bool IsSuccess => true;
 }

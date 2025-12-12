@@ -9,10 +9,11 @@
 - ✅ **灵活性** - 支持所有基本的控制流模式（分支、循环、异常处理）
 - ✅ **可组合性** - 步骤可以自由组合，无限制地嵌套
 - ✅ **可分析性** - 可以被工具分析、优化和转换
-- ✅ **充分利用现有特性** - Expression、LINQ、async/await
+- ✅ **充分利用现有特性** - Expression、async/await（不使用 LINQ 风格）
 - ✅ **避免重复造轮子** - 使用标准库而非自定义实现
 - ✅ **类型安全** - 编译时检查和泛型约束
 - ✅ **Flow DSL 友好** - 基于现有的 Flow DSL 架构，而非栈式模型
+- ✅ **存储对等性** - 内存、Redis、NATS 存储功能完全对等，恢复机制完整
 
 ---
 
@@ -97,47 +98,26 @@ flow.When(s => s.Items.Count > 0 && s.Items.All(i => i.IsValid))
 **目标**：支持 Expression 的值选择和转换
 
 ```csharp
-// 选择值并基于值执行步骤
-flow.Select(s => s.Items.Count)
-    .When(count => count > 10)
+// 基于值执行步骤
+flow.When(s => s.Items.Count > 10)
     .Send(s => new ProcessBulkOrderCommand(s.OrderId))
     .EndWhen();
 
-// 映射和合并状态
-flow.Map(s => new { s.Amount, s.Items })
-    .Into((state, mapped) => {
-        state.TotalAmount = mapped.Amount;
-        state.ItemCount = mapped.Items.Count;
-    });
+// 条件分支
+flow.If(s => s.Amount > 1000)
+    .Then(f => f.Send(s => new PremiumCommand(s.OrderId)))
+    .Else(f => f.Send(s => new StandardCommand(s.OrderId)))
+    .EndIf();
 ```
 
 **实现方式**：
-- 创建 `ISelectBuilder<TState, TValue>` 接口
-- 支持 Expression 的值提取
-- 在执行时计算和传递值
+- 扩展条件表达式支持 `Expression<Func<TState, bool>>`
+- 支持复杂的 Expression 树编译
+- 在执行时计算条件值
 
 **关键文件**：
-- `FlowConfig.cs` - 新增 Select/Map 方法
-- `DslFlowExecutor.cs` - 执行值选择和映射
-
-#### A3. LINQ 风格的查询
-**目标**：支持 LINQ 风格的流程查询
-
-```csharp
-// 使用 LINQ 风格的 API
-flow.Where(s => s.Status == OrderStatus.Pending)
-    .Select(s => s.Items)
-    .ForEach(item => /* process item */)
-    .Aggregate(/* aggregate results */);
-```
-
-**实现方式**：
-- 不创建新的 LINQ 实现，而是利用现有的 LINQ 表达式
-- 在 FlowBuilder 中添加 Where/Select 方法
-- 这些方法返回新的 FlowBuilder，支持链式调用
-
-**关键文件**：
-- `FlowConfig.cs` - 添加 Where/Select/Aggregate 方法
+- `FlowConfig.cs` - 扩展 `When` 方法
+- `DslFlowExecutor.cs` - 编译和执行 Expression
 
 ---
 
@@ -513,18 +493,26 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
 - [ ] 确保 Try-Catch 支持嵌套
 - [ ] 编写嵌套测试（15+ 个）
 
+#### D. 存储对等性和恢复机制
+- [ ] 验证 While/DoWhile/Repeat 在内存存储中的恢复
+- [ ] 验证 While/DoWhile/Repeat 在 Redis 存储中的恢复
+- [ ] 验证 While/DoWhile/Repeat 在 NATS 存储中的恢复
+- [ ] 验证 Try-Catch 在所有存储中的恢复
+- [ ] 确保循环计数器和异常状态正确持久化
+- [ ] 编写存储对等性测试（20+ 个）
+
 **第 2 层小计**：
 - 代码量：400-500 行
-- 测试：60-80 个
+- 测试：80-100 个（包括存储对等性测试）
 - 工期：2-3 周
 
 ### 第 3 层：表达式和状态增强（优先级 2）
 
 #### A. Expression 树支持
 - [ ] 扩展条件表达式支持 `Expression<Func<TState, bool>>`
-- [ ] 添加值选择支持 `Expression<Func<TState, TValue>>`
 - [ ] 实现 Expression 树编译和缓存
-- [ ] 支持复杂的 LINQ 表达式
+- [ ] 支持复杂的条件表达式（不使用 LINQ 风格）
+- [ ] 在所有存储中验证 Expression 的恢复
 - [ ] 编写单元测试（15+ 个）
 
 #### B. 递归流调用

@@ -8,6 +8,9 @@
 
     <!-- 启用 JSON 反射支持（Benchmark 项目可以使用反射） -->
     <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
+
+    <!-- Disable source generators for benchmarks -->
+    <DisableImplicitNamespaceImports>false</DisableImplicitNamespaceImports>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,10 +34,10 @@
     <ProjectReference Include="..\..\src\Catga.Persistence.Nats\Catga.Persistence.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.Persistence.Redis\Catga.Persistence.Redis.csproj" />
 
-    <!-- Source Generator for benchmarking auto-registration -->
-    <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj"
+    <!-- Source Generator for benchmarking auto-registration - disabled for benchmarks -->
+    <!-- <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj"
                       OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
+                      ReferenceOutputAssembly="false" /> -->
   </ItemGroup>
 
 </Project>

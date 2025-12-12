@@ -213,7 +213,10 @@ public partial record CreateOrderCommand(
     int ProductId,
     int Quantity,
     decimal TotalAmount
-) : IRequest<CreateOrderResult>;
+) : IRequest<CreateOrderResult>
+{
+    public long MessageId { get; init; }
+}
 
 [MemoryPackable]
 public partial record CreateOrderResult(
@@ -227,7 +230,10 @@ public partial record ProcessPaymentCommand(
     int OrderId,
     decimal Amount,
     string PaymentMethod
-) : IRequest<ProcessPaymentResult>;
+) : IRequest<ProcessPaymentResult>
+{
+    public long MessageId { get; init; }
+}
 
 [MemoryPackable]
 public partial record ProcessPaymentResult(
@@ -258,7 +264,10 @@ internal sealed class NoopResiliencePipelineProvider : IResiliencePipelineProvid
 #region Queries
 
 [MemoryPackable]
-public partial record GetOrderQuery(int OrderId) : IRequest<GetOrderResult>;
+public partial record GetOrderQuery(int OrderId) : IRequest<GetOrderResult>
+{
+    public long MessageId { get; init; }
+}
 
 [MemoryPackable]
 public partial record GetOrderResult(
@@ -269,7 +278,10 @@ public partial record GetOrderResult(
 );
 
 [MemoryPackable]
-public partial record GetUserOrdersQuery(int UserId) : IRequest<GetUserOrdersResult>;
+public partial record GetUserOrdersQuery(int UserId) : IRequest<GetUserOrdersResult>
+{
+    public long MessageId { get; init; }
+}
 
 [MemoryPackable]
 public partial record GetUserOrdersResult(
@@ -289,7 +301,10 @@ public partial record OrderCreatedEvent(
     int ProductId,
     int Quantity,
     decimal TotalAmount
-) : IEvent;
+) : IEvent
+{
+    public long MessageId { get; init; }
+}
 
 [MemoryPackable]
 public partial record PaymentProcessedEvent(
@@ -297,7 +312,10 @@ public partial record PaymentProcessedEvent(
     int OrderId,
     decimal Amount,
     string TransactionId
-) : IEvent;
+) : IEvent
+{
+    public long MessageId { get; init; }
+}
 
 #endregion
 

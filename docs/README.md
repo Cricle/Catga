@@ -12,7 +12,7 @@
 
 **纳秒级延迟 · 百万QPS · 零反射 · 源生成 · 生产就绪**
 
-[📚 完整文档索引](./INDEX.md) · [🚀 快速开始](./articles/getting-started.md) · [📊 性能基准](./BENCHMARK-RESULTS.md) · [💻 示例](./examples/basic-usage.md)
+[🚀 快速开始](./articles/getting-started.md) · [📊 性能基准](./BENCHMARK-RESULTS.md) · [💻 示例](./examples/basic-usage.md)
 
 </div>
 
@@ -85,15 +85,13 @@
 | [配置指南](./articles/configuration.md) | 框架配置详解 |
 | [依赖注入](./guides/auto-di-registration.md) | Handler 自动注册 |
 | [错误处理](./guides/error-handling.md) | 异常处理和回滚 |
-| [自定义错误处理](./guides/custom-error-handling.md) | 自定义错误策略 |
 | [Resilience (Polly)](./Resilience.md) | 弹性策略（重试/超时/断路/舱壁） |
 
 #### 高级功能
 
 | 文档 | 说明 |
 |------|------|
-| [源生成器](./guides/source-generator.md) | 编译时代码生成 |
-| [源生成器使用](./guides/source-generator-usage.md) | 详细使用指南 |
+| [源生成器](./guides/source-generator.md) | 编译时代码生成和详细使用指南 |
 | [序列化](./guides/serialization.md) | JSON / MemoryPack |
 | [分布式 ID](./guides/distributed-id.md) | Snowflake ID 生成 |
 | [内存优化](./guides/memory-optimization-guide.md) | 零分配优化 |
@@ -249,8 +247,7 @@ public class OrderTests : IDisposable
 
 | 示例 | 说明 | 特性 |
 |------|------|------|
-| [OrderSystem.Api](../examples/OrderSystem.Api/README.md) | 电商订单系统 | 完整业务流程、分布式部署 |
-| [OrderSystem.AppHost](../examples/OrderSystem.AppHost/README.md) | .NET Aspire 编排 | 云原生开发 |
+| [OrderSystem.Api](../examples/README.md) | 电商订单系统 | 完整业务流程、分布式部署 |
 
 **运行示例**:
 
@@ -277,7 +274,6 @@ dotnet run
 | 文档 | 说明 |
 |------|------|
 | [贡献指南](./development/CONTRIBUTING.md) | 如何贡献代码 |
-| [开发文档](./development/README.md) | 开发环境搭建 |
 | [AI 学习指南](./development/AI-LEARNING-GUIDE.md) | 框架学习路径 |
 
 ---
@@ -288,7 +284,6 @@ dotnet run
 |------|------|
 | [Mediator API](./api/mediator.md) | ICatgaMediator 接口 |
 | [消息 API](./api/messages.md) | IRequest, IEvent, IMessage |
-| [API 总览](./api/README.md) | 完整 API 文档 |
 
 ---
 
@@ -296,8 +291,7 @@ dotnet run
 
 | 文档 | 说明 |
 |------|------|
-| [分析器介绍](./analyzers/README.md) | Roslyn 分析器 |
-| [分析器使用](./guides/analyzers.md) | 诊断规则 |
+| [分析器使用](./guides/analyzers.md) | Roslyn 分析器和诊断规则 |
 
 #### ⚙️ 快速开启追踪与自动批量
 
@@ -362,7 +356,7 @@ builder.Services.AddRedisTransport(o =>
 <summary>❓ 如何开始学习 Catga？</summary>
 
 1. 阅读 [快速开始指南](./articles/getting-started.md)
-2. 运行 [OrderSystem 示例](../examples/OrderSystem.Api/README.md)
+2. 运行 [OrderSystem 示例](../examples/README.md)
 3. 查看 [CQRS 概念](./architecture/cqrs.md)
 
 </details>
@@ -380,7 +374,7 @@ builder.Services.AddRedisTransport(o =>
 
 1. 选择部署方式: [Kubernetes](./deployment/kubernetes.md) 或 [Native AOT](./deployment/native-aot-publishing.md)
 2. 配置 [监控和追踪](./production/MONITORING-GUIDE.md)
-3. 参考 [OrderSystem 集群部署](../examples/OrderSystem.Api/README.md)
+3. 参考 [OrderSystem 集群部署](../examples/README.md)
 
 </details>
 
@@ -450,7 +444,6 @@ Day 4-5: 生产部署
 
 ```
 docs/
-├── 📖 INDEX.md                    # 完整文档索引
 ├── 📝 README.md                   # 文档主页 (本页)
 ├── 📊 BENCHMARK-RESULTS.md        # 性能基准
 ├── 📈 PERFORMANCE-REPORT.md       # 性能报告
@@ -459,7 +452,6 @@ docs/
 ├── 📚 articles/                   # 文章
 │   ├── getting-started.md        # ⭐ 快速开始
 │   ├── configuration.md          # 配置指南
-│   ├── architecture.md           # 架构介绍
 │   ├── aot-deployment.md         # AOT 部署
 │   └── opentelemetry-integration.md
 │
@@ -496,10 +488,7 @@ docs/
 │
 ├── 🔧 development/               # 开发者
 │   ├── CONTRIBUTING.md
-│   ├── README.md
 │   ├── AI-LEARNING-GUIDE.md
-│   ├── GC_AND_HOTPATH_REVIEW.md
-│   ├── THREAD_POOL_MANAGEMENT_PLAN.md
 │   └── TESTING_LIBRARY_SUMMARY.md
 │
 └── 📋 api/                       # API 参考
@@ -514,7 +503,7 @@ docs/
 
 ## 🌟 开始你的 Catga 之旅
 
-[📝 快速开始](./articles/getting-started.md) · [📚 完整文档](./INDEX.md) · [💻 查看示例](./examples/basic-usage.md) · [⭐ GitHub](https://github.com/Cricle/Catga)
+[📝 快速开始](./articles/getting-started.md) · [💻 查看示例](./examples/basic-usage.md) · [⭐ GitHub](https://github.com/Cricle/Catga)
 
 **如果觉得有用，请给个 ⭐ Star！**
 

@@ -3,7 +3,7 @@
 > **编译时代码检查** - 在编译时发现问题，而非运行时崩溃
 > 最后更新: 2025-10-14
 
-[返回主文档](../README.md) · [源生成器](./source-generator-usage.md)
+[返回主文档](../README.md) · [源生成器](./source-generator.md)
 
 ---
 
@@ -493,7 +493,7 @@ RegisterSerializerInAnotherMethod(services);
 ## 📚 相关资源
 
 - **[Roslyn 分析器官方文档](https://learn.microsoft.com/dotnet/csharp/roslyn-sdk/)**
-- **[源生成器指南](./source-generator-usage.md)**
+- **[源生成器指南](./source-generator.md)**
 - **[序列化指南](./serialization.md)**
 - **[AOT 最佳实践](../deployment/native-aot-publishing.md)**
 

@@ -1,7 +1,3 @@
-# Source Generator Guide (Legacy)
-
-> **Note**: For the most up-to-date guide, see [source-generator-usage.md](./source-generator-usage.md)
-
 # Source Generator Guide
 
 Catga provides a **Source Generator** to automatically discover and register handlers at compile time, eliminating the need for manual registration and ensuring full Native AOT compatibility.

@@ -365,3 +365,5 @@ W3C Trace Context 建议 Baggage 总大小 < **512 bytes**
 
 **Service A → HTTP → Service B → HTTP → Service C** 的完整链路，只要所有服务都使用 `AddServiceDefaults()`，就能在 Jaeger 中看到完整的调用链！🎉
 
+
+

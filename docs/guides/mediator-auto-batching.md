@@ -91,3 +91,5 @@ public record GetOrders(string TenantId, int Page) : IRequest<PagedOrders>;
   - 否。Mediator 聚焦 Handler/CPU 维度；Transport 聚焦网络/消息维度，二者互补。
 - 需要启用 Polly 吗？
   - 建议。即使未显式启用，批次刷新也会在 Provider 下执行；完整弹性策略仍推荐 `UseResilience()`。
+
+

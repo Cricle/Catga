@@ -567,7 +567,7 @@ See [Error Handling Guide](../guides/error-handling.md)
 
 Check out the complete production-level example:
 
-- **OrderSystem**: [examples/OrderSystem.Api](../../examples/OrderSystem.Api/README.md)
+- **OrderSystem**: [OrderSystem 示例](../examples/README.md)
   - Complete e-commerce order system
   - Distributed deployment (3-node cluster)
   - Monitoring and tracing
@@ -593,3 +593,5 @@ Now start building your high-performance CQRS application!
 [Full Documentation](../README.md) · [Examples](../examples/basic-usage.md) · [Benchmarks](../BENCHMARK-RESULTS.md)
 
 </div>
+
+

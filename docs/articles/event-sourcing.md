@@ -311,3 +311,5 @@ await new ScenarioRunner<OrderAggregate>(eventStore)
     .Then(agg => agg.TotalAmount.Should().Be(999))
     .RunAsync();
 ```
+
+

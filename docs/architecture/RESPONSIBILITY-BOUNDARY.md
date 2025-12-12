@@ -303,3 +303,5 @@ public static partial class CatgaLog
 - [Pipeline Behaviors](./ARCHITECTURE.md#pipeline-behaviors)
 - [幂等性设计](./ARCHITECTURE.md#idempotency-store)
 
+
+

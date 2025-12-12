@@ -358,3 +358,5 @@ services.AddSingleton<IMessageSerializer, CustomSerializer>();
 **最后更新**: 2024-01-20
 **版本**: 2.0.0
 **维护者**: Catga Team
+
+

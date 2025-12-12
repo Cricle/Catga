@@ -248,3 +248,5 @@ services.AddScoped<IRequestHandler<ExternalCommand, ExternalResponse>, ExternalH
 ## 🤝 Contributing
 
 Found a bug or have a feature request? Please [open an issue](https://github.com/Cricle/Catga/issues).
+
+

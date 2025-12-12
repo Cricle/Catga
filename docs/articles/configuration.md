@@ -295,3 +295,5 @@ services.AddCatga(options =>
 - [Persistence Configuration](#persistence-configuration) - Persistence strategies
 - [Native AOT Deployment](aot-deployment.md) - Deploy with Native AOT
 
+
+

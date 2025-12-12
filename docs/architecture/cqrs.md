@@ -697,3 +697,5 @@ public class OrderIntegrationTests : IClassFixture<WebApplicationFactory<Program
 - ✅ **去重处理**：事件处理器应支持重复事件
 
 这种 CQRS 架构设计确保了 Catga 既能处理复杂的业务逻辑，又能提供高性能的查询能力，同时保持良好的可维护性和可扩展性。
+
+

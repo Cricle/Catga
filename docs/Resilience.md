@@ -87,3 +87,5 @@ services.AddRedisPersistence(); // Outbox + Inbox + Idempotency
 
 - If you see no bulkhead rejections, your limits may be too high for the test load; try lowering concurrency and queue limits.
 - Ensure IMessageSerializer and the transport/persistence client dependencies are registered for NATS/Redis scenarios.
+
+

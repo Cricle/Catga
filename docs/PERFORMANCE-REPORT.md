@@ -648,7 +648,7 @@ Catga 在真实基准测试中展现出**卓越的性能**：
 - 📖 [快速开始](./articles/getting-started.md) - 5 分钟入门
 - 🎯 [内存优化指南](./guides/memory-optimization-guide.md) - 深度优化
 - 📊 [性能基准测试](./BENCHMARK-RESULTS.md) - 更多数据
-- 🌟 [OrderSystem 示例](../examples/OrderSystem.Api/README.md) - 生产级示例
+- 🌟 [OrderSystem 示例](../examples/README.md) - 生产级示例
 
 ---
 
@@ -656,7 +656,9 @@ Catga 在真实基准测试中展现出**卓越的性能**：
 
 **🚀 Catga - 为性能而生的 CQRS 框架**
 
-[GitHub](https://github.com/catga/catga) · [文档](INDEX.md) · [示例](../examples/README.md)
+[GitHub](https://github.com/catga/catga) · [文档](./README.md) · [示例](../examples/README.md)
 
 </div>
+
+
 

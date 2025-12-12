@@ -60,7 +60,7 @@
 | **Source Generator** | Compile-time handler discovery, zero runtime overhead |
 | **Distributed** | Lock, Rate Limiting, Leader Election, Event Sourcing |
 | **Multi-Transport** | Redis Streams, NATS JetStream, In-Memory |
-| **Flow DSL** | Distributed workflows, ForEach parallel processing, Sagas |
+| **Flow DSL** | While/DoWhile/Repeat loops, Try-Catch-Finally, If/Switch branching, ForEach parallel, Expression-based conditions, Recursive CallFlow |
 | **Resilience** | Polly integration (Retry, Circuit Breaker, Timeout) |
 | **Observability** | OpenTelemetry tracing, Metrics, Structured logging |
 | **Reliability** | Outbox/Inbox pattern, Idempotency, Dead Letter Queue |

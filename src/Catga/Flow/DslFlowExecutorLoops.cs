@@ -25,22 +25,52 @@ public partial class DslFlowExecutor<TState, TConfig>
         const int maxIterations = 10000;
         var loopTimeout = TimeSpan.FromMinutes(5);
 
+        // Check for recovery from previous execution
+        var loopProgress = await _store.GetLoopProgressAsync(state.FlowId, stepIndex, cancellationToken);
+        if (loopProgress != null)
+        {
+            iterationCount = loopProgress.IterationCount;
+            sw.Restart();
+        }
+
         try
         {
             while (condition(state))
             {
                 if (iterationCount >= maxIterations)
+                {
+                    await _store.ClearLoopProgressAsync(state.FlowId, stepIndex, cancellationToken);
                     return StepResult.Failed($"Loop iteration limit exceeded: {maxIterations}");
+                }
 
                 if (sw.Elapsed > loopTimeout)
+                {
+                    await _store.ClearLoopProgressAsync(state.FlowId, stepIndex, cancellationToken);
                     return StepResult.Failed($"Loop execution timeout exceeded: {loopTimeout.TotalSeconds}s");
+                }
 
                 var result = await ExecuteLoopStepsAsync(state, step.LoopSteps, cancellationToken);
                 if (!result.Success && !result.Skipped)
+                {
+                    // Save progress for recovery
+                    var progress = new LoopProgress
+                    {
+                        FlowId = state.FlowId,
+                        StepIndex = stepIndex,
+                        IterationCount = iterationCount,
+                        StartedAt = DateTime.UtcNow.AddSeconds(-sw.Elapsed.TotalSeconds),
+                        LastIterationAt = DateTime.UtcNow,
+                        LastError = result.Error
+                    };
+                    await _store.SaveLoopProgressAsync(state.FlowId, stepIndex, progress, cancellationToken);
                     return result;
+                }
 
                 iterationCount++;
             }
+
+            // Clear progress on successful completion
+            await _store.ClearLoopProgressAsync(state.FlowId, stepIndex, cancellationToken);
             return StepResult.Succeeded();
         }
         catch (Exception ex)
@@ -64,23 +94,52 @@ public partial class DslFlowExecutor<TState, TConfig>
         const int maxIterations = 10000;
         var loopTimeout = TimeSpan.FromMinutes(5);
 
+        // Check for recovery from previous execution
+        var loopProgress = await _store.GetLoopProgressAsync(state.FlowId, stepIndex, cancellationToken);
+        if (loopProgress != null)
+        {
+            iterationCount = loopProgress.IterationCount;
+            sw.Restart();
+        }
+
         try
         {
             do
             {
                 if (iterationCount >= maxIterations)
+                {
+                    await _store.ClearLoopProgressAsync(state.FlowId, stepIndex, cancellationToken);
                     return StepResult.Failed($"Loop iteration limit exceeded: {maxIterations}");
+                }
 
                 if (sw.Elapsed > loopTimeout)
+                {
+                    await _store.ClearLoopProgressAsync(state.FlowId, stepIndex, cancellationToken);
                     return StepResult.Failed($"Loop execution timeout exceeded: {loopTimeout.TotalSeconds}s");
+                }
 
                 var result = await ExecuteLoopStepsAsync(state, step.LoopSteps, cancellationToken);
                 if (!result.Success && !result.Skipped)
+                {
+                    // Save progress for recovery
+                    var progress = new LoopProgress
+                    {
+                        FlowId = state.FlowId,
+                        StepIndex = stepIndex,
+                        IterationCount = iterationCount,
+                        StartedAt = DateTime.UtcNow.AddSeconds(-sw.Elapsed.TotalSeconds),
+                        LastIterationAt = DateTime.UtcNow,
+                        LastError = result.Error
+                    };
+                    await _store.SaveLoopProgressAsync(state.FlowId, stepIndex, progress, cancellationToken);
                     return result;
+                }
 
                 iterationCount++;
             } while (condition(state));
 
+            // Clear progress on successful completion
+            await _store.ClearLoopProgressAsync(state.FlowId, stepIndex, cancellationToken);
             return StepResult.Succeeded();
         }
         catch (Exception ex)
@@ -126,18 +185,46 @@ public partial class DslFlowExecutor<TState, TConfig>
 
         var sw = Stopwatch.StartNew();
         var loopTimeout = TimeSpan.FromMinutes(5);
+        var startIndex = 0;
+
+        // Check for recovery from previous execution
+        var loopProgress = await _store.GetLoopProgressAsync(state.FlowId, stepIndex, cancellationToken);
+        if (loopProgress != null)
+        {
+            startIndex = loopProgress.IterationCount;
+            sw.Restart();
+        }
 
         try
         {
-            for (int i = 0; i < times; i++)
+            for (int i = startIndex; i < times; i++)
             {
                 if (sw.Elapsed > loopTimeout)
+                {
+                    await _store.ClearLoopProgressAsync(state.FlowId, stepIndex, cancellationToken);
                     return StepResult.Failed($"Loop execution timeout exceeded: {loopTimeout.TotalSeconds}s");
+                }
 
                 var result = await ExecuteLoopStepsAsync(state, step.LoopSteps, cancellationToken);
                 if (!result.Success && !result.Skipped)
+                {
+                    // Save progress for recovery
+                    var progress = new LoopProgress
+                    {
+                        FlowId = state.FlowId,
+                        StepIndex = stepIndex,
+                        IterationCount = i,
+                        StartedAt = DateTime.UtcNow.AddSeconds(-sw.Elapsed.TotalSeconds),
+                        LastIterationAt = DateTime.UtcNow,
+                        LastError = result.Error
+                    };
+                    await _store.SaveLoopProgressAsync(state.FlowId, stepIndex, progress, cancellationToken);
                     return result;
+                }
             }
+
+            // Clear progress on successful completion
+            await _store.ClearLoopProgressAsync(state.FlowId, stepIndex, cancellationToken);
             return StepResult.Succeeded();
         }
         catch (Exception ex)

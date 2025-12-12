@@ -4,9 +4,17 @@ using Catga.Abstractions;
 using Catga.Core;
 using Catga.Inbox;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Catga.Observability;
 
 namespace Catga.Pipeline.Behaviors;
+
+/// <summary>Options for InboxBehavior.</summary>
+public class InboxBehaviorOptions
+{
+    /// <summary>Lock duration for message processing. Default: 5 minutes.</summary>
+    public TimeSpan LockDuration { get; set; } = TimeSpan.FromMinutes(5);
+}
 
 /// <summary>Inbox behavior for message idempotency (storage-layer deduplication)</summary>
 /// <remarks>
@@ -24,12 +32,12 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
         ILogger<InboxBehavior<TRequest, TResponse>> logger,
         IInboxStore persistence,
         IMessageSerializer serializer,
-        TimeSpan? lockDuration = null)
+        IOptions<InboxBehaviorOptions>? options = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _persistence = persistence ?? throw new ArgumentNullException(nameof(persistence));
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
-        _lockDuration = lockDuration ?? TimeSpan.FromMinutes(5);
+        _lockDuration = options?.Value.LockDuration ?? TimeSpan.FromMinutes(5);
     }
 
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)

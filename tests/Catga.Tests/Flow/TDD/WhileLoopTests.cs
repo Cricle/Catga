@@ -217,8 +217,8 @@ public class WhileLoopTests
         }
         catch (Exception ex) when (ex.Message.Contains("Redis"))
         {
-            // Skip if Redis is not available
-            throw new SkipTestException("Redis not available");
+            // Skip test if Redis is not available
+            Assert.True(false, "Redis not available");
         }
     }
 
@@ -251,8 +251,8 @@ public class WhileLoopTests
         }
         catch (Exception ex) when (ex.Message.Contains("NATS"))
         {
-            // Skip if NATS is not available
-            throw new SkipTestException("NATS not available");
+            // Skip test if NATS is not available
+            Assert.True(false, "NATS not available");
         }
     }
 

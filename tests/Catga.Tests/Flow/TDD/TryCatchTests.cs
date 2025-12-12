@@ -218,7 +218,8 @@ public class TryCatchTests
         }
         catch (Exception ex) when (ex.Message.Contains("NATS"))
         {
-            throw new SkipTestException("NATS not available");
+            // Skip test if NATS is not available
+            Assert.True(false, "NATS not available");
         }
     }
 

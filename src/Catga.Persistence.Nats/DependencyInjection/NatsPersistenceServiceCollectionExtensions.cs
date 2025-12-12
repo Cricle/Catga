@@ -62,17 +62,10 @@ public static class NatsPersistenceServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.TryAddSingleton<IDeadLetterQueue>(sp =>
-        {
-            var connection = sp.GetRequiredService<INatsConnection>();
-            var serializer = sp.GetRequiredService<IMessageSerializer>();
-            var provider = resiliencePipelineProvider ?? sp.GetRequiredService<IResiliencePipelineProvider>();
+        if (streamName != null)
+            services.Configure<NatsJSDeadLetterQueueOptions>(o => o.StreamName = streamName);
 
-            var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_DLQ" };
-            configure?.Invoke(options);
-
-            return new NatsJSDeadLetterQueue(connection, serializer, provider, streamName ?? "CATGA_DLQ", options);
-        });
+        services.TryAddSingleton<IDeadLetterQueue, NatsJSDeadLetterQueue>();
 
         return services;
     }

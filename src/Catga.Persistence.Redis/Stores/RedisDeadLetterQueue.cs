@@ -4,15 +4,31 @@ using Catga.Abstractions;
 using Catga.Core;
 using Catga.DeadLetter;
 using Catga.Observability;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis;
 
-/// <summary>Redis-based dead letter queue.</summary>
-public sealed class RedisDeadLetterQueue(IConnectionMultiplexer redis, IMessageSerializer serializer, string keyPrefix = "dlq:") : RedisStoreBase(redis, serializer, keyPrefix), IDeadLetterQueue
+/// <summary>Options for RedisDeadLetterQueue.</summary>
+public class RedisDeadLetterQueueOptions
 {
-    private readonly string _listKey = $"{keyPrefix}messages";
-    private readonly string _hashPrefix = $"{keyPrefix}details:";
+    /// <summary>Key prefix for DLQ entries. Default: dlq:</summary>
+    public string KeyPrefix { get; set; } = "dlq:";
+}
+
+/// <summary>Redis-based dead letter queue.</summary>
+public sealed class RedisDeadLetterQueue : RedisStoreBase, IDeadLetterQueue
+{
+    private readonly string _listKey;
+    private readonly string _hashPrefix;
+
+    public RedisDeadLetterQueue(IConnectionMultiplexer redis, IMessageSerializer serializer, IOptions<RedisDeadLetterQueueOptions>? options = null)
+        : base(redis, serializer, options?.Value.KeyPrefix ?? "dlq:")
+    {
+        var prefix = options?.Value.KeyPrefix ?? "dlq:";
+        _listKey = $"{prefix}messages";
+        _hashPrefix = $"{prefix}details:";
+    }
 
     public async Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, Exception ex, int retryCount, CancellationToken ct = default) where TMessage : IMessage
     {

@@ -239,14 +239,12 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisDeadLetterQueue(
         this IServiceCollection services,
-        string prefix = "dlq:")
+        Action<RedisDeadLetterQueueOptions>? configure = null)
     {
-        services.TryAddSingleton<IDeadLetterQueue>(sp =>
-        {
-            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
-            var serializer = sp.GetRequiredService<IMessageSerializer>();
-            return new RedisDeadLetterQueue(redis, serializer, prefix);
-        });
+        if (configure != null)
+            services.Configure(configure);
+
+        services.TryAddSingleton<IDeadLetterQueue, RedisDeadLetterQueue>();
 
         return services;
     }

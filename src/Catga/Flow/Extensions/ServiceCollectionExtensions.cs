@@ -9,8 +9,6 @@ namespace Catga.Flow.Extensions;
 
 /// <summary>
 /// Service collection extensions for Flow DSL registration.
-/// Core library only provides base registration. Storage-specific registration
-/// is provided by extension packages (Catga.Persistence.InMemory, Catga.Persistence.Redis, Catga.Persistence.Nats).
 /// </summary>
 public static class ServiceCollectionExtensions
 {
@@ -99,7 +97,6 @@ public static class ServiceCollectionExtensions
 
     /// <summary>
     /// Configure Flow DSL settings from configuration.
-    /// Storage-specific configuration should be done in the respective storage package extensions.
     /// </summary>
     public static IServiceCollection AddFlowDslFromConfiguration(
         this IServiceCollection services,
@@ -140,7 +137,6 @@ public static class ServiceCollectionExtensions
 
 /// <summary>
 /// Options for Flow DSL configuration.
-/// Storage-specific options should be configured in the respective storage package extensions.
 /// </summary>
 public class FlowDslOptions
 {

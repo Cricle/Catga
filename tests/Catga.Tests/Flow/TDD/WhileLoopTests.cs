@@ -289,19 +289,11 @@ public class WhileLoopTests
 }
 
 // Test state class
-public class WhileTestState : IFlowState
+public class WhileTestState : TestStateBase
 {
-    public string FlowId { get; set; }
     public int Counter { get; set; }
     public List<string> ExecutionLog { get; set; } = new();
     public Dictionary<string, object> Variables { get; set; } = new();
-    public bool HasChanges { get; set; }
-
-    public int GetChangedMask() => 0;
-    public bool IsFieldChanged(int fieldIndex) => false;
-    public void ClearChanges() { }
-    public void MarkChanged(int fieldIndex) { }
-    public IEnumerable<string> GetChangedFieldNames() => Enumerable.Empty<string>();
 }
 
 // Test flow configurations

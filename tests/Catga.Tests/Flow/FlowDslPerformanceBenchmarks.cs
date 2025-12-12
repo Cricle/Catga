@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Catga.Abstractions;
 using Catga.Flow.Dsl;
+using Catga.Tests.Flow.TDD;
 using FluentAssertions;
 using NSubstitute;
 using Xunit;
@@ -105,18 +106,10 @@ public class FlowDslPerformanceBenchmarks
 /// <summary>
 /// Test state for performance benchmarks.
 /// </summary>
-public class PerformanceTestState : IFlowState
+public class PerformanceTestState : TestStateBase
 {
-    public string FlowId { get; set; }
     public int Counter { get; set; }
     public int Value { get; set; }
-    public bool HasChanges { get; set; }
-
-    public int GetChangedMask() => 0;
-    public bool IsFieldChanged(int fieldIndex) => false;
-    public void ClearChanges() { }
-    public void MarkChanged(int fieldIndex) { }
-    public IEnumerable<string> GetChangedFieldNames() => Enumerable.Empty<string>();
 }
 
 /// <summary>

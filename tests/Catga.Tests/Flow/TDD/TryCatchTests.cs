@@ -301,20 +301,12 @@ public class TryCatchTests
 }
 
 // Test state class
-public class TryCatchTestState : IFlowState
+public class TryCatchTestState : TestStateBase
 {
-    public string FlowId { get; set; }
     public int Counter { get; set; }
     public List<string> ExecutedBlocks { get; set; } = new();
     public Exception CaughtException { get; set; }
     public Dictionary<string, object> Variables { get; set; } = new();
-    public bool HasChanges { get; set; }
-
-    public int GetChangedMask() => 0;
-    public bool IsFieldChanged(int fieldIndex) => false;
-    public void ClearChanges() { }
-    public void MarkChanged(int fieldIndex) { }
-    public IEnumerable<string> GetChangedFieldNames() => Enumerable.Empty<string>();
 }
 
 // Test flow configurations

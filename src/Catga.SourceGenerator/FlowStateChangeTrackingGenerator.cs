@@ -93,7 +93,8 @@ public class FlowStateChangeTrackingGenerator : IIncrementalGenerator
     private static string GenerateFlowStateImplementation(FlowStateInfo info)
     {
         var sb = new StringBuilder();
-
+        sb.AppendLine("#nullable enable");
+        sb.AppendLine();
         sb.AppendLine($"namespace {info.Namespace};");
         sb.AppendLine();
         sb.AppendLine($"public partial class {info.ClassName}");

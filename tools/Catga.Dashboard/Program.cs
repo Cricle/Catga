@@ -74,7 +74,7 @@ app.MapGet("/api/streams/{streamId}/history", async (string streamId, IEventStor
 });
 
 // Projections API
-app.MapGet("/api/projections", async (InMemoryProjectionCheckpointStore store) =>
+app.MapGet("/api/projections", (InMemoryProjectionCheckpointStore store) =>
 {
     // Return demo projections
     return Results.Ok(new[]

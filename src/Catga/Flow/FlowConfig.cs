@@ -603,7 +603,7 @@ internal class StepBuilder<TState, TResult> : IStepBuilder<TState, TResult> wher
 
             // Successfully compiled Into expression
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // Failed to compile Into expression - fall back to null setter
             // In production, this should use proper logging

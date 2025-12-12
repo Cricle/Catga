@@ -91,7 +91,7 @@ public static class ProgramFlowDslExtensions
             .RequireAuthorization();
 
         // List all registered flows
-        flowGroup.MapGet("/", async (IServiceProvider provider) =>
+        flowGroup.MapGet("/", (IServiceProvider provider) =>
         {
             var flowTypes = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(a => a.GetTypes())
@@ -165,7 +165,7 @@ public static class ProgramFlowDslExtensions
         });
 
         // Get flow metrics
-        flowGroup.MapGet("/metrics", async (IDslFlowStore store) =>
+        flowGroup.MapGet("/metrics", (IDslFlowStore store) =>
         {
             // This would connect to your metrics provider
             return Results.Ok(new

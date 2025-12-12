@@ -1096,7 +1096,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
                         {
                             configuredStep.ResultSetter.DynamicInvoke(state, stepResult.Result);
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
                             // Log the error but continue processing
                             // In production, this should use proper logging

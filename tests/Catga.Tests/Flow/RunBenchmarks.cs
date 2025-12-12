@@ -12,7 +12,8 @@ namespace Catga.Tests.Flow;
 /// </summary>
 public static class RunBenchmarks
 {
-    public static async Task Main(string[] args)
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    public static async Task RunAsync(string[] args)
     {
         Console.WriteLine("=== Catga Flow DSL Performance Benchmark Report ===");
         Console.WriteLine($"Date: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");

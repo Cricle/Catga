@@ -193,6 +193,34 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         await db.KeyDeleteAsync(key);
     }
 
+    public async Task SaveLoopProgressAsync(string flowId, int stepIndex, LoopProgress progress, CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var key = _prefix + "loop:" + flowId + ":" + stepIndex;
+
+        var data = _serializer.Serialize(progress);
+        await db.StringSetAsync(key, data);
+    }
+
+    public async Task<LoopProgress?> GetLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var key = _prefix + "loop:" + flowId + ":" + stepIndex;
+
+        var data = await db.StringGetAsync(key);
+        if (data.IsNullOrEmpty) return null;
+
+        return _serializer.Deserialize<LoopProgress>((byte[])data!);
+    }
+
+    public async Task ClearLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var key = _prefix + "loop:" + flowId + ":" + stepIndex;
+
+        await db.KeyDeleteAsync(key);
+    }
+
     // Internal storage format
     private record StoredSnapshot<TState>(
         string FlowId,

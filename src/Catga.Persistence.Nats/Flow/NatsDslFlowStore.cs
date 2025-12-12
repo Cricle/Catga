@@ -318,6 +318,58 @@ public sealed class NatsDslFlowStore : IDslFlowStore
         catch (NatsKVKeyNotFoundException) { /* already deleted */ }
     }
 
+    public async Task SaveLoopProgressAsync(string flowId, int stepIndex, LoopProgress progress, CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync(ct);
+
+        var key = EncodeKey($"{flowId}:loop:{stepIndex}");
+        var data = _serializer.Serialize(progress);
+
+        try
+        {
+            await _store!.CreateAsync(key, data, cancellationToken: ct);
+        }
+        catch (NatsKVCreateException)
+        {
+            // Already exists, update it
+            try
+            {
+                var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
+                await _store!.UpdateAsync(key, data, entry.Revision, cancellationToken: ct);
+            }
+            catch { /* ignore */ }
+        }
+    }
+
+    public async Task<LoopProgress?> GetLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync(ct);
+
+        var key = EncodeKey($"{flowId}:loop:{stepIndex}");
+        try
+        {
+            var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
+            if (entry.Value == null) return null;
+            return _serializer.Deserialize<LoopProgress>(entry.Value);
+        }
+        catch (NatsKVKeyNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    public async Task ClearLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync(ct);
+
+        var key = EncodeKey($"{flowId}:loop:{stepIndex}");
+        try
+        {
+            await _store!.DeleteAsync(key, cancellationToken: ct);
+        }
+        catch (NatsKVKeyNotFoundException) { /* already deleted */ }
+    }
+
     // Internal storage format
     private record StoredSnapshot<TState>(
         string FlowId,

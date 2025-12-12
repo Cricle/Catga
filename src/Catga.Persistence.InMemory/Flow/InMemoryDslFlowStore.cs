@@ -15,6 +15,7 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
     private readonly ConcurrentDictionary<string, FlowEntry> _flows = new();
     private readonly ConcurrentDictionary<string, WaitCondition> _waitConditions = new();
     private readonly ConcurrentDictionary<string, ForEachProgress> _forEachProgress = new();
+    private readonly ConcurrentDictionary<string, LoopProgress> _loopProgress = new();
 
     public InMemoryDslFlowStore(IMessageSerializer serializer)
     {
@@ -111,6 +112,27 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
     {
         var key = $"{flowId}:{stepIndex}";
         _forEachProgress.TryRemove(key, out _);
+        return Task.CompletedTask;
+    }
+
+    public Task SaveLoopProgressAsync(string flowId, int stepIndex, LoopProgress progress, CancellationToken ct = default)
+    {
+        var key = $"{flowId}:{stepIndex}";
+        _loopProgress.AddOrUpdate(key, progress, (_, _) => progress);
+        return Task.CompletedTask;
+    }
+
+    public Task<LoopProgress?> GetLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        var key = $"{flowId}:{stepIndex}";
+        _loopProgress.TryGetValue(key, out var progress);
+        return Task.FromResult(progress);
+    }
+
+    public Task ClearLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        var key = $"{flowId}:{stepIndex}";
+        _loopProgress.TryRemove(key, out _);
         return Task.CompletedTask;
     }
 

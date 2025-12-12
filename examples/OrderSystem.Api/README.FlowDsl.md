@@ -350,10 +350,10 @@ public async Task OrderFlow_CompleteScenario_ProcessesSuccessfully()
 
 ## 📚 Additional Resources
 
-- [Flow DSL Documentation](../../docs/flow/README.md)
-- [Storage Parity Guide](../../docs/flow/storage-parity.md)
-- [Performance Tuning](../../docs/flow/performance.md)
-- [Recovery Strategies](../../docs/flow/recovery.md)
+- [Flow DSL Guide](../../docs/guides/flow-dsl.md)
+- [Storage Parity Verification](../../docs/flow/STORAGE_PARITY_VERIFICATION.md)
+- [Performance Benchmarks](../../docs/BENCHMARK_RESULTS.md)
+- [Error Handling Guide](../../docs/guides/error-handling.md)
 
 ## 🤝 Contributing
 

@@ -442,10 +442,10 @@ public class WhileWithinTryFlow : FlowConfig<TryCatchTestState>
 public class TestCommand : IRequest, IMessage
 {
     public string FlowId { get; set; }
-    public string MessageId { get; set; } = Guid.NewGuid().ToString();
+    public long MessageId { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
-public class SuccessResponse : IResponse
+public class SuccessResponse
 {
     public bool IsSuccess => true;
 }

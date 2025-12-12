@@ -466,23 +466,23 @@ public class DeadlockFlow : FlowConfig<SafetyTestState>
 public class SafetyTestCommand : IRequest, IMessage
 {
     public string FlowId { get; set; }
-    public string MessageId { get; set; } = Guid.NewGuid().ToString();
+    public long MessageId { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 public class SlowSafetyTestCommand : IRequest, IMessage
 {
     public string FlowId { get; set; }
     public int DelayMs { get; set; }
-    public string MessageId { get; set; } = Guid.NewGuid().ToString();
+    public long MessageId { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
 public class DeadlockTestCommand : IRequest, IMessage
 {
     public string FlowId { get; set; }
-    public string MessageId { get; set; } = Guid.NewGuid().ToString();
+    public long MessageId { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
-public class SuccessResponse : IResponse
+public class SuccessResponse
 {
     public bool IsSuccess => true;
 }

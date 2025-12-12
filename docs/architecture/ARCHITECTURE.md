@@ -638,6 +638,6 @@ metadata:
 
 **清晰的架构，卓越的性能**
 
-[返回主文档](../README.md) · [快速开始](../articles/getting-started.md) · [API 参考](./api/index.md)
+[返回主文档](../README.md) · [快速开始](../articles/getting-started.md) · [API 参考](../api/index.md)
 
 </div>

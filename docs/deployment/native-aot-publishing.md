@@ -380,7 +380,7 @@ ls -lh YourApp
 ## 资源
 
 - [Catga AOT 序列化指南](../aot/serialization-aot-guide.md)
-- [源生成器使用指南](../guides/source-generator-usage.md)
+- [源生成器使用指南](../guides/source-generator.md)
 - [.NET Native AOT 官方文档](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
 - [性能基准测试](../BENCHMARK-RESULTS.md)
 

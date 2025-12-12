@@ -505,7 +505,7 @@ dotnet run -c Release --filter *MediatRComparison*
 | [Error Handling](../guides/error-handling.md) | Exception handling and rollback | 20 min |
 | [Performance Optimization](../guides/memory-optimization-guide.md) | Zero-allocation techniques | 1 hour |
 | [Distributed Deployment](../deployment/kubernetes.md) | K8s deployment | 2 hours |
-| [OrderSystem Example](../../examples/OrderSystem.Api/README.md) | Complete e-commerce system | 2 hours |
+| [OrderSystem Example](../../examples/README.md) | Complete e-commerce system | 2 hours |
 
 ---
 
@@ -567,7 +567,7 @@ See [Error Handling Guide](../guides/error-handling.md)
 
 Check out the complete production-level example:
 
-- **OrderSystem**: [OrderSystem 示例](../examples/README.md)
+- **OrderSystem**: [OrderSystem 示例](/examples/README.md)
   - Complete e-commerce order system
   - Distributed deployment (3-node cluster)
   - Monitoring and tracing

@@ -503,8 +503,8 @@ builder.Services.AddCatga(options =>
 
 ## 相关文档
 
-- [API 参考](../api/README.md)
-- [高级用法](../guides/source-generator-usage.md)
+- [API 参考](../api/index.md)
+- [高级用法](../guides/source-generator.md)
 - [最佳实践](../guides/memory-optimization-guide.md)
 
 

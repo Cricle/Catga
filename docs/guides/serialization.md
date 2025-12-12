@@ -704,7 +704,7 @@ services.AddCatga().UseCustomSerializer();
 
 **🚀 选择正确的序列化器，获得最佳性能！**
 
-[返回主文档](../README.md) · [文档索引](../INDEX.md) · [架构设计](../architecture/ARCHITECTURE.md)
+[返回主文档](../README.md) · [架构设计](../architecture/ARCHITECTURE.md)
 
 **推荐**: 生产环境使用 MemoryPack，开发调试使用 JSON
 

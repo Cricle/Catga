@@ -13,7 +13,7 @@ Catga Flow DSL provides a fluent API for defining distributed transactions (saga
 
 📖 **完整指南**:
 - [最佳实践和性能调优](./flow-dsl-best-practices.md)
-- [性能基准测试报告](../performance-benchmarks.md)
+- [性能基准测试报告](../BENCHMARK-RESULTS.md)
 
 ## Quick Start
 

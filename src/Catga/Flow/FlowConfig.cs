@@ -255,6 +255,7 @@ public interface IIfBuilder<TState> where TState : class, IFlowState
     IIfBuilder<TState> Send<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest;
     IIfBuilder<TState, TResult> Send<TResult>(Func<TState, IRequest<TResult>> factory);
     IIfBuilder<TState> Publish<TEvent>(Func<TState, TEvent> factory) where TEvent : IEvent;
+    IIfBuilder<TState> Into(Action<TState> action);
 
     // Nested branching
     IIfBuilder<TState> If(Func<TState, bool> condition);
@@ -1027,6 +1028,13 @@ internal class IfBuilder<TState> : IIfBuilder<TState> where TState : class, IFlo
     public IIfBuilder<TState> Publish<TEvent>(Func<TState, TEvent> factory) where TEvent : IEvent
     {
         var step = new FlowStep { Type = StepType.Publish, RequestFactory = factory };
+        _currentBranch.Add(step);
+        return this;
+    }
+
+    public IIfBuilder<TState> Into(Action<TState> action)
+    {
+        var step = new FlowStep { Type = StepType.Send, RequestFactory = action };
         _currentBranch.Add(step);
         return this;
     }

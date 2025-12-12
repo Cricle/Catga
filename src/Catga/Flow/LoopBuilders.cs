@@ -128,6 +128,11 @@ public interface IRepeatBuilder<TState> where TState : class, IFlowState
     IRepeatBuilder<TState> Publish<TEvent>(Func<TState, TEvent> factory) where TEvent : IEvent;
 
     /// <summary>
+    /// Execute an action on the state.
+    /// </summary>
+    IRepeatBuilder<TState> Into(Action<TState> action);
+
+    /// <summary>
     /// Add a condition to break the loop.
     /// </summary>
     IRepeatBuilder<TState> BreakIf(Expression<Func<TState, bool>> condition);
@@ -448,6 +453,21 @@ internal class RepeatBuilder<TState> : IRepeatBuilder<TState> where TState : cla
     public IRepeatBuilder<TState> Publish<TEvent>(Func<TState, TEvent> factory) where TEvent : IEvent
     {
         // Add publish step to loop
+        return this;
+    }
+
+    public IRepeatBuilder<TState> Into(Action<TState> action)
+    {
+        // Add action step to loop
+        if (_flowBuilder.Steps.Count > 0)
+        {
+            var lastStep = _flowBuilder.Steps[^1];
+            if (lastStep.Type == StepType.Repeat && lastStep.LoopSteps != null)
+            {
+                var step = new FlowStep { Type = StepType.Send, RequestFactory = action };
+                lastStep.LoopSteps.Add(step);
+            }
+        }
         return this;
     }
 

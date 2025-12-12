@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Catga.Abstractions;
+using Catga.Flow;
 using Catga.Flow.Dsl;
 using StackExchange.Redis;
 
@@ -10,10 +11,9 @@ namespace Catga.Persistence.Redis.Flow;
 /// Redis DSL flow store with atomic Lua scripts.
 /// Supports distributed flow execution with WaitCondition for WhenAll/WhenAny.
 /// </summary>
-public sealed class RedisDslFlowStore : IDslFlowStore
+public class RedisDslFlowStore : DslFlowStoreBase, IDslFlowStore
 {
     private readonly IConnectionMultiplexer _redis;
-    private readonly IMessageSerializer _serializer;
     private readonly string _prefix;
 
     // Lua scripts for atomic operations
@@ -39,9 +39,9 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         return 1";
 
     public RedisDslFlowStore(IConnectionMultiplexer redis, IMessageSerializer serializer, string prefix = "dslflow:")
+        : base(serializer)
     {
         _redis = redis;
-        _serializer = serializer;
         _prefix = prefix;
     }
 
@@ -52,7 +52,7 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         var key = _prefix + snapshot.FlowId;
         var indexKey = _prefix + "index";
 
-        var data = _serializer.Serialize(new StoredSnapshot<TState>(snapshot));
+        var data = Serializer.Serialize(new StoredSnapshot<TState>(snapshot));
 
         var result = await db.ScriptEvaluateAsync(CreateScript,
             [key, indexKey],
@@ -70,7 +70,7 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         var data = await db.StringGetAsync(key);
         if (data.IsNullOrEmpty) return null;
 
-        var stored = _serializer.Deserialize<StoredSnapshot<TState>>((byte[])data!);
+        var stored = Serializer.Deserialize<StoredSnapshot<TState>>((byte[])data!);
         return stored?.ToSnapshot();
     }
 
@@ -81,7 +81,7 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         var key = _prefix + snapshot.FlowId;
 
         var newSnapshot = snapshot with { Version = snapshot.Version + 1, UpdatedAt = DateTime.UtcNow };
-        var data = _serializer.Serialize(new StoredSnapshot<TState>(newSnapshot));
+        var data = Serializer.Serialize(new StoredSnapshot<TState>(newSnapshot));
 
         var result = await db.ScriptEvaluateAsync(UpdateScript,
             [key],
@@ -109,7 +109,7 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         var key = _prefix + "wait:" + correlationId;
         var indexKey = _prefix + "wait:index";
 
-        var data = _serializer.Serialize(condition);
+        var data = SerializeWaitCondition(condition);
         await db.StringSetAsync(key, data);
         var timeoutAt = condition.CreatedAt.Add(condition.Timeout);
         await db.SortedSetAddAsync(indexKey, correlationId, new DateTimeOffset(timeoutAt).ToUnixTimeMilliseconds());
@@ -123,7 +123,7 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         var data = await db.StringGetAsync(key);
         if (data.IsNullOrEmpty) return null;
 
-        return _serializer.Deserialize<WaitCondition>((byte[])data!);
+        return DeserializeWaitCondition((byte[])data!);
     }
 
     public async Task UpdateWaitConditionAsync(string correlationId, WaitCondition condition, CancellationToken ct = default)
@@ -131,7 +131,7 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         var db = _redis.GetDatabase();
         var key = _prefix + "wait:" + correlationId;
 
-        var data = _serializer.Serialize(condition);
+        var data = SerializeWaitCondition(condition);
         await db.StringSetAsync(key, data);
     }
 
@@ -170,7 +170,7 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         var db = _redis.GetDatabase();
         var key = _prefix + "foreach:" + flowId + ":" + stepIndex;
 
-        var data = _serializer.Serialize(progress);
+        var data = SerializeForEachProgress(progress);
         await db.StringSetAsync(key, data);
     }
 
@@ -182,7 +182,7 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         var data = await db.StringGetAsync(key);
         if (data.IsNullOrEmpty) return null;
 
-        return _serializer.Deserialize<ForEachProgress>((byte[])data!);
+        return DeserializeForEachProgress((byte[])data!);
     }
 
     public async Task ClearForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
@@ -198,7 +198,7 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         var db = _redis.GetDatabase();
         var key = _prefix + "loop:" + flowId + ":" + stepIndex;
 
-        var data = _serializer.Serialize(progress);
+        var data = SerializeLoopProgress(progress);
         await db.StringSetAsync(key, data);
     }
 
@@ -210,7 +210,7 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         var data = await db.StringGetAsync(key);
         if (data.IsNullOrEmpty) return null;
 
-        return _serializer.Deserialize<LoopProgress>((byte[])data!);
+        return DeserializeLoopProgress((byte[])data!);
     }
 
     public async Task ClearLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)

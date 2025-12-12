@@ -9,24 +9,22 @@ namespace Catga.Persistence.InMemory.Flow;
 /// <summary>
 /// In-memory DSL flow store for development/testing.
 /// </summary>
-public sealed class InMemoryDslFlowStore : IDslFlowStore
+public class InMemoryDslFlowStore : DslFlowStoreBase, IDslFlowStore
 {
-    private readonly IMessageSerializer _serializer;
     private readonly ConcurrentDictionary<string, FlowEntry> _flows = new();
     private readonly ConcurrentDictionary<string, WaitCondition> _waitConditions = new();
     private readonly ConcurrentDictionary<string, ForEachProgress> _forEachProgress = new();
     private readonly ConcurrentDictionary<string, LoopProgress> _loopProgress = new();
 
-    public InMemoryDslFlowStore(IMessageSerializer serializer)
+    public InMemoryDslFlowStore(IMessageSerializer serializer) : base(serializer)
     {
-        _serializer = serializer;
     }
 
     public Task<bool> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
         FlowSnapshot<TState> snapshot, CancellationToken ct = default)
         where TState : class, IFlowState
     {
-        var data = _serializer.Serialize(snapshot);
+        var data = SerializeSnapshot(snapshot);
         var entry = new FlowEntry(typeof(TState).FullName ?? typeof(TState).Name, data, 0);
         return Task.FromResult(_flows.TryAdd(snapshot.FlowId, entry));
     }
@@ -38,7 +36,7 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
         if (!_flows.TryGetValue(flowId, out var entry))
             return Task.FromResult<FlowSnapshot<TState>?>(null);
 
-        var snapshot = _serializer.Deserialize<FlowSnapshot<TState>>(entry.Data);
+        var snapshot = DeserializeSnapshot<TState>(entry.Data);
         return Task.FromResult(snapshot);
     }
 
@@ -53,7 +51,7 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
         if (Interlocked.CompareExchange(ref entry.Version, snapshot.Version, expectedVersion) != expectedVersion)
             return Task.FromResult(false);
 
-        entry.Data = _serializer.Serialize(snapshot);
+        entry.Data = SerializeSnapshot(snapshot);
         return Task.FromResult(true);
     }
 

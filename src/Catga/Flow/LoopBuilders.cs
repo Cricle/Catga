@@ -176,19 +176,37 @@ internal class WhileBuilder<TState> : IWhileBuilder<TState> where TState : class
     private readonly FlowBuilder<TState> _flowBuilder;
     private readonly LoopStep<TState> _loopStep;
 
-    public WhileBuilder(FlowBuilder<TState> flowBuilder, Expression<Func<TState, bool>> condition)
+    public WhileBuilder(FlowBuilder<TState> flowBuilder, Func<TState, bool> condition)
     {
         _flowBuilder = flowBuilder;
         _loopStep = new LoopStep<TState>
         {
             Type = LoopType.While,
-            Condition = condition
+            Condition = null // Will be set when EndWhile is called
         };
+
+        // Create the FlowStep for the while loop
+        var flowStep = new FlowStep
+        {
+            Type = StepType.While,
+            LoopCondition = condition,
+            LoopSteps = []
+        };
+        _flowBuilder.Steps.Add(flowStep);
     }
 
     public IWhileBuilder<TState> Send<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest
     {
         // Add send step to loop
+        if (_flowBuilder.Steps.Count > 0)
+        {
+            var lastStep = _flowBuilder.Steps[^1];
+            if (lastStep.Type == StepType.While && lastStep.LoopSteps != null)
+            {
+                var step = new FlowStep { Type = StepType.Send, RequestFactory = factory };
+                lastStep.LoopSteps.Add(step);
+            }
+        }
         return this;
     }
 
@@ -263,11 +281,29 @@ internal class DoWhileBuilder<TState> : IDoWhileBuilder<TState> where TState : c
         {
             Type = LoopType.DoWhile
         };
+
+        // Create the FlowStep for the do-while loop
+        var flowStep = new FlowStep
+        {
+            Type = StepType.DoWhile,
+            LoopCondition = null, // Will be set when Until is called
+            LoopSteps = []
+        };
+        _flowBuilder.Steps.Add(flowStep);
     }
 
     public IDoWhileBuilder<TState> Send<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest
     {
         // Add send step to loop
+        if (_flowBuilder.Steps.Count > 0)
+        {
+            var lastStep = _flowBuilder.Steps[^1];
+            if (lastStep.Type == StepType.DoWhile && lastStep.LoopSteps != null)
+            {
+                var step = new FlowStep { Type = StepType.Send, RequestFactory = factory };
+                lastStep.LoopSteps.Add(step);
+            }
+        }
         return this;
     }
 
@@ -332,21 +368,48 @@ internal class RepeatBuilder<TState> : IRepeatBuilder<TState> where TState : cla
             Type = LoopType.Repeat,
             FixedTimes = times
         };
+
+        // Create the FlowStep for the repeat loop
+        var flowStep = new FlowStep
+        {
+            Type = StepType.Repeat,
+            RepeatCount = times,
+            LoopSteps = []
+        };
+        _flowBuilder.Steps.Add(flowStep);
     }
 
-    public RepeatBuilder(FlowBuilder<TState> flowBuilder, Expression<Func<TState, int>> timesSelector)
+    public RepeatBuilder(FlowBuilder<TState> flowBuilder, Func<TState, int> timesSelector)
     {
         _flowBuilder = flowBuilder;
         _loopStep = new LoopStep<TState>
         {
             Type = LoopType.Repeat,
-            TimesSelector = timesSelector
+            TimesSelector = null // Will be set when EndRepeat is called
         };
+
+        // Create the FlowStep for the repeat loop
+        var flowStep = new FlowStep
+        {
+            Type = StepType.Repeat,
+            RepeatCountSelector = timesSelector,
+            LoopSteps = []
+        };
+        _flowBuilder.Steps.Add(flowStep);
     }
 
     public IRepeatBuilder<TState> Send<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest
     {
         // Add send step to loop
+        if (_flowBuilder.Steps.Count > 0)
+        {
+            var lastStep = _flowBuilder.Steps[^1];
+            if (lastStep.Type == StepType.Repeat && lastStep.LoopSteps != null)
+            {
+                var step = new FlowStep { Type = StepType.Send, RequestFactory = factory };
+                lastStep.LoopSteps.Add(step);
+            }
+        }
         return this;
     }
 

@@ -198,6 +198,33 @@ public interface IDslFlowStore
 
     /// <summary>Clear ForEach progress.</summary>
     Task ClearForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default);
+
+    /// <summary>Save loop progress for recovery.</summary>
+    Task SaveLoopProgressAsync(string flowId, int stepIndex, LoopProgress progress, CancellationToken ct = default);
+
+    /// <summary>Get loop progress for recovery.</summary>
+    Task<LoopProgress?> GetLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default);
+
+    /// <summary>Clear loop progress.</summary>
+    Task ClearLoopProgressAsync(string flowId, int stepIndex, CancellationToken ct = default);
+}
+
+#endregion
+
+#region Loop Progress
+
+/// <summary>
+/// Loop progress tracking for recovery.
+/// </summary>
+public record LoopProgress
+{
+    public required string FlowId { get; init; }
+    public required int StepIndex { get; init; }
+    public required int IterationCount { get; init; }
+    public required DateTime StartedAt { get; init; }
+    public DateTime? LastIterationAt { get; init; }
+    public string? LastError { get; init; }
+    public Dictionary<string, object> State { get; init; } = [];
 }
 
 #endregion

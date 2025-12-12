@@ -2,17 +2,28 @@ using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Idempotency;
 using Catga.Resilience;
+using Microsoft.Extensions.Options;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 
 namespace Catga.Persistence.Nats;
 
-/// <summary>NATS JetStream-based idempotency store.</summary>
-public sealed class NatsJSIdempotencyStore(INatsConnection connection, IMessageSerializer serializer, IResiliencePipelineProvider provider, string streamName = "CATGA_IDEMPOTENCY", TimeSpan? ttl = null, NatsJSStoreOptions? options = null)
-    : NatsJSStoreBase(connection, streamName, options), IIdempotencyStore
+/// <summary>Options for NatsJSIdempotencyStore.</summary>
+public class NatsJSIdempotencyStoreOptions
 {
-    private readonly TimeSpan _ttl = ttl ?? TimeSpan.FromHours(24);
+    /// <summary>Stream name for idempotency store. Default: CATGA_IDEMPOTENCY.</summary>
+    public string StreamName { get; set; } = "CATGA_IDEMPOTENCY";
+
+    /// <summary>TTL for processed message records. Default: 24 hours.</summary>
+    public TimeSpan Ttl { get; set; } = TimeSpan.FromHours(24);
+}
+
+/// <summary>NATS JetStream-based idempotency store.</summary>
+public sealed class NatsJSIdempotencyStore(INatsConnection connection, IMessageSerializer serializer, IResiliencePipelineProvider provider, IOptions<NatsJSIdempotencyStoreOptions>? idempotencyOptions = null, NatsJSStoreOptions? options = null)
+    : NatsJSStoreBase(connection, idempotencyOptions?.Value.StreamName ?? "CATGA_IDEMPOTENCY", options), IIdempotencyStore
+{
+    private readonly TimeSpan _ttl = idempotencyOptions?.Value.Ttl ?? TimeSpan.FromHours(24);
 
     protected override string[] GetSubjects() => new[] { $"{StreamName}.>" };
 

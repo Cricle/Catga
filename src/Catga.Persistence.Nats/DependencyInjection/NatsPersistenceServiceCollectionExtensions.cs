@@ -82,23 +82,15 @@ public static class NatsPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddNatsIdempotencyStore(
         this IServiceCollection services,
-        string? streamName = null,
-        Action<NatsJSStoreOptions>? configure = null,
-        IResiliencePipelineProvider? resiliencePipelineProvider = null)
+        Action<NatsJSIdempotencyStoreOptions>? configureIdempotency = null,
+        Action<NatsJSStoreOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.TryAddSingleton<IIdempotencyStore>(sp =>
-        {
-            var connection = sp.GetRequiredService<INatsConnection>();
-            var serializer = sp.GetRequiredService<IMessageSerializer>();
-            var provider = resiliencePipelineProvider ?? sp.GetRequiredService<IResiliencePipelineProvider>();
+        if (configureIdempotency != null)
+            services.Configure(configureIdempotency);
 
-            var options = new NatsJSStoreOptions { StreamName = streamName ?? "CATGA_IDEMPOTENCY" };
-            configure?.Invoke(options);
-
-            return new NatsJSIdempotencyStore(connection, serializer, provider, streamName ?? "CATGA_IDEMPOTENCY", null, options);
-        });
+        services.TryAddSingleton<IIdempotencyStore, NatsJSIdempotencyStore>();
 
         return services;
     }

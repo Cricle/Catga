@@ -38,19 +38,13 @@ MSIL 之所以灵活，主要源于以下特点：
    - ❌ 缺少 While/Do-While 循环
    - ❌ 缺少 Try-Catch 错误处理
    - ❌ 缺少递归流支持
-   - ❌ 缺少动态步骤生成
 
 2. **表达式灵活性不足**
    - ⚠️ 条件表达式只支持简单的 `Func<TState, bool>`
    - ❌ 不支持复杂的 LINQ 查询表达式
    - ❌ 不支持表达式树分析和优化
 
-3. **状态和上下文管理有限**
-   - ❌ 没有流程变量支持
-   - ❌ 没有上下文传递机制
-   - ❌ 没有中间结果存储
-
-4. **可分析性缺失**
+3. **可分析性缺失**
    - ❌ 无法静态分析流程结构
    - ❌ 无法进行死代码消除
    - ❌ 无法进行性能优化
@@ -67,9 +61,7 @@ MSIL 之所以灵活，主要源于以下特点：
 控制流完整性        ⚠️ 部分          ✅ 完整          While/DoWhile/Try-Catch
 表达式灵活性        ⚠️ 基础          ✅ 高级          Expression 树支持
 嵌套能力            ⚠️ 有限          ✅ 无限          递归块结构
-状态管理            ⚠️ 基础          ✅ 完整          变量和上下文
 可分析性            ❌ 缺失          ✅ 完整          静态分析工具
-动态生成            ❌ 缺失          ✅ 支持          运行时步骤生成
 递归支持            ❌ 缺失          ✅ 支持          流的递归调用
 ```
 
@@ -250,114 +242,6 @@ flow.RecursiveCall(
 
 ---
 
-### 方案 C：状态和上下文管理（推荐）
-
-#### C1. 流程变量（对标 MSIL ldloc/stloc）
-**目标**：支持在流程中存储和使用中间值，像 MSIL 的本地变量一样
-
-```csharp
-// 定义和使用流程变量（对标 MSIL: .locals init）
-flow.Var("retryCount", s => 0)
-    .While(s => s.GetVar<int>("retryCount") < 3)
-        .Send(s => new RetryCommand(s.OrderId))
-        .SetVar("retryCount", s => s.GetVar<int>("retryCount") + 1)
-    .EndWhile();
-
-// 支持多个变量（对标 MSIL 的多个本地变量）
-flow.Var("totalAmount", s => 0m)
-    .Var("itemCount", s => 0)
-    .ForEach(s => s.Items)
-        .SetVar("totalAmount", (s, item) => s.GetVar<decimal>("totalAmount") + item.Price)
-        .SetVar("itemCount", s => s.GetVar<int>("itemCount") + 1)
-    .EndForEach()
-    .Send(s => new SummaryCommand(
-        s.OrderId,
-        s.GetVar<decimal>("totalAmount"),
-        s.GetVar<int>("itemCount")));
-```
-
-**实现方式**：
-- 在 `IFlowState` 中添加变量存储机制
-- 提供 `GetVar<T>` 和 `SetVar<T>` 扩展方法
-- 在执行时管理变量的生命周期
-
-**关键文件**：
-- `Abstractions.cs` - 扩展 `IFlowState` 接口
-- `BaseFlowState.cs` - 实现变量存储
-- `FlowConfig.cs` - 添加 Var/SetVar 方法
-
-#### C2. 流程上下文
-**目标**：在步骤执行时传递上下文信息
-
-```csharp
-// 在步骤中访问上下文
-flow.WithContext(s => new { s.OrderId, s.Amount })
-    .Send((s, ctx) => new ProcessCommand(s.OrderId, ctx.Amount))
-    .EndContext();
-```
-
-**实现方式**：
-- 创建 `FlowContext<TState>` 类来存储执行上下文
-- 在 `DslFlowExecutor` 中创建和传递上下文
-- 支持上下文的嵌套和作用域
-
-**关键文件**：
-- `DslFlowExecutor.cs` - 创建和管理上下文
-- `FlowConfig.cs` - 添加 WithContext 方法
-
----
-
-### 方案 D：高级查询和操作（可选）
-
-#### D1. 聚合操作
-**目标**：支持集合的聚合操作
-
-```csharp
-// 聚合操作
-flow.Aggregate(
-    s => s.Items,
-    (items, f) => {
-        f.Send(s => new ProcessItemsCommand(items.ToList()));
-    });
-
-// 分组操作
-flow.GroupBy(
-    s => s.Items,
-    item => item.Category,
-    (category, items, f) => {
-        f.Send(s => new ProcessCategoryCommand(category, items.ToList()));
-    });
-```
-
-**实现方式**：
-- 使用 LINQ 的 `Aggregate` 和 `GroupBy` 方法
-- 在 `DslFlowExecutor` 中实现聚合逻辑
-- 支持复杂的集合操作
-
-**关键文件**：
-- `FlowConfig.cs` - 添加 Aggregate/GroupBy 方法
-- `DslFlowExecutor.cs` - 实现聚合执行逻辑
-
-#### D2. 管道操作
-**目标**：支持步骤的管道化处理
-
-```csharp
-// 管道操作
-flow.Pipe(
-    s => s.Items,
-    items => items.Where(i => i.Price > 100),
-    filtered => filtered.Select(i => new ProcessItemCommand(i.Id)),
-    commands => /* send commands */);
-```
-
-**实现方式**：
-- 使用函数组合和管道模式
-- 在 `DslFlowExecutor` 中实现管道执行
-- 支持多个转换步骤的链接
-
-**关键文件**：
-- `FlowConfig.cs` - 添加 Pipe 方法
-- `DslFlowExecutor.cs` - 实现管道执行逻辑
 
 ---
 
@@ -389,18 +273,10 @@ flow.Pipe(
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │ 第 3 层：表达式和状态（优先级 2）                        │   │
+│  │ 第 3 层：表达式增强（优先级 2）                          │   │
 │  ├──────────────────────────────────────────────────────────┤   │
 │  │ ⏳ Expression 树支持 - 复杂条件和值选择                  │   │
-│  │ ⏳ 流程变量 - 中间值存储                                 │   │
-│  │ ⏳ 流程上下文 - 执行时上下文传递                         │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                   │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │ 第 4 层：高级特性（优先级 3-4）                          │   │
-│  ├──────────────────────────────────────────────────────────┤   │
 │  │ ⏳ 递归流调用 - 流的嵌套执行                             │   │
-│  │ ⏳ 动态步骤生成 - 运行时生成步骤                         │   │
 │  │ ⏳ 静态分析工具 - 流程分析和优化                         │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                   │
@@ -651,43 +527,21 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
 - [ ] 支持复杂的 LINQ 表达式
 - [ ] 编写单元测试（15+ 个）
 
-#### B. 流程变量
-- [ ] 在 `IFlowState` 中添加变量存储机制
-- [ ] 创建 `FlowVariables` 类管理变量
-- [ ] 实现 `Var<T>` 方法定义变量
-- [ ] 实现 `SetVar<T>` 方法设置变量
-- [ ] 实现 `GetVar<T>` 扩展方法获取变量
-- [ ] 支持变量的作用域管理
-- [ ] 编写单元测试（15+ 个）
-
-#### C. 流程上下文
-- [ ] 创建 `FlowContext<TState>` 类
-- [ ] 在 `DslFlowExecutor` 中创建和管理上下文
-- [ ] 支持上下文的嵌套和作用域
-- [ ] 支持上下文的传递
-- [ ] 编写单元测试（10+ 个）
-
-**第 3 层小计**：
-- 代码量：300-400 行
-- 测试：40-50 个
-- 工期：2-3 周
-
-### 第 4 层：高级特性（优先级 3-4）
-
-#### A. 递归流调用
+#### B. 递归流调用
 - [ ] 添加 `CallFlow<TOtherFlow>` 方法
 - [ ] 支持状态映射
 - [ ] 支持结果合并
 - [ ] 管理递归深度
 - [ ] 编写单元测试（15+ 个）
 
-#### B. 动态步骤生成
-- [ ] 添加 `Dynamic` 方法
-- [ ] 支持运行时步骤生成
-- [ ] 支持条件步骤生成
-- [ ] 编写单元测试（10+ 个）
+**第 3 层小计**：
+- 代码量：250-350 行
+- 测试：35-50 个
+- 工期：2-3 周
 
-#### C. 静态分析和优化
+### 第 4 层：静态分析和优化（优先级 3）
+
+#### 静态分析和优化
 - [ ] 创建 `FlowAnalyzer` 类
 - [ ] 实现死代码检测
 - [ ] 实现常量折叠
@@ -695,9 +549,9 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
 - [ ] 编写单元测试（15+ 个）
 
 **第 4 层小计**：
-- 代码量：300-400 行
-- 测试：40-50 个
-- 工期：2-3 周
+- 代码量：200-300 行
+- 测试：15+ 个
+- 工期：1-2 周
 
 ### 第 5 层：文档和示例
 - [ ] 更新 API 文档
@@ -710,31 +564,29 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
 ## 🚀 预期成果
 
 ### 代码质量
-- **新增代码**：1200-1600 行（4 层实现）
-- **新增测试**：180-240 个（覆盖所有新特性）
+- **新增代码**：850-1200 行（4 层实现）
+- **新增测试**：125-180 个（覆盖所有新特性）
 - **代码覆盖率**：>90%
 - **性能提升**：10-20%（通过 Expression 优化）
 
-### 功能增强（MSIL 对标）
-- **第 1 层**：✅ 已完成（基础指令）
+### 功能增强
+- **第 1 层**：✅ 已完成（基础步骤）
 - **第 2 层**：⏳ 优先级 1（控制流）
   - While/DoWhile/Repeat 循环
   - Try-Catch-Finally 异常处理
-  - 嵌套块支持
-- **第 3 层**：⏳ 优先级 2（变量和栈）
-  - 流程变量（Var/SetVar/GetVar）
-  - 流程上下文管理
-- **第 4 层**：⏳ 优先级 3-4（高级特性）
-  - 递归调用
-  - 动态步骤生成
-  - 表达式分析和优化
+  - 无限嵌套支持
+- **第 3 层**：⏳ 优先级 2（表达式和递归）
+  - Expression 树支持
+  - 递归流调用
+  - 静态分析工具
+- **第 4 层**：⏳ 优先级 3（优化）
+  - 流程分析和优化
 
 ### API 方法增加
 - `While(condition)` / `DoWhile()` / `Repeat(times)`
 - `Try()` / `Catch<T>()` / `Finally()`
-- `Var<T>(name, initializer)` / `SetVar<T>()` / `GetVar<T>()`
 - `CallFlow<T>()` / `RecursiveCall()`
-- `Dynamic()` / `Analyze()` / `Optimize()`
+- `Analyze()` / `Optimize()`
 
 ### 文档
 - **API 文档**：完整的方法文档和 MSIL 对标说明
@@ -755,36 +607,36 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
   - Day 3-4：执行器实现
   - Day 5：测试和优化
 
-### 第 2 周（优先级 2 - 变量和上下文）
-- **目标**：实现流程变量和上下文管理
+### 第 2 周（优先级 2 - 表达式和递归）
+- **目标**：实现 Expression 树支持和递归流调用
 - **代码量**：250-350 行
 - **测试**：35-50 个
 - **关键里程碑**：
-  - Day 1-2：变量存储机制
-  - Day 3-4：上下文管理
+  - Day 1-2：Expression 树支持
+  - Day 3-4：递归流调用
   - Day 5：集成测试
 
-### 第 3-4 周（优先级 3-4 - 高级特性）
-- **目标**：实现递归、动态生成和优化
-- **代码量**：300-400 行
-- **测试**：40-50 个
+### 第 3 周（优先级 3 - 优化）
+- **目标**：实现静态分析和优化
+- **代码量**：200-300 行
+- **测试**：15+ 个
 - **关键里程碑**：
-  - Week 3：递归和动态生成
-  - Week 4：分析和优化工具
+  - Day 1-3：分析和优化工具
+  - Day 4-5：测试和文档
 
-### 第 5 周（文档和示例）
+### 第 4 周（文档和示例）
 - **目标**：完成文档和示例
-- **产出**：完整的 API 文档和 15+ 示例
+- **产出**：完整的 API 文档和 10+ 示例
 
 ---
 
 ## 🎯 成功标准
 
 ### 功能完整性
-- ✅ 所有 MSIL 对标特性都已实现
+- ✅ 完整的控制流支持（While/DoWhile/Try-Catch）
 - ✅ 支持任意嵌套的控制流
-- ✅ 完整的异常处理
-- ✅ 变量和上下文管理
+- ✅ Expression 树支持
+- ✅ 递归流调用支持
 
 ### 代码质量
 - ✅ 代码覆盖率 > 90%
@@ -830,11 +682,10 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
 - **块式调用**：分支和循环内部（`.If(...).Then(...).EndIf()`)
 - **原因**：链式调用直观，块式调用清晰
 
-### 5. 变量管理方式
-- **不使用栈模型**：避免 MSIL 的复杂性
-- **使用显式变量存储**：在 FlowState 中存储变量
-- **支持作用域管理**：变量在块内有效
-- **原因**：更符合 C# 的编程习惯，易于理解和维护
+### 5. 不包含变量和动态生成
+- **不实现流程变量**：避免增加复杂性
+- **不实现动态步骤生成**：保持 DSL 的清晰性
+- **原因**：专注于核心的控制流增强，保持 API 简洁
 
 ---
 

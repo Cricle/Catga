@@ -39,6 +39,11 @@ public interface IWhileBuilder<TState> where TState : class, IFlowState
     IWhileBuilder<TState> ContinueIf(Expression<Func<TState, bool>> condition);
 
     /// <summary>
+    /// Execute an action on the state.
+    /// </summary>
+    IWhileBuilder<TState> Into(Action<TState> action);
+
+    /// <summary>
     /// End the while loop.
     /// </summary>
     IFlowBuilder<TState> EndWhile();
@@ -237,6 +242,21 @@ internal class WhileBuilder<TState> : IWhileBuilder<TState> where TState : class
     public IWhileBuilder<TState> ContinueIf(Expression<Func<TState, bool>> condition)
     {
         _loopStep.ContinueCondition = condition;
+        return this;
+    }
+
+    public IWhileBuilder<TState> Into(Action<TState> action)
+    {
+        // Add action step to loop
+        if (_flowBuilder.Steps.Count > 0)
+        {
+            var lastStep = _flowBuilder.Steps[^1];
+            if (lastStep.Type == StepType.While && lastStep.LoopSteps != null)
+            {
+                var step = new FlowStep { Type = StepType.Send, RequestFactory = action };
+                lastStep.LoopSteps.Add(step);
+            }
+        }
         return this;
     }
 

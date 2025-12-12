@@ -98,6 +98,7 @@ public interface IFlowBuilder<TState> where TState : class, IFlowState
     IStepBuilder<TState, TResult> Send<TResult>(Func<TState, IRequest<TResult>> factory);
     IQueryBuilder<TState, TResult> Query<TResult>(Func<TState, IRequest<TResult>> factory);
     IPublishBuilder<TState> Publish<TEvent>(Func<TState, TEvent> factory) where TEvent : IEvent;
+    IFlowBuilder<TState> Into(Action<TState> action);
 
     // Parallel
     IWhenAllBuilder<TState> WhenAll(params Func<TState, IRequest>[] requests);
@@ -470,6 +471,13 @@ internal class FlowBuilder<TState> : IFlowBuilder<TState> where TState : class, 
         var step = new FlowStep { Type = StepType.Publish, RequestFactory = factory };
         Steps.Add(step);
         return new PublishBuilder<TState>(step);
+    }
+
+    public IFlowBuilder<TState> Into(Action<TState> action)
+    {
+        var step = new FlowStep { Type = StepType.Send, RequestFactory = action };
+        Steps.Add(step);
+        return this;
     }
 
     public IWhenAllBuilder<TState> WhenAll(params Func<TState, IRequest>[] requests)

@@ -41,40 +41,6 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>
-    /// Add Flow DSL with InMemory storage (for development/testing).
-    /// This method is provided for backward compatibility.
-    /// For new code, use Catga.Persistence.InMemory package extension methods.
-    /// </summary>
-    public static IServiceCollection AddFlowDsl(this IServiceCollection services, Action<FlowDslOptions>? configure = null)
-    {
-        // Avoid hard dependency on InMemory package in core library
-        throw new NotSupportedException("AddFlowDsl requires Catga.Persistence.InMemory package. Reference that package and use its extension methods.");
-    }
-
-    /// <summary>
-    /// Add Flow DSL with Redis storage (for production).
-    /// </summary>
-    public static IServiceCollection AddFlowDslWithRedis(
-        this IServiceCollection services,
-        string connectionString,
-        Action<FlowDslOptions>? configure = null)
-    {
-        // Avoid hard dependency on Redis package in core library
-        throw new NotSupportedException("AddFlowDslWithRedis requires Catga.Persistence.Redis package. Reference that package and use its extension methods.");
-    }
-
-    /// <summary>
-    /// Add Flow DSL with NATS storage (for event-driven systems).
-    /// </summary>
-    public static IServiceCollection AddFlowDslWithNats(
-        this IServiceCollection services,
-        string natsUrl,
-        Action<FlowDslOptions>? configure = null)
-    {
-        // Avoid hard dependency on NATS package in core library
-        throw new NotSupportedException("AddFlowDslWithNats requires Catga.Persistence.Nats package. Reference that package and use its extension methods.");
-    }
 
     /// <summary>
     /// Register a specific flow configuration.

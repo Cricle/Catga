@@ -11,17 +11,6 @@ namespace Catga.Flow.Dsl;
 public static class DslFlowServiceExtensions
 {
     /// <summary>
-    /// Adds DSL Flow services with in-memory store.
-    /// </summary>
-    public static IServiceCollection AddDslFlow(this IServiceCollection services)
-    {
-        services.TryAddSingleton<IDslFlowStore, InMemoryDslFlowStore>();
-        services.TryAddSingleton<FlowResumeHandler>();
-        services.TryAddSingleton<IEventHandler<FlowCompletedEvent>>(sp => sp.GetRequiredService<FlowResumeHandler>());
-        return services;
-    }
-
-    /// <summary>
     /// Adds DSL Flow services with custom store.
     /// </summary>
     public static IServiceCollection AddDslFlow<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TStore>(this IServiceCollection services)

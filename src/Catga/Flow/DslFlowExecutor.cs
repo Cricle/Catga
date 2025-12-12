@@ -1234,6 +1234,8 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
             {
                 // Create a temporary flow builder to capture configured steps
                 var tempBuilder = new FlowBuilder<TState>();
+                // Note: ItemStepsConfigurator is stored as Delegate, not CompiledStep
+                // It needs to be handled by source generator for each specific factory
                 step.ItemStepsConfigurator.DynamicInvoke(item, tempBuilder);
 
                 // Execute the configured steps

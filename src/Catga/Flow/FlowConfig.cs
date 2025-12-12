@@ -1110,6 +1110,28 @@ public class FlowStep
     internal Delegate? OnItemFail { get; set; }
     /// <summary>Completion callback.</summary>
     internal Delegate? OnComplete { get; set; }
+
+    // Loop specific (While/DoWhile/Repeat)
+    /// <summary>Loop condition for While/DoWhile.</summary>
+    internal Delegate? LoopCondition { get; set; }
+    /// <summary>Loop iteration count for Repeat.</summary>
+    internal int? RepeatCount { get; set; }
+    /// <summary>Loop iteration count selector for Repeat.</summary>
+    internal Delegate? RepeatCountSelector { get; set; }
+    /// <summary>Steps to execute in loop body.</summary>
+    public List<FlowStep>? LoopSteps { get; set; }
+    /// <summary>Break condition for loops.</summary>
+    internal Delegate? BreakCondition { get; set; }
+    /// <summary>Continue condition for loops.</summary>
+    internal Delegate? ContinueCondition { get; set; }
+
+    // Try-Catch specific
+    /// <summary>Steps in try block.</summary>
+    public List<FlowStep>? TrySteps { get; set; }
+    /// <summary>Catch handlers: (ExceptionType, Handler).</summary>
+    public List<(Type ExceptionType, Delegate Handler)>? CatchHandlers { get; set; }
+    /// <summary>Finally block handler.</summary>
+    internal Delegate? FinallyHandler { get; set; }
 }
 
 /// <summary>
@@ -1124,7 +1146,11 @@ public enum StepType
     WhenAny,
     If,
     Switch,
-    ForEach
+    ForEach,
+    While,
+    DoWhile,
+    Repeat,
+    Try
 }
 
 /// <summary>

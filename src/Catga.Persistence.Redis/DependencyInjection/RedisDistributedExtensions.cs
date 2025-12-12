@@ -16,54 +16,35 @@ namespace Catga.Persistence.Redis.DependencyInjection;
 public static class RedisDistributedExtensions
 {
     /// <summary>Add Redis distributed lock.</summary>
-    public static CatgaServiceBuilder UseRedisDistributedLock(this CatgaServiceBuilder builder)
-    {
-        builder.Services.TryAddSingleton<IDistributedLock, RedisDistributedLock>();
-        return builder;
-    }
-
-    /// <summary>Add Redis distributed lock with options.</summary>
     public static CatgaServiceBuilder UseRedisDistributedLock(
         this CatgaServiceBuilder builder,
-        Action<DistributedLockOptions> configure)
+        Action<DistributedLockOptions>? configure = null)
     {
-        builder.Services.Configure(configure);
+        if (configure != null)
+            builder.Services.Configure(configure);
         builder.Services.TryAddSingleton<IDistributedLock, RedisDistributedLock>();
         return builder;
     }
 
     /// <summary>Add Redis message scheduler.</summary>
-    public static CatgaServiceBuilder UseRedisMessageScheduler(this CatgaServiceBuilder builder)
-    {
-        builder.Services.TryAddSingleton<IMessageScheduler, RedisMessageScheduler>();
-        builder.Services.AddHostedService(sp => (RedisMessageScheduler)sp.GetRequiredService<IMessageScheduler>());
-        return builder;
-    }
-
-    /// <summary>Add Redis message scheduler with options.</summary>
     public static CatgaServiceBuilder UseRedisMessageScheduler(
         this CatgaServiceBuilder builder,
-        Action<MessageSchedulerOptions> configure)
+        Action<MessageSchedulerOptions>? configure = null)
     {
-        builder.Services.Configure(configure);
+        if (configure != null)
+            builder.Services.Configure(configure);
         builder.Services.TryAddSingleton<IMessageScheduler, RedisMessageScheduler>();
         builder.Services.AddHostedService(sp => (RedisMessageScheduler)sp.GetRequiredService<IMessageScheduler>());
         return builder;
     }
 
     /// <summary>Add Redis snapshot store.</summary>
-    public static CatgaServiceBuilder UseRedisSnapshotStore(this CatgaServiceBuilder builder)
-    {
-        builder.Services.TryAddSingleton<ISnapshotStore, RedisSnapshotStore>();
-        return builder;
-    }
-
-    /// <summary>Add Redis snapshot store with options.</summary>
     public static CatgaServiceBuilder UseRedisSnapshotStore(
         this CatgaServiceBuilder builder,
-        Action<SnapshotOptions> configure)
+        Action<SnapshotOptions>? configure = null)
     {
-        builder.Services.Configure(configure);
+        if (configure != null)
+            builder.Services.Configure(configure);
         builder.Services.TryAddSingleton<ISnapshotStore, RedisSnapshotStore>();
         return builder;
     }
@@ -84,21 +65,9 @@ public static class RedisDistributedExtensions
         Action<MessageSchedulerOptions>? schedulerOptions = null,
         Action<SnapshotOptions>? snapshotOptions = null)
     {
-        if (lockOptions != null)
-            builder.UseRedisDistributedLock(lockOptions);
-        else
-            builder.UseRedisDistributedLock();
-
-        if (schedulerOptions != null)
-            builder.UseRedisMessageScheduler(schedulerOptions);
-        else
-            builder.UseRedisMessageScheduler();
-
-        if (snapshotOptions != null)
-            builder.UseRedisSnapshotStore(snapshotOptions);
-        else
-            builder.UseRedisSnapshotStore();
-
-        return builder;
+        return builder
+            .UseRedisDistributedLock(lockOptions)
+            .UseRedisMessageScheduler(schedulerOptions)
+            .UseRedisSnapshotStore(snapshotOptions);
     }
 }

@@ -2,7 +2,9 @@ using Catga;
 using Catga.Abstractions;
 using Catga.DependencyInjection;
 using Catga.EventSourcing;
+using Catga.Flow.Dsl;
 using Catga.Flow.Extensions;
+using Catga.Persistence.InMemory.Flow;
 using Catga.Persistence.InMemory.Stores;
 using Catga.Persistence.Stores;
 using Catga.Resilience;
@@ -34,12 +36,13 @@ var persistence = Environment.GetEnvironmentVariable("CATGA_PERSISTENCE") ?? "In
 if (persistence.Equals("redis", StringComparison.OrdinalIgnoreCase))
 {
     var conn = Environment.GetEnvironmentVariable("REDIS_CONNECTION") ?? "localhost:6379";
-    builder.Services.AddRedisPersistence(conn).AddRedisEventStore().AddRedisSnapshotStore();
+    builder.Services.AddRedisPersistence(conn).AddRedisEventStore().AddRedisSnapshotStore().AddRedisDslFlowStore();
 }
 else
 {
     builder.Services.AddInMemoryPersistence();
     builder.Services.AddSingleton<IEventStore, InMemoryEventStore>();
+    builder.Services.AddSingleton<IDslFlowStore, InMemoryDslFlowStore>();
 }
 
 // Flow DSL: Use source-generated registration

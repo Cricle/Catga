@@ -5,6 +5,7 @@ using Catga.Flow;
 using Catga.Inbox;
 using Catga.Observability;
 using Catga.Outbox;
+using Catga.Persistence.InMemory;
 using Catga.Persistence.InMemory.Flow;
 using Catga.Persistence.InMemory.Stores;
 using Catga.Persistence.Stores;
@@ -157,7 +158,7 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     /// <summary>
     /// Adds InMemory idempotency store to the service collection.
     /// </summary>
-    public static IServiceCollection AddInMemoryIdempotencyStore(this IServiceCollection services, Action<InMemoryIdempotencyStoreOptions>? configure = null)
+    public static IServiceCollection AddInMemoryIdempotencyStore(this IServiceCollection services, Action<InMemoryPersistenceOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         if (configure != null)
@@ -169,7 +170,7 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     /// <summary>
     /// Adds InMemory rate limiter to the service collection.
     /// </summary>
-    public static IServiceCollection AddInMemoryRateLimiter(this IServiceCollection services, Action<InMemoryRateLimiterOptions>? configure = null)
+    public static IServiceCollection AddInMemoryRateLimiter(this IServiceCollection services, Action<InMemoryPersistenceOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         if (configure != null)

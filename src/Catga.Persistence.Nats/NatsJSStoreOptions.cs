@@ -3,8 +3,7 @@ using NATS.Client.JetStream.Models;
 namespace Catga.Persistence;
 
 /// <summary>
-/// NATS JetStream store options. Only Catga-specific settings.
-/// For stream configuration, use StreamConfigFactory or provide StreamConfig directly.
+/// NATS JetStream store options. Unified configuration for all NATS stores.
 /// </summary>
 public class NatsJSStoreOptions
 {
@@ -13,6 +12,21 @@ public class NatsJSStoreOptions
 
     /// <summary>Optional custom StreamConfig. If null, uses defaults.</summary>
     public StreamConfig? CustomStreamConfig { get; set; }
+
+    /// <summary>Stream name for idempotency store. Default: CATGA_IDEMPOTENCY.</summary>
+    public string IdempotencyStreamName { get; set; } = "CATGA_IDEMPOTENCY";
+
+    /// <summary>TTL for idempotency records. Default: 24 hours.</summary>
+    public TimeSpan IdempotencyTtl { get; set; } = TimeSpan.FromHours(24);
+
+    /// <summary>Stream name for dead letter queue. Default: CATGA_DLQ.</summary>
+    public string DlqStreamName { get; set; } = "CATGA_DLQ";
+
+    /// <summary>Stream name for inbox store. Default: CATGA_INBOX.</summary>
+    public string InboxStreamName { get; set; } = "CATGA_INBOX";
+
+    /// <summary>Stream name for outbox store. Default: CATGA_OUTBOX.</summary>
+    public string OutboxStreamName { get; set; } = "CATGA_OUTBOX";
 
     /// <summary>Create default StreamConfig for a stream.</summary>
     public StreamConfig CreateDefaultStreamConfig(string streamName, string[] subjects)

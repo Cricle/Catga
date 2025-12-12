@@ -10,16 +10,9 @@ using NATS.Client.JetStream.Models;
 
 namespace Catga.Persistence.Nats;
 
-/// <summary>Options for NatsJSDeadLetterQueue.</summary>
-public class NatsJSDeadLetterQueueOptions
-{
-    /// <summary>Stream name for DLQ. Default: CATGA_DLQ.</summary>
-    public string StreamName { get; set; } = "CATGA_DLQ";
-}
-
 /// <summary>NATS JetStream-based dead letter queue.</summary>
-public sealed class NatsJSDeadLetterQueue(INatsConnection connection, IMessageSerializer serializer, IResiliencePipelineProvider provider, IOptions<NatsJSDeadLetterQueueOptions>? dlqOptions = null, NatsJSStoreOptions? options = null)
-    : NatsJSStoreBase(connection, dlqOptions?.Value.StreamName ?? "CATGA_DLQ", options), IDeadLetterQueue
+public sealed class NatsJSDeadLetterQueue(INatsConnection connection, IMessageSerializer serializer, IResiliencePipelineProvider provider, IOptions<NatsJSStoreOptions>? options = null)
+    : NatsJSStoreBase(connection, options?.Value.DlqStreamName ?? "CATGA_DLQ", options?.Value), IDeadLetterQueue
 {
 
     protected override string[] GetSubjects() => new[] { $"{StreamName.ToLowerInvariant()}.>" };

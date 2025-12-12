@@ -7,18 +7,11 @@ using Microsoft.Extensions.Options;
 
 namespace Catga.Persistence.InMemory.Stores;
 
-/// <summary>Options for InMemoryIdempotencyStore.</summary>
-public class InMemoryIdempotencyStoreOptions
-{
-    /// <summary>Retention period for processed messages. Default: 24 hours.</summary>
-    public TimeSpan Retention { get; set; } = TimeSpan.FromHours(24);
-}
-
 /// <summary>In-memory idempotency store for development/testing.</summary>
-public sealed class InMemoryIdempotencyStore(IMessageSerializer serializer, IOptions<InMemoryIdempotencyStoreOptions>? options = null) : IIdempotencyStore
+public sealed class InMemoryIdempotencyStore(IMessageSerializer serializer, IOptions<InMemoryPersistenceOptions>? options = null) : IIdempotencyStore
 {
     private readonly ConcurrentDictionary<long, (DateTime At, byte[]? Data)> _store = new();
-    private readonly TimeSpan _retention = options?.Value.Retention ?? TimeSpan.FromHours(24);
+    private readonly TimeSpan _retention = options?.Value.IdempotencyRetention ?? TimeSpan.FromHours(24);
 
     public Task<bool> HasBeenProcessedAsync(long messageId, CancellationToken ct = default)
     {

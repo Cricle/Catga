@@ -56,17 +56,12 @@ public static class NatsPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddNatsDeadLetterQueue(
         this IServiceCollection services,
-        string? streamName = null,
-        Action<NatsJSStoreOptions>? configure = null,
-        IResiliencePipelineProvider? resiliencePipelineProvider = null)
+        Action<NatsJSStoreOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
-
-        if (streamName != null)
-            services.Configure<NatsJSDeadLetterQueueOptions>(o => o.StreamName = streamName);
-
+        if (configure != null)
+            services.Configure(configure);
         services.TryAddSingleton<IDeadLetterQueue, NatsJSDeadLetterQueue>();
-
         return services;
     }
 
@@ -75,16 +70,12 @@ public static class NatsPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddNatsIdempotencyStore(
         this IServiceCollection services,
-        Action<NatsJSIdempotencyStoreOptions>? configureIdempotency = null,
         Action<NatsJSStoreOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
-
-        if (configureIdempotency != null)
-            services.Configure(configureIdempotency);
-
+        if (configure != null)
+            services.Configure(configure);
         services.TryAddSingleton<IIdempotencyStore, NatsJSIdempotencyStore>();
-
         return services;
     }
 

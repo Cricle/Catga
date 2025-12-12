@@ -9,21 +9,11 @@ using NATS.Client.JetStream.Models;
 
 namespace Catga.Persistence.Nats;
 
-/// <summary>Options for NatsJSIdempotencyStore.</summary>
-public class NatsJSIdempotencyStoreOptions
-{
-    /// <summary>Stream name for idempotency store. Default: CATGA_IDEMPOTENCY.</summary>
-    public string StreamName { get; set; } = "CATGA_IDEMPOTENCY";
-
-    /// <summary>TTL for processed message records. Default: 24 hours.</summary>
-    public TimeSpan Ttl { get; set; } = TimeSpan.FromHours(24);
-}
-
 /// <summary>NATS JetStream-based idempotency store.</summary>
-public sealed class NatsJSIdempotencyStore(INatsConnection connection, IMessageSerializer serializer, IResiliencePipelineProvider provider, IOptions<NatsJSIdempotencyStoreOptions>? idempotencyOptions = null, NatsJSStoreOptions? options = null)
-    : NatsJSStoreBase(connection, idempotencyOptions?.Value.StreamName ?? "CATGA_IDEMPOTENCY", options), IIdempotencyStore
+public sealed class NatsJSIdempotencyStore(INatsConnection connection, IMessageSerializer serializer, IResiliencePipelineProvider provider, IOptions<NatsJSStoreOptions>? options = null)
+    : NatsJSStoreBase(connection, options?.Value.IdempotencyStreamName ?? "CATGA_IDEMPOTENCY", options?.Value), IIdempotencyStore
 {
-    private readonly TimeSpan _ttl = idempotencyOptions?.Value.Ttl ?? TimeSpan.FromHours(24);
+    private readonly TimeSpan _ttl = options?.Value.IdempotencyTtl ?? TimeSpan.FromHours(24);
 
     protected override string[] GetSubjects() => new[] { $"{StreamName}.>" };
 

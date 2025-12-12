@@ -347,6 +347,10 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
                 StepType.If => await ExecuteIfAsync(state, step, stepIndex, cancellationToken),
                 StepType.Switch => await ExecuteSwitchAsync(state, step, stepIndex, cancellationToken),
                 StepType.ForEach => await ExecuteForEachAsync(state, step, stepIndex, cancellationToken),
+                StepType.While => await ExecuteWhileAsync(state, step, stepIndex, cancellationToken),
+                StepType.DoWhile => await ExecuteDoWhileAsync(state, step, stepIndex, cancellationToken),
+                StepType.Repeat => await ExecuteRepeatAsync(state, step, stepIndex, cancellationToken),
+                StepType.Try => await ExecuteTryAsync(state, step, stepIndex, cancellationToken),
                 _ => StepResult.Failed($"Unknown step type: {step.Type}")
             };
         }

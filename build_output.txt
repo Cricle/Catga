@@ -1,0 +1,59 @@
+  姝ｅ湪纭畾瑕佽繕鍘熺殑椤圭洰鈥?
+  鎵€鏈夐」鐩潎鏄渶鏂扮殑锛屾棤娉曡繕鍘熴€?
+  Catga.SourceGenerator -> C:\Users\huaji\Workplace\github\Catga\src\Catga.SourceGenerator\bin\Release\netstandard2.0\Catga.SourceGenerator.dll
+  Catga -> C:\Users\huaji\Workplace\github\Catga\src\Catga\bin\Release\net9.0\Catga.dll
+  Catga -> C:\Users\huaji\Workplace\github\Catga\src\Catga\bin\Release\net8.0\Catga.dll
+  Catga.Persistence.Nats -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.Nats\bin\Release\net9.0\Catga.Persistence.Nats.dll
+  Catga.Persistence.InMemory -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.InMemory\bin\Release\net9.0\Catga.Persistence.InMemory.dll
+  Catga.Transport.InMemory -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Transport.InMemory\bin\Release\net9.0\Catga.Transport.InMemory.dll
+  Catga.Transport.Redis -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Transport.Redis\bin\Release\net9.0\Catga.Transport.Redis.dll
+  Catga.Cluster -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Cluster\bin\Release\net9.0\Catga.Cluster.dll
+  Catga.Persistence.Redis -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Persistence.Redis\bin\Release\net9.0\Catga.Persistence.Redis.dll
+  Catga.Transport.Nats -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Transport.Nats\bin\Release\net9.0\Catga.Transport.Nats.dll
+  Catga.AspNetCore -> C:\Users\huaji\Workplace\github\Catga\src\Catga.AspNetCore\bin\Release\net9.0\Catga.AspNetCore.dll
+  OrderSystem.ServiceDefaults -> C:\Users\huaji\Workplace\github\Catga\examples\OrderSystem.ServiceDefaults\bin\Release\net9.0\OrderSystem.ServiceDefaults.dll
+  Catga.Serialization.MemoryPack -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Serialization.MemoryPack\bin\Release\net9.0\Catga.Serialization.MemoryPack.dll
+  Catga.Cli -> C:\Users\huaji\Workplace\github\Catga\tools\Catga.Cli\bin\Release\net9.0\Catga.Cli.dll
+  Catga.Testing -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Testing\bin\Release\net9.0\Catga.Testing.dll
+  Catga.Cluster -> C:\Users\huaji\Workplace\github\Catga\src\Catga.Cluster\bin\Release\net8.0\Catga.Cluster.dll
+  Catga.Dashboard -> C:\Users\huaji\Workplace\github\Catga\tools\Catga.Dashboard\bin\Release\net9.0\Catga.Dashboard.dll
+  OrderSystem.Api -> C:\Users\huaji\Workplace\github\Catga\examples\OrderSystem.Api\bin\Release\net9.0\OrderSystem.Api.dll
+  OrderSystem.AppHost -> C:\Users\huaji\Workplace\github\Catga\examples\OrderSystem.AppHost\bin\Release\net9.0\OrderSystem.AppHost.dll
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\BusinessScenarioBenchmarks.cs(272,56): error CS0535: 鈥淕etUserOrdersQuery鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\CqrsPerformanceBenchmarks.cs(102,44): error CS0535: 鈥淏enchQuery鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\ConcurrencyPerformanceBenchmarks.cs(110,49): error CS0535: 鈥淐oncurrentEvent鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\BusinessScenarioBenchmarks.cs(230,5): error CS0535: 鈥淧rocessPaymentCommand鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\CqrsPerformanceBenchmarks.cs(96,59): error CS0535: 鈥淏enchCommand鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\BusinessScenarioBenchmarks.cs(261,52): error CS0535: 鈥淕etOrderQuery鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\ConcurrencyPerformanceBenchmarks.cs(104,51): error CS0535: 鈥淐oncurrentCommand鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\MediatRComparisonBenchmarks.cs(183,48): error CS0535: 鈥淐atgaTestQuery鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\BusinessScenarioBenchmarks.cs(216,5): error CS0535: 鈥淐reateOrderCommand鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\BusinessScenarioBenchmarks.cs(300,5): error CS0535: 鈥淧aymentProcessedEvent鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\CqrsPerformanceBenchmarks.cs(108,57): error CS0535: 鈥淏enchEvent鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\MediatRComparisonBenchmarks.cs(180,63): error CS0535: 鈥淐atgaTestCommand鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\BusinessScenarioBenchmarks.cs(292,5): error CS0535: 鈥淥rderCreatedEvent鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\MediatRComparisonBenchmarks.cs(189,61): error CS0535: 鈥淐atgaTestEvent鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+  Catga.Tests -> C:\Users\huaji\Workplace\github\Catga\tests\Catga.Tests\bin\Release\net9.0\Catga.Tests.dll
+
+鐢熸垚澶辫触銆?
+
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\BusinessScenarioBenchmarks.cs(272,56): error CS0535: 鈥淕etUserOrdersQuery鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\CqrsPerformanceBenchmarks.cs(102,44): error CS0535: 鈥淏enchQuery鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\ConcurrencyPerformanceBenchmarks.cs(110,49): error CS0535: 鈥淐oncurrentEvent鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\BusinessScenarioBenchmarks.cs(230,5): error CS0535: 鈥淧rocessPaymentCommand鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\CqrsPerformanceBenchmarks.cs(96,59): error CS0535: 鈥淏enchCommand鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\BusinessScenarioBenchmarks.cs(261,52): error CS0535: 鈥淕etOrderQuery鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\ConcurrencyPerformanceBenchmarks.cs(104,51): error CS0535: 鈥淐oncurrentCommand鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\MediatRComparisonBenchmarks.cs(183,48): error CS0535: 鈥淐atgaTestQuery鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\BusinessScenarioBenchmarks.cs(216,5): error CS0535: 鈥淐reateOrderCommand鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\BusinessScenarioBenchmarks.cs(300,5): error CS0535: 鈥淧aymentProcessedEvent鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\CqrsPerformanceBenchmarks.cs(108,57): error CS0535: 鈥淏enchEvent鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\MediatRComparisonBenchmarks.cs(180,63): error CS0535: 鈥淐atgaTestCommand鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\BusinessScenarioBenchmarks.cs(292,5): error CS0535: 鈥淥rderCreatedEvent鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\MediatRComparisonBenchmarks.cs(189,61): error CS0535: 鈥淐atgaTestEvent鈥濅笉瀹炵幇鎺ュ彛鎴愬憳鈥淚Message.MessageId鈥?[C:\Users\huaji\Workplace\github\Catga\benchmarks\Catga.Benchmarks\Catga.Benchmarks.csproj]
+    0 涓鍛?
+    14 涓敊璇?
+
+宸茬敤鏃堕棿 00:00:02.38
+
+鏈夊彲鐢ㄧ殑宸ヤ綔璐熻浇鏇存柊銆傛湁鍏宠缁嗕俊鎭紝璇疯繍琛?`dotnet workload list`銆?

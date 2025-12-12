@@ -11,21 +11,17 @@ param(
 
 $scriptDir = $PSScriptRoot
 
-# Find an available port
+# Find an available port by trying to bind to port 0 (OS assigns one)
 function Get-AvailablePort {
-    $port = 5275
-    $maxAttempts = 10
-    for ($i = 0; $i -lt $maxAttempts; $i++) {
-        try {
-            $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $port)
-            $listener.Start()
-            $listener.Stop()
-            return $port
-        } catch {
-            $port++
-        }
+    try {
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $listener.Start()
+        $port = $listener.LocalEndpoint.Port
+        $listener.Stop()
+        return $port
+    } catch {
+        return 5275
     }
-    return $port
 }
 
 $port = Get-AvailablePort

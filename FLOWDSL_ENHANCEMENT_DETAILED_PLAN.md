@@ -1,82 +1,76 @@
-# Flow DSL 增强详细计划 - 像 MSIL 一样清晰的 Expression 表达式设计
+# Flow DSL 增强详细计划 - 灵活、清晰、可组合的 Expression 表达式设计
 
 ## 📋 计划概述
 
-本计划旨在改进 Catga Flow DSL，使其像 MSIL 一样清晰、灵活、可组合和可分析。充分利用 C# Expression 表达式特性，避免重复造轮子，提供更贴合 C# 语言的 API 设计。
+本计划旨在改进 Catga Flow DSL，学习 MSIL 的灵活性设计原则，但采用更符合 Flow DSL 特性的实现方式。充分利用 C# Expression 表达式特性，避免重复造轮子，提供更贴合 C# 语言的 API 设计。
 
-**核心原则**（参考 MSIL 设计）：
-- ✅ **清晰性** - 每个步骤都是明确的指令，易于理解和分析
+**核心原则**（学习 MSIL 的灵活性，但不完全复制其栈式实现）：
+- ✅ **清晰性** - 每个步骤都是明确的操作，易于理解和分析
 - ✅ **灵活性** - 支持所有基本的控制流模式（分支、循环、异常处理）
 - ✅ **可组合性** - 步骤可以自由组合，无限制地嵌套
 - ✅ **可分析性** - 可以被工具分析、优化和转换
 - ✅ **充分利用现有特性** - Expression、LINQ、async/await
 - ✅ **避免重复造轮子** - 使用标准库而非自定义实现
 - ✅ **类型安全** - 编译时检查和泛型约束
+- ✅ **Flow DSL 友好** - 基于现有的 Flow DSL 架构，而非栈式模型
 
 ---
 
-## 🎯 MSIL 对标分析
+## 🎯 Flow DSL 灵活性增强分析
 
-### MSIL 的设计特点
-| MSIL 特性 | 对应 Flow DSL | 当前状态 | 目标状态 |
-|----------|-------------|--------|--------|
-| **指令清晰** | 每个步骤明确 | ✅ 完成 | ✅ 保持 |
-| **条件分支** | If/ElseIf/Else | ✅ 完成 | ✅ 增强 Expression |
-| **无条件分支** | Switch/Case | ✅ 完成 | ✅ 保持 |
-| **循环** | While/DoWhile/For | ⚠️ 部分 | ✅ 完整 |
-| **异常处理** | Try-Catch-Finally | ❌ 缺失 | ✅ 实现 |
-| **嵌套块** | 任意嵌套结构 | ⚠️ 部分 | ✅ 完整 |
-| **栈操作** | 变量和上下文 | ⚠️ 部分 | ✅ 完整 |
-| **可分析性** | 静态分析工具 | ❌ 缺失 | ✅ 实现 |
+### MSIL 的灵活性启发
+MSIL 之所以灵活，主要源于以下特点：
+1. **完整的控制流支持** - 分支、循环、异常处理都完全支持
+2. **无限嵌套能力** - 块结构可以任意嵌套
+3. **清晰的指令语义** - 每条指令作用明确
+4. **可分析和优化** - 工具可以理解和改进代码
 
 ### 现有优势
-1. **基础步骤支持** - Send/Query/Publish（对应 MSIL 的方法调用）
-2. **分支控制** - If/ElseIf/Else, Switch/Case（对应 MSIL 的 br/brfalse）
-3. **循环支持** - ForEach（已实现，但不完整）
-4. **并行处理** - WhenAll/WhenAny（MSIL 没有，Flow DSL 特有）
+1. **基础步骤支持** - Send/Query/Publish
+2. **分支控制** - If/ElseIf/Else, Switch/Case
+3. **循环支持** - ForEach（已实现）
+4. **并行处理** - WhenAll/WhenAny（Flow DSL 特有）
 5. **事件钩子** - OnStepCompleted/OnStepFailed/OnFlowCompleted/OnFlowFailed
 6. **持久化** - 支持多种存储（InMemory/Redis/NATS）
 
-### 现有限制（与 MSIL 对标）
-1. **控制流不完整**（❌ MSIL 完全支持）
-   - 缺少 While/Do-While 循环（MSIL 有 br 实现）
-   - 缺少 Try-Catch 错误处理（MSIL 有 leave/endfinally）
-   - 缺少递归流支持（MSIL 有 call/callvirt）
-   - 缺少动态步骤生成（MSIL 有 IL 生成）
+### 现有限制（需要增强的地方）
+1. **控制流不完整**
+   - ❌ 缺少 While/Do-While 循环
+   - ❌ 缺少 Try-Catch 错误处理
+   - ❌ 缺少递归流支持
+   - ❌ 缺少动态步骤生成
 
-2. **表达式灵活性不足**（❌ MSIL 完全灵活）
-   - 条件表达式只支持简单的 `Func<TState, bool>`
-   - 不支持复杂的 LINQ 查询表达式
-   - 不支持表达式树分析和优化
+2. **表达式灵活性不足**
+   - ⚠️ 条件表达式只支持简单的 `Func<TState, bool>`
+   - ❌ 不支持复杂的 LINQ 查询表达式
+   - ❌ 不支持表达式树分析和优化
 
-3. **栈和变量管理有限**（❌ MSIL 完全支持）
-   - 没有流程变量支持（MSIL 有 ldloc/stloc）
-   - 没有上下文传递机制（MSIL 有栈）
-   - 没有中间结果存储
+3. **状态和上下文管理有限**
+   - ❌ 没有流程变量支持
+   - ❌ 没有上下文传递机制
+   - ❌ 没有中间结果存储
 
-4. **可分析性缺失**（❌ MSIL 可被工具分析）
-   - 无法静态分析流程结构
-   - 无法进行死代码消除
-   - 无法进行性能优化
+4. **可分析性缺失**
+   - ❌ 无法静态分析流程结构
+   - ❌ 无法进行死代码消除
+   - ❌ 无法进行性能优化
 
 ---
 
-## 🔄 改进方案（MSIL 映射）
+## 🔄 改进方案（灵活性增强）
 
-### 核心映射关系
+### 核心增强方向
 
 ```
-MSIL 指令          Flow DSL 对标              当前实现        目标实现
-─────────────────────────────────────────────────────────────────────
-call/callvirt  →  Send/Query/Publish    →  ✅ 完成      →  ✅ 保持
-br             →  Goto/Label           →  ❌ 缺失      →  ✅ 实现
-brfalse/brtrue →  If/ElseIf/Else       →  ✅ 完成      →  ✅ 增强
-switch         →  Switch/Case          →  ✅ 完成      →  ✅ 保持
-br.s (loop)    →  While/DoWhile/For    →  ⚠️ 部分      →  ✅ 完整
-leave          →  Try-Catch-Finally    →  ❌ 缺失      →  ✅ 实现
-ldloc/stloc    →  Variables/Context    →  ⚠️ 部分      →  ✅ 完整
-ldc.i4         →  Constants            →  ✅ 完成      →  ✅ 保持
-ldarg          →  State Access         →  ✅ 完成      →  ✅ 保持
+灵活性维度          当前状态          目标状态          实现方式
+────────────────────────────────────────────────────────────────
+控制流完整性        ⚠️ 部分          ✅ 完整          While/DoWhile/Try-Catch
+表达式灵活性        ⚠️ 基础          ✅ 高级          Expression 树支持
+嵌套能力            ⚠️ 有限          ✅ 无限          递归块结构
+状态管理            ⚠️ 基础          ✅ 完整          变量和上下文
+可分析性            ❌ 缺失          ✅ 完整          静态分析工具
+动态生成            ❌ 缺失          ✅ 支持          运行时步骤生成
+递归支持            ❌ 缺失          ✅ 支持          流的递归调用
 ```
 
 ### 方案 A：Expression 表达式增强（推荐）
@@ -367,63 +361,61 @@ flow.Pipe(
 
 ---
 
-## 🏗️ MSIL 对标实现路线图
+## 🏗️ 灵活性增强实现路线图
 
-### 完整的 MSIL 映射实现
+### 分层实现策略（基于 Flow DSL 现有架构）
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Flow DSL MSIL 对标设计                        │
+│                Flow DSL 灵活性增强分层设计                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │ 第 1 层：基础指令（已完成）                              │   │
+│  │ 第 1 层：基础步骤（已完成）                              │   │
 │  ├──────────────────────────────────────────────────────────┤   │
-│  │ ✅ call/callvirt     → Send/Query/Publish               │   │
-│  │ ✅ ldarg             → State Access (s => s.Property)    │   │
-│  │ ✅ ldc.i4            → Constants                         │   │
-│  │ ✅ brfalse/brtrue    → If/ElseIf/Else                   │   │
-│  │ ✅ switch            → Switch/Case                       │   │
+│  │ ✅ Send/Query/Publish - 基础步骤                         │   │
+│  │ ✅ If/ElseIf/Else - 条件分支                            │   │
+│  │ ✅ Switch/Case - 值分支                                 │   │
+│  │ ✅ ForEach - 集合循环                                   │   │
+│  │ ✅ WhenAll/WhenAny - 并行处理                           │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │ 第 2 层：控制流（优先级 1）                              │   │
+│  │ 第 2 层：控制流增强（优先级 1）                          │   │
 │  ├──────────────────────────────────────────────────────────┤   │
-│  │ ⏳ br.s (loop)       → While/DoWhile/Repeat             │   │
-│  │ ⏳ leave             → Try-Catch-Finally                │   │
-│  │ ⏳ endfinally        → Finally Block                     │   │
-│  │ ⏳ Nested blocks     → 嵌套结构支持                      │   │
+│  │ ⏳ While/DoWhile/Repeat - 条件循环                      │   │
+│  │ ⏳ Try-Catch-Finally - 异常处理                         │   │
+│  │ ⏳ 无限嵌套支持 - 块结构可任意嵌套                       │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │ 第 3 层：变量和栈（优先级 2）                            │   │
+│  │ 第 3 层：表达式和状态（优先级 2）                        │   │
 │  ├──────────────────────────────────────────────────────────┤   │
-│  │ ⏳ ldloc/stloc       → Variables (Var/SetVar/GetVar)    │   │
-│  │ ⏳ Stack operations  → Context Management                │   │
-│  │ ⏳ Local scope       → Variable Scope                    │   │
+│  │ ⏳ Expression 树支持 - 复杂条件和值选择                  │   │
+│  │ ⏳ 流程变量 - 中间值存储                                 │   │
+│  │ ⏳ 流程上下文 - 执行时上下文传递                         │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │ 第 4 层：高级特性（优先级 3-4）                          │   │
 │  ├──────────────────────────────────────────────────────────┤   │
-│  │ ⏳ call (recursive)  → Recursive Calls                   │   │
-│  │ ⏳ IL generation     → Dynamic Step Generation           │   │
-│  │ ⏳ Optimization      → Expression Analysis & Optimization│   │
-│  │ ⏳ Analysis tools    → Static Analysis                   │   │
+│  │ ⏳ 递归流调用 - 流的嵌套执行                             │   │
+│  │ ⏳ 动态步骤生成 - 运行时生成步骤                         │   │
+│  │ ⏳ 静态分析工具 - 流程分析和优化                         │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 核心设计原则（MSIL 启发）
+### 核心设计原则（学习 MSIL 的灵活性，但不复制其栈式实现）
 
-1. **指令清晰** - 每个步骤都是明确的操作
+1. **清晰的步骤语义** - 每个步骤作用明确
    ```csharp
-   // 像 MSIL 指令一样清晰
-   flow.Send(...)        // 对应 call
-   flow.If(...)          // 对应 brfalse
-   flow.While(...)       // 对应 br.s
-   flow.Try(...)         // 对应 .try
+   // 清晰易懂的 API
+   flow.Send(...)        // 发送请求
+   flow.If(...)          // 条件分支
+   flow.While(...)       // 条件循环
+   flow.Try(...)         // 异常处理
    ```
 
 2. **完整的控制流** - 支持所有基本的控制流模式
@@ -434,9 +426,9 @@ flow.Pipe(
    flow.Try(...).Catch(...).Finally(...).EndTry()
    ```
 
-3. **无限嵌套** - 像 MSIL 的块结构一样支持任意嵌套
+3. **无限嵌套能力** - 块结构可以任意嵌套
    ```csharp
-   // 可以任意嵌套
+   // 可以任意嵌套，像 MSIL 的块结构一样灵活
    flow.Try()
        .While(...)
            .If(...)
@@ -448,20 +440,19 @@ flow.Pipe(
    .EndTry()
    ```
 
-4. **栈操作** - 像 MSIL 的栈一样管理数据流
+4. **灵活的表达式支持** - 支持复杂的 Expression 树
    ```csharp
-   // 变量和上下文像栈一样管理
-   flow.Var("x", s => 0)
-       .SetVar("x", s => s.GetVar<int>("x") + 1)
-       .Send(s => new Command(s.GetVar<int>("x")))
+   // 支持复杂的条件和值选择
+   flow.When(s => s.Items.Any(i => i.Price > 100))
+   flow.Select(s => s.Items.Where(i => i.IsValid))
+   flow.Map(s => new { s.Amount, s.Items })
    ```
 
-5. **可分析性** - 像 MSIL 一样可以被工具分析
+5. **可分析和优化** - 支持静态分析和优化
    ```csharp
-   // 可以被静态分析、优化、转换
-   var flowAnalyzer = new FlowAnalyzer(flow);
-   var deadSteps = flowAnalyzer.FindDeadCode();
-   var optimized = flowAnalyzer.Optimize();
+   // 可以被分析和优化
+   var analyzer = new FlowAnalyzer(flow);
+   var optimized = analyzer.Optimize();
    ```
 
 ---
@@ -602,18 +593,18 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
 
 ---
 
-## 📝 MSIL 对标实现检查清单
+## 📝 灵活性增强实现检查清单
 
-### 第 1 层：基础指令（已完成 ✅）
-- [x] call/callvirt → Send/Query/Publish
-- [x] ldarg → State Access
-- [x] ldc.i4 → Constants
-- [x] brfalse/brtrue → If/ElseIf/Else
-- [x] switch → Switch/Case
+### 第 1 层：基础步骤（已完成 ✅）
+- [x] Send/Query/Publish - 基础步骤
+- [x] If/ElseIf/Else - 条件分支
+- [x] Switch/Case - 值分支
+- [x] ForEach - 集合循环
+- [x] WhenAll/WhenAny - 并行处理
 
-### 第 2 层：控制流（优先级 1）
+### 第 2 层：控制流增强（优先级 1）
 
-#### A. While/DoWhile/Repeat 循环（对标 MSIL br.s）
+#### A. While/DoWhile/Repeat 循环
 - [ ] 扩展 `IFlowBuilder` 接口，添加 `While`/`DoWhile`/`Repeat` 方法
 - [ ] 创建 `IWhileBuilder`/`IDoWhileBuilder`/`IRepeatBuilder` 接口
 - [ ] 在 `FlowStep` 中添加循环步骤类型
@@ -626,7 +617,7 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
 - [ ] 编写单元测试（20+ 个）
 - [ ] 性能基准测试
 
-#### B. Try-Catch-Finally 异常处理（对标 MSIL leave/endfinally）
+#### B. Try-Catch-Finally 异常处理
 - [ ] 扩展 `IFlowBuilder` 接口，添加 `Try` 方法
 - [ ] 创建 `ITryBuilder`/`ICatchBuilder` 接口
 - [ ] 在 `FlowStep` 中添加 Try-Catch 步骤类型
@@ -640,7 +631,7 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
 - [ ] 支持异常恢复（返回新的 Request）
 - [ ] 编写单元测试（25+ 个）
 
-#### C. 嵌套块支持（对标 MSIL 的块结构）
+#### C. 无限嵌套支持
 - [ ] 验证现有的嵌套支持（If/Switch/ForEach）
 - [ ] 确保 While/DoWhile/Repeat 支持嵌套
 - [ ] 确保 Try-Catch 支持嵌套
@@ -651,46 +642,52 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
 - 测试：60-80 个
 - 工期：2-3 周
 
-### 第 3 层：变量和栈（优先级 2）
+### 第 3 层：表达式和状态增强（优先级 2）
 
-#### A. 流程变量（对标 MSIL ldloc/stloc）
+#### A. Expression 树支持
+- [ ] 扩展条件表达式支持 `Expression<Func<TState, bool>>`
+- [ ] 添加值选择支持 `Expression<Func<TState, TValue>>`
+- [ ] 实现 Expression 树编译和缓存
+- [ ] 支持复杂的 LINQ 表达式
+- [ ] 编写单元测试（15+ 个）
+
+#### B. 流程变量
 - [ ] 在 `IFlowState` 中添加变量存储机制
 - [ ] 创建 `FlowVariables` 类管理变量
 - [ ] 实现 `Var<T>` 方法定义变量
 - [ ] 实现 `SetVar<T>` 方法设置变量
 - [ ] 实现 `GetVar<T>` 扩展方法获取变量
 - [ ] 支持变量的作用域管理
-- [ ] 支持变量的类型安全
-- [ ] 编写单元测试（20+ 个）
+- [ ] 编写单元测试（15+ 个）
 
-#### B. 流程上下文（对标 MSIL 栈）
+#### C. 流程上下文
 - [ ] 创建 `FlowContext<TState>` 类
 - [ ] 在 `DslFlowExecutor` 中创建和管理上下文
 - [ ] 支持上下文的嵌套和作用域
 - [ ] 支持上下文的传递
-- [ ] 编写单元测试（15+ 个）
+- [ ] 编写单元测试（10+ 个）
 
 **第 3 层小计**：
-- 代码量：250-350 行
-- 测试：35-50 个
-- 工期：1-2 周
+- 代码量：300-400 行
+- 测试：40-50 个
+- 工期：2-3 周
 
 ### 第 4 层：高级特性（优先级 3-4）
 
-#### A. 递归调用（对标 MSIL call/callvirt）
+#### A. 递归流调用
 - [ ] 添加 `CallFlow<TOtherFlow>` 方法
 - [ ] 支持状态映射
 - [ ] 支持结果合并
 - [ ] 管理递归深度
 - [ ] 编写单元测试（15+ 个）
 
-#### B. 动态步骤生成（对标 MSIL IL 生成）
+#### B. 动态步骤生成
 - [ ] 添加 `Dynamic` 方法
 - [ ] 支持运行时步骤生成
 - [ ] 支持条件步骤生成
 - [ ] 编写单元测试（10+ 个）
 
-#### C. 表达式分析和优化（对标 MSIL 工具）
+#### C. 静态分析和优化
 - [ ] 创建 `FlowAnalyzer` 类
 - [ ] 实现死代码检测
 - [ ] 实现常量折叠
@@ -707,7 +704,6 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
 - [ ] 创建完整的使用示例
 - [ ] 创建最佳实践指南
 - [ ] 创建性能优化指南
-- [ ] 创建 MSIL 对标说明文档
 
 ---
 
@@ -810,13 +806,13 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
 
 ---
 
-## 💡 关键设计决策（MSIL 启发）
+## 💡 关键设计决策
 
-### 1. 为什么选择 MSIL 作为参考？
-- **MSIL 是成熟的中间语言**：经过 20+ 年的验证
-- **MSIL 支持完整的控制流**：分支、循环、异常处理都完全支持
-- **MSIL 可被工具分析**：编译器、反编译器、分析工具都能理解
-- **MSIL 的设计原则适用于 Flow DSL**：清晰、灵活、可组合
+### 1. 学习 MSIL 的灵活性，但不复制其栈式实现
+- **学习 MSIL 的优点**：完整的控制流、无限嵌套、清晰的语义
+- **采用 Flow DSL 友好的方式**：基于现有架构，而非栈式模型
+- **保持 API 一致性**：与现有 Flow DSL API 保持风格一致
+- **原因**：MSIL 是低级中间语言，Flow DSL 是高级 DSL，实现方式应该不同
 
 ### 2. 为什么不造轮子？
 - **充分利用现有 C# 特性**：Expression、LINQ、async/await 都是成熟的
@@ -833,6 +829,12 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
 - **链式调用**：主流程步骤（`.Send().If().Send()...`）
 - **块式调用**：分支和循环内部（`.If(...).Then(...).EndIf()`)
 - **原因**：链式调用直观，块式调用清晰
+
+### 5. 变量管理方式
+- **不使用栈模型**：避免 MSIL 的复杂性
+- **使用显式变量存储**：在 FlowState 中存储变量
+- **支持作用域管理**：变量在块内有效
+- **原因**：更符合 C# 的编程习惯，易于理解和维护
 
 ---
 
@@ -875,12 +877,18 @@ public class EnhancedOrderFlow : FlowConfig<OrderFlowState>
 **计划状态**: 待审核和执行
 **优先级**: 高
 **预计总工期**: 4-5 周
-**参考标准**: MSIL（Microsoft Intermediate Language）
+**设计理念**: 学习 MSIL 的灵活性原则，但采用 Flow DSL 友好的实现方式
 
 ---
 
 ## 🎯 最终目标
 
-**使 Flow DSL 像 MSIL 一样清晰、灵活、可组合和可分析，充分利用 C# 的 Expression 特性，避免重复造轮子，提供更贴合语言的 API 设计。**
+**使 Flow DSL 更加灵活、清晰、可组合和可分析。学习 MSIL 的灵活性设计原则（完整的控制流、无限嵌套、清晰的语义），但采用更符合 Flow DSL 特性的实现方式，而非栈式模型。充分利用 C# 的 Expression 特性，避免重复造轮子，提供更贴合语言的 API 设计。**
 
-懂 MSIL 的人都能理解 Flow DSL 的设计原则和使用方式。✨
+核心特点：
+- ✅ **灵活性** - 支持所有基本的控制流模式（分支、循环、异常处理）
+- ✅ **清晰性** - 每个步骤都是明确的操作，易于理解
+- ✅ **可组合性** - 步骤可以自由组合，无限制地嵌套
+- ✅ **可分析性** - 可以被工具分析、优化和转换
+- ✅ **Flow DSL 友好** - 基于现有架构，保持 API 一致性
+- ✅ **不造轮子** - 充分利用 C# 标准库特性

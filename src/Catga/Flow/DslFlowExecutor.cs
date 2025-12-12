@@ -688,7 +688,14 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         if (step.ConditionFactory == null)
             return true;
 
-        return (bool)(step.ConditionFactory.DynamicInvoke(state) ?? true);
+        if (step.CompiledStep != null)
+        {
+            return step.CompiledStep.ExecuteCondition(state);
+        }
+        else
+        {
+            return (bool)(step.ConditionFactory.DynamicInvoke(state) ?? true);
+        }
     }
 
     private bool ShouldPersistAfterStep(FlowStep step)
@@ -711,8 +718,16 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         if (step.BranchCondition == null)
             return StepResult.Failed("If step has no condition");
 
-        var condition = (Func<TState, bool>)step.BranchCondition;
-        var conditionResult = condition(state);
+        bool conditionResult;
+        if (step.CompiledStep != null)
+        {
+            conditionResult = step.CompiledStep.ExecuteBranchCondition(state);
+        }
+        else
+        {
+            var condition = (Func<TState, bool>)step.BranchCondition;
+            conditionResult = condition(state);
+        }
 
         // Select the appropriate branch and branch index
         List<FlowStep>? branchToExecute = null;
@@ -729,8 +744,21 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
             int elseIfIndex = 1;
             foreach (var (elseIfCondition, elseIfBranch)in step.ElseIfBranches)
             {
-                var elseIfFunc = (Func<TState, bool>)elseIfCondition;
-                if (elseIfFunc(state))
+                bool elseIfResult;
+                if (step.CompiledStep != null)
+                {
+                    // For ElseIf, we need to evaluate the condition from the tuple
+                    // This is a limitation - we can't use compiled step for ElseIf conditions
+                    var elseIfFunc = (Func<TState, bool>)elseIfCondition;
+                    elseIfResult = elseIfFunc(state);
+                }
+                else
+                {
+                    var elseIfFunc = (Func<TState, bool>)elseIfCondition;
+                    elseIfResult = elseIfFunc(state);
+                }
+
+                if (elseIfResult)
                 {
                     branchToExecute = elseIfBranch;
                     branchIndex = elseIfIndex;
@@ -769,7 +797,15 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         if (step.SwitchSelector == null)
             return StepResult.Failed("Switch step has no selector");
 
-        var selectorValue = step.SwitchSelector.DynamicInvoke(state);
+        object? selectorValue;
+        if (step.CompiledStep != null)
+        {
+            selectorValue = step.CompiledStep.ExecuteSwitchSelector(state);
+        }
+        else
+        {
+            selectorValue = step.SwitchSelector.DynamicInvoke(state);
+        }
 
         // Find matching case and case index
         List<FlowStep>? branchToExecute = null;

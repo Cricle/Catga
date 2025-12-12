@@ -305,7 +305,17 @@ public partial class DslFlowExecutor<TState, TConfig>
         try
         {
             // Create the nested flow state using the factory
-            var nestedState = step.RequestFactory.DynamicInvoke(state) as IFlowState;
+            object? nestedStateObj;
+            if (step.CompiledStep != null)
+            {
+                nestedStateObj = step.CompiledStep.ExecuteRequestFactory(state);
+            }
+            else
+            {
+                nestedStateObj = step.RequestFactory.DynamicInvoke(state);
+            }
+
+            var nestedState = nestedStateObj as IFlowState;
             if (nestedState == null)
                 return StepResult.Failed("CallFlow factory did not produce a valid IFlowState");
 
@@ -341,7 +351,14 @@ public partial class DslFlowExecutor<TState, TConfig>
             {
                 try
                 {
-                    step.ResultSetter.DynamicInvoke(state, result.Result);
+                    if (step.CompiledStep != null)
+                    {
+                        step.CompiledStep.ExecuteResultSetter(state, result.Result);
+                    }
+                    else
+                    {
+                        step.ResultSetter.DynamicInvoke(state, result.Result);
+                    }
                 }
                 catch
                 {

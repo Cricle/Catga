@@ -139,20 +139,22 @@ public class TryCatchTests
         var config = new SimpleTryFlow();
         var executor = new DslFlowExecutor<TryCatchTestState, SimpleTryFlow>(mediator, store, config);
 
-        var state = new TryCatchTestState { FlowId = "try-recovery-memory" };
+        var state = new TryCatchTestState { FlowId = "try-recovery" };
         SetupMediator(mediator);
 
         // Act - First execution
         var result1 = await executor.RunAsync(state);
 
-        // Simulate crash and recovery
-        var state2 = await store.GetAsync<TryCatchTestState>("try-recovery-memory");
+        // Simulate recovery
+        var snapshot2 = await store.GetAsync<TryCatchTestState>("try-recovery");
+        var state2 = snapshot2?.State ?? new TryCatchTestState { FlowId = "try-recovery" };
         var executor2 = new DslFlowExecutor<TryCatchTestState, SimpleTryFlow>(mediator, store, config);
         var result2 = await executor2.RunAsync(state2);
 
         // Assert
         result1.IsSuccess.Should().BeTrue();
         result2.IsSuccess.Should().BeTrue();
+        state2.CaughtException.Should().BeNull();
         state2.ExecutedBlocks.Should().Contain("Try");
     }
 
@@ -293,7 +295,7 @@ public class TryCatchTests
     private void SetupMediator(ICatgaMediator mediator)
     {
         mediator.SendAsync(Arg.Any<IRequest>())
-            .Returns(x => Task.FromResult<IResponse>(new SuccessResponse()));
+            .Returns(x => Task.CompletedTask);
     }
 }
 

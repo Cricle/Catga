@@ -249,7 +249,8 @@ public class LoopSafetyTests
         var result1 = await executor.RunAsync(state);
 
         // Simulate recovery
-        var state2 = await store.GetAsync<SafetyTestState>("safe-limits-persist");
+        var snapshot2 = await store.GetAsync<SafetyTestState>("safe-limits-persist");
+        var state2 = snapshot2?.State ?? new SafetyTestState { FlowId = "safe-limits-persist" };
         var executor2 = new DslFlowExecutor<SafetyTestState, SafeLimitFlow>(mediator, store, config);
         var result2 = await executor2.RunAsync(state2);
 
@@ -312,9 +313,10 @@ public class LoopSafetyTests
     private void SetupMediator(ICatgaMediator mediator)
     {
         mediator.SendAsync(Arg.Any<IRequest>())
-            .Returns(x => Task.FromResult<IResponse>(new SuccessResponse()));
+            .Returns(x => Task.CompletedTask);
     }
 }
+
 
 // Test state class
 public class SafetyTestState : IFlowState

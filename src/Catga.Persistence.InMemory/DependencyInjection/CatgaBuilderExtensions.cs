@@ -11,9 +11,13 @@ public static class InMemoryCatgaBuilderExtensions
     /// <summary>
     /// Use InMemory persistence for all stores (development/testing).
     /// Registers all stores for feature parity with Redis and NATS providers.
+    /// Also registers default resilience pipeline if not already registered.
     /// </summary>
     public static CatgaServiceBuilder UseInMemory(this CatgaServiceBuilder builder)
     {
+        // Ensure resilience is registered (required by stores)
+        builder.UseResilience();
+
         // Core persistence (EventStore, SnapshotStore, Inbox, Outbox, DLQ, Idempotency, Lock, Flow)
         builder.Services.AddInMemoryPersistence();
 

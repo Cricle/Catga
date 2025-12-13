@@ -11,9 +11,13 @@ public static class NatsCatgaBuilderExtensions
     /// Use NATS JetStream persistence for all stores (production).
     /// Requires INatsConnection to be registered.
     /// Registers all stores for feature parity with InMemory and Redis providers.
+    /// Also registers default resilience pipeline if not already registered.
     /// </summary>
     public static CatgaServiceBuilder UseNats(this CatgaServiceBuilder builder, Action<NatsPersistenceOptions>? configure = null)
     {
+        // Ensure resilience is registered (required by stores)
+        builder.UseResilience();
+
         // Core persistence (EventStore, Inbox, Outbox, Idempotency, Snapshot, DLQ)
         builder.Services.AddNatsPersistence(configure);
 

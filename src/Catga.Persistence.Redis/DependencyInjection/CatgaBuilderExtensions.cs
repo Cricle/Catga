@@ -11,9 +11,13 @@ public static class RedisCatgaBuilderExtensions
     /// Use Redis persistence for all stores (production).
     /// Requires IConnectionMultiplexer to be registered or provide connectionString.
     /// Registers all stores for feature parity with InMemory and NATS providers.
+    /// Also registers default resilience pipeline if not already registered.
     /// </summary>
     public static CatgaServiceBuilder UseRedis(this CatgaServiceBuilder builder, string? connectionString = null)
     {
+        // Ensure resilience is registered (required by stores)
+        builder.UseResilience();
+
         // Core persistence (Inbox, Outbox, Idempotency)
         if (!string.IsNullOrEmpty(connectionString))
         {

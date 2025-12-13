@@ -4,7 +4,6 @@ using Catga.DependencyInjection;
 using Catga.EventSourcing;
 using Catga.Flow.Dsl;
 using Catga.Flow.Extensions;
-using Catga.Resilience;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Services;
@@ -22,8 +21,6 @@ var redisConn = Environment.GetEnvironmentVariable("REDIS_CONNECTION") ?? "local
 var natsUrl = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
 
 // Core Catga setup with unified persistence registration
-builder.Services.AddSingleton<IResiliencePipelineProvider, DefaultResiliencePipelineProvider>();
-
 var catgaBuilder = builder.Services
     .AddCatga(opt => { if (builder.Environment.IsDevelopment()) opt.ForDevelopment(); else opt.Minimal(); })
     .UseMemoryPack();

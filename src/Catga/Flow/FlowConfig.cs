@@ -70,6 +70,8 @@ public abstract class FlowConfig<TState> where TState : class, IFlowState
 
 #region Flow Builder Implementation
 
+// ========== FlowBuilder - Main DSL Builder ==========
+
 internal class FlowBuilder<TState> : IFlowBuilder<TState> where TState : class, IFlowState
 {
     public string? FlowName { get; private set; }

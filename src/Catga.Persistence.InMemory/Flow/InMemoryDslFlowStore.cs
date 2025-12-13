@@ -38,7 +38,7 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
             return Task.FromResult<FlowSnapshot<TState>?>(null);
 
         var snapshot = _serializer.Deserialize<FlowSnapshot<TState>>(entry.Data);
-        return Task.FromResult(snapshot);
+        return Task.FromResult<FlowSnapshot<TState>?>(snapshot);
     }
 
     public Task<bool> UpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(

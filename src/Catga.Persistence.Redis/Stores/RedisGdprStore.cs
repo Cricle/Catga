@@ -45,7 +45,7 @@ public sealed class RedisGdprStore : IGdprStore
         if (!data.HasValue)
             return null;
 
-        return _serializer.Deserialize<ErasureRequest>((byte[])data);
+        return _serializer.Deserialize<ErasureRequest>((byte[])data!);
     }
 
     public async ValueTask<IReadOnlyList<ErasureRequest>> GetPendingRequestsAsync(CancellationToken ct = default)
@@ -61,7 +61,7 @@ public sealed class RedisGdprStore : IGdprStore
             var data = await db.StringGetAsync(key);
             if (data.HasValue)
             {
-                var request = _serializer.Deserialize<ErasureRequest>((byte[])data);
+                var request = _serializer.Deserialize<ErasureRequest>((byte[])data!);
                 if (request != null)
                     requests.Add(request);
             }

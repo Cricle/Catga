@@ -198,7 +198,7 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisDslFlowStore(
         this IServiceCollection services,
-        string prefix = null)
+        string? prefix = null)
     {
         EnsureRedisConnectionRegistered(services);
         prefix ??= RedisKeyPrefixes.DslFlow;
@@ -217,7 +217,7 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisFlowStore(
         this IServiceCollection services,
-        string prefix = null)
+        string? prefix = null)
     {
         EnsureRedisConnectionRegistered(services);
         prefix ??= RedisKeyPrefixes.Flow;
@@ -259,7 +259,7 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisEventStore(
         this IServiceCollection services,
-        string prefix = null,
+        string? prefix = null,
         IEventTypeRegistry? registry = null)
     {
         EnsureRedisConnectionRegistered(services);
@@ -296,7 +296,7 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisProjectionCheckpointStore(
         this IServiceCollection services,
-        string prefix = null)
+        string? prefix = null)
     {
         EnsureRedisConnectionRegistered(services);
         prefix ??= RedisKeyPrefixes.ProjectionCheckpoint;
@@ -316,7 +316,7 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisSubscriptionStore(
         this IServiceCollection services,
-        string prefix = null)
+        string? prefix = null)
     {
         EnsureRedisConnectionRegistered(services);
         prefix ??= RedisKeyPrefixes.Subscription;
@@ -336,7 +336,7 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisEnhancedSnapshotStore(
         this IServiceCollection services,
-        string prefix = null)
+        string? prefix = null)
     {
         EnsureRedisConnectionRegistered(services);
         prefix ??= RedisKeyPrefixes.SnapshotEnhanced;
@@ -356,7 +356,7 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisAuditLogStore(
         this IServiceCollection services,
-        string prefix = null)
+        string? prefix = null)
     {
         prefix ??= RedisKeyPrefixes.Audit;
         services.TryAddSingleton<IAuditLogStore>(sp =>
@@ -374,7 +374,7 @@ public static class RedisPersistenceServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddRedisGdprStore(
         this IServiceCollection services,
-        string prefix = null)
+        string? prefix = null)
     {
         EnsureRedisConnectionRegistered(services);
         prefix ??= "gdpr";

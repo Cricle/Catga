@@ -52,7 +52,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
     {
         state.FlowId ??= Guid.NewGuid().ToString("N");
         var flowName = _config.Name;
-        var sw = Stopwatch.StartNew();
+        var startTimestamp = Stopwatch.GetTimestamp();
 
         using var activity = DslFlowTelemetry.ActivitySource.StartActivity($"Flow.{flowName}");
         activity?.SetTag("flow.id", state.FlowId);
@@ -76,8 +76,8 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
 
         var result = await ExecuteFromStepAsync(snapshot, 0, cancellationToken);
 
-        sw.Stop();
-        DslFlowTelemetry.FlowDuration.Record(sw.Elapsed.TotalMilliseconds, new KeyValuePair<string, object?>("flow.name", flowName));
+        var elapsedMilliseconds = Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
+        DslFlowTelemetry.FlowDuration.Record(elapsedMilliseconds, new KeyValuePair<string, object?>("flow.name", flowName));
 
         if (result.IsSuccess)
         {
@@ -249,16 +249,16 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             }
 
             var step = steps[i];
-            var stepSw = Stopwatch.StartNew();
+            var stepStartTimestamp = Stopwatch.GetTimestamp();
             var result = await ExecuteStepAsync(state, step, i, cancellationToken);
-            stepSw.Stop();
 
             var flowName = _config.Name;
             DslFlowTelemetry.StepsExecuted.Add(1,
                 new KeyValuePair<string, object?>("flow.name", flowName),
                 new KeyValuePair<string, object?>("step.index", i),
                 new KeyValuePair<string, object?>("step.type", step.Type.ToString()));
-            DslFlowTelemetry.StepDuration.Record(stepSw.Elapsed.TotalMilliseconds,
+            var stepElapsedMilliseconds = Stopwatch.GetElapsedTime(stepStartTimestamp).TotalMilliseconds;
+            DslFlowTelemetry.StepDuration.Record(stepElapsedMilliseconds,
                 new KeyValuePair<string, object?>("flow.name", flowName),
                 new KeyValuePair<string, object?>("step.index", i));
 

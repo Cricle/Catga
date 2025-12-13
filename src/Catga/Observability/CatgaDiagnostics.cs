@@ -6,13 +6,16 @@ namespace Catga.Observability;
 /// <summary>Centralized diagnostics for Catga framework (ActivitySource + Metrics)</summary>
 internal static class CatgaDiagnostics
 {
+    // ========== Core Diagnostics ==========
+
     public const string ActivitySourceName = "Catga";
     public const string MeterName = "Catga";
 
     public static ActivitySource ActivitySource => CatgaActivitySource.Source;
     public static readonly Meter Meter = new(MeterName, "1.0.0");
 
-    // ===== Counters =====
+    // ========== Counters - Message Operations ==========
+
     // Message counters
     public static readonly Counter<long> MessagesPublished = Meter.CreateCounter<long>("catga.messages.published", "messages", "Total messages published");
     public static readonly Counter<long> MessagesFailed = Meter.CreateCounter<long>("catga.messages.failed", "messages", "Total messages failed");

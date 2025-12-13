@@ -16,11 +16,15 @@ namespace Catga.Pipeline.Behaviors;
 /// </remarks>
 public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TRequest, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : class, IRequest<TResponse>
 {
+    // ========== Fields ==========
+
     private readonly IOutboxStore _persistence;
     private readonly IMessageTransport _transport;
     private readonly IMessageSerializer _serializer;
     private readonly IDistributedIdGenerator _idGenerator;
     private readonly ILogger<OutboxBehavior<TRequest, TResponse>> _logger;
+
+    // ========== Constructor ==========
 
     public OutboxBehavior(
         ILogger<OutboxBehavior<TRequest, TResponse>> logger,

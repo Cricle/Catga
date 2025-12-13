@@ -6,7 +6,11 @@ namespace Catga.Core;
 
 public sealed class DefaultEventTypeRegistry : IEventTypeRegistry
 {
+    // ========== Fields ==========
+
     private readonly ConcurrentDictionary<string, Type> _map = new(StringComparer.Ordinal);
+
+    // ========== Public API ==========
 
     public void Register(string typeName, Type type)
     {

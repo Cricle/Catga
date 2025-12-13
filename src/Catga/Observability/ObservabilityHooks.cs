@@ -11,12 +11,15 @@ namespace Catga.Observability;
 /// </summary>
 internal static class ObservabilityHooks
 {
+    // ========== State Management ==========
+
     private static volatile bool _enabled;
 
     public static void Enable() => _enabled = true;
     public static bool IsEnabled => _enabled;
 
-    // ---- Commands/Requests ----
+    // ========== Commands/Requests Tracing ==========
+
     public static IDisposable? StartCommand(string requestType, IMessage? message)
     {
         if (!_enabled) return null;

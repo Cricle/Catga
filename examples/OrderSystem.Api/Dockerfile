@@ -1,9 +1,9 @@
 # Stage 1: Build Vue frontend
 FROM node:22-alpine AS frontend-build
 WORKDIR /app/client-app
-COPY client-app/package*.json ./
+COPY examples/OrderSystem.Api/client-app/package*.json ./
 RUN npm ci
-COPY client-app/ ./
+COPY examples/OrderSystem.Api/client-app/ ./
 RUN npm run build
 
 # Stage 2: Build .NET backend

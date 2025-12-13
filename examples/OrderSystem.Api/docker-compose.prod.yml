@@ -1,5 +1,3 @@
-version: '3.8'
-
 # =============================================================================
 # OrderSystem Production Docker Compose
 # Usage:
@@ -12,7 +10,7 @@ version: '3.8'
 x-ordersystem-common: &ordersystem-common
   image: ordersystem:latest
   build:
-    context: ../..
+    context: ../../
     dockerfile: examples/OrderSystem.Api/Dockerfile
   restart: unless-stopped
   healthcheck:

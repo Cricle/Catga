@@ -13,6 +13,17 @@ namespace Catga.Tests.Flow.Scenarios;
 /// </summary>
 public class CircuitBreakerFlowTests
 {
+    #region Constants
+
+    private const int DefaultFailureThreshold = 3;
+    private const int SmallFailureThreshold = 2;
+    private const int DefaultResetTimeoutMs = 30000;
+    private const int ShortResetTimeoutMs = 50;
+    private const int MediumResetTimeoutMs = 100;
+    private const int WaitForHalfOpenMs = 150;
+
+    #endregion
+
     private IServiceProvider CreateServices()
     {
         var services = new ServiceCollection();
@@ -26,10 +37,10 @@ public class CircuitBreakerFlowTests
     [Fact]
     public async Task CircuitBreaker_ClosedState_AllowsRequests()
     {
+        // Arrange
         var sp = CreateServices();
         var executor = sp.GetRequiredService<IDslFlowExecutor>();
-        var breaker = new SimpleCircuitBreaker(3, TimeSpan.FromSeconds(30));
-
+        var breaker = new SimpleCircuitBreaker(DefaultFailureThreshold, TimeSpan.FromMilliseconds(DefaultResetTimeoutMs));
         var flow = FlowBuilder.Create<CircuitBreakerState>("closed-circuit")
             .Step("operation", async (state, ct) =>
             {
@@ -38,29 +49,29 @@ public class CircuitBreakerFlowTests
                     state.CircuitOpen = true;
                     return false;
                 }
-
                 state.RequestExecuted = true;
                 breaker.RecordSuccess();
                 return true;
             })
             .Build();
-
         var state = new CircuitBreakerState { FlowId = "closed-test" };
 
+        // Act
         var result = await executor.ExecuteAsync(flow, state);
 
-        result.IsSuccess.Should().BeTrue();
-        result.State.RequestExecuted.Should().BeTrue();
-        result.State.CircuitOpen.Should().BeFalse();
+        // Assert
+        result.IsSuccess.Should().BeTrue("circuit is closed and should allow requests");
+        result.State.RequestExecuted.Should().BeTrue("request should execute successfully");
+        result.State.CircuitOpen.Should().BeFalse("circuit should remain closed");
     }
 
     [Fact]
     public async Task CircuitBreaker_OpensAfterFailures_BlocksRequests()
     {
+        // Arrange
         var sp = CreateServices();
         var executor = sp.GetRequiredService<IDslFlowExecutor>();
-        var breaker = new SimpleCircuitBreaker(3, TimeSpan.FromSeconds(30));
-
+        var breaker = new SimpleCircuitBreaker(DefaultFailureThreshold, TimeSpan.FromMilliseconds(DefaultResetTimeoutMs));
         var flow = FlowBuilder.Create<CircuitBreakerState>("open-circuit")
             .Step("failing-operation", async (state, ct) =>
             {
@@ -70,40 +81,37 @@ public class CircuitBreakerFlowTests
                     state.BlockedByCircuit = true;
                     return false;
                 }
-
                 if (state.ShouldFail)
                 {
                     breaker.RecordFailure();
                     throw new InvalidOperationException("Simulated failure");
                 }
-
                 breaker.RecordSuccess();
                 return true;
             })
             .Build();
 
-        // Execute 3 failing requests to open circuit
-        for (int i = 0; i < 3; i++)
+        // Act - Execute failing requests to open circuit
+        for (int i = 0; i < DefaultFailureThreshold; i++)
         {
             var failState = new CircuitBreakerState { FlowId = $"fail-{i}", ShouldFail = true };
             await executor.ExecuteAsync(flow, failState);
         }
-
-        // Next request should be blocked
         var blockedState = new CircuitBreakerState { FlowId = "blocked" };
         var result = await executor.ExecuteAsync(flow, blockedState);
 
-        result.IsSuccess.Should().BeFalse();
-        result.State.BlockedByCircuit.Should().BeTrue();
+        // Assert
+        result.IsSuccess.Should().BeFalse("circuit should be open after threshold failures");
+        result.State.BlockedByCircuit.Should().BeTrue("request should be blocked by open circuit");
     }
 
     [Fact]
     public async Task CircuitBreaker_HalfOpenState_AllowsProbeRequest()
     {
+        // Arrange
         var sp = CreateServices();
         var executor = sp.GetRequiredService<IDslFlowExecutor>();
-        var breaker = new SimpleCircuitBreaker(2, TimeSpan.FromMilliseconds(100));
-
+        var breaker = new SimpleCircuitBreaker(SmallFailureThreshold, TimeSpan.FromMilliseconds(MediumResetTimeoutMs));
         var flow = FlowBuilder.Create<CircuitBreakerState>("half-open")
             .Step("operation", async (state, ct) =>
             {
@@ -112,34 +120,29 @@ public class CircuitBreakerFlowTests
                     state.BlockedByCircuit = true;
                     return false;
                 }
-
                 if (state.ShouldFail)
                 {
                     breaker.RecordFailure();
                     return false;
                 }
-
                 breaker.RecordSuccess();
                 state.RequestExecuted = true;
                 return true;
             })
             .Build();
 
-        // Open the circuit
-        for (int i = 0; i < 2; i++)
+        // Act - Open the circuit
+        for (int i = 0; i < SmallFailureThreshold; i++)
         {
             await executor.ExecuteAsync(flow, new CircuitBreakerState { FlowId = $"fail-{i}", ShouldFail = true });
         }
-
-        // Wait for half-open window
-        await Task.Delay(150);
-
-        // Probe request should be allowed
+        await Task.Delay(WaitForHalfOpenMs);
         var probeState = new CircuitBreakerState { FlowId = "probe", ShouldFail = false };
         var result = await executor.ExecuteAsync(flow, probeState);
 
-        result.IsSuccess.Should().BeTrue();
-        result.State.RequestExecuted.Should().BeTrue();
+        // Assert
+        result.IsSuccess.Should().BeTrue("probe request should succeed in half-open state");
+        result.State.RequestExecuted.Should().BeTrue("request should execute during half-open probe");
     }
 
     [Fact]

@@ -7,10 +7,16 @@ namespace Catga.Pipeline.Behaviors;
 /// <summary>Validation behavior</summary>
 public partial class ValidationBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TRequest, [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResponse> : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
+    // ========== Fields ==========
+
     private readonly IValidator<TRequest>[] _validators;
+
+    // ========== Constructor ==========
 
     public ValidationBehavior(IEnumerable<IValidator<TRequest>> validators, ILogger<ValidationBehavior<TRequest, TResponse>> logger)
         : base(logger) => _validators = validators.ToArray();
+
+    // ========== Public API ==========
 
     public override async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
     {

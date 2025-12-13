@@ -42,6 +42,9 @@
 
     <!-- API Documentation -->
     <PackageReference Include="Swashbuckle.AspNetCore" />
+
+    <!-- SQLite for AOT-compatible persistence -->
+    <PackageReference Include="Microsoft.Data.Sqlite" />
   </ItemGroup>
 
 </Project>

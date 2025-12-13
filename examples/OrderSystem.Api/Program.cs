@@ -97,7 +97,18 @@ try
 
     builder.Services.AddCatgaHandlers();          // Source generator auto-registration
     builder.Services.AddOrderSystem();             // Domain services
-    builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
+
+    // Order Repository: InMemory (default) | SQLite
+    if (catgaOptions.Persistence.Equals("sqlite", StringComparison.OrdinalIgnoreCase))
+    {
+        var sqliteConnection = catgaOptions.SqliteConnection ?? "Data Source=orders.db";
+        builder.Services.AddSingleton<IOrderRepository>(sp => new SqliteOrderRepository(sqliteConnection));
+        Log.Information("Using SQLite repository: {Connection}", sqliteConnection);
+    }
+    else
+    {
+        builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
+    }
     builder.Services.AddTimeTravelService<OrderAggregate>();
 
     // ==========================================================================
@@ -153,10 +164,13 @@ try
         Version = "1.0.0",
         Transport = catgaOptions.Transport,
         Persistence = catgaOptions.Persistence,
+        ClusterEnabled = catgaOptions.ClusterEnabled,
+        ClusterNodes = catgaOptions.ClusterNodes,
         Runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
         Environment = app.Environment.EnvironmentName,
         MachineName = Environment.MachineName,
-        ProcessorCount = Environment.ProcessorCount
+        ProcessorCount = Environment.ProcessorCount,
+        AotCompatible = true
     }).WithTags("System");
 
     // SPA fallback - serve index.html for client-side routing

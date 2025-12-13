@@ -20,6 +20,15 @@ public sealed class CatgaOptions
     /// <summary>NATS server URL</summary>
     public string NatsUrl { get; set; } = "nats://localhost:4222";
 
+    /// <summary>SQLite connection string (when Persistence = SQLite)</summary>
+    public string? SqliteConnection { get; set; } = "Data Source=orders.db";
+
+    /// <summary>Enable cluster mode for distributed deployment</summary>
+    public bool ClusterEnabled { get; set; } = false;
+
+    /// <summary>Cluster node addresses (comma-separated)</summary>
+    public string? ClusterNodes { get; set; }
+
     /// <summary>Enable development mode with verbose logging</summary>
     public bool DevelopmentMode { get; set; } = true;
 }

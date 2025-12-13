@@ -1,0 +1,152 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # Standalone Mode (InMemory)
+  # ============================================
+  ordersystem:
+    build: .
+    ports:
+      - "5275:8080"
+    environment:
+      - Catga__Transport=InMemory
+      - Catga__Persistence=SQLite
+      - Catga__SqliteConnection=Data Source=/data/orders.db
+    volumes:
+      - sqlite-data:/data
+    profiles:
+      - standalone
+
+  # ============================================
+  # Redis Mode
+  # ============================================
+  ordersystem-redis:
+    build: .
+    ports:
+      - "5275:8080"
+    environment:
+      - Catga__Transport=Redis
+      - Catga__Persistence=Redis
+      - Catga__RedisConnection=redis:6379
+    depends_on:
+      - redis
+    profiles:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    profiles:
+      - redis
+
+  # ============================================
+  # NATS Mode
+  # ============================================
+  ordersystem-nats:
+    build: .
+    ports:
+      - "5275:8080"
+    environment:
+      - Catga__Transport=NATS
+      - Catga__Persistence=NATS
+      - Catga__NatsUrl=nats://nats:4222
+    depends_on:
+      - nats
+    profiles:
+      - nats
+
+  nats:
+    image: nats:2-alpine
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: ["--jetstream", "-m", "8222"]
+    volumes:
+      - nats-data:/data
+    profiles:
+      - nats
+
+  # ============================================
+  # Cluster Mode (3 nodes)
+  # ============================================
+  ordersystem-node1:
+    build: .
+    ports:
+      - "5281:8080"
+    environment:
+      - Catga__Transport=Redis
+      - Catga__Persistence=Redis
+      - Catga__RedisConnection=redis-cluster:6379
+      - Catga__ClusterEnabled=true
+      - Catga__ClusterNodes=ordersystem-node1:8080,ordersystem-node2:8080,ordersystem-node3:8080
+      - NODE_ID=node1
+    depends_on:
+      - redis-cluster
+    profiles:
+      - cluster
+
+  ordersystem-node2:
+    build: .
+    ports:
+      - "5282:8080"
+    environment:
+      - Catga__Transport=Redis
+      - Catga__Persistence=Redis
+      - Catga__RedisConnection=redis-cluster:6379
+      - Catga__ClusterEnabled=true
+      - Catga__ClusterNodes=ordersystem-node1:8080,ordersystem-node2:8080,ordersystem-node3:8080
+      - NODE_ID=node2
+    depends_on:
+      - redis-cluster
+    profiles:
+      - cluster
+
+  ordersystem-node3:
+    build: .
+    ports:
+      - "5283:8080"
+    environment:
+      - Catga__Transport=Redis
+      - Catga__Persistence=Redis
+      - Catga__RedisConnection=redis-cluster:6379
+      - Catga__ClusterEnabled=true
+      - Catga__ClusterNodes=ordersystem-node1:8080,ordersystem-node2:8080,ordersystem-node3:8080
+      - NODE_ID=node3
+    depends_on:
+      - redis-cluster
+    profiles:
+      - cluster
+
+  redis-cluster:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-cluster-data:/data
+    profiles:
+      - cluster
+
+  # ============================================
+  # Load Balancer for Cluster
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "5275:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - ordersystem-node1
+      - ordersystem-node2
+      - ordersystem-node3
+    profiles:
+      - cluster
+
+volumes:
+  sqlite-data:
+  redis-data:
+  nats-data:
+  redis-cluster-data:

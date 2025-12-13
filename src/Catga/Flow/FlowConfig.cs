@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using Catga.Abstractions;
 
@@ -379,6 +380,7 @@ internal class StepBuilder<TState, TResult> : IStepBuilder<TState, TResult> wher
         _step = step;
     }
 
+    [RequiresDynamicCode("Into uses expression compilation")]
     public IStepBuilder<TState> Into(Expression<Func<TState, TResult>> property)
     {
         try

@@ -365,6 +365,7 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         }
     }
 
+    [RequiresDynamicCode("ExecuteSendAsync uses reflection to invoke generic methods")]
     private async Task<StepResult> ExecuteSendAsync(
         TState state,
         FlowStep step,

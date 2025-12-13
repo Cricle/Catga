@@ -182,6 +182,7 @@ public partial class AttributeDrivenBehavior<
         return result;
     }
 
+    [RequiresUnreferencedCode("GetHandlerAttributes uses reflection to discover handler types")]
     private static HandlerAttributes GetHandlerAttributes(TRequest request)
     {
         var requestType = typeof(TRequest);

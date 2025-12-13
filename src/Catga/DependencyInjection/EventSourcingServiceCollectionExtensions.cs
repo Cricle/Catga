@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.EventSourcing;
@@ -30,7 +31,7 @@ public static class EventSourcingServiceCollectionExtensions
     /// <summary>
     /// Adds a projection to the service collection.
     /// </summary>
-    public static IServiceCollection AddProjection<TProjection>(this IServiceCollection services)
+    public static IServiceCollection AddProjection<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProjection>(this IServiceCollection services)
         where TProjection : class, IProjection
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -52,7 +53,7 @@ public static class EventSourcingServiceCollectionExtensions
     /// <summary>
     /// Adds time travel service with optional snapshot support for the specified aggregate type.
     /// </summary>
-    public static IServiceCollection AddTimeTravelService<TAggregate>(
+    public static IServiceCollection AddTimeTravelService<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TAggregate>(
         this IServiceCollection services,
         bool useSnapshots = false)
         where TAggregate : class, IAggregateRoot, new()
@@ -88,7 +89,7 @@ public static class EventSourcingServiceCollectionExtensions
     /// <summary>
     /// Adds projection rebuilder service for rebuilding projections from events.
     /// </summary>
-    public static IServiceCollection AddProjectionRebuilder<TProjection>(this IServiceCollection services)
+    public static IServiceCollection AddProjectionRebuilder<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProjection>(this IServiceCollection services)
         where TProjection : class, IProjection
     {
         ArgumentNullException.ThrowIfNull(services);

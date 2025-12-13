@@ -22,10 +22,14 @@ public partial class AttributeDrivenBehavior<
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>
     : BaseBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
 {
+    // ========== Fields ==========
+
     private static readonly ConcurrentDictionary<Type, HandlerAttributes> _attributeCache = new();
 
     private readonly IIdempotencyStore? _idempotencyStore;
     private readonly IDistributedLockProvider? _lockProvider;
+
+    // ========== Constructor ==========
 
     public AttributeDrivenBehavior(
         ILogger<AttributeDrivenBehavior<TRequest, TResponse>> logger,

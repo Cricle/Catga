@@ -45,6 +45,12 @@
 
     <!-- SQLite for AOT-compatible persistence -->
     <PackageReference Include="Microsoft.Data.Sqlite" />
+
+    <!-- Authentication & Security (versions managed in Directory.Packages.props) -->
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+    <PackageReference Include="Microsoft.IdentityModel.Tokens" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="BCrypt.Net-Next" />
   </ItemGroup>
 
 </Project>

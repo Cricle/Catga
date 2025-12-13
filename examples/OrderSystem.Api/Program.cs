@@ -9,12 +9,15 @@ using Catga;
 using Catga.DependencyInjection;
 using Catga.EventSourcing;
 using Catga.Flow.Extensions;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using OrderSystem.Api.Configuration;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Endpoints;
 using OrderSystem.Api.Infrastructure;
 using OrderSystem.Api.Services;
 using Serilog;
+using System.Text;
 
 // =============================================================================
 // 1. Bootstrap Logging
@@ -111,6 +114,40 @@ try
     }
     builder.Services.AddTimeTravelService<OrderAggregate>();
 
+    // Payment processor
+    builder.Services.AddSingleton<PaymentProcessor>();
+
+    // Authentication service
+    builder.Services.AddSingleton<AuthenticationService>();
+
+    // JWT Authentication
+    var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "your-secret-key-minimum-32-characters-long-for-hs256";
+    var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "OrderSystem.Api";
+    var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "OrderSystem.Client";
+
+    builder.Services
+        .AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(jwtSecret)),
+                ValidateIssuer = true,
+                ValidIssuer = jwtIssuer,
+                ValidateAudience = true,
+                ValidAudience = jwtAudience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
+            };
+        });
+
+    builder.Services.AddAuthorization();
+
     // ==========================================================================
     // 5. Infrastructure
     // ==========================================================================
@@ -149,12 +186,18 @@ try
     app.UseDefaultFiles();
     app.UseStaticFiles();
 
+    // Authentication & Authorization middleware
+    app.UseAuthentication();
+    app.UseAuthorization();
+
     // ==========================================================================
     // 7. Endpoints
     // ==========================================================================
 
     app.MapOrderSystemHealthChecks();
+    app.MapAuthEndpoints();
     app.MapOrderEndpoints();
+    app.MapPaymentEndpoints();
     app.MapEventSourcingEndpoints();
 
     // System Info endpoint

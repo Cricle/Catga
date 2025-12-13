@@ -125,13 +125,35 @@ OrderSystem.Api/
 
 ## Endpoints
 
+### Authentication
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/login` | POST | Login with email/password |
+| `/api/auth/register` | POST | Register new user |
+| `/api/auth/me` | GET | Get current user (requires auth) |
+| `/api/auth/refresh` | POST | Refresh JWT token |
+
+### Orders
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/orders` | POST | Create order (simple) |
 | `/api/orders/flow` | POST | Create order (Flow pattern) |
 | `/api/orders/{id}` | GET | Get order |
 | `/api/orders/{id}/cancel` | POST | Cancel order |
-| `/api/users/{id}/orders` | GET | Get user orders |
+| `/api/orders/customer/{id}` | GET | Get user orders |
+| `/api/orders/stats` | GET | Get order statistics |
+
+### Payments
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/payments/process` | POST | Process order payment |
+| `/api/payments/{id}/refund` | POST | Refund payment |
+| `/api/payments/{id}` | GET | Get payment details |
+
+### System
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/system/info` | GET | System information |
 | `/health` | GET | Health check |
 
 ## Best Practices Demonstrated
@@ -226,6 +248,33 @@ builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, SendOrderNotificati
 
 ## Example Requests
 
+### Authentication
+
+```bash
+# Register new user
+curl -X POST http://localhost:5275/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email":"user@example.com",
+    "password":"password123",
+    "fullName":"John Doe"
+  }'
+
+# Login
+curl -X POST http://localhost:5275/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email":"admin@ordersystem.local",
+    "password":"admin123"
+  }'
+
+# Get current user (requires Bearer token)
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:5275/api/auth/me
+```
+
+### Orders
+
 ```bash
 # Create order (simple)
 curl -X POST http://localhost:5275/api/orders \
@@ -242,6 +291,30 @@ curl http://localhost:5275/api/orders/{orderId}
 
 # Cancel order
 curl -X POST http://localhost:5275/api/orders/{orderId}/cancel \
+  -H "Content-Type: application/json" \
+  -d '{"reason":"Customer request"}'
+
+# Get user orders
+curl http://localhost:5275/api/orders/customer/C001
+
+# Get order statistics
+curl http://localhost:5275/api/orders/stats
+```
+
+### Payments
+
+```bash
+# Process payment
+curl -X POST http://localhost:5275/api/payments/process \
+  -H "Content-Type: application/json" \
+  -d '{
+    "orderId":"order-123",
+    "method":"Alipay",
+    "transactionId":"txn-456"
+  }'
+
+# Refund payment
+curl -X POST http://localhost:5275/api/payments/payment-id/refund \
   -H "Content-Type: application/json" \
   -d '{"reason":"Customer request"}'
 ```

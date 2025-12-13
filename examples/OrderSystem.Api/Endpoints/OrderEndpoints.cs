@@ -6,51 +6,85 @@ using OrderSystem.Api.Messages;
 namespace OrderSystem.Api.Endpoints;
 
 /// <summary>
-/// Order API endpoints using Minimal API pattern.
-/// Demonstrates clean separation of endpoint definitions from Program.cs.
+/// Order API endpoints - Full order lifecycle management.
+/// Lifecycle: Pending → Paid → Processing → Shipped → Delivered
 /// </summary>
 public static class OrderEndpoints
 {
     public static IEndpointRouteBuilder MapOrderEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/orders")
-            .WithTags("Orders")
-            ;
+            .WithTags("Orders");
 
-        group.MapPost("/", CreateOrder)
-            .WithName("CreateOrder")
-            .WithSummary("Create a new order")
-            .WithDescription("Creates a new order and publishes OrderCreatedEvent")
-            .Produces<OrderCreatedResult>(StatusCodes.Status200OK)
-            .ProducesValidationProblem()
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+        // ===== Queries =====
+        group.MapGet("/", GetAllOrders)
+            .WithName("GetAllOrders")
+            .WithSummary("Get all orders with optional status filter");
 
-        group.MapPost("/flow", CreateOrderWithFlow)
-            .WithName("CreateOrderWithFlow")
-            .WithSummary("Create order using Flow/Saga pattern")
-            .WithDescription("Creates order with multi-step flow including compensation on failure")
-            .Produces<OrderCreatedResult>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+        group.MapGet("/stats", GetOrderStats)
+            .WithName("GetOrderStats")
+            .WithSummary("Get order statistics dashboard");
 
         group.MapGet("/{orderId}", GetOrder)
             .WithName("GetOrder")
-            .WithSummary("Get order by ID")
-            .Produces<Order>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound);
-
-        group.MapPost("/{orderId}/cancel", CancelOrder)
-            .WithName("CancelOrder")
-            .WithSummary("Cancel an existing order")
-            .Produces(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .WithSummary("Get order by ID");
 
         group.MapGet("/customer/{customerId}", GetCustomerOrders)
             .WithName("GetCustomerOrders")
-            .WithSummary("Get all orders for a customer")
-            .Produces<List<Order>>(StatusCodes.Status200OK);
+            .WithSummary("Get all orders for a customer");
+
+        // ===== Commands - Order Creation =====
+        group.MapPost("/", CreateOrder)
+            .WithName("CreateOrder")
+            .WithSummary("Create a new order (status: Pending)");
+
+        group.MapPost("/flow", CreateOrderWithFlow)
+            .WithName("CreateOrderWithFlow")
+            .WithSummary("Create order using Flow/Saga pattern with compensation");
+
+        // ===== Commands - Order Lifecycle =====
+        group.MapPost("/{orderId}/pay", PayOrder)
+            .WithName("PayOrder")
+            .WithSummary("Pay for an order (Pending → Paid)");
+
+        group.MapPost("/{orderId}/process", ProcessOrder)
+            .WithName("ProcessOrder")
+            .WithSummary("Start processing (Paid → Processing)");
+
+        group.MapPost("/{orderId}/ship", ShipOrder)
+            .WithName("ShipOrder")
+            .WithSummary("Ship the order (Processing → Shipped)");
+
+        group.MapPost("/{orderId}/deliver", DeliverOrder)
+            .WithName("DeliverOrder")
+            .WithSummary("Mark as delivered (Shipped → Delivered)");
+
+        group.MapPost("/{orderId}/cancel", CancelOrder)
+            .WithName("CancelOrder")
+            .WithSummary("Cancel an order");
 
         return app;
+    }
+
+    // ===== Query Handlers =====
+
+    private static async Task<IResult> GetAllOrders(
+        [FromQuery] OrderStatus? status,
+        [FromQuery] int limit,
+        ICatgaMediator mediator,
+        CancellationToken ct)
+    {
+        var result = await mediator.SendAsync<GetAllOrdersQuery, List<Order>>(
+            new(status, limit > 0 ? limit : 100), ct);
+        return Results.Ok(result.Value);
+    }
+
+    private static async Task<IResult> GetOrderStats(
+        ICatgaMediator mediator,
+        CancellationToken ct)
+    {
+        var result = await mediator.SendAsync<GetOrderStatsQuery, OrderStats>(new(), ct);
+        return Results.Ok(result.Value);
     }
 
     private static async Task<IResult> CreateOrder(
@@ -106,7 +140,59 @@ public static class OrderEndpoints
         var result = await mediator.SendAsync<GetUserOrdersQuery, List<Order>>(new(customerId), ct);
         return Results.Ok(result.Value);
     }
+
+    // ===== Lifecycle Commands =====
+
+    private static async Task<IResult> PayOrder(
+        string orderId,
+        PayOrderRequest request,
+        ICatgaMediator mediator,
+        CancellationToken ct)
+    {
+        var result = await mediator.SendAsync(
+            new PayOrderCommand(orderId, request.PaymentMethod, request.TransactionId), ct);
+        return result.IsSuccess
+            ? Results.Ok(new { message = "Payment successful", orderId })
+            : Results.BadRequest(new ProblemDetails { Detail = result.Error });
+    }
+
+    private static async Task<IResult> ProcessOrder(
+        string orderId,
+        ICatgaMediator mediator,
+        CancellationToken ct)
+    {
+        var result = await mediator.SendAsync(new ProcessOrderCommand(orderId), ct);
+        return result.IsSuccess
+            ? Results.Ok(new { message = "Order is now processing", orderId })
+            : Results.BadRequest(new ProblemDetails { Detail = result.Error });
+    }
+
+    private static async Task<IResult> ShipOrder(
+        string orderId,
+        ShipOrderRequest request,
+        ICatgaMediator mediator,
+        CancellationToken ct)
+    {
+        var result = await mediator.SendAsync(
+            new ShipOrderCommand(orderId, request.TrackingNumber), ct);
+        return result.IsSuccess
+            ? Results.Ok(new { message = "Order shipped", orderId, request.TrackingNumber })
+            : Results.BadRequest(new ProblemDetails { Detail = result.Error });
+    }
+
+    private static async Task<IResult> DeliverOrder(
+        string orderId,
+        ICatgaMediator mediator,
+        CancellationToken ct)
+    {
+        var result = await mediator.SendAsync(new DeliverOrderCommand(orderId), ct);
+        return result.IsSuccess
+            ? Results.Ok(new { message = "Order delivered", orderId })
+            : Results.BadRequest(new ProblemDetails { Detail = result.Error });
+    }
 }
 
-/// <summary>Request body for cancel order endpoint</summary>
+// ===== Request DTOs =====
 public record CancelOrderRequest(string? Reason);
+public record PayOrderRequest(string PaymentMethod, string? TransactionId = null);
+public record ShipOrderRequest(string TrackingNumber);

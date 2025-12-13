@@ -7,28 +7,62 @@ using OrderSystem.Api.Domain;
 namespace OrderSystem.Api.Messages;
 
 // ============================================
-// Commands & Queries
+// Commands - Order Lifecycle
 // ============================================
 
-/// <summary>Simple create order command.</summary>
+/// <summary>Create a new order (status: Pending)</summary>
 [MemoryPackable]
-public partial record CreateOrderCommand(string CustomerId, List<OrderItem> Items) : IRequest<OrderCreatedResult>;
+public partial record CreateOrderCommand(string CustomerId, List<OrderItem> Items, string? CustomerName = null, string? CustomerEmail = null) : IRequest<OrderCreatedResult>;
 
 /// <summary>Create order using Flow pattern with automatic compensation.</summary>
 [MemoryPackable]
 public partial record CreateOrderFlowCommand(string CustomerId, List<OrderItem> Items) : IRequest<OrderCreatedResult>;
 
+/// <summary>Pay for an order (Pending → Paid)</summary>
 [MemoryPackable]
-public partial record OrderCreatedResult(string OrderId, decimal TotalAmount, DateTime CreatedAt);
+public partial record PayOrderCommand(string OrderId, string PaymentMethod, string? TransactionId = null) : IRequest;
 
+/// <summary>Start processing an order (Paid → Processing)</summary>
+[MemoryPackable]
+public partial record ProcessOrderCommand(string OrderId) : IRequest;
+
+/// <summary>Ship an order (Processing → Shipped)</summary>
+[MemoryPackable]
+public partial record ShipOrderCommand(string OrderId, string TrackingNumber) : IRequest;
+
+/// <summary>Mark order as delivered (Shipped → Delivered)</summary>
+[MemoryPackable]
+public partial record DeliverOrderCommand(string OrderId) : IRequest;
+
+/// <summary>Cancel an order</summary>
 [MemoryPackable]
 public partial record CancelOrderCommand(string OrderId, string? Reason = null) : IRequest;
+
+// ============================================
+// Queries
+// ============================================
 
 [MemoryPackable]
 public partial record GetOrderQuery(string OrderId) : IRequest<Order?>;
 
 [MemoryPackable]
 public partial record GetUserOrdersQuery(string CustomerId) : IRequest<List<Order>>;
+
+[MemoryPackable]
+public partial record GetAllOrdersQuery(OrderStatus? Status = null, int Limit = 100) : IRequest<List<Order>>;
+
+[MemoryPackable]
+public partial record GetOrderStatsQuery : IRequest<OrderStats>;
+
+// ============================================
+// Results
+// ============================================
+
+[MemoryPackable]
+public partial record OrderCreatedResult(string OrderId, decimal TotalAmount, DateTime CreatedAt);
+
+[MemoryPackable]
+public partial record OrderStats(int Total, int Pending, int Paid, int Processing, int Shipped, int Delivered, int Cancelled, decimal TotalRevenue);
 
 // ============================================
 // Events (for Pub/Sub)
@@ -37,6 +71,14 @@ public partial record GetUserOrdersQuery(string CustomerId) : IRequest<List<Orde
 /// <summary>Published when an order is created.</summary>
 [MemoryPackable]
 public partial record OrderCreatedEvent(string OrderId, string CustomerId, decimal TotalAmount, DateTime CreatedAt) : IEvent;
+
+/// <summary>Published when an order is paid.</summary>
+[MemoryPackable]
+public partial record OrderPaidEvent(string OrderId, string PaymentMethod, decimal Amount, DateTime PaidAt) : IEvent;
+
+/// <summary>Published when an order is shipped.</summary>
+[MemoryPackable]
+public partial record OrderShippedEvent(string OrderId, string TrackingNumber, DateTime ShippedAt) : IEvent;
 
 /// <summary>Published when an order is cancelled.</summary>
 [MemoryPackable]

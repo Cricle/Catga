@@ -11,7 +11,7 @@ namespace OrderSystem.Api.Handlers;
 
 /// <summary>
 /// Unified order handler implementing all command, query, and event handlers.
-/// Demonstrates that a single class can handle multiple message types.
+/// Supports full order lifecycle: Create → Pay → Process → Ship → Deliver
 /// </summary>
 public class OrderHandler(
     IOrderRepository orderRepository,
@@ -19,12 +19,20 @@ public class OrderHandler(
     ILogger<OrderHandler> logger)
     : IRequestHandler<CreateOrderCommand, OrderCreatedResult>,
       IRequestHandler<CreateOrderFlowCommand, OrderCreatedResult>,
+      IRequestHandler<PayOrderCommand>,
+      IRequestHandler<ProcessOrderCommand>,
+      IRequestHandler<ShipOrderCommand>,
+      IRequestHandler<DeliverOrderCommand>,
       IRequestHandler<CancelOrderCommand>,
       IRequestHandler<GetOrderQuery, Order?>,
       IRequestHandler<GetUserOrdersQuery, List<Order>>,
+      IRequestHandler<GetAllOrdersQuery, List<Order>>,
+      IRequestHandler<GetOrderStatsQuery, OrderStats>,
       IEventHandler<OrderCreatedEvent>,
       IEventHandler<OrderCancelledEvent>,
-      IEventHandler<OrderConfirmedEvent>
+      IEventHandler<OrderConfirmedEvent>,
+      IEventHandler<OrderPaidEvent>,
+      IEventHandler<OrderShippedEvent>
 {
     // ============================================
     // Command Handlers
@@ -38,7 +46,7 @@ public class OrderHandler(
             CustomerId = request.CustomerId,
             Items = request.Items,
             TotalAmount = request.Items.Sum(i => i.Subtotal),
-            Status = OrderStatus.Confirmed,
+            Status = OrderStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -68,7 +76,7 @@ public class OrderHandler(
 
             logger.LogInformation("Flow Step 2: Stock reserved for {OrderId}", order.OrderId);
 
-            order.Status = OrderStatus.Confirmed;
+            order.Status = OrderStatus.Paid;
             order.UpdatedAt = DateTime.UtcNow;
             await orderRepository.UpdateAsync(order, ct);
             logger.LogInformation("Flow Step 3: Order {OrderId} confirmed", order.OrderId);
@@ -89,15 +97,81 @@ public class OrderHandler(
     {
         var order = await orderRepository.GetByIdAsync(request.OrderId, ct);
         if (order == null) return CatgaResult.Failure($"Order {request.OrderId} not found");
+        if (!order.CanCancel) return CatgaResult.Failure($"Order {request.OrderId} cannot be cancelled in status {order.Status}");
         if (order.Status == OrderStatus.Cancelled) return CatgaResult.Success();
 
         order.Status = OrderStatus.Cancelled;
         order.CancellationReason = request.Reason;
         order.CancelledAt = DateTime.UtcNow;
+        order.UpdatedAt = DateTime.UtcNow;
 
         await orderRepository.UpdateAsync(order, ct);
         logger.LogInformation("Order {OrderId} cancelled", request.OrderId);
         await mediator.PublishAsync(new OrderCancelledEvent(request.OrderId, request.Reason, order.CancelledAt!.Value), ct);
+        return CatgaResult.Success();
+    }
+
+    public async ValueTask<CatgaResult> HandleAsync(PayOrderCommand request, CancellationToken ct = default)
+    {
+        var order = await orderRepository.GetByIdAsync(request.OrderId, ct);
+        if (order == null) return CatgaResult.Failure($"Order {request.OrderId} not found");
+        if (order.Status != OrderStatus.Pending) return CatgaResult.Failure($"Order {request.OrderId} is not pending payment");
+
+        order.Status = OrderStatus.Paid;
+        order.PaidAt = DateTime.UtcNow;
+        order.UpdatedAt = DateTime.UtcNow;
+        order.PaymentMethod = request.PaymentMethod;
+        order.PaymentTransactionId = request.TransactionId;
+
+        await orderRepository.UpdateAsync(order, ct);
+        logger.LogInformation("Order {OrderId} paid via {Method}", request.OrderId, request.PaymentMethod);
+        await mediator.PublishAsync(new OrderPaidEvent(request.OrderId, request.PaymentMethod, order.TotalAmount, order.PaidAt!.Value), ct);
+        return CatgaResult.Success();
+    }
+
+    public async ValueTask<CatgaResult> HandleAsync(ProcessOrderCommand request, CancellationToken ct = default)
+    {
+        var order = await orderRepository.GetByIdAsync(request.OrderId, ct);
+        if (order == null) return CatgaResult.Failure($"Order {request.OrderId} not found");
+        if (order.Status != OrderStatus.Paid) return CatgaResult.Failure($"Order {request.OrderId} must be paid before processing");
+
+        order.Status = OrderStatus.Processing;
+        order.UpdatedAt = DateTime.UtcNow;
+
+        await orderRepository.UpdateAsync(order, ct);
+        logger.LogInformation("Order {OrderId} is now processing", request.OrderId);
+        return CatgaResult.Success();
+    }
+
+    public async ValueTask<CatgaResult> HandleAsync(ShipOrderCommand request, CancellationToken ct = default)
+    {
+        var order = await orderRepository.GetByIdAsync(request.OrderId, ct);
+        if (order == null) return CatgaResult.Failure($"Order {request.OrderId} not found");
+        if (!order.CanShip) return CatgaResult.Failure($"Order {request.OrderId} cannot be shipped in status {order.Status}");
+
+        order.Status = OrderStatus.Shipped;
+        order.ShippedAt = DateTime.UtcNow;
+        order.UpdatedAt = DateTime.UtcNow;
+        order.TrackingNumber = request.TrackingNumber;
+
+        await orderRepository.UpdateAsync(order, ct);
+        logger.LogInformation("Order {OrderId} shipped with tracking {Tracking}", request.OrderId, request.TrackingNumber);
+        await mediator.PublishAsync(new OrderShippedEvent(request.OrderId, request.TrackingNumber, order.ShippedAt!.Value), ct);
+        return CatgaResult.Success();
+    }
+
+    public async ValueTask<CatgaResult> HandleAsync(DeliverOrderCommand request, CancellationToken ct = default)
+    {
+        var order = await orderRepository.GetByIdAsync(request.OrderId, ct);
+        if (order == null) return CatgaResult.Failure($"Order {request.OrderId} not found");
+        if (!order.CanDeliver) return CatgaResult.Failure($"Order {request.OrderId} cannot be delivered in status {order.Status}");
+
+        order.Status = OrderStatus.Delivered;
+        order.DeliveredAt = DateTime.UtcNow;
+        order.UpdatedAt = DateTime.UtcNow;
+
+        await orderRepository.UpdateAsync(order, ct);
+        logger.LogInformation("Order {OrderId} delivered", request.OrderId);
         return CatgaResult.Success();
     }
 
@@ -115,6 +189,18 @@ public class OrderHandler(
     {
         var orders = await orderRepository.GetByCustomerIdAsync(request.CustomerId, ct);
         return CatgaResult<List<Order>>.Success(orders);
+    }
+
+    public async ValueTask<CatgaResult<List<Order>>> HandleAsync(GetAllOrdersQuery request, CancellationToken ct = default)
+    {
+        var orders = await orderRepository.GetAllAsync(request.Status, request.Limit, ct);
+        return CatgaResult<List<Order>>.Success(orders);
+    }
+
+    public async ValueTask<CatgaResult<OrderStats>> HandleAsync(GetOrderStatsQuery request, CancellationToken ct = default)
+    {
+        var stats = await orderRepository.GetStatsAsync(ct);
+        return CatgaResult<OrderStats>.Success(stats);
     }
 
     // ============================================
@@ -138,6 +224,20 @@ public class OrderHandler(
     public ValueTask HandleAsync(OrderConfirmedEvent @event, CancellationToken ct = default)
     {
         logger.LogInformation("Event: Order confirmed - {OrderId}", @event.OrderId);
+        return ValueTask.CompletedTask;
+    }
+
+    public ValueTask HandleAsync(OrderPaidEvent @event, CancellationToken ct = default)
+    {
+        logger.LogInformation("Event: Order paid - {OrderId}, Method: {Method}, Amount: {Amount:C}",
+            @event.OrderId, @event.PaymentMethod, @event.Amount);
+        return ValueTask.CompletedTask;
+    }
+
+    public ValueTask HandleAsync(OrderShippedEvent @event, CancellationToken ct = default)
+    {
+        logger.LogInformation("Event: Order shipped - {OrderId}, Tracking: {Tracking}",
+            @event.OrderId, @event.TrackingNumber);
         return ValueTask.CompletedTask;
     }
 }

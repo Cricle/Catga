@@ -3,668 +3,410 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catga OrderSystem Demo</title>
+    <title>OrderSystem - Catga Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        .timeline-line { position: absolute; left: 24px; top: 40px; bottom: 0; width: 2px; background: #e5e7eb; }
-        .timeline-dot { position: absolute; left: 16px; top: 8px; width: 18px; height: 18px; border-radius: 50%; border: 3px solid; background: white; }
-        .event-card { transition: all 0.3s ease; }
-        .event-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .version-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; background: #3b82f6; border-radius: 50%; cursor: pointer; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-paid { background: #dbeafe; color: #1e40af; }
+        .status-processing { background: #e0e7ff; color: #3730a3; }
+        .status-shipped { background: #cffafe; color: #0e7490; }
+        .status-delivered { background: #d1fae5; color: #065f46; }
+        .status-cancelled { background: #fee2e2; color: #991b1b; }
         .fade-in { animation: fadeIn 0.3s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .card { transition: all 0.2s ease; }
+        .card:hover { box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        .btn { transition: all 0.2s ease; }
+        .btn:hover { transform: translateY(-1px); }
+        .lifecycle-step { transition: all 0.3s ease; }
+        .lifecycle-step.active { transform: scale(1.05); }
+        .lifecycle-arrow { color: #d1d5db; }
+        .lifecycle-arrow.active { color: #3b82f6; }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-7xl">
+<body class="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen">
+    <div class="container mx-auto px-4 py-6 max-w-7xl">
         <!-- Header -->
-        <div class="text-center mb-6">
+        <header class="text-center mb-8">
             <h1 class="text-4xl font-bold text-gray-800 mb-2">
-                <span class="text-blue-600">Catga</span> OrderSystem Demo
+                <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">OrderSystem</span>
             </h1>
-            <p class="text-gray-600">Complete Event Sourcing Demo - Time Travel, Projections, Subscriptions, Audit</p>
-        </div>
+            <p class="text-gray-500">Production-Ready Order Management with Catga CQRS Framework</p>
+        </header>
 
-        <!-- Navigation Tabs -->
-        <div class="bg-white rounded-xl shadow-lg mb-6">
-            <div class="flex border-b">
-                <button onclick="showTab('timetravel')" class="tab-btn active px-6 py-4 font-medium text-gray-600 hover:text-blue-600">
-                    <i data-lucide="clock" class="w-4 h-4 inline mr-2"></i>Time Travel
-                </button>
-                <button onclick="showTab('projections')" class="tab-btn px-6 py-4 font-medium text-gray-600 hover:text-blue-600">
-                    <i data-lucide="layers" class="w-4 h-4 inline mr-2"></i>Projections
-                </button>
-                <button onclick="showTab('subscriptions')" class="tab-btn px-6 py-4 font-medium text-gray-600 hover:text-blue-600">
-                    <i data-lucide="bell" class="w-4 h-4 inline mr-2"></i>Subscriptions
-                </button>
-                <button onclick="showTab('audit')" class="tab-btn px-6 py-4 font-medium text-gray-600 hover:text-blue-600">
-                    <i data-lucide="shield-check" class="w-4 h-4 inline mr-2"></i>Audit
-                </button>
-                <button onclick="showTab('snapshots')" class="tab-btn px-6 py-4 font-medium text-gray-600 hover:text-blue-600">
-                    <i data-lucide="camera" class="w-4 h-4 inline mr-2"></i>Snapshots
-                </button>
+        <!-- Stats Dashboard -->
+        <div id="statsSection" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
+            <div class="bg-white rounded-xl p-4 shadow-sm card">
+                <div class="text-2xl font-bold text-gray-800" id="statTotal">0</div>
+                <div class="text-xs text-gray-500">Total Orders</div>
+            </div>
+            <div class="bg-yellow-50 rounded-xl p-4 shadow-sm card">
+                <div class="text-2xl font-bold text-yellow-600" id="statPending">0</div>
+                <div class="text-xs text-gray-500">Pending</div>
+            </div>
+            <div class="bg-blue-50 rounded-xl p-4 shadow-sm card">
+                <div class="text-2xl font-bold text-blue-600" id="statPaid">0</div>
+                <div class="text-xs text-gray-500">Paid</div>
+            </div>
+            <div class="bg-indigo-50 rounded-xl p-4 shadow-sm card">
+                <div class="text-2xl font-bold text-indigo-600" id="statProcessing">0</div>
+                <div class="text-xs text-gray-500">Processing</div>
+            </div>
+            <div class="bg-cyan-50 rounded-xl p-4 shadow-sm card">
+                <div class="text-2xl font-bold text-cyan-600" id="statShipped">0</div>
+                <div class="text-xs text-gray-500">Shipped</div>
+            </div>
+            <div class="bg-green-50 rounded-xl p-4 shadow-sm card">
+                <div class="text-2xl font-bold text-green-600" id="statDelivered">0</div>
+                <div class="text-xs text-gray-500">Delivered</div>
+            </div>
+            <div class="bg-red-50 rounded-xl p-4 shadow-sm card">
+                <div class="text-2xl font-bold text-red-600" id="statCancelled">0</div>
+                <div class="text-xs text-gray-500">Cancelled</div>
+            </div>
+            <div class="bg-emerald-50 rounded-xl p-4 shadow-sm card">
+                <div class="text-2xl font-bold text-emerald-600" id="statRevenue">$0</div>
+                <div class="text-xs text-gray-500">Revenue</div>
             </div>
         </div>
 
-        <!-- Tab: Time Travel -->
-        <div id="tab-timetravel" class="tab-content active">
-        <!-- Create Demo Order -->
-        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="text-xl font-semibold text-gray-800">Step 1: Create Demo Order</h2>
-                    <p class="text-gray-500 text-sm">Creates an order with 7 events: create, add items, status changes, discount</p>
-                </div>
-                <button id="createBtn" onclick="createDemoOrder()"
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors">
-                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
-                    Create Demo Order
-                </button>
-            </div>
-            <div id="createResult" class="mt-4 hidden">
-                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <p class="text-green-800"><strong>Order Created:</strong> <span id="orderId" class="font-mono"></span></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Time Travel Controls -->
-        <div id="timeTravelSection" class="hidden">
-            <!-- Version Slider -->
-            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">Step 2: Travel Through Time</h2>
-                <div class="flex items-center gap-4 mb-4">
-                    <span class="text-gray-600 font-medium">Version:</span>
-                    <input type="range" id="versionSlider" min="0" max="6" value="6"
-                        class="version-slider flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                        oninput="updateVersion(this.value)">
-                    <span id="versionDisplay" class="text-2xl font-bold text-blue-600 w-12 text-center">6</span>
-                </div>
-                <div class="flex justify-between text-xs text-gray-400 px-1">
-                    <span>v0 (Created)</span>
-                    <span>v6 (Confirmed)</span>
-                </div>
-            </div>
-
-            <!-- State Display -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <!-- Current State -->
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <div class="flex items-center gap-2 mb-4">
-                        <i data-lucide="clock" class="w-5 h-5 text-blue-600"></i>
-                        <h3 class="text-lg font-semibold text-gray-800">State at Version <span id="stateVersion" class="text-blue-600">6</span></h3>
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left: Create Order -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 card">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="plus-circle" class="w-5 h-5 text-blue-600"></i>
+                    Create Order
+                </h2>
+                <form id="createOrderForm" onsubmit="createOrder(event)">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1">Customer ID</label>
+                            <input type="text" id="customerId" value="CUST-001"
+                                class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1">Product</label>
+                            <select id="product" class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                                <option value="laptop">Laptop ($999)</option>
+                                <option value="phone">Phone ($699)</option>
+                                <option value="tablet">Tablet ($499)</option>
+                                <option value="headphones">Headphones ($199)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1">Quantity</label>
+                            <input type="number" id="quantity" value="1" min="1" max="10"
+                                class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium btn">
+                            Create Order
+                        </button>
+                        <button type="button" onclick="createOrderWithFlow()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-medium btn">
+                            Create with Flow (Saga)
+                        </button>
                     </div>
-                    <div id="stateDisplay" class="space-y-3">
-                        <!-- State will be populated here -->
-                    </div>
-                </div>
-
-                <!-- Timeline -->
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <div class="flex items-center gap-2 mb-4">
-                        <i data-lucide="git-branch" class="w-5 h-5 text-purple-600"></i>
-                        <h3 class="text-lg font-semibold text-gray-800">Event Timeline</h3>
-                    </div>
-                    <div id="timeline" class="relative space-y-4 pl-10">
-                        <!-- Timeline will be populated here -->
-                    </div>
-                </div>
+                </form>
             </div>
 
-            <!-- Version Comparison -->
-            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-                <div class="flex items-center gap-2 mb-4">
-                    <i data-lucide="git-compare" class="w-5 h-5 text-orange-600"></i>
-                    <h3 class="text-lg font-semibold text-gray-800">Compare Versions</h3>
-                </div>
-                <div class="flex items-center gap-4 mb-4">
-                    <div class="flex items-center gap-2">
-                        <label class="text-gray-600">From:</label>
-                        <select id="fromVersion" class="border rounded-lg px-3 py-2" onchange="compareVersions()">
-                            <option value="0">v0</option>
-                            <option value="1">v1</option>
-                            <option value="2">v2</option>
-                            <option value="3">v3</option>
-                            <option value="4">v4</option>
-                            <option value="5">v5</option>
-                            <option value="6">v6</option>
-                        </select>
-                    </div>
-                    <i data-lucide="arrow-right" class="w-5 h-5 text-gray-400"></i>
-                    <div class="flex items-center gap-2">
-                        <label class="text-gray-600">To:</label>
-                        <select id="toVersion" class="border rounded-lg px-3 py-2" onchange="compareVersions()">
-                            <option value="0">v0</option>
-                            <option value="1">v1</option>
-                            <option value="2">v2</option>
-                            <option value="3">v3</option>
-                            <option value="4">v4</option>
-                            <option value="5">v5</option>
-                            <option value="6" selected>v6</option>
-                        </select>
-                    </div>
-                </div>
-                <div id="comparisonResult" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <!-- Comparison will be populated here -->
-                </div>
-            </div>
-        </div>
-        </div><!-- End Time Travel Tab -->
-
-        <!-- Tab: Projections -->
-        <div id="tab-projections" class="tab-content">
-            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <!-- Center: Order List -->
+            <div class="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6 card">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-semibold text-gray-800">
-                        <i data-lucide="layers" class="w-5 h-5 inline mr-2 text-blue-600"></i>Order Summary Projection
+                    <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                        <i data-lucide="list" class="w-5 h-5 text-blue-600"></i>
+                        Orders
                     </h2>
-                    <button onclick="rebuildProjection()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm">
-                        <i data-lucide="refresh-cw" class="w-4 h-4 inline mr-1"></i>Rebuild
+                    <button onclick="loadOrders()" class="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                        <i data-lucide="refresh-cw" class="w-4 h-4 inline"></i> Refresh
                     </button>
                 </div>
-                <div id="projectionData" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div class="bg-blue-50 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-blue-600" id="proj-orders">0</div>
-                        <div class="text-sm text-gray-600">Total Orders</div>
-                    </div>
-                    <div class="bg-green-50 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-green-600" id="proj-revenue">$0</div>
-                        <div class="text-sm text-gray-600">Total Revenue</div>
-                    </div>
-                    <div class="bg-purple-50 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-purple-600" id="proj-created">0</div>
-                        <div class="text-sm text-gray-600">Created</div>
-                    </div>
-                    <div class="bg-orange-50 rounded-lg p-4 text-center">
-                        <div class="text-3xl font-bold text-orange-600" id="proj-confirmed">0</div>
-                        <div class="text-sm text-gray-600">Confirmed</div>
-                    </div>
-                </div>
-                <div id="projectionOrders" class="mt-4"></div>
-            </div>
-        </div>
-
-        <!-- Tab: Subscriptions -->
-        <div id="tab-subscriptions" class="tab-content">
-            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-semibold text-gray-800">
-                        <i data-lucide="bell" class="w-5 h-5 inline mr-2 text-purple-600"></i>Event Subscriptions
-                    </h2>
-                    <button onclick="createSubscription()" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm">
-                        <i data-lucide="plus" class="w-4 h-4 inline mr-1"></i>Create Subscription
-                    </button>
-                </div>
-                <div id="subscriptionsList" class="space-y-3">
-                    <div class="text-gray-500 text-center py-8">No subscriptions yet. Create one to start processing events.</div>
+                <div id="orderList" class="space-y-3 max-h-96 overflow-y-auto">
+                    <div class="text-center text-gray-400 py-8">No orders yet. Create one!</div>
                 </div>
             </div>
         </div>
 
-        <!-- Tab: Audit -->
-        <div id="tab-audit" class="tab-content">
-            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                    <i data-lucide="shield-check" class="w-5 h-5 inline mr-2 text-green-600"></i>Stream Integrity Verification
-                </h2>
-                <div class="flex gap-4 mb-4">
-                    <input type="text" id="verifyStreamId" placeholder="Enter Stream ID (e.g., OrderAggregate-order-xxx)"
-                        class="flex-1 border rounded-lg px-4 py-2">
-                    <button onclick="verifyStream()" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg">
-                        <i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>Verify
+        <!-- Order Detail Modal -->
+        <div id="orderModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50" onclick="closeModal()">
+            <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl mx-4" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-gray-800">Order Details</h2>
+                    <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
                     </button>
                 </div>
-                <div id="verifyResult" class="hidden"></div>
-            </div>
-            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                    <i data-lucide="user-x" class="w-5 h-5 inline mr-2 text-red-600"></i>GDPR Erasure Requests
-                </h2>
-                <div class="flex gap-4 mb-4">
-                    <input type="text" id="gdprCustomerId" placeholder="Customer ID" class="flex-1 border rounded-lg px-4 py-2">
-                    <input type="text" id="gdprRequestedBy" placeholder="Requested By" class="flex-1 border rounded-lg px-4 py-2">
-                    <button onclick="requestErasure()" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg">
-                        Request Erasure
-                    </button>
-                </div>
-                <div id="gdprRequests" class="space-y-2"></div>
-            </div>
-        </div>
 
-        <!-- Tab: Snapshots -->
-        <div id="tab-snapshots" class="tab-content">
-            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                    <i data-lucide="camera" class="w-5 h-5 inline mr-2 text-indigo-600"></i>Snapshot Management
-                </h2>
-                <div class="flex gap-4 mb-4">
-                    <input type="text" id="snapshotOrderId" placeholder="Order ID (without prefix)" class="flex-1 border rounded-lg px-4 py-2">
-                    <button onclick="createSnapshot()" class="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-2 rounded-lg">
-                        <i data-lucide="camera" class="w-4 h-4 inline mr-1"></i>Create Snapshot
-                    </button>
-                    <button onclick="loadSnapshotHistory()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg">
-                        <i data-lucide="history" class="w-4 h-4 inline mr-1"></i>View History
-                    </button>
+                <!-- Order Lifecycle -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-medium text-gray-500 mb-3">Order Lifecycle</h3>
+                    <div class="flex items-center justify-between">
+                        <div id="step-pending" class="lifecycle-step flex flex-col items-center">
+                            <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center mb-1">
+                                <i data-lucide="clock" class="w-5 h-5 text-yellow-600"></i>
+                            </div>
+                            <span class="text-xs text-gray-500">Pending</span>
+                        </div>
+                        <div id="arrow-1" class="lifecycle-arrow"><i data-lucide="arrow-right" class="w-5 h-5"></i></div>
+                        <div id="step-paid" class="lifecycle-step flex flex-col items-center opacity-40">
+                            <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mb-1">
+                                <i data-lucide="credit-card" class="w-5 h-5 text-blue-600"></i>
+                            </div>
+                            <span class="text-xs text-gray-500">Paid</span>
+                        </div>
+                        <div id="arrow-2" class="lifecycle-arrow"><i data-lucide="arrow-right" class="w-5 h-5"></i></div>
+                        <div id="step-processing" class="lifecycle-step flex flex-col items-center opacity-40">
+                            <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center mb-1">
+                                <i data-lucide="settings" class="w-5 h-5 text-indigo-600"></i>
+                            </div>
+                            <span class="text-xs text-gray-500">Processing</span>
+                        </div>
+                        <div id="arrow-3" class="lifecycle-arrow"><i data-lucide="arrow-right" class="w-5 h-5"></i></div>
+                        <div id="step-shipped" class="lifecycle-step flex flex-col items-center opacity-40">
+                            <div class="w-10 h-10 rounded-full bg-cyan-100 flex items-center justify-center mb-1">
+                                <i data-lucide="truck" class="w-5 h-5 text-cyan-600"></i>
+                            </div>
+                            <span class="text-xs text-gray-500">Shipped</span>
+                        </div>
+                        <div id="arrow-4" class="lifecycle-arrow"><i data-lucide="arrow-right" class="w-5 h-5"></i></div>
+                        <div id="step-delivered" class="lifecycle-step flex flex-col items-center opacity-40">
+                            <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mb-1">
+                                <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
+                            </div>
+                            <span class="text-xs text-gray-500">Delivered</span>
+                        </div>
+                    </div>
                 </div>
-                <div id="snapshotResult" class="hidden"></div>
-                <div id="snapshotHistory" class="space-y-2 mt-4"></div>
+
+                <!-- Order Info -->
+                <div id="orderInfo" class="grid grid-cols-2 gap-4 mb-6">
+                    <!-- Filled by JS -->
+                </div>
+
+                <!-- Actions -->
+                <div id="orderActions" class="flex flex-wrap gap-2">
+                    <!-- Filled by JS -->
+                </div>
             </div>
         </div>
 
         <!-- Footer -->
-        <div class="text-center text-gray-500 text-sm mt-8">
-            <p>Powered by <strong>Catga</strong> Event Sourcing Framework v0.1.0</p>
-            <p class="mt-1">
-                <a href="/swagger" class="text-blue-600 hover:underline">API Documentation</a> |
-                <a href="https://github.com/Cricle/Catga" class="text-blue-600 hover:underline">GitHub</a>
-            </p>
-        </div>
+        <footer class="mt-8 text-center text-gray-400 text-sm">
+            <p>Powered by <a href="https://github.com/Cricle/Catga" class="text-blue-500 hover:underline">Catga CQRS Framework</a></p>
+            <p class="mt-1">Event Sourcing | CQRS | Saga/Flow | OpenTelemetry</p>
+        </footer>
     </div>
 
     <script>
-        let currentOrderId = null;
-        let timelineData = [];
-
-        // Initialize Lucide icons
-        lucide.createIcons();
-
-        async function createDemoOrder() {
-            const btn = document.getElementById('createBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Creating...';
-            lucide.createIcons();
-
-            try {
-                const response = await fetch('/api/timetravel/demo/create', { method: 'POST' });
-                const data = await response.json();
-
-                currentOrderId = data.orderId;
-                document.getElementById('orderId').textContent = currentOrderId;
-                document.getElementById('createResult').classList.remove('hidden');
-                document.getElementById('timeTravelSection').classList.remove('hidden');
-
-                // Load timeline
-                await loadTimeline();
-                await updateVersion(6);
-                await compareVersions();
-
-                btn.innerHTML = '<i data-lucide="check-circle" class="w-5 h-5"></i> Created!';
-                btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-                btn.classList.add('bg-green-600');
-            } catch (error) {
-                console.error('Error:', error);
-                btn.innerHTML = '<i data-lucide="x-circle" class="w-5 h-5"></i> Error';
-                btn.classList.add('bg-red-600');
-            }
-
-            lucide.createIcons();
-        }
-
-        async function loadTimeline() {
-            const response = await fetch(`/api/timetravel/orders/${currentOrderId}/timeline`);
-            timelineData = await response.json();
-            renderTimeline();
-        }
-
-        function renderTimeline() {
-            const container = document.getElementById('timeline');
-            const currentVersion = parseInt(document.getElementById('versionSlider').value);
-
-            const eventColors = {
-                'OrderAggregateCreated': 'border-green-500 bg-green-50',
-                'OrderItemAdded': 'border-blue-500 bg-blue-50',
-                'OrderStatusChanged': 'border-purple-500 bg-purple-50',
-                'OrderDiscountApplied': 'border-orange-500 bg-orange-50'
-            };
-
-            const eventIcons = {
-                'OrderAggregateCreated': 'file-plus',
-                'OrderItemAdded': 'shopping-cart',
-                'OrderStatusChanged': 'refresh-cw',
-                'OrderDiscountApplied': 'percent'
-            };
-
-            container.innerHTML = timelineData.map((item, index) => {
-                const isActive = index <= currentVersion;
-                const colorClass = eventColors[item.eventType] || 'border-gray-500 bg-gray-50';
-                const icon = eventIcons[item.eventType] || 'circle';
-
-                return `
-                    <div class="event-card relative ${isActive ? 'opacity-100' : 'opacity-40'} transition-opacity">
-                        <div class="timeline-dot ${isActive ? colorClass.split(' ')[0] : 'border-gray-300'}"></div>
-                        ${index < timelineData.length - 1 ? '<div class="timeline-line"></div>' : ''}
-                        <div class="border rounded-lg p-3 ${isActive ? colorClass : 'bg-gray-50 border-gray-200'}">
-                            <div class="flex items-center justify-between mb-1">
-                                <span class="font-medium text-sm">v${item.version}: ${item.eventType.replace('Order', '').replace('Aggregate', '')}</span>
-                                <span class="text-xs text-gray-500">${new Date(item.timestamp).toLocaleTimeString()}</span>
-                            </div>
-                            <div class="text-xs text-gray-600">
-                                Total: $${item.state.totalAmount.toFixed(2)} | Items: ${item.state.itemCount} | ${item.state.status}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            lucide.createIcons();
-        }
-
-        async function updateVersion(version) {
-            document.getElementById('versionDisplay').textContent = version;
-            document.getElementById('stateVersion').textContent = version;
-
-            const response = await fetch(`/api/timetravel/orders/${currentOrderId}/version/${version}`);
-            const state = await response.json();
-
-            const stateDisplay = document.getElementById('stateDisplay');
-            stateDisplay.innerHTML = `
-                <div class="fade-in">
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        <div class="bg-blue-50 rounded-lg p-3">
-                            <div class="text-xs text-blue-600 uppercase font-medium">Total Amount</div>
-                            <div class="text-2xl font-bold text-blue-800">$${state.totalAmount.toFixed(2)}</div>
-                        </div>
-                        <div class="bg-purple-50 rounded-lg p-3">
-                            <div class="text-xs text-purple-600 uppercase font-medium">Status</div>
-                            <div class="text-2xl font-bold text-purple-800">${state.status}</div>
-                        </div>
-                    </div>
-                    <div class="bg-gray-50 rounded-lg p-3">
-                        <div class="text-xs text-gray-600 uppercase font-medium mb-2">Items (${state.items.length})</div>
-                        ${state.items.length === 0 ? '<div class="text-gray-400 text-sm">No items yet</div>' :
-                            state.items.map(item => `
-                                <div class="flex justify-between text-sm py-1 border-b border-gray-200 last:border-0">
-                                    <span>${item.productName} x${item.quantity}</span>
-                                    <span class="font-medium">$${(item.price * item.quantity).toFixed(2)}</span>
-                                </div>
-                            `).join('')
-                        }
-                    </div>
-                </div>
-            `;
-
-            renderTimeline();
-        }
-
-        async function compareVersions() {
-            if (!currentOrderId) return;
-
-            const fromVersion = document.getElementById('fromVersion').value;
-            const toVersion = document.getElementById('toVersion').value;
-
-            const response = await fetch(`/api/timetravel/orders/${currentOrderId}/compare/${fromVersion}/${toVersion}`);
-            const data = await response.json();
-
-            const container = document.getElementById('comparisonResult');
-
-            const amountDiff = data.toState.totalAmount - data.fromState.totalAmount;
-            const itemDiff = data.toState.itemCount - data.fromState.itemCount;
-
-            container.innerHTML = `
-                <div class="bg-red-50 rounded-lg p-4 fade-in">
-                    <div class="text-xs text-red-600 uppercase font-medium mb-1">From v${fromVersion}</div>
-                    <div class="text-xl font-bold text-red-800">$${data.fromState.totalAmount.toFixed(2)}</div>
-                    <div class="text-sm text-red-600">${data.fromState.itemCount} items | ${data.fromState.status}</div>
-                </div>
-                <div class="bg-gray-100 rounded-lg p-4 flex flex-col items-center justify-center fade-in">
-                    <div class="text-xs text-gray-500 uppercase font-medium mb-1">${data.eventsBetween.length} Events</div>
-                    <div class="flex items-center gap-2">
-                        <span class="${amountDiff >= 0 ? 'text-green-600' : 'text-red-600'} font-bold">
-                            ${amountDiff >= 0 ? '+' : ''}$${amountDiff.toFixed(2)}
-                        </span>
-                    </div>
-                    <div class="text-xs text-gray-500 mt-1">
-                        ${itemDiff >= 0 ? '+' : ''}${itemDiff} items
-                    </div>
-                </div>
-                <div class="bg-green-50 rounded-lg p-4 fade-in">
-                    <div class="text-xs text-green-600 uppercase font-medium mb-1">To v${toVersion}</div>
-                    <div class="text-xl font-bold text-green-800">$${data.toState.totalAmount.toFixed(2)}</div>
-                    <div class="text-sm text-green-600">${data.toState.itemCount} items | ${data.toState.status}</div>
-                </div>
-            `;
-        }
-
-        // Tab Navigation
-        function showTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('tab-' + tabName).classList.add('active');
-            event.target.closest('.tab-btn').classList.add('active');
-
-            // Load data for tab
-            if (tabName === 'projections') loadProjections();
-            if (tabName === 'subscriptions') loadSubscriptions();
-            if (tabName === 'audit') loadGdprRequests();
-
-            lucide.createIcons();
-        }
-
-        // Projections
-        async function loadProjections() {
-            try {
-                const response = await fetch('/api/projections/order-summary');
-                const data = await response.json();
-
-                document.getElementById('proj-orders').textContent = data.totalOrders || 0;
-                document.getElementById('proj-revenue').textContent = '$' + (data.totalRevenue || 0).toFixed(2);
-                document.getElementById('proj-created').textContent = data.ordersByStatus?.Created || 0;
-                document.getElementById('proj-confirmed').textContent = data.ordersByStatus?.Confirmed || 0;
-
-                const ordersHtml = data.orders?.length > 0
-                    ? `<div class="border rounded-lg overflow-hidden">
-                        <table class="w-full text-sm">
-                            <thead class="bg-gray-50">
-                                <tr><th class="px-4 py-2 text-left">Order ID</th><th class="px-4 py-2 text-left">Customer</th><th class="px-4 py-2 text-right">Amount</th><th class="px-4 py-2 text-left">Status</th></tr>
-                            </thead>
-                            <tbody>
-                                ${data.orders.map(o => `<tr class="border-t"><td class="px-4 py-2 font-mono text-xs">${o.orderId}</td><td class="px-4 py-2">${o.customerId}</td><td class="px-4 py-2 text-right">$${o.totalAmount.toFixed(2)}</td><td class="px-4 py-2"><span class="px-2 py-1 rounded text-xs ${o.status === 'Confirmed' ? 'bg-green-100 text-green-800' : 'bg-gray-100'}">${o.status}</span></td></tr>`).join('')}
-                            </tbody>
-                        </table>
-                    </div>`
-                    : '<div class="text-gray-500 text-center py-4">No orders in projection. Create a demo order first.</div>';
-
-                document.getElementById('projectionOrders').innerHTML = ordersHtml;
-            } catch (e) {
-                console.error('Error loading projections:', e);
-            }
-        }
-
-        async function rebuildProjection() {
-            try {
-                await fetch('/api/projections/order-summary/rebuild', { method: 'POST' });
-                await loadProjections();
-                alert('Projection rebuilt successfully!');
-            } catch (e) {
-                alert('Error rebuilding projection');
-            }
-        }
-
-        // Subscriptions
-        async function loadSubscriptions() {
-            try {
-                const response = await fetch('/api/subscriptions');
-                const data = await response.json();
-
-                const container = document.getElementById('subscriptionsList');
-                if (data.length === 0) {
-                    container.innerHTML = '<div class="text-gray-500 text-center py-8">No subscriptions yet. Create one to start processing events.</div>';
-                    return;
-                }
-
-                container.innerHTML = data.map(s => `
-                    <div class="border rounded-lg p-4 flex items-center justify-between">
-                        <div>
-                            <div class="font-medium">${s.name}</div>
-                            <div class="text-sm text-gray-500">Pattern: ${s.streamPattern} | Position: ${s.position} | Processed: ${s.processedCount}</div>
-                        </div>
-                        <button onclick="processSubscription('${s.name}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
-                            Process Events
-                        </button>
-                    </div>
-                `).join('');
-            } catch (e) {
-                console.error('Error loading subscriptions:', e);
-            }
-        }
-
-        async function createSubscription() {
-            const name = prompt('Subscription name:', 'order-processor-' + Date.now());
-            if (!name) return;
-            const pattern = prompt('Stream pattern:', 'Order*');
-            if (!pattern) return;
-
-            try {
-                await fetch(`/api/subscriptions?name=${encodeURIComponent(name)}&pattern=${encodeURIComponent(pattern)}`, { method: 'POST' });
-                await loadSubscriptions();
-            } catch (e) {
-                alert('Error creating subscription');
-            }
-        }
-
-        async function processSubscription(name) {
-            try {
-                const response = await fetch(`/api/subscriptions/${name}/process`, { method: 'POST' });
-                const data = await response.json();
-                alert(`Processed ${data.processedCount} events`);
-                await loadSubscriptions();
-            } catch (e) {
-                alert('Error processing subscription');
-            }
-        }
-
-        // Audit
-        async function verifyStream() {
-            const streamId = document.getElementById('verifyStreamId').value;
-            if (!streamId) {
-                alert('Please enter a Stream ID');
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/audit/verify/${encodeURIComponent(streamId)}`, { method: 'POST' });
-                const data = await response.json();
-
-                const resultDiv = document.getElementById('verifyResult');
-                resultDiv.classList.remove('hidden');
-                resultDiv.innerHTML = data.isValid
-                    ? `<div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div class="text-green-800 font-medium">✓ Stream Verified</div>
-                        <div class="text-sm text-green-600 mt-1">Hash: <code class="bg-green-100 px-2 py-1 rounded">${data.hash}</code></div>
-                    </div>`
-                    : `<div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                        <div class="text-red-800 font-medium">✗ Verification Failed</div>
-                        <div class="text-sm text-red-600 mt-1">${data.error || 'Unknown error'}</div>
-                    </div>`;
-            } catch (e) {
-                alert('Error verifying stream');
-            }
-        }
-
-        async function requestErasure() {
-            const customerId = document.getElementById('gdprCustomerId').value;
-            const requestedBy = document.getElementById('gdprRequestedBy').value;
-            if (!customerId || !requestedBy) {
-                alert('Please fill in all fields');
-                return;
-            }
-
-            try {
-                await fetch(`/api/audit/gdpr/erasure-request?customerId=${encodeURIComponent(customerId)}&requestedBy=${encodeURIComponent(requestedBy)}`, { method: 'POST' });
-                alert('Erasure request submitted');
-                await loadGdprRequests();
-            } catch (e) {
-                alert('Error submitting request');
-            }
-        }
-
-        async function loadGdprRequests() {
-            try {
-                const response = await fetch('/api/audit/gdpr/pending-requests');
-                const data = await response.json();
-
-                const container = document.getElementById('gdprRequests');
-                container.innerHTML = data.length === 0
-                    ? '<div class="text-gray-500 text-center py-4">No pending erasure requests</div>'
-                    : data.map(r => `
-                        <div class="border rounded-lg p-3 flex items-center justify-between">
-                            <div>
-                                <span class="font-medium">${r.subjectId}</span>
-                                <span class="text-sm text-gray-500 ml-2">by ${r.requestedBy}</span>
-                            </div>
-                            <span class="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-800">${r.status}</span>
-                        </div>
-                    `).join('');
-            } catch (e) {
-                console.error('Error loading GDPR requests:', e);
-            }
-        }
-
-        // Snapshots
-        async function createSnapshot() {
-            const orderId = document.getElementById('snapshotOrderId').value || currentOrderId;
-            if (!orderId) {
-                alert('Please enter an Order ID or create a demo order first');
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/snapshots/orders/${orderId}`, { method: 'POST' });
-                const data = await response.json();
-
-                const resultDiv = document.getElementById('snapshotResult');
-                resultDiv.classList.remove('hidden');
-                resultDiv.innerHTML = `<div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div class="text-green-800 font-medium">✓ Snapshot Created</div>
-                    <div class="text-sm text-green-600 mt-1">Version: ${data.version}</div>
-                </div>`;
-            } catch (e) {
-                alert('Error creating snapshot');
-            }
-        }
-
-        async function loadSnapshotHistory() {
-            const orderId = document.getElementById('snapshotOrderId').value || currentOrderId;
-            if (!orderId) {
-                alert('Please enter an Order ID');
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/snapshots/orders/${orderId}/history`);
-                const data = await response.json();
-
-                const container = document.getElementById('snapshotHistory');
-                container.innerHTML = data.length === 0
-                    ? '<div class="text-gray-500 text-center py-4">No snapshots found</div>'
-                    : `<div class="border rounded-lg overflow-hidden">
-                        <table class="w-full text-sm">
-                            <thead class="bg-gray-50">
-                                <tr><th class="px-4 py-2 text-left">Version</th><th class="px-4 py-2 text-left">Created At</th></tr>
-                            </thead>
-                            <tbody>
-                                ${data.map(s => `<tr class="border-t"><td class="px-4 py-2">v${s.version}</td><td class="px-4 py-2">${new Date(s.createdAt).toLocaleString()}</td></tr>`).join('')}
-                            </tbody>
-                        </table>
-                    </div>`;
-            } catch (e) {
-                alert('Error loading snapshot history');
-            }
-        }
-
-        // Auto-fill order ID when created
-        const originalCreateDemoOrder = createDemoOrder;
-        createDemoOrder = async function() {
-            await originalCreateDemoOrder();
-            if (currentOrderId) {
-                document.getElementById('snapshotOrderId').value = currentOrderId;
-                document.getElementById('verifyStreamId').value = 'OrderAggregate-' + currentOrderId;
-            }
+        const API = '';
+        const products = {
+            laptop: { name: 'Laptop', price: 999 },
+            phone: { name: 'Phone', price: 699 },
+            tablet: { name: 'Tablet', price: 499 },
+            headphones: { name: 'Headphones', price: 199 }
         };
+        let currentOrder = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadStats();
+            loadOrders();
+            setInterval(loadStats, 5000);
+        });
+
+        async function loadStats() {
+            try {
+                const res = await fetch(`${API}/api/orders/stats`);
+                const stats = await res.json();
+                document.getElementById('statTotal').textContent = stats.total;
+                document.getElementById('statPending').textContent = stats.pending;
+                document.getElementById('statPaid').textContent = stats.paid;
+                document.getElementById('statProcessing').textContent = stats.processing;
+                document.getElementById('statShipped').textContent = stats.shipped;
+                document.getElementById('statDelivered').textContent = stats.delivered;
+                document.getElementById('statCancelled').textContent = stats.cancelled;
+                document.getElementById('statRevenue').textContent = '$' + stats.totalRevenue.toLocaleString();
+            } catch (e) { console.error('Failed to load stats:', e); }
+        }
+
+        async function loadOrders() {
+            try {
+                const res = await fetch(`${API}/api/orders?limit=50`);
+                const orders = await res.json();
+                renderOrders(orders);
+            } catch (e) { console.error('Failed to load orders:', e); }
+        }
+
+        function renderOrders(orders) {
+            const list = document.getElementById('orderList');
+            if (!orders.length) {
+                list.innerHTML = '<div class="text-center text-gray-400 py-8">No orders yet. Create one!</div>';
+                return;
+            }
+            list.innerHTML = orders.map(o => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer fade-in"
+                     onclick="showOrder('${o.orderId}')">
+                    <div class="flex items-center gap-3">
+                        <span class="status-${o.status.toLowerCase()} px-2 py-1 rounded text-xs font-medium">
+                            ${getStatusName(o.status)}
+                        </span>
+                        <div>
+                            <div class="font-medium text-gray-800">${o.orderId}</div>
+                            <div class="text-xs text-gray-500">${o.customerId} &bull; ${new Date(o.createdAt).toLocaleString()}</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-semibold text-gray-800">$${o.totalAmount.toFixed(2)}</div>
+                        <div class="text-xs text-gray-500">${o.items?.length || 0} items</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getStatusName(status) {
+            const names = ['Pending', 'Paid', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded', 'Failed'];
+            return names[status] || status;
+        }
+
+        async function createOrder(e) {
+            e.preventDefault();
+            const product = products[document.getElementById('product').value];
+            const quantity = parseInt(document.getElementById('quantity').value);
+            const body = {
+                customerId: document.getElementById('customerId').value,
+                items: [{ productId: document.getElementById('product').value, productName: product.name, quantity, unitPrice: product.price }]
+            };
+            try {
+                const res = await fetch(`${API}/api/orders`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                });
+                if (res.ok) { loadStats(); loadOrders(); }
+            } catch (e) { alert('Failed to create order'); }
+        }
+
+        async function createOrderWithFlow() {
+            const product = products[document.getElementById('product').value];
+            const quantity = parseInt(document.getElementById('quantity').value);
+            const body = {
+                customerId: document.getElementById('customerId').value,
+                items: [{ productId: document.getElementById('product').value, productName: product.name, quantity, unitPrice: product.price }]
+            };
+            try {
+                const res = await fetch(`${API}/api/orders/flow`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                });
+                if (res.ok) { loadStats(); loadOrders(); }
+            } catch (e) { alert('Failed to create order with flow'); }
+        }
+
+        async function showOrder(orderId) {
+            try {
+                const res = await fetch(`${API}/api/orders/${orderId}`);
+                currentOrder = await res.json();
+                renderOrderModal(currentOrder);
+                document.getElementById('orderModal').classList.remove('hidden');
+                lucide.createIcons();
+            } catch (e) { console.error('Failed to load order:', e); }
+        }
+
+        function renderOrderModal(order) {
+            // Update lifecycle steps
+            const statusOrder = ['pending', 'paid', 'processing', 'shipped', 'delivered'];
+            const currentIndex = statusOrder.indexOf(getStatusName(order.status).toLowerCase());
+
+            statusOrder.forEach((s, i) => {
+                const step = document.getElementById(`step-${s}`);
+                const arrow = document.getElementById(`arrow-${i + 1}`);
+                if (step) {
+                    step.classList.toggle('opacity-40', i > currentIndex);
+                    step.classList.toggle('active', i === currentIndex);
+                }
+                if (arrow) arrow.classList.toggle('active', i < currentIndex);
+            });
+
+            // Order info
+            document.getElementById('orderInfo').innerHTML = `
+                <div><span class="text-gray-500 text-sm">Order ID</span><div class="font-mono font-medium">${order.orderId}</div></div>
+                <div><span class="text-gray-500 text-sm">Customer</span><div class="font-medium">${order.customerId}</div></div>
+                <div><span class="text-gray-500 text-sm">Status</span><div><span class="status-${getStatusName(order.status).toLowerCase()} px-2 py-1 rounded text-xs font-medium">${getStatusName(order.status)}</span></div></div>
+                <div><span class="text-gray-500 text-sm">Total</span><div class="font-bold text-lg">$${order.totalAmount.toFixed(2)}</div></div>
+                <div><span class="text-gray-500 text-sm">Created</span><div>${new Date(order.createdAt).toLocaleString()}</div></div>
+                ${order.trackingNumber ? `<div><span class="text-gray-500 text-sm">Tracking</span><div class="font-mono">${order.trackingNumber}</div></div>` : ''}
+            `;
+
+            // Actions based on status
+            let actions = '';
+            switch (order.status) {
+                case 0: // Pending
+                    actions = `
+                        <button onclick="payOrder()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg btn">Pay Order</button>
+                        <button onclick="cancelOrder()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg btn">Cancel</button>`;
+                    break;
+                case 1: // Paid
+                    actions = `
+                        <button onclick="processOrder()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg btn">Start Processing</button>
+                        <button onclick="cancelOrder()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg btn">Cancel</button>`;
+                    break;
+                case 2: // Processing
+                    actions = `
+                        <button onclick="shipOrder()" class="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg btn">Ship Order</button>
+                        <button onclick="cancelOrder()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg btn">Cancel</button>`;
+                    break;
+                case 3: // Shipped
+                    actions = `<button onclick="deliverOrder()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg btn">Mark Delivered</button>`;
+                    break;
+                default:
+                    actions = '<span class="text-gray-500">No actions available</span>';
+            }
+            document.getElementById('orderActions').innerHTML = actions;
+        }
+
+        async function payOrder() {
+            await executeAction('pay', { paymentMethod: 'Credit Card', transactionId: 'TXN-' + Date.now() });
+        }
+
+        async function processOrder() {
+            await executeAction('process', {});
+        }
+
+        async function shipOrder() {
+            const tracking = 'TRK-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+            await executeAction('ship', { trackingNumber: tracking });
+        }
+
+        async function deliverOrder() {
+            await executeAction('deliver', {});
+        }
+
+        async function cancelOrder() {
+            await executeAction('cancel', { reason: 'Cancelled by user' });
+        }
+
+        async function executeAction(action, body) {
+            try {
+                const res = await fetch(`${API}/api/orders/${currentOrder.orderId}/${action}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    await showOrder(currentOrder.orderId);
+                    loadStats();
+                    loadOrders();
+                } else {
+                    const err = await res.json();
+                    alert(err.detail || 'Action failed');
+                }
+            } catch (e) { alert('Action failed: ' + e.message); }
+        }
+
+        function closeModal() {
+            document.getElementById('orderModal').classList.add('hidden');
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeModal();
+        });
     </script>
 </body>
 </html>

@@ -77,13 +77,13 @@ public class OrderSystemE2ETests : IClassFixture<OrderSystemWebApplicationFactor
     }
 
     [Fact]
-    public async Task GetOrder_NonExistingOrder_ReturnsNoContent()
+    public async Task GetOrder_NonExistingOrder_ReturnsNotFound()
     {
         // Act
         var response = await _client.GetAsync("/api/orders/non-existing-id");
 
-        // Assert - returns NoContent when order not found
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        // Assert - returns NotFound when order not found
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
@@ -117,16 +117,15 @@ public class OrderSystemE2ETests : IClassFixture<OrderSystemWebApplicationFactor
     }
 
     [Fact]
-    public async Task ProcessOutbox_ReturnsOk()
+    public async Task GetOrderStats_ReturnsStats()
     {
-        // Arrange
-        var request = new { BatchSize = 10 };
-
         // Act
-        var response = await _client.PostAsJsonAsync("/api/outbox/process", request);
+        var response = await _client.GetAsync("/api/orders/stats");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("total", content.ToLowerInvariant());
     }
 
     [Fact]

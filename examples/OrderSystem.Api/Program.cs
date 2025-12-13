@@ -4,11 +4,6 @@ using Catga.DependencyInjection;
 using Catga.EventSourcing;
 using Catga.Flow.Dsl;
 using Catga.Flow.Extensions;
-using Catga.Persistence;
-using Catga.Persistence.InMemory.Flow;
-using Catga.Persistence.InMemory.Stores;
-using Catga.Persistence.Redis.DependencyInjection;
-using Catga.Persistence.Stores;
 using Catga.Resilience;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;
@@ -17,85 +12,46 @@ using OrderSystem.Api.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // ============================================
-// 1. Catga Core Setup
+// 1. Catga Core Setup - Simplified with UseXxx methods
 // ============================================
-builder.Services
+
+// Environment variables for configuration
+var transport = Environment.GetEnvironmentVariable("CATGA_TRANSPORT") ?? "InMemory";
+var persistence = Environment.GetEnvironmentVariable("CATGA_PERSISTENCE") ?? "InMemory";
+var redisConn = Environment.GetEnvironmentVariable("REDIS_CONNECTION") ?? "localhost:6379";
+var natsUrl = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
+
+// Core Catga setup with unified persistence registration
+builder.Services.AddSingleton<IResiliencePipelineProvider, DefaultResiliencePipelineProvider>();
+
+var catgaBuilder = builder.Services
     .AddCatga(opt => { if (builder.Environment.IsDevelopment()) opt.ForDevelopment(); else opt.Minimal(); })
     .UseMemoryPack();
 
+// Persistence: One-call registration for all stores
+switch (persistence.ToLower())
+{
+    case "redis":
+        catgaBuilder.UseRedis(redisConn);
+        break;
+    case "nats":
+        builder.Services.AddNatsConnection(natsUrl);
+        catgaBuilder.UseNats();
+        break;
+    default:
+        catgaBuilder.UseInMemory();
+        break;
+}
+
 // Transport: InMemory (default) | Redis | NATS
-var transport = Environment.GetEnvironmentVariable("CATGA_TRANSPORT") ?? "InMemory";
 _ = transport.ToLower() switch
 {
-    "redis" => builder.Services.AddRedisTransport(Environment.GetEnvironmentVariable("REDIS_CONNECTION") ?? "localhost:6379"),
-    "nats" => builder.Services.AddNatsTransport(Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222"),
+    "redis" => builder.Services.AddRedisTransport(redisConn),
+    "nats" => builder.Services.AddNatsTransport(natsUrl),
     _ => builder.Services.AddInMemoryTransport()
 };
 
-// Persistence: InMemory (default) | Redis | NATS
-builder.Services.AddSingleton<IResiliencePipelineProvider, DefaultResiliencePipelineProvider>();
-var persistence = Environment.GetEnvironmentVariable("CATGA_PERSISTENCE") ?? "InMemory";
-
-if (persistence.Equals("redis", StringComparison.OrdinalIgnoreCase))
-{
-    var conn = Environment.GetEnvironmentVariable("REDIS_CONNECTION") ?? "localhost:6379";
-    builder.Services
-        .AddRedisPersistence(conn)
-        .AddRedisEventStore()
-        .AddRedisSnapshotStore()
-        .AddRedisDslFlowStore()
-        .AddRedisProjectionCheckpointStore()
-        .AddRedisSubscriptionStore()
-        .AddRedisAuditLogStore()
-        .AddRedisGdprStore()
-        .AddRedisEnhancedSnapshotStore();
-}
-else if (persistence.Equals("nats", StringComparison.OrdinalIgnoreCase))
-{
-    var natsUrl = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
-    // Register NATS connection first
-    builder.Services.AddSingleton<NATS.Client.Core.INatsConnection>(sp =>
-    {
-        var opts = NATS.Client.Core.NatsOpts.Default with { Url = natsUrl };
-        return new NATS.Client.Core.NatsConnection(opts);
-    });
-    // Then register all NATS persistence stores
-    builder.Services
-        .AddNatsPersistence()
-        .AddNatsEventStore()
-        .AddNatsDslFlowStore()
-        .AddNatsProjectionCheckpointStore()
-        .AddNatsSubscriptionStore()
-        .AddNatsAuditLogStore()
-        .AddNatsGdprStore()
-        .AddNatsEnhancedSnapshotStore();
-}
-else
-{
-    builder.Services.AddInMemoryPersistence();
-    builder.Services
-        .AddSingleton<IEventStore, InMemoryEventStore>()
-        .AddSingleton<IDslFlowStore, InMemoryDslFlowStore>()
-        .AddSingleton<IProjectionCheckpointStore, InMemoryProjectionCheckpointStore>()
-        .AddSingleton<ISubscriptionStore, InMemorySubscriptionStore>()
-        .AddSingleton<IAuditLogStore>(sp => sp.GetRequiredService<InMemoryAuditLogStore>())
-        .AddSingleton<IGdprStore>(sp => sp.GetRequiredService<InMemoryGdprStore>())
-        .AddSingleton<IEnhancedSnapshotStore>(sp => sp.GetRequiredService<EnhancedInMemorySnapshotStore>());
-}
-
-// Ensure all persistence stores are registered as interfaces for DI resolution
-if (!persistence.Equals("redis", StringComparison.OrdinalIgnoreCase) && !persistence.Equals("nats", StringComparison.OrdinalIgnoreCase))
-{
-    // Register concrete implementations for InMemory (needed for DI resolution in endpoints)
-    builder.Services
-        .AddSingleton<InMemoryProjectionCheckpointStore>()
-        .AddSingleton<InMemorySubscriptionStore>()
-        .AddSingleton<InMemoryAuditLogStore>()
-        .AddSingleton<InMemoryGdprStore>()
-        .AddSingleton<EnhancedInMemorySnapshotStore>();
-}
-
-// Flow DSL: Use source-generated registration
+// Flow DSL configuration
 builder.Services.AddFlowDsl(options =>
 {
     options.AutoRegisterFlows = true;
@@ -109,21 +65,11 @@ builder.Services.AddFlowDsl(options =>
 // ============================================
 builder.Services.AddCatgaHandlers(); // Auto-registers all handlers, behaviors, projections
 
-// Infrastructure services (not auto-discovered)
+// Infrastructure services
 builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
 builder.Services.AddSingleton<OrderAuditService>();
 builder.Services.AddOrderEventVersioning();
 builder.Services.AddTimeTravelService<OrderAggregate>();
-
-// Register concrete implementations for InMemory persistence (needed for DI resolution)
-if (persistence.Equals("inmemory", StringComparison.OrdinalIgnoreCase) || !persistence.Equals("redis", StringComparison.OrdinalIgnoreCase) && !persistence.Equals("nats", StringComparison.OrdinalIgnoreCase))
-{
-    builder.Services.AddSingleton<InMemoryProjectionCheckpointStore>();
-    builder.Services.AddSingleton<InMemorySubscriptionStore>();
-    builder.Services.AddSingleton<InMemoryAuditLogStore>();
-    builder.Services.AddSingleton<InMemoryGdprStore>();
-    builder.Services.AddSingleton<EnhancedInMemorySnapshotStore>();
-}
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

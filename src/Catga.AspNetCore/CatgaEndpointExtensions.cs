@@ -1,5 +1,6 @@
 using Catga;
 using Catga.Abstractions;
+using Catga.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -72,6 +73,55 @@ public static class CatgaEndpointExtensions
             return Results.Accepted();
         })
         .WithCatgaEventMetadata<TEvent>();
+    }
+}
+
+/// <summary>
+/// Source-generated endpoint registration extensions.
+/// These methods are called by source-generated RegisterEndpoints methods.
+/// Zero reflection, AOT-compatible, hot-path friendly.
+/// </summary>
+public static class CatgaSourceGeneratedEndpointExtensions
+{
+    /// <summary>
+    /// Register a source-generated endpoint handler.
+    /// Called by the source generator to register all endpoints for a handler class.
+    /// </summary>
+    public static IEndpointRegistrar RegisterEndpoint<THandler>(this WebApplication app)
+        where THandler : class
+    {
+        THandler.RegisterEndpoints(app);
+        return new EndpointRegistrar(app);
+    }
+}
+
+/// <summary>
+/// Fluent registrar for chaining multiple endpoint registrations.
+/// </summary>
+public interface IEndpointRegistrar
+{
+    /// <summary>
+    /// Register another endpoint handler.
+    /// </summary>
+    IEndpointRegistrar RegisterEndpoint<THandler>() where THandler : class;
+}
+
+/// <summary>
+/// Implementation of IEndpointRegistrar for fluent chaining.
+/// </summary>
+internal class EndpointRegistrar : IEndpointRegistrar
+{
+    private readonly WebApplication _app;
+
+    public EndpointRegistrar(WebApplication app)
+    {
+        _app = app;
+    }
+
+    public IEndpointRegistrar RegisterEndpoint<THandler>() where THandler : class
+    {
+        THandler.RegisterEndpoints(_app);
+        return this;
     }
 }
 

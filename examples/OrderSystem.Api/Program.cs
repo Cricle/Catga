@@ -200,6 +200,9 @@ try
     app.MapPaymentEndpoints();
     app.MapEventSourcingEndpoints();
 
+    // Source-generated endpoint handlers (zero reflection, AOT-compatible)
+    app.RegisterEndpoint<OrderEndpointHandlers>();
+
     // System Info endpoint
     app.MapGet("/api/system/info", () => new
     {

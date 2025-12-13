@@ -10,14 +10,22 @@ namespace Catga.Core;
 public abstract class BaseBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
+    // ========== Fields ==========
+
     protected readonly ILogger Logger;
 
+    // ========== Constructor ==========
+
     protected BaseBehavior(ILogger logger) => Logger = logger;
+
+    // ========== Abstract Methods ==========
 
     public abstract ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,
         CancellationToken cancellationToken = default);
+
+    // ========== Protected Helpers ==========
 
     protected static string GetRequestName() => TypeNameCache<TRequest>.Name;
     protected static string GetRequestFullName() => TypeNameCache<TRequest>.FullName;

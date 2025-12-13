@@ -11,6 +11,8 @@ namespace Catga.Pipeline;
 /// <summary>Optimized pipeline executor (zero allocation, AOT-compatible)</summary>
 public static class PipelineExecutor
 {
+    // ========== Public API - Pipeline Execution ==========
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static async ValueTask<CatgaResult<TResponse>> ExecuteAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(
         TRequest request, IRequestHandler<TRequest, TResponse> handler,

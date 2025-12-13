@@ -15,8 +15,9 @@ public static class InMemoryCatgaBuilderExtensions
     /// </summary>
     public static CatgaServiceBuilder UseInMemory(this CatgaServiceBuilder builder)
     {
-        // Ensure resilience is registered (required by stores)
+        // Ensure core services are registered
         builder.UseResilience();
+        builder.UseEventSourcing();
 
         // Core persistence (EventStore, SnapshotStore, Inbox, Outbox, DLQ, Idempotency, Lock, Flow)
         builder.Services.AddInMemoryPersistence();

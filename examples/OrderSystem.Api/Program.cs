@@ -58,14 +58,19 @@ builder.Services.AddFlowDsl(options =>
 });
 
 // ============================================
-// 2. Application Services (Auto-registered by source generator)
+// 2. Application Services
 // ============================================
-builder.Services.AddCatgaHandlers(); // Auto-registers all handlers, behaviors, projections
 
-// Infrastructure services
+// Auto-registers all handlers, behaviors, projections via source generator
+builder.Services.AddCatgaHandlers();
+
+// OrderSystem domain services (projections, audit, event versioning)
+builder.Services.AddOrderSystem();
+
+// Infrastructure
 builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
-builder.Services.AddSingleton<OrderAuditService>();
-builder.Services.AddOrderEventVersioning();
+
+// Time travel for OrderAggregate
 builder.Services.AddTimeTravelService<OrderAggregate>();
 
 builder.Services.AddEndpointsApiExplorer();

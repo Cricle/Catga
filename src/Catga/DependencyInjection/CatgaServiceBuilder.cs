@@ -223,6 +223,16 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
     }
 
     /// <summary>
+    /// Enable Event Sourcing core services (event type registry, version registry).
+    /// This is automatically called by UseXxx persistence methods.
+    /// </summary>
+    public CatgaServiceBuilder UseEventSourcing()
+    {
+        Services.AddEventSourcing();
+        return this;
+    }
+
+    /// <summary>
     /// Enable mediator-level auto-batching (default off). When enabled, requests of the same type are queued and flushed by size/time thresholds.
     /// Execution is wrapped by the mediator resilience pipeline.
     /// </summary>

@@ -15,8 +15,9 @@ public static class NatsCatgaBuilderExtensions
     /// </summary>
     public static CatgaServiceBuilder UseNats(this CatgaServiceBuilder builder, Action<NatsPersistenceOptions>? configure = null)
     {
-        // Ensure resilience is registered (required by stores)
+        // Ensure core services are registered
         builder.UseResilience();
+        builder.UseEventSourcing();
 
         // Core persistence (EventStore, Inbox, Outbox, Idempotency, Snapshot, DLQ)
         builder.Services.AddNatsPersistence(configure);

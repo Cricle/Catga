@@ -131,15 +131,4 @@ public static class CatgaServiceCollectionExtensions
             CatgaDiagnostics.DIRegistrationDuration.Record(totalMilliseconds, tag);
         }
     }
-
-    /// <summary>
-    /// Adds time travel service for the specified aggregate type.
-    /// </summary>
-    /// <typeparam name="TAggregate">The aggregate type.</typeparam>
-    public static IServiceCollection AddTimeTravelService<TAggregate>(this IServiceCollection services)
-        where TAggregate : class, IAggregateRoot, new()
-    {
-        services.TryAddSingleton<ITimeTravelService<TAggregate>, TimeTravelService<TAggregate>>();
-        return services;
-    }
 }

@@ -133,11 +133,48 @@ public class OrderItemAddedV1ToV2Upgrader : EventUpgrader<OrderItemAddedV1, Orde
     protected override OrderItemAddedV2 UpgradeCore(OrderItemAddedV1 s) => new() { MessageId = s.MessageId, OrderId = s.OrderId, ProductName = s.ProductName, Sku = $"SKU-{s.ProductName.ToUpperInvariant().Replace(" ", "-")}", Quantity = s.Quantity, Price = s.Price };
 }
 
-public static class EventVersioningExtensions
+/// <summary>
+/// Extension methods for OrderSystem DI registration.
+/// </summary>
+public static class OrderSystemExtensions
 {
+    /// <summary>
+    /// Adds all OrderSystem services including Event Versioning, Projections, and Audit services.
+    /// </summary>
+    public static IServiceCollection AddOrderSystem(this IServiceCollection services)
+    {
+        // Event versioning (schema evolution)
+        services.AddSingleton<IEventVersionRegistry>(sp =>
+        {
+            var r = new EventVersionRegistry();
+            r.Register(new OrderItemAddedV1ToV2Upgrader());
+            return r;
+        });
+
+        // Projections (auto-registered by source generator, but explicit registration ensures availability)
+        services.AddSingleton<OrderSummaryProjection>();
+        services.AddSingleton<CustomerStatsProjection>();
+
+        // Subscription handler
+        services.AddSingleton<OrderEventSubscriptionHandler>();
+
+        // Audit service
+        services.AddSingleton<OrderAuditService>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds Order Event Versioning (schema evolution) services.
+    /// </summary>
     public static IServiceCollection AddOrderEventVersioning(this IServiceCollection services)
     {
-        services.AddSingleton<IEventVersionRegistry>(sp => { var r = new EventVersionRegistry(); r.Register(new OrderItemAddedV1ToV2Upgrader()); return r; });
+        services.AddSingleton<IEventVersionRegistry>(sp =>
+        {
+            var r = new EventVersionRegistry();
+            r.Register(new OrderItemAddedV1ToV2Upgrader());
+            return r;
+        });
         return services;
     }
 }

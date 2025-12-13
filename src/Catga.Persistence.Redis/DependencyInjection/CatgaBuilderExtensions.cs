@@ -15,8 +15,9 @@ public static class RedisCatgaBuilderExtensions
     /// </summary>
     public static CatgaServiceBuilder UseRedis(this CatgaServiceBuilder builder, string? connectionString = null)
     {
-        // Ensure resilience is registered (required by stores)
+        // Ensure core services are registered
         builder.UseResilience();
+        builder.UseEventSourcing();
 
         // Core persistence (Inbox, Outbox, Idempotency)
         if (!string.IsNullOrEmpty(connectionString))

@@ -100,30 +100,19 @@ internal static class CatgaActivitySource
         public const string EventPublished = "catga.event.published";
         public const string EventReceived = "catga.event.received";
 
-        public const string NatsPublishEnqueued = "NATS.Publish.Enqueued";
-        public const string NatsPublishSent = "NATS.Publish.Sent";
-        public const string NatsPublishFailed = "NATS.Publish.Failed";
-        public const string NatsReceiveEmpty = "NATS.Receive.Empty";
-        public const string NatsReceiveDeserialized = "NATS.Receive.Deserialized";
-        public const string NatsReceiveDroppedDuplicate = "NATS.Receive.DroppedDuplicate";
-        public const string NatsReceiveHandler = "NATS.Receive.Handler";
-        public const string NatsReceiveProcessed = "NATS.Receive.Processed";
-        public const string NatsBatchItemSent = "NATS.Batch.ItemSent";
-        public const string NatsBatchItemFailed = "NATS.Batch.ItemFailed";
+        // Transport events (transport-agnostic names)
+        public const string TransportPublishEnqueued = "Transport.Publish.Enqueued";
+        public const string TransportPublishSent = "Transport.Publish.Sent";
+        public const string TransportPublishFailed = "Transport.Publish.Failed";
+        public const string TransportReceiveEmpty = "Transport.Receive.Empty";
+        public const string TransportReceiveDeserialized = "Transport.Receive.Deserialized";
+        public const string TransportReceiveDroppedDuplicate = "Transport.Receive.DroppedDuplicate";
+        public const string TransportReceiveHandler = "Transport.Receive.Handler";
+        public const string TransportReceiveProcessed = "Transport.Receive.Processed";
+        public const string TransportBatchItemSent = "Transport.Batch.ItemSent";
+        public const string TransportBatchItemFailed = "Transport.Batch.ItemFailed";
 
-        public const string RedisPublishEnqueued = "Redis.Publish.Enqueued";
-        public const string RedisPublishSent = "Redis.Publish.Sent";
-        public const string RedisPublishFailed = "Redis.Publish.Failed";
-        public const string RedisStreamEnqueued = "Redis.Stream.Enqueued";
-        public const string RedisStreamAdded = "Redis.Stream.Added";
-        public const string RedisStreamFailed = "Redis.Stream.Failed";
-        public const string RedisBatchPubSubSent = "Redis.Batch.PubSub.Sent";
-        public const string RedisBatchStreamAdded = "Redis.Batch.Stream.Added";
-        public const string RedisBatchItemFailed = "Redis.Batch.ItemFailed";
-        public const string RedisReceiveDeserialized = "Redis.Receive.Deserialized";
-        public const string RedisReceiveHandler = "Redis.Receive.Handler";
-        public const string RedisReceiveProcessed = "Redis.Receive.Processed";
-
+        // InMemory transport events (part of core)
         public const string InMemoryPublishSent = "InMemory.Publish.Sent";
         public const string InMemoryReceiveHandler = "InMemory.Receive.Handler";
         public const string InMemoryReceiveProcessed = "InMemory.Receive.Processed";
@@ -256,9 +245,9 @@ internal static class CatgaActivitySource
         if (typeName.IndexOf("HttpRequest", StringComparison.OrdinalIgnoreCase) >= 0 ||
             typeName.IndexOf("Socket", StringComparison.OrdinalIgnoreCase) >= 0 ||
             typeName.IndexOf("Network", StringComparison.OrdinalIgnoreCase) >= 0) return "network";
-        if (typeName.IndexOf("Redis", StringComparison.OrdinalIgnoreCase) >= 0) return "persistence";
-        if (typeName.IndexOf("Nats", StringComparison.OrdinalIgnoreCase) >= 0 ||
-            typeName.IndexOf("JetStream", StringComparison.OrdinalIgnoreCase) >= 0) return "transport";
+        if (typeName.IndexOf("Persistence", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            typeName.IndexOf("Store", StringComparison.OrdinalIgnoreCase) >= 0) return "persistence";
+        if (typeName.IndexOf("Transport", StringComparison.OrdinalIgnoreCase) >= 0) return "transport";
         if (ex is ArgumentException || ex is FormatException) return "validation";
         return "unknown";
     }

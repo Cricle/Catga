@@ -20,8 +20,8 @@ internal static class CatgaDiagnostics
     public static readonly Counter<long> MessagesPublished = Meter.CreateCounter<long>("catga.messages.published", "messages", "Total messages published");
     public static readonly Counter<long> MessagesFailed = Meter.CreateCounter<long>("catga.messages.failed", "messages", "Total messages failed");
     public static readonly Counter<long> MessagesRetried = Meter.CreateCounter<long>("catga.messages.retried", "messages", "Total messages retried");
-    public static readonly Counter<long> NatsDedupDrops = Meter.CreateCounter<long>("catga.nats.dedup.drops", "messages", "Duplicates dropped by NATS transport deduplication");
-    public static readonly Counter<long> NatsDedupEvictions = Meter.CreateCounter<long>("catga.nats.dedup.evictions", "items", "Dedup cache evictions in NATS transport");
+    public static readonly Counter<long> TransportDedupDrops = Meter.CreateCounter<long>("catga.transport.dedup.drops", "messages", "Duplicates dropped by transport deduplication");
+    public static readonly Counter<long> TransportDedupEvictions = Meter.CreateCounter<long>("catga.transport.dedup.evictions", "items", "Dedup cache evictions in transport");
 
     // Resilience (generic across components)
     public static readonly Counter<long> ResilienceRetries = Meter.CreateCounter<long>("catga.resilience.retries", "operations", "Total retries executed by resilience policies");

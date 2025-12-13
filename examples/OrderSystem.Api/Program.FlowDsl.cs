@@ -19,50 +19,24 @@ public static class ProgramFlowDslExtensions
         var configuration = builder.Configuration;
         var environment = builder.Environment;
 
-        // Method 1: Simple InMemory configuration for development
-        if (environment.IsDevelopment())
+        // Method 1: Simple InMemory configuration (default)
+        // For Redis/NATS storage, reference Catga.Persistence.Redis or Catga.Persistence.Nats
+        // and use their extension methods (AddFlowDslWithRedis, AddFlowDslWithNats)
+        builder.Services.AddFlowDsl(options =>
         {
-            builder.Services.AddFlowDsl(options =>
-            {
-                options.AutoRegisterFlows = true;
-                options.EnableMetrics = true;
-                options.MaxRetryAttempts = 3;
-                options.StepTimeout = TimeSpan.FromMinutes(5);
-            });
-        }
+            options.AutoRegisterFlows = true;
+            options.EnableMetrics = true;
+            options.MaxRetryAttempts = 3;
+            options.StepTimeout = TimeSpan.FromMinutes(5);
+        });
 
-        // Method 2: Redis configuration for staging/production
-        else if (environment.IsStaging() || environment.IsProduction())
-        {
-            var redisConnection = configuration.GetConnectionString("Redis") ?? "localhost:6379";
-
-            builder.Services.AddFlowDslWithRedis(redisConnection, options =>
-            {
-                options.RedisPrefix = "orderflow:";
-                options.AutoRegisterFlows = true;
-                options.EnableMetrics = true;
-            });
-        }
-
-        // Method 3: NATS configuration for event-driven scenarios
-        else if (configuration.GetValue<bool>("UseNats"))
-        {
-            var natsUrl = configuration.GetValue<string>("NatsUrl") ?? "nats://localhost:4222";
-
-            builder.Services.AddFlowDslWithNats(natsUrl, options =>
-            {
-                options.NatsBucket = "orderflows";
-                options.AutoRegisterFlows = true;
-            });
-        }
-
-        // Method 4: Configuration-based setup
+        // Method 2: Configuration-based setup
         // This reads from appsettings.json
         builder.Services.AddFlowDslFromConfiguration(configuration);
 
-        // Method 5: Fluent builder pattern with source-generated registration
+        // Method 3: Fluent builder pattern with source-generated registration
         builder.Services.ConfigureFlowDsl(flow => flow
-            .UseRedisStorage("localhost:6379", "orderflow:")
+            .UseInMemoryStorage()
             .RegisterGeneratedFlows() // Automatically registers all source-generated flows
             .RegisterFlow<OrderFlowState, ComprehensiveOrderFlow>() // Can still manually register specific flows
             .WithMetrics()

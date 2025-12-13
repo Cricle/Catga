@@ -42,29 +42,6 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>
-    /// Add Flow DSL with Redis storage (for production).
-    /// </summary>
-    public static IServiceCollection AddFlowDslWithRedis(
-        this IServiceCollection services,
-        string connectionString,
-        Action<FlowDslOptions>? configure = null)
-    {
-        // Avoid hard dependency on Redis package in core library
-        throw new NotSupportedException("AddFlowDslWithRedis requires Catga.Persistence.Redis package. Reference that package and use its extension methods.");
-    }
-
-    /// <summary>
-    /// Add Flow DSL with NATS storage (for event-driven systems).
-    /// </summary>
-    public static IServiceCollection AddFlowDslWithNats(
-        this IServiceCollection services,
-        string natsUrl,
-        Action<FlowDslOptions>? configure = null)
-    {
-        // Avoid hard dependency on NATS package in core library
-        throw new NotSupportedException("AddFlowDslWithNats requires Catga.Persistence.Nats package. Reference that package and use its extension methods.");
-    }
 
     /// <summary>
     /// Register a specific flow configuration.
@@ -134,8 +111,6 @@ public static class ServiceCollectionExtensions
         var options = new FlowDslOptions
         {
             AutoRegisterFlows = GetBool(flowConfig, "AutoRegisterFlows", true),
-            RedisPrefix = flowConfig["RedisPrefix"] ?? "dslflow:",
-            NatsBucket = flowConfig["NatsBucket"] ?? "dslflows",
             EnableMetrics = GetBool(flowConfig, "EnableMetrics", false)
         };
 
@@ -146,8 +121,6 @@ public static class ServiceCollectionExtensions
     private static void ApplyOptions(FlowDslOptions target, FlowDslOptions source)
     {
         target.AutoRegisterFlows = source.AutoRegisterFlows;
-        target.RedisPrefix = source.RedisPrefix;
-        target.NatsBucket = source.NatsBucket;
         target.EnableMetrics = source.EnableMetrics;
         target.MetricsProvider = source.MetricsProvider;
         target.MaxRetryAttempts = source.MaxRetryAttempts;
@@ -175,31 +148,6 @@ public class FlowDslOptions
     /// Automatically register all source-generated FlowConfig classes.
     /// </summary>
     public bool AutoRegisterFlows { get; set; } = true;
-
-    /// <summary>
-    /// Redis key prefix for flow storage.
-    /// </summary>
-    public string RedisPrefix { get; set; } = "dslflow:";
-
-    /// <summary>
-    /// NATS bucket name for flow storage.
-    /// </summary>
-    public string NatsBucket { get; set; } = "dslflows";
-
-    /// <summary>
-    /// Storage provider type: InMemory, Redis, or Nats.
-    /// </summary>
-    public string StorageType { get; set; } = "InMemory";
-
-    /// <summary>
-    /// Redis connection string for Redis storage.
-    /// </summary>
-    public string RedisConnectionString { get; set; } = "localhost:6379";
-
-    /// <summary>
-    /// NATS connection URL for NATS storage.
-    /// </summary>
-    public string NatsUrl { get; set; } = "nats://localhost:4222";
 
     /// <summary>
     /// Enable flow execution metrics.
@@ -245,14 +193,8 @@ public static class FlowDslBuilderExtensions
 /// </summary>
 public interface IFlowDslBuilder
 {
-    /// <summary>Use InMemory storage.</summary>
+    /// <summary>Use InMemory storage (default).</summary>
     IFlowDslBuilder UseInMemoryStorage();
-
-    /// <summary>Use Redis storage.</summary>
-    IFlowDslBuilder UseRedisStorage(string connectionString, string? prefix = null);
-
-    /// <summary>Use NATS storage.</summary>
-    IFlowDslBuilder UseNatsStorage(string natsUrl, string? bucket = null);
 
     /// <summary>Register all source-generated flows.</summary>
     IFlowDslBuilder RegisterGeneratedFlows();
@@ -278,8 +220,6 @@ internal class FlowDslBuilder : IFlowDslBuilder
 {
     private readonly IServiceCollection _services;
     private readonly FlowDslOptions _options = new();
-    private StorageType _storageType = StorageType.InMemory;
-    private string? _connectionString;
 
     public FlowDslBuilder(IServiceCollection services)
     {
@@ -288,23 +228,7 @@ internal class FlowDslBuilder : IFlowDslBuilder
 
     public IFlowDslBuilder UseInMemoryStorage()
     {
-        _storageType = StorageType.InMemory;
-        return this;
-    }
-
-    public IFlowDslBuilder UseRedisStorage(string connectionString, string? prefix = null)
-    {
-        _storageType = StorageType.Redis;
-        _connectionString = connectionString;
-        if (prefix != null) _options.RedisPrefix = prefix;
-        return this;
-    }
-
-    public IFlowDslBuilder UseNatsStorage(string natsUrl, string? bucket = null)
-    {
-        _storageType = StorageType.Nats;
-        _connectionString = natsUrl;
-        if (bucket != null) _options.NatsBucket = bucket;
+        // InMemory is the default, no additional setup needed
         return this;
     }
 
@@ -345,29 +269,15 @@ internal class FlowDslBuilder : IFlowDslBuilder
 
     public IServiceCollection Build()
     {
-        return _storageType switch
-        {
-            StorageType.Redis => _services.AddFlowDslWithRedis(_connectionString!, opt => ApplyOptions(opt)),
-            StorageType.Nats => _services.AddFlowDslWithNats(_connectionString!, opt => ApplyOptions(opt)),
-            _ => _services.AddFlowDsl(opt => ApplyOptions(opt))
-        };
+        return _services.AddFlowDsl(opt => ApplyOptions(opt));
     }
 
     private void ApplyOptions(FlowDslOptions opt)
     {
         opt.AutoRegisterFlows = _options.AutoRegisterFlows;
-        opt.RedisPrefix = _options.RedisPrefix;
-        opt.NatsBucket = _options.NatsBucket;
         opt.EnableMetrics = _options.EnableMetrics;
         opt.MetricsProvider = _options.MetricsProvider;
         opt.MaxRetryAttempts = _options.MaxRetryAttempts;
         opt.StepTimeout = _options.StepTimeout;
-    }
-
-    private enum StorageType
-    {
-        InMemory,
-        Redis,
-        Nats
     }
 }

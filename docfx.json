@@ -10,7 +10,8 @@
             "**/bin/**",
             "**/obj/**",
             "src/Catga.SourceGenerator/**",
-            "src/Catga.Cli/**"
+            "src/Catga.Cli/**",
+            "src/Catga.Hosting.Aspire/**"
           ]
         }
       ],

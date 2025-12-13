@@ -104,8 +104,8 @@ public class OrderSystemE2ETests : IClassFixture<OrderSystemWebApplicationFactor
             await _client.PostAsJsonAsync("/api/orders", request);
         }
 
-        // Act
-        var response = await _client.GetAsync($"/api/users/{customerId}/orders");
+        // Act - endpoint is /api/orders/customer/{customerId}
+        var response = await _client.GetAsync($"/api/orders/customer/{customerId}");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

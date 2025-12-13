@@ -1,5 +1,7 @@
 namespace Catga;
 
+// ========== Quality of Service Levels ==========
+
 /// <summary>Message Quality of Service (MQTT-like)</summary>
 public enum QualityOfService
 {

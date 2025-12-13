@@ -14,8 +14,12 @@ namespace Catga.Core;
 /// </summary>
 internal static class BatchOperationHelper
 {
+    // ========== Configuration ==========
+
     /// <summary>Default chunk size for large batches</summary>
     public const int DefaultChunkSize = 100;
+
+    // ========== Public API - Batch Operations ==========
 
     /// <summary>
     /// Execute batch async operations in parallel with automatic chunking for large batches.

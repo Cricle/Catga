@@ -42,6 +42,8 @@ public readonly record struct FlowResult<T>(bool IsSuccess, T? Value, int Comple
 
 #region Flow Store
 
+// ========== Flow Persistence Interface ==========
+
 /// <summary>Flow state persistence. Lock-free with CAS.</summary>
 public interface IFlowStore
 {

@@ -60,6 +60,8 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
         _layout = layout;
     }
 
+    // ========== Public API - ID Generation ==========
+
     /// <summary>
     /// Generate next unique ID (zero-allocation, 100% lock-free)
     /// Uses CAS (Compare-And-Swap) loop - no locks, no SpinLock
@@ -71,6 +73,8 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
             throw new InvalidOperationException("Clock moved backwards. Refusing to generate ID");
         return id;
     }
+
+    // ========== Private Helpers - State Packing ==========
 
     /// <summary>
     /// Pack timestamp and sequence into a single long

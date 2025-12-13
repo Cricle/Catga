@@ -16,6 +16,8 @@ namespace Microsoft.Extensions.DependencyInjection;
 /// </summary>
 public static class CatgaServiceCollectionExtensions
 {
+    // ========== Core Service Registration ==========
+
     /// <summary>
     /// Adds Catga mediator and core services to the service collection
     /// </summary>

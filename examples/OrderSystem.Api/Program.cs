@@ -1,211 +1,165 @@
+// =============================================================================
+// OrderSystem.Api - Catga Best Practices Example
+// =============================================================================
+// This file demonstrates the recommended patterns for building production-ready
+// applications with Catga CQRS framework.
+// =============================================================================
+
 using Catga;
-using Catga.Abstractions;
 using Catga.DependencyInjection;
 using Catga.EventSourcing;
-using Catga.Flow.Dsl;
 using Catga.Flow.Extensions;
+using OrderSystem.Api.Configuration;
 using OrderSystem.Api.Domain;
-using OrderSystem.Api.Messages;
+using OrderSystem.Api.Endpoints;
+using OrderSystem.Api.Infrastructure;
 using OrderSystem.Api.Services;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+// =============================================================================
+// 1. Bootstrap Logging
+// =============================================================================
 
-// ============================================
-// 1. Catga Core Setup - Simplified with UseXxx methods
-// ============================================
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
 
-// Environment variables for configuration
-var transport = Environment.GetEnvironmentVariable("CATGA_TRANSPORT") ?? "InMemory";
-var persistence = Environment.GetEnvironmentVariable("CATGA_PERSISTENCE") ?? "InMemory";
-var redisConn = Environment.GetEnvironmentVariable("REDIS_CONNECTION") ?? "localhost:6379";
-var natsUrl = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
-
-// Core Catga setup with unified persistence registration
-var catgaBuilder = builder.Services
-    .AddCatga(opt => { if (builder.Environment.IsDevelopment()) opt.ForDevelopment(); else opt.Minimal(); })
-    .UseMemoryPack();
-
-// Persistence: One-call registration for all stores
-switch (persistence.ToLower())
+try
 {
-    case "redis":
-        catgaBuilder.UseRedis(redisConn);
-        break;
-    case "nats":
-        builder.Services.AddNatsConnection(natsUrl);
-        catgaBuilder.UseNats();
-        break;
-    default:
-        catgaBuilder.UseInMemory();
-        break;
-}
+    var builder = WebApplication.CreateBuilder(args);
 
-// Transport: InMemory (default) | Redis | NATS
-_ = transport.ToLower() switch
-{
-    "redis" => builder.Services.AddRedisTransport(redisConn),
-    "nats" => builder.Services.AddNatsTransport(natsUrl),
-    _ => builder.Services.AddInMemoryTransport()
-};
+    // Serilog from appsettings
+    builder.Host.UseSerilog((context, services, configuration) => configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext());
 
-// Flow DSL configuration
-builder.Services.AddFlowDsl(options =>
-{
-    options.AutoRegisterFlows = true;
-    options.EnableMetrics = true;
-    options.MaxRetryAttempts = 3;
-    options.StepTimeout = TimeSpan.FromMinutes(5);
-});
+    // ==========================================================================
+    // 2. Configuration - Options Pattern
+    // ==========================================================================
 
-// ============================================
-// 2. Application Services
-// ============================================
+    builder.Services.Configure<CatgaOptions>(
+        builder.Configuration.GetSection(CatgaOptions.SectionName));
 
-// Auto-registers all handlers, behaviors, projections via source generator
-builder.Services.AddCatgaHandlers();
+    var catgaOptions = builder.Configuration
+        .GetSection(CatgaOptions.SectionName)
+        .Get<CatgaOptions>() ?? new CatgaOptions();
 
-// OrderSystem domain services (projections, audit, event versioning)
-builder.Services.AddOrderSystem();
+    // ==========================================================================
+    // 3. Catga Framework
+    // ==========================================================================
 
-// Infrastructure
-builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
+    var catgaBuilder = builder.Services
+        .AddCatga(opt =>
+        {
+            if (catgaOptions.DevelopmentMode || builder.Environment.IsDevelopment())
+                opt.ForDevelopment();
+            else
+                opt.Minimal();
+        })
+        .UseMemoryPack();
 
-// Time travel for OrderAggregate
-builder.Services.AddTimeTravelService<OrderAggregate>();
-
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-builder.Services.AddHealthChecks();
-
-var app = builder.Build();
-app.UseSwagger();
-app.UseSwaggerUI();
-app.UseDefaultFiles();
-app.UseStaticFiles();
-app.MapHealthChecks("/health");
-
-// ============================================
-// 3. API Endpoints
-// ============================================
-
-// Orders CRUD
-app.MapPost("/api/orders", async (CreateOrderCommand cmd, ICatgaMediator m) =>
-{
-    var r = await m.SendAsync<CreateOrderCommand, OrderCreatedResult>(cmd);
-    return r.IsSuccess ? Results.Ok(r.Value) : Results.BadRequest(r.Error);
-}).WithTags("Orders");
-
-app.MapPost("/api/orders/flow", async (CreateOrderFlowCommand cmd, ICatgaMediator m) =>
-{
-    var r = await m.SendAsync<CreateOrderFlowCommand, OrderCreatedResult>(cmd);
-    return r.IsSuccess ? Results.Ok(r.Value) : Results.BadRequest(r.Error);
-}).WithTags("Orders").WithDescription("Create order with Flow pattern (Saga with compensation)");
-
-app.MapGet("/api/orders/{orderId}", async (string orderId, ICatgaMediator m) =>
-{
-    var r = await m.SendAsync<GetOrderQuery, Order?>(new(orderId));
-    return r.Value is null ? Results.NotFound() : Results.Ok(r.Value);
-}).WithTags("Orders");
-
-app.MapPost("/api/orders/{orderId}/cancel", async (string orderId, CancelOrderCommand? body, ICatgaMediator m) =>
-{
-    var r = await m.SendAsync(new CancelOrderCommand(orderId, body?.Reason));
-    return r.IsSuccess ? Results.Ok() : Results.BadRequest(r.Error);
-}).WithTags("Orders");
-
-app.MapGet("/api/users/{customerId}/orders", async (string customerId, ICatgaMediator m) =>
-{
-    var r = await m.SendAsync<GetUserOrdersQuery, List<Order>>(new(customerId));
-    return Results.Ok(r.Value);
-}).WithTags("Orders");
-
-// Time Travel (Event Sourcing)
-var tt = app.MapGroup("/api/timetravel").WithTags("Time Travel");
-tt.MapPost("/demo/create", async (IEventStore es) =>
-{
-    var orderId = $"order-{Guid.NewGuid():N}"[..16];
-    var streamId = $"OrderAggregate-{orderId}";
-    var msgId = Random.Shared.NextInt64();
-    var events = new IEvent[]
+    // Persistence: InMemory (default) | Redis | Nats
+    switch (catgaOptions.Persistence.ToLower())
     {
-        new OrderAggregateCreated { MessageId = msgId++, OrderId = orderId, CustomerId = "customer-001", InitialAmount = 0 },
-        new OrderItemAdded { MessageId = msgId++, OrderId = orderId, ProductName = "Laptop", Quantity = 1, Price = 999.99m },
-        new OrderItemAdded { MessageId = msgId++, OrderId = orderId, ProductName = "Mouse", Quantity = 2, Price = 29.99m },
-        new OrderStatusChanged { MessageId = msgId++, OrderId = orderId, NewStatus = "Processing" },
-        new OrderDiscountApplied { MessageId = msgId++, OrderId = orderId, DiscountAmount = 50m },
-        new OrderStatusChanged { MessageId = msgId++, OrderId = orderId, NewStatus = "Confirmed" }
+        case "redis":
+            catgaBuilder.UseRedis(catgaOptions.RedisConnection);
+            break;
+        case "nats":
+            builder.Services.AddNatsConnection(catgaOptions.NatsUrl);
+            catgaBuilder.UseNats();
+            break;
+        default:
+            catgaBuilder.UseInMemory();
+            break;
+    }
+
+    // Transport: InMemory (default) | Redis | Nats
+    _ = catgaOptions.Transport.ToLower() switch
+    {
+        "redis" => builder.Services.AddRedisTransport(catgaOptions.RedisConnection),
+        "nats" => builder.Services.AddNatsTransport(catgaOptions.NatsUrl),
+        _ => builder.Services.AddInMemoryTransport()
     };
-    await es.AppendAsync(streamId, events);
-    return Results.Ok(new { orderId, eventCount = events.Length });
-});
-tt.MapGet("/orders/{orderId}/version/{version:long}", async (string orderId, long version, ITimeTravelService<OrderAggregate> tts) =>
-{
-    var state = await tts.GetStateAtVersionAsync(orderId, version);
-    return state == null ? Results.NotFound() : Results.Ok(new { state.Id, state.CustomerId, state.TotalAmount, state.Status, state.Version });
-});
-tt.MapGet("/orders/{orderId}/history", async (string orderId, ITimeTravelService<OrderAggregate> tts) =>
-{
-    var h = await tts.GetVersionHistoryAsync(orderId);
-    return Results.Ok(h.Select(x => new { x.Version, x.EventType, x.Timestamp }));
-});
 
-// Projections (Read Models)
-var proj = app.MapGroup("/api/projections").WithTags("Projections");
-proj.MapGet("/order-summary", (OrderSummaryProjection p) => Results.Ok(new { p.TotalOrders, p.TotalRevenue, p.OrdersByStatus }));
-proj.MapPost("/order-summary/rebuild", async (OrderSummaryProjection p, IProjectionCheckpointStore cs, IEventStore es) =>
-{
-    var rebuilder = new ProjectionRebuilder<OrderSummaryProjection>(es, cs, p, p.Name);
-    await rebuilder.RebuildAsync();
-    return Results.Ok(new { message = "Rebuilt", p.TotalOrders });
-});
-proj.MapGet("/customer-stats", (CustomerStatsProjection p) => Results.Ok(p.Stats.Values));
+    // Flow DSL
+    builder.Services.AddFlowDsl(options =>
+    {
+        options.AutoRegisterFlows = true;
+        options.EnableMetrics = true;
+        options.MaxRetryAttempts = 3;
+        options.StepTimeout = TimeSpan.FromMinutes(5);
+    });
 
-// Subscriptions (Persistent event handlers)
-var sub = app.MapGroup("/api/subscriptions").WithTags("Subscriptions");
-sub.MapGet("/", async (ISubscriptionStore s) => Results.Ok((await s.ListAsync()).Select(x => new { x.Name, x.StreamPattern, x.Position, x.ProcessedCount })));
-sub.MapPost("/", async (string name, string pattern, ISubscriptionStore s) =>
-{
-    await s.SaveAsync(new PersistentSubscription(name, pattern));
-    return Results.Created($"/api/subscriptions/{name}", new { name, pattern });
-});
-sub.MapPost("/{name}/process", async (string name, ISubscriptionStore s, IEventStore es, OrderEventSubscriptionHandler h) =>
-{
-    var runner = new SubscriptionRunner(es, s, h);
-    await runner.RunOnceAsync(name);
-    var x = await s.LoadAsync(name);
-    return Results.Ok(new { name, processedCount = x?.ProcessedCount ?? 0 });
-});
+    // ==========================================================================
+    // 4. Application Services
+    // ==========================================================================
 
-// Audit & Compliance
-var audit = app.MapGroup("/api/audit").WithTags("Audit");
-audit.MapGet("/logs/{streamId}", async (string streamId, OrderAuditService a) => Results.Ok(await a.GetLogsAsync(streamId)));
-audit.MapPost("/verify/{streamId}", async (string streamId, OrderAuditService a) =>
-{
-    var r = await a.VerifyStreamAsync(streamId);
-    return Results.Ok(new { streamId, r.IsValid, r.Hash, r.Error });
-});
-audit.MapPost("/gdpr/erasure-request", async (string customerId, string requestedBy, OrderAuditService a) =>
-{
-    await a.RequestCustomerErasureAsync(customerId, requestedBy);
-    return Results.Accepted();
-});
-audit.MapGet("/gdpr/pending-requests", async (OrderAuditService a) => Results.Ok(await a.GetPendingErasureRequestsAsync()));
+    builder.Services.AddCatgaHandlers();          // Source generator auto-registration
+    builder.Services.AddOrderSystem();             // Domain services
+    builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
+    builder.Services.AddTimeTravelService<OrderAggregate>();
 
-// Snapshots (Performance optimization)
-var snap = app.MapGroup("/api/snapshots").WithTags("Snapshots");
-snap.MapPost("/orders/{orderId}", async (string orderId, IEnhancedSnapshotStore ss, IEventStore es) =>
-{
-    var streamId = $"OrderAggregate-{orderId}";
-    var stream = await es.ReadAsync(streamId);
-    if (stream.Events.Count == 0) return Results.NotFound();
-    var agg = new OrderAggregate();
-    foreach (var e in stream.Events) agg.Apply(e.Event);
-    await ss.SaveAsync(streamId, agg, stream.Version);
-    return Results.Ok(new { streamId, version = stream.Version });
-});
-snap.MapGet("/orders/{orderId}/history", async (string orderId, IEnhancedSnapshotStore ss) =>
-    Results.Ok(await ss.GetSnapshotHistoryAsync($"OrderAggregate-{orderId}")));
+    // ==========================================================================
+    // 5. Infrastructure
+    // ==========================================================================
 
-app.Run();
+    builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+    builder.Services.AddProblemDetails();
+    builder.Services.AddObservability(builder.Configuration);
+    builder.Services.AddOrderSystemHealthChecks(builder.Configuration);
+
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(c =>
+    {
+        c.SwaggerDoc("v1", new()
+        {
+            Title = "OrderSystem API",
+            Version = "v1",
+            Description = "Catga CQRS Best Practices Example"
+        });
+    });
+
+    // ==========================================================================
+    // 6. Build Pipeline
+    // ==========================================================================
+
+    var app = builder.Build();
+
+    app.UseExceptionHandler();
+    app.UseSerilogRequestLogging();
+
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI();
+    }
+
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+
+    // ==========================================================================
+    // 7. Endpoints
+    // ==========================================================================
+
+    app.MapOrderSystemHealthChecks();
+    app.MapOrderEndpoints();
+    app.MapEventSourcingEndpoints();
+
+    // ==========================================================================
+    // 8. Run
+    // ==========================================================================
+
+    Log.Information("Starting OrderSystem API...");
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
 
 namespace OrderSystem.Api { public partial class Program; }

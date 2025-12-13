@@ -1,6 +1,86 @@
 # OrderSystem.Api - Catga Best Practices Example
 
-Complete order system demonstrating Catga framework best practices.
+A comprehensive production-ready example demonstrating how to build applications with the Catga CQRS framework.
+
+## Architecture
+
+This example follows Clean Architecture principles with clear separation of concerns:
+
+```
+OrderSystem.Api/
+├── Configuration/          # Options pattern configuration classes
+│   └── CatgaConfiguration.cs
+├── Domain/                 # Domain models, aggregates, value objects
+│   ├── Order.cs
+│   └── EventSourcing.cs
+├── Endpoints/              # Minimal API endpoint definitions
+│   ├── OrderEndpoints.cs
+│   └── EventSourcingEndpoints.cs
+├── Flows/                  # Flow DSL workflow definitions
+│   └── ComprehensiveOrderFlow.cs
+├── Handlers/               # CQRS handlers and pipeline behaviors
+│   └── OrderHandlers.cs
+├── Infrastructure/         # Cross-cutting concerns
+│   ├── GlobalExceptionHandler.cs
+│   ├── HealthChecks.cs
+│   └── ObservabilityExtensions.cs
+├── Messages/               # Commands, queries, events
+│   └── Commands.cs
+├── Services/               # Domain services
+└── Program.cs              # Application entry point
+```
+
+## Best Practices Demonstrated
+
+### 1. Configuration with Options Pattern
+```csharp
+// appsettings.json
+{
+  "Catga": {
+    "Transport": "InMemory",
+    "Persistence": "InMemory",
+    "DevelopmentMode": true
+  }
+}
+
+// Strongly-typed access
+builder.Services.Configure<CatgaOptions>(
+    builder.Configuration.GetSection(CatgaOptions.SectionName));
+```
+
+### 2. Clean Endpoint Organization
+```csharp
+// Endpoints are defined in separate files
+app.MapOrderEndpoints();
+app.MapEventSourcingEndpoints();
+```
+
+### 3. Global Exception Handling
+```csharp
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+```
+
+### 4. OpenTelemetry Observability
+```csharp
+builder.Services.AddObservability(builder.Configuration);
+// Automatic tracing for Catga operations
+// Metrics for performance monitoring
+```
+
+### 5. Comprehensive Health Checks
+```csharp
+app.MapOrderSystemHealthChecks();
+// /health/live   - Liveness probe
+// /health/ready  - Readiness probe
+// /health        - Full health status
+```
+
+### 6. Source Generator Handler Registration
+```csharp
+// Zero-reflection, AOT-compatible
+builder.Services.AddCatgaHandlers();
+```
 
 ## Quick Start
 

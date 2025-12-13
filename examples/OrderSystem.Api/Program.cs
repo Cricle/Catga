@@ -146,11 +146,28 @@ try
     app.MapOrderEndpoints();
     app.MapEventSourcingEndpoints();
 
+    // System Info endpoint
+    app.MapGet("/api/system/info", () => new
+    {
+        Framework = "Catga CQRS",
+        Version = "1.0.0",
+        Transport = catgaOptions.Transport,
+        Persistence = catgaOptions.Persistence,
+        Runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
+        Environment = app.Environment.EnvironmentName,
+        MachineName = Environment.MachineName,
+        ProcessorCount = Environment.ProcessorCount
+    }).WithTags("System");
+
+    // SPA fallback - serve index.html for client-side routing
+    app.MapFallbackToFile("index.html");
+
     // ==========================================================================
     // 8. Run
     // ==========================================================================
 
-    Log.Information("Starting OrderSystem API...");
+    Log.Information("Starting OrderSystem API with Transport={Transport}, Persistence={Persistence}...",
+        catgaOptions.Transport, catgaOptions.Persistence);
     app.Run();
 }
 catch (Exception ex)

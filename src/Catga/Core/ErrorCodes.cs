@@ -1,5 +1,7 @@
 namespace Catga.Core;
 
+// ========== Error Codes ==========
+
 /// <summary>
 /// Catga core error codes - simple and focused
 /// </summary>
@@ -36,11 +38,15 @@ public static class ErrorCodes
     public const string InternalError = "INTERNAL_ERROR";
 }
 
+// ========== Error Information ==========
+
 /// <summary>
 /// Error information - structured error without exception allocation
 /// </summary>
 public readonly struct ErrorInfo
 {
+    // ========== Properties ==========
+
     /// <summary>Error code (e.g., CATGA_1001)</summary>
     public required string Code { get; init; }
 
@@ -55,6 +61,8 @@ public readonly struct ErrorInfo
 
     /// <summary>Additional context details</summary>
     public string? Details { get; init; }
+
+    // ========== Factory Methods ==========
 
     /// <summary>Create error from exception</summary>
     public static ErrorInfo FromException(Exception ex, string? code = null, bool isRetryable = false)

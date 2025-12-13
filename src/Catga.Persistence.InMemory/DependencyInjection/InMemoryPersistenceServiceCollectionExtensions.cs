@@ -248,6 +248,46 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Adds InMemory projection checkpoint store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddInMemoryProjectionCheckpointStore(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<IProjectionCheckpointStore, InMemoryProjectionCheckpointStore>();
+        return services;
+    }
+
+    /// <summary>
+    /// Adds InMemory subscription store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddInMemorySubscriptionStore(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<ISubscriptionStore, InMemorySubscriptionStore>();
+        return services;
+    }
+
+    /// <summary>
+    /// Adds InMemory audit log store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddInMemoryAuditLogStore(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<IAuditLogStore, InMemoryAuditLogStore>();
+        return services;
+    }
+
+    /// <summary>
+    /// Adds InMemory GDPR store to the service collection.
+    /// </summary>
+    public static IServiceCollection AddInMemoryGdprStore(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<IGdprStore, InMemoryGdprStore>();
+        return services;
+    }
+
+    /// <summary>
     /// Adds complete InMemory persistence (all stores) to the service collection.
     /// </summary>
     public static IServiceCollection AddInMemoryPersistence(

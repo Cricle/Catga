@@ -21,6 +21,8 @@ namespace Catga.DependencyInjection;
 /// </remarks>
 public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions options)
 {
+    // ========== Properties ==========
+
     /// <summary>
     /// Get the underlying service collection
     /// </summary>
@@ -30,6 +32,8 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
     /// Get the Catga options
     /// </summary>
     public CatgaOptions Options { get; } = options ?? throw new ArgumentNullException(nameof(options));
+
+    // ========== Configuration Methods ==========
 
     /// <summary>
     /// Configure Catga options

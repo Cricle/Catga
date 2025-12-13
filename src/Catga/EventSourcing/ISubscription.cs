@@ -3,6 +3,8 @@ using System.Text.RegularExpressions;
 
 namespace Catga.EventSourcing;
 
+// ========== Event Handler Interface ==========
+
 /// <summary>
 /// Event handler interface for subscription processing.
 /// </summary>
@@ -10,6 +12,8 @@ public interface IEventHandler
 {
     ValueTask HandleAsync(IEvent @event, CancellationToken ct = default);
 }
+
+// ========== Persistent Subscription ==========
 
 /// <summary>
 /// Persistent subscription that survives restarts.

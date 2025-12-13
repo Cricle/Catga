@@ -11,9 +11,15 @@ namespace Catga.Pipeline.Behaviors;
 public sealed class PollyBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
+    // ========== Fields ==========
+
     private readonly IResiliencePipelineProvider _provider;
 
+    // ========== Constructor ==========
+
     public PollyBehavior(IResiliencePipelineProvider provider) => _provider = provider;
+
+    // ========== Public API ==========
 
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
         => await _provider.ExecuteMediatorAsync(_ => next(), cancellationToken);

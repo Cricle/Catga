@@ -8,6 +8,8 @@ namespace Catga.Observability;
 /// </summary>
 internal static class CatgaActivitySource
 {
+    // ========== Core Activity Source ==========
+
     /// <summary>Activity source name for Catga framework</summary>
     public const string SourceName = "Catga.Framework";
 
@@ -16,6 +18,8 @@ internal static class CatgaActivitySource
 
     /// <summary>Shared ActivitySource instance</summary>
     public static readonly ActivitySource Source = new(SourceName, Version);
+
+    // ========== Activity Tag Keys ==========
 
     /// <summary>Activity tag keys</summary>
     public static class Tags

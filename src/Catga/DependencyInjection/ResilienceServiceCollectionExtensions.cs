@@ -14,6 +14,8 @@ namespace Catga.DependencyInjection;
 /// <summary>DI extensions for Polly-based resilience (supports .NET 6 via Polly v7, .NET 8+ via Polly v8)</summary>
 public static class ResilienceServiceCollectionExtensions
 {
+    // ========== Resilience Service Registration ==========
+
     public static IServiceCollection AddCatgaResilience(this IServiceCollection services, Action<CatgaResilienceOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);

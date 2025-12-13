@@ -5,6 +5,8 @@ namespace Catga.EventSourcing;
 
 #region Immutability Verification
 
+// ========== Verification Result ==========
+
 /// <summary>
 /// Result of immutability verification.
 /// </summary>
@@ -17,6 +19,8 @@ public sealed class VerificationResult
     public static VerificationResult Valid(string hash) => new() { IsValid = true, Hash = hash };
     public static VerificationResult Invalid(string error, string hash = "") => new() { IsValid = false, Error = error, Hash = hash };
 }
+
+// ========== Immutability Verifier ==========
 
 /// <summary>
 /// Verifies event stream immutability using cryptographic hashing.

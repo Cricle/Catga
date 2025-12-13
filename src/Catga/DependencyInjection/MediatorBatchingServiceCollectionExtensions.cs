@@ -6,6 +6,8 @@ namespace Catga.DependencyInjection;
 
 public static class MediatorBatchingServiceCollectionExtensions
 {
+    // ========== Mediator Batching Configuration ==========
+
     public static CatgaServiceBuilder UseMediatorAutoBatchingProfilesFromAssembly(this CatgaServiceBuilder builder)
     {
         // Ensure provider is available so behaviors can resolve typed overrides

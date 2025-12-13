@@ -96,3 +96,71 @@ public interface IPrioritizedMessage : IMessage
     MessagePriority Priority => MessagePriority.Normal;
 }
 
+// ============================================
+// Base Classes for Common Message Types
+// ============================================
+
+/// <summary>
+/// Base class for events. Provides default implementations for IEvent.
+/// Usage: public record MyEvent(...) : EventBase;
+/// </summary>
+public abstract record EventBase : IEvent
+{
+    /// <inheritdoc />
+    public long MessageId { get; init; }
+
+    /// <inheritdoc />
+    public long? CorrelationId { get; init; }
+
+    /// <summary>Causation ID for event chain tracking.</summary>
+    public long? CausationId { get; init; }
+
+    /// <inheritdoc />
+    public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Base class for reliable events (QoS 1 - at least once delivery).
+/// Usage: public record MyReliableEvent(...) : ReliableEventBase;
+/// </summary>
+public abstract record ReliableEventBase : IReliableEvent
+{
+    /// <inheritdoc />
+    public long MessageId { get; init; }
+
+    /// <inheritdoc />
+    public long? CorrelationId { get; init; }
+
+    /// <summary>Causation ID for event chain tracking.</summary>
+    public long? CausationId { get; init; }
+
+    /// <inheritdoc />
+    public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Base class for requests without response.
+/// Usage: public record MyCommand(...) : CommandBase;
+/// </summary>
+public abstract record CommandBase : IRequest
+{
+    /// <inheritdoc />
+    public long MessageId { get; init; }
+
+    /// <inheritdoc />
+    public long? CorrelationId { get; init; }
+}
+
+/// <summary>
+/// Base class for requests with response.
+/// Usage: public record MyQuery(...) : QueryBase&lt;MyResult&gt;;
+/// </summary>
+public abstract record QueryBase<TResponse> : IRequest<TResponse>
+{
+    /// <inheritdoc />
+    public long MessageId { get; init; }
+
+    /// <inheritdoc />
+    public long? CorrelationId { get; init; }
+}
+

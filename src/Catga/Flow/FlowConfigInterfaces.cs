@@ -65,6 +65,7 @@ public interface IIfBuilder<TState> where TState : class, IFlowState
 public interface IIfBuilder<TState, TResult> where TState : class, IFlowState
 {
     IIfBuilder<TState> Into(Expression<Func<TState, TResult>> property);
+    IIfBuilder<TState> Into(Action<TState, TResult> setter);
 }
 
 /// <summary>Switch branch builder.</summary>
@@ -87,6 +88,7 @@ public interface ICaseBuilder<TState> where TState : class, IFlowState
 public interface ICaseBuilder<TState, TResult> where TState : class, IFlowState
 {
     ICaseBuilder<TState> Into(Expression<Func<TState, TResult>> property);
+    ICaseBuilder<TState> Into(Action<TState, TResult> setter);
 }
 
 /// <summary>

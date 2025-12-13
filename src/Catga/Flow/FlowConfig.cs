@@ -439,6 +439,17 @@ internal class StepBuilder<TState, TResult> : IStepBuilder<TState, TResult> wher
         return new StepBuilder<TState>(_builder, _step);
     }
 
+    /// <summary>
+    /// Into overload that accepts a lambda with both state and result parameters.
+    /// Useful for complex assignments like s => s.ExecutedCases.Add(result).
+    /// </summary>
+    [RequiresDynamicCode("Into uses expression compilation")]
+    public IStepBuilder<TState> Into(Action<TState, TResult> setter)
+    {
+        _step.ResultSetter = setter;
+        return new StepBuilder<TState>(_builder, _step);
+    }
+
     public IStepBuilder<TState, TResult> IfFail<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest
     {
         _step.HasCompensation = true;
@@ -743,6 +754,12 @@ internal class IfBuilderWithResult<TState, TResult> : IIfBuilder<TState, TResult
         }
         return _parent;
     }
+
+    public IIfBuilder<TState> Into(Action<TState, TResult> setter)
+    {
+        _step.ResultSetter = setter;
+        return _parent;
+    }
 }
 
 internal class SwitchBuilder<TState, TValue> : ISwitchBuilder<TState, TValue>
@@ -829,6 +846,12 @@ internal class CaseBuilderWithResult<TState, TResult> : ICaseBuilder<TState, TRe
             var assign = Expression.Assign(memberAccess, value);
             _step.ResultSetter = Expression.Lambda<Action<TState, TResult>>(assign, param, value).Compile();
         }
+        return _parent;
+    }
+
+    public ICaseBuilder<TState> Into(Action<TState, TResult> setter)
+    {
+        _step.ResultSetter = setter;
         return _parent;
     }
 }

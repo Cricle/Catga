@@ -1,12 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
-  { path: '/', name: 'Dashboard', component: () => import('../views/Dashboard.vue') },
-  { path: '/orders', name: 'Orders', component: () => import('../views/Orders.vue') },
-  { path: '/orders/:id', name: 'OrderDetail', component: () => import('../views/OrderDetail.vue') },
-  { path: '/flow', name: 'Flow', component: () => import('../views/Flow.vue') },
-  { path: '/events', name: 'Events', component: () => import('../views/Events.vue') },
-  { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue') },
+  // Shop (User facing)
+  { path: '/', name: 'Shop', component: () => import('../views/Shop.vue') },
+  { path: '/my-orders', name: 'MyOrders', component: () => import('../views/MyOrders.vue') },
+  { path: '/my-orders/:id', name: 'MyOrderDetail', component: () => import('../views/MyOrders.vue') },
+  { path: '/cart', redirect: '/' }, // Cart is handled in Shop.vue modal
+
+  // Admin Panel
+  { path: '/admin', name: 'AdminDashboard', component: () => import('../views/admin/Dashboard.vue') },
+  { path: '/admin/orders', name: 'AdminOrders', component: () => import('../views/admin/Orders.vue') },
+  { path: '/admin/orders/:id', name: 'AdminOrderDetail', component: () => import('../views/admin/Orders.vue') },
+  { path: '/admin/settings', name: 'AdminSettings', component: () => import('../views/admin/Settings.vue') },
 ]
 
 export default createRouter({

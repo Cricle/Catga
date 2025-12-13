@@ -13,23 +13,27 @@ export const useOrderStore = defineStore('order', () => {
   const pendingOrders = computed(() => orders.value.filter(o => o.status === 0))
   const activeOrders = computed(() => orders.value.filter(o => o.status >= 1 && o.status <= 3))
 
-  async function fetchOrders(status?: OrderStatus, limit = 100) {
+  async function fetchOrders(limit = 100, status?: OrderStatus): Promise<Order[]> {
     loading.value = true
     error.value = null
     try {
       orders.value = await api.getOrders(status, limit)
+      return orders.value
     } catch (e: any) {
       error.value = e.message
+      return []
     } finally {
       loading.value = false
     }
   }
 
-  async function fetchStats() {
+  async function fetchStats(): Promise<OrderStats | null> {
     try {
       stats.value = await api.getStats()
+      return stats.value
     } catch (e: any) {
       console.error('Failed to fetch stats:', e)
+      return null
     }
   }
 
@@ -44,10 +48,10 @@ export const useOrderStore = defineStore('order', () => {
     }
   }
 
-  async function createOrder(customerId: string, items: any[]) {
+  async function createOrder(data: { customerId: string; items: any[] }) {
     loading.value = true
     try {
-      const result = await api.createOrder(customerId, items)
+      const result = await api.createOrder(data.customerId, data.items)
       await fetchOrders()
       await fetchStats()
       return result

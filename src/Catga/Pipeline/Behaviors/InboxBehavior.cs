@@ -23,10 +23,14 @@ public class InboxBehaviorOptions
 /// </remarks>
 public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : class, IRequest<TResponse>
 {
+    // ========== Fields ==========
+
     private readonly IInboxStore _persistence;
     private readonly IMessageSerializer _serializer;
     private readonly ILogger<InboxBehavior<TRequest, TResponse>> _logger;
     private readonly TimeSpan _lockDuration;
+
+    // ========== Constructor ==========
 
     public InboxBehavior(
         ILogger<InboxBehavior<TRequest, TResponse>> logger,

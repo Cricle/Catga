@@ -9,17 +9,25 @@ namespace Catga.Core;
 /// </summary>
 public sealed partial class GracefulRecoveryManager
 {
+    // ========== Fields ==========
+
     private readonly ILogger<GracefulRecoveryManager> _logger;
     private readonly ConcurrentBag<IRecoverableComponent> _components = new();
     private readonly SemaphoreSlim _recoveryLock = new(1, 1);
     private volatile bool _isRecovering;
+
+    // ========== Constructor ==========
 
     public GracefulRecoveryManager(ILogger<GracefulRecoveryManager> logger)
     {
         _logger = logger;
     }
 
+    // ========== Properties ==========
+
     public bool IsRecovering => _isRecovering;
+
+    // ========== Public API ==========
 
     public void RegisterComponent(IRecoverableComponent component)
     {

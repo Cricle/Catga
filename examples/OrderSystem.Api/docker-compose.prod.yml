@@ -1,0 +1,293 @@
+version: '3.8'
+
+# =============================================================================
+# OrderSystem Production Docker Compose
+# Usage:
+#   InMemory:  docker-compose -f docker-compose.prod.yml --profile memory up -d
+#   Redis:     docker-compose -f docker-compose.prod.yml --profile redis up -d
+#   NATS:      docker-compose -f docker-compose.prod.yml --profile nats up -d
+#   Full:      docker-compose -f docker-compose.prod.yml --profile full up -d
+# =============================================================================
+
+x-ordersystem-common: &ordersystem-common
+  image: ordersystem:latest
+  build:
+    context: ../..
+    dockerfile: examples/OrderSystem.Api/Dockerfile
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 40s
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # ===========================================================================
+  # InMemory Mode (Development/Testing)
+  # ===========================================================================
+  ordersystem-memory:
+    <<: *ordersystem-common
+    container_name: ordersystem-memory
+    ports:
+      - "5275:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Catga__Transport: InMemory
+      Catga__Persistence: SQLite
+      Catga__SqliteConnection: "Data Source=/data/orders.db"
+      Catga__DevelopmentMode: "false"
+    volumes:
+      - ordersystem-sqlite:/data
+    profiles:
+      - memory
+
+  # ===========================================================================
+  # Redis Mode (Distributed)
+  # ===========================================================================
+  ordersystem-redis:
+    <<: *ordersystem-common
+    container_name: ordersystem-redis
+    ports:
+      - "5275:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Catga__Transport: Redis
+      Catga__Persistence: Redis
+      Catga__RedisConnection: "redis:6379,abortConnect=false,connectTimeout=30000"
+      Catga__DevelopmentMode: "false"
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - redis
+      - full
+
+  redis:
+    image: redis:7-alpine
+    container_name: ordersystem-redis-server
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 300
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - redis
+      - full
+
+  # ===========================================================================
+  # NATS Mode (High Performance)
+  # ===========================================================================
+  ordersystem-nats:
+    <<: *ordersystem-common
+    container_name: ordersystem-nats
+    ports:
+      - "5275:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Catga__Transport: NATS
+      Catga__Persistence: NATS
+      Catga__NatsUrl: "nats://nats:4222"
+      Catga__DevelopmentMode: "false"
+    depends_on:
+      nats:
+        condition: service_healthy
+    profiles:
+      - nats
+      - full
+
+  nats:
+    image: nats:2-alpine
+    container_name: ordersystem-nats-server
+    restart: unless-stopped
+    ports:
+      - "4222:4222"   # Client
+      - "8222:8222"   # Monitoring
+      - "6222:6222"   # Cluster
+    command: >
+      --jetstream
+      --store_dir /data
+      --max_mem_store 512MB
+      --max_file_store 1GB
+      -m 8222
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - nats
+      - full
+
+  # ===========================================================================
+  # Monitoring Stack (Optional)
+  # ===========================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ordersystem-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+    profiles:
+      - monitoring
+      - full
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ordersystem-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+      - full
+
+  # ===========================================================================
+  # Redis Cluster Mode (3 nodes + Sentinel)
+  # ===========================================================================
+  ordersystem-cluster-1:
+    <<: *ordersystem-common
+    container_name: ordersystem-cluster-1
+    ports:
+      - "5281:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Catga__Transport: Redis
+      Catga__Persistence: Redis
+      Catga__RedisConnection: "redis-master:6379,abortConnect=false"
+      Catga__ClusterEnabled: "true"
+      Catga__ClusterNodes: "ordersystem-cluster-1:8080,ordersystem-cluster-2:8080,ordersystem-cluster-3:8080"
+      NODE_ID: node1
+      Catga__DevelopmentMode: "false"
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    profiles:
+      - cluster
+
+  ordersystem-cluster-2:
+    <<: *ordersystem-common
+    container_name: ordersystem-cluster-2
+    ports:
+      - "5282:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Catga__Transport: Redis
+      Catga__Persistence: Redis
+      Catga__RedisConnection: "redis-master:6379,abortConnect=false"
+      Catga__ClusterEnabled: "true"
+      Catga__ClusterNodes: "ordersystem-cluster-1:8080,ordersystem-cluster-2:8080,ordersystem-cluster-3:8080"
+      NODE_ID: node2
+      Catga__DevelopmentMode: "false"
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    profiles:
+      - cluster
+
+  ordersystem-cluster-3:
+    <<: *ordersystem-common
+    container_name: ordersystem-cluster-3
+    ports:
+      - "5283:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Catga__Transport: Redis
+      Catga__Persistence: Redis
+      Catga__RedisConnection: "redis-master:6379,abortConnect=false"
+      Catga__ClusterEnabled: "true"
+      Catga__ClusterNodes: "ordersystem-cluster-1:8080,ordersystem-cluster-2:8080,ordersystem-cluster-3:8080"
+      NODE_ID: node3
+      Catga__DevelopmentMode: "false"
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    profiles:
+      - cluster
+
+  redis-master:
+    image: redis:7-alpine
+    container_name: ordersystem-redis-master
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-cluster-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - cluster
+
+  nginx-lb:
+    image: nginx:alpine
+    container_name: ordersystem-nginx
+    restart: unless-stopped
+    ports:
+      - "5275:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - ordersystem-cluster-1
+      - ordersystem-cluster-2
+      - ordersystem-cluster-3
+    profiles:
+      - cluster
+
+volumes:
+  ordersystem-sqlite:
+    driver: local
+  redis-data:
+    driver: local
+  nats-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  redis-cluster-data:
+    driver: local
+
+networks:
+  default:
+    name: ordersystem-network
+    driver: bridge

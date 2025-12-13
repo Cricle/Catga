@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'ordersystem'
+    static_configs:
+      - targets:
+        - 'ordersystem-memory:8080'
+        - 'ordersystem-redis:8080'
+        - 'ordersystem-nats:8080'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'ordersystem-cluster'
+    static_configs:
+      - targets:
+        - 'ordersystem-cluster-1:8080'
+        - 'ordersystem-cluster-2:8080'
+        - 'ordersystem-cluster-3:8080'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379', 'redis-master:6379']
+
+  - job_name: 'nats'
+    static_configs:
+      - targets: ['nats:8222']
+    metrics_path: '/metrics'

@@ -245,3 +245,93 @@ curl -X POST http://localhost:5275/api/orders/{orderId}/cancel \
   -H "Content-Type: application/json" \
   -d '{"reason":"Customer request"}'
 ```
+
+## Docker Deployment
+
+### Quick Start
+
+```bash
+# InMemory mode (development)
+docker-compose -f docker-compose.prod.yml --profile memory up -d
+
+# Redis mode (distributed)
+docker-compose -f docker-compose.prod.yml --profile redis up -d
+
+# NATS mode (high performance)
+docker-compose -f docker-compose.prod.yml --profile nats up -d
+
+# Cluster mode (3 nodes + nginx)
+docker-compose -f docker-compose.prod.yml --profile cluster up -d
+
+# Full stack (all services + monitoring)
+docker-compose -f docker-compose.prod.yml --profile full up -d
+```
+
+### Profiles
+
+| Profile | Services | Use Case |
+|---------|----------|----------|
+| `memory` | OrderSystem + SQLite | Development/Testing |
+| `redis` | OrderSystem + Redis | Distributed deployment |
+| `nats` | OrderSystem + NATS | High throughput |
+| `cluster` | 3x OrderSystem + Redis + nginx | High availability |
+| `monitoring` | Prometheus + Grafana | Observability |
+| `full` | All services | Complete stack |
+
+### Environment Variables
+
+```bash
+# Transport: InMemory | Redis | NATS
+Catga__Transport=Redis
+
+# Persistence: InMemory | Redis | NATS | SQLite
+Catga__Persistence=Redis
+
+# Redis connection
+Catga__RedisConnection=redis:6379
+
+# NATS URL
+Catga__NatsUrl=nats://nats:4222
+
+# SQLite path
+Catga__SqliteConnection=Data Source=/data/orders.db
+
+# Cluster mode
+Catga__ClusterEnabled=true
+Catga__ClusterNodes=node1:8080,node2:8080,node3:8080
+```
+
+### Build Image
+
+```bash
+# Build from project root
+docker build -t ordersystem:latest -f examples/OrderSystem.Api/Dockerfile .
+
+# Or use compose
+docker-compose -f docker-compose.prod.yml build
+```
+
+### Health Checks
+
+```bash
+# Check health
+curl http://localhost:5275/health
+
+# Detailed health
+curl http://localhost:5275/health/ready
+```
+
+## Frontend (Vue + Vuestic)
+
+```bash
+cd client-app
+
+# Development
+npm install
+npm run dev
+
+# Build for production
+npm run build
+```
+
+Access the UI at http://localhost:5275

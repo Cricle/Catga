@@ -36,6 +36,8 @@ public interface IFlowState
 
 #region Flow Position
 
+// ========== Position Tracking for Nested Branches ==========
+
 /// <summary>
 /// Flow execution position supporting nested branches.
 /// </summary>

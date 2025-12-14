@@ -56,11 +56,9 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
                 var subject = $"{StreamName}.{streamId}";
                 foreach (var @event in events)
                 {
-                    var runtimeType = GetRuntimeTypeForSerialization(@event);
+                    var runtimeType = _registry.GetPreservedType(@event);
                     var typeFull = runtimeType.AssemblyQualifiedName ?? runtimeType.FullName!;
-                    _registry.Register(typeFull, runtimeType);
-                    var resolvedType = _registry.Resolve(typeFull)!;
-                    var data = serializer.Serialize(@event, resolvedType);
+                    var data = serializer.Serialize(@event, runtimeType);
                     var headers = new NatsHeaders
                     {
                         ["EventType"] = typeFull
@@ -76,7 +74,7 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
                     }
                     activity?.AddActivityEvent(CatgaActivitySource.Events.EventStoreAppendItem,
                         ("stream", streamId),
-                        ("event.type", resolvedType.Name),
+                        ("event.type", runtimeType.Name),
                         ("seq", (long)ack.Seq),
                         ("dup", ack.Duplicate));
                 }
@@ -268,6 +266,7 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
         throw new UnreachableException("This overload should not be called");
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Event types are registered at runtime via IEventTypeRegistry")]
     private static Type GetRuntimeTypeForSerialization(object instance)
         => instance.GetType();
 

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Core;
 
@@ -10,7 +11,7 @@ namespace Catga.Flow.Dsl;
 public static class FlowBuilderExtensions
 {
     /// <summary>Add a Send step that sends a request without expecting a result.</summary>
-    public static IStepBuilder<TState> Send<TState, TRequest>(
+    public static IStepBuilder<TState> Send<TState, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(
         this IFlowBuilder<TState> builder,
         Func<TState, TRequest> factory)
         where TState : class, IFlowState
@@ -33,7 +34,7 @@ public static class FlowBuilderExtensions
     }
 
     /// <summary>Add a Send step that sends a request and expects a result.</summary>
-    public static IStepBuilder<TState, TResult> Send<TState, TResult>(
+    public static IStepBuilder<TState, TResult> Send<TState, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
         this IFlowBuilder<TState> builder,
         Func<TState, IRequest<TResult>> factory)
         where TState : class, IFlowState
@@ -57,7 +58,7 @@ public static class FlowBuilderExtensions
     }
 
     /// <summary>Add a Query step that sends a query and expects a result.</summary>
-    public static IQueryBuilder<TState, TResult> Query<TState, TResult>(
+    public static IQueryBuilder<TState, TResult> Query<TState, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
         this IFlowBuilder<TState> builder,
         Func<TState, IRequest<TResult>> factory)
         where TState : class, IFlowState

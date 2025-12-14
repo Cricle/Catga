@@ -42,7 +42,7 @@ public static class EventSourcingServiceCollectionExtensions
     /// <summary>
     /// Adds an event upgrader for schema evolution.
     /// </summary>
-    public static IServiceCollection AddEventUpgrader<TUpgrader>(this IServiceCollection services)
+    public static IServiceCollection AddEventUpgrader<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TUpgrader>(this IServiceCollection services)
         where TUpgrader : class, IEventUpgrader
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -78,7 +78,7 @@ public static class EventSourcingServiceCollectionExtensions
     /// <summary>
     /// Adds subscription runner for processing persistent subscriptions.
     /// </summary>
-    public static IServiceCollection AddSubscriptionRunner<THandler>(this IServiceCollection services)
+    public static IServiceCollection AddSubscriptionRunner<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>(this IServiceCollection services)
         where THandler : class, IEventHandler
     {
         ArgumentNullException.ThrowIfNull(services);

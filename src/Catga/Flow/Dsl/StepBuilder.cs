@@ -60,7 +60,7 @@ internal class StepBuilder<TState, TResult> : StepBuilderBase<TState, StepBuilde
         return new StepBuilder<TState>(Builder!, Step);
     }
 
-    public new IStepBuilder<TState, TResult> IfFail<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest
+    public IStepBuilder<TState, TResult> IfFail<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest
     {
         Step.HasCompensation = true;
         Step.CompensationFactory = factory;

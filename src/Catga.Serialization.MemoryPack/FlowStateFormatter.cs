@@ -66,15 +66,20 @@ public sealed class FlowStateFormatter : MemoryPackFormatter<FlowState>
 }
 
 /// <summary>
-/// Module initializer to register FlowState formatter.
+/// Registration helper for MemoryPack formatters.
 /// </summary>
-file static class FlowStateFormatterInitializer
+public static class CatgaMemoryPackFormatters
 {
-#pragma warning disable CA2255 // ModuleInitializer is intentionally used for formatter registration
-    [System.Runtime.CompilerServices.ModuleInitializer]
-#pragma warning restore CA2255
-    public static void Initialize()
+    private static bool _registered;
+
+    /// <summary>
+    /// Register all Catga MemoryPack formatters. Call this once at application startup.
+    /// </summary>
+    public static void Register()
     {
+        if (_registered) return;
+        _registered = true;
+
         MemoryPackFormatterProvider.Register(new FlowStateFormatter());
         MemoryPackFormatterProvider.Register(new OutboxMessageFormatter());
         MemoryPackFormatterProvider.Register(new InboxMessageFormatter());

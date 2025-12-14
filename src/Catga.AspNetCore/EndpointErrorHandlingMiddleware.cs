@@ -1,9 +1,35 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Catga.AspNetCore;
+
+/// <summary>
+/// Interface for serializing error responses. Implement this for AOT-compatible serialization.
+/// </summary>
+public interface IErrorResponseSerializer
+{
+    string ContentType { get; }
+    Task WriteAsync(HttpResponse response, ErrorResponse error);
+}
+
+/// <summary>
+/// Default error response serializer using plain text format.
+/// </summary>
+public sealed class PlainTextErrorResponseSerializer : IErrorResponseSerializer
+{
+    public static readonly PlainTextErrorResponseSerializer Instance = new();
+
+    public string ContentType => "text/plain";
+
+    public Task WriteAsync(HttpResponse response, ErrorResponse error)
+    {
+        return response.WriteAsync($"Error: {error.Message}\nType: {error.Type}\nTimestamp: {error.Timestamp:O}");
+    }
+}
 
 /// <summary>
 /// Middleware for handling errors in Catga endpoint handlers.
@@ -12,12 +38,17 @@ namespace Catga.AspNetCore;
 public class EndpointErrorHandlingMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly IErrorResponseSerializer _serializer;
     private readonly ILogger<EndpointErrorHandlingMiddleware> _logger;
 
-    public EndpointErrorHandlingMiddleware(RequestDelegate next, ILogger<EndpointErrorHandlingMiddleware> logger)
+    public EndpointErrorHandlingMiddleware(
+        RequestDelegate next,
+        ILogger<EndpointErrorHandlingMiddleware> logger,
+        IErrorResponseSerializer? serializer = null)
     {
         _next = next;
         _logger = logger;
+        _serializer = serializer ?? PlainTextErrorResponseSerializer.Instance;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -28,19 +59,21 @@ public class EndpointErrorHandlingMiddleware
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unhandled exception");
             await HandleExceptionAsync(context, ex);
         }
     }
 
-    private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        context.Response.ContentType = "application/json";
+        context.Response.ContentType = _serializer.ContentType;
 
         var response = new ErrorResponse
         {
             Message = exception.Message,
             Type = exception.GetType().Name,
-            Timestamp = DateTime.UtcNow
+            Timestamp = DateTime.UtcNow,
+            TraceId = context.TraceIdentifier
         };
 
         switch (exception)
@@ -72,9 +105,7 @@ public class EndpointErrorHandlingMiddleware
                 break;
         }
 
-#pragma warning disable IL2026, IL3050 // AOT: ErrorResponse is a simple POCO with known properties
-        return context.Response.WriteAsJsonAsync(response);
-#pragma warning restore IL2026, IL3050
+        await _serializer.WriteAsync(context.Response, response);
     }
 }
 
@@ -100,5 +131,22 @@ public static class ErrorHandlingMiddlewareExtensions
     public static IApplicationBuilder UseEndpointErrorHandling(this IApplicationBuilder app)
     {
         return app.UseMiddleware<EndpointErrorHandlingMiddleware>();
+    }
+
+    /// <summary>
+    /// Register a custom error response serializer.
+    /// </summary>
+    public static IServiceCollection AddErrorResponseSerializer<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this IServiceCollection services)
+        where T : class, IErrorResponseSerializer
+    {
+        return services.AddSingleton<IErrorResponseSerializer, T>();
+    }
+
+    /// <summary>
+    /// Register a custom error response serializer instance.
+    /// </summary>
+    public static IServiceCollection AddErrorResponseSerializer(this IServiceCollection services, IErrorResponseSerializer serializer)
+    {
+        return services.AddSingleton(serializer);
     }
 }

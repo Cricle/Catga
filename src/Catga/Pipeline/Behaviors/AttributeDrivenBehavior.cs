@@ -40,6 +40,7 @@ public partial class AttributeDrivenBehavior<
         _lockProvider = lockProvider;
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Handler attributes are discovered via reflection for attribute-driven behaviors")]
     public override async ValueTask<CatgaResult<TResponse>> HandleAsync(
         TRequest request,
         PipelineDelegate<TResponse> next,

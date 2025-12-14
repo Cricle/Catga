@@ -41,7 +41,7 @@ public static class EndpointResultExtensions
         if (!result.IsSuccess)
             return MapErrorToResult(result.Error);
 
-        var location = locationSelector(result.Value);
+        var location = locationSelector(result.Value!);
         return Results.Created(location, result.Value);
     }
 
@@ -53,7 +53,7 @@ public static class EndpointResultExtensions
         Func<T, IResult> successSelector)
     {
         if (result.IsSuccess)
-            return successSelector(result.Value);
+            return successSelector(result.Value!);
 
         return MapErrorToResult(result.Error);
     }
@@ -125,7 +125,7 @@ public static class EndpointResultExtensions
         if (!result.IsSuccess)
             return MapErrorToResult(result.Error);
 
-        return await nextHandler(result.Value);
+        return await nextHandler(result.Value!);
     }
 
     /// <summary>
@@ -138,7 +138,7 @@ public static class EndpointResultExtensions
         if (!result.IsSuccess)
             return MapErrorToResult(result.Error);
 
-        var transformed = transformer(result.Value);
+        var transformed = transformer(result.Value!);
         return Results.Ok(transformed);
     }
 
@@ -153,7 +153,7 @@ public static class EndpointResultExtensions
         if (!result.IsSuccess)
             return MapErrorToResult(result.Error);
 
-        if (!predicate(result.Value))
+        if (!predicate(result.Value!))
             return Results.NotFound(new { error = notFoundMessage });
 
         return Results.Ok(result.Value);
@@ -200,13 +200,13 @@ public class ResultBuilder<T>
         if (_result.IsSuccess)
         {
             if (_successHandler != null)
-                return _successHandler(_result.Value);
+                return _successHandler(_result.Value!);
 
             return Results.Ok(_result.Value);
         }
 
         if (_errorHandler != null)
-            return _errorHandler(_result.Error);
+            return _errorHandler(_result.Error ?? "Unknown error");
 
         return EndpointResultExtensions.ToIResult(_result);
     }

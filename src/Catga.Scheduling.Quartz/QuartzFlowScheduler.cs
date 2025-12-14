@@ -1,6 +1,4 @@
-using Catga.Abstractions;
 using Catga.Flow;
-using Catga.Flow.Dsl;
 using Quartz;
 
 namespace Catga.Scheduling.Quartz;
@@ -9,9 +7,7 @@ namespace Catga.Scheduling.Quartz;
 /// Quartz.NET-based implementation of IFlowScheduler.
 /// Schedules flow resume operations using Quartz jobs.
 /// </summary>
-public sealed class QuartzFlowScheduler(
-    ISchedulerFactory schedulerFactory,
-    IMessageSerializer serializer) : IFlowScheduler
+public sealed class QuartzFlowScheduler(ISchedulerFactory schedulerFactory) : IFlowScheduler
 {
     public async ValueTask<string> ScheduleResumeAsync(
         string flowId,

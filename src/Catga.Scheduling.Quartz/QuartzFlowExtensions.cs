@@ -30,8 +30,6 @@ public static class QuartzFlowExtensions
         // Add Quartz with default configuration if not already added
         builder.Services.AddQuartz(q =>
         {
-            q.UseMicrosoftDependencyInjectionJobFactory();
-
             // Register the FlowResumeJob
             q.AddJob<FlowResumeJob>(j => j
                 .WithIdentity("FlowResumeJob", "catga-flow")
@@ -72,8 +70,6 @@ public static class QuartzFlowExtensions
 
         builder.Services.AddQuartz(q =>
         {
-            q.UseMicrosoftDependencyInjectionJobFactory();
-
             // Register the FlowResumeJob
             q.AddJob<FlowResumeJob>(j => j
                 .WithIdentity("FlowResumeJob", "catga-flow")

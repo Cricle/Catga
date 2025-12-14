@@ -1,5 +1,4 @@
 using Catga.Flow;
-using Catga.Flow.Dsl;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Quartz;
@@ -32,8 +31,6 @@ public sealed class FlowResumeJob(
 
         try
         {
-            // Resolve the flow store and resume service
-            var flowStore = serviceProvider.GetRequiredService<IDslFlowStore>();
             var resumeHandler = serviceProvider.GetService<IFlowResumeHandler>();
 
             if (resumeHandler == null)
@@ -42,7 +39,6 @@ public sealed class FlowResumeJob(
                 return;
             }
 
-            // Resume the flow
             await resumeHandler.ResumeFlowAsync(flowId, stateId, context.CancellationToken);
 
             logger.LogInformation("Successfully resumed flow {FlowId} for state {StateId}", flowId, stateId);
@@ -53,12 +49,4 @@ public sealed class FlowResumeJob(
             throw new JobExecutionException(ex, refireImmediately: false);
         }
     }
-}
-
-/// <summary>
-/// Service interface for resuming flows from scheduled jobs.
-/// </summary>
-public interface IFlowResumeHandler
-{
-    ValueTask ResumeFlowAsync(string flowId, string stateId, CancellationToken ct = default);
 }

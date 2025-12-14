@@ -36,13 +36,20 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
     private readonly ICatgaMediator _mediator;
     private readonly IDslFlowStore _store;
     private readonly TConfig _config;
+    private readonly IFlowScheduler? _scheduler;
     private readonly List<ExecutedStep> _executedSteps = [];
 
     public DslFlowExecutor(ICatgaMediator mediator, IDslFlowStore store, TConfig config)
+        : this(mediator, store, config, null)
+    {
+    }
+
+    public DslFlowExecutor(ICatgaMediator mediator, IDslFlowStore store, TConfig config, IFlowScheduler? scheduler)
     {
         _mediator = mediator;
         _store = store;
         _config = config;
+        _scheduler = scheduler;
         _config.Build();
     }
 
@@ -334,6 +341,8 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
                 StepType.If => await ExecuteIfAsync(state, step, stepIndex, cancellationToken),
                 StepType.Switch => await ExecuteSwitchAsync(state, step, stepIndex, cancellationToken),
                 StepType.ForEach => await ExecuteForEachAsync(state, step, stepIndex, cancellationToken),
+                StepType.Delay => await ExecuteDelayAsync(state, step, stepIndex, cancellationToken),
+                StepType.ScheduleAt => await ExecuteScheduleAtAsync(state, step, stepIndex, cancellationToken),
                 _ => StepResult.Failed($"Unknown step type: {step.Type}")
             };
         }
@@ -520,6 +529,93 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
             Step = stepIndex,
             CancelOthers = true,
             ChildFlowIds = childFlowIds
+        };
+
+        await _store.SetWaitConditionAsync(correlationId, waitCondition, cancellationToken);
+
+        return StepResult.Suspended();
+    }
+
+    private async Task<StepResult> ExecuteDelayAsync(
+        TState state,
+        FlowStep step,
+        int stepIndex,
+        CancellationToken cancellationToken)
+    {
+        if (_scheduler == null)
+            return StepResult.Failed("No IFlowScheduler configured. Add UseQuartzScheduling() to enable delayed execution.");
+
+        if (step.DelayDuration == null || step.DelayDuration.Value <= TimeSpan.Zero)
+            return StepResult.Succeeded(); // No delay, continue immediately
+
+        var resumeAt = DateTimeOffset.UtcNow.Add(step.DelayDuration.Value);
+        var scheduleId = await _scheduler.ScheduleResumeAsync(
+            state.FlowId!,
+            state.FlowId!,
+            resumeAt,
+            cancellationToken);
+
+        // Store schedule info for potential cancellation
+        var correlationId = $"{state.FlowId}-step-{stepIndex}";
+        var waitCondition = new WaitCondition
+        {
+            CorrelationId = correlationId,
+            Type = WaitType.All,
+            ExpectedCount = 1,
+            CompletedCount = 0,
+            Timeout = step.DelayDuration.Value.Add(TimeSpan.FromMinutes(1)),
+            CreatedAt = DateTime.UtcNow,
+            FlowId = state.FlowId!,
+            FlowType = _config.GetType().Name,
+            Step = stepIndex,
+            ScheduleId = scheduleId
+        };
+
+        await _store.SetWaitConditionAsync(correlationId, waitCondition, cancellationToken);
+
+        return StepResult.Suspended();
+    }
+
+    private async Task<StepResult> ExecuteScheduleAtAsync(
+        TState state,
+        FlowStep step,
+        int stepIndex,
+        CancellationToken cancellationToken)
+    {
+        if (_scheduler == null)
+            return StepResult.Failed("No IFlowScheduler configured. Add UseQuartzScheduling() to enable scheduled execution.");
+
+        if (step.GetScheduleTime == null)
+            return StepResult.Failed("No schedule time selector configured for ScheduleAt step");
+
+        var scheduleTime = step.GetScheduleTime(state);
+        var resumeAt = new DateTimeOffset(scheduleTime, TimeSpan.Zero);
+
+        // If schedule time is in the past, continue immediately
+        if (resumeAt <= DateTimeOffset.UtcNow)
+            return StepResult.Succeeded();
+
+        var scheduleId = await _scheduler.ScheduleResumeAsync(
+            state.FlowId!,
+            state.FlowId!,
+            resumeAt,
+            cancellationToken);
+
+        // Store schedule info
+        var correlationId = $"{state.FlowId}-step-{stepIndex}";
+        var timeout = resumeAt - DateTimeOffset.UtcNow;
+        var waitCondition = new WaitCondition
+        {
+            CorrelationId = correlationId,
+            Type = WaitType.All,
+            ExpectedCount = 1,
+            CompletedCount = 0,
+            Timeout = timeout.Add(TimeSpan.FromMinutes(1)),
+            CreatedAt = DateTime.UtcNow,
+            FlowId = state.FlowId!,
+            FlowType = _config.GetType().Name,
+            Step = stepIndex,
+            ScheduleId = scheduleId
         };
 
         await _store.SetWaitConditionAsync(correlationId, waitCondition, cancellationToken);

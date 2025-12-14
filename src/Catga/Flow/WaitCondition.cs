@@ -17,6 +17,7 @@ public record WaitCondition
     public bool CancelOthers { get; init; }
     public List<string> ChildFlowIds { get; init; } = [];
     public List<FlowCompletedEventData> Results { get; init; } = [];
+    public string? ScheduleId { get; init; }
 }
 
 /// <summary>

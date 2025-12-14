@@ -1,3 +1,4 @@
+using Catga.Abstractions;
 using Catga.Flow.Dsl;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;
@@ -13,32 +14,120 @@ public class ComprehensiveOrderFlow : FlowConfig<OrderFlowState>
     protected override void Configure(IFlowBuilder<OrderFlowState> flow)
     {
         flow.Name("comprehensive-order-processing");
+        flow.Timeout(TimeSpan.FromMinutes(10));
+        flow.Retry(3).ForTags("critical");
 
-        // Step 1: Validate order and check fraud score
-        // Conditional approval based on fraud score
+        // Step 1: Fraud check
+        flow.Send(s => new PerformFraudCheckCommand(s.OrderId))
+            .Into((s, r) => s.FraudScore = r)
+            .Tag("security");
+
+        // Step 2: Conditional approval based on fraud score
         flow.If(s => s.FraudScore > 0.8)
-            .EndIf();
+            .Send(s => new FlagOrderForReviewCommand(s.OrderId))
+            .Send(s => new NotifySecurityTeamCommand(s.OrderId, s.FraudScore))
+        .ElseIf(s => s.FraudScore > 0.5)
+            .Send(s => new RequireAdditionalVerificationCommand(s.OrderId))
+        .Else()
+            .Send(s => new AutoApproveOrderCommand(s.OrderId))
+            .Into((s, r) => s.IsApproved = r)
+        .EndIf();
 
-        // Step 2: Process items in parallel
+        // Step 3: Process items - check inventory using Configure pattern
         flow.ForEach(s => s.Order.Items)
             .WithParallelism(5)
             .Configure((item, f) =>
             {
-                // Process each item
-            })
-            .OnComplete(s =>
-            {
-                s.ProcessingProgress = 0.3m;
+                f.Send(s => new CheckInventoryCommand(item.ProductId, item.Quantity))
+                    .Into((s, r) =>
+                    {
+                        if (r.InStock)
+                        {
+                            s.AvailableQuantities[item.ProductId] = r.AvailableQuantity;
+                            s.ProcessedItems.Add(item.ProductId);
+                        }
+                        else
+                        {
+                            s.OutOfStockItems.Add(item.ProductId);
+                        }
+                    });
             })
             .ContinueOnFailure()
+            .OnComplete(s => s.ProcessingProgress = 0.3m)
             .EndForEach();
 
-        // Step 3: Award loyalty points (conditional)
-        flow.If(s => s.Order.CustomerType == CustomerType.VIP)
-            .EndIf();
+        // Step 4: Reserve inventory for available items
+        flow.ForEach(s => s.Order.Items.Where(i => s.AvailableQuantities.ContainsKey(i.ProductId)))
+            .Configure((item, f) =>
+            {
+                f.Send(s => new ReserveInventoryCommand(item.ProductId, item.Quantity))
+                    .Into((s, r) => s.ReservedItems[item.ProductId] = r.ReservationId);
+            })
+            .StopOnFirstFailure()
+            .EndForEach();
 
-        // Step 4: Mark as complete
-        flow.Publish(s => new OrderCreatedEvent(s.OrderId, s.Order.CustomerId, s.Order.TotalAmount, DateTime.UtcNow));
+        // Step 5: Process payment based on customer type
+        flow.Switch(s => s.Order.CustomerType)
+            .Case(CustomerType.VIP, c => c
+                .Send(s => new ProcessPaymentWithStripeCommand(s.OrderId, s.Order.TotalAmount * 0.9m))
+                .Into((s, r) =>
+                {
+                    s.PaymentResult = new PaymentResult { Provider = r.Provider, TransactionId = r.TransactionId };
+                    s.PaymentProcessed = true;
+                }))
+            .Case(CustomerType.Regular, c => c
+                .Send(s => new ProcessPaymentWithPayPalCommand(s.OrderId, s.Order.TotalAmount * 0.95m))
+                .Into((s, r) =>
+                {
+                    s.PaymentResult = new PaymentResult { Provider = r.Provider, TransactionId = r.TransactionId };
+                    s.PaymentProcessed = true;
+                }))
+            .Default(c => c
+                .Send(s => new ProcessPaymentWithSquareCommand(s.OrderId, s.Order.TotalAmount))
+                .Into((s, r) =>
+                {
+                    s.PaymentResult = new PaymentResult { Provider = r.Provider, TransactionId = r.TransactionId };
+                    s.PaymentProcessed = true;
+                }))
+            .EndSwitch();
+
+        // Step 6: Generate invoice (single step instead of WhenAll with incompatible types)
+        flow.Send(s => new GenerateInvoiceCommand(s.OrderId))
+            .Into((s, r) => s.InvoiceNumber = r)
+            .Tag("notifications");
+
+        // Step 7: Update loyalty points
+        flow.Send(s => new UpdateCustomerLoyaltyPointsCommand(s.Order.CustomerId, s.Order.TotalAmount))
+            .Into((s, r) => s.LoyaltyPointsAwarded = r);
+
+        // Step 8: Send confirmation email
+        flow.Send(s => new SendOrderConfirmationEmailCommand(s.Order.CustomerEmail, s.OrderId))
+            .Into((s, r) => s.EmailSent = r);
+
+        // Step 9: Schedule shipping based on priority
+        flow.Switch(s => s.Order.ShippingPriority)
+            .Case(ShippingPriority.Overnight, c => c
+                .Send(s => new ScheduleExpressShippingCommand(s.OrderId))
+                .Into((s, r) => s.EstimatedDelivery = r))
+            .Case(ShippingPriority.Express, c => c
+                .Send(s => new ScheduleStandardShippingCommand(s.OrderId))
+                .Into((s, r) => s.EstimatedDelivery = r))
+            .Default(c => c
+                .Send(s => new ScheduleEconomyShippingCommand(s.OrderId))
+                .Into((s, r) => s.EstimatedDelivery = r))
+            .EndSwitch();
+
+        // Step 10: Final notification
+        flow.Publish(s => new OrderProcessedEvent
+        {
+            OrderId = s.OrderId,
+            CustomerId = s.Order.CustomerId,
+            TotalAmount = s.Order.TotalAmount,
+            ProcessedAt = DateTime.UtcNow,
+            InvoiceNumber = s.InvoiceNumber,
+            TransactionId = s.TransactionId,
+            EstimatedDelivery = s.EstimatedDelivery
+        });
     }
 }
 

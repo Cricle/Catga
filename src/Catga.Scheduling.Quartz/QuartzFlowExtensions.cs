@@ -1,3 +1,4 @@
+using Catga.DependencyInjection;
 using Catga.Flow;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -11,17 +12,23 @@ namespace Catga.Scheduling.Quartz;
 public static class QuartzFlowExtensions
 {
     /// <summary>
-    /// Adds Quartz.NET-based flow scheduling to the service collection.
+    /// Adds Quartz.NET-based flow scheduling to Catga.
     /// </summary>
-    public static IServiceCollection AddCatgaQuartzScheduler(
-        this IServiceCollection services,
+    /// <example>
+    /// <code>
+    /// services.AddCatga()
+    ///     .UseQuartzScheduling();
+    /// </code>
+    /// </example>
+    public static CatgaServiceBuilder UseQuartzScheduling(
+        this CatgaServiceBuilder builder,
         Action<QuartzFlowOptions>? configure = null)
     {
         var options = new QuartzFlowOptions();
         configure?.Invoke(options);
 
         // Add Quartz with default configuration if not already added
-        services.AddQuartz(q =>
+        builder.Services.AddQuartz(q =>
         {
             q.UseMicrosoftDependencyInjectionJobFactory();
 
@@ -34,30 +41,36 @@ public static class QuartzFlowExtensions
         // Add Quartz hosted service if configured
         if (options.UseHostedService)
         {
-            services.AddQuartzHostedService(q =>
+            builder.Services.AddQuartzHostedService(q =>
             {
                 q.WaitForJobsToComplete = options.WaitForJobsToComplete;
             });
         }
 
         // Register IFlowScheduler
-        services.AddSingleton<IFlowScheduler, QuartzFlowScheduler>();
+        builder.Services.AddSingleton<IFlowScheduler, QuartzFlowScheduler>();
 
-        return services;
+        return builder;
     }
 
     /// <summary>
     /// Adds Quartz.NET-based flow scheduling with custom Quartz configuration.
     /// </summary>
-    public static IServiceCollection AddCatgaQuartzScheduler(
-        this IServiceCollection services,
+    /// <example>
+    /// <code>
+    /// services.AddCatga()
+    ///     .UseQuartzScheduling(q => q.UsePersistentStore(...));
+    /// </code>
+    /// </example>
+    public static CatgaServiceBuilder UseQuartzScheduling(
+        this CatgaServiceBuilder builder,
         Action<IServiceCollectionQuartzConfigurator> configureQuartz,
         Action<QuartzFlowOptions>? configureOptions = null)
     {
         var options = new QuartzFlowOptions();
         configureOptions?.Invoke(options);
 
-        services.AddQuartz(q =>
+        builder.Services.AddQuartz(q =>
         {
             q.UseMicrosoftDependencyInjectionJobFactory();
 
@@ -72,15 +85,15 @@ public static class QuartzFlowExtensions
 
         if (options.UseHostedService)
         {
-            services.AddQuartzHostedService(q =>
+            builder.Services.AddQuartzHostedService(q =>
             {
                 q.WaitForJobsToComplete = options.WaitForJobsToComplete;
             });
         }
 
-        services.AddSingleton<IFlowScheduler, QuartzFlowScheduler>();
+        builder.Services.AddSingleton<IFlowScheduler, QuartzFlowScheduler>();
 
-        return services;
+        return builder;
     }
 }
 

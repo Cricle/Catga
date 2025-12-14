@@ -52,7 +52,14 @@ public static class DslFlowServiceExtensions
         where TConfig : FlowConfig<TState>, new()
     {
         services.TryAddSingleton<TConfig>();
-        services.TryAddScoped<IFlow<TState>, DslFlowExecutor<TState, TConfig>>();
+        services.TryAddScoped<IFlow<TState>>(sp =>
+        {
+            var mediator = sp.GetRequiredService<ICatgaMediator>();
+            var store = sp.GetRequiredService<IDslFlowStore>();
+            var config = sp.GetRequiredService<TConfig>();
+            var scheduler = sp.GetService<IFlowScheduler>(); // Optional
+            return new DslFlowExecutor<TState, TConfig>(mediator, store, config, scheduler);
+        });
         return services;
     }
 
@@ -66,7 +73,23 @@ public static class DslFlowServiceExtensions
         where TConfig : FlowConfig<TState>
     {
         services.TryAddSingleton(configFactory);
-        services.TryAddScoped<IFlow<TState>, DslFlowExecutor<TState, TConfig>>();
+        services.TryAddScoped<IFlow<TState>>(sp =>
+        {
+            var mediator = sp.GetRequiredService<ICatgaMediator>();
+            var store = sp.GetRequiredService<IDslFlowStore>();
+            var config = sp.GetRequiredService<TConfig>();
+            var scheduler = sp.GetService<IFlowScheduler>(); // Optional
+            return new DslFlowExecutor<TState, TConfig>(mediator, store, config, scheduler);
+        });
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the default flow resume handler for scheduled flow resumption.
+    /// </summary>
+    public static IServiceCollection AddFlowResumeHandler(this IServiceCollection services)
+    {
+        services.TryAddSingleton<IFlowResumeHandler, DefaultFlowResumeHandler>();
         return services;
     }
 }

@@ -29,7 +29,7 @@ public static class DslFlowTelemetry
 /// <summary>
 /// Executes flows defined by FlowConfig DSL.
 /// </summary>
-public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState, TConfig> : IFlow<TState>
+public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState, TConfig> : IFlow<TState>
     where TState : class, IFlowState, new()
     where TConfig : FlowConfig<TState>
 {
@@ -161,17 +161,10 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             if (failedChild != null)
             {
                 // Execute compensation if configured
-                if (step.HasCompensation && step.CompensationFactory != null)
+                if (step.HasCompensation && step.CreateCompensation != null)
                 {
-                    try
-                    {
-                        var compensation = step.CompensationFactory.DynamicInvoke(state);
-                        if (compensation is IRequest request)
-                        {
-                            await _mediator.SendAsync(request, cancellationToken);
-                        }
-                    }
-                    catch { }
+                    var request = step.CreateCompensation(state);
+                    await _mediator.SendAsync(request, cancellationToken);
                 }
 
                 await UpdateSnapshotAsync(snapshot, state, snapshot.Position, DslFlowStatus.Failed, failedChild.Error, cancellationToken);
@@ -184,9 +177,9 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             if (successChild != null)
             {
                 // Store result if configured
-                if (step.ResultSetter != null && successChild.Result != null)
+                if (step.SetResult != null && successChild.Result != null)
                 {
-                    step.ResultSetter.DynamicInvoke(state, successChild.Result);
+                    step.SetResult(state, successChild.Result);
                 }
             }
             else if (waitCondition.CompletedCount >= waitCondition.ExpectedCount)
@@ -272,20 +265,10 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             if (!result.Success)
             {
                 // Execute compensation for the failed step if it has one
-                if (step.HasCompensation && step.CompensationFactory != null)
+                if (step.HasCompensation && step.CreateCompensation != null)
                 {
-                    try
-                    {
-                        var compensation = step.CompensationFactory.DynamicInvoke(state);
-                        if (compensation is IRequest request)
-                        {
-                            await _mediator.SendAsync(request, cancellationToken);
-                        }
-                    }
-                    catch
-                    {
-                        // Compensation failure is logged but doesn't change the flow result
-                    }
+                    var request = step.CreateCompensation(state);
+                    await _mediator.SendAsync(request, cancellationToken);
                 }
 
                 // Execute compensations for previously successful steps in reverse order
@@ -372,11 +355,11 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         int stepIndex,
         CancellationToken cancellationToken)
     {
-        if (step.RequestFactory == null)
+        if (step.CreateRequest == null)
             return StepResult.Failed("No request factory configured");
 
-        // Create the request
-        var request = step.RequestFactory.DynamicInvoke(state);
+        // Create the request using typed wrapper
+        var request = step.CreateRequest(state);
         if (request == null)
             return StepResult.Failed("Request factory returned null");
 
@@ -422,9 +405,9 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
                         }
 
                         // Check FailIf condition on result
-                        if (step.HasFailCondition && step.FailConditionFactory != null && resultValue != null)
+                        if (step.HasFailCondition && step.EvaluateFailCondition != null && resultValue != null)
                         {
-                            var shouldFail = (bool)(step.FailConditionFactory.DynamicInvoke(resultValue) ?? false);
+                            var shouldFail = step.EvaluateFailCondition(state, resultValue);
                             if (shouldFail)
                             {
                                 return StepResult.Failed(step.FailConditionMessage ?? "FailIf condition met");
@@ -432,9 +415,9 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
                         }
 
                         // Set result on state
-                        if (step.ResultSetter != null && resultValue != null)
+                        if (step.SetResult != null && resultValue != null)
                         {
-                            step.ResultSetter.DynamicInvoke(state, resultValue);
+                            step.SetResult(state, resultValue);
                         }
                     }
                 }
@@ -477,10 +460,10 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         int stepIndex,
         CancellationToken cancellationToken)
     {
-        if (step.RequestFactory == null)
+        if (step.CreateRequest == null)
             return StepResult.Failed("No event factory configured");
 
-        var @event = step.RequestFactory.DynamicInvoke(state) as IEvent;
+        var @event = step.CreateRequest(state) as IEvent;
         if (@event == null)
             return StepResult.Failed("Event factory returned null");
 
@@ -499,11 +482,11 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             return StepResult.Failed("No child requests configured for WhenAll");
 
         var childFlowIds = new List<string>();
-        foreach (var factory in step.ChildRequestFactories)
+        if (step.CreateChildRequests != null)
         {
-            var request = factory.DynamicInvoke(state);
-            if (request is IRequest req)
+            foreach (var factory in step.CreateChildRequests)
             {
+                var req = factory(state);
                 await _mediator.SendAsync(req, cancellationToken);
                 childFlowIds.Add(Guid.NewGuid().ToString("N")); // In real impl, get from request
             }
@@ -542,11 +525,11 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             return StepResult.Failed("No child requests configured for WhenAny");
 
         var childFlowIds = new List<string>();
-        foreach (var factory in step.ChildRequestFactories)
+        if (step.CreateChildRequests != null)
         {
-            var request = factory.DynamicInvoke(state);
-            if (request is IRequest req)
+            foreach (var factory in step.CreateChildRequests)
             {
+                var req = factory(state);
                 await _mediator.SendAsync(req, cancellationToken);
                 childFlowIds.Add(Guid.NewGuid().ToString("N"));
             }
@@ -585,30 +568,23 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
             if (executed.Step.CompensationFactory == null)
                 continue;
 
-            try
+            if (executed.Step.CreateCompensation != null)
             {
-                var compensation = executed.Step.CompensationFactory.DynamicInvoke(state);
-                if (compensation is IRequest request)
-                {
-                    await _mediator.SendAsync(request, cancellationToken);
-                    DslFlowTelemetry.CompensationsExecuted.Add(1,
-                        new KeyValuePair<string, object?>("flow.name", flowName),
-                        new KeyValuePair<string, object?>("step.index", executed.Index));
-                }
-            }
-            catch
-            {
-                // Compensation failures are logged but don't stop other compensations
+                var request = executed.Step.CreateCompensation(state);
+                await _mediator.SendAsync(request, cancellationToken);
+                DslFlowTelemetry.CompensationsExecuted.Add(1,
+                    new KeyValuePair<string, object?>("flow.name", flowName),
+                    new KeyValuePair<string, object?>("step.index", executed.Index));
             }
         }
     }
 
     private bool EvaluateCondition(TState state, FlowStep step, int stepIndex)
     {
-        if (step.ConditionFactory == null)
+        if (step.EvaluateCondition == null)
             return true;
 
-        return (bool)(step.ConditionFactory.DynamicInvoke(state) ?? true);
+        return step.EvaluateCondition(state);
     }
 
     private bool ShouldPersistAfterStep(FlowStep step)
@@ -619,150 +595,6 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
                 return true;
         }
         return false;
-    }
-
-    private async Task<StepResult> ExecuteIfAsync(
-        TState state,
-        FlowStep step,
-        int stepIndex,
-        CancellationToken cancellationToken)
-    {
-        // Evaluate the If condition
-        if (step.BranchCondition == null)
-            return StepResult.Failed("If step has no condition");
-
-        var condition = (Func<TState, bool>)step.BranchCondition;
-        var conditionResult = condition(state);
-
-        // Select the appropriate branch and branch index
-        List<FlowStep>? branchToExecute = null;
-        int branchIndex = 0; // 0 = Then, 1+ = ElseIf, -1 = Else
-
-        if (conditionResult)
-        {
-            branchToExecute = step.ThenBranch;
-            branchIndex = 0;
-        }
-        else if (step.ElseIfBranches != null)
-        {
-            // Check ElseIf branches
-            int elseIfIndex = 1;
-            foreach (var (elseIfCondition, elseIfBranch)in step.ElseIfBranches)
-            {
-                var elseIfFunc = (Func<TState, bool>)elseIfCondition;
-                if (elseIfFunc(state))
-                {
-                    branchToExecute = elseIfBranch;
-                    branchIndex = elseIfIndex;
-                    break;
-                }
-                elseIfIndex++;
-            }
-        }
-
-        // Fall through to Else if no condition matched
-        if (branchToExecute == null && step.ElseBranch != null)
-        {
-            branchToExecute = step.ElseBranch;
-            branchIndex = -1;
-        }
-
-        // Execute the selected branch with position tracking
-        if (branchToExecute != null && branchToExecute.Count > 0)
-        {
-            var branchPosition = new FlowPosition([stepIndex, branchIndex]);
-            var result = await ExecuteBranchStepsAsync(state, branchToExecute, branchPosition, cancellationToken);
-            if (!result.Success)
-                return result;
-        }
-
-        return StepResult.Succeeded();
-    }
-
-    private async Task<StepResult> ExecuteSwitchAsync(
-        TState state,
-        FlowStep step,
-        int stepIndex,
-        CancellationToken cancellationToken)
-    {
-        // Evaluate the Switch selector
-        if (step.SwitchSelector == null)
-            return StepResult.Failed("Switch step has no selector");
-
-        var selectorValue = step.SwitchSelector.DynamicInvoke(state);
-
-        // Find matching case and case index
-        List<FlowStep>? branchToExecute = null;
-        int caseIndex = -1; // -1 = Default
-
-        if (step.Cases != null && selectorValue != null)
-        {
-            int idx = 0;
-            foreach (var (caseValue, caseBranch) in step.Cases)
-            {
-                if (Equals(caseValue, selectorValue))
-                {
-                    branchToExecute = caseBranch;
-                    caseIndex = idx;
-                    break;
-                }
-                idx++;
-            }
-        }
-
-        // Fall through to Default if no case matched
-        if (branchToExecute == null && step.DefaultBranch != null)
-        {
-            branchToExecute = step.DefaultBranch;
-            caseIndex = -1;
-        }
-
-        // Execute the selected branch with position tracking
-        if (branchToExecute != null && branchToExecute.Count > 0)
-        {
-            var branchPosition = new FlowPosition([stepIndex, caseIndex]);
-            var result = await ExecuteBranchStepsAsync(state, branchToExecute, branchPosition, cancellationToken);
-            if (!result.Success)
-                return result;
-        }
-
-        return StepResult.Succeeded();
-    }
-
-    private async Task<StepResult> ExecuteBranchStepsAsync(
-        TState state,
-        List<FlowStep> steps,
-        FlowPosition parentPosition,
-        CancellationToken cancellationToken)
-    {
-        for (int i = 0; i < steps.Count; i++)
-        {
-            var branchStep = steps[i];
-            // Create nested position: parent path + current step index
-            var nestedPosition = parentPosition.EnterBranch(i);
-            var result = await ExecuteStepAsync(state, branchStep, i, cancellationToken);
-
-            if (result.IsSuspended)
-                return result;
-
-            if (!result.Success && !result.Skipped)
-                return result;
-
-            // Apply result to state if step has result setter
-            if (result.Success && result.Result != null && branchStep.ResultSetter != null)
-            {
-                try
-                {
-                    branchStep.ResultSetter.DynamicInvoke(state, result.Result);
-                }
-                catch
-                {
-                    // Ignore setter errors
-                }
-            }
-        }
-
-        return StepResult.Succeeded();
     }
 
     private async Task UpdateSnapshotAsync(
@@ -896,252 +728,6 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         return null;
     }
 
-    private async Task<StepResult> ExecuteForEachAsync(
-        TState state,
-        FlowStep step,
-        int stepIndex,
-        CancellationToken cancellationToken)
-    {
-        if (step.CollectionSelector == null)
-            return StepResult.Failed("No collection selector configured for ForEach");
-
-        try
-        {
-            // Get the collection to iterate over
-            var collection = step.CollectionSelector.DynamicInvoke(state);
-            if (collection == null)
-                return StepResult.Succeeded(); // Empty collection, nothing to process
-
-            // Convert to enumerable
-            if (collection is not System.Collections.IEnumerable enumerable)
-                return StepResult.Failed("Collection selector did not return an enumerable");
-
-            // Check if streaming is enabled for memory optimization
-            if (step.StreamingEnabled)
-            {
-                // Stream processing - don't materialize the entire collection
-                return await ProcessItemsStreaming(state, step, enumerable, cancellationToken);
-            }
-
-            var items = enumerable.Cast<object>().ToList();
-            if (items.Count == 0)
-            {
-                // Execute OnComplete callback even for empty collections
-                if (step.OnComplete != null)
-                {
-                    try
-                    {
-                        step.OnComplete.DynamicInvoke(state);
-                    }
-                    catch
-                    {
-                        // Ignore callback errors
-                    }
-                }
-                return StepResult.Succeeded(); // Empty collection
-            }
-
-            // Determine parallelism
-            var maxDegreeOfParallelism = step.MaxDegreeOfParallelism ?? 1;
-
-            if (maxDegreeOfParallelism <= 1)
-            {
-                // Sequential processing
-                return await ProcessItemsSequentially(state, step, items, cancellationToken);
-            }
-            else
-            {
-                // Parallel processing
-                return await ProcessItemsInParallel(state, step, items, maxDegreeOfParallelism, cancellationToken);
-            }
-        }
-        catch (Exception ex)
-        {
-            return StepResult.Failed($"ForEach execution failed: {ex.Message}");
-        }
-    }
-
-    private async Task<StepResult> ProcessItemsSequentially(
-        TState state,
-        FlowStep step,
-        List<object> items,
-        CancellationToken cancellationToken)
-    {
-        // Process each item sequentially
-        foreach (var (item, index) in items.Select((item, index) => (item, index)))
-        {
-            var result = await ProcessSingleItemAsync(state, step, item, index, cancellationToken);
-            if (!result.Success && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
-            {
-                return result;
-            }
-        }
-
-        // Execute OnComplete callback if present
-        if (step.OnComplete != null)
-        {
-            try
-            {
-                step.OnComplete.DynamicInvoke(state);
-            }
-            catch
-            {
-                // Ignore callback errors
-            }
-        }
-
-        return StepResult.Succeeded();
-    }
-
-    private async Task<StepResult> ProcessItemsInParallel(
-        TState state,
-        FlowStep step,
-        List<object> items,
-        int maxDegreeOfParallelism,
-        CancellationToken cancellationToken)
-    {
-        using var semaphore = new SemaphoreSlim(maxDegreeOfParallelism, maxDegreeOfParallelism);
-        var tasks = new List<Task<StepResult>>();
-
-        // Create tasks for parallel processing
-        foreach (var (item, index) in items.Select((item, index) => (item, index)))
-        {
-            var task = ProcessSingleItemWithSemaphoreAsync(semaphore, state, step, item, index, cancellationToken);
-            tasks.Add(task);
-        }
-
-        // Wait for all tasks to complete
-        var results = await Task.WhenAll(tasks);
-
-        // Check for failures
-        var failures = results.Where(r => !r.Success).ToList();
-        if (failures.Any() && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
-        {
-            return failures.First();
-        }
-
-        // Execute OnComplete callback if present
-        if (step.OnComplete != null)
-        {
-            try
-            {
-                step.OnComplete.DynamicInvoke(state);
-            }
-            catch
-            {
-                // Ignore callback errors
-            }
-        }
-
-        return StepResult.Succeeded();
-    }
-
-    private async Task<StepResult> ProcessSingleItemWithSemaphoreAsync(
-        SemaphoreSlim semaphore,
-        TState state,
-        FlowStep step,
-        object item,
-        int index,
-        CancellationToken cancellationToken)
-    {
-        await semaphore.WaitAsync(cancellationToken);
-        try
-        {
-            return await ProcessSingleItemAsync(state, step, item, index, cancellationToken);
-        }
-        finally
-        {
-            semaphore.Release();
-        }
-    }
-
-    private async Task<StepResult> ProcessSingleItemAsync(
-        TState state,
-        FlowStep step,
-        object item,
-        int index,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            // Execute ItemStepsConfigurator if available
-            if (step.ItemStepsConfigurator != null)
-            {
-                // Create a temporary flow builder to capture configured steps
-                var tempBuilder = new FlowBuilder<TState>();
-                step.ItemStepsConfigurator.DynamicInvoke(item, tempBuilder);
-
-                // Execute the configured steps
-                foreach (var configuredStep in tempBuilder.Steps)
-                {
-                    var stepResult = await ExecuteStepAsync(state, configuredStep, index, cancellationToken);
-                    if (!stepResult.Success)
-                    {
-                        // Handle failure
-                        if (step.OnItemFail != null)
-                        {
-                            try
-                            {
-                                step.OnItemFail.DynamicInvoke(state, item, stepResult.Error);
-                            }
-                            catch
-                            {
-                                // Ignore callback errors
-                            }
-                        }
-                        return StepResult.Failed($"ForEach failed on item {index}: {stepResult.Error}");
-                    }
-
-                    // Apply result to state if step has result setter (from .Into())
-                    if (stepResult.Success && stepResult.Result != null && configuredStep.ResultSetter != null)
-                    {
-                        try
-                        {
-                            configuredStep.ResultSetter.DynamicInvoke(state, stepResult.Result);
-                        }
-                        catch (Exception)
-                        {
-                            // Log the error but continue processing
-                            // In production, this should use proper logging
-                        }
-                    }
-
-                    // Apply result using OnItemSuccess callback if available
-                    if (stepResult.Success && step.OnItemSuccess != null)
-                    {
-                        try
-                        {
-                            step.OnItemSuccess.DynamicInvoke(state, item, stepResult.Result);
-                        }
-                        catch
-                        {
-                            // Ignore callback errors
-                        }
-                    }
-                }
-            }
-
-            return StepResult.Succeeded();
-        }
-        catch (Exception ex)
-        {
-            // Handle item processing failure
-            if (step.OnItemFail != null)
-            {
-                try
-                {
-                    step.OnItemFail.DynamicInvoke(state, item, ex.Message);
-                }
-                catch
-                {
-                    // Ignore callback errors
-                }
-            }
-
-            return StepResult.Failed($"ForEach failed on item {index}: {ex.Message}");
-        }
-    }
-
     private async Task<DslFlowResult<TState>> ResumeFromBranchPositionAsync(
         FlowSnapshot<TState> snapshot,
         CancellationToken cancellationToken)
@@ -1179,284 +765,12 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         int stepIndex,
         CancellationToken cancellationToken)
     {
-        // Handle different step types for resumption
         return step.Type switch
         {
             StepType.ForEach => await ResumeForEachAsync(state, step, position, stepIndex, cancellationToken),
             StepType.If or StepType.Switch => await ExecuteStepAsync(state, step, stepIndex, cancellationToken),
             _ => await ExecuteStepAsync(state, step, stepIndex, cancellationToken)
         };
-    }
-
-    private async Task<StepResult> ResumeForEachAsync(
-        TState state,
-        FlowStep step,
-        FlowPosition position,
-        int stepIndex,
-        CancellationToken cancellationToken)
-    {
-        if (step.CollectionSelector == null)
-            return StepResult.Failed("No collection selector configured for ForEach");
-
-        try
-        {
-            // Get the collection to iterate over
-            var collection = step.CollectionSelector.DynamicInvoke(state);
-            if (collection == null)
-                return StepResult.Succeeded(); // Empty collection, nothing to process
-
-            // Convert to enumerable
-            if (collection is not System.Collections.IEnumerable enumerable)
-                return StepResult.Failed("Collection selector did not return an enumerable");
-
-            var items = enumerable.Cast<object>().ToList();
-            if (items.Count == 0)
-                return StepResult.Succeeded(); // Empty collection
-
-            // Get ForEach progress to determine where to resume
-            var flowId = state.FlowId ?? throw new InvalidOperationException("FlowId is required for ForEach recovery");
-            var progress = await _store.GetForEachProgressAsync(flowId, stepIndex, cancellationToken);
-            if (progress == null)
-            {
-                // No progress found, start from the beginning
-                return await ExecuteForEachAsync(state, step, stepIndex, cancellationToken);
-            }
-
-            // Resume from the current index in the progress
-            var startIndex = progress.CurrentIndex;
-            if (startIndex >= items.Count)
-            {
-                // All items already processed
-                if (step.OnComplete != null)
-                {
-                    try
-                    {
-                        step.OnComplete.DynamicInvoke(state);
-                    }
-                    catch
-                    {
-                        // Ignore callback errors
-                    }
-                }
-                return StepResult.Succeeded();
-            }
-
-            // Process remaining items
-            var remainingItems = items.Skip(startIndex).ToList();
-            var maxDegreeOfParallelism = step.MaxDegreeOfParallelism ?? 1;
-
-            if (maxDegreeOfParallelism <= 1)
-            {
-                // Sequential processing from resume point
-                return await ProcessItemsSequentiallyFromIndex(state, step, items, startIndex, cancellationToken);
-            }
-            else
-            {
-                // Parallel processing from resume point
-                return await ProcessItemsInParallelFromIndex(state, step, items, startIndex, maxDegreeOfParallelism, cancellationToken);
-            }
-        }
-        catch (Exception ex)
-        {
-            return StepResult.Failed($"ForEach failed: {ex.Message}");
-        }
-    }
-
-    private async Task<StepResult> ProcessItemsSequentiallyFromIndex(
-        TState state,
-        FlowStep step,
-        List<object> items,
-        int startIndex,
-        CancellationToken cancellationToken)
-    {
-        // Process each item sequentially starting from the specified index
-        for (int i = startIndex; i < items.Count; i++)
-        {
-            var item = items[i];
-            var result = await ProcessSingleItemAsync(state, step, item, i, cancellationToken);
-            if (!result.Success && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
-            {
-                return result;
-            }
-        }
-
-        // Execute OnComplete callback if present
-        if (step.OnComplete != null)
-        {
-            try
-            {
-                step.OnComplete.DynamicInvoke(state);
-            }
-            catch
-            {
-                // Ignore callback errors
-            }
-        }
-
-        return StepResult.Succeeded();
-    }
-
-    private async Task<StepResult> ProcessItemsInParallelFromIndex(
-        TState state,
-        FlowStep step,
-        List<object> items,
-        int startIndex,
-        int maxDegreeOfParallelism,
-        CancellationToken cancellationToken)
-    {
-        // Process remaining items in parallel
-        var remainingItems = items.Skip(startIndex).ToList();
-        using var semaphore = new SemaphoreSlim(maxDegreeOfParallelism, maxDegreeOfParallelism);
-        var tasks = new List<Task<StepResult>>();
-
-        try
-        {
-            foreach (var (item, relativeIndex) in remainingItems.Select((item, index) => (item, index)))
-            {
-                var actualIndex = startIndex + relativeIndex;
-                tasks.Add(ProcessItemWithSemaphore(state, step, item, actualIndex, semaphore, cancellationToken));
-            }
-
-            var results = await Task.WhenAll(tasks);
-
-            // Check for failures
-            var firstFailure = results.FirstOrDefault(r => !r.Success);
-            if (firstFailure.Success == false && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
-            {
-                return firstFailure;
-            }
-
-            // Execute OnComplete callback if present
-            if (step.OnComplete != null)
-            {
-                try
-                {
-                    step.OnComplete.DynamicInvoke(state);
-                }
-                catch
-                {
-                    // Ignore callback errors
-                }
-            }
-
-            return StepResult.Succeeded();
-        }
-        catch (Exception ex)
-        {
-            return StepResult.Failed($"Parallel processing failed: {ex.Message}");
-        }
-    }
-
-    private async Task<StepResult> ProcessItemsStreaming(
-        TState state,
-        FlowStep step,
-        System.Collections.IEnumerable enumerable,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var batchSize = step.BatchSize;
-            var index = 0;
-            var batch = new List<object>(batchSize);
-
-            // Process items in small batches to control memory usage
-            foreach (var item in enumerable)
-            {
-                batch.Add(item);
-
-                // Process batch when it's full
-                if (batch.Count >= batchSize)
-                {
-                    var result = await ProcessBatch(state, step, batch, index - batch.Count + 1, cancellationToken);
-                    if (!result.Success && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
-                    {
-                        return result;
-                    }
-
-                    // Clear batch to free memory
-                    batch.Clear();
-
-                    // Force garbage collection periodically for large streams
-                    if (index % (batchSize * 10) == 0)
-                    {
-                        GC.Collect(0, GCCollectionMode.Optimized);
-                    }
-                }
-
-                index++;
-            }
-
-            // Process remaining items in the final batch
-            if (batch.Count > 0)
-            {
-                var result = await ProcessBatch(state, step, batch, index - batch.Count, cancellationToken);
-                if (!result.Success && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
-                {
-                    return result;
-                }
-            }
-
-            // Execute OnComplete callback if present
-            if (step.OnComplete != null)
-            {
-                try
-                {
-                    step.OnComplete.DynamicInvoke(state);
-                }
-                catch
-                {
-                    // Ignore callback errors
-                }
-            }
-
-            return StepResult.Succeeded();
-        }
-        catch (Exception ex)
-        {
-            return StepResult.Failed($"Streaming ForEach failed: {ex.Message}");
-        }
-    }
-
-    private async Task<StepResult> ProcessBatch(
-        TState state,
-        FlowStep step,
-        List<object> batch,
-        int startIndex,
-        CancellationToken cancellationToken)
-    {
-        // Process each item in the batch sequentially
-        for (int i = 0; i < batch.Count; i++)
-        {
-            var item = batch[i];
-            var itemIndex = startIndex + i;
-            var result = await ProcessSingleItemAsync(state, step, item, itemIndex, cancellationToken);
-
-            if (!result.Success && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
-            {
-                return result;
-            }
-        }
-
-        return StepResult.Succeeded();
-    }
-
-    private async Task<StepResult> ProcessItemWithSemaphore(
-        TState state,
-        FlowStep step,
-        object item,
-        int index,
-        SemaphoreSlim semaphore,
-        CancellationToken cancellationToken)
-    {
-        await semaphore.WaitAsync(cancellationToken);
-        try
-        {
-            return await ProcessSingleItemAsync(state, step, item, index, cancellationToken);
-        }
-        finally
-        {
-            semaphore.Release();
-        }
     }
 
     private record struct ExecutedStep(int Index, FlowStep Step);
@@ -1483,4 +797,30 @@ public class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
         public static StepResult Skip() => new(true, true, false, null, null);
         public static StepResult Suspended() => new(true, false, true, null, null);
     }
+}
+
+/// <summary>
+/// Result of a flow step execution.
+/// </summary>
+public readonly struct StepResult
+{
+    public bool Success { get; }
+    public bool Skipped { get; }
+    public string? Error { get; }
+    public object? Result { get; }
+    public bool IsSuspended { get; }
+
+    private StepResult(bool success, bool skipped, bool suspended, string? error, object? result)
+    {
+        Success = success;
+        Skipped = skipped;
+        IsSuspended = suspended;
+        Error = error;
+        Result = result;
+    }
+
+    public static StepResult Succeeded(object? result = null) => new(true, false, false, null, result);
+    public static StepResult Failed(string error) => new(false, false, false, error, null);
+    public static StepResult Skip() => new(true, true, false, null, null);
+    public static StepResult Suspended() => new(true, false, true, null, null);
 }

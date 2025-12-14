@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -19,7 +20,7 @@ public interface IStoreRegistration
 /// <summary>
 /// Base class for store registrations (DRY principle).
 /// </summary>
-public abstract class StoreRegistrationBase<TInterface, TImplementation> : IStoreRegistration
+public abstract class StoreRegistrationBase<TInterface, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TImplementation> : IStoreRegistration
     where TInterface : class
     where TImplementation : class, TInterface
 {

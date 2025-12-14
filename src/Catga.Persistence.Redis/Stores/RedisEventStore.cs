@@ -77,7 +77,9 @@ public sealed partial class RedisEventStore : IEventStore
                 var typeFull = runtimeType.AssemblyQualifiedName ?? runtimeType.FullName!;
                 _registry.Register(typeFull, runtimeType);
 
+#pragma warning disable IL2072 // Type is dynamically resolved at runtime via registry
                 var data = _serializer.Serialize(@event, runtimeType);
+#pragma warning restore IL2072
                 var timestamp = DateTime.UtcNow.Ticks;
 
                 await db.StreamAddAsync(streamKey, [

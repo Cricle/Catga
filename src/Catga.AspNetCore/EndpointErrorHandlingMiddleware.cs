@@ -1,7 +1,7 @@
+using System.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using System.Net;
 
 namespace Catga.AspNetCore;
 
@@ -72,7 +72,9 @@ public class EndpointErrorHandlingMiddleware
                 break;
         }
 
+#pragma warning disable IL2026, IL3050 // AOT: ErrorResponse is a simple POCO with known properties
         return context.Response.WriteAsJsonAsync(response);
+#pragma warning restore IL2026, IL3050
     }
 }
 

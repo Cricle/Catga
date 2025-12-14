@@ -70,7 +70,9 @@ public sealed class FlowStateFormatter : MemoryPackFormatter<FlowState>
 /// </summary>
 file static class FlowStateFormatterInitializer
 {
+#pragma warning disable CA2255 // ModuleInitializer is intentionally used for formatter registration
     [System.Runtime.CompilerServices.ModuleInitializer]
+#pragma warning restore CA2255
     public static void Initialize()
     {
         MemoryPackFormatterProvider.Register(new FlowStateFormatter());

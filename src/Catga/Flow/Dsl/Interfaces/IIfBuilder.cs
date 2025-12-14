@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using Catga.Abstractions;
 
 namespace Catga.Flow.Dsl;
@@ -22,6 +21,5 @@ public interface IIfBuilder<TState> where TState : class, IFlowState
 /// <summary>If builder with result.</summary>
 public interface IIfBuilder<TState, TResult> where TState : class, IFlowState
 {
-    IIfBuilder<TState> Into(Expression<Func<TState, TResult>> property);
     IIfBuilder<TState> Into(Action<TState, TResult> setter);
 }

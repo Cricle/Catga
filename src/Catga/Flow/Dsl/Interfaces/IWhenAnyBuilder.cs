@@ -1,5 +1,3 @@
-using System.Linq.Expressions;
-
 namespace Catga.Flow.Dsl;
 
 /// <summary>
@@ -16,7 +14,7 @@ public interface IWhenAnyBuilder<TState> where TState : class, IFlowState
 /// </summary>
 public interface IWhenAnyBuilder<TState, TResult> where TState : class, IFlowState
 {
-    IStepBuilder<TState> Into(Expression<Func<TState, TResult>> property);
+    IStepBuilder<TState> Into(Action<TState, TResult> setter);
     IWhenAnyBuilder<TState, TResult> Timeout(TimeSpan timeout);
     IWhenAnyBuilder<TState, TResult> Tag(params string[] tags);
 }

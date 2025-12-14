@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using Catga.Abstractions;
 
 namespace Catga.Flow.Dsl;
@@ -26,7 +25,7 @@ public interface IStepBuilder<TState> where TState : class, IFlowState
 /// </summary>
 public interface IStepBuilder<TState, TResult> : IStepBuilder<TState> where TState : class, IFlowState
 {
-    IStepBuilder<TState> Into(Expression<Func<TState, TResult>> property);
+    IStepBuilder<TState> Into(Action<TState, TResult> setter);
     new IStepBuilder<TState, TResult> IfFail<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest;
     IStepBuilder<TState, TResult> FailIf(Func<TResult, bool> condition);
     IStepBuilder<TState, TResult> FailIf(Func<TResult, bool> condition, string errorMessage);

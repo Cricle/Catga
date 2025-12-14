@@ -99,6 +99,9 @@ public class FlowStep
     internal Func<object, IEvent>? CreateCompletedEvent { get; set; }
     internal Func<object, string?, IEvent>? CreateFailedEvent { get; set; }
 
+    // AOT-compatible request executor (no reflection)
+    internal Func<ICatgaMediator, object, CancellationToken, ValueTask<(bool Success, string? Error, object? Value)>>? ExecuteRequest { get; set; }
+
     // WhenAll/WhenAny specific
     internal List<Delegate>? ChildRequestFactories { get; set; }
     internal List<Func<object, IRequest>>? CreateChildRequests { get; set; }

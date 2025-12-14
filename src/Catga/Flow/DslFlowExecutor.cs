@@ -348,8 +348,7 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         }
     }
 
-    [RequiresDynamicCode("ExecuteSendAsync uses reflection to invoke generic methods")]
-    private async Task<StepResult> ExecuteSendAsync(
+        private async Task<StepResult> ExecuteSendAsync(
         TState state,
         FlowStep step,
         int stepIndex,
@@ -363,70 +362,41 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         if (request == null)
             return StepResult.Failed("Request factory returned null");
 
-        // Execute via mediator
-        CatgaResult result;
+        // Execute via mediator using pre-compiled delegate (no reflection, AOT-compatible)
         object? resultValue = null;
 
-        if (step.HasResult)
+        if (step.ExecuteRequest != null)
         {
-            // Use reflection to call the generic SendAsync<TRequest, TResult>
-            var requestType = request.GetType();
-            var resultType = requestType.GetInterfaces()
-                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IRequest<>))
-                ?.GetGenericArguments()[0];
+            var (isSuccess, error, value) = await step.ExecuteRequest(_mediator, request, cancellationToken);
+            resultValue = value;
 
-            if (resultType != null)
+            if (!isSuccess)
             {
-                // Find the SendAsync method with 2 generic parameters
-                var methods = typeof(ICatgaMediator).GetMethods()
-                    .Where(m => m.Name == nameof(ICatgaMediator.SendAsync) && m.IsGenericMethod && m.GetGenericArguments().Length == 2);
-                var method = methods.FirstOrDefault();
+                if (step.IsOptional)
+                    return StepResult.Skip();
+                return StepResult.Failed(error ?? "Request failed");
+            }
 
-                if (method != null)
+            // Check FailIf condition on result
+            if (step.HasFailCondition && step.EvaluateFailCondition != null && resultValue != null)
+            {
+                var shouldFail = step.EvaluateFailCondition(state, resultValue);
+                if (shouldFail)
                 {
-                    var genericMethod = method.MakeGenericMethod(requestType, resultType);
-                    var task = genericMethod.Invoke(_mediator, new[] { request, cancellationToken });
-
-                    if (task != null)
-                    {
-                        // Await the ValueTask
-                        await ((dynamic)task).ConfigureAwait(false);
-                        var catgaResult = ((dynamic)task).Result;
-
-                        bool isSuccess = catgaResult.IsSuccess;
-                        string? error = catgaResult.Error;
-                        resultValue = catgaResult.Value;
-
-                        if (!isSuccess)
-                        {
-                            if (step.IsOptional)
-                                return StepResult.Skip();
-                            return StepResult.Failed(error ?? "Request failed");
-                        }
-
-                        // Check FailIf condition on result
-                        if (step.HasFailCondition && step.EvaluateFailCondition != null && resultValue != null)
-                        {
-                            var shouldFail = step.EvaluateFailCondition(state, resultValue);
-                            if (shouldFail)
-                            {
-                                return StepResult.Failed(step.FailConditionMessage ?? "FailIf condition met");
-                            }
-                        }
-
-                        // Set result on state
-                        if (step.SetResult != null && resultValue != null)
-                        {
-                            step.SetResult(state, resultValue);
-                        }
-                    }
+                    return StepResult.Failed(step.FailConditionMessage ?? "FailIf condition met");
                 }
+            }
+
+            // Set result on state
+            if (step.SetResult != null && resultValue != null)
+            {
+                step.SetResult(state, resultValue);
             }
         }
         else
         {
-            // IRequest without result
-            result = await _mediator.SendAsync((IRequest)request, cancellationToken);
+            // Fallback for IRequest without ExecuteRequest delegate
+            var result = await _mediator.SendAsync((IRequest)request, cancellationToken);
             if (!result.IsSuccess)
             {
                 if (step.IsOptional)

@@ -1,4 +1,5 @@
 using Catga.Abstractions;
+using Catga.Core;
 using Microsoft.AspNetCore.Http;
 
 namespace Catga.AspNetCore;
@@ -80,8 +81,11 @@ public static class EndpointResultExtensions
     /// <summary>
     /// Map error message to appropriate HTTP status code.
     /// </summary>
-    private static IResult MapErrorToResult(string error)
+    private static IResult MapErrorToResult(string? error)
     {
+        if (string.IsNullOrEmpty(error))
+            return Results.BadRequest(new { error = "Unknown error" });
+
         return error switch
         {
             var e when e.Contains("NotFound", StringComparison.OrdinalIgnoreCase)
@@ -91,7 +95,7 @@ public static class EndpointResultExtensions
                 => Results.Conflict(new { error }),
 
             var e when e.Contains("Validation", StringComparison.OrdinalIgnoreCase)
-                => Results.ValidationProblem(new { error }),
+                => Results.ValidationProblem(new Dictionary<string, string[]> { ["error"] = [error] }),
 
             var e when e.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase)
                 => Results.Unauthorized(),

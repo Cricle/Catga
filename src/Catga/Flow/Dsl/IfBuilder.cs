@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using Catga.Abstractions;
 
 namespace Catga.Flow.Dsl;
@@ -99,34 +98,12 @@ internal class IfBuilder<TState> : IIfBuilder<TState> where TState : class, IFlo
 /// <summary>
 /// If builder with result for Send steps that return values.
 /// </summary>
-internal class IfBuilderWithResult<TState, TResult> : IIfBuilder<TState, TResult> where TState : class, IFlowState
+internal class IfBuilderWithResult<TState, TResult>(IfBuilder<TState> parent, FlowStep step) : IIfBuilder<TState, TResult>
+    where TState : class, IFlowState
 {
-    private readonly IfBuilder<TState> _parent;
-    private readonly FlowStep _step;
-
-    public IfBuilderWithResult(IfBuilder<TState> parent, FlowStep step)
-    {
-        _parent = parent;
-        _step = step;
-    }
-
-    public IIfBuilder<TState> Into(Expression<Func<TState, TResult>> property)
-    {
-        if (property.Body is MemberExpression member)
-        {
-            _step.ResultPropertyName = member.Member.Name;
-            var param = Expression.Parameter(typeof(TState), "s");
-            var value = Expression.Parameter(typeof(TResult), "v");
-            var memberAccess = Expression.MakeMemberAccess(param, member.Member);
-            var assign = Expression.Assign(memberAccess, value);
-            _step.ResultSetter = Expression.Lambda<Action<TState, TResult>>(assign, param, value).Compile();
-        }
-        return _parent;
-    }
-
     public IIfBuilder<TState> Into(Action<TState, TResult> setter)
     {
-        _step.ResultSetter = setter;
-        return _parent;
+        step.ResultSetter = setter;
+        return parent;
     }
 }

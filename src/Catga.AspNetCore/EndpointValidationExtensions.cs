@@ -1,4 +1,5 @@
 using Catga.Abstractions;
+using Catga.Core;
 using Microsoft.AspNetCore.Http;
 
 namespace Catga.AspNetCore;

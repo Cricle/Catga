@@ -33,7 +33,8 @@ public sealed class EndpointRegistrationGenerator : IIncrementalGenerator
 
             foreach (var group in grouped)
             {
-                var code = GeneratePartial(group.Key, group.Select(e => e!.Value).ToList());
+                var endpoints = group.Select(e => (e!.Value.methodName, e.Value.httpMethod, e.Value.route, e.Value.name, e.Value.description, e.Value.requestType, e.Value.requestParamName)).ToList();
+                var code = GeneratePartial(group.Key, endpoints);
                 spc.AddSource($"{group.Key}.Endpoints.g.cs", code);
             }
         });

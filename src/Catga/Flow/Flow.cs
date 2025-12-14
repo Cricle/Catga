@@ -160,7 +160,7 @@ public sealed class FlowExecutor
         finally
         {
             cts.Cancel();
-            try { await heartbeatTask; } catch { }
+            try { await heartbeatTask; } catch (Exception) { /* Heartbeat task cleanup - ignore */ }
         }
     }
 
@@ -175,7 +175,7 @@ public sealed class FlowExecutor
                 await _store.HeartbeatAsync(state.Id, _nodeId, state.Version, ct);
             }
             catch (OperationCanceledException) { break; }
-            catch { }
+            catch (Exception) { /* Heartbeat failed - continue loop */ }
         }
     }
 }
@@ -310,7 +310,7 @@ public sealed class Flow
         {
             var compensate = _steps[i].Compensate;
             if (compensate == null) continue;
-            try { await compensate(ct); } catch { }
+            try { await compensate(ct); } catch (Exception) { /* Compensation failed - continue with other compensations */ }
         }
     }
 
@@ -320,7 +320,7 @@ public sealed class Flow
         {
             var compensate = _steps[i].Compensate;
             if (compensate == null) continue;
-            try { await compensate(ct); } catch { }
+            try { await compensate(ct); } catch (Exception) { /* Compensation failed - continue with other compensations */ }
         }
     }
 }
@@ -390,13 +390,13 @@ public abstract class FlowRecoveryService : IDisposable
                                 state.Error = result.Error;
                                 await _store.UpdateAsync(state, CancellationToken.None);
                             }
-                            catch { }
+                            catch (Exception) { /* Flow resume failed - ignore */ }
                         }, ct);
                     }
                 }
             }
             catch (OperationCanceledException) { break; }
-            catch { }
+            catch (Exception) { /* Recovery scan failed - continue */ }
         }
     }
 

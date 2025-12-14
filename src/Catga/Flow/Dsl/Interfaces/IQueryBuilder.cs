@@ -1,5 +1,3 @@
-using System.Linq.Expressions;
-
 namespace Catga.Flow.Dsl;
 
 /// <summary>
@@ -7,6 +5,6 @@ namespace Catga.Flow.Dsl;
 /// </summary>
 public interface IQueryBuilder<TState, TResult> where TState : class, IFlowState
 {
-    IStepBuilder<TState> Into(Expression<Func<TState, TResult>> property);
+    IStepBuilder<TState> Into(Action<TState, TResult> setter);
     IQueryBuilder<TState, TResult> Tag(params string[] tags);
 }

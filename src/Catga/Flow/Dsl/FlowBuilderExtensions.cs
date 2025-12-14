@@ -1,4 +1,5 @@
 using Catga.Abstractions;
+using Catga.Core;
 
 namespace Catga.Flow.Dsl;
 
@@ -20,7 +21,12 @@ public static class FlowBuilderExtensions
         {
             Type = StepType.Send,
             RequestFactory = factory,
-            CreateRequest = state => factory((TState)state)
+            CreateRequest = state => factory((TState)state),
+            ExecuteRequest = async (mediator, request, ct) =>
+            {
+                var result = await mediator.SendAsync((TRequest)request, ct);
+                return (result.IsSuccess, result.Error, null);
+            }
         };
         flowBuilder.Steps.Add(step);
         return new StepBuilder<TState>(flowBuilder, step);
@@ -38,7 +44,13 @@ public static class FlowBuilderExtensions
             Type = StepType.Send,
             HasResult = true,
             RequestFactory = factory,
-            CreateRequest = state => factory((TState)state)
+            CreateRequest = state => factory((TState)state),
+            ExecuteRequest = async (mediator, request, ct) =>
+            {
+                var typedRequest = (IRequest<TResult>)request;
+                var result = await mediator.SendAsync<IRequest<TResult>, TResult>(typedRequest, ct);
+                return (result.IsSuccess, result.Error, result.Value);
+            }
         };
         flowBuilder.Steps.Add(step);
         return new StepBuilder<TState, TResult>(flowBuilder, step);
@@ -56,7 +68,13 @@ public static class FlowBuilderExtensions
             Type = StepType.Query,
             HasResult = true,
             RequestFactory = factory,
-            CreateRequest = state => factory((TState)state)
+            CreateRequest = state => factory((TState)state),
+            ExecuteRequest = async (mediator, request, ct) =>
+            {
+                var typedRequest = (IRequest<TResult>)request;
+                var result = await mediator.SendAsync<IRequest<TResult>, TResult>(typedRequest, ct);
+                return (result.IsSuccess, result.Error, result.Value);
+            }
         };
         flowBuilder.Steps.Add(step);
         return new QueryBuilder<TState, TResult>(step);

@@ -16,6 +16,9 @@ public interface IIfBuilder<TState> where TState : class, IFlowState
 
     IIfBuilder<TState> ElseIf(Func<TState, bool> condition);
     IIfBuilder<TState> Else();
+
+    IIfBuilder<TState> Delay(TimeSpan delay);
+    IIfBuilder<TState> ScheduleAt(Func<TState, DateTime> timeSelector);
 }
 
 /// <summary>If builder with result.</summary>

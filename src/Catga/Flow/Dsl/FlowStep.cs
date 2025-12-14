@@ -44,6 +44,10 @@ public class FlowStep<TState> where TState : class, IFlowState
     public Dictionary<object, List<FlowStep<TState>>>? Cases { get; set; }
     public List<FlowStep<TState>>? DefaultBranch { get; set; }
 
+    // Delay/ScheduleAt specific
+    public TimeSpan? DelayDuration { get; set; }
+    internal Func<TState, DateTime>? ScheduleTimeSelector { get; set; }
+
     // ForEach specific
     internal Func<TState, object>? CollectionSelector { get; set; }
     public List<FlowStep<TState>>? ItemSteps { get; set; }
@@ -120,6 +124,11 @@ public class FlowStep
     public Dictionary<object, List<FlowStep>>? Cases { get; set; }
     public List<FlowStep>? DefaultBranch { get; set; }
 
+    // Delay/ScheduleAt specific
+    public TimeSpan? DelayDuration { get; set; }
+    internal Delegate? ScheduleTimeSelector { get; set; }
+    internal Func<object, DateTime>? GetScheduleTime { get; set; }
+
     // ForEach specific
     internal Delegate? CollectionSelector { get; set; }
     internal Func<object, IEnumerable<object>>? GetCollection { get; set; }
@@ -154,5 +163,7 @@ public enum StepType
     WhenAny,
     If,
     Switch,
-    ForEach
+    ForEach,
+    Delay,
+    ScheduleAt
 }

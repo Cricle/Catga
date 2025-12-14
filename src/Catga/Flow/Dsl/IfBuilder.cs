@@ -93,6 +93,29 @@ internal class IfBuilder<TState> : IIfBuilder<TState> where TState : class, IFlo
         }
         return this;
     }
+
+    public IIfBuilder<TState> Delay(TimeSpan delay)
+    {
+        var step = new FlowStep
+        {
+            Type = StepType.Delay,
+            DelayDuration = delay
+        };
+        _currentBranch.Add(step);
+        return this;
+    }
+
+    public IIfBuilder<TState> ScheduleAt(Func<TState, DateTime> timeSelector)
+    {
+        var step = new FlowStep
+        {
+            Type = StepType.ScheduleAt,
+            ScheduleTimeSelector = timeSelector,
+            GetScheduleTime = state => timeSelector((TState)state)
+        };
+        _currentBranch.Add(step);
+        return this;
+    }
 }
 
 /// <summary>

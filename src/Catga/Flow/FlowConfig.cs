@@ -10,6 +10,9 @@ public abstract class FlowConfig<TState> where TState : class, IFlowState
     private readonly FlowBuilder<TState> _builder = new();
     private bool _built;
 
+    /// <summary>Unique flow identifier for scheduling and persistence.</summary>
+    public virtual string FlowId => GetType().FullName ?? GetType().Name;
+
     /// <summary>Flow name.</summary>
     public string Name => _builder.FlowName ?? GetType().Name;
 

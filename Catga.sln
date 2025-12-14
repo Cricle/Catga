@@ -51,6 +51,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catga.Cli", "tools\Catga.Cl
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catga.Dashboard", "tools\Catga.Dashboard\Catga.Dashboard.csproj", "{E98D9EDA-99EA-4B08-8AE9-BCF44F81B00C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catga.Scheduling.Quartz", "src\Catga.Scheduling.Quartz\Catga.Scheduling.Quartz.csproj", "{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -289,6 +291,18 @@ Global
 		{E98D9EDA-99EA-4B08-8AE9-BCF44F81B00C}.Release|x64.Build.0 = Release|Any CPU
 		{E98D9EDA-99EA-4B08-8AE9-BCF44F81B00C}.Release|x86.ActiveCfg = Release|Any CPU
 		{E98D9EDA-99EA-4B08-8AE9-BCF44F81B00C}.Release|x86.Build.0 = Release|Any CPU
+		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Debug|x64.Build.0 = Debug|Any CPU
+		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Debug|x86.Build.0 = Debug|Any CPU
+		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Release|x64.ActiveCfg = Release|Any CPU
+		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Release|x64.Build.0 = Release|Any CPU
+		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Release|x86.ActiveCfg = Release|Any CPU
+		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -312,6 +326,7 @@ Global
 		{6F544F99-B558-4909-BCBE-791FB9E11F56} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{C13D4E1C-C704-426B-B7A2-0E011ADB7A85} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 		{E98D9EDA-99EA-4B08-8AE9-BCF44F81B00C} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
+		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {FE4B4C78-FA31-44CA-83FA-52FC7FAFF911}

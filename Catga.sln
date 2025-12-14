@@ -53,6 +53,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catga.Dashboard", "tools\Ca
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catga.Scheduling.Quartz", "src\Catga.Scheduling.Quartz\Catga.Scheduling.Quartz.csproj", "{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catga.Scheduling.Hangfire", "src\Catga.Scheduling.Hangfire\Catga.Scheduling.Hangfire.csproj", "{1B54E535-DB9F-416D-B7F7-9A37A53E3381}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -303,6 +305,18 @@ Global
 		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Release|x64.Build.0 = Release|Any CPU
 		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Release|x86.ActiveCfg = Release|Any CPU
 		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C}.Release|x86.Build.0 = Release|Any CPU
+		{1B54E535-DB9F-416D-B7F7-9A37A53E3381}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1B54E535-DB9F-416D-B7F7-9A37A53E3381}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1B54E535-DB9F-416D-B7F7-9A37A53E3381}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1B54E535-DB9F-416D-B7F7-9A37A53E3381}.Debug|x64.Build.0 = Debug|Any CPU
+		{1B54E535-DB9F-416D-B7F7-9A37A53E3381}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{1B54E535-DB9F-416D-B7F7-9A37A53E3381}.Debug|x86.Build.0 = Debug|Any CPU
+		{1B54E535-DB9F-416D-B7F7-9A37A53E3381}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1B54E535-DB9F-416D-B7F7-9A37A53E3381}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1B54E535-DB9F-416D-B7F7-9A37A53E3381}.Release|x64.ActiveCfg = Release|Any CPU
+		{1B54E535-DB9F-416D-B7F7-9A37A53E3381}.Release|x64.Build.0 = Release|Any CPU
+		{1B54E535-DB9F-416D-B7F7-9A37A53E3381}.Release|x86.ActiveCfg = Release|Any CPU
+		{1B54E535-DB9F-416D-B7F7-9A37A53E3381}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -327,6 +341,7 @@ Global
 		{C13D4E1C-C704-426B-B7A2-0E011ADB7A85} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 		{E98D9EDA-99EA-4B08-8AE9-BCF44F81B00C} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 		{C916CF4C-AAD0-4D06-A8D0-21782A62DE1C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{1B54E535-DB9F-416D-B7F7-9A37A53E3381} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {FE4B4C78-FA31-44CA-83FA-52FC7FAFF911}

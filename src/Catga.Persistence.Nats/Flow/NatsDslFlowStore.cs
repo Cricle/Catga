@@ -1,6 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
+using Catga.Flow;
 using Catga.Flow.Dsl;
+using Catga.Persistence;
 using NATS.Client.Core;
 using NATS.Client.KeyValueStore;
 using NATS.Client.JetStream;
@@ -31,8 +33,8 @@ public sealed class NatsDslFlowStore : IDslFlowStore
         _waitBucket = $"{bucketName}_wait";
     }
 
-    private static string EncodeKey(string id) => id.Replace(":", "_C_").Replace("/", "_S_").Replace(".", "_D_");
-    private static string EncodeKey(string flowId, int stepIndex) => EncodeKey($"{flowId}:foreach:{stepIndex}");
+    private static string EncodeKey(string id) => PersistenceKeyHelper.EncodeNatsKey(id);
+    private static string EncodeKey(string flowId, int stepIndex) => PersistenceKeyHelper.EncodeNatsForEachKey(flowId, stepIndex);
 
     private async ValueTask EnsureInitializedAsync(CancellationToken ct)
     {
@@ -318,34 +320,4 @@ public sealed class NatsDslFlowStore : IDslFlowStore
         catch (NatsKVKeyNotFoundException) { /* already deleted */ }
     }
 
-    // Internal storage format
-    private record StoredSnapshot<TState>(
-        string FlowId,
-        TState State,
-        int[] PositionPath,
-        DslFlowStatus Status,
-        string? Error,
-        string? WaitConditionId,
-        DateTime CreatedAt,
-        DateTime UpdatedAt,
-        int Version) where TState : class, IFlowState
-    {
-        public StoredSnapshot(FlowSnapshot<TState> snapshot)
-            : this(snapshot.FlowId, snapshot.State, snapshot.Position.Path, snapshot.Status,
-                   snapshot.Error, snapshot.WaitCondition?.CorrelationId, snapshot.CreatedAt,
-                   snapshot.UpdatedAt, snapshot.Version)
-        { }
-
-        public FlowSnapshot<TState> ToSnapshot() => new()
-        {
-            FlowId = FlowId,
-            State = State,
-            Position = new FlowPosition(PositionPath),
-            Status = Status,
-            Error = Error,
-            CreatedAt = CreatedAt,
-            UpdatedAt = UpdatedAt,
-            Version = Version
-        };
-    }
 }

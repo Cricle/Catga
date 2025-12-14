@@ -1,7 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using Catga.Abstractions;
+using Catga.Flow;
 using Catga.Flow.Dsl;
+using Catga.Persistence;
 using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis.Flow;
@@ -193,34 +194,4 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         await db.KeyDeleteAsync(key);
     }
 
-    // Internal storage format
-    private record StoredSnapshot<TState>(
-        string FlowId,
-        TState State,
-        int[] PositionPath,
-        DslFlowStatus Status,
-        string? Error,
-        string? WaitConditionId,
-        DateTime CreatedAt,
-        DateTime UpdatedAt,
-        int Version) where TState : class, IFlowState
-    {
-        public StoredSnapshot(FlowSnapshot<TState> snapshot)
-            : this(snapshot.FlowId, snapshot.State, snapshot.Position.Path, snapshot.Status,
-                   snapshot.Error, snapshot.WaitCondition?.CorrelationId, snapshot.CreatedAt,
-                   snapshot.UpdatedAt, snapshot.Version)
-        { }
-
-        public FlowSnapshot<TState> ToSnapshot() => new()
-        {
-            FlowId = FlowId,
-            State = State,
-            Position = new FlowPosition(PositionPath),
-            Status = Status,
-            Error = Error,
-            CreatedAt = CreatedAt,
-            UpdatedAt = UpdatedAt,
-            Version = Version
-        };
-    }
 }

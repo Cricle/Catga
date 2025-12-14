@@ -266,9 +266,6 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
         throw new UnreachableException("This overload should not be called");
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Event types are registered at runtime via IEventTypeRegistry")]
-    private static Type GetRuntimeTypeForSerialization(object instance)
-        => instance.GetType();
 
     #region Time Travel API
 

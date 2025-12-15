@@ -1,0 +1,225 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Flow Execution Overview",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "title": "Active Flows",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "expr": "catga_flow_active",
+          "legendFormat": "Active"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Flows Started (Rate)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "targets": [
+        {
+          "expr": "rate(catga_flow_started_total[5m])",
+          "legendFormat": "Started/s"
+        }
+      ]
+    },
+    {
+      "title": "Flow Success Rate",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "targets": [
+        {
+          "expr": "rate(catga_flow_completed_total[5m]) / rate(catga_flow_started_total[5m]) * 100",
+          "legendFormat": "Success %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 90 },
+              { "color": "green", "value": 99 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Flow Duration P50/P95/P99",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(catga_flow_duration_bucket[5m]))",
+          "legendFormat": "P50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(catga_flow_duration_bucket[5m]))",
+          "legendFormat": "P95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(catga_flow_duration_bucket[5m]))",
+          "legendFormat": "P99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      }
+    },
+    {
+      "title": "Flow Errors",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 5 },
+      "targets": [
+        {
+          "expr": "increase(catga_flow_failed_total[1h])",
+          "legendFormat": "Errors (1h)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Step Execution",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 }
+    },
+    {
+      "title": "Steps by Type",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 10 },
+      "targets": [
+        {
+          "expr": "sum by (step_type) (increase(catga_flow_step_executed_total[1h]))",
+          "legendFormat": "{{step_type}}"
+        }
+      ]
+    },
+    {
+      "title": "Step Duration by Type",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 10 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (step_type, le) (rate(catga_flow_step_duration_bucket[5m])))",
+          "legendFormat": "{{step_type}} P95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      }
+    },
+    {
+      "title": "Step Success/Failure Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 10 },
+      "targets": [
+        {
+          "expr": "rate(catga_flow_step_succeeded_total[5m])",
+          "legendFormat": "Success"
+        },
+        {
+          "expr": "rate(catga_flow_step_failed_total[5m])",
+          "legendFormat": "Failed"
+        }
+      ]
+    },
+    {
+      "title": "Flow Details by Name",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 }
+    },
+    {
+      "title": "Top Flows by Execution Count",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 19 },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (flow_name) (increase(catga_flow_started_total[1h])))",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "title": "Slowest Flows (P95)",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 19 },
+      "targets": [
+        {
+          "expr": "topk(10, histogram_quantile(0.95, sum by (flow_name, le) (rate(catga_flow_duration_bucket[5m]))))",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["catga", "flow", "dsl"],
+  "templating": {
+    "list": [
+      {
+        "name": "flow_name",
+        "type": "query",
+        "query": "label_values(catga_flow_started_total, flow_name)",
+        "multi": true,
+        "includeAll": true
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Catga Flow DSL Dashboard",
+  "uid": "catga-flow-dsl",
+  "version": 1,
+  "weekStart": ""
+}

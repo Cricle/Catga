@@ -9,6 +9,7 @@ using Catga;
 using Catga.DependencyInjection;
 using Catga.EventSourcing;
 using Catga.Flow.Extensions;
+using Catga.Flow.HotReload;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using OrderSystem.Api.Configuration;
@@ -93,6 +94,12 @@ try
         options.MaxRetryAttempts = 3;
         options.StepTimeout = TimeSpan.FromMinutes(5);
     });
+
+    // Flow Hot Reload - Dynamic flow registration and versioning
+    builder.Services.AddFlowHotReload();
+
+    // Read Model Sync - CQRS read model synchronization
+    builder.Services.AddReadModelSync();
 
     // ==========================================================================
     // 4. Application Services
@@ -199,6 +206,9 @@ try
     app.MapOrderEndpoints();
     app.MapPaymentEndpoints();
     app.MapEventSourcingEndpoints();
+    app.MapObservabilityEndpoints();    // Metrics, Tracing, Logging demo
+    app.MapHotReloadEndpoints();         // Flow Hot Reload demo
+    app.MapReadModelSyncEndpoints();     // Read Model Sync demo
 
     // System Info endpoint
     app.MapGet("/api/system/info", () => new

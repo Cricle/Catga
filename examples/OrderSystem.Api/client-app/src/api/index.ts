@@ -73,5 +73,83 @@ export default {
   async getSystemInfo(): Promise<any> {
     const { data } = await client.get('/system/info')
     return data
+  },
+
+  // ============ Observability ============
+  async getObservabilityMetrics(): Promise<any> {
+    const { data } = await client.get('/observability/metrics')
+    return data
+  },
+
+  async recordFlowDemo(flowName: string, durationMs: number): Promise<any> {
+    const { data } = await client.post(`/observability/demo/record-flow?flowName=${flowName}&durationMs=${durationMs}`)
+    return data
+  },
+
+  async recordFailureDemo(flowName: string, error: string): Promise<any> {
+    const { data } = await client.post(`/observability/demo/record-failure?flowName=${flowName}&error=${encodeURIComponent(error)}`)
+    return data
+  },
+
+  // ============ Hot Reload ============
+  async getRegisteredFlows(): Promise<any> {
+    const { data } = await client.get('/hotreload/flows')
+    return data
+  },
+
+  async getFlowDetails(flowName: string): Promise<any> {
+    const { data } = await client.get(`/hotreload/flows/${flowName}`)
+    return data
+  },
+
+  async registerFlow(flowName: string): Promise<any> {
+    const { data } = await client.post(`/hotreload/flows/${flowName}`)
+    return data
+  },
+
+  async reloadFlow(flowName: string): Promise<any> {
+    const { data } = await client.put(`/hotreload/flows/${flowName}/reload`)
+    return data
+  },
+
+  async unregisterFlow(flowName: string): Promise<any> {
+    const { data } = await client.delete(`/hotreload/flows/${flowName}`)
+    return data
+  },
+
+  async getReloadEventInfo(): Promise<any> {
+    const { data } = await client.get('/hotreload/events/info')
+    return data
+  },
+
+  // ============ Read Model Sync ============
+  async getSyncStatus(): Promise<any> {
+    const { data } = await client.get('/readmodelsync/status')
+    return data
+  },
+
+  async getPendingChanges(): Promise<any> {
+    const { data } = await client.get('/readmodelsync/pending')
+    return data
+  },
+
+  async triggerSync(): Promise<any> {
+    const { data } = await client.post('/readmodelsync/sync')
+    return data
+  },
+
+  async trackChange(entityType: string, entityId: string, changeType: number): Promise<any> {
+    const { data } = await client.post(`/readmodelsync/demo/track?entityType=${entityType}&entityId=${entityId}&changeType=${changeType}`)
+    return data
+  },
+
+  async markChangesSynced(changeIds: string[]): Promise<any> {
+    const { data } = await client.post('/readmodelsync/mark-synced', changeIds)
+    return data
+  },
+
+  async getSyncStrategies(): Promise<any> {
+    const { data } = await client.get('/readmodelsync/strategies')
+    return data
   }
 }

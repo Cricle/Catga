@@ -20,6 +20,9 @@ const shopMenuItems = [
 const adminMenuItems = [
   { title: '仪表盘', icon: 'dashboard', to: '/admin' },
   { title: '订单管理', icon: 'list_alt', to: '/admin/orders' },
+  { title: '可观测性', icon: 'monitoring', to: '/admin/observability' },
+  { title: '热重载', icon: 'autorenew', to: '/admin/hotreload' },
+  { title: '读模型同步', icon: 'sync', to: '/admin/readmodelsync' },
   { title: '系统设置', icon: 'settings', to: '/admin/settings' },
 ]
 

@@ -70,9 +70,9 @@ public static class OrderEndpoints
 
     private static async Task<IResult> GetAllOrders(
         [FromQuery] OrderStatus? status,
-        [FromQuery] int limit,
-        ICatgaMediator mediator,
-        CancellationToken ct)
+        [FromQuery] int limit = 100,
+        ICatgaMediator mediator = default!,
+        CancellationToken ct = default)
     {
         var result = await mediator.SendAsync<GetAllOrdersQuery, List<Order>>(
             new(status, limit > 0 ? limit : 100), ct);

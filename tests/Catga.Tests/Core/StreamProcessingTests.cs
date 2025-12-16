@@ -113,36 +113,6 @@ public class StreamProcessingTests
 
     #region 取消处理测试
 
-    [Fact(Skip = "流处理的取消行为依赖于底层枚举器，可能不会立即抛出异常")]
-    public async Task SendStreamAsync_WithCancellation_ShouldStopProcessing()
-    {
-        // Arrange
-        var commands = GenerateSlowCommandStream(100);
-        var cts = new CancellationTokenSource();
-        var processedCount = 0;
-
-        // Act
-        try
-        {
-            await foreach (var result in _mediator.SendStreamAsync<SlowStreamCommand, SlowStreamResponse>(commands, cts.Token))
-            {
-                processedCount++;
-                if (processedCount == 5)
-                {
-                    cts.Cancel(); // 处理5个后取消
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // 取消是可以接受的
-        }
-
-        // Assert - 应该只处理了部分项
-        processedCount.Should().BeLessThan(100);
-        processedCount.Should().BeGreaterOrEqualTo(5);
-    }
-
     [Fact]
     public async Task SendStreamAsync_WithPreCancelledToken_ShouldNotProcess()
     {

@@ -3,27 +3,32 @@ using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using Catga.Abstractions;
 using Catga.Core;
+using Catga.Observability;
 
 namespace Catga.Flow.Dsl;
 
 /// <summary>
 /// Telemetry for DSL Flow execution.
+/// Uses unified FlowActivitySource and FlowDiagnostics for consistency.
 /// </summary>
 public static class DslFlowTelemetry
 {
-    public static readonly ActivitySource ActivitySource = new("Catga.Flow.Dsl", "1.0.0");
+    /// <summary>Activity source for distributed tracing</summary>
+    public static ActivitySource ActivitySource => FlowActivitySource.Source;
+
+    /// <summary>Meter for metrics - delegates to FlowDiagnostics</summary>
     public static readonly Meter Meter = new("Catga.Flow.Dsl", "1.0.0");
 
-    // Counters
-    public static readonly Counter<long> FlowsStarted = Meter.CreateCounter<long>("catga.flow.started", "flows", "Number of flows started");
-    public static readonly Counter<long> FlowsCompleted = Meter.CreateCounter<long>("catga.flow.completed", "flows", "Number of flows completed");
-    public static readonly Counter<long> FlowsFailed = Meter.CreateCounter<long>("catga.flow.failed", "flows", "Number of flows failed");
-    public static readonly Counter<long> StepsExecuted = Meter.CreateCounter<long>("catga.flow.step.executed", "steps", "Number of steps executed");
+    // Counters - delegate to FlowDiagnostics
+    public static Counter<long> FlowsStarted => FlowDiagnostics.FlowsStarted;
+    public static Counter<long> FlowsCompleted => FlowDiagnostics.FlowsCompleted;
+    public static Counter<long> FlowsFailed => FlowDiagnostics.FlowsFailed;
+    public static Counter<long> StepsExecuted => FlowDiagnostics.StepsExecuted;
     public static readonly Counter<long> CompensationsExecuted = Meter.CreateCounter<long>("catga.flow.compensation.executed", "compensations", "Number of compensations executed");
 
-    // Histograms
-    public static readonly Histogram<double> FlowDuration = Meter.CreateHistogram<double>("catga.flow.duration", "ms", "Flow execution duration");
-    public static readonly Histogram<double> StepDuration = Meter.CreateHistogram<double>("catga.flow.step.duration", "ms", "Step execution duration");
+    // Histograms - delegate to FlowDiagnostics
+    public static Histogram<double> FlowDuration => FlowDiagnostics.FlowDuration;
+    public static Histogram<double> StepDuration => FlowDiagnostics.StepDuration;
 }
 
 /// <summary>
@@ -61,10 +66,13 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         var flowName = _config.Name;
         var startTimestamp = Stopwatch.GetTimestamp();
 
+        FlowDiagnostics.IncrementActiveFlows();
+
         using var activity = DslFlowTelemetry.ActivitySource.StartActivity($"Flow.{flowName}");
-        activity?.SetTag("flow.id", state.FlowId);
-        activity?.SetTag("flow.name", flowName);
+        activity?.SetTag(FlowActivitySource.Tags.FlowId, state.FlowId);
+        activity?.SetTag(FlowActivitySource.Tags.FlowName, flowName);
         activity?.SetTag("flow.type", typeof(TConfig).FullName);
+        activity?.AddEvent(new ActivityEvent(FlowActivitySource.Events.FlowStarted));
 
         DslFlowTelemetry.FlowsStarted.Add(1, new KeyValuePair<string, object?>("flow.name", flowName));
 
@@ -86,16 +94,25 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         var elapsedMilliseconds = Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
         DslFlowTelemetry.FlowDuration.Record(elapsedMilliseconds, new KeyValuePair<string, object?>("flow.name", flowName));
 
+        FlowDiagnostics.DecrementActiveFlows();
+
         if (result.IsSuccess)
         {
             DslFlowTelemetry.FlowsCompleted.Add(1, new KeyValuePair<string, object?>("flow.name", flowName));
+            activity?.AddEvent(new ActivityEvent(FlowActivitySource.Events.FlowCompleted));
+            activity?.SetTag(FlowActivitySource.Tags.FlowStatus, "completed");
             activity?.SetStatus(ActivityStatusCode.Ok);
         }
         else
         {
             DslFlowTelemetry.FlowsFailed.Add(1, new KeyValuePair<string, object?>("flow.name", flowName));
+            activity?.AddEvent(new ActivityEvent(FlowActivitySource.Events.FlowFailed));
+            activity?.SetTag(FlowActivitySource.Tags.FlowStatus, "failed");
+            activity?.SetTag(FlowActivitySource.Tags.Error, result.Error);
             activity?.SetStatus(ActivityStatusCode.Error, result.Error);
         }
+
+        activity?.SetTag(FlowActivitySource.Tags.Duration, elapsedMilliseconds);
 
         return result;
     }

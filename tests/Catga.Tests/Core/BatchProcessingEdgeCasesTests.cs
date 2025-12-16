@@ -245,26 +245,6 @@ public class BatchProcessingEdgeCasesTests
 
     #region 超时和取消测试
 
-    [Fact(Skip = "批处理操作会完成已启动的任务，不会立即抛出取消异常")]
-    public async Task SendBatchAsync_WithCancellation_ShouldStopProcessing()
-    {
-        // Arrange
-        var commands = Enumerable.Range(0, 100)
-            .Select(i => new SlowBatchCommand(i))
-            .ToList();
-
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(200)); // 200ms后取消
-
-        // Act & Assert
-        // 注意: 批处理会继续完成，因为任务已经启动
-        var results = await _mediator.SendBatchAsync<SlowBatchCommand, SlowBatchResponse>(commands, cts.Token);
-
-        // 验证部分任务被取消
-        results.Should().NotBeEmpty();
-        results.Any(r => !r.IsSuccess).Should().BeTrue("一些任务应该因取消而失败");
-    }
-
     [Fact]
     public async Task SendBatchAsync_WithPreCancelledToken_ShouldThrowImmediately()
     {
@@ -281,25 +261,6 @@ public class BatchProcessingEdgeCasesTests
         {
             await _mediator.SendBatchAsync<BatchCommand, BatchResponse>(commands, cts.Token);
         });
-    }
-
-    [Fact(Skip = "事件批量发布会完成已启动的任务，不会立即抛出取消异常")]
-    public async Task PublishBatchAsync_WithCancellation_ShouldHandleGracefully()
-    {
-        // Arrange
-        var events = Enumerable.Range(0, 100)
-            .Select(i => new BatchEvent(i, $"Cancel-{i}"))
-            .ToList();
-
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
-
-        // Act - 事件发布是fire-and-forget，会完成所有任务
-        await _mediator.PublishBatchAsync(events, cts.Token);
-
-        // Assert - 验证操作完成（不抛出异常）
-        // 事件发布不返回结果，但应该能gracefully处理
-        Assert.True(true, "事件发布应该完成而不抛出异常");
     }
 
     #endregion

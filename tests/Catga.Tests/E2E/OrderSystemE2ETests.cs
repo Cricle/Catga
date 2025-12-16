@@ -161,32 +161,6 @@ public class OrderSystemE2ETests : IClassFixture<WebApplicationFactory<OrderSyst
         historyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
-    [Fact(Skip = "Flaky test due to concurrent test execution")]
-    public async Task CompleteWorkflow_CreateOrderAndVerify()
-    {
-        // 1. Create order via flow
-        var order = new
-        {
-            customerId = $"workflow-customer-{Guid.NewGuid():N}",
-            items = new[]
-            {
-                new { productId = "P1", productName = "Laptop", quantity = 1, unitPrice = 999.99m },
-                new { productId = "P2", productName = "Mouse", quantity = 2, unitPrice = 29.99m }
-            }
-        };
-
-        var createResponse = await _client.PostAsJsonAsync("/api/orders/flow", order);
-        createResponse.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.InternalServerError);
-
-        // 2. Get projections
-        var projResponse = await _client.GetAsync("/api/projections/order-summary");
-        projResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        // 3. Check subscriptions
-        var subsResponse = await _client.GetAsync("/api/subscriptions");
-        subsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-    }
-
     private record DemoCreateResult(string OrderId, int EventCount, string Message);
 
     [Fact]

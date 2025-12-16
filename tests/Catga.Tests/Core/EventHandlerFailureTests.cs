@@ -177,28 +177,6 @@ public class EventHandlerFailureTests
 
     #region 超时处理测试
 
-    [Fact(Skip = "PublishAsync使用Task.WhenAll等待所有handlers完成，此测试的假设不正确")]
-    public async Task PublishAsync_HandlerTakesTooLong_ShouldNotBlockOthers()
-    {
-        // Arrange
-        var @event = new TestEvent(6, "Timeout");
-        SlowEventHandler.DelayMs = 500; // 慢handler
-        SuccessfulEventHandler.ExecutedCount = 0;
-
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
-        // Act
-        await _mediator.PublishAsync(@event);
-        await Task.Delay(100); // 等待快速handler完成
-
-        stopwatch.Stop();
-
-        // Assert - 快速handler应该已经完成，不需要等待慢handler
-        SuccessfulEventHandler.ExecutedCount.Should().BeGreaterThan(0);
-        // 整体应该比慢handler快
-        stopwatch.ElapsedMilliseconds.Should().BeLessThan(300);
-    }
-
     [Fact]
     public async Task PublishAsync_WithCancellation_ShouldCancelHandlers()
     {

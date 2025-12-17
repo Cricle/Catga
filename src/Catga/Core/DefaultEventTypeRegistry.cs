@@ -18,6 +18,7 @@ public sealed class DefaultEventTypeRegistry : IEventTypeRegistry
         _map[typeName] = type;
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2068", Justification = "Event types are registered at startup via IEventTypeRegistry with proper annotations")]
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
     public Type? Resolve(string typeName)
     {

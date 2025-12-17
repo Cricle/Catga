@@ -3,9 +3,10 @@ import { createRouter, createWebHistory } from 'vue-router'
 const routes = [
   // Shop (User facing)
   { path: '/', name: 'Shop', component: () => import('../views/Shop.vue') },
+  { path: '/cart', name: 'Cart', component: () => import('../views/Cart.vue') },
+  { path: '/checkout', name: 'Checkout', component: () => import('../views/Checkout.vue') },
   { path: '/my-orders', name: 'MyOrders', component: () => import('../views/MyOrders.vue') },
   { path: '/my-orders/:id', name: 'MyOrderDetail', component: () => import('../views/MyOrders.vue') },
-  { path: '/cart', redirect: '/' }, // Cart is handled in Shop.vue modal
 
   // Admin Panel
   { path: '/admin', name: 'AdminDashboard', component: () => import('../views/admin/Dashboard.vue') },

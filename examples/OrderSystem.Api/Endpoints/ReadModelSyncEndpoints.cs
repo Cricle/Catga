@@ -1,6 +1,7 @@
 using Catga.Abstractions;
 using Catga.EventSourcing;
 using Microsoft.AspNetCore.Mvc;
+using OrderSystem.Api;
 
 namespace OrderSystem.Api.Endpoints;
 
@@ -21,30 +22,14 @@ public static class ReadModelSyncEndpoints
         group.MapGet("/status", async (IReadModelSynchronizer synchronizer) =>
         {
             var lastSync = await synchronizer.GetLastSyncTimeAsync();
-            return Results.Ok(new
-            {
-                LastSyncTime = lastSync,
-                Status = lastSync.HasValue ? "Active" : "Never synced"
-            });
+            return Results.Ok(new SyncStatusResponse(lastSync.HasValue ? "Active" : "Never synced", 0, lastSync ?? DateTime.UtcNow));
         }).WithName("GetSyncStatus");
 
         // Get pending changes
         group.MapGet("/pending", async (IChangeTracker tracker) =>
         {
             var pending = await tracker.GetPendingChangesAsync();
-            return Results.Ok(new
-            {
-                Count = pending.Count,
-                Changes = pending.Select(c => new
-                {
-                    c.Id,
-                    c.EntityType,
-                    c.EntityId,
-                    c.Type,
-                    c.Timestamp,
-                    c.IsSynced
-                })
-            });
+            return Results.Ok(pending);
         }).WithName("GetPendingChanges");
 
         // Trigger sync
@@ -54,12 +39,7 @@ public static class ReadModelSyncEndpoints
             await synchronizer.SyncAsync();
             var after = await synchronizer.GetLastSyncTimeAsync();
 
-            return Results.Ok(new
-            {
-                Message = "Sync completed",
-                SyncedAt = after,
-                DurationMs = after.HasValue ? (after.Value - before).TotalMilliseconds : 0
-            });
+            return Results.Ok(new RebuildReadModelResponse("Sync completed", 0));
         }).WithName("TriggerSync");
 
         // Demo: Track a change
@@ -80,14 +60,7 @@ public static class ReadModelSyncEndpoints
 
             tracker.TrackChange(change);
 
-            return Results.Created($"/api/readmodelsync/pending", new
-            {
-                Message = "Change tracked",
-                ChangeId = change.Id,
-                EntityType = entityType,
-                EntityId = entityId,
-                ChangeType = changeType.ToString()
-            });
+            return Results.Created($"/api/readmodelsync/pending", new MessageResponse("Change tracked"));
         }).WithName("TrackChange");
 
         // Mark changes as synced
@@ -97,46 +70,17 @@ public static class ReadModelSyncEndpoints
         {
             await tracker.MarkAsSyncedAsync(changeIds);
 
-            return Results.Ok(new
-            {
-                Message = "Changes marked as synced",
-                MarkedCount = changeIds.Length
-            });
+            return Results.Ok(new RebuildReadModelResponse("Changes marked as synced", changeIds.Length));
         }).WithName("MarkChangesSynced");
 
         // Get strategy info
         group.MapGet("/strategies", () =>
         {
-            return new
+            return Results.Ok(new MetricsResponse(new Dictionary<string, object>
             {
-                Available = new[]
-                {
-                    new
-                    {
-                        Name = "Realtime",
-                        Description = "Sync immediately on each change",
-                        UseCase = "Low latency requirements"
-                    },
-                    new
-                    {
-                        Name = "Batch",
-                        Description = "Collect changes and process in batches",
-                        UseCase = "High throughput scenarios"
-                    },
-                    new
-                    {
-                        Name = "Scheduled",
-                        Description = "Sync at scheduled intervals",
-                        UseCase = "Eventual consistency with lower resource usage"
-                    }
-                },
-                Registration = new
-                {
-                    Realtime = "services.AddReadModelSync(change => ProcessAsync(change))",
-                    Batch = "services.AddReadModelSyncWithBatching(100, batch => BulkProcessAsync(batch))",
-                    Scheduled = "services.AddReadModelSyncWithSchedule(TimeSpan.FromMinutes(5), changes => SyncAsync(changes))"
-                }
-            };
+                { "Available", new[] { "Realtime", "Batch", "Scheduled" } },
+                { "Registration", "See documentation" }
+            }));
         }).WithName("GetSyncStrategies");
     }
 

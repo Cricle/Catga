@@ -1,5 +1,6 @@
 using Catga.Abstractions;
 using Catga.EventSourcing;
+using OrderSystem.Api;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Services;
 
@@ -43,7 +44,7 @@ public static class EventSourcingEndpoints
             };
 
             await eventStore.AppendAsync(streamId, events);
-            return Results.Ok(new { orderId, streamId, eventCount = events.Length });
+            return Results.Ok(new TimeTravelDemoResponse(orderId, streamId, events.Length));
         })
         .WithName("CreateTimeTravelDemo")
         .WithSummary("Create demo order with multiple events for time travel");
@@ -56,14 +57,7 @@ public static class EventSourcingEndpoints
             var state = await timeTravel.GetStateAtVersionAsync(orderId, version);
             return state == null
                 ? Results.NotFound()
-                : Results.Ok(new
-                {
-                    state.Id,
-                    state.CustomerId,
-                    state.TotalAmount,
-                    state.Status,
-                    state.Version
-                });
+                : Results.Ok(state);
         })
         .WithName("GetOrderAtVersion")
         .WithSummary("Get order state at a specific version");
@@ -73,12 +67,7 @@ public static class EventSourcingEndpoints
             ITimeTravelService<OrderAggregate> timeTravel) =>
         {
             var history = await timeTravel.GetVersionHistoryAsync(orderId);
-            return Results.Ok(history.Select(x => new
-            {
-                x.Version,
-                x.EventType,
-                x.Timestamp
-            }));
+            return Results.Ok(history);
         })
         .WithName("GetOrderHistory")
         .WithSummary("Get complete version history for an order");
@@ -90,12 +79,7 @@ public static class EventSourcingEndpoints
             .WithTags("Projections");
 
         group.MapGet("/order-summary", (OrderSummaryProjection projection) =>
-            Results.Ok(new
-            {
-                projection.TotalOrders,
-                projection.TotalRevenue,
-                projection.OrdersByStatus
-            }))
+            Results.Ok(projection))
         .WithName("GetOrderSummary")
         .WithSummary("Get aggregated order statistics");
 
@@ -107,7 +91,7 @@ public static class EventSourcingEndpoints
             var rebuilder = new ProjectionRebuilder<OrderSummaryProjection>(
                 eventStore, checkpointStore, projection, projection.Name);
             await rebuilder.RebuildAsync();
-            return Results.Ok(new { message = "Projection rebuilt", projection.TotalOrders });
+            return Results.Ok(new ProjectionRebuildResponse2("Projection rebuilt", projection.TotalOrders));
         })
         .WithName("RebuildOrderSummary")
         .WithSummary("Rebuild order summary projection from events");
@@ -124,20 +108,14 @@ public static class EventSourcingEndpoints
             .WithTags("Subscriptions");
 
         group.MapGet("/", async (ISubscriptionStore store) =>
-            Results.Ok((await store.ListAsync()).Select(x => new
-            {
-                x.Name,
-                x.StreamPattern,
-                x.Position,
-                x.ProcessedCount
-            })))
+            Results.Ok(await store.ListAsync()))
         .WithName("ListSubscriptions")
         .WithSummary("List all persistent subscriptions");
 
         group.MapPost("/", async (CreateSubscriptionRequest request, ISubscriptionStore store) =>
         {
             await store.SaveAsync(new PersistentSubscription(request.Name, request.Pattern));
-            return Results.Created($"/api/subscriptions/{request.Name}", new { request.Name, request.Pattern });
+            return Results.Created($"/api/subscriptions/{request.Name}", new SubscriptionCreatedResponse2(request.Name, request.Pattern));
         })
         .WithName("CreateSubscription")
         .WithSummary("Create a new persistent subscription");
@@ -151,7 +129,7 @@ public static class EventSourcingEndpoints
             var runner = new SubscriptionRunner(eventStore, store, handler);
             await runner.RunOnceAsync(name);
             var subscription = await store.LoadAsync(name);
-            return Results.Ok(new { name, processedCount = subscription?.ProcessedCount ?? 0 });
+            return Results.Ok(new SubscriptionProcessedResponse2(name, subscription?.ProcessedCount ?? 0));
         })
         .WithName("ProcessSubscription")
         .WithSummary("Process events for a subscription");
@@ -170,7 +148,7 @@ public static class EventSourcingEndpoints
         group.MapPost("/verify/{streamId}", async (string streamId, OrderAuditService audit) =>
         {
             var result = await audit.VerifyStreamAsync(streamId);
-            return Results.Ok(new { streamId, result.IsValid, result.Hash, result.Error });
+            return Results.Ok(new StreamVerifyResponse2(streamId, result.IsValid, result.Hash, result.Error));
         })
         .WithName("VerifyStreamIntegrity")
         .WithSummary("Verify event stream integrity");
@@ -210,7 +188,7 @@ public static class EventSourcingEndpoints
                 aggregate.Apply(e.Event);
 
             await snapshotStore.SaveAsync(streamId, aggregate, stream.Version);
-            return Results.Ok(new { streamId, version = stream.Version });
+            return Results.Ok(new SnapshotCreatedResponse2(streamId, stream.Version));
         })
         .WithName("CreateOrderSnapshot")
         .WithSummary("Create a snapshot for an order aggregate");

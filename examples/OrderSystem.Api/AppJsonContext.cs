@@ -52,6 +52,23 @@ namespace OrderSystem.Api;
 [JsonSerializable(typeof(SnapshotCreatedResponse))]
 [JsonSerializable(typeof(UserRegisteredResponse))]
 [JsonSerializable(typeof(CurrentUserResponse))]
+[JsonSerializable(typeof(FlowListResponse))]
+[JsonSerializable(typeof(FlowDetailsResponse))]
+[JsonSerializable(typeof(FlowRegisteredResponse2))]
+[JsonSerializable(typeof(FlowReloadedResponse2))]
+[JsonSerializable(typeof(FlowVersionResponse))]
+[JsonSerializable(typeof(ReloadEventInfoResponse))]
+[JsonSerializable(typeof(TimeTravelDemoResponse))]
+[JsonSerializable(typeof(ProjectionRebuildResponse2))]
+[JsonSerializable(typeof(SubscriptionCreatedResponse2))]
+[JsonSerializable(typeof(SubscriptionProcessedResponse2))]
+[JsonSerializable(typeof(StreamVerifyResponse2))]
+[JsonSerializable(typeof(SnapshotCreatedResponse2))]
+[JsonSerializable(typeof(MetricsResponse))]
+[JsonSerializable(typeof(DemoRecordFlowResponse))]
+[JsonSerializable(typeof(DemoRecordFailureResponse))]
+[JsonSerializable(typeof(SyncStatusResponse))]
+[JsonSerializable(typeof(RebuildReadModelResponse))]
 // Collections
 [JsonSerializable(typeof(Dictionary<string, object>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
@@ -80,3 +97,24 @@ public record StreamVerifyResponse(string StreamId, bool IsValid, string? Hash, 
 public record SnapshotCreatedResponse(string StreamId, int Version);
 public record UserRegisteredResponse(string UserId, string Email, string FullName, string Token, string TokenType, int ExpiresIn);
 public record CurrentUserResponse(string UserId, string? Email, string? FullName, string? Role);
+// HotReload endpoints
+public record FlowListResponse(int Count, List<object> Flows);
+public record FlowDetailsResponse(string FlowName, int Version, string ConfigType, bool Registered);
+public record FlowRegisteredResponse2(string Message, int Version);
+public record FlowReloadedResponse2(string Message, int OldVersion, int NewVersion);
+public record FlowVersionResponse(string FlowName, int CurrentVersion);
+public record ReloadEventInfoResponse(string EventType, string[] Properties, string Usage);
+// EventSourcing endpoints
+public record TimeTravelDemoResponse(string OrderId, string StreamId, int EventCount);
+public record ProjectionRebuildResponse2(string Message, int TotalOrders);
+public record SubscriptionCreatedResponse2(string Name, string Pattern);
+public record SubscriptionProcessedResponse2(string Name, int ProcessedCount);
+public record StreamVerifyResponse2(string StreamId, bool IsValid, string? Hash, string? Error);
+public record SnapshotCreatedResponse2(string StreamId, int Version);
+// Observability endpoints
+public record MetricsResponse(Dictionary<string, object> Metrics);
+public record DemoRecordFlowResponse(string FlowName, string FlowId, string Message);
+public record DemoRecordFailureResponse(string FlowName, string FlowId, string Error);
+// ReadModelSync endpoints
+public record SyncStatusResponse(string Status, int SyncedCount, DateTime LastSyncTime);
+public record RebuildReadModelResponse(string Message, int ProcessedCount);

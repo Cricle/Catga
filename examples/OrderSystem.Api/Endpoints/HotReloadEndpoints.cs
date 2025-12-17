@@ -1,5 +1,6 @@
 using Catga.Flow.HotReload;
 using Microsoft.AspNetCore.Mvc;
+using OrderSystem.Api;
 
 namespace OrderSystem.Api.Endpoints;
 
@@ -20,11 +21,7 @@ public static class HotReloadEndpoints
         group.MapGet("/flows", (IFlowRegistry registry) =>
         {
             var flows = registry.GetAll().ToList();
-            return Results.Ok(new
-            {
-                Count = flows.Count,
-                Flows = flows
-            });
+            return Results.Ok(new FlowListResponse(flows.Count, flows));
         }).WithName("ListRegisteredFlows");
 
         // Get flow details
@@ -33,16 +30,10 @@ public static class HotReloadEndpoints
             var config = registry.Get(flowName);
             if (config == null)
             {
-                return Results.NotFound(new { Error = $"Flow '{flowName}' not found" });
+                return Results.NotFound(new ErrorResponse($"Flow '{flowName}' not found"));
             }
 
-            return Results.Ok(new
-            {
-                FlowName = flowName,
-                Version = versionManager.GetCurrentVersion(flowName),
-                ConfigType = config.GetType().Name,
-                Registered = true
-            });
+            return Results.Ok(new FlowDetailsResponse(flowName, versionManager.GetCurrentVersion(flowName), config.GetType().Name, true));
         }).WithName("GetFlowDetails");
 
         // Register a demo flow
@@ -52,11 +43,7 @@ public static class HotReloadEndpoints
             registry.Register(flowName, config);
             versionManager.SetVersion(flowName, 1);
 
-            return Results.Created($"/api/hotreload/flows/{flowName}", new
-            {
-                Message = $"Flow '{flowName}' registered",
-                Version = 1
-            });
+            return Results.Created($"/api/hotreload/flows/{flowName}", new FlowRegisteredResponse2($"Flow '{flowName}' registered", 1));
         }).WithName("RegisterFlow");
 
         // Reload a flow (increment version)
@@ -72,12 +59,7 @@ public static class HotReloadEndpoints
 
             var newVersion = versionManager.GetCurrentVersion(flowName);
 
-            return Results.Ok(new
-            {
-                Message = $"Flow '{flowName}' reloaded",
-                OldVersion = oldVersion,
-                NewVersion = newVersion
-            });
+            return Results.Ok(new FlowReloadedResponse2($"Flow '{flowName}' reloaded", oldVersion, newVersion));
         }).WithName("ReloadFlow");
 
         // Unregister a flow
@@ -86,43 +68,37 @@ public static class HotReloadEndpoints
             var removed = registry.Unregister(flowName);
             if (!removed)
             {
-                return Results.NotFound(new { Error = $"Flow '{flowName}' not found" });
+                return Results.NotFound(new ErrorResponse($"Flow '{flowName}' not found"));
             }
 
-            return Results.Ok(new { Message = $"Flow '{flowName}' unregistered" });
+            return Results.Ok(new MessageResponse($"Flow '{flowName}' unregistered"));
         }).WithName("UnregisterFlow");
 
         // Get version info
         group.MapGet("/versions/{flowName}", (string flowName, IFlowVersionManager versionManager) =>
         {
             var version = versionManager.GetCurrentVersion(flowName);
-            return Results.Ok(new
-            {
-                FlowName = flowName,
-                CurrentVersion = version
-            });
+            return Results.Ok(new FlowVersionResponse(flowName, version));
         }).WithName("GetFlowVersion");
 
         // Demo: Subscribe to reload events
         group.MapGet("/events/info", () =>
         {
-            return new
-            {
-                EventType = nameof(FlowReloadedEvent),
-                Properties = new[]
+            return new ReloadEventInfoResponse(
+                nameof(FlowReloadedEvent),
+                new[]
                 {
                     "FlowName - Name of the reloaded flow",
                     "OldVersion - Version before reload",
                     "NewVersion - Version after reload",
                     "ReloadedAt - UTC timestamp of reload"
                 },
-                Usage = @"
+                @"
 reloader.FlowReloaded += (sender, e) =>
 {
     Console.WriteLine($""Flow {e.FlowName} reloaded: v{e.OldVersion} -> v{e.NewVersion}"");
 };
-"
-            };
+");
         }).WithName("GetReloadEventInfo");
     }
 }

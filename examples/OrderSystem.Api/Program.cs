@@ -225,13 +225,11 @@ try
     app.MapOrderSystemHealthChecks();
     app.MapOrderEndpoints();
     app.MapPaymentEndpoints();
-#if !AOT_BUILD
     app.MapAuthEndpoints();
     app.MapEventSourcingEndpoints();
     app.MapObservabilityEndpoints();    // Metrics, Tracing, Logging demo
     app.MapHotReloadEndpoints();         // Flow Hot Reload demo
     app.MapReadModelSyncEndpoints();     // Read Model Sync demo
-#endif
 
     // System Info endpoint
     app.MapGet("/api/system/info", () => new SystemInfoResponse(

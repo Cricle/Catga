@@ -1,5 +1,6 @@
 using Catga.Observability;
 using Microsoft.AspNetCore.Mvc;
+using OrderSystem.Api;
 
 namespace OrderSystem.Api.Endpoints;
 
@@ -19,65 +20,13 @@ public static class ObservabilityEndpoints
         // Get current metrics snapshot
         group.MapGet("/metrics", () =>
         {
-            return new
+            return Results.Ok(new MetricsResponse(new Dictionary<string, object>
             {
-                FlowMetrics = new
-                {
-                    ActiveFlows = "See Prometheus /metrics endpoint",
-                    Counters = new[]
-                    {
-                        "catga.flow.started",
-                        "catga.flow.completed",
-                        "catga.flow.failed",
-                        "catga.flow.step.executed",
-                        "catga.flow.step.succeeded",
-                        "catga.flow.step.failed",
-                        "catga.flow.step.skipped",
-                        "catga.flow.step.retried"
-                    },
-                    Histograms = new[]
-                    {
-                        "catga.flow.duration",
-                        "catga.flow.step.duration",
-                        "catga.flow.step_count"
-                    },
-                    Gauges = new[]
-                    {
-                        "catga.flow.active"
-                    }
-                },
-                TracingTags = new
-                {
-                    FlowTags = new[]
-                    {
-                        FlowActivitySource.Tags.FlowName,
-                        FlowActivitySource.Tags.FlowId,
-                        FlowActivitySource.Tags.FlowStatus,
-                        FlowActivitySource.Tags.Duration
-                    },
-                    StepTags = new[]
-                    {
-                        FlowActivitySource.Tags.StepIndex,
-                        FlowActivitySource.Tags.StepType,
-                        FlowActivitySource.Tags.StepTag,
-                        FlowActivitySource.Tags.StepStatus
-                    },
-                    ErrorTags = new[]
-                    {
-                        FlowActivitySource.Tags.Error,
-                        FlowActivitySource.Tags.ErrorType
-                    }
-                },
-                TracingEvents = new[]
-                {
-                    FlowActivitySource.Events.FlowStarted,
-                    FlowActivitySource.Events.FlowCompleted,
-                    FlowActivitySource.Events.FlowFailed,
-                    FlowActivitySource.Events.StepStarted,
-                    FlowActivitySource.Events.StepCompleted,
-                    FlowActivitySource.Events.StepFailed
-                }
-            };
+                { "FlowMetrics", "See Prometheus /metrics endpoint" },
+                { "Counters", new[] { "catga.flow.started", "catga.flow.completed", "catga.flow.failed" } },
+                { "Histograms", new[] { "catga.flow.duration", "catga.flow.step.duration" } },
+                { "Gauges", new[] { "catga.flow.active" } }
+            }));
         }).WithName("GetObservabilityMetrics");
 
         // Demo: Record custom metrics
@@ -97,14 +46,7 @@ public static class ObservabilityEndpoints
             metrics.RecordFlowDuration(flowName, durationMs);
             metrics.RecordFlowCompleted(flowName, flowId);
 
-            return Results.Ok(new
-            {
-                Message = "Flow metrics recorded",
-                FlowName = flowName,
-                FlowId = flowId,
-                DurationMs = durationMs,
-                Steps = new[] { "Send", "Query" }
-            });
+            return Results.Ok(new DemoRecordFlowResponse(flowName, flowId, "Flow metrics recorded"));
         }).WithName("DemoRecordFlowMetrics");
 
         // Demo: Simulate flow failure
@@ -118,40 +60,17 @@ public static class ObservabilityEndpoints
             metrics.RecordStepFailed(flowName, 0, "Send", error);
             metrics.RecordFlowFailed(flowName, error, flowId);
 
-            return Results.Ok(new
-            {
-                Message = "Flow failure recorded",
-                FlowName = flowName,
-                FlowId = flowId,
-                Error = error
-            });
+            return Results.Ok(new DemoRecordFailureResponse(flowName, flowId, error));
         }).WithName("DemoRecordFlowFailure");
 
         // Get Grafana dashboard info
         group.MapGet("/grafana", () =>
         {
-            return new
+            return Results.Ok(new MetricsResponse(new Dictionary<string, object>
             {
-                DashboardLocation = "src/Catga/Observability/GrafanaDashboard.json",
-                Panels = new[]
-                {
-                    "Flow Execution Overview",
-                    "Active Flows Gauge",
-                    "Success Rate",
-                    "Flow Duration Distribution",
-                    "Step Analysis",
-                    "Top Flows by Execution",
-                    "Slowest Steps"
-                },
-                DataSource = "Prometheus",
-                ImportInstructions = new[]
-                {
-                    "1. Open Grafana > Dashboards > Import",
-                    "2. Upload GrafanaDashboard.json",
-                    "3. Select Prometheus data source",
-                    "4. Click Import"
-                }
-            };
+                { "DashboardLocation", "src/Catga/Observability/GrafanaDashboard.json" },
+                { "DataSource", "Prometheus" }
+            }));
         }).WithName("GetGrafanaInfo");
     }
 }

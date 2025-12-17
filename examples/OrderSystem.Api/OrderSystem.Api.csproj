@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-    <!-- AOT Configuration (experimental - enable for AOT builds) -->
+    <!-- AOT Configuration (experimental - uncomment to enable) -->
     <!-- <PublishAot>true</PublishAot> -->
     <!-- <EnableTrimAnalyzer>true</EnableTrimAnalyzer> -->
     <!-- <TrimmerSingleWarn>false</TrimmerSingleWarn> -->

@@ -164,6 +164,12 @@ try
     builder.Services.AddObservability(builder.Configuration);
     builder.Services.AddOrderSystemHealthChecks(builder.Configuration);
 
+    // Configure JSON for AOT compatibility
+    builder.Services.ConfigureHttpJsonOptions(options =>
+    {
+        options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default);
+    });
+
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(c =>
     {

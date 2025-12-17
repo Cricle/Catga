@@ -152,7 +152,7 @@ public static class OrderEndpoints
         var result = await mediator.SendAsync(
             new PayOrderCommand(orderId, request.PaymentMethod, request.TransactionId), ct);
         return result.IsSuccess
-            ? Results.Ok(new { message = "Payment successful", orderId })
+            ? Results.Ok(new SuccessResponse("Payment successful", orderId))
             : Results.BadRequest(new ProblemDetails { Detail = result.Error });
     }
 
@@ -163,7 +163,7 @@ public static class OrderEndpoints
     {
         var result = await mediator.SendAsync(new ProcessOrderCommand(orderId), ct);
         return result.IsSuccess
-            ? Results.Ok(new { message = "Order is now processing", orderId })
+            ? Results.Ok(new SuccessResponse("Order is now processing", orderId))
             : Results.BadRequest(new ProblemDetails { Detail = result.Error });
     }
 
@@ -176,7 +176,7 @@ public static class OrderEndpoints
         var result = await mediator.SendAsync(
             new ShipOrderCommand(orderId, request.TrackingNumber), ct);
         return result.IsSuccess
-            ? Results.Ok(new { message = "Order shipped", orderId, request.TrackingNumber })
+            ? Results.Ok(new ShipResponse("Order shipped", orderId, request.TrackingNumber))
             : Results.BadRequest(new ProblemDetails { Detail = result.Error });
     }
 
@@ -187,7 +187,7 @@ public static class OrderEndpoints
     {
         var result = await mediator.SendAsync(new DeliverOrderCommand(orderId), ct);
         return result.IsSuccess
-            ? Results.Ok(new { message = "Order delivered", orderId })
+            ? Results.Ok(new SuccessResponse("Order delivered", orderId))
             : Results.BadRequest(new ProblemDetails { Detail = result.Error });
     }
 }

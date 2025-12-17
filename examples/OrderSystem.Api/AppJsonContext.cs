@@ -1,13 +1,17 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
+#if !AOT_MINIMAL
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Endpoints;
 using OrderSystem.Api.Messages;
+#endif
 
 namespace OrderSystem.Api;
 
 // JSON Source Generation for AOT compatibility
 [JsonSerializable(typeof(SystemInfoResponse))]
+[JsonSerializable(typeof(ProblemDetails))]
+#if !AOT_MINIMAL
 [JsonSerializable(typeof(Order))]
 [JsonSerializable(typeof(OrderItem))]
 [JsonSerializable(typeof(ShippingAddress))]
@@ -15,7 +19,6 @@ namespace OrderSystem.Api;
 [JsonSerializable(typeof(List<OrderItem>))]
 [JsonSerializable(typeof(OrderStats))]
 [JsonSerializable(typeof(OrderCreatedResult))]
-[JsonSerializable(typeof(ProblemDetails))]
 // Request DTOs
 [JsonSerializable(typeof(CancelOrderRequest))]
 [JsonSerializable(typeof(PayOrderRequest))]
@@ -26,6 +29,7 @@ namespace OrderSystem.Api;
 [JsonSerializable(typeof(SuccessResponse))]
 [JsonSerializable(typeof(MessageResponse))]
 [JsonSerializable(typeof(ShipResponse))]
+#endif
 // Collections
 [JsonSerializable(typeof(Dictionary<string, object>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]

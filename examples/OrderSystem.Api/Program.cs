@@ -21,6 +21,7 @@ using OrderSystem.Api.Services;
 using Serilog;
 #endif
 using System.Text;
+using OrderSystem.Api;
 
 // =============================================================================
 // 1. Bootstrap Logging
@@ -121,7 +122,9 @@ try
     {
         var sqliteConnection = catgaOptions.SqliteConnection ?? "Data Source=orders.db";
         builder.Services.AddSingleton<IOrderRepository>(sp => new SqliteOrderRepository(sqliteConnection));
+#if !AOT_MINIMAL
         Log.Information("Using SQLite repository: {Connection}", sqliteConnection);
+#endif
     }
     else
     {

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -23,7 +24,10 @@ public static class FlowHotReloadExtensions
     /// <summary>
     /// Adds Flow Hot Reload services with custom implementations.
     /// </summary>
-    public static IServiceCollection AddFlowHotReload<TRegistry, TVersionManager, TReloader>(
+    public static IServiceCollection AddFlowHotReload<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TRegistry,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TVersionManager,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TReloader>(
         this IServiceCollection services)
         where TRegistry : class, IFlowRegistry
         where TVersionManager : class, IFlowVersionManager

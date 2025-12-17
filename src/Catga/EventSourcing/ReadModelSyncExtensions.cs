@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -37,7 +38,7 @@ public static class ReadModelSyncExtensions
     /// <summary>
     /// Adds Read Model Sync services with custom tracker.
     /// </summary>
-    public static IServiceCollection AddReadModelSync<TTracker>(
+    public static IServiceCollection AddReadModelSync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TTracker>(
         this IServiceCollection services,
         Func<ChangeRecord, ValueTask> syncAction)
         where TTracker : class, IChangeTracker
@@ -82,7 +83,7 @@ public static class ReadModelSyncExtensions
     /// <summary>
     /// Adds a projection-based read model synchronizer.
     /// </summary>
-    public static IServiceCollection AddProjectionSync<TProjection>(this IServiceCollection services)
+    public static IServiceCollection AddProjectionSync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProjection>(this IServiceCollection services)
         where TProjection : class, IProjection
     {
         services.TryAddSingleton<IProjection, TProjection>();

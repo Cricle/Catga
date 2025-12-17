@@ -40,14 +40,14 @@ public class ReadModelSyncImplementationTests
     #region InMemoryChangeTracker Tests
 
     [Fact]
-    public void InMemoryChangeTracker_TrackChange_AddsChange()
+    public async Task InMemoryChangeTracker_TrackChange_AddsChange()
     {
         var tracker = new InMemoryChangeTracker();
         var change = CreateTestChange("1");
 
         tracker.TrackChange(change);
 
-        var pending = tracker.GetPendingChangesAsync().AsTask().Result;
+        var pending = await tracker.GetPendingChangesAsync();
         pending.Should().HaveCount(1);
     }
 

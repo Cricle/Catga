@@ -127,9 +127,9 @@ public class DiagnosticsScenarioTests
         {
             try
             {
-                var source = CatgaActivitySource.Source;
-                var name = CatgaActivitySource.SourceName;
-                var version = CatgaActivitySource.Version;
+                _ = CatgaActivitySource.Source;
+                _ = CatgaActivitySource.SourceName;
+                _ = CatgaActivitySource.Version;
                 _ = CatgaActivitySource.Tags.MessageType;
             }
             catch (Exception ex)

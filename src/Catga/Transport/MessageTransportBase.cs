@@ -135,7 +135,7 @@ public abstract class MessageTransportBase : IMessageTransport
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected Activity? StartPublishActivity<TMessage>(TransportContext context)
+    protected Activity? StartPublishActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TransportContext context)
     {
         var activity = CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Publish", ActivityKind.Producer);
         if (activity != null)
@@ -151,7 +151,7 @@ public abstract class MessageTransportBase : IMessageTransport
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected string GetDestination<TMessage>(Func<Type, string>? naming = null)
+    protected string GetDestination<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(Func<Type, string>? naming = null)
     {
         return naming != null ? naming(typeof(TMessage)) : TypeNameCache<TMessage>.Name;
     }

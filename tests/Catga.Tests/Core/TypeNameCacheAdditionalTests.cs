@@ -7,7 +7,7 @@ public class TypeNameCacheAdditionalTests
 {
     private record TestRecord(string Value);
     private class TestClass { public string? Data { get; set; } }
-    private struct TestStruct { public int Value; }
+    private struct TestStruct { public int Value = 0; public TestStruct() { } }
 
     [Fact]
     public void Name_ForRecord_ReturnsTypeName()

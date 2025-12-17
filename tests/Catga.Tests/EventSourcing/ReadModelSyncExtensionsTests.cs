@@ -39,13 +39,8 @@ public class ReadModelSyncExtensionsTests
     public void AddReadModelSyncWithBatching_RegistersBatchStrategy()
     {
         var services = new ServiceCollection();
-        var batchProcessed = false;
 
-        services.AddReadModelSyncWithBatching(10, _ =>
-        {
-            batchProcessed = true;
-            return ValueTask.CompletedTask;
-        });
+        services.AddReadModelSyncWithBatching(10, _ => ValueTask.CompletedTask);
 
         var provider = services.BuildServiceProvider();
         var strategy = provider.GetService<ISyncStrategy>();

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Core;
 
@@ -11,7 +12,7 @@ public static class TransportContextFactory
     /// <summary>
     /// Create a default TransportContext for the given message type.
     /// </summary>
-    public static TransportContext CreateDefault<TMessage>() where TMessage : class
+    public static TransportContext CreateDefault<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>() where TMessage : class
         => new()
         {
             MessageId = MessageExtensions.NewMessageId(),
@@ -22,6 +23,6 @@ public static class TransportContextFactory
     /// <summary>
     /// Get or create a TransportContext, using the provided one if not null.
     /// </summary>
-    public static TransportContext GetOrCreate<TMessage>(TransportContext? context) where TMessage : class
+    public static TransportContext GetOrCreate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TransportContext? context) where TMessage : class
         => context ?? CreateDefault<TMessage>();
 }

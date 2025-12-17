@@ -75,6 +75,15 @@ namespace OrderSystem.Api;
 [JsonSerializable(typeof(OrderSystem.Api.Domain.OrderSummaryProjection))]
 [JsonSerializable(typeof(OrderSystem.Api.Domain.CustomerStatsProjection))]
 [JsonSerializable(typeof(OrderSystem.Api.Domain.OrderAggregate))]
+[JsonSerializable(typeof(Catga.EventSourcing.ChangeRecord))]
+[JsonSerializable(typeof(IReadOnlyList<Catga.EventSourcing.ChangeRecord>))]
+[JsonSerializable(typeof(List<Catga.EventSourcing.ChangeRecord>))]
+[JsonSerializable(typeof(Catga.EventSourcing.VersionInfo))]
+[JsonSerializable(typeof(IReadOnlyList<Catga.EventSourcing.VersionInfo>))]
+// Health check types
+[JsonSerializable(typeof(OrderSystem.Api.Infrastructure.HealthCheckResponse))]
+[JsonSerializable(typeof(OrderSystem.Api.Infrastructure.HealthCheckEntry))]
+[JsonSerializable(typeof(List<OrderSystem.Api.Infrastructure.HealthCheckEntry>))]
 // Collections
 [JsonSerializable(typeof(Dictionary<string, object>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]

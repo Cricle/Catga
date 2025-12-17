@@ -55,23 +55,25 @@ public static class HealthCheckExtensions
     {
         context.Response.ContentType = "application/json";
 
-        var response = new
-        {
-            status = report.Status.ToString(),
-            duration = report.TotalDuration.TotalMilliseconds,
-            checks = report.Entries.Select(e => new
-            {
-                name = e.Key,
-                status = e.Value.Status.ToString(),
-                duration = e.Value.Duration.TotalMilliseconds,
-                description = e.Value.Description,
-                exception = e.Value.Exception?.Message
-            })
-        };
+        var response = new HealthCheckResponse(
+            report.Status.ToString(),
+            report.TotalDuration.TotalMilliseconds,
+            report.Entries.Select(e => new HealthCheckEntry(
+                e.Key,
+                e.Value.Status.ToString(),
+                e.Value.Duration.TotalMilliseconds,
+                e.Value.Description,
+                e.Value.Exception?.Message
+            )).ToList()
+        );
 
-        await context.Response.WriteAsJsonAsync(response);
+        await context.Response.WriteAsJsonAsync(response, AppJsonContext.Default.HealthCheckResponse);
     }
 }
+
+// Health check response types for AOT
+public record HealthCheckResponse(string Status, double Duration, List<HealthCheckEntry> Checks);
+public record HealthCheckEntry(string Name, string Status, double Duration, string? Description, string? Exception);
 
 /// <summary>
 /// Health check for Catga framework components.

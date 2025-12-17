@@ -69,6 +69,12 @@ namespace OrderSystem.Api;
 [JsonSerializable(typeof(DemoRecordFailureResponse))]
 [JsonSerializable(typeof(SyncStatusResponse))]
 [JsonSerializable(typeof(RebuildReadModelResponse))]
+// EventSourcing types
+[JsonSerializable(typeof(Catga.EventSourcing.PersistentSubscription))]
+[JsonSerializable(typeof(IReadOnlyList<Catga.EventSourcing.PersistentSubscription>))]
+[JsonSerializable(typeof(OrderSystem.Api.Domain.OrderSummaryProjection))]
+[JsonSerializable(typeof(OrderSystem.Api.Domain.CustomerStatsProjection))]
+[JsonSerializable(typeof(OrderSystem.Api.Domain.OrderAggregate))]
 // Collections
 [JsonSerializable(typeof(Dictionary<string, object>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
@@ -98,7 +104,7 @@ public record SnapshotCreatedResponse(string StreamId, int Version);
 public record UserRegisteredResponse(string UserId, string Email, string FullName, string Token, string TokenType, int ExpiresIn);
 public record CurrentUserResponse(string UserId, string? Email, string? FullName, string? Role);
 // HotReload endpoints
-public record FlowListResponse(int Count, List<object> Flows);
+public record FlowListResponse(int Count, List<string> Flows);
 public record FlowDetailsResponse(string FlowName, int Version, string ConfigType, bool Registered);
 public record FlowRegisteredResponse2(string Message, int Version);
 public record FlowReloadedResponse2(string Message, int OldVersion, int NewVersion);
@@ -106,11 +112,11 @@ public record FlowVersionResponse(string FlowName, int CurrentVersion);
 public record ReloadEventInfoResponse(string EventType, string[] Properties, string Usage);
 // EventSourcing endpoints
 public record TimeTravelDemoResponse(string OrderId, string StreamId, int EventCount);
-public record ProjectionRebuildResponse2(string Message, int TotalOrders);
+public record ProjectionRebuildResponse2(string Message, long TotalOrders);
 public record SubscriptionCreatedResponse2(string Name, string Pattern);
-public record SubscriptionProcessedResponse2(string Name, int ProcessedCount);
+public record SubscriptionProcessedResponse2(string Name, long ProcessedCount);
 public record StreamVerifyResponse2(string StreamId, bool IsValid, string? Hash, string? Error);
-public record SnapshotCreatedResponse2(string StreamId, int Version);
+public record SnapshotCreatedResponse2(string StreamId, long Version);
 // Observability endpoints
 public record MetricsResponse(Dictionary<string, object> Metrics);
 public record DemoRecordFlowResponse(string FlowName, string FlowId, string Message);

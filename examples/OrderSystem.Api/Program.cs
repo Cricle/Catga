@@ -17,7 +17,7 @@ using OrderSystem.Api.Domain;
 using OrderSystem.Api.Endpoints;
 using OrderSystem.Api.Infrastructure;
 using OrderSystem.Api.Services;
-#if !AOT_MINIMAL
+#if !AOT_BUILD
 using Serilog;
 #endif
 using System.Text;
@@ -27,7 +27,7 @@ using OrderSystem.Api;
 // 1. Bootstrap Logging
 // =============================================================================
 
-#if !AOT_MINIMAL
+#if !AOT_BUILD
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateBootstrapLogger();
@@ -37,7 +37,7 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
-#if !AOT_MINIMAL
+#if !AOT_BUILD
     // Serilog from appsettings
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
@@ -122,7 +122,7 @@ try
     {
         var sqliteConnection = catgaOptions.SqliteConnection ?? "Data Source=orders.db";
         builder.Services.AddSingleton<IOrderRepository>(sp => new SqliteOrderRepository(sqliteConnection));
-#if !AOT_MINIMAL
+#if !AOT_BUILD
         Log.Information("Using SQLite repository: {Connection}", sqliteConnection);
 #endif
     }
@@ -181,7 +181,7 @@ try
         options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default);
     });
 
-#if !AOT_MINIMAL
+#if !AOT_BUILD
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(c =>
     {
@@ -201,7 +201,7 @@ try
     var app = builder.Build();
 
     app.UseExceptionHandler();
-#if !AOT_MINIMAL
+#if !AOT_BUILD
     app.UseSerilogRequestLogging();
 
     if (app.Environment.IsDevelopment())
@@ -222,11 +222,11 @@ try
     // 7. Endpoints
     // ==========================================================================
 
-#if !AOT_MINIMAL
     app.MapOrderSystemHealthChecks();
-    app.MapAuthEndpoints();
     app.MapOrderEndpoints();
     app.MapPaymentEndpoints();
+#if !AOT_BUILD
+    app.MapAuthEndpoints();
     app.MapEventSourcingEndpoints();
     app.MapObservabilityEndpoints();    // Metrics, Tracing, Logging demo
     app.MapHotReloadEndpoints();         // Flow Hot Reload demo
@@ -255,7 +255,7 @@ try
     // 8. Run
     // ==========================================================================
 
-#if !AOT_MINIMAL
+#if !AOT_BUILD
     Log.Information("Starting OrderSystem API with Transport={Transport}, Persistence={Persistence}...",
         catgaOptions.Transport, catgaOptions.Persistence);
 #else
@@ -265,7 +265,7 @@ try
 }
 catch (Exception ex)
 {
-#if !AOT_MINIMAL
+#if !AOT_BUILD
     Log.Fatal(ex, "Application terminated unexpectedly");
 #else
     Console.WriteLine($"Application terminated unexpectedly: {ex}");
@@ -273,7 +273,7 @@ catch (Exception ex)
 }
 finally
 {
-#if !AOT_MINIMAL
+#if !AOT_BUILD
     Log.CloseAndFlush();
 #endif
 }

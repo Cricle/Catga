@@ -9,7 +9,7 @@
     <PublishAot>true</PublishAot>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
-    <DefineConstants>$(DefineConstants);AOT_MINIMAL</DefineConstants>
+    <DefineConstants>$(DefineConstants);AOT_BUILD</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

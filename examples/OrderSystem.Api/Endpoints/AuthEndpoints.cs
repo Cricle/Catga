@@ -79,7 +79,7 @@ public static class AuthEndpoints
         // Check if user is active
         if (!user.IsActive)
         {
-            return Results.BadRequest(new { message = "User account is inactive" });
+            return Results.BadRequest(new MessageResponse("User account is inactive"));
         }
 
         // Update last login
@@ -98,13 +98,13 @@ public static class AuthEndpoints
         // Validate input
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
         {
-            return Results.BadRequest(new { message = "Email and password are required" });
+            return Results.BadRequest(new MessageResponse("Email and password are required"));
         }
 
         // Check if user already exists
         if (Users.ContainsKey(request.Email))
         {
-            return Results.BadRequest(new { message = "User already exists" });
+            return Results.BadRequest(new MessageResponse("User already exists"));
         }
 
         // Create new user
@@ -123,15 +123,7 @@ public static class AuthEndpoints
         // Generate token
         var token = authService.GenerateToken(user);
 
-        return Results.Created($"/api/auth/users/{user.UserId}", new
-        {
-            userId = user.UserId,
-            email = user.Email,
-            fullName = user.FullName,
-            token = token.AccessToken,
-            tokenType = token.TokenType,
-            expiresIn = token.ExpiresIn
-        });
+        return Results.Created($"/api/auth/users/{user.UserId}", new UserRegisteredResponse(user.UserId, user.Email, user.FullName, token.AccessToken, token.TokenType, token.ExpiresIn));
     }
 
     private static IResult GetCurrentUser(HttpContext context)
@@ -146,13 +138,7 @@ public static class AuthEndpoints
             return Results.Unauthorized();
         }
 
-        return Results.Ok(new
-        {
-            userId = userIdClaim.Value,
-            email = emailClaim?.Value,
-            fullName = nameClaim?.Value,
-            role = roleClaim?.Value
-        });
+        return Results.Ok(new CurrentUserResponse(userIdClaim.Value, emailClaim?.Value, nameClaim?.Value, roleClaim?.Value));
     }
 
     private static IResult RefreshToken(

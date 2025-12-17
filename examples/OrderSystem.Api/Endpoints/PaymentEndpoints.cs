@@ -1,3 +1,4 @@
+using OrderSystem.Api;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Services;
 
@@ -35,13 +36,13 @@ public static class PaymentEndpoints
         var order = await orderRepository.GetByIdAsync(request.OrderId);
         if (order == null)
         {
-            return Results.NotFound(new { message = "Order not found" });
+            return Results.NotFound(new MessageResponse("Order not found"));
         }
 
         // Verify order is in correct status for payment
         if (order.Status != OrderStatus.Pending)
         {
-            return Results.BadRequest(new { message = "Order is not in pending status" });
+            return Results.BadRequest(new MessageResponse("Order is not in pending status"));
         }
 
         // Process payment

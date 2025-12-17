@@ -122,7 +122,7 @@ public sealed class NatsSubscriptionStore : ISubscriptionStore
             {
                 await _kvStore!.DeleteAsync(name, cancellationToken: ct);
             }
-            catch (NatsKVKeyNotFoundException) { }
+            catch (NatsKVKeyNotFoundException) { /* Already deleted, ignore */ }
         }, ct);
     }
 
@@ -184,7 +184,7 @@ public sealed class NatsSubscriptionStore : ISubscriptionStore
                     }
                 }
             }
-            catch (NatsKVKeyNotFoundException) { }
+            catch (NatsKVKeyNotFoundException) { /* Already deleted, ignore */ }
         }, ct);
     }
 

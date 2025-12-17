@@ -193,7 +193,7 @@ public sealed class NatsEnhancedSnapshotStore : IEnhancedSnapshotStore
                 }
                 catch (NatsKVKeyNotFoundException)
                 {
-                    // Skip deleted entries
+                    // Key was deleted between listing and reading, skip safely
                 }
             }
 
@@ -211,11 +211,11 @@ public sealed class NatsEnhancedSnapshotStore : IEnhancedSnapshotStore
             foreach (var (key, _) in keys)
             {
                 try { await _kvStore!.DeleteAsync(key, cancellationToken: ct); }
-                catch (NatsKVKeyNotFoundException) { }
+                catch (NatsKVKeyNotFoundException) { /* Already deleted, ignore */ }
             }
 
             try { await _kvStore!.DeleteAsync($"{streamId}.latest", cancellationToken: ct); }
-            catch (NatsKVKeyNotFoundException) { }
+            catch (NatsKVKeyNotFoundException) { /* Already deleted, ignore */ }
         }, ct);
     }
 
@@ -232,7 +232,7 @@ public sealed class NatsEnhancedSnapshotStore : IEnhancedSnapshotStore
             foreach (var (key, v) in keys.Where(k => k.version < version))
             {
                 try { await _kvStore!.DeleteAsync(key, cancellationToken: ct); }
-                catch (NatsKVKeyNotFoundException) { }
+                catch (NatsKVKeyNotFoundException) { /* Already deleted, ignore */ }
             }
         }, ct);
     }
@@ -252,7 +252,7 @@ public sealed class NatsEnhancedSnapshotStore : IEnhancedSnapshotStore
             foreach (var (key, _) in toDelete)
             {
                 try { await _kvStore!.DeleteAsync(key, cancellationToken: ct); }
-                catch (NatsKVKeyNotFoundException) { }
+                catch (NatsKVKeyNotFoundException) { /* Already deleted, ignore */ }
             }
         }, ct);
     }

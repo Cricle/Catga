@@ -17,26 +17,34 @@ using OrderSystem.Api.Domain;
 using OrderSystem.Api.Endpoints;
 using OrderSystem.Api.Infrastructure;
 using OrderSystem.Api.Services;
+#if !AOT_MINIMAL
 using Serilog;
+#endif
 using System.Text;
 
 // =============================================================================
 // 1. Bootstrap Logging
 // =============================================================================
 
+#if !AOT_MINIMAL
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateBootstrapLogger();
+#endif
 
 try
 {
     var builder = WebApplication.CreateBuilder(args);
 
+#if !AOT_MINIMAL
     // Serilog from appsettings
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
         .ReadFrom.Services(services)
         .Enrich.FromLogContext());
+#else
+    builder.Logging.AddConsole();
+#endif
 
     // ==========================================================================
     // 2. Configuration - Options Pattern
@@ -170,6 +178,7 @@ try
         options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default);
     });
 
+#if !AOT_MINIMAL
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(c =>
     {
@@ -180,6 +189,7 @@ try
             Description = "Catga CQRS Best Practices Example"
         });
     });
+#endif
 
     // ==========================================================================
     // 6. Build Pipeline
@@ -188,6 +198,7 @@ try
     var app = builder.Build();
 
     app.UseExceptionHandler();
+#if !AOT_MINIMAL
     app.UseSerilogRequestLogging();
 
     if (app.Environment.IsDevelopment())
@@ -195,6 +206,7 @@ try
         app.UseSwagger();
         app.UseSwaggerUI();
     }
+#endif
 
     app.UseDefaultFiles();
     app.UseStaticFiles();
@@ -207,6 +219,7 @@ try
     // 7. Endpoints
     // ==========================================================================
 
+#if !AOT_MINIMAL
     app.MapOrderSystemHealthChecks();
     app.MapAuthEndpoints();
     app.MapOrderEndpoints();
@@ -215,6 +228,7 @@ try
     app.MapObservabilityEndpoints();    // Metrics, Tracing, Logging demo
     app.MapHotReloadEndpoints();         // Flow Hot Reload demo
     app.MapReadModelSyncEndpoints();     // Read Model Sync demo
+#endif
 
     // System Info endpoint
     app.MapGet("/api/system/info", () => new SystemInfoResponse(
@@ -238,17 +252,27 @@ try
     // 8. Run
     // ==========================================================================
 
+#if !AOT_MINIMAL
     Log.Information("Starting OrderSystem API with Transport={Transport}, Persistence={Persistence}...",
         catgaOptions.Transport, catgaOptions.Persistence);
+#else
+    Console.WriteLine($"Starting OrderSystem API (AOT) with Transport={catgaOptions.Transport}, Persistence={catgaOptions.Persistence}...");
+#endif
     app.Run();
 }
 catch (Exception ex)
 {
+#if !AOT_MINIMAL
     Log.Fatal(ex, "Application terminated unexpectedly");
+#else
+    Console.WriteLine($"Application terminated unexpectedly: {ex}");
+#endif
 }
 finally
 {
+#if !AOT_MINIMAL
     Log.CloseAndFlush();
+#endif
 }
 
 namespace OrderSystem.Api { public partial class Program; }

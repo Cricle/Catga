@@ -5,10 +5,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-    <!-- AOT Configuration (experimental - uncomment to enable) -->
-    <!-- <PublishAot>true</PublishAot> -->
-    <!-- <EnableTrimAnalyzer>true</EnableTrimAnalyzer> -->
-    <!-- <TrimmerSingleWarn>false</TrimmerSingleWarn> -->
+    <!-- AOT Configuration (experimental - uncomment to enable)
+    <PublishAot>true</PublishAot>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <DefineConstants>$(DefineConstants);AOT_MINIMAL</DefineConstants>
+    -->
   </PropertyGroup>
 
   <ItemGroup>

@@ -5,6 +5,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <!-- AOT Configuration (experimental - requires JSON source generation for all types) -->
+    <!-- <PublishAot>true</PublishAot> -->
+    <!-- <EnableTrimAnalyzer>true</EnableTrimAnalyzer> -->
+    <!-- <TrimmerSingleWarn>false</TrimmerSingleWarn> -->
+    <!-- <DefineConstants Condition="'$(PublishAot)' == 'true'">$(DefineConstants);AOT_BUILD</DefineConstants> -->
   </PropertyGroup>
 
   <ItemGroup>

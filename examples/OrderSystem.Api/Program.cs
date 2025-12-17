@@ -211,20 +211,19 @@ try
     app.MapReadModelSyncEndpoints();     // Read Model Sync demo
 
     // System Info endpoint
-    app.MapGet("/api/system/info", () => new
-    {
-        Framework = "Catga CQRS",
-        Version = "1.0.0",
-        Transport = catgaOptions.Transport,
-        Persistence = catgaOptions.Persistence,
-        ClusterEnabled = catgaOptions.ClusterEnabled,
-        ClusterNodes = catgaOptions.ClusterNodes,
-        Runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
-        Environment = app.Environment.EnvironmentName,
-        MachineName = Environment.MachineName,
-        ProcessorCount = Environment.ProcessorCount,
-        AotCompatible = true
-    }).WithTags("System");
+    app.MapGet("/api/system/info", () => new SystemInfoResponse(
+        "Catga CQRS",
+        "1.0.0",
+        catgaOptions.Transport,
+        catgaOptions.Persistence,
+        catgaOptions.ClusterEnabled,
+        catgaOptions.ClusterNodes,
+        System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
+        app.Environment.EnvironmentName,
+        Environment.MachineName,
+        Environment.ProcessorCount,
+        true
+    )).WithTags("System");
 
     // SPA fallback - serve index.html for client-side routing
     app.MapFallbackToFile("index.html");
@@ -247,3 +246,17 @@ finally
 }
 
 namespace OrderSystem.Api { public partial class Program; }
+
+public record SystemInfoResponse(
+    string Framework,
+    string Version,
+    string Transport,
+    string Persistence,
+    bool ClusterEnabled,
+    string? ClusterNodes,
+    string Runtime,
+    string Environment,
+    string MachineName,
+    int ProcessorCount,
+    bool AotCompatible
+);

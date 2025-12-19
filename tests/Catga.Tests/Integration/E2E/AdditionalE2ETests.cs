@@ -266,7 +266,7 @@ public sealed partial class AdditionalE2ETests : IAsyncLifetime
     {
         if (_redis is null) return;
         var provider = new DiagnosticResiliencePipelineProvider();
-        var store = new RedisIdempotencyStore(_redis, _serializer, Microsoft.Extensions.Logging.Abstractions.NullLogger<RedisIdempotencyStore>.Instance, options: null, provider: provider);
+        var store = new RedisIdempotencyStore(_redis, _serializer, provider: provider, options: null);
 
         var id = MessageExtensions.NewMessageId();
         var result = new IdemResult { Value = "ok" };

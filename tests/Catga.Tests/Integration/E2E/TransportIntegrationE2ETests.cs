@@ -156,7 +156,7 @@ public sealed class TransportIntegrationE2ETests : IAsyncLifetime
     {
         if (_redis is null) return;
 
-        var idempotency = new RedisIdempotencyStore(_redis, _serializer, NullLogger<RedisIdempotencyStore>.Instance, _provider);
+        var idempotency = new RedisIdempotencyStore(_redis, _serializer, _provider);
         await using var transport = new RedisMessageTransport(_redis, _serializer, _provider);
         var messageId = MessageExtensions.NewMessageId();
         var computeCount = 0;

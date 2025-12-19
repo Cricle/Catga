@@ -283,7 +283,7 @@ public sealed class CrossComponentE2ETests : IAsyncLifetime
         if (_redis is null) return;
 
         var dlq = new RedisDeadLetterQueue(_redis, _serializer, $"dlq-{Guid.NewGuid():N}:");
-        var idempotency = new RedisIdempotencyStore(_redis, _serializer, NullLogger<RedisIdempotencyStore>.Instance, _provider);
+        var idempotency = new RedisIdempotencyStore(_redis, _serializer, _provider);
         var messageId = MessageExtensions.NewMessageId();
         var message = new CrossTestMessage { MessageId = messageId, Data = "failed-message" };
 
@@ -317,7 +317,7 @@ public sealed class CrossComponentE2ETests : IAsyncLifetime
 
         var outbox = new RedisOutboxPersistence(_redis, _serializer, NullLogger<RedisOutboxPersistence>.Instance, _provider);
         var eventStore = new RedisEventStore(_redis, _serializer, _provider, NullLogger<RedisEventStore>.Instance);
-        var idempotency = new RedisIdempotencyStore(_redis, _serializer, NullLogger<RedisIdempotencyStore>.Instance, _provider);
+        var idempotency = new RedisIdempotencyStore(_redis, _serializer, _provider);
 
         var sagaId = $"saga-{Guid.NewGuid():N}";
         var steps = new[] { "Reserve", "Charge", "Ship", "Complete" };

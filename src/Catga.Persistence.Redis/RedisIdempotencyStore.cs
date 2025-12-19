@@ -5,7 +5,6 @@ using Catga.Idempotency;
 using Catga.Observability;
 using Catga.Resilience;
 using MemoryPack;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
@@ -15,7 +14,6 @@ namespace Catga.Persistence.Redis;
 public partial class RedisIdempotencyStore(
     IConnectionMultiplexer redis,
     IMessageSerializer serializer,
-    ILogger<RedisIdempotencyStore> logger,
     IResiliencePipelineProvider provider,
     IOptions<RedisPersistenceOptions>? options = null) : RedisStoreBase(redis, serializer, options?.Value.IdempotencyKeyPrefix ?? "catga:idempotency:"), IIdempotencyStore
 {

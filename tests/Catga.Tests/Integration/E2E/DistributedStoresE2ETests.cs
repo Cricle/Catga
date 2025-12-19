@@ -80,7 +80,7 @@ public sealed class DistributedStoresE2ETests : IAsyncLifetime
         if (_redis is null) return;
 
         // Arrange
-        var store = new RedisIdempotencyStore(_redis, _serializer, NullLogger<RedisIdempotencyStore>.Instance, _provider);
+        var store = new RedisIdempotencyStore(_redis, _serializer, _provider);
         var messageId = MessageExtensions.NewMessageId();
 
         // Act
@@ -102,7 +102,7 @@ public sealed class DistributedStoresE2ETests : IAsyncLifetime
         if (_redis is null) return;
 
         // Arrange
-        var store = new RedisIdempotencyStore(_redis, _serializer, NullLogger<RedisIdempotencyStore>.Instance, _provider);
+        var store = new RedisIdempotencyStore(_redis, _serializer, _provider);
         var messageId = MessageExtensions.NewMessageId();
 
         // Act - concurrent marks

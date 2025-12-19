@@ -57,7 +57,7 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
     public async Task IdempotencyStore_MarkAsProcessed_ShouldStoreResult()
     {
         if (_redis is null) return;
-        var store = new RedisIdempotencyStore(_redis, _serializer, NullLogger<RedisIdempotencyStore>.Instance, _provider);
+        var store = new RedisIdempotencyStore(_redis, _serializer, _provider);
         var messageId = MessageExtensions.NewMessageId();
 
         await store.MarkAsProcessedAsync(messageId, new TestResult { Value = 42 });
@@ -70,7 +70,7 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
     public async Task IdempotencyStore_GetCachedResult_ShouldReturnStoredValue()
     {
         if (_redis is null) return;
-        var store = new RedisIdempotencyStore(_redis, _serializer, NullLogger<RedisIdempotencyStore>.Instance, _provider);
+        var store = new RedisIdempotencyStore(_redis, _serializer, _provider);
         var messageId = MessageExtensions.NewMessageId();
         var expected = new TestResult { Value = 123 };
 
@@ -85,7 +85,7 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
     public async Task IdempotencyStore_HasBeenProcessed_NotProcessed_ShouldReturnFalse()
     {
         if (_redis is null) return;
-        var store = new RedisIdempotencyStore(_redis, _serializer, NullLogger<RedisIdempotencyStore>.Instance, _provider);
+        var store = new RedisIdempotencyStore(_redis, _serializer, _provider);
         var messageId = MessageExtensions.NewMessageId();
 
         var result = await store.HasBeenProcessedAsync(messageId);

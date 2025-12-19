@@ -21,7 +21,8 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
 
     public async ValueTask AppendAsync(string streamId, IReadOnlyList<IEvent> events, long expectedVersion = -1, CancellationToken cancellationToken = default)
     {
-        await provider.ExecutePersistenceAsync(async ct =>
+        // No retry for append - has optimistic concurrency control
+        await provider.ExecutePersistenceNoRetryAsync(async ct =>
         {
             var start = Stopwatch.GetTimestamp();
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.Append", ActivityKind.Producer);

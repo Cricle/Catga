@@ -45,7 +45,8 @@ public sealed partial class RedisEventStore : IEventStore
         long expectedVersion = -1,
         CancellationToken cancellationToken = default)
     {
-        await _provider.ExecutePersistenceAsync(async ct =>
+        // No retry for append - has optimistic concurrency control
+        await _provider.ExecutePersistenceNoRetryAsync(async ct =>
         {
             var start = MetricsHelper.StartTimestamp();
             using var activity = MetricsHelper.StartPersistenceActivity("EventStore", "Append");

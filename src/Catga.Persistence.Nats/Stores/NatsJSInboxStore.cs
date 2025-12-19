@@ -17,7 +17,8 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
 
     public async ValueTask<bool> TryLockMessageAsync(long messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
     {
-        return await provider.ExecutePersistenceAsync(async ct =>
+        // No retry for lock operations - they are not idempotent
+        return await provider.ExecutePersistenceNoRetryAsync(async ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.TryLock", ActivityKind.Internal);
             await EnsureInitializedAsync(ct);

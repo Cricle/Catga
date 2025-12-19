@@ -17,7 +17,8 @@ public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSeriali
 
     public async ValueTask<bool> TryLockMessageAsync(long messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
     {
-        return await provider.ExecutePersistenceAsync(async ct =>
+        // No retry for lock operations - they are not idempotent
+        return await provider.ExecutePersistenceNoRetryAsync(async ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Redis.Inbox.TryLock", ActivityKind.Internal);
             var db = GetDatabase();
@@ -83,7 +84,8 @@ public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSeriali
 
     public async ValueTask ReleaseLockAsync(long messageId, CancellationToken cancellationToken = default)
     {
-        await provider.ExecutePersistenceAsync(async ct =>
+        // No retry for lock release - should be atomic
+        await provider.ExecutePersistenceNoRetryAsync(async ct =>
         {
             var db = GetDatabase();
             await db.KeyDeleteAsync(GetMessageKey(messageId));

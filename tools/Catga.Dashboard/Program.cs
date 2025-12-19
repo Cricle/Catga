@@ -179,4 +179,6 @@ sealed class NoOpResiliencePipelineProvider : IResiliencePipelineProvider
     public ValueTask ExecuteTransportSendAsync(Func<CancellationToken, ValueTask> action, CancellationToken ct) => action(ct);
     public ValueTask<T> ExecutePersistenceAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken ct) => action(ct);
     public ValueTask ExecutePersistenceAsync(Func<CancellationToken, ValueTask> action, CancellationToken ct) => action(ct);
+    public ValueTask<T> ExecutePersistenceNoRetryAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken ct) => action(ct);
+    public ValueTask ExecutePersistenceNoRetryAsync(Func<CancellationToken, ValueTask> action, CancellationToken ct) => action(ct);
 }

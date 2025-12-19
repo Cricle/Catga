@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Threading.RateLimiting;
 using Catga.Observability;
 using Polly;
@@ -15,6 +14,7 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
     private readonly ResiliencePipeline _transportPublish;
     private readonly ResiliencePipeline _transportSend;
     private readonly ResiliencePipeline _persistence;
+    private readonly ResiliencePipeline _persistenceNoRetry;
 
     public DefaultResiliencePipelineProvider(CatgaResilienceOptions? options = null)
     {
@@ -23,6 +23,8 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
         _transportPublish = Build(o.TransportBulkheadConcurrency, o.TransportBulkheadQueueLimit, o.TransportTimeout, 50, o.TransportRetryDelay, o.TransportRetryCount);
         _transportSend = Build(o.TransportBulkheadConcurrency, o.TransportBulkheadQueueLimit, o.TransportTimeout, 50, o.TransportRetryDelay, o.TransportRetryCount);
         _persistence = Build(o.PersistenceBulkheadConcurrency, o.PersistenceBulkheadQueueLimit, o.PersistenceTimeout, 50, o.PersistenceRetryDelay, o.PersistenceRetryCount);
+        // No retry pipeline for non-idempotent operations (locks, optimistic concurrency)
+        _persistenceNoRetry = Build(o.PersistenceBulkheadConcurrency, o.PersistenceBulkheadQueueLimit, o.PersistenceTimeout, 50);
     }
 
     private static ResiliencePipeline Build(int concurrency, int queue, TimeSpan timeout, int minThroughput, TimeSpan? retryDelay = null, int retryCount = 0)
@@ -65,4 +67,6 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
     public async ValueTask ExecuteTransportSendAsync(Func<CancellationToken, ValueTask> action, CancellationToken ct) => await _transportSend.ExecuteAsync(async c => { await action(c); return 0; }, ct);
     public async ValueTask<T> ExecutePersistenceAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken ct) => await _persistence.ExecuteAsync(async c => await action(c), ct);
     public async ValueTask ExecutePersistenceAsync(Func<CancellationToken, ValueTask> action, CancellationToken ct) => await _persistence.ExecuteAsync(async c => { await action(c); return 0; }, ct);
+    public async ValueTask<T> ExecutePersistenceNoRetryAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken ct) => await _persistenceNoRetry.ExecuteAsync(async c => await action(c), ct);
+    public async ValueTask ExecutePersistenceNoRetryAsync(Func<CancellationToken, ValueTask> action, CancellationToken ct) => await _persistenceNoRetry.ExecuteAsync(async c => { await action(c); return 0; }, ct);
 }

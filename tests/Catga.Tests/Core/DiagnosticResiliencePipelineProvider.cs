@@ -29,6 +29,12 @@ public sealed class DiagnosticResiliencePipelineProvider : IResiliencePipelinePr
 
     public ValueTask ExecutePersistenceAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
         => action(cancellationToken);
+
+    public ValueTask<T> ExecutePersistenceNoRetryAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken cancellationToken)
+        => action(cancellationToken);
+
+    public ValueTask ExecutePersistenceNoRetryAsync(Func<CancellationToken, ValueTask> action, CancellationToken cancellationToken)
+        => action(cancellationToken);
 }
 
 

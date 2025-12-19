@@ -50,10 +50,12 @@ public sealed class RedisSubscriptionStore(IConnectionMultiplexer redis, IResili
         }, ct);
 
     public async ValueTask<bool> TryAcquireLockAsync(string subscriptionName, string consumerId, CancellationToken ct = default)
-        => await provider.ExecutePersistenceAsync(async _ => await redis.GetDatabase().StringSetAsync(prefix + "lock:" + subscriptionName, consumerId, _lockExpiry, When.NotExists), ct);
+        // No retry for lock operations - they are not idempotent
+        => await provider.ExecutePersistenceNoRetryAsync(async _ => await redis.GetDatabase().StringSetAsync(prefix + "lock:" + subscriptionName, consumerId, _lockExpiry, When.NotExists), ct);
 
     public async ValueTask ReleaseLockAsync(string subscriptionName, string consumerId, CancellationToken ct = default)
-        => await provider.ExecutePersistenceAsync(async _ =>
+        // No retry for lock release - should be atomic
+        => await provider.ExecutePersistenceNoRetryAsync(async _ =>
         {
             var db = redis.GetDatabase(); var lockKey = prefix + "lock:" + subscriptionName;
             if (await db.StringGetAsync(lockKey) == consumerId) await db.KeyDeleteAsync(lockKey);

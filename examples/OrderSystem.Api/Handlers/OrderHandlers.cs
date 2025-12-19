@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;
 using OrderSystem.Api.Services;
+using System.Diagnostics.CodeAnalysis;
 
 namespace OrderSystem.Api.Handlers;
 
@@ -260,7 +261,7 @@ public class OrderNotificationHandler(ILogger<OrderNotificationHandler> logger) 
 // ============================================
 
 /// <summary>Validates requests before processing.</summary>
-public class ValidationBehavior<TRequest, TResponse>(
+public class ValidationBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(
     ILogger<ValidationBehavior<TRequest, TResponse>> logger) : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
@@ -279,7 +280,7 @@ public class ValidationBehavior<TRequest, TResponse>(
 }
 
 /// <summary>Logs request timing.</summary>
-public class LoggingBehavior<TRequest, TResponse>(
+public class LoggingBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(
     ILogger<LoggingBehavior<TRequest, TResponse>> logger) : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {

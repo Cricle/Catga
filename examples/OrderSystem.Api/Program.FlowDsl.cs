@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Flow.Extensions;
 using Catga.Flow.Dsl;
 using OrderSystem.Api.Messages;
@@ -57,6 +58,7 @@ public static class ProgramFlowDslExtensions
     /// <summary>
     /// Configure Flow DSL endpoints and middleware.
     /// </summary>
+    [RequiresUnreferencedCode("Uses reflection to discover flow types")]
     public static WebApplication UseFlowDsl(this WebApplication app)
     {
         // Map Flow DSL management endpoints
@@ -65,7 +67,7 @@ public static class ProgramFlowDslExtensions
             .RequireAuthorization();
 
         // List all registered flows
-        flowGroup.MapGet("/", (IServiceProvider provider) =>
+        flowGroup.MapGet("/", [RequiresUnreferencedCode("Uses reflection")] (IServiceProvider provider) =>
         {
             var flowTypes = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(a => a.GetTypes())

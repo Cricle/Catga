@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Idempotency;
@@ -22,9 +21,9 @@ public partial class RedisIdempotencyStore(
     public async Task<bool> HasBeenProcessedAsync(long messageId, CancellationToken ct = default)
         => await provider.ExecutePersistenceAsync(async c =>
         {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Redis.Idempotency.HasBeenProcessed", ActivityKind.Internal);
+            using var activity = MetricsHelper.StartPersistenceActivity("Redis.Idempotency", "HasBeenProcessed");
             var exists = await GetDatabase().KeyExistsAsync(BuildKey(messageId));
-            (exists ? CatgaDiagnostics.IdempotencyHits : CatgaDiagnostics.IdempotencyMisses).Add(1);
+            MetricsHelper.RecordIdempotency(exists);
             return exists;
         }, ct);
 
@@ -32,7 +31,7 @@ public partial class RedisIdempotencyStore(
         long messageId, TResult? result = default, CancellationToken ct = default)
         => await provider.ExecutePersistenceAsync(async c =>
         {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Redis.Idempotency.MarkProcessed", ActivityKind.Internal);
+            using var activity = MetricsHelper.StartPersistenceActivity("Redis.Idempotency", "MarkProcessed");
             var entry = new Entry { MessageId = messageId, ProcessedAt = DateTime.UtcNow, ResultType = result?.GetType().AssemblyQualifiedName, ResultBytes = result != null ? Serializer.Serialize(result, typeof(TResult)) : null };
             await GetDatabase().StringSetAsync(BuildKey(messageId), Serializer.Serialize(entry, typeof(Entry)), _expiry);
         }, ct);
@@ -40,14 +39,14 @@ public partial class RedisIdempotencyStore(
     public async Task<TResult?> GetCachedResultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(long messageId, CancellationToken ct = default)
         => await provider.ExecutePersistenceAsync(async c =>
         {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Redis.Idempotency.GetCachedResult", ActivityKind.Internal);
+            using var activity = MetricsHelper.StartPersistenceActivity("Redis.Idempotency", "GetCachedResult");
             var bytes = await GetDatabase().StringGetAsync(BuildKey(messageId));
-            if (!bytes.HasValue) { CatgaDiagnostics.IdempotencyMisses.Add(1); return default(TResult?); }
+            if (!bytes.HasValue) { MetricsHelper.RecordIdempotencyMiss(); return default(TResult?); }
             var entry = (Entry?)Serializer.Deserialize((byte[])bytes!, typeof(Entry));
-            if (entry?.ResultBytes == null) { CatgaDiagnostics.IdempotencyMisses.Add(1); return default(TResult?); }
-            if (entry.ResultType != typeof(TResult).AssemblyQualifiedName) { CatgaDiagnostics.IdempotencyMisses.Add(1); return default(TResult?); }
+            if (entry?.ResultBytes == null) { MetricsHelper.RecordIdempotencyMiss(); return default(TResult?); }
+            if (entry.ResultType != typeof(TResult).AssemblyQualifiedName) { MetricsHelper.RecordIdempotencyMiss(); return default(TResult?); }
             var result = (TResult?)Serializer.Deserialize(entry.ResultBytes, typeof(TResult));
-            (result is null ? CatgaDiagnostics.IdempotencyMisses : CatgaDiagnostics.IdempotencyHits).Add(1);
+            MetricsHelper.RecordIdempotency(result is not null);
             return result;
         }, ct);
 

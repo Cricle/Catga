@@ -1,9 +1,16 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Data.Sqlite;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Messages;
 
 namespace OrderSystem.Api.Services;
+
+/// <summary>JSON serialization context for AOT compatibility</summary>
+[JsonSerializable(typeof(List<OrderItem>))]
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = false)]
+internal partial class OrderJsonContext : JsonSerializerContext;
 
 /// <summary>
 /// SQLite-based order repository - AOT compatible.
@@ -13,11 +20,6 @@ public sealed class SqliteOrderRepository : IOrderRepository, IAsyncDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly Lock _lock = new();
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
-    };
 
     public SqliteOrderRepository(string connectionString = "Data Source=orders.db")
     {
@@ -220,13 +222,13 @@ public sealed class SqliteOrderRepository : IOrderRepository, IAsyncDisposable
         cmd.Parameters.AddWithValue("$trackingNumber", order.TrackingNumber ?? (object)DBNull.Value);
         cmd.Parameters.AddWithValue("$paymentMethod", order.PaymentMethod ?? (object)DBNull.Value);
         cmd.Parameters.AddWithValue("$paymentTransactionId", order.PaymentTransactionId ?? (object)DBNull.Value);
-        cmd.Parameters.AddWithValue("$itemsJson", JsonSerializer.Serialize(order.Items, JsonOptions));
+        cmd.Parameters.AddWithValue("$itemsJson", JsonSerializer.Serialize(order.Items, OrderJsonContext.Default.ListOrderItem));
     }
 
     private static Order MapOrder(SqliteDataReader reader)
     {
         var itemsJson = reader.GetString(reader.GetOrdinal("ItemsJson"));
-        var items = JsonSerializer.Deserialize<List<OrderItem>>(itemsJson, JsonOptions) ?? [];
+        var items = JsonSerializer.Deserialize(itemsJson, OrderJsonContext.Default.ListOrderItem) ?? [];
 
         return new Order
         {

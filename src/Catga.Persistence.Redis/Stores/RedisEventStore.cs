@@ -47,8 +47,8 @@ public sealed partial class RedisEventStore : IEventStore
     {
         await _provider.ExecutePersistenceAsync(async ct =>
         {
-            var start = Stopwatch.GetTimestamp();
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.Append", ActivityKind.Producer);
+            var start = MetricsHelper.StartTimestamp();
+            using var activity = MetricsHelper.StartPersistenceActivity("EventStore", "Append");
 
             ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
             ArgumentNullException.ThrowIfNull(events);
@@ -64,7 +64,7 @@ public sealed partial class RedisEventStore : IEventStore
             if (expectedVersion != -1 && currentVersion != expectedVersion)
             {
                 var ex = new ConcurrencyException(streamId, expectedVersion, currentVersion);
-                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                MetricsHelper.SetActivityError(activity, ex);
                 throw ex;
             }
 
@@ -98,8 +98,7 @@ public sealed partial class RedisEventStore : IEventStore
             // Update version
             await db.StringSetAsync(versionKey, newVersion);
 
-            CatgaDiagnostics.EventStoreAppends.Add(events.Count);
-            CatgaDiagnostics.EventStoreAppendDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+            MetricsHelper.RecordEventStoreAppend(events.Count, start);
             LogEventsAppended(_logger, streamId, events.Count, newVersion);
         }, cancellationToken);
     }
@@ -112,8 +111,8 @@ public sealed partial class RedisEventStore : IEventStore
     {
         return await _provider.ExecutePersistenceAsync(async ct =>
         {
-            var start = Stopwatch.GetTimestamp();
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.Read", ActivityKind.Internal);
+            var start = MetricsHelper.StartTimestamp();
+            using var activity = MetricsHelper.StartPersistenceActivity("EventStore", "Read");
 
             ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
 
@@ -177,8 +176,7 @@ public sealed partial class RedisEventStore : IEventStore
 
             var finalVersion = storedEvents.Count > 0 ? storedEvents[^1].Version : -1;
 
-            CatgaDiagnostics.EventStoreReads.Add(1);
-            CatgaDiagnostics.EventStoreReadDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+            MetricsHelper.RecordEventStoreRead(start);
 
             return new EventStream
             {
@@ -219,8 +217,8 @@ public sealed partial class RedisEventStore : IEventStore
     {
         return await _provider.ExecutePersistenceAsync(async ct =>
         {
-            var start = Stopwatch.GetTimestamp();
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.ReadToVersion", ActivityKind.Internal);
+            var start = MetricsHelper.StartTimestamp();
+            using var activity = MetricsHelper.StartPersistenceActivity("EventStore", "ReadToVersion");
 
             ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
 
@@ -271,8 +269,7 @@ public sealed partial class RedisEventStore : IEventStore
 
             var finalVersion = storedEvents.Count > 0 ? storedEvents[^1].Version : -1;
 
-            CatgaDiagnostics.EventStoreReads.Add(1);
-            CatgaDiagnostics.EventStoreReadDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+            MetricsHelper.RecordEventStoreRead(start);
 
             return new EventStream { StreamId = streamId, Version = finalVersion, Events = storedEvents };
         }, cancellationToken);
@@ -285,8 +282,8 @@ public sealed partial class RedisEventStore : IEventStore
     {
         return await _provider.ExecutePersistenceAsync(async ct =>
         {
-            var start = Stopwatch.GetTimestamp();
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.ReadToTimestamp", ActivityKind.Internal);
+            var start = MetricsHelper.StartTimestamp();
+            using var activity = MetricsHelper.StartPersistenceActivity("EventStore", "ReadToTimestamp");
 
             ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
 
@@ -338,8 +335,7 @@ public sealed partial class RedisEventStore : IEventStore
 
             var finalVersion = storedEvents.Count > 0 ? storedEvents[^1].Version : -1;
 
-            CatgaDiagnostics.EventStoreReads.Add(1);
-            CatgaDiagnostics.EventStoreReadDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+            MetricsHelper.RecordEventStoreRead(start);
 
             return new EventStream { StreamId = streamId, Version = finalVersion, Events = storedEvents };
         }, cancellationToken);

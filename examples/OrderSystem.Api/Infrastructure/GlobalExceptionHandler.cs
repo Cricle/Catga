@@ -1,8 +1,14 @@
 using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
 namespace OrderSystem.Api.Infrastructure;
+
+/// <summary>JSON serialization context for AOT compatibility</summary>
+[JsonSerializable(typeof(ProblemDetails))]
+internal partial class ProblemDetailsJsonContext : JsonSerializerContext;
 
 /// <summary>
 /// Global exception handler implementing IExceptionHandler (ASP.NET Core 8+).
@@ -65,7 +71,8 @@ public sealed class GlobalExceptionHandler(
         };
 
         httpContext.Response.StatusCode = problemDetails.Status ?? 500;
-        await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
+        httpContext.Response.ContentType = "application/problem+json";
+        await JsonSerializer.SerializeAsync(httpContext.Response.Body, problemDetails, ProblemDetailsJsonContext.Default.ProblemDetails, cancellationToken);
 
         return true;
     }

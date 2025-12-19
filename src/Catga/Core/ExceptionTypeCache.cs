@@ -7,11 +7,12 @@ namespace Catga.Core;
 /// </summary>
 public static class ExceptionTypeCache
 {
-    private static readonly ConcurrentDictionary<Type, string> Cache = new();
+    private static readonly ConcurrentDictionary<Type, string> NameCache = new();
+    private static readonly ConcurrentDictionary<Type, string> FullNameCache = new();
 
     public static string GetTypeName(Exception ex)
-        => Cache.GetOrAdd(ex.GetType(), static t => t.Name);
+        => NameCache.GetOrAdd(ex.GetType(), static t => t.Name);
 
     public static string GetFullTypeName(Exception ex)
-        => Cache.GetOrAdd(ex.GetType(), static t => t.FullName ?? t.Name);
+        => FullNameCache.GetOrAdd(ex.GetType(), static t => t.FullName ?? t.Name);
 }

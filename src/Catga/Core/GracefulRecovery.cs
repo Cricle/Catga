@@ -25,6 +25,9 @@ public sealed partial class GracefulRecoveryManager
 
     public async Task<RecoveryResult> RecoverAsync(CancellationToken cancellationToken = default)
     {
+        // Check cancellation before starting
+        cancellationToken.ThrowIfCancellationRequested();
+
         // Atomic check-and-set using Interlocked
         if (Interlocked.CompareExchange(ref _isRecovering, 1, 0) != 0)
         {
@@ -43,10 +46,15 @@ public sealed partial class GracefulRecoveryManager
 
             foreach (var component in _components)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
                     await component.RecoverAsync(cancellationToken);
                     succeeded++;
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw; // Re-throw cancellation
                 }
                 catch (Exception ex)
                 {

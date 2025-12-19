@@ -8,13 +8,9 @@ using Catga.Inbox;
 using Catga.Outbox;
 using Catga.Persistence.Redis;
 using Catga.Persistence.Redis.Flow;
-using Catga.Persistence.Redis.Locking;
 using Catga.Persistence.Redis.Persistence;
-using Catga.Persistence.Redis.RateLimiting;
-using Catga.Persistence.Redis.Scheduling;
 using Catga.Persistence.Redis.Stores;
 using Catga.Resilience;
-using Catga.Scheduling;
 using Catga.Serialization.MemoryPack;
 using FluentAssertions;
 using MemoryPack;
@@ -358,136 +354,6 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
 
     #endregion
 
-    #region RedisRateLimiter Tests
-
-    [Fact]
-    public async Task RateLimiter_TryAcquire_WithinLimit_ShouldSucceed()
-    {
-        if (_redis is null) return;
-        var opts = Options.Create(new DistributedRateLimiterOptions { DefaultPermitLimit = 10, DefaultWindow = TimeSpan.FromMinutes(1) });
-        var limiter = new RedisRateLimiter(_redis, opts, NullLogger<RedisRateLimiter>.Instance);
-        var key = $"rate-{Guid.NewGuid():N}";
-
-        var result = await limiter.TryAcquireAsync(key);
-
-        result.IsAcquired.Should().BeTrue();
-        result.RemainingPermits.Should().Be(9);
-    }
-
-    [Fact]
-    public async Task RateLimiter_TryAcquire_ExceedsLimit_ShouldFail()
-    {
-        if (_redis is null) return;
-        var opts = Options.Create(new DistributedRateLimiterOptions { DefaultPermitLimit = 2, DefaultWindow = TimeSpan.FromMinutes(1) });
-        var limiter = new RedisRateLimiter(_redis, opts, NullLogger<RedisRateLimiter>.Instance);
-        var key = $"rate-exceed-{Guid.NewGuid():N}";
-
-        await limiter.TryAcquireAsync(key);
-        await limiter.TryAcquireAsync(key);
-        var result = await limiter.TryAcquireAsync(key);
-
-        result.IsAcquired.Should().BeFalse();
-        result.Reason.Should().Be(RateLimitRejectionReason.RateLimitExceeded);
-    }
-
-    [Fact]
-    public async Task RateLimiter_GetStatistics_ShouldReturnCurrentState()
-    {
-        if (_redis is null) return;
-        var opts = Options.Create(new DistributedRateLimiterOptions { DefaultPermitLimit = 10, DefaultWindow = TimeSpan.FromMinutes(1) });
-        var limiter = new RedisRateLimiter(_redis, opts, NullLogger<RedisRateLimiter>.Instance);
-        var key = $"rate-stats-{Guid.NewGuid():N}";
-
-        await limiter.TryAcquireAsync(key, permits: 3);
-        var stats = await limiter.GetStatisticsAsync(key);
-
-        stats.Should().NotBeNull();
-        stats!.Value.CurrentCount.Should().Be(3);
-        stats.Value.Limit.Should().Be(10);
-    }
-
-    [Fact]
-    public async Task RateLimiter_MultiplePermits_ShouldDeductCorrectly()
-    {
-        if (_redis is null) return;
-        var opts = Options.Create(new DistributedRateLimiterOptions { DefaultPermitLimit = 10, DefaultWindow = TimeSpan.FromMinutes(1) });
-        var limiter = new RedisRateLimiter(_redis, opts, NullLogger<RedisRateLimiter>.Instance);
-        var key = $"rate-multi-{Guid.NewGuid():N}";
-
-        var result = await limiter.TryAcquireAsync(key, permits: 5);
-
-        result.IsAcquired.Should().BeTrue();
-        result.RemainingPermits.Should().Be(5);
-    }
-
-    #endregion
-
-    #region RedisDistributedLock Tests
-
-    [Fact]
-    public async Task DistributedLock_TryAcquire_ShouldSucceed()
-    {
-        if (_redis is null) return;
-        var lockService = new RedisDistributedLock(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
-        var resource = $"lock-{Guid.NewGuid():N}";
-
-        var handle = await lockService.TryAcquireAsync(resource, TimeSpan.FromSeconds(30));
-
-        handle.Should().NotBeNull();
-        handle!.IsValid.Should().BeTrue();
-        await handle.DisposeAsync();
-    }
-
-    [Fact]
-    public async Task DistributedLock_DoubleLock_ShouldFail()
-    {
-        if (_redis is null) return;
-        var lockService = new RedisDistributedLock(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
-        var resource = $"lock-double-{Guid.NewGuid():N}";
-
-        var handle1 = await lockService.TryAcquireAsync(resource, TimeSpan.FromSeconds(30));
-        var handle2 = await lockService.TryAcquireAsync(resource, TimeSpan.FromSeconds(30));
-
-        handle1.Should().NotBeNull();
-        handle2.Should().BeNull();
-        await handle1!.DisposeAsync();
-    }
-
-    [Fact]
-    public async Task DistributedLock_Release_ShouldAllowReacquisition()
-    {
-        if (_redis is null) return;
-        var lockService = new RedisDistributedLock(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
-        var resource = $"lock-release-{Guid.NewGuid():N}";
-
-        var handle1 = await lockService.TryAcquireAsync(resource, TimeSpan.FromSeconds(30));
-        await handle1!.DisposeAsync();
-        var handle2 = await lockService.TryAcquireAsync(resource, TimeSpan.FromSeconds(30));
-
-        handle2.Should().NotBeNull();
-        await handle2!.DisposeAsync();
-    }
-
-    [Fact]
-    public async Task DistributedLock_IsLocked_ShouldReflectState()
-    {
-        if (_redis is null) return;
-        var lockService = new RedisDistributedLock(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
-        var resource = $"lock-state-{Guid.NewGuid():N}";
-
-        var before = await lockService.IsLockedAsync(resource);
-        var handle = await lockService.TryAcquireAsync(resource, TimeSpan.FromSeconds(30));
-        var during = await lockService.IsLockedAsync(resource);
-        await handle!.DisposeAsync();
-        var after = await lockService.IsLockedAsync(resource);
-
-        before.Should().BeFalse();
-        during.Should().BeTrue();
-        after.Should().BeFalse();
-    }
-
-    #endregion
-
     #region RedisSnapshotStore Tests
 
     [Fact]
@@ -540,67 +406,6 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
         var loaded = await store.LoadAsync<TestSnapshot>(aggregateId);
 
         loaded.Should().NotBeNull();
-    }
-
-    #endregion
-
-    #region RedisDistributedLock Extended Tests
-
-    [Fact]
-    public async Task RedisDistributedLock_TryAcquire_ShouldSucceed()
-    {
-        if (_redis is null) return;
-        var lockProvider = new RedisDistributedLock(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
-        var lockName = $"lock-acquire-{Guid.NewGuid():N}";
-
-        var handle = await lockProvider.TryAcquireAsync(lockName, TimeSpan.FromSeconds(30));
-
-        handle.Should().NotBeNull();
-        await handle!.DisposeAsync();
-    }
-
-    [Fact]
-    public async Task DistributedLock_TryAcquire_AlreadyHeld_ShouldReturnNull()
-    {
-        if (_redis is null) return;
-        var lockProvider = new RedisDistributedLock(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
-        var lockName = $"lock-held-{Guid.NewGuid():N}";
-
-        var handle1 = await lockProvider.TryAcquireAsync(lockName, TimeSpan.FromSeconds(30));
-        var handle2 = await lockProvider.TryAcquireAsync(lockName, TimeSpan.FromSeconds(30));
-
-        handle1.Should().NotBeNull();
-        handle2.Should().BeNull();
-        await handle1!.DisposeAsync();
-    }
-
-    [Fact]
-    public async Task DistributedLock_Release_ShouldAllowReacquire()
-    {
-        if (_redis is null) return;
-        var lockProvider = new RedisDistributedLock(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
-        var lockName = $"lock-release-{Guid.NewGuid():N}";
-
-        var handle1 = await lockProvider.TryAcquireAsync(lockName, TimeSpan.FromSeconds(30));
-        await handle1!.DisposeAsync();
-        var handle2 = await lockProvider.TryAcquireAsync(lockName, TimeSpan.FromSeconds(30));
-
-        handle2.Should().NotBeNull();
-        await handle2!.DisposeAsync();
-    }
-
-    [Fact]
-    public async Task DistributedLock_Extend_ShouldSucceed()
-    {
-        if (_redis is null) return;
-        var lockProvider = new RedisDistributedLock(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
-        var lockName = $"lock-extend-{Guid.NewGuid():N}";
-
-        var handle = await lockProvider.TryAcquireAsync(lockName, TimeSpan.FromSeconds(30));
-        await handle!.ExtendAsync(TimeSpan.FromMinutes(1));
-
-        // Should still be valid
-        await handle.DisposeAsync();
     }
 
     #endregion

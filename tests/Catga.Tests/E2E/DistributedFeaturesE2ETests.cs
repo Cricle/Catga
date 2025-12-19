@@ -1,6 +1,5 @@
 using Catga.Abstractions;
 using Catga.DependencyInjection;
-using Catga.Scheduling;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -74,64 +73,6 @@ public class DistributedFeaturesE2ETests
 
         // Assert
         successCount.Should().Be(1, "only one concurrent request should acquire the lock");
-    }
-
-    [Fact]
-    public async Task MessageScheduler_ScheduleAndRetrieve_Works()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddCatga(opt => opt.ForDevelopment())
-            .UseInMemory();
-
-        var sp = services.BuildServiceProvider();
-        var scheduler = sp.GetRequiredService<IMessageScheduler>();
-
-        var scheduledTime = DateTime.UtcNow.AddSeconds(1);
-        var message = new TestScheduledMessage { Id = "MSG-001", Content = "Hello" };
-
-        // Act - Schedule message
-        var messageId = await scheduler.ScheduleAsync(message, scheduledTime);
-
-        // Assert
-        messageId.Should().NotBeNullOrEmpty();
-
-        // Act - Get due messages (should be empty initially)
-        var dueNow = await scheduler.GetDueMessagesAsync(DateTime.UtcNow);
-        dueNow.Should().BeEmpty("message is scheduled for the future");
-
-        // Wait for scheduled time
-        await Task.Delay(1100);
-
-        // Act - Get due messages (should contain our message)
-        var dueAfterWait = await scheduler.GetDueMessagesAsync(DateTime.UtcNow);
-        dueAfterWait.Should().HaveCount(1);
-    }
-
-    [Fact]
-    public async Task MessageScheduler_CancelScheduled_RemovesMessage()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddCatga(opt => opt.ForDevelopment())
-            .UseInMemory();
-
-        var sp = services.BuildServiceProvider();
-        var scheduler = sp.GetRequiredService<IMessageScheduler>();
-
-        var scheduledTime = DateTime.UtcNow.AddHours(1);
-        var message = new TestScheduledMessage { Id = "MSG-CANCEL", Content = "Cancel me" };
-
-        // Act - Schedule and cancel
-        var messageId = await scheduler.ScheduleAsync(message, scheduledTime);
-        var cancelled = await scheduler.CancelAsync(messageId);
-
-        // Assert
-        cancelled.Should().BeTrue();
-
-        // Verify message is gone
-        var dueMessages = await scheduler.GetDueMessagesAsync(scheduledTime.AddMinutes(1));
-        dueMessages.Should().NotContain(m => ((TestScheduledMessage)m).Id == "MSG-CANCEL");
     }
 
     [Fact]
@@ -250,12 +191,6 @@ public class DistributedFeaturesE2ETests
     }
 
     #region Test Messages
-
-    public record TestScheduledMessage
-    {
-        public string Id { get; init; } = "";
-        public string Content { get; init; } = "";
-    }
 
     public record TestFailedMessage
     {

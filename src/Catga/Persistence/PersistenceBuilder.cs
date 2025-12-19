@@ -4,8 +4,8 @@ using Catga.Flow;
 using Catga.Flow.Dsl;
 using Catga.Idempotency;
 using Catga.Inbox;
-using Catga.Locking;
 using Catga.Outbox;
+using Medallion.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 

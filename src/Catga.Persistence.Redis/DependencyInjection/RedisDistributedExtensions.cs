@@ -1,12 +1,11 @@
-using Catga.Abstractions;
 using Catga.DependencyInjection;
 using Catga.EventSourcing;
-using Catga.Persistence.Redis.Locking;
-using Catga.Persistence.Redis.Scheduling;
 using Catga.Persistence.Redis.Stores;
-using Catga.Scheduling;
+using Medallion.Threading;
+using Medallion.Threading.Redis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis.DependencyInjection;
 
@@ -15,26 +14,14 @@ namespace Catga.Persistence.Redis.DependencyInjection;
 /// </summary>
 public static class RedisDistributedExtensions
 {
-    /// <summary>Add Redis distributed lock.</summary>
-    public static CatgaServiceBuilder UseRedisDistributedLock(
-        this CatgaServiceBuilder builder,
-        Action<DistributedLockOptions>? configure = null)
+    /// <summary>Add Redis distributed lock provider using DistributedLock.Redis.</summary>
+    public static CatgaServiceBuilder UseRedisDistributedLock(this CatgaServiceBuilder builder)
     {
-        if (configure != null)
-            builder.Services.Configure(configure);
-        builder.Services.TryAddSingleton<IDistributedLock, RedisDistributedLock>();
-        return builder;
-    }
-
-    /// <summary>Add Redis message scheduler.</summary>
-    public static CatgaServiceBuilder UseRedisMessageScheduler(
-        this CatgaServiceBuilder builder,
-        Action<MessageSchedulerOptions>? configure = null)
-    {
-        if (configure != null)
-            builder.Services.Configure(configure);
-        builder.Services.TryAddSingleton<IMessageScheduler, RedisMessageScheduler>();
-        builder.Services.AddHostedService(sp => (RedisMessageScheduler)sp.GetRequiredService<IMessageScheduler>());
+        builder.Services.TryAddSingleton<IDistributedLockProvider>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            return new RedisDistributedSynchronizationProvider(redis.GetDatabase());
+        });
         return builder;
     }
 
@@ -54,20 +41,16 @@ public static class RedisDistributedExtensions
     {
         return builder
             .UseRedisDistributedLock()
-            .UseRedisMessageScheduler()
             .UseRedisSnapshotStore();
     }
 
     /// <summary>Add all Redis distributed features with options.</summary>
     public static CatgaServiceBuilder UseRedisDistributed(
         this CatgaServiceBuilder builder,
-        Action<DistributedLockOptions>? lockOptions = null,
-        Action<MessageSchedulerOptions>? schedulerOptions = null,
         Action<SnapshotOptions>? snapshotOptions = null)
     {
         return builder
-            .UseRedisDistributedLock(lockOptions)
-            .UseRedisMessageScheduler(schedulerOptions)
+            .UseRedisDistributedLock()
             .UseRedisSnapshotStore(snapshotOptions);
     }
 }

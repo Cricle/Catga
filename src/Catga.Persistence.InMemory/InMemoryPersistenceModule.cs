@@ -6,13 +6,13 @@ using Catga.Flow;
 using Catga.Flow.Dsl;
 using Catga.Idempotency;
 using Catga.Inbox;
-using Catga.Locking;
 using Catga.Outbox;
 using Catga.Persistence.InMemory.Flow;
-using Catga.Persistence.InMemory.Locking;
 using Catga.Persistence.InMemory.Stores;
 using Catga.Persistence.Stores;
 using Catga.Resilience;
+using Medallion.Threading;
+using Medallion.Threading.FileSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -31,6 +31,9 @@ public sealed class InMemoryPersistenceModule : IPersistenceModule
     /// <summary>Maximum dead letter queue size.</summary>
     public int DeadLetterMaxSize { get; set; } = 1000;
 
+    /// <summary>Directory for file-based distributed locks.</summary>
+    public string? LockDirectory { get; set; }
+
     public void RegisterServices(IServiceCollection services)
     {
         services.TryAddSingleton<IEventStore>(sp => new InMemoryEventStore(sp.GetRequiredService<IResiliencePipelineProvider>()));
@@ -42,20 +45,21 @@ public sealed class InMemoryPersistenceModule : IPersistenceModule
             DeadLetterMaxSize));
         services.TryAddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
         services.TryAddSingleton<ISnapshotStore, InMemorySnapshotStore>();
-        services.TryAddSingleton<IDistributedLock, InMemoryDistributedLock>();
+
+        // Use DistributedLock.FileSystem for local distributed locking
+        var lockDir = new DirectoryInfo(LockDirectory ?? Path.Combine(Path.GetTempPath(), "catga-locks"));
+        if (!lockDir.Exists)
+            lockDir.Create();
+        services.TryAddSingleton<IDistributedLockProvider>(new FileDistributedSynchronizationProvider(lockDir));
+
         services.TryAddSingleton<IFlowStore, InMemoryFlowStore>();
         services.TryAddSingleton<IDslFlowStore>(sp => new InMemoryDslFlowStore(sp.GetRequiredService<IMessageSerializer>()));
-        services.TryAddSingleton<IDistributedRateLimiter, InMemoryRateLimiter>();
 
-        if (Options.IdempotencyRetention != TimeSpan.FromHours(24) ||
-            Options.RateLimitDefaultLimit != 100 ||
-            Options.RateLimitWindow != TimeSpan.FromMinutes(1))
+        if (Options.IdempotencyRetention != TimeSpan.FromHours(24))
         {
             services.Configure<InMemoryPersistenceOptions>(o =>
             {
                 o.IdempotencyRetention = Options.IdempotencyRetention;
-                o.RateLimitDefaultLimit = Options.RateLimitDefaultLimit;
-                o.RateLimitWindow = Options.RateLimitWindow;
             });
         }
     }

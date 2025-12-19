@@ -81,11 +81,6 @@ internal static class CatgaActivitySource
         public const string ElectionId = "catga.election.id";
         public const string LeaderNodeId = "catga.leader.node_id";
         public const string LeaderLeaseDuration = "catga.leader.lease_duration_ms";
-
-        // Rate Limiter tags
-        public const string RateLimitKey = "catga.ratelimit.key";
-        public const string RateLimitPermits = "catga.ratelimit.permits";
-        public const string RateLimitRemaining = "catga.ratelimit.remaining";
     }
 
     /// <summary>Activity event names for timeline markers</summary>
@@ -186,13 +181,6 @@ internal static class CatgaActivitySource
         public const string LeaderResigned = "Leader.Resigned";
         public const string LeaderExtended = "Leader.Extended";
         public const string LeaderLost = "Leader.Lost";
-
-        // Rate Limiter
-        public const string RateLimitTryAcquire = "RateLimit.TryAcquire";
-        public const string RateLimitAcquired = "RateLimit.Acquired";
-        public const string RateLimitRejected = "RateLimit.Rejected";
-        public const string RateLimitWait = "RateLimit.Wait";
-        public const string RateLimitTimeout = "RateLimit.Timeout";
     }
 
     /// <summary>Mark activity as success with optional result</summary>

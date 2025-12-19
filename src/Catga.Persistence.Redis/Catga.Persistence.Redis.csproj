@@ -14,6 +14,7 @@
   <ItemGroup>
     <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="MemoryPack" />
+    <PackageReference Include="DistributedLock.Redis" />
   </ItemGroup>
 
 </Project>

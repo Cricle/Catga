@@ -4,15 +4,17 @@ using Catga.Inbox;
 using Catga.Observability;
 using Catga.Resilience;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis.Persistence;
 
 /// <summary>Redis Inbox persistence store.</summary>
-public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSerializer serializer, ILogger<RedisInboxPersistence> logger, IResiliencePipelineProvider provider, RedisInboxOptions? options = null)
-    : RedisStoreBase(redis, serializer, options?.KeyPrefix ?? "inbox"), IInboxStore
+public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSerializer serializer, ILogger<RedisInboxPersistence> logger, IResiliencePipelineProvider provider, IOptions<RedisPersistenceOptions>? options = null)
+    : RedisStoreBase(redis, serializer, options?.Value.InboxKeyPrefix ?? "catga:inbox:"), IInboxStore
 {
     private const string TryLockScript = "local e=redis.call('GET',KEYS[1]) if e then return 0 end redis.call('SET',KEYS[1],ARGV[3],'EX',ARGV[2]) return 1";
+    private readonly TimeSpan _lockDuration = options?.Value.InboxDefaultLockDuration ?? TimeSpan.FromMinutes(5);
 
     public async ValueTask<bool> TryLockMessageAsync(
         long messageId,

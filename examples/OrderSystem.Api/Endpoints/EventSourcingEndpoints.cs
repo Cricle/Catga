@@ -16,7 +16,6 @@ public static class EventSourcingEndpoints
         MapTimeTravelEndpoints(app);
         MapProjectionEndpoints(app);
         MapSubscriptionEndpoints(app);
-        MapAuditEndpoints(app);
         MapSnapshotEndpoints(app);
 
         return app;
@@ -135,38 +134,6 @@ public static class EventSourcingEndpoints
         .WithSummary("Process events for a subscription");
     }
 
-    private static void MapAuditEndpoints(IEndpointRouteBuilder app)
-    {
-        var group = app.MapGroup("/api/audit")
-            .WithTags("Audit & Compliance");
-
-        group.MapGet("/logs/{streamId}", async (string streamId, OrderAuditService audit) =>
-            Results.Ok(await audit.GetLogsAsync(streamId)))
-        .WithName("GetAuditLogs")
-        .WithSummary("Get audit logs for a stream");
-
-        group.MapPost("/verify/{streamId}", async (string streamId, OrderAuditService audit) =>
-        {
-            var result = await audit.VerifyStreamAsync(streamId);
-            return Results.Ok(new StreamVerifyResponse2(streamId, result.IsValid, result.Hash, result.Error));
-        })
-        .WithName("VerifyStreamIntegrity")
-        .WithSummary("Verify event stream integrity");
-
-        group.MapPost("/gdpr/erasure-request", async (GdprErasureRequest request, OrderAuditService audit) =>
-        {
-            await audit.RequestCustomerErasureAsync(request.CustomerId, request.RequestedBy);
-            return Results.Accepted();
-        })
-        .WithName("RequestGdprErasure")
-        .WithSummary("Request GDPR data erasure for a customer");
-
-        group.MapGet("/gdpr/pending-requests", async (OrderAuditService audit) =>
-            Results.Ok(await audit.GetPendingErasureRequestsAsync()))
-        .WithName("GetPendingErasureRequests")
-        .WithSummary("List pending GDPR erasure requests");
-    }
-
     private static void MapSnapshotEndpoints(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/snapshots")
@@ -201,4 +168,3 @@ public static class EventSourcingEndpoints
 }
 
 public record CreateSubscriptionRequest(string Name, string Pattern);
-public record GdprErasureRequest(string CustomerId, string RequestedBy);

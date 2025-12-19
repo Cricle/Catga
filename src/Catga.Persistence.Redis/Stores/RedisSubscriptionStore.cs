@@ -1,142 +1,61 @@
-using Catga.Abstractions;
 using Catga.EventSourcing;
 using Catga.Resilience;
 using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis.Stores;
 
-/// <summary>
-/// Redis-based subscription store with distributed locking support.
-/// </summary>
-public sealed class RedisSubscriptionStore : ISubscriptionStore
+/// <summary>Redis-based subscription store with distributed locking support.</summary>
+public sealed class RedisSubscriptionStore(IConnectionMultiplexer redis, IResiliencePipelineProvider provider, string prefix = "subscription:", TimeSpan? lockExpiry = null) : ISubscriptionStore
 {
-    private readonly IConnectionMultiplexer _redis;
-    private readonly IMessageSerializer _serializer;
-    private readonly IResiliencePipelineProvider _provider;
-    private readonly string _prefix;
-    private readonly TimeSpan _lockExpiry;
-
-    public RedisSubscriptionStore(
-        IConnectionMultiplexer redis,
-        IMessageSerializer serializer,
-        IResiliencePipelineProvider provider,
-        string prefix = "subscription:",
-        TimeSpan? lockExpiry = null)
-    {
-        _redis = redis;
-        _serializer = serializer;
-        _provider = provider;
-        _prefix = prefix;
-        _lockExpiry = lockExpiry ?? TimeSpan.FromSeconds(30);
-    }
+    private readonly TimeSpan _lockExpiry = lockExpiry ?? TimeSpan.FromSeconds(30);
 
     public async ValueTask SaveAsync(PersistentSubscription subscription, CancellationToken ct = default)
-    {
-        await _provider.ExecutePersistenceAsync(async _ =>
+        => await provider.ExecutePersistenceAsync(async _ =>
         {
-            var db = _redis.GetDatabase();
-            var key = _prefix + subscription.Name;
-
-            await db.HashSetAsync(key, [
-                new HashEntry("name", subscription.Name),
-                new HashEntry("streamPattern", subscription.StreamPattern),
-                new HashEntry("position", subscription.Position),
-                new HashEntry("eventTypeFilter", string.Join(",", subscription.EventTypeFilter)),
-                new HashEntry("processedCount", subscription.ProcessedCount),
-                new HashEntry("lastProcessedAt", subscription.LastProcessedAt?.Ticks ?? 0),
-                new HashEntry("createdAt", subscription.CreatedAt.Ticks)
+            var db = redis.GetDatabase();
+            await db.HashSetAsync(prefix + subscription.Name, [
+                new("name", subscription.Name), new("streamPattern", subscription.StreamPattern), new("position", subscription.Position),
+                new("eventTypeFilter", string.Join(",", subscription.EventTypeFilter)), new("processedCount", subscription.ProcessedCount),
+                new("lastProcessedAt", subscription.LastProcessedAt?.Ticks ?? 0), new("createdAt", subscription.CreatedAt.Ticks)
             ]);
-
-            // Add to subscription index
-            await db.SetAddAsync(_prefix + "index", subscription.Name);
+            await db.SetAddAsync(prefix + "index", subscription.Name);
         }, ct);
-    }
 
     public async ValueTask<PersistentSubscription?> LoadAsync(string name, CancellationToken ct = default)
-    {
-        return await _provider.ExecutePersistenceAsync(async _ =>
+        => await provider.ExecutePersistenceAsync(async _ =>
         {
-            var db = _redis.GetDatabase();
-            var key = _prefix + name;
-
-            var entries = await db.HashGetAllAsync(key);
+            var entries = await redis.GetDatabase().HashGetAllAsync(prefix + name);
             if (entries.Length == 0) return null;
-
-            var dict = entries.ToDictionary(e => (string)e.Name!, e => e.Value);
-
-            var subscription = new PersistentSubscription(
-                (string)dict["name"]!,
-                (string)dict["streamPattern"]!)
+            var d = entries.ToDictionary(e => (string)e.Name!, e => e.Value);
+            var sub = new PersistentSubscription((string)d["name"]!, (string)d["streamPattern"]!)
             {
-                Position = (long)dict["position"],
-                ProcessedCount = (long)dict["processedCount"],
-                LastProcessedAt = (long)dict["lastProcessedAt"] > 0
-                    ? new DateTime((long)dict["lastProcessedAt"], DateTimeKind.Utc)
-                    : null
+                Position = (long)d["position"], ProcessedCount = (long)d["processedCount"],
+                LastProcessedAt = (long)d["lastProcessedAt"] > 0 ? new DateTime((long)d["lastProcessedAt"], DateTimeKind.Utc) : null
             };
-
-            var filterStr = (string?)dict["eventTypeFilter"];
-            if (!string.IsNullOrEmpty(filterStr))
-            {
-                subscription.EventTypeFilter = filterStr.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
-            }
-
-            return subscription;
+            var filter = (string?)d["eventTypeFilter"];
+            if (!string.IsNullOrEmpty(filter)) sub.EventTypeFilter = [.. filter.Split(',', StringSplitOptions.RemoveEmptyEntries)];
+            return sub;
         }, ct);
-    }
 
     public async ValueTask DeleteAsync(string name, CancellationToken ct = default)
-    {
-        await _provider.ExecutePersistenceAsync(async _ =>
-        {
-            var db = _redis.GetDatabase();
-            var key = _prefix + name;
-            await db.KeyDeleteAsync(key);
-            await db.SetRemoveAsync(_prefix + "index", name);
-        }, ct);
-    }
+        => await provider.ExecutePersistenceAsync(async _ => { var db = redis.GetDatabase(); await db.KeyDeleteAsync(prefix + name); await db.SetRemoveAsync(prefix + "index", name); }, ct);
 
     public async ValueTask<IReadOnlyList<PersistentSubscription>> ListAsync(CancellationToken ct = default)
-    {
-        return await _provider.ExecutePersistenceAsync(async _ =>
+        => await provider.ExecutePersistenceAsync(async _ =>
         {
-            var db = _redis.GetDatabase();
-            var names = await db.SetMembersAsync(_prefix + "index");
-            var subscriptions = new List<PersistentSubscription>();
-
-            foreach (var name in names)
-            {
-                var sub = await LoadAsync((string)name!, ct);
-                if (sub != null) subscriptions.Add(sub);
-            }
-
-            return (IReadOnlyList<PersistentSubscription>)subscriptions;
+            var names = await redis.GetDatabase().SetMembersAsync(prefix + "index");
+            var subs = new List<PersistentSubscription>();
+            foreach (var n in names) { var s = await LoadAsync((string)n!, ct); if (s != null) subs.Add(s); }
+            return (IReadOnlyList<PersistentSubscription>)subs;
         }, ct);
-    }
 
     public async ValueTask<bool> TryAcquireLockAsync(string subscriptionName, string consumerId, CancellationToken ct = default)
-    {
-        return await _provider.ExecutePersistenceAsync(async _ =>
-        {
-            var db = _redis.GetDatabase();
-            var lockKey = _prefix + "lock:" + subscriptionName;
-            return await db.StringSetAsync(lockKey, consumerId, _lockExpiry, When.NotExists);
-        }, ct);
-    }
+        => await provider.ExecutePersistenceAsync(async _ => await redis.GetDatabase().StringSetAsync(prefix + "lock:" + subscriptionName, consumerId, _lockExpiry, When.NotExists), ct);
 
     public async ValueTask ReleaseLockAsync(string subscriptionName, string consumerId, CancellationToken ct = default)
-    {
-        await _provider.ExecutePersistenceAsync(async _ =>
+        => await provider.ExecutePersistenceAsync(async _ =>
         {
-            var db = _redis.GetDatabase();
-            var lockKey = _prefix + "lock:" + subscriptionName;
-
-            // Only release if we own the lock
-            var currentOwner = await db.StringGetAsync(lockKey);
-            if (currentOwner == consumerId)
-            {
-                await db.KeyDeleteAsync(lockKey);
-            }
+            var db = redis.GetDatabase(); var lockKey = prefix + "lock:" + subscriptionName;
+            if (await db.StringGetAsync(lockKey) == consumerId) await db.KeyDeleteAsync(lockKey);
         }, ct);
-    }
 }

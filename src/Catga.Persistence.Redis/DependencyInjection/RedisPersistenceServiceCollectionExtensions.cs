@@ -1,10 +1,7 @@
 using Catga.Inbox;
-using Catga.Locking;
 using Catga.Outbox;
 using Catga.Persistence.Redis.Persistence;
 using Catga.Persistence.Redis;
-using Catga.Persistence.Redis.Locking;
-using Catga.Persistence.Redis.RateLimiting;
 using Catga.Persistence.Redis.Flow;
 using Catga.Persistence.Redis.Stores;
 using Catga.Flow;
@@ -12,6 +9,8 @@ using Catga.Flow.Dsl;
 using Catga.EventSourcing;
 using Catga.DeadLetter;
 using Catga.Core;
+using Medallion.Threading;
+using Medallion.Threading.Redis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Catga.Abstractions;
@@ -53,21 +52,15 @@ public static class RedisPersistenceServiceCollectionExtensions
         configure?.Invoke(options);
 
         services.TryAddSingleton(options);
+        services.TryAddSingleton(Options.Create(options));
         services.TryAddSingleton<IOutboxStore>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
             var serializer = sp.GetRequiredService<IMessageSerializer>();
             var logger = sp.GetRequiredService<ILogger<RedisOutboxPersistence>>();
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-            var opts = sp.GetRequiredService<RedisPersistenceOptions>();
-            return new RedisOutboxPersistence(redis, serializer, logger, provider,
-                new RedisOutboxOptions
-                {
-                    KeyPrefix = opts.OutboxKeyPrefix,
-                    PublishedRetention = opts.OutboxPublishedRetention,
-                    PollingInterval = opts.OutboxPollingInterval,
-                    BatchSize = opts.OutboxBatchSize
-                });
+            var opts = sp.GetRequiredService<IOptions<RedisPersistenceOptions>>();
+            return new RedisOutboxPersistence(redis, serializer, logger, provider, opts);
         });
 
         return services;
@@ -85,20 +78,15 @@ public static class RedisPersistenceServiceCollectionExtensions
         configure?.Invoke(options);
 
         services.TryAddSingleton(options);
+        services.TryAddSingleton(Options.Create(options));
         services.TryAddSingleton<IInboxStore>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
             var serializer = sp.GetRequiredService<IMessageSerializer>();
             var logger = sp.GetRequiredService<ILogger<RedisInboxPersistence>>();
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-            var opts = sp.GetRequiredService<RedisPersistenceOptions>();
-            return new RedisInboxPersistence(redis, serializer, logger, provider,
-                new RedisInboxOptions
-                {
-                    KeyPrefix = opts.InboxKeyPrefix,
-                    ProcessedRetention = opts.InboxProcessedRetention,
-                    DefaultLockDuration = opts.InboxDefaultLockDuration
-                });
+            var opts = sp.GetRequiredService<IOptions<RedisPersistenceOptions>>();
+            return new RedisInboxPersistence(redis, serializer, logger, provider, opts);
         });
 
         return services;
@@ -142,53 +130,33 @@ public static class RedisPersistenceServiceCollectionExtensions
         configure?.Invoke(options);
 
         services.TryAddSingleton(options);
+        services.TryAddSingleton(Options.Create(options));
         services.TryAddSingleton<IIdempotencyStore>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
             var serializer = sp.GetRequiredService<IMessageSerializer>();
             var logger = sp.GetRequiredService<ILogger<RedisIdempotencyStore>>();
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-            var opts = sp.GetRequiredService<RedisPersistenceOptions>();
-            return new RedisIdempotencyStore(redis, serializer, logger, provider,
-                new RedisIdempotencyOptions
-                {
-                    KeyPrefix = opts.IdempotencyKeyPrefix,
-                    Expiry = opts.IdempotencyExpiry
-                });
+            var opts = sp.GetRequiredService<IOptions<RedisPersistenceOptions>>();
+            return new RedisIdempotencyStore(redis, serializer, logger, provider, opts);
         });
-
-        return services;
-    }
-
-    /// <summary>
-    /// 添加 Redis 分布式限流器
-    /// </summary>
-    public static IServiceCollection AddRedisRateLimiter(
-        this IServiceCollection services,
-        Action<DistributedRateLimiterOptions>? configure = null)
-    {
-        services.Configure<DistributedRateLimiterOptions>(options =>
-        {
-            configure?.Invoke(options);
-        });
-
-        services.TryAddSingleton<IDistributedRateLimiter, RedisRateLimiter>();
 
         return services;
     }
 
     /// <summary>
     /// Add Redis distributed lock provider for [DistributedLock] attribute support.
+    /// Uses DistributedLock.Redis library.
     /// </summary>
     public static IServiceCollection AddRedisDistributedLock(
-        this IServiceCollection services,
-        Action<DistributedLockOptions>? configure = null)
+        this IServiceCollection services)
     {
-        var options = new DistributedLockOptions();
-        configure?.Invoke(options);
-
-        services.TryAddSingleton(Options.Create(options));
-        services.AddSingleton<IDistributedLockProvider, RedisDistributedLockProvider>();
+        EnsureRedisConnectionRegistered(services);
+        services.TryAddSingleton<IDistributedLockProvider>(sp =>
+        {
+            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
+            return new RedisDistributedSynchronizationProvider(redis.GetDatabase());
+        });
 
         return services;
     }
@@ -303,9 +271,8 @@ public static class RedisPersistenceServiceCollectionExtensions
         services.TryAddSingleton<IProjectionCheckpointStore>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
-            var serializer = sp.GetRequiredService<IMessageSerializer>();
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-            return new RedisProjectionCheckpointStore(redis, serializer, provider, prefix);
+            return new RedisProjectionCheckpointStore(redis, provider, prefix);
         });
 
         return services;
@@ -323,9 +290,8 @@ public static class RedisPersistenceServiceCollectionExtensions
         services.TryAddSingleton<ISubscriptionStore>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
-            var serializer = sp.GetRequiredService<IMessageSerializer>();
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-            return new RedisSubscriptionStore(redis, serializer, provider, prefix);
+            return new RedisSubscriptionStore(redis, provider, prefix);
         });
 
         return services;
@@ -346,68 +312,6 @@ public static class RedisPersistenceServiceCollectionExtensions
             var serializer = sp.GetRequiredService<IMessageSerializer>();
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
             return new RedisEnhancedSnapshotStore(redis, serializer, provider, prefix);
-        });
-
-        return services;
-    }
-
-    /// <summary>
-    /// Add Redis audit log store.
-    /// </summary>
-    public static IServiceCollection AddRedisAuditLogStore(
-        this IServiceCollection services,
-        string? prefix = null)
-    {
-        prefix ??= RedisKeyPrefixes.Audit;
-        services.TryAddSingleton<IAuditLogStore>(sp =>
-        {
-            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
-            var serializer = sp.GetRequiredService<IMessageSerializer>();
-            return new RedisAuditLogStore(redis, serializer, prefix);
-        });
-
-        return services;
-    }
-
-    /// <summary>
-    /// Add Redis GDPR store for managing data erasure requests.
-    /// </summary>
-    public static IServiceCollection AddRedisGdprStore(
-        this IServiceCollection services,
-        string? prefix = null)
-    {
-        EnsureRedisConnectionRegistered(services);
-        prefix ??= "gdpr";
-        services.TryAddSingleton<IGdprStore>(sp =>
-        {
-            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
-            var serializer = sp.GetRequiredService<IMessageSerializer>();
-            return new RedisGdprStore(redis, serializer, prefix);
-        });
-
-        return services;
-    }
-
-    /// <summary>
-    /// Add Redis message scheduler.
-    /// </summary>
-    public static IServiceCollection AddRedisMessageScheduler(
-        this IServiceCollection services,
-        Action<Catga.Scheduling.MessageSchedulerOptions>? configure = null)
-    {
-        if (configure != null)
-            services.Configure(configure);
-        else
-            services.TryAddSingleton(Options.Create(new Catga.Scheduling.MessageSchedulerOptions()));
-
-        services.TryAddSingleton<Catga.Scheduling.IMessageScheduler>(sp =>
-        {
-            var redis = sp.GetRequiredService<IConnectionMultiplexer>();
-            var serializer = sp.GetRequiredService<IMessageSerializer>();
-            var mediator = sp.GetRequiredService<ICatgaMediator>();
-            var options = sp.GetRequiredService<IOptions<Catga.Scheduling.MessageSchedulerOptions>>();
-            var logger = sp.GetRequiredService<ILogger<Catga.Persistence.Redis.Scheduling.RedisMessageScheduler>>();
-            return new Catga.Persistence.Redis.Scheduling.RedisMessageScheduler(redis, serializer, mediator, options, logger);
         });
 
         return services;

@@ -92,30 +92,6 @@ public class OrderEventSubscriptionHandler : IEventHandler
 }
 
 // ============================================
-// Audit & Compliance
-// ============================================
-
-/// <summary>Order audit service for compliance and GDPR.</summary>
-public class OrderAuditService
-{
-    private readonly IAuditLogStore _auditStore;
-    private readonly ImmutabilityVerifier _verifier;
-    private readonly GdprService _gdprService;
-
-    public OrderAuditService(IAuditLogStore auditStore, IEventStore eventStore, IGdprStore gdprStore)
-    {
-        _auditStore = auditStore;
-        _verifier = new ImmutabilityVerifier(eventStore);
-        _gdprService = new GdprService(gdprStore);
-    }
-
-    public ValueTask<VerificationResult> VerifyStreamAsync(string streamId) => _verifier.VerifyStreamAsync(streamId);
-    public ValueTask<IReadOnlyList<AuditLogEntry>> GetLogsAsync(string streamId) => _auditStore.GetLogsAsync(streamId);
-    public ValueTask RequestCustomerErasureAsync(string customerId, string requestedBy) => _gdprService.RequestErasureAsync(customerId, requestedBy);
-    public ValueTask<IReadOnlyList<ErasureRequest>> GetPendingErasureRequestsAsync() => _gdprService.GetPendingRequestsAsync();
-}
-
-// ============================================
 // Event Versioning (Schema Evolution)
 // ============================================
 
@@ -157,9 +133,6 @@ public static class OrderSystemExtensions
 
         // Subscription handler
         services.AddSingleton<OrderEventSubscriptionHandler>();
-
-        // Audit service
-        services.AddSingleton<OrderAuditService>();
 
         return services;
     }

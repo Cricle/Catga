@@ -1,33 +1,14 @@
 using System.Runtime.CompilerServices;
-#if NET8_0_OR_GREATER
-using Polly;
-using Polly.RateLimiting;
-using System.Threading.RateLimiting;
-#else
-using Polly;
-#endif
 
 namespace Catga.Core;
 
 /// <summary>
-/// Helper for batch parallel operations with chunking to prevent thread pool starvation (DRY principle)
+/// Helper for batch parallel operations with chunking to prevent thread pool starvation.
 /// </summary>
 internal static class BatchOperationHelper
 {
-    // ========== Configuration ==========
-
-    /// <summary>Default chunk size for large batches</summary>
     public const int DefaultChunkSize = 100;
 
-    // ========== Public API - Batch Operations ==========
-
-    /// <summary>
-    /// Execute batch async operations in parallel with automatic chunking for large batches.
-    /// Prevents thread pool starvation by processing items in chunks.
-    /// </summary>
-    /// <param name="items">Items to process</param>
-    /// <param name="operation">Operation to execute on each item</param>
-    /// <param name="chunkSize">Chunk size for processing (default: 100). Set to 0 to disable chunking.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Task ExecuteBatchAsync<T>(
         IEnumerable<T> items,
@@ -37,28 +18,22 @@ internal static class BatchOperationHelper
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(operation);
 
-        // Fast path: if already ICollection, use Count directly
         if (items is ICollection<T> collection)
         {
-            if (collection.Count == 0)
-                return Task.CompletedTask;
+            if (collection.Count == 0) return Task.CompletedTask;
 
-            // Small batch or chunking disabled: execute all at once
             if (collection.Count <= chunkSize || chunkSize <= 0)
             {
                 var tasks = new Task[collection.Count];
-                int index = 0;
+                var index = 0;
                 foreach (var item in collection)
                     tasks[index++] = operation(item);
-
                 return Task.WhenAll(tasks);
             }
 
-            // Large batch: use chunking
             return ExecuteChunkedAsync(collection, operation, chunkSize);
         }
 
-        // Slow path: materialize to list
         return ExecuteBatchSlowPathAsync(items, operation, chunkSize);
     }
 
@@ -68,21 +43,17 @@ internal static class BatchOperationHelper
         int chunkSize)
     {
         var itemList = items.ToList();
-        if (itemList.Count == 0)
-            return;
+        if (itemList.Count == 0) return;
 
-        // Small batch or chunking disabled: execute all at once
         if (itemList.Count <= chunkSize || chunkSize <= 0)
         {
             var tasks = new Task[itemList.Count];
-            for (int i = 0; i < itemList.Count; i++)
+            for (var i = 0; i < itemList.Count; i++)
                 tasks[i] = operation(itemList[i]);
-
             await Task.WhenAll(tasks).ConfigureAwait(false);
             return;
         }
 
-        // Large batch: use chunking
         await ExecuteChunkedAsync(itemList, operation, chunkSize).ConfigureAwait(false);
     }
 
@@ -94,26 +65,18 @@ internal static class BatchOperationHelper
         var itemList = items as IList<T> ?? items.ToList();
         var totalCount = itemList.Count;
 
-        // Process in chunks to avoid thread pool starvation
-        for (int i = 0; i < totalCount; i += chunkSize)
+        for (var i = 0; i < totalCount; i += chunkSize)
         {
             var end = Math.Min(i + chunkSize, totalCount);
             var chunkTasks = new Task[end - i];
 
-            for (int j = i; j < end; j++)
+            for (var j = i; j < end; j++)
                 chunkTasks[j - i] = operation(itemList[j]);
 
             await Task.WhenAll(chunkTasks).ConfigureAwait(false);
         }
     }
 
-    /// <summary>
-    /// Execute batch async operations with parameter in parallel with automatic chunking.
-    /// </summary>
-    /// <param name="items">Items to process</param>
-    /// <param name="parameter">Parameter to pass to each operation</param>
-    /// <param name="operation">Operation to execute on each item</param>
-    /// <param name="chunkSize">Chunk size for processing (default: 100). Set to 0 to disable chunking.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Task ExecuteBatchAsync<T, TParam>(
         IEnumerable<T> items,
@@ -126,21 +89,17 @@ internal static class BatchOperationHelper
 
         if (items is ICollection<T> collection)
         {
-            if (collection.Count == 0)
-                return Task.CompletedTask;
+            if (collection.Count == 0) return Task.CompletedTask;
 
-            // Small batch or chunking disabled: execute all at once
             if (collection.Count <= chunkSize || chunkSize <= 0)
             {
                 var tasks = new Task[collection.Count];
-                int index = 0;
+                var index = 0;
                 foreach (var item in collection)
                     tasks[index++] = operation(item, parameter);
-
                 return Task.WhenAll(tasks);
             }
 
-            // Large batch: use chunking
             return ExecuteChunkedAsync(collection, parameter, operation, chunkSize);
         }
 
@@ -154,21 +113,17 @@ internal static class BatchOperationHelper
         int chunkSize)
     {
         var itemList = items.ToList();
-        if (itemList.Count == 0)
-            return;
+        if (itemList.Count == 0) return;
 
-        // Small batch or chunking disabled: execute all at once
         if (itemList.Count <= chunkSize || chunkSize <= 0)
         {
             var tasks = new Task[itemList.Count];
-            for (int i = 0; i < itemList.Count; i++)
+            for (var i = 0; i < itemList.Count; i++)
                 tasks[i] = operation(itemList[i], parameter);
-
             await Task.WhenAll(tasks).ConfigureAwait(false);
             return;
         }
 
-        // Large batch: use chunking
         await ExecuteChunkedAsync(itemList, parameter, operation, chunkSize).ConfigureAwait(false);
     }
 
@@ -181,13 +136,12 @@ internal static class BatchOperationHelper
         var itemList = items as IList<T> ?? items.ToList();
         var totalCount = itemList.Count;
 
-        // Process in chunks to avoid thread pool starvation
-        for (int i = 0; i < totalCount; i += chunkSize)
+        for (var i = 0; i < totalCount; i += chunkSize)
         {
             var end = Math.Min(i + chunkSize, totalCount);
             var chunkTasks = new Task[end - i];
 
-            for (int j = i; j < end; j++)
+            for (var j = i; j < end; j++)
                 chunkTasks[j - i] = operation(itemList[j], parameter);
 
             await Task.WhenAll(chunkTasks).ConfigureAwait(false);
@@ -196,13 +150,7 @@ internal static class BatchOperationHelper
 
     /// <summary>
     /// Execute batch operations with concurrency control using SemaphoreSlim.
-    /// Useful when you need to limit concurrent operations regardless of batch size.
-    /// Optimized to avoid List resizing by pre-allocating when count is known.
     /// </summary>
-    /// <param name="items">Items to process</param>
-    /// <param name="operation">Operation to execute on each item</param>
-    /// <param name="maxConcurrency">Maximum number of concurrent operations</param>
-    /// <param name="cancellationToken">Cancellation token</param>
     public static async Task ExecuteConcurrentBatchAsync<T>(
         IEnumerable<T> items,
         Func<T, Task> operation,
@@ -211,49 +159,23 @@ internal static class BatchOperationHelper
     {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(operation);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxConcurrency, 0);
 
-        if (maxConcurrency <= 0)
-            throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0");
-
-        // Pre-allocate task list when possible
-        var tasks = items is ICollection<T> collection
-            ? new List<Task>(collection.Count)
-            : new List<Task>();
-
-#if NET8_0_OR_GREATER
-        // Use Polly v8 RateLimiter with ConcurrencyLimiter to control concurrency
-        var pipeline = new ResiliencePipelineBuilder()
-            .AddRateLimiter(new RateLimiterStrategyOptions
-            {
-                DefaultRateLimiterOptions = new ConcurrencyLimiterOptions
-                {
-                    PermitLimit = maxConcurrency,
-                    // Allow effectively unbounded queuing here to avoid rejections in helper semantics
-                    QueueLimit = int.MaxValue
-                }
-            })
-            .Build();
+        using var semaphore = new SemaphoreSlim(maxConcurrency, maxConcurrency);
+        var tasks = items is ICollection<T> c ? new List<Task>(c.Count) : new List<Task>();
 
         foreach (var item in items)
         {
-            var task = pipeline.ExecuteAsync(async ct =>
-            {
-                await operation(item).ConfigureAwait(false);
-                return 0;
-            }, cancellationToken).AsTask();
-            tasks.Add(task);
+            await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+            tasks.Add(ExecuteWithSemaphoreAsync(item, operation, semaphore));
         }
-#else
-        // Use Polly v7 Bulkhead for .NET 6
-        var bulkhead = Policy.BulkheadAsync(maxConcurrency, int.MaxValue);
-
-        foreach (var item in items)
-        {
-            var task = bulkhead.ExecuteAsync(ct => operation(item), cancellationToken);
-            tasks.Add(task);
-        }
-#endif
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
+    }
+
+    private static async Task ExecuteWithSemaphoreAsync<T>(T item, Func<T, Task> operation, SemaphoreSlim semaphore)
+    {
+        try { await operation(item).ConfigureAwait(false); }
+        finally { semaphore.Release(); }
     }
 }

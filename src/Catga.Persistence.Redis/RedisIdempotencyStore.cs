@@ -6,6 +6,7 @@ using Catga.Observability;
 using Catga.Resilience;
 using MemoryPack;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis;
@@ -16,9 +17,9 @@ public partial class RedisIdempotencyStore(
     IMessageSerializer serializer,
     ILogger<RedisIdempotencyStore> logger,
     IResiliencePipelineProvider provider,
-    RedisIdempotencyOptions? options = null) : RedisStoreBase(redis, serializer, options?.KeyPrefix ?? "idempotency:"), IIdempotencyStore
+    IOptions<RedisPersistenceOptions>? options = null) : RedisStoreBase(redis, serializer, options?.Value.IdempotencyKeyPrefix ?? "catga:idempotency:"), IIdempotencyStore
 {
-    private readonly TimeSpan _expiry = options?.Expiry ?? TimeSpan.FromHours(24);
+    private readonly TimeSpan _expiry = options?.Value.IdempotencyExpiry ?? TimeSpan.FromHours(24);
 
     public async Task<bool> HasBeenProcessedAsync(long messageId, CancellationToken ct = default)
         => await provider.ExecutePersistenceAsync(async c =>

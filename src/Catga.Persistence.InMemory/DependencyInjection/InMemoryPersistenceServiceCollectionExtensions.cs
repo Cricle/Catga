@@ -10,12 +10,12 @@ using Catga.Persistence.InMemory.Flow;
 using Catga.Persistence.InMemory.Stores;
 using Catga.Persistence.Stores;
 using Catga.Resilience;
-using Catga.Scheduling;
+using Medallion.Threading;
+using Medallion.Threading.FileSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Diagnostics;
 using Catga.Idempotency;
-using Catga.Persistence.InMemory.Locking;
 using Microsoft.Extensions.Options;
 
 namespace Catga.DependencyInjection;
@@ -168,28 +168,6 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Adds InMemory rate limiter to the service collection.
-    /// </summary>
-    public static IServiceCollection AddInMemoryRateLimiter(this IServiceCollection services, Action<InMemoryPersistenceOptions>? configure = null)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        if (configure != null)
-            services.Configure(configure);
-        services.TryAddSingleton<IDistributedRateLimiter, InMemoryRateLimiter>();
-        return services;
-    }
-
-    /// <summary>
-    /// Adds InMemory message scheduler to the service collection.
-    /// </summary>
-    public static IServiceCollection AddInMemoryMessageScheduler(this IServiceCollection services)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        services.TryAddSingleton<IMessageScheduler>(sp => new InMemoryMessageScheduler(sp.GetRequiredService<ICatgaMediator>()));
-        return services;
-    }
-
-    /// <summary>
     /// Adds InMemory snapshot store to the service collection.
     /// </summary>
     public static IServiceCollection AddInMemorySnapshotStore(this IServiceCollection services)
@@ -213,16 +191,16 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Adds InMemory distributed lock to the service collection.
+    /// Adds file-based distributed lock to the service collection using DistributedLock.FileSystem.
     /// </summary>
-    public static IServiceCollection AddInMemoryDistributedLock(this IServiceCollection services, Action<DistributedLockOptions>? configure = null)
+    public static IServiceCollection AddInMemoryDistributedLock(this IServiceCollection services, string? lockDirectory = null)
     {
         ArgumentNullException.ThrowIfNull(services);
-        if (configure != null)
-            services.Configure(configure);
-        else
-            services.TryAddSingleton(Options.Create(new DistributedLockOptions()));
-        services.TryAddSingleton<IDistributedLock, InMemoryDistributedLock>();
+        var dir = new DirectoryInfo(lockDirectory ?? Path.Combine(Path.GetTempPath(), "catga-locks"));
+        if (!dir.Exists)
+            dir.Create();
+
+        services.TryAddSingleton<IDistributedLockProvider>(new FileDistributedSynchronizationProvider(dir));
         return services;
     }
 
@@ -264,26 +242,6 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddSingleton<ISubscriptionStore, InMemorySubscriptionStore>();
-        return services;
-    }
-
-    /// <summary>
-    /// Adds InMemory audit log store to the service collection.
-    /// </summary>
-    public static IServiceCollection AddInMemoryAuditLogStore(this IServiceCollection services)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        services.TryAddSingleton<IAuditLogStore, InMemoryAuditLogStore>();
-        return services;
-    }
-
-    /// <summary>
-    /// Adds InMemory GDPR store to the service collection.
-    /// </summary>
-    public static IServiceCollection AddInMemoryGdprStore(this IServiceCollection services)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        services.TryAddSingleton<IGdprStore, InMemoryGdprStore>();
         return services;
     }
 

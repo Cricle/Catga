@@ -75,10 +75,6 @@ internal static class CatgaDiagnostics
     public static readonly Counter<long> LocksFailed = Meter.CreateCounter<long>("catga.lock.failed", "operations", "Distributed lock acquisition failures");
     public static readonly Counter<long> LocksTimeout = Meter.CreateCounter<long>("catga.lock.timeout", "operations", "Distributed lock acquisition timeouts");
 
-    // Rate limiter counters
-    public static readonly Counter<long> RateLimitAcquired = Meter.CreateCounter<long>("catga.ratelimit.acquired", "operations", "Rate limit permits acquired");
-    public static readonly Counter<long> RateLimitRejected = Meter.CreateCounter<long>("catga.ratelimit.rejected", "operations", "Rate limit rejections");
-
     // Leader election counters
     public static readonly Counter<long> LeaderElected = Meter.CreateCounter<long>("catga.leader.elected", "events", "Leader election events");
     public static readonly Counter<long> LeaderLost = Meter.CreateCounter<long>("catga.leader.lost", "events", "Leadership lost events");
@@ -107,9 +103,6 @@ internal static class CatgaDiagnostics
     // Distributed lock duration
     public static readonly Histogram<double> LockAcquireDuration = Meter.CreateHistogram<double>("catga.lock.acquire.duration", "ms", "Lock acquisition duration");
     public static readonly Histogram<double> LockHoldDuration = Meter.CreateHistogram<double>("catga.lock.hold.duration", "ms", "Lock hold duration");
-
-    // Rate limiter duration
-    public static readonly Histogram<double> RateLimitWaitDuration = Meter.CreateHistogram<double>("catga.ratelimit.wait.duration", "ms", "Rate limit wait duration");
 
     // Pipeline metrics
     public static readonly Histogram<double> PipelineDuration = Meter.CreateHistogram<double>("catga.pipeline.duration", "ms", "Pipeline execution duration");

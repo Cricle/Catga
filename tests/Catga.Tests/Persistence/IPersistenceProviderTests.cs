@@ -4,10 +4,10 @@ using Catga.Flow;
 using Catga.Flow.Dsl;
 using Catga.Idempotency;
 using Catga.Inbox;
-using Catga.Locking;
 using Catga.Outbox;
 using Catga.Persistence;
 using FluentAssertions;
+using Medallion.Threading;
 using NSubstitute;
 
 namespace Catga.Tests.Persistence;

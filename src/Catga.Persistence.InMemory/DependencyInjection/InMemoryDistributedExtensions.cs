@@ -1,6 +1,6 @@
-using Catga.Abstractions;
 using Catga.DependencyInjection;
-using Catga.Persistence.InMemory.Locking;
+using Medallion.Threading;
+using Medallion.Threading.FileSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -11,20 +11,14 @@ namespace Catga.Persistence.InMemory.DependencyInjection;
 /// </summary>
 public static class InMemoryDistributedExtensions
 {
-    /// <summary>Add in-memory distributed lock (for single-node or testing).</summary>
-    public static CatgaServiceBuilder UseInMemoryDistributedLock(this CatgaServiceBuilder builder)
+    /// <summary>Add file-based distributed lock (for single-node or testing) using DistributedLock.FileSystem.</summary>
+    public static CatgaServiceBuilder UseFileSystemDistributedLock(this CatgaServiceBuilder builder, string? lockDirectory = null)
     {
-        builder.Services.TryAddSingleton<IDistributedLock, InMemoryDistributedLock>();
-        return builder;
-    }
+        var dir = new DirectoryInfo(lockDirectory ?? Path.Combine(Path.GetTempPath(), "catga-locks"));
+        if (!dir.Exists)
+            dir.Create();
 
-    /// <summary>Add in-memory distributed lock with options.</summary>
-    public static CatgaServiceBuilder UseInMemoryDistributedLock(
-        this CatgaServiceBuilder builder,
-        Action<DistributedLockOptions> configure)
-    {
-        builder.Services.Configure(configure);
-        builder.Services.TryAddSingleton<IDistributedLock, InMemoryDistributedLock>();
+        builder.Services.TryAddSingleton<IDistributedLockProvider>(new FileDistributedSynchronizationProvider(dir));
         return builder;
     }
 }

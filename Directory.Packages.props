@@ -76,6 +76,11 @@
     <!-- DotNext -->
     <PackageVersion Include="DotNext.Threading" Version="5.16.0" />
     <PackageVersion Include="DotNext.Net.Cluster" Version="5.16.0" />
+    <!-- DistributedLock -->
+    <PackageVersion Include="DistributedLock.Core" Version="1.0.8" />
+    <PackageVersion Include="DistributedLock.Redis" Version="1.1.0" />
+    <PackageVersion Include="DistributedLock.FileSystem" Version="1.0.3" />
+    <PackageVersion Include="DistributedLock.WaitHandles" Version="1.0.1" />
     <!-- .NET Aspire -->
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="9.0.0" />
     <PackageVersion Include="Aspire.Hosting.Redis" Version="9.0.0" />

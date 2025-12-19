@@ -4,15 +4,16 @@ using Catga.Observability;
 using Catga.Outbox;
 using Catga.Resilience;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace Catga.Persistence.Redis.Persistence;
 
 /// <summary>Redis Outbox persistence store.</summary>
-public class RedisOutboxPersistence(IConnectionMultiplexer redis, IMessageSerializer serializer, ILogger<RedisOutboxPersistence> logger, IResiliencePipelineProvider provider, RedisOutboxOptions? options = null) : IOutboxStore
+public class RedisOutboxPersistence(IConnectionMultiplexer redis, IMessageSerializer serializer, ILogger<RedisOutboxPersistence> logger, IResiliencePipelineProvider provider, IOptions<RedisPersistenceOptions>? options = null) : IOutboxStore
 {
-    private readonly string _prefix = options?.KeyPrefix ?? "outbox";
-    private readonly string _pendingKey = $"{options?.KeyPrefix ?? "outbox"}:pending";
+    private readonly string _prefix = options?.Value.OutboxKeyPrefix ?? "catga:outbox:";
+    private readonly string _pendingKey = $"{options?.Value.OutboxKeyPrefix ?? "catga:outbox:"}pending";
     private const string MarkPublishedScript = "redis.call('SET',KEYS[1],ARGV[2],'EX',ARGV[3]) redis.call('ZREM',KEYS[2],ARGV[1]) return 1";
 
     public async ValueTask AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)

@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
-using Catga.Abstractions;
 using Catga.EventSourcing;
-using Catga.Scheduling;
+using Medallion.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -12,41 +11,18 @@ namespace Catga.DependencyInjection;
 /// </summary>
 public static class DistributedExtensions
 {
-    /// <summary>Add distributed lock support.</summary>
-    public static CatgaServiceBuilder UseDistributedLock<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TLock>(this CatgaServiceBuilder builder)
-        where TLock : class, IDistributedLock
+    /// <summary>Add distributed lock provider (using DistributedLock library).</summary>
+    public static CatgaServiceBuilder UseDistributedLockProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProvider>(this CatgaServiceBuilder builder)
+        where TProvider : class, IDistributedLockProvider
     {
-        builder.Services.TryAddSingleton<IDistributedLock, TLock>();
+        builder.Services.TryAddSingleton<IDistributedLockProvider, TProvider>();
         return builder;
     }
 
-    /// <summary>Add distributed lock with options.</summary>
-    public static CatgaServiceBuilder UseDistributedLock<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TLock>(
-        this CatgaServiceBuilder builder,
-        Action<DistributedLockOptions> configure)
-        where TLock : class, IDistributedLock
+    /// <summary>Add distributed lock provider instance.</summary>
+    public static CatgaServiceBuilder UseDistributedLockProvider(this CatgaServiceBuilder builder, IDistributedLockProvider provider)
     {
-        builder.Services.Configure(configure);
-        builder.Services.TryAddSingleton<IDistributedLock, TLock>();
-        return builder;
-    }
-
-    /// <summary>Add message scheduler support.</summary>
-    public static CatgaServiceBuilder UseMessageScheduler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TScheduler>(this CatgaServiceBuilder builder)
-        where TScheduler : class, IMessageScheduler
-    {
-        builder.Services.TryAddSingleton<IMessageScheduler, TScheduler>();
-        return builder;
-    }
-
-    /// <summary>Add message scheduler with options.</summary>
-    public static CatgaServiceBuilder UseMessageScheduler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TScheduler>(
-        this CatgaServiceBuilder builder,
-        Action<MessageSchedulerOptions> configure)
-        where TScheduler : class, IMessageScheduler
-    {
-        builder.Services.Configure(configure);
-        builder.Services.TryAddSingleton<IMessageScheduler, TScheduler>();
+        builder.Services.TryAddSingleton(provider);
         return builder;
     }
 

@@ -32,15 +32,6 @@ public static class NatsCatgaBuilderExtensions
         // Event sourcing advanced
         builder.Services.AddNatsProjectionCheckpointStore();
         builder.Services.AddNatsSubscriptionStore();
-        builder.Services.AddNatsAuditLogStore();
-
-        // Distributed features
-        builder.Services.AddNatsDistributedLock();
-        builder.Services.AddNatsRateLimiter();
-        builder.Services.AddNatsMessageScheduler();
-
-        // Compliance
-        builder.Services.AddNatsGdprStore();
 
         return builder;
     }

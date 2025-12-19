@@ -45,14 +45,6 @@ public class PersistenceProviderE2ETests
         // Assert - Event sourcing advanced
         sp.GetService<IProjectionCheckpointStore>().Should().NotBeNull("IProjectionCheckpointStore should be registered");
         sp.GetService<ISubscriptionStore>().Should().NotBeNull("ISubscriptionStore should be registered");
-        sp.GetService<IAuditLogStore>().Should().NotBeNull("IAuditLogStore should be registered");
-
-        // Assert - Distributed features
-        sp.GetService<IDistributedLock>().Should().NotBeNull("IDistributedLock should be registered");
-        sp.GetService<Catga.Scheduling.IMessageScheduler>().Should().NotBeNull("IMessageScheduler should be registered");
-
-        // Assert - Compliance
-        sp.GetService<IGdprStore>().Should().NotBeNull("IGdprStore should be registered");
 
         // Assert - Resilience
         sp.GetService<IResiliencePipelineProvider>().Should().NotBeNull("IResiliencePipelineProvider should be registered");
@@ -137,57 +129,6 @@ public class PersistenceProviderE2ETests
         stream.Events.Should().HaveCount(2);
         stream.Events[0].Event.Should().BeOfType<TestOrderCreated>();
         stream.Events[1].Event.Should().BeOfType<TestOrderUpdated>();
-    }
-
-    [Fact]
-    public async Task UseInMemory_AuditLogStore_LogAndRetrieve_Works()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddCatga(opt => opt.ForDevelopment())
-            .UseInMemory();
-        var sp = services.BuildServiceProvider();
-
-        var auditStore = sp.GetRequiredService<IAuditLogStore>();
-        var streamId = $"audit-stream-{Guid.NewGuid():N}";
-        var entry = new AuditLogEntry(
-            streamId,
-            "CreateOrder",
-            "admin",
-            DateTime.UtcNow,
-            new Dictionary<string, object> { ["orderId"] = "ORD-001" });
-
-        // Act
-        await auditStore.LogAsync(entry);
-        var logs = await auditStore.GetLogsAsync(streamId);
-
-        // Assert
-        logs.Should().HaveCount(1);
-        logs[0].Operation.Should().Be("CreateOrder");
-        logs[0].UserId.Should().Be("admin");
-    }
-
-    [Fact]
-    public async Task UseInMemory_GdprStore_SaveAndRetrieveRequest_Works()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddCatga(opt => opt.ForDevelopment())
-            .UseInMemory();
-        var sp = services.BuildServiceProvider();
-
-        var gdprStore = sp.GetRequiredService<IGdprStore>();
-        var request = new ErasureRequest("customer-001", "user@example.com", DateTime.UtcNow);
-
-        // Act
-        await gdprStore.SaveRequestAsync(request);
-        var retrieved = await gdprStore.GetErasureRequestAsync("customer-001");
-        var pending = await gdprStore.GetPendingRequestsAsync();
-
-        // Assert
-        retrieved.Should().NotBeNull();
-        retrieved!.SubjectId.Should().Be("customer-001");
-        pending.Should().HaveCount(1);
     }
 
     [Fact]

@@ -2,8 +2,9 @@ using Catga;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.Idempotency;
-using Catga.Locking;
 using Catga.Pipeline.Behaviors;
+using Medallion.Threading;
+using Medallion.Threading.WaitHandles;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -61,7 +62,7 @@ public class AttributeDrivenBehaviorTests
     public async Task HandleAsync_WithDistributedLock_AcquiresLock()
     {
         // Arrange
-        var lockProvider = new InMemoryDistributedLockProvider();
+        var lockProvider = new WaitHandleDistributedSynchronizationProvider();
         var behavior = new AttributeDrivenBehavior<LockedRequest, string>(
             NullLogger<AttributeDrivenBehavior<LockedRequest, string>>.Instance,
             lockProvider: lockProvider);
@@ -282,8 +283,18 @@ file class InMemoryIdempotencyStore2 : IIdempotencyStore
 
 file class FailingLockProvider : IDistributedLockProvider
 {
-    public ValueTask<IAsyncDisposable?> AcquireAsync(string key, TimeSpan timeout, TimeSpan wait, CancellationToken ct = default)
-        => new((IAsyncDisposable?)null);
+    public IDistributedLock CreateLock(string name) => new FailingLock(name);
+}
+
+file class FailingLock : IDistributedLock
+{
+    public string Name { get; }
+    public FailingLock(string name) => Name = name;
+
+    public IDistributedSynchronizationHandle? TryAcquire(TimeSpan timeout = default, CancellationToken cancellationToken = default) => null;
+    public IDistributedSynchronizationHandle Acquire(TimeSpan? timeout = null, CancellationToken cancellationToken = default) => throw new InvalidOperationException();
+    public ValueTask<IDistributedSynchronizationHandle?> TryAcquireAsync(TimeSpan timeout = default, CancellationToken cancellationToken = default) => new((IDistributedSynchronizationHandle?)null);
+    public ValueTask<IDistributedSynchronizationHandle> AcquireAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default) => throw new InvalidOperationException();
 }
 
 // Simple in-memory idempotency store for testing

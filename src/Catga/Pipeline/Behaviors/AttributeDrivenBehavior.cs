@@ -4,7 +4,7 @@ using System.Reflection;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.Idempotency;
-using Catga.Locking;
+using Medallion.Threading;
 using Microsoft.Extensions.Logging;
 using Polly;
 using Polly.Retry;
@@ -71,10 +71,10 @@ public partial class AttributeDrivenBehavior<
         if (attrs.DistributedLock != null && _lockProvider != null)
         {
             var lockKey = BuildKey(attrs.DistributedLock.Key, request);
-            var timeout = TimeSpan.FromSeconds(attrs.DistributedLock.TimeoutSeconds);
-            var wait = TimeSpan.FromSeconds(attrs.DistributedLock.WaitSeconds);
+            var timeout = TimeSpan.FromSeconds(attrs.DistributedLock.WaitSeconds);
 
-            await using var lockHandle = await _lockProvider.AcquireAsync(lockKey, timeout, wait, cancellationToken);
+            var @lock = _lockProvider.CreateLock(lockKey);
+            await using var lockHandle = await @lock.TryAcquireAsync(timeout, cancellationToken);
             if (lockHandle == null)
             {
                 LogLockFailed(Logger, lockKey);

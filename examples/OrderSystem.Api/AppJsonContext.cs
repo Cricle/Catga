@@ -38,7 +38,6 @@ namespace OrderSystem.Api;
 [JsonSerializable(typeof(RefundRequest))]
 // Event sourcing endpoints
 [JsonSerializable(typeof(CreateSubscriptionRequest))]
-[JsonSerializable(typeof(GdprErasureRequest))]
 // AOT response types
 [JsonSerializable(typeof(ErrorResponse))]
 [JsonSerializable(typeof(FlowInfoResponse))]

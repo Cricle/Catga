@@ -42,15 +42,9 @@ public static class RedisCatgaBuilderExtensions
         // Event sourcing advanced
         builder.Services.AddRedisProjectionCheckpointStore();
         builder.Services.AddRedisSubscriptionStore();
-        builder.Services.AddRedisAuditLogStore();
 
         // Distributed features
         builder.Services.AddRedisDistributedLock();
-        builder.Services.AddRedisRateLimiter();
-        builder.Services.AddRedisMessageScheduler();
-
-        // Compliance
-        builder.Services.AddRedisGdprStore();
 
         return builder;
     }

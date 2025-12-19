@@ -231,38 +231,6 @@ public class ClusterFeaturesE2ETests
     }
 
     [Fact]
-    public async Task MessageScheduler_ScheduleAndRetrieve_Works()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddCatga(opt => opt.ForDevelopment())
-            .UseInMemory();
-
-        var sp = services.BuildServiceProvider();
-        var scheduler = sp.GetRequiredService<IMessageScheduler>();
-
-        var scheduleTime = DateTime.UtcNow.AddMinutes(5);
-        var message = new ScheduledMessage(
-            $"scheduled-{Guid.NewGuid():N}",
-            "TestMessage",
-            new byte[] { 1, 2, 3 },
-            scheduleTime);
-
-        // Act - Schedule message
-        await scheduler.ScheduleAsync(message);
-
-        // Act - Retrieve due messages (should be empty as not due yet)
-        var dueNow = await scheduler.GetDueMessagesAsync(DateTime.UtcNow);
-
-        // Assert
-        dueNow.Should().BeEmpty();
-
-        // Act - Retrieve messages due in future
-        var dueLater = await scheduler.GetDueMessagesAsync(scheduleTime.AddMinutes(1));
-        dueLater.Should().NotBeEmpty();
-    }
-
-    [Fact]
     public async Task Outbox_StoreAndMarkAsProcessed_Works()
     {
         // Arrange

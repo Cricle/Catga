@@ -10,9 +10,7 @@ using Catga.Persistence.InMemory;
 using Catga.Persistence.InMemory.Flow;
 using Catga.Persistence.Redis;
 using Catga.Persistence.Redis.Flow;
-using Catga.Persistence.Redis.Locking;
 using Catga.Persistence.Redis.Persistence;
-using Catga.Persistence.Redis.RateLimiting;
 using Catga.Persistence.Redis.Stores;
 using Catga.Resilience;
 using Catga.Serialization.MemoryPack;
@@ -306,67 +304,6 @@ public sealed class CrossComponentE2ETests : IAsyncLifetime
         processed.Should().BeTrue();
         result.Should().NotBeNull();
         result!.Value.Should().Be(42);
-    }
-
-    #endregion
-
-    #region DistributedLock + RateLimiter Integration
-
-    [Fact]
-    public async Task Lock_RateLimiter_ConcurrentAccess_ShouldWork()
-    {
-        if (_redis is null) return;
-
-        var lockProvider = new RedisDistributedLockProvider(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
-        var rateLimiter = new RedisRateLimiter(_redis, Options.Create(new DistributedRateLimiterOptions()), NullLogger<RedisRateLimiter>.Instance);
-        var resourceKey = $"resource-{Guid.NewGuid():N}";
-        var accessCount = 0;
-
-        // Simulate concurrent access with lock and rate limiting
-        var tasks = Enumerable.Range(0, 10).Select(async i =>
-        {
-            await using var lockHandle = await lockProvider.AcquireAsync(resourceKey, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10));
-            if (lockHandle is not null)
-            {
-                var result = await rateLimiter.TryAcquireAsync(resourceKey);
-                if (result.IsAcquired)
-                {
-                    Interlocked.Increment(ref accessCount);
-                }
-            }
-        });
-
-        await Task.WhenAll(tasks);
-
-        // Some requests should have been processed
-        accessCount.Should().BeGreaterThan(0);
-    }
-
-    [Fact]
-    public async Task Lock_ExclusiveAccess_ShouldPreventConcurrentModification()
-    {
-        if (_redis is null) return;
-
-        var lockProvider = new RedisDistributedLockProvider(_redis, Options.Create(new DistributedLockOptions()), NullLogger<RedisDistributedLock>.Instance);
-        var resourceKey = $"exclusive-{Guid.NewGuid():N}";
-        var concurrentAccess = 0;
-        var maxConcurrent = 0;
-
-        var tasks = Enumerable.Range(0, 20).Select(async i =>
-        {
-            await using var lockHandle = await lockProvider.AcquireAsync(resourceKey, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(15));
-            if (lockHandle is not null)
-            {
-                var current = Interlocked.Increment(ref concurrentAccess);
-                maxConcurrent = Math.Max(maxConcurrent, current);
-                await Task.Delay(10);
-                Interlocked.Decrement(ref concurrentAccess);
-            }
-        });
-
-        await Task.WhenAll(tasks);
-
-        maxConcurrent.Should().Be(1); // Only one at a time
     }
 
     #endregion

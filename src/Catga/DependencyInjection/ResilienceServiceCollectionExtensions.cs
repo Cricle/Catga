@@ -1,11 +1,12 @@
 using System;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using Catga.Locking;
 using Catga.Observability;
 using Catga.Resilience;
 using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
+using Medallion.Threading;
+using Medallion.Threading.WaitHandles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -40,7 +41,8 @@ public static class ResilienceServiceCollectionExtensions
             services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(PollyBehavior<,>));
 
             // Register attribute-driven behavior for [Idempotent], [DistributedLock], [Retry], [Timeout], [CircuitBreaker]
-            services.TryAddSingleton<IDistributedLockProvider, InMemoryDistributedLockProvider>();
+            // Use WaitHandleDistributedSynchronizationProvider as default in-memory lock provider
+            services.TryAddSingleton<IDistributedLockProvider>(new WaitHandleDistributedSynchronizationProvider());
             services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(AttributeDrivenBehavior<,>));
 
             sw.Stop();

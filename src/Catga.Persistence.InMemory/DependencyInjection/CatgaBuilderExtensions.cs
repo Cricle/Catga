@@ -29,14 +29,6 @@ public static class InMemoryCatgaBuilderExtensions
         // Event sourcing advanced
         builder.Services.AddInMemoryProjectionCheckpointStore();
         builder.Services.AddInMemorySubscriptionStore();
-        builder.Services.AddInMemoryAuditLogStore();
-
-        // Distributed features
-        builder.Services.AddInMemoryRateLimiter();
-        builder.Services.AddInMemoryMessageScheduler();
-
-        // Compliance
-        builder.Services.AddInMemoryGdprStore();
 
         return builder;
     }

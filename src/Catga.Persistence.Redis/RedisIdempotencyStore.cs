@@ -37,8 +37,6 @@ public partial class RedisIdempotencyStore(
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Redis.Idempotency.MarkProcessed", ActivityKind.Internal);
             var entry = new Entry { MessageId = messageId, ProcessedAt = DateTime.UtcNow, ResultType = result?.GetType().AssemblyQualifiedName, ResultBytes = result != null ? Serializer.Serialize(result, typeof(TResult)) : null };
             await GetDatabase().StringSetAsync(BuildKey(messageId), Serializer.Serialize(entry, typeof(Entry)), _expiry);
-            CatgaLog.IdempotencyMarkedProcessed(logger, messageId);
-            CatgaDiagnostics.IdempotencyMarked.Add(1);
         }, ct);
 
     public async Task<TResult?> GetCachedResultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(long messageId, CancellationToken ct = default)
@@ -46,12 +44,12 @@ public partial class RedisIdempotencyStore(
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Redis.Idempotency.GetCachedResult", ActivityKind.Internal);
             var bytes = await GetDatabase().StringGetAsync(BuildKey(messageId));
-            if (!bytes.HasValue) { CatgaDiagnostics.IdempotencyCacheMisses.Add(1); return default(TResult?); }
+            if (!bytes.HasValue) { CatgaDiagnostics.IdempotencyMisses.Add(1); return default(TResult?); }
             var entry = (Entry?)Serializer.Deserialize((byte[])bytes!, typeof(Entry));
-            if (entry?.ResultBytes == null) { CatgaDiagnostics.IdempotencyCacheMisses.Add(1); return default(TResult?); }
-            if (entry.ResultType != typeof(TResult).AssemblyQualifiedName) { CatgaLog.IdempotencyTypeMismatch(logger, messageId, typeof(TResult).AssemblyQualifiedName, entry.ResultType); CatgaDiagnostics.IdempotencyCacheMisses.Add(1); return default(TResult?); }
+            if (entry?.ResultBytes == null) { CatgaDiagnostics.IdempotencyMisses.Add(1); return default(TResult?); }
+            if (entry.ResultType != typeof(TResult).AssemblyQualifiedName) { CatgaDiagnostics.IdempotencyMisses.Add(1); return default(TResult?); }
             var result = (TResult?)Serializer.Deserialize(entry.ResultBytes, typeof(TResult));
-            (result is null ? CatgaDiagnostics.IdempotencyCacheMisses : CatgaDiagnostics.IdempotencyCacheHits).Add(1);
+            (result is null ? CatgaDiagnostics.IdempotencyMisses : CatgaDiagnostics.IdempotencyHits).Add(1);
             return result;
         }, ct);
 

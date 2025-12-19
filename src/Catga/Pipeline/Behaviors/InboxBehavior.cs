@@ -95,7 +95,7 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
                     System.Diagnostics.Activity.Current?.AddActivityEvent("Inbox.Cache.Miss",
                         ("message.id", id));
                 }
-                CatgaLog.InboxCachedResultDeserializeFailed(_logger, id);
+                _logger.LogWarning("Failed to deserialize cached result for message {MessageId}", id);
                 return CatgaResult<TResponse>.Success(default!);
             }
 
@@ -132,7 +132,7 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
                     CorrelationId = request is IMessage corrMsg ? corrMsg.CorrelationId : null
                 };
                 await _persistence.MarkAsProcessedAsync(inboxMessage, cancellationToken);
-                CatgaLog.InboxProcessed(_logger, id);
+                CatgaLog.InboxMarkedProcessed(_logger, id);
                 System.Diagnostics.Activity.Current?.AddActivityEvent("Inbox.Serialized",
                     ("message.id", id),
                     ("request.size", requestBytes.Length),
@@ -144,14 +144,14 @@ public class InboxBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMember
             catch (Exception ex)
             {
                 await _persistence.ReleaseLockAsync(id, cancellationToken);
-                CatgaLog.InboxProcessingError(_logger, ex, id);
+                _logger.LogError(ex, "Error processing message {MessageId} in inbox", id);
                 System.Diagnostics.Activity.Current?.SetError(ex);
                 return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PersistenceFailed, isRetryable: true));
             }
         }
         catch (Exception ex)
         {
-            CatgaLog.InboxBehaviorError(_logger, ex, id);
+            _logger.LogError(ex, "Error in inbox behavior for message {MessageId}", id);
             System.Diagnostics.Activity.Current?.SetError(ex);
             return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PersistenceFailed, isRetryable: true));
         }

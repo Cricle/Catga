@@ -96,11 +96,8 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
         {
             activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, "nats");
             activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, subject);
-            activity.SetTag(CatgaActivitySource.Tags.MessagingOperation, "publish");
             activity.SetTag(CatgaActivitySource.Tags.MessageType, TypeNameCache<TMessage>.Name);
             activity.SetTag(CatgaActivitySource.Tags.MessageId, ctx.MessageId);
-            var qosString = qos switch { QualityOfService.AtMostOnce => "AtMostOnce", QualityOfService.AtLeastOnce => "AtLeastOnce", QualityOfService.ExactlyOnce => "ExactlyOnce", _ => "Unknown" };
-            activity.SetTag(CatgaActivitySource.Tags.QoS, qosString);
         }
 
         var payload = serializer.Serialize(message!, typeof(TMessage));
@@ -242,7 +239,6 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                     {
                         activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, "nats");
                         activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, subject);
-                        activity.SetTag(CatgaActivitySource.Tags.MessagingOperation, "receive");
                     }
                     if (msg.Data == null || msg.Data.Length == 0)
                     {

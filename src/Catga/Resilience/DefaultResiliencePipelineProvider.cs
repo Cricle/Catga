@@ -19,35 +19,31 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
     public DefaultResiliencePipelineProvider(CatgaResilienceOptions? options = null)
     {
         var o = options ?? new CatgaResilienceOptions();
-        _mediator = Build(ResilienceKeys.Mediator, o.MediatorBulkheadConcurrency, o.MediatorBulkheadQueueLimit, o.MediatorTimeout, 20);
-        _transportPublish = Build(ResilienceKeys.TransportPublish, o.TransportBulkheadConcurrency, o.TransportBulkheadQueueLimit, o.TransportTimeout, 50, o.TransportRetryDelay, o.TransportRetryCount);
-        _transportSend = Build(ResilienceKeys.TransportSend, o.TransportBulkheadConcurrency, o.TransportBulkheadQueueLimit, o.TransportTimeout, 50, o.TransportRetryDelay, o.TransportRetryCount);
-        _persistence = Build(ResilienceKeys.Persistence, o.PersistenceBulkheadConcurrency, o.PersistenceBulkheadQueueLimit, o.PersistenceTimeout, 50, o.PersistenceRetryDelay, o.PersistenceRetryCount);
+        _mediator = Build(o.MediatorBulkheadConcurrency, o.MediatorBulkheadQueueLimit, o.MediatorTimeout, 20);
+        _transportPublish = Build(o.TransportBulkheadConcurrency, o.TransportBulkheadQueueLimit, o.TransportTimeout, 50, o.TransportRetryDelay, o.TransportRetryCount);
+        _transportSend = Build(o.TransportBulkheadConcurrency, o.TransportBulkheadQueueLimit, o.TransportTimeout, 50, o.TransportRetryDelay, o.TransportRetryCount);
+        _persistence = Build(o.PersistenceBulkheadConcurrency, o.PersistenceBulkheadQueueLimit, o.PersistenceTimeout, 50, o.PersistenceRetryDelay, o.PersistenceRetryCount);
     }
 
-    private static ResiliencePipeline Build(string comp, int concurrency, int queue, TimeSpan timeout, int minThroughput, TimeSpan? retryDelay = null, int retryCount = 0)
+    private static ResiliencePipeline Build(int concurrency, int queue, TimeSpan timeout, int minThroughput, TimeSpan? retryDelay = null, int retryCount = 0)
     {
         var b = new ResiliencePipelineBuilder();
         if (concurrency > 0)
             b.AddRateLimiter(new RateLimiterStrategyOptions
             {
                 DefaultRateLimiterOptions = new ConcurrencyLimiterOptions { PermitLimit = concurrency, QueueLimit = queue },
-                OnRejected = _ => { Metric(CatgaDiagnostics.ResilienceBulkheadRejected, comp); Event(CatgaActivitySource.Events.ResilienceBulkheadRejected, comp); return default; }
+                OnRejected = _ => { CatgaDiagnostics.ResilienceRetries.Add(1); return default; }
             });
         b.AddCircuitBreaker(new CircuitBreakerStrategyOptions
         {
             FailureRatio = 0.5,
             MinimumThroughput = minThroughput,
             BreakDuration = TimeSpan.FromSeconds(30),
-            OnOpened = _ => { Metric(CatgaDiagnostics.ResilienceCircuitOpened, comp); Event(CatgaActivitySource.Events.ResilienceCircuitOpen, comp); return default; },
-            OnHalfOpened = _ => { Metric(CatgaDiagnostics.ResilienceCircuitHalfOpened, comp); Event(CatgaActivitySource.Events.ResilienceCircuitHalfOpen, comp); return default; },
-            OnClosed = _ => { Metric(CatgaDiagnostics.ResilienceCircuitClosed, comp); Event(CatgaActivitySource.Events.ResilienceCircuitClosed, comp); return default; }
+            OnOpened = _ => { CatgaDiagnostics.ResilienceCircuitOpened.Add(1); return default; },
+            OnHalfOpened = _ => default,
+            OnClosed = _ => default
         });
-        b.AddTimeout(new TimeoutStrategyOptions
-        {
-            Timeout = timeout,
-            OnTimeout = _ => { Metric(CatgaDiagnostics.ResilienceTimeouts, comp); Event(CatgaActivitySource.Events.ResilienceTimeout, comp); return default; }
-        });
+        b.AddTimeout(new TimeoutStrategyOptions { Timeout = timeout });
         if (retryDelay.HasValue && retryCount > 0)
             b.AddRetry(new RetryStrategyOptions
             {
@@ -56,13 +52,10 @@ public sealed class DefaultResiliencePipelineProvider : IResiliencePipelineProvi
                 BackoffType = DelayBackoffType.Exponential,
                 MaxRetryAttempts = retryCount,
                 ShouldHandle = new PredicateBuilder().Handle<TimeoutRejectedException>().Handle<Exception>(),
-                OnRetry = args => { Metric(CatgaDiagnostics.ResilienceRetries, comp); Event(CatgaActivitySource.Events.ResilienceRetry, comp, args.AttemptNumber); return default; }
+                OnRetry = _ => { CatgaDiagnostics.ResilienceRetries.Add(1); return default; }
             });
         return b.Build();
     }
-
-    private static void Metric(System.Diagnostics.Metrics.Counter<long> counter, string comp) => counter.Add(1, new KeyValuePair<string, object?>("component", comp));
-    private static void Event(string name, string comp, int? attempt = null) => Activity.Current?.AddEvent(new ActivityEvent(name, tags: attempt.HasValue ? new ActivityTagsCollection { ["component"] = comp, ["attempt"] = attempt.Value } : new ActivityTagsCollection { ["component"] = comp }));
 
     public async ValueTask<T> ExecuteMediatorAsync<T>(Func<CancellationToken, ValueTask<T>> action, CancellationToken ct) => await _mediator.ExecuteAsync(async c => await action(c), ct);
     public async ValueTask ExecuteMediatorAsync(Func<CancellationToken, ValueTask> action, CancellationToken ct) => await _mediator.ExecuteAsync(async c => { await action(c); return 0; }, ct);

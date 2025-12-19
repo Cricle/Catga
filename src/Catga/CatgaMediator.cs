@@ -246,11 +246,11 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         {
             var ex = new CatgaException("Request is null");
             if (_enableTracing) ObservabilityHooks.RecordCommandError(reqType!, ex, activity);
-            if (_enableLogging) CatgaLog.CommandFailed(_logger, ex, reqType ?? "Unknown", null, "Request is null");
+            if (_enableLogging) CatgaLog.CommandFailed(_logger, ex, reqType ?? "Unknown", null);
             return CatgaResult<TResponse>.Failure(ex.Message, ex);
         }
 
-        if (_enableLogging) CatgaLog.CommandExecuting(_logger, reqType!, request.MessageId, request.CorrelationId);
+        if (_enableLogging) CatgaLog.CommandExecuting(_logger, reqType!, request.MessageId);
 
         try
         {
@@ -279,7 +279,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
                 ObservabilityHooks.RecordCommandError(reqType ?? TypeNameCache<TRequest>.Name, ex, activity);
                 RecordException(activity as Activity, ex);
             }
-            if (_enableLogging) CatgaLog.CommandFailed(_logger, ex, reqType ?? TypeNameCache<TRequest>.Name, request.MessageId, ex.Message);
+            if (_enableLogging) CatgaLog.CommandFailed(_logger, ex, reqType ?? TypeNameCache<TRequest>.Name, request.MessageId);
             return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PipelineFailed, isRetryable: false));
         }
     }
@@ -322,9 +322,9 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         if (_enableLogging)
         {
             var duration = _enableTracing ? GetElapsedMilliseconds(startTimestamp) : 0;
-            CatgaLog.CommandExecuted(_logger, reqType ?? TypeNameCache<TRequest>.Name, message?.MessageId, duration, result.IsSuccess);
+            CatgaLog.CommandExecuted(_logger, reqType ?? TypeNameCache<TRequest>.Name, message?.MessageId, duration);
             if (!result.IsSuccess)
-                CatgaLog.CommandFailed(_logger, result.Exception, reqType ?? TypeNameCache<TRequest>.Name, message?.MessageId, result.Error ?? "Unknown");
+                CatgaLog.CommandFailed(_logger, result.Exception, reqType ?? TypeNameCache<TRequest>.Name, message?.MessageId);
         }
 
         return result;
@@ -440,7 +440,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         catch (Exception ex)
         {
             if (_enableLogging)
-                CatgaLog.EventHandlerFailed(_logger, ex, typeof(TEvent).Name, @event.MessageId, handler.GetType().Name);
+                CatgaLog.EventHandlerFailed(_logger, ex, typeof(TEvent).Name, handler.GetType().Name);
 
             if (activity != null)
             {

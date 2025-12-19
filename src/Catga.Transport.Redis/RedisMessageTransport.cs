@@ -148,7 +148,6 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
         {
             activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, "redis");
             activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, subject);
-            activity.SetTag(CatgaActivitySource.Tags.MessagingOperation, "publish");
             activity.SetTag(CatgaActivitySource.Tags.MessageType, TypeNameCache<TMessage>.Name);
         }
 
@@ -206,7 +205,6 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
         {
             activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, "redis");
             activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, streamKey);
-            activity.SetTag(CatgaActivitySource.Tags.MessagingOperation, "send");
             activity.SetTag(CatgaActivitySource.Tags.MessageType, TypeNameCache<TMessage>.Name);
         }
 
@@ -278,7 +276,6 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
             {
                 activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, "redis");
                 activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, subject);
-                activity.SetTag(CatgaActivitySource.Tags.MessagingOperation, "receive");
                 activity.SetTag(CatgaActivitySource.Tags.MessageType, TypeNameCache<TMessage>.Name);
             }
             try
@@ -367,7 +364,6 @@ public sealed partial class RedisMessageTransport : IMessageTransport, IAsyncDis
                             {
                                 activity2.SetTag(CatgaActivitySource.Tags.MessagingSystem, "redis");
                                 activity2.SetTag(CatgaActivitySource.Tags.MessagingDestination, streamKey);
-                                activity2.SetTag(CatgaActivitySource.Tags.MessagingOperation, "receive");
                                 activity2.SetTag(CatgaActivitySource.Tags.MessageType, TypeNameCache<TMessage>.Name);
                             }
 

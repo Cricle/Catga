@@ -24,7 +24,6 @@ public sealed class InMemoryIdempotencyStore(IMessageSerializer serializer, IOpt
         long messageId, TResult? result = default, CancellationToken ct = default)
     {
         _store[messageId] = (DateTime.UtcNow, result is null ? null : serializer.Serialize(result, typeof(TResult)));
-        CatgaDiagnostics.IdempotencyMarked.Add(1);
         return Task.CompletedTask;
     }
 
@@ -33,10 +32,10 @@ public sealed class InMemoryIdempotencyStore(IMessageSerializer serializer, IOpt
     {
         if (_store.TryGetValue(messageId, out var e) && e.Data is { } data)
         {
-            CatgaDiagnostics.IdempotencyCacheHits.Add(1);
+            CatgaDiagnostics.IdempotencyHits.Add(1);
             return Task.FromResult((TResult?)serializer.Deserialize(data, typeof(TResult)));
         }
-        CatgaDiagnostics.IdempotencyCacheMisses.Add(1);
+        CatgaDiagnostics.IdempotencyMisses.Add(1);
         return Task.FromResult(default(TResult?));
     }
 }

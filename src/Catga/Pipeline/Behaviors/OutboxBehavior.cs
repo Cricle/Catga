@@ -62,13 +62,10 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
             };
 
             await _persistence.AddAsync(outboxMessage, cancellationToken);
-            CatgaLog.OutboxSaved(_logger, messageId, _persistence.GetType().Name);
-            System.Diagnostics.Activity.Current?.AddActivityEvent(Catga.Observability.CatgaActivitySource.Events.OutboxSerialized,
-                ("message.id", messageId),
-                ("payload.size", payload.Length));
+            CatgaLog.OutboxSaved(_logger, messageId);
             System.Diagnostics.Activity.Current?.AddActivityEvent(Catga.Observability.CatgaActivitySource.Events.OutboxSaved,
                 ("message.id", messageId),
-                ("store", _persistence.GetType().Name));
+                ("payload.size", payload.Length));
 
             var result = await next();
 
@@ -86,7 +83,7 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
 
                     await _transport.PublishAsync<TRequest>(request, context, cancellationToken);
                     await _persistence.MarkAsPublishedAsync(messageId, cancellationToken);
-                    CatgaLog.OutboxPublished(_logger, messageId, _transport.Name);
+                    CatgaLog.OutboxPublished(_logger, messageId);
                     System.Diagnostics.Activity.Current?.AddActivityEvent(Catga.Observability.CatgaActivitySource.Events.OutboxPublished,
                         ("message.id", messageId),
                         ("transport", _transport.Name));
@@ -103,7 +100,7 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
         }
         catch (Exception ex)
         {
-            CatgaLog.OutboxBehaviorError(_logger, ex, TypeNameCache<TRequest>.Name);
+            _logger.LogError(ex, "[Outbox] Error in outbox behavior for {RequestType}", TypeNameCache<TRequest>.Name);
             System.Diagnostics.Activity.Current?.SetError(ex);
             return CatgaResult<TResponse>.Failure(ErrorInfo.FromException(ex, ErrorCodes.PersistenceFailed, isRetryable: true));
         }

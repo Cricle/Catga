@@ -13,72 +13,40 @@ namespace Catga.Persistence.Stores;
 public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSerializer serializer, IResiliencePipelineProvider provider, string? streamName = null, NatsJSStoreOptions? options = null)
     : NatsJSStoreBase(connection, streamName ?? "CATGA_INBOX", options), IInboxStore
 {
-
     protected override string[] GetSubjects() => [$"{StreamName}.>"];
 
-    public async ValueTask<bool> TryLockMessageAsync(
-        long messageId,
-        TimeSpan lockDuration,
-        CancellationToken cancellationToken = default)
+    public async ValueTask<bool> TryLockMessageAsync(long messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
     {
         return await provider.ExecutePersistenceAsync(async ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.TryLock", ActivityKind.Internal);
             await EnsureInitializedAsync(ct);
-
             var subject = $"{StreamName}.{messageId}";
 
-            // Check if message already exists and is processed
             var existing = await GetMessageAsync(messageId, ct);
             if (existing != null)
             {
-                if (existing.Status == InboxStatus.Processed)
-                    return false;
-
-                if (existing.LockExpiresAt.HasValue && existing.LockExpiresAt.Value > DateTime.UtcNow)
-                    return false;
+                if (existing.Status == InboxStatus.Processed) return false;
+                if (existing.LockExpiresAt.HasValue && existing.LockExpiresAt.Value > DateTime.UtcNow) return false;
             }
 
-            // Create or update with lock
-            var message = existing ?? new InboxMessage
-            {
-                MessageId = messageId,
-                MessageType = string.Empty,
-                Payload = Array.Empty<byte>()
-            };
-
+            var message = existing ?? new InboxMessage { MessageId = messageId, MessageType = string.Empty, Payload = [] };
             message.Status = InboxStatus.Processing;
             message.LockExpiresAt = DateTime.UtcNow.Add(lockDuration);
 
             var data = serializer.Serialize(message, typeof(InboxMessage));
             var ack = await JetStream.PublishAsync(subject, data, cancellationToken: ct);
-
-            var ok = ack.Error == null;
-            if (ok)
-            {
-                CatgaDiagnostics.InboxLocksAcquired.Add(1);
-                activity?.AddActivityEvent(CatgaActivitySource.Events.InboxTryLockOk,
-                    ("message.id", messageId),
-                    ("lock.seconds", (int)lockDuration.TotalSeconds));
-            }
-            else
-            {
-                activity?.AddActivityEvent(CatgaActivitySource.Events.InboxTryLockFailed,
-                    ("message.id", messageId));
-            }
-            return ok;
+            if (ack.Error == null) CatgaDiagnostics.InboxLocksAcquired.Add(1);
+            return ack.Error == null;
         }, cancellationToken);
     }
 
-    public async ValueTask MarkAsProcessedAsync(
-        InboxMessage message,
-        CancellationToken cancellationToken = default)
+    public async ValueTask MarkAsProcessedAsync(InboxMessage message, CancellationToken cancellationToken = default)
     {
         await provider.ExecutePersistenceAsync(async ct =>
         {
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.MarkProcessed", ActivityKind.Internal);
             ArgumentNullException.ThrowIfNull(message);
-
             await EnsureInitializedAsync(ct);
 
             message.ProcessedAt = DateTime.UtcNow;
@@ -87,126 +55,63 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
 
             var subject = $"{StreamName}.{message.MessageId}";
             var data = serializer.Serialize(message, typeof(InboxMessage));
-
             await JetStream.PublishAsync(subject, data, cancellationToken: ct);
             CatgaDiagnostics.InboxProcessed.Add(1);
-            activity?.AddActivityEvent(CatgaActivitySource.Events.InboxMarkProcessed,
-                ("message.id", message.MessageId),
-                ("bytes", data.Length));
         }, cancellationToken);
     }
 
-    public async ValueTask<bool> HasBeenProcessedAsync(
-        long messageId,
-        CancellationToken cancellationToken = default)
+    public async ValueTask<bool> HasBeenProcessedAsync(long messageId, CancellationToken cancellationToken = default)
     {
         return await provider.ExecutePersistenceAsync(async ct =>
         {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.HasBeenProcessed", ActivityKind.Internal);
             await EnsureInitializedAsync(ct);
-
             var message = await GetMessageAsync(messageId, ct);
-            var exists = message?.Status == InboxStatus.Processed;
-            activity?.AddActivityEvent(CatgaActivitySource.Events.InboxHasBeenProcessed,
-                ("message.id", messageId),
-                ("exists", exists));
-            return exists;
+            return message?.Status == InboxStatus.Processed;
         }, cancellationToken);
     }
 
-    public async ValueTask<byte[]?> GetProcessedResultAsync(
-        long messageId,
-        CancellationToken cancellationToken = default)
+    public async ValueTask<byte[]?> GetProcessedResultAsync(long messageId, CancellationToken cancellationToken = default)
     {
         return await provider.ExecutePersistenceAsync(async ct =>
         {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.GetProcessedResult", ActivityKind.Internal);
             await EnsureInitializedAsync(ct);
-
             var message = await GetMessageAsync(messageId, ct);
-            if (message?.Status == InboxStatus.Processed)
-            {
-                var bytes = message.ProcessingResult;
-                activity?.AddActivityEvent(CatgaActivitySource.Events.InboxGetProcessedResultHit,
-                    ("message.id", messageId),
-                    ("bytes", bytes?.Length ?? 0));
-                return bytes;
-            }
-            activity?.AddActivityEvent(CatgaActivitySource.Events.InboxGetProcessedResultMiss,
-                ("message.id", messageId));
-            return null;
+            return message?.Status == InboxStatus.Processed ? message.ProcessingResult : null;
         }, cancellationToken);
     }
 
-    public async ValueTask ReleaseLockAsync(
-        long messageId,
-        CancellationToken cancellationToken = default)
+    public async ValueTask ReleaseLockAsync(long messageId, CancellationToken cancellationToken = default)
     {
         await provider.ExecutePersistenceAsync(async ct =>
         {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.ReleaseLock", ActivityKind.Internal);
             await EnsureInitializedAsync(ct);
-
             var message = await GetMessageAsync(messageId, ct);
             if (message != null)
             {
                 message.Status = InboxStatus.Pending;
                 message.LockExpiresAt = null;
-
                 var subject = $"{StreamName}.{messageId}";
                 var data = serializer.Serialize(message, typeof(InboxMessage));
-
                 await JetStream.PublishAsync(subject, data, cancellationToken: ct);
                 CatgaDiagnostics.InboxLocksReleased.Add(1);
-                activity?.AddActivityEvent(CatgaActivitySource.Events.InboxReleaseLock,
-                    ("message.id", messageId));
             }
         }, cancellationToken);
     }
 
-    public async ValueTask DeleteProcessedMessagesAsync(
-        TimeSpan retentionPeriod,
-        CancellationToken cancellationToken = default)
-    {
-        await provider.ExecutePersistenceAsync(ct =>
-        {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Inbox.DeleteProcessed", ActivityKind.Internal);
-            activity?.AddActivityEvent(CatgaActivitySource.Events.InboxDeleteProcessedNoop);
-            return new ValueTask();
-        }, cancellationToken);
-    }
+    public ValueTask DeleteProcessedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
 
     private async Task<InboxMessage?> GetMessageAsync(long messageId, CancellationToken cancellationToken)
     {
         try
         {
             var subject = $"{StreamName}.{messageId}";
-            var consumer = await JetStream.CreateOrUpdateConsumerAsync(
-                StreamName,
-                new ConsumerConfig
-                {
-                    Name = $"inbox-get-{Guid.NewGuid():N}",
-                    FilterSubject = subject,
-                    AckPolicy = ConsumerConfigAckPolicy.None,
-                    DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject
-                },
-                cancellationToken);
+            var consumer = await JetStream.CreateOrUpdateConsumerAsync(StreamName,
+                new ConsumerConfig { Name = $"inbox-get-{Guid.NewGuid():N}", FilterSubject = subject, AckPolicy = ConsumerConfigAckPolicy.None, DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject }, cancellationToken);
 
-            await foreach (var msg in consumer.FetchAsync<byte[]>(
-                new NatsJSFetchOpts { MaxMsgs = 1 },
-                cancellationToken: cancellationToken))
-            {
-                if (msg.Data != null && msg.Data.Length > 0)
-                {
-                    return (InboxMessage?)serializer.Deserialize(msg.Data, typeof(InboxMessage));
-                }
-            }
+            await foreach (var msg in consumer.FetchAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = 1 }, cancellationToken: cancellationToken))
+                if (msg.Data is { Length: > 0 }) return (InboxMessage?)serializer.Deserialize(msg.Data, typeof(InboxMessage));
         }
-        catch (NatsJSApiException ex) when (ex.Error.Code == 404)
-        {
-            // Stream or message doesn't exist
-        }
-
+        catch (NatsJSApiException ex) when (ex.Error.Code == 404) { }
         return null;
     }
 }

@@ -14,12 +14,8 @@ public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSeriali
     : RedisStoreBase(redis, serializer, options?.Value.InboxKeyPrefix ?? "catga:inbox:"), IInboxStore
 {
     private const string TryLockScript = "local e=redis.call('GET',KEYS[1]) if e then return 0 end redis.call('SET',KEYS[1],ARGV[3],'EX',ARGV[2]) return 1";
-    private readonly TimeSpan _lockDuration = options?.Value.InboxDefaultLockDuration ?? TimeSpan.FromMinutes(5);
 
-    public async ValueTask<bool> TryLockMessageAsync(
-        long messageId,
-        TimeSpan lockDuration,
-        CancellationToken cancellationToken = default)
+    public async ValueTask<bool> TryLockMessageAsync(long messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
     {
         return await provider.ExecutePersistenceAsync(async ct =>
         {
@@ -27,29 +23,9 @@ public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSeriali
             var db = GetDatabase();
             var key = GetMessageKey(messageId);
 
-            // 创建锁定消息
-            var message = new InboxMessage
-            {
-                MessageId = messageId,
-                MessageType = "", // 稍后更新
-                Payload = Array.Empty<byte>(), // 稍后更新
-                Status = InboxStatus.Processing,
-                LockExpiresAt = DateTime.UtcNow.Add(lockDuration)
-            };
-
+            var message = new InboxMessage { MessageId = messageId, MessageType = "", Payload = [], Status = InboxStatus.Processing, LockExpiresAt = DateTime.UtcNow.Add(lockDuration) };
             var data = Serializer.Serialize(message, typeof(InboxMessage));
-
-            // 使用 Lua 脚本原子化检查并锁定
-            var result = await db.ScriptEvaluateAsync(
-                TryLockScript,
-                new RedisKey[] { key },
-                new RedisValue[]
-                {
-                    messageId,
-                    (int)lockDuration.TotalSeconds,
-                    data
-                });
-
+            var result = await db.ScriptEvaluateAsync(TryLockScript, [key], [messageId, (int)lockDuration.TotalSeconds, data]);
             var locked = (int)result == 1;
 
             if (locked)
@@ -61,14 +37,11 @@ public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSeriali
             {
                 CatgaLog.InboxAlreadyProcessedOrLocked(logger, messageId);
             }
-
             return locked;
         }, cancellationToken);
     }
 
-    public async ValueTask MarkAsProcessedAsync(
-        InboxMessage message,
-        CancellationToken cancellationToken = default)
+    public async ValueTask MarkAsProcessedAsync(InboxMessage message, CancellationToken cancellationToken = default)
     {
         await provider.ExecutePersistenceAsync(async ct =>
         {
@@ -81,82 +54,44 @@ public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSeriali
             message.LockExpiresAt = null;
 
             var data = Serializer.Serialize(message, typeof(InboxMessage));
-
-            // 保存已处理消息（保留 24 小时用于幂等性检查）
             await db.StringSetAsync(key, data, TimeSpan.FromHours(24));
-
             CatgaLog.InboxMarkedProcessed(logger, message.MessageId);
             CatgaDiagnostics.InboxProcessed.Add(1);
         }, cancellationToken);
     }
 
-    public async ValueTask<bool> HasBeenProcessedAsync(
-        long messageId,
-        CancellationToken cancellationToken = default)
+    public async ValueTask<bool> HasBeenProcessedAsync(long messageId, CancellationToken cancellationToken = default)
     {
         return await provider.ExecutePersistenceAsync(async ct =>
         {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Redis.Inbox.HasBeenProcessed", ActivityKind.Internal);
             var db = GetDatabase();
-            var key = GetMessageKey(messageId);
-
-            var exists = await db.KeyExistsAsync(key);
-            return exists;
+            return await db.KeyExistsAsync(GetMessageKey(messageId));
         }, cancellationToken);
     }
 
-    public async ValueTask<byte[]?> GetProcessedResultAsync(
-        long messageId,
-        CancellationToken cancellationToken = default)
+    public async ValueTask<byte[]?> GetProcessedResultAsync(long messageId, CancellationToken cancellationToken = default)
     {
         return await provider.ExecutePersistenceAsync(async ct =>
         {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Redis.Inbox.GetProcessedResult", ActivityKind.Internal);
             var db = GetDatabase();
-            var key = GetMessageKey(messageId);
-
-            var data = await db.StringGetAsync(key);
-            if (!data.HasValue)
-                return null;
-
+            var data = await db.StringGetAsync(GetMessageKey(messageId));
+            if (!data.HasValue) return null;
             var message = (InboxMessage?)Serializer.Deserialize((byte[])data!, typeof(InboxMessage));
             return message?.ProcessingResult;
         }, cancellationToken);
     }
 
-    public async ValueTask ReleaseLockAsync(
-        long messageId,
-        CancellationToken cancellationToken = default)
+    public async ValueTask ReleaseLockAsync(long messageId, CancellationToken cancellationToken = default)
     {
         await provider.ExecutePersistenceAsync(async ct =>
         {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Redis.Inbox.ReleaseLock", ActivityKind.Internal);
             var db = GetDatabase();
-            var key = GetMessageKey(messageId);
-
-            // 删除锁定
-            await db.KeyDeleteAsync(key);
-
-            CatgaLog.InboxReleasedLock(logger, messageId);
+            await db.KeyDeleteAsync(GetMessageKey(messageId));
             CatgaDiagnostics.InboxLocksReleased.Add(1);
         }, cancellationToken);
     }
 
-    public ValueTask DeleteProcessedMessagesAsync(
-        TimeSpan retentionPeriod,
-        CancellationToken cancellationToken = default)
-    {
-        return provider.ExecutePersistenceAsync(ct =>
-        {
-            using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Redis.Inbox.DeleteProcessed", ActivityKind.Internal);
-            // Redis 使用 TTL 自动清理，这里不需要额外操作
-            CatgaLog.InboxTTL(logger);
-            return ValueTask.CompletedTask;
-        }, cancellationToken);
-    }
+    public ValueTask DeleteProcessedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
 
     private string GetMessageKey(long messageId) => $"{KeyPrefix}:msg:{messageId}";
 }
-
-
-

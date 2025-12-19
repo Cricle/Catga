@@ -70,7 +70,6 @@ public class MemoryIdempotencyStore : IIdempotencyStore
         {
             CleanupOldEntries();
             _processedMessages[messageId] = (DateTime.UtcNow, null, null);
-            CatgaDiagnostics.IdempotencyMarked.Add(1);
 
             if (result != null)
             {
@@ -96,10 +95,8 @@ public class MemoryIdempotencyStore : IIdempotencyStore
         {
             if (_typedResults.TryGetValue(messageId, out var dict) && dict.TryGetValue(typeof(TResult), out var resultData))
             {
-                CatgaDiagnostics.IdempotencyCacheHits.Add(1);
                 return (TResult?)_serializer.Deserialize(resultData, typeof(TResult));
             }
-            CatgaDiagnostics.IdempotencyCacheMisses.Add(1);
             return default;
         }
         finally

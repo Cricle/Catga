@@ -281,7 +281,7 @@ public sealed class AutoBatchingBehavior<
                         Interlocked.Decrement(ref _count);
                         dropped.TrySetFailure(CatgaResult<TResponse>.Failure("Mediator batch queue overflow"));
                         if (ObservabilityHooks.IsEnabled) ObservabilityHooks.RecordMediatorBatchOverflow();
-                        CatgaLog.MediatorBatchOverflow(_logger, typeof(TRequest).Name, _key);
+                        CatgaLog.MediatorBatchOverflow(_logger, typeof(TRequest).Name);
                         System.Diagnostics.Activity.Current?.AddActivityEvent("Mediator.Batch.Overflow",
                             ("request.type", typeof(TRequest).Name),
                             ("key", _key));
@@ -325,7 +325,7 @@ public sealed class AutoBatchingBehavior<
                                 }
                                 catch (Exception ex)
                                 {
-                                    CatgaLog.MediatorBatchEntryError(_logger, ex, typeof(TRequest).Name);
+                                    _logger.LogError(ex, "Mediator auto-batch entry failed for {RequestType}", typeof(TRequest).Name);
                                     var wrapped = new Catga.Exceptions.CatgaException("Auto-batch execution error", ex);
                                     e.TrySetFailure(CatgaResult<TResponse>.Failure("Auto-batch execution error", wrapped));
                                 }
@@ -374,7 +374,7 @@ public sealed class AutoBatchingBehavior<
                     }
                     catch (Exception ex)
                     {
-                        CatgaLog.MediatorBatchFlushError(_logger, ex, typeof(TRequest).Name);
+                        _logger.LogError(ex, "Mediator auto-batch flush failed for {RequestType}", typeof(TRequest).Name);
                         var wrapped = new Catga.Exceptions.CatgaException("Auto-batch flush error", ex);
                         foreach (var e in batch)
                         {

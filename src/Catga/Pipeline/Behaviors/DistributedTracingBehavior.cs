@@ -74,7 +74,7 @@ public sealed class DistributedTracingBehavior<[DynamicallyAccessedMembers(Dynam
             var durationMs = GetElapsedMilliseconds(startTimestamp);
 
             // Set success tags
-            activity.SetSuccess(result.IsSuccess);
+            activity.SetTag(CatgaActivitySource.Tags.Success, result.IsSuccess);
             activity.SetTag(CatgaActivitySource.Tags.Duration, durationMs);
 
             // Add result details

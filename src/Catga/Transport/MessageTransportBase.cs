@@ -142,7 +142,6 @@ public abstract class MessageTransportBase : IMessageTransport
         {
             activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, Name);
             activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, TypeNameCache<TMessage>.Name);
-            activity.SetTag(CatgaActivitySource.Tags.MessagingOperation, "publish");
             activity.SetTag(CatgaActivitySource.Tags.MessageType, TypeNameCache<TMessage>.Name);
             if (context.MessageId.HasValue)
                 activity.SetTag(CatgaActivitySource.Tags.MessageId, context.MessageId.Value);

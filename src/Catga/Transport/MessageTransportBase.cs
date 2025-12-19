@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -8,151 +9,276 @@ using Catga.Resilience;
 
 namespace Catga.Transport;
 
-/// <summary>
-/// Base class for message transport implementations.
-/// Provides common QoS handling, diagnostics, and resilience patterns.
-/// </summary>
+/// <summary>Base class for message transports with common functionality.</summary>
 public abstract class MessageTransportBase : IMessageTransport
 {
     protected readonly IMessageSerializer Serializer;
     protected readonly IResiliencePipelineProvider ResilienceProvider;
+    protected readonly string Prefix;
+    protected readonly Func<Type, string>? Naming;
+    protected readonly CancellationTokenSource Cts = new();
+
+    // Batch queue
+    private readonly ConcurrentQueue<BatchItem> _batchQueue = new();
+    private readonly object _flushLock = new();
+    private int _batchCount;
+    private Timer? _batchTimer;
 
     public abstract string Name { get; }
     public virtual BatchTransportOptions? BatchOptions => null;
     public virtual CompressionTransportOptions? CompressionOptions => null;
 
-    protected MessageTransportBase(IMessageSerializer serializer, IResiliencePipelineProvider resilienceProvider)
+    protected MessageTransportBase(
+        IMessageSerializer serializer,
+        IResiliencePipelineProvider provider,
+        string? prefix = null,
+        Func<Type, string>? naming = null)
     {
         Serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
-        ResilienceProvider = resilienceProvider ?? throw new ArgumentNullException(nameof(resilienceProvider));
+        ResilienceProvider = provider ?? throw new ArgumentNullException(nameof(provider));
+        var p = prefix ?? "catga.";
+        Prefix = p.EndsWith('.') ? p : p + ".";
+        Naming = naming;
     }
 
-    #region IMessageTransport Implementation
-
-    public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
-        TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default)
-        where TMessage : class
+    /// <summary>Initialize batch timer if auto-batching is enabled.</summary>
+    protected void InitializeBatchTimer(BatchTransportOptions? batchOptions)
     {
-        var ctx = TransportContextFactory.GetOrCreate<TMessage>(context);
-        var qos = GetQoS(message);
-
-        using var activity = StartPublishActivity<TMessage>(ctx);
-
-        switch (qos)
+        if (batchOptions is { EnableAutoBatching: true })
         {
-            case QualityOfService.AtMostOnce:
-                await PublishAtMostOnceAsync(message, ctx, cancellationToken).ConfigureAwait(false);
-                break;
-            case QualityOfService.AtLeastOnce:
-                await PublishAtLeastOnceAsync(message, ctx, cancellationToken).ConfigureAwait(false);
-                break;
-            case QualityOfService.ExactlyOnce:
-                await PublishExactlyOnceAsync(message, ctx, cancellationToken).ConfigureAwait(false);
-                break;
+            _batchTimer = new Timer(
+                static s => ((MessageTransportBase)s!).TryFlushBatchTimer(),
+                this,
+                batchOptions.BatchTimeout,
+                batchOptions.BatchTimeout);
         }
     }
 
-    public abstract Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
-        TMessage message, string destination, TransportContext? context = null, CancellationToken cancellationToken = default)
-        where TMessage : class;
+    #region Subject/Destination Naming
 
-    public abstract Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
-        Func<TMessage, TransportContext, Task> handler, CancellationToken cancellationToken = default)
-        where TMessage : class;
-
-    public virtual async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
-        IEnumerable<TMessage> messages, TransportContext? context = null, CancellationToken cancellationToken = default)
-        where TMessage : class
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected string GetSubject<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>() where TMessage : class
     {
-        foreach (var message in messages)
-        {
-            await PublishAsync(message, context, cancellationToken).ConfigureAwait(false);
-        }
-    }
-
-    public virtual async Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
-        IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default)
-        where TMessage : class
-    {
-        foreach (var message in messages)
-        {
-            await SendAsync(message, destination, context, cancellationToken).ConfigureAwait(false);
-        }
+        var name = Naming != null ? Naming(typeof(TMessage)) : TypeNameCache<TMessage>.Name;
+        return Prefix + name;
     }
 
     #endregion
 
-    #region QoS Handling
-
-    protected virtual async Task PublishAtMostOnceAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
-        TMessage message, TransportContext context, CancellationToken ct)
-        where TMessage : class
-    {
-        try
-        {
-            await PublishCoreAsync(message, context, ct).ConfigureAwait(false);
-        }
-        catch
-        {
-            // QoS 0: Best-effort, discard on failure
-        }
-    }
-
-    protected virtual async Task PublishAtLeastOnceAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
-        TMessage message, TransportContext context, CancellationToken ct)
-        where TMessage : class
-    {
-        await ResilienceProvider.ExecuteTransportPublishAsync(
-            async token => { await PublishCoreAsync(message, context, token).ConfigureAwait(false); }, ct).ConfigureAwait(false);
-    }
-
-    protected virtual async Task PublishExactlyOnceAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
-        TMessage message, TransportContext context, CancellationToken ct)
-        where TMessage : class
-    {
-        // Default: same as AtLeastOnce, override for dedup
-        await PublishAtLeastOnceAsync(message, context, ct).ConfigureAwait(false);
-    }
-
-    /// <summary>Core publish implementation. Override in derived classes.</summary>
-    protected abstract Task PublishCoreAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
-        TMessage message, TransportContext context, CancellationToken ct)
-        where TMessage : class;
-
-    #endregion
-
-    #region Helpers
+    #region Activity Helpers
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected static QualityOfService GetQoS<TMessage>(TMessage message)
+    protected static Activity? StartPublishActivity(string system, string destination, string messageType, string? messageId = null)
     {
-        return message switch
-        {
-            IEvent ev => ev.QoS,
-            IMessage msg => msg.QoS,
-            _ => QualityOfService.AtLeastOnce
-        };
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected Activity? StartPublishActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TransportContext context)
-    {
+        if (!ObservabilityHooks.IsEnabled) return null;
         var activity = CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Publish", ActivityKind.Producer);
-        if (activity != null)
-        {
-            activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, Name);
-            activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, TypeNameCache<TMessage>.Name);
-            activity.SetTag(CatgaActivitySource.Tags.MessageType, TypeNameCache<TMessage>.Name);
-            if (context.MessageId.HasValue)
-                activity.SetTag(CatgaActivitySource.Tags.MessageId, context.MessageId.Value);
-        }
+        SetActivityTags(activity, system, destination, messageType, messageId);
         return activity;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected string GetDestination<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(Func<Type, string>? naming = null)
+    protected static Activity? StartReceiveActivity(string system, string destination, string messageType, string? traceParent = null, string? traceState = null)
     {
-        return naming != null ? naming(typeof(TMessage)) : TypeNameCache<TMessage>.Name;
+        if (!ObservabilityHooks.IsEnabled) return null;
+
+        Activity? activity;
+        if (!string.IsNullOrEmpty(traceParent))
+        {
+            try
+            {
+                var parent = ActivityContext.Parse(traceParent!, traceState);
+                activity = CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Receive", ActivityKind.Consumer, parent);
+            }
+            catch
+            {
+                activity = CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Receive", ActivityKind.Consumer);
+            }
+        }
+        else
+        {
+            activity = CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Receive", ActivityKind.Consumer);
+        }
+
+        SetActivityTags(activity, system, destination, messageType);
+        return activity;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected static Activity? StartBatchFlushActivity()
+    {
+        if (!ObservabilityHooks.IsEnabled) return null;
+        return CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Batch.Flush", ActivityKind.Producer);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void SetActivityTags(Activity? activity, string system, string destination, string messageType, string? messageId = null)
+    {
+        if (activity == null) return;
+        activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, system);
+        activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, destination);
+        activity.SetTag(CatgaActivitySource.Tags.MessageType, messageType);
+        if (messageId != null)
+            activity.SetTag(CatgaActivitySource.Tags.MessageId, messageId);
+    }
+
+    #endregion
+
+    #region Metrics Helpers
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected void RecordPublishSuccess(string messageType, string destination)
+    {
+        if (!ObservabilityHooks.IsEnabled) return;
+        CatgaDiagnostics.MessagesPublished.Add(1,
+            new KeyValuePair<string, object?>("component", $"Transport.{Name}"),
+            new KeyValuePair<string, object?>("message_type", messageType),
+            new KeyValuePair<string, object?>("destination", destination));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected void RecordPublishFailure(string destination, string? reason = null)
+    {
+        if (!ObservabilityHooks.IsEnabled) return;
+        CatgaDiagnostics.MessagesFailed.Add(1,
+            new KeyValuePair<string, object?>("component", $"Transport.{Name}"),
+            new KeyValuePair<string, object?>("destination", destination),
+            new KeyValuePair<string, object?>("reason", reason ?? "publish"));
+    }
+
+    #endregion
+
+    #region Batch Queue Management
+
+    protected readonly record struct BatchItem(
+        string Destination,
+        byte[] Payload,
+        string? TraceParent,
+        string? TraceState,
+        object? Extra);
+
+    protected void EnqueueBatch(BatchItem item, BatchTransportOptions batchOptions, int maxQueueLength)
+    {
+        var newCount = Interlocked.Increment(ref _batchCount);
+
+        // Backpressure: drop oldest when exceeding MaxQueueLength
+        if (maxQueueLength > 0 && newCount > maxQueueLength)
+        {
+            while (Interlocked.CompareExchange(ref _batchCount, _batchCount, _batchCount) > maxQueueLength
+                   && _batchQueue.TryDequeue(out _))
+            {
+                Interlocked.Decrement(ref _batchCount);
+            }
+        }
+
+        _batchQueue.Enqueue(item);
+
+        // Immediate flush by size
+        if (newCount >= batchOptions.MaxBatchSize)
+            TryFlushBatchImmediate(batchOptions);
+    }
+
+    private void TryFlushBatchImmediate(BatchTransportOptions batch)
+    {
+        if (!Monitor.TryEnter(_flushLock)) return;
+        try
+        {
+            FlushBatchInternalAsync(batch).GetAwaiter().GetResult();
+        }
+        finally
+        {
+            Monitor.Exit(_flushLock);
+        }
+    }
+
+    private void TryFlushBatchTimer()
+    {
+        var batch = BatchOptions;
+        if (batch is not { EnableAutoBatching: true }) return;
+        if (!Monitor.TryEnter(_flushLock)) return;
+        try
+        {
+            FlushBatchInternalAsync(batch).GetAwaiter().GetResult();
+        }
+        finally
+        {
+            Monitor.Exit(_flushLock);
+        }
+    }
+
+    private async Task FlushBatchInternalAsync(BatchTransportOptions batch)
+    {
+        var toProcess = Math.Min(_batchCount, batch.MaxBatchSize);
+        if (toProcess <= 0) return;
+
+        var list = new List<BatchItem>(toProcess);
+        while (toProcess-- > 0 && _batchQueue.TryDequeue(out var item))
+        {
+            Interlocked.Decrement(ref _batchCount);
+            list.Add(item);
+        }
+
+        using var batchSpan = StartBatchFlushActivity();
+        await ProcessBatchItemsAsync(list, batchSpan).ConfigureAwait(false);
+    }
+
+    /// <summary>Override to process batch items specific to the transport.</summary>
+    protected virtual Task ProcessBatchItemsAsync(List<BatchItem> items, Activity? batchSpan)
+        => Task.CompletedTask;
+
+    #endregion
+
+    #region Abstract Methods
+
+    public abstract Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+        TMessage message,
+        TransportContext? context = null,
+        CancellationToken cancellationToken = default) where TMessage : class;
+
+    public abstract Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+        TMessage message,
+        string destination,
+        TransportContext? context = null,
+        CancellationToken cancellationToken = default) where TMessage : class;
+
+    public abstract Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+        Func<TMessage, TransportContext, Task> handler,
+        CancellationToken cancellationToken = default) where TMessage : class;
+
+    #endregion
+
+    #region Batch Operations (Default Implementation)
+
+    public virtual async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+        IEnumerable<TMessage> messages,
+        TransportContext? context = null,
+        CancellationToken cancellationToken = default) where TMessage : class
+    {
+        await BatchOperationHelper.ExecuteBatchAsync(
+            messages,
+            m => PublishAsync(m, context, cancellationToken));
+    }
+
+    public virtual async Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+        IEnumerable<TMessage> messages,
+        string destination,
+        TransportContext? context = null,
+        CancellationToken cancellationToken = default) where TMessage : class
+    {
+        await BatchOperationHelper.ExecuteBatchAsync(
+            messages,
+            destination,
+            (m, dest) => SendAsync(m, dest, context, cancellationToken));
+    }
+
+    #endregion
+
+    #region Dispose
+
+    protected virtual async ValueTask DisposeAsyncCore()
+    {
+        await Cts.CancelAsync();
+        _batchTimer?.Dispose();
+        Cts.Dispose();
     }
 
     #endregion

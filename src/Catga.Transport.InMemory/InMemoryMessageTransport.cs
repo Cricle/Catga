@@ -17,33 +17,36 @@ using Polly.Retry;
 namespace Catga.Transport;
 
 /// <summary>In-memory message transport for testing with QoS support.</summary>
-public class InMemoryMessageTransport(ILogger<InMemoryMessageTransport>? logger, IResiliencePipelineProvider provider, CatgaOptions? globalOptions = null)
-    : IMessageTransport
+public sealed class InMemoryMessageTransport(
+    ILogger<InMemoryMessageTransport>? logger,
+    IResiliencePipelineProvider provider,
+    CatgaOptions? globalOptions = null)
+    : MessageTransportBase(new NullSerializer(), provider, "inmemory.", globalOptions?.EndpointNamingConvention)
 {
     private readonly InMemoryIdempotencyStore _idem = new();
-    private readonly Func<Type, string>? _naming = globalOptions?.EndpointNamingConvention;
 
-    public string Name => "InMemory";
-    public BatchTransportOptions? BatchOptions => null;
-    public CompressionTransportOptions? CompressionOptions => null;
+    public override string Name => "InMemory";
 
-    public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
+    public override async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+        TMessage message,
+        TransportContext? context = null,
+        CancellationToken cancellationToken = default)
     {
-        using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Publish", ActivityKind.Producer);
-        var sw = Stopwatch.StartNew();
-
         var handlers = TypedSubscribers<TMessage>.GetHandlers();
         if (handlers.Count == 0) return;
 
-        var ctx = context ?? new TransportContext { MessageId = MessageExtensions.NewMessageId(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
+        var ctx = context ?? new TransportContext
+        {
+            MessageId = MessageExtensions.NewMessageId(),
+            MessageType = TypeNameCache<TMessage>.FullName,
+            SentAt = DateTime.UtcNow
+        };
+
         var msg = message as IMessage;
         var qos = msg?.QoS ?? QualityOfService.AtLeastOnce;
-        var logicalName = _naming != null ? _naming(typeof(TMessage)) : TypeNameCache<TMessage>.Name;
+        var logicalName = Naming != null ? Naming(typeof(TMessage)) : TypeNameCache<TMessage>.Name;
 
-        activity?.SetTag(CatgaActivitySource.Tags.MessageType, logicalName);
-        activity?.SetTag(CatgaActivitySource.Tags.MessageId, ctx.MessageId);
-        activity?.SetTag(CatgaActivitySource.Tags.MessagingSystem, "inmemory");
-        activity?.SetTag(CatgaActivitySource.Tags.MessagingDestination, logicalName);
+        using var activity = StartPublishActivity("inmemory", logicalName, logicalName, ctx.MessageId?.ToString());
 
         CatgaDiagnostics.IncrementActiveMessages();
         try
@@ -64,26 +67,13 @@ public class InMemoryMessageTransport(ILogger<InMemoryMessageTransport>? logger,
                 case QualityOfService.AtLeastOnce:
                     if ((msg?.DeliveryMode ?? DeliveryMode.WaitForResult) == DeliveryMode.WaitForResult)
                     {
-                        await provider.ExecuteTransportPublishAsync(ct => new ValueTask(ExecuteHandlersAsync(handlers, message, ctx)), cancellationToken);
+                        await ResilienceProvider.ExecuteTransportPublishAsync(
+                            _ => new ValueTask(ExecuteHandlersAsync(handlers, message, ctx)),
+                            cancellationToken);
                     }
                     else
                     {
-#if NET8_0_OR_GREATER
-                        var retryPipeline = new ResiliencePipelineBuilder()
-                            .AddRetry(new RetryStrategyOptions
-                            {
-                                MaxRetryAttempts = 3,
-                                Delay = TimeSpan.FromMilliseconds(100),
-                                BackoffType = DelayBackoffType.Exponential,
-                                UseJitter = true,
-                                ShouldHandle = new PredicateBuilder().Handle<Exception>()
-                            })
-                            .Build();
-                        _ = Task.Run(() => retryPipeline.ExecuteAsync(async ct => { await ExecuteHandlersAsync(handlers, message, ctx); return 0; }, cancellationToken), cancellationToken);
-#else
-                        var retryPolicy = Policy.Handle<Exception>().WaitAndRetryAsync(3, attempt => TimeSpan.FromMilliseconds(100 * Math.Pow(2, attempt - 1)));
-                        _ = Task.Run(() => retryPolicy.ExecuteAsync(() => ExecuteHandlersAsync(handlers, message, ctx), cancellationToken), cancellationToken);
-#endif
+                        _ = ExecuteFireAndForgetAsync(handlers, message, ctx, cancellationToken);
                     }
                     break;
 
@@ -93,18 +83,19 @@ public class InMemoryMessageTransport(ILogger<InMemoryMessageTransport>? logger,
                         activity?.SetTag("catga.idempotent", true);
                         return;
                     }
-                    await provider.ExecuteTransportPublishAsync(ct => new ValueTask(ExecuteHandlersAsync(handlers, message, ctx)), cancellationToken);
+                    await ResilienceProvider.ExecuteTransportPublishAsync(
+                        _ => new ValueTask(ExecuteHandlersAsync(handlers, message, ctx)),
+                        cancellationToken);
                     if (ctx.MessageId.HasValue) _idem.MarkAsProcessed(ctx.MessageId.Value);
                     break;
             }
 
-            sw.Stop();
-            CatgaDiagnostics.MessagesPublished.Add(1, new KeyValuePair<string, object?>("message_type", logicalName));
+            RecordPublishSuccess(logicalName, logicalName);
         }
         catch (Exception ex)
         {
-            CatgaDiagnostics.MessagesFailed.Add(1, new KeyValuePair<string, object?>("message_type", logicalName));
-            RecordException(activity, ex);
+            RecordPublishFailure(logicalName);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             throw;
         }
         finally
@@ -113,48 +104,86 @@ public class InMemoryMessageTransport(ILogger<InMemoryMessageTransport>? logger,
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static async Task ExecuteHandlersAsync<TMessage>(IReadOnlyList<Func<TMessage, TransportContext, Task>> handlers, TMessage message, TransportContext context) where TMessage : class
-    {
-        var tasks = new Task[handlers.Count];
-        for (int i = 0; i < handlers.Count; i++)
-            tasks[i] = handlers[i](message, context);
-        await Task.WhenAll(tasks).ConfigureAwait(false);
-    }
-
-    public Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
+    public override Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+        TMessage message,
+        string destination,
+        TransportContext? context = null,
+        CancellationToken cancellationToken = default)
         => PublishAsync(message, context, cancellationToken);
 
-    public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(Func<TMessage, TransportContext, Task> handler, CancellationToken cancellationToken = default) where TMessage : class
+    public override Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+        Func<TMessage, TransportContext, Task> handler,
+        CancellationToken cancellationToken = default)
     {
         TypedSubscribers<TMessage>.AddHandler(handler);
         return Task.CompletedTask;
     }
 
-    public async Task PublishBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static async Task ExecuteHandlersAsync<TMessage>(
+        IReadOnlyList<Func<TMessage, TransportContext, Task>> handlers,
+        TMessage message,
+        TransportContext context) where TMessage : class
     {
-        await BatchOperationHelper.ExecuteBatchAsync(messages, m => PublishAsync(m, context, cancellationToken));
+        var tasks = new Task[handlers.Count];
+        for (var i = 0; i < handlers.Count; i++)
+            tasks[i] = handlers[i](message, context);
+        await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
-    public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
-        => PublishBatchAsync(messages, context, cancellationToken);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void RecordException(Activity? activity, Exception ex)
+    private static Task ExecuteFireAndForgetAsync<TMessage>(
+        IReadOnlyList<Func<TMessage, TransportContext, Task>> handlers,
+        TMessage message,
+        TransportContext ctx,
+        CancellationToken cancellationToken) where TMessage : class
     {
-        activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-        activity?.AddTag("exception.type", ex.GetType().FullName ?? ex.GetType().Name);
-        activity?.AddTag("exception.message", ex.Message);
+#if NET8_0_OR_GREATER
+        var retryPipeline = new ResiliencePipelineBuilder()
+            .AddRetry(new RetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromMilliseconds(100),
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                ShouldHandle = new PredicateBuilder().Handle<Exception>()
+            })
+            .Build();
+        return Task.Run(() => retryPipeline.ExecuteAsync(async _ =>
+        {
+            await ExecuteHandlersAsync(handlers, message, ctx);
+            return 0;
+        }, cancellationToken), cancellationToken);
+#else
+        var retryPolicy = Policy.Handle<Exception>()
+            .WaitAndRetryAsync(3, attempt => TimeSpan.FromMilliseconds(100 * Math.Pow(2, attempt - 1)));
+        return Task.Run(() => retryPolicy.ExecuteAsync(() => ExecuteHandlersAsync(handlers, message, ctx), cancellationToken), cancellationToken);
+#endif
+    }
+
+    /// <summary>Null serializer for in-memory transport (no serialization needed).</summary>
+    private sealed class NullSerializer : IMessageSerializer
+    {
+        public string Name => "Null";
+        public byte[] Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value) => [];
+        public T Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(byte[] data) => default!;
+        public T Deserialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(ReadOnlySpan<byte> data) => default!;
+        public void Serialize<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(T value, System.Buffers.IBufferWriter<byte> bufferWriter) { }
+        public byte[] Serialize(object value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type) => [];
+        public object? Deserialize(byte[] data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type) => null;
+        public object? Deserialize(ReadOnlySpan<byte> data, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type) => null;
+        public void Serialize(object value, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type, System.Buffers.IBufferWriter<byte> bufferWriter) { }
     }
 }
 
 /// <summary>Typed subscriber cache (lock-free using ImmutableList + Interlocked.CompareExchange)</summary>
 internal static class TypedSubscribers<TMessage> where TMessage : class
 {
-    private static ImmutableList<Func<TMessage, TransportContext, Task>> _handlers = ImmutableList<Func<TMessage, TransportContext, Task>>.Empty;
+    private static ImmutableList<Func<TMessage, TransportContext, Task>> _handlers =
+        ImmutableList<Func<TMessage, TransportContext, Task>>.Empty;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ImmutableList<Func<TMessage, TransportContext, Task>> GetHandlers() => Volatile.Read(ref _handlers);
+    public static ImmutableList<Func<TMessage, TransportContext, Task>> GetHandlers()
+        => Volatile.Read(ref _handlers);
 
     public static void AddHandler(Func<TMessage, TransportContext, Task> handler)
     {

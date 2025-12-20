@@ -42,7 +42,7 @@ public class MediatRComparisonBenchmarks
         var catgaServices = new ServiceCollection();
         catgaServices.AddLogging();
         catgaServices.AddCatga().UseMemoryPack();
-        catgaServices.AddSingleton<IResiliencePipelineProvider, NoopResiliencePipelineProvider>();
+        catgaServices.AddSingleton<IResiliencePipelineProvider, NoopResilienceProvider>();
         catgaServices.AddScoped<Catga.Abstractions.IRequestHandler<CatgaTestCommand, CatgaTestResult>, CatgaTestCommandHandler>();
         catgaServices.AddScoped<Catga.Abstractions.IRequestHandler<CatgaTestQuery, CatgaTestResult>, CatgaTestQueryHandler>();
         catgaServices.AddScoped<IEventHandler<CatgaTestEvent>, CatgaTestEventHandler>();
@@ -53,7 +53,7 @@ public class MediatRComparisonBenchmarks
         var catgaMinimalServices = new ServiceCollection();
         catgaMinimalServices.AddLogging();
         catgaMinimalServices.AddCatga(options => options.Minimal()).UseMemoryPack();
-        catgaMinimalServices.AddSingleton<IResiliencePipelineProvider, NoopResiliencePipelineProvider>();
+        catgaMinimalServices.AddSingleton<IResiliencePipelineProvider, NoopResilienceProvider>();
         catgaMinimalServices.AddScoped<Catga.Abstractions.IRequestHandler<CatgaTestCommand, CatgaTestResult>, CatgaTestCommandHandler>();
         catgaMinimalServices.AddScoped<Catga.Abstractions.IRequestHandler<CatgaTestQuery, CatgaTestResult>, CatgaTestQueryHandler>();
         catgaMinimalServices.AddScoped<IEventHandler<CatgaTestEvent>, CatgaTestEventHandler>();

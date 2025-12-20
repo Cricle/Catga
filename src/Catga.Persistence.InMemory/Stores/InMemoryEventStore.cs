@@ -131,62 +131,67 @@ public sealed class InMemoryEventStore(IResiliencePipelineProvider provider) : I
     public int StreamCount => _streams.Count;
     public int GetEventCount(string streamId) => _streams.TryGetValue(streamId, out var s) ? (int)(s.Version + 1) : 0;
 
+    /// <summary>Lock-free stream using immutable snapshots with CAS.</summary>
     private sealed class Stream
     {
-        private readonly List<StoredEvent> _events = [];
-        private readonly Lock _lock = new();
-        private long _version = -1;
-        public long Version { get { lock (_lock) return _version; } }
+        private volatile StoredEvent[] _events = [];
+        public long Version => _events.Length - 1;
 
         public void Append(IReadOnlyList<IEvent> events, long expected)
         {
-            lock (_lock)
+            while (true)
             {
-                if (expected >= 0 && _version != expected)
-                    throw new InvalidOperationException($"Expected {expected}, was {_version}");
+                var current = _events;
+                var currentVersion = current.Length - 1;
+                if (expected >= 0 && currentVersion != expected)
+                    throw new InvalidOperationException($"Expected {expected}, was {currentVersion}");
+
                 var ts = DateTime.UtcNow;
-                foreach (var e in events)
-                    _events.Add(new() { Version = ++_version, Event = e, Timestamp = ts, EventType = e.GetType().Name });
+                var newEvents = new StoredEvent[current.Length + events.Count];
+                Array.Copy(current, newEvents, current.Length);
+                for (var i = 0; i < events.Count; i++)
+                {
+                    var e = events[i];
+                    newEvents[current.Length + i] = new() { Version = current.Length + i, Event = e, Timestamp = ts, EventType = e.GetType().Name };
+                }
+
+                if (Interlocked.CompareExchange(ref _events, newEvents, current) == current)
+                    return;
             }
         }
 
         public List<StoredEvent> GetEvents(long from, int max)
         {
-            lock (_lock)
-            {
-                var start = (int)Math.Max(0, from);
-                return start >= _events.Count ? [] : _events.GetRange(start, Math.Min(max, _events.Count - start));
-            }
+            var snapshot = _events;
+            var start = (int)Math.Max(0, from);
+            if (start >= snapshot.Length) return [];
+            var count = Math.Min(max, snapshot.Length - start);
+            return [.. snapshot.AsSpan(start, count)];
         }
 
         public List<StoredEvent> GetEventsToVersion(long toVersion)
         {
-            lock (_lock)
-            {
-                var count = (int)Math.Min(toVersion + 1, _events.Count);
-                return count <= 0 ? [] : _events.GetRange(0, count);
-            }
+            var snapshot = _events;
+            var count = (int)Math.Min(toVersion + 1, snapshot.Length);
+            return count <= 0 ? [] : [.. snapshot.AsSpan(0, count)];
         }
 
         public List<StoredEvent> GetEventsToTimestamp(DateTime upperBound)
         {
-            lock (_lock)
-            {
-                return _events.Where(e => e.Timestamp <= upperBound).ToList();
-            }
+            var snapshot = _events;
+            var result = new List<StoredEvent>();
+            foreach (var e in snapshot)
+                if (e.Timestamp <= upperBound) result.Add(e);
+            return result;
         }
 
         public IReadOnlyList<VersionInfo> GetVersionHistory()
         {
-            lock (_lock)
-            {
-                return _events.Select(e => new VersionInfo
-                {
-                    Version = e.Version,
-                    Timestamp = e.Timestamp,
-                    EventType = e.EventType
-                }).ToList();
-            }
+            var snapshot = _events;
+            var result = new VersionInfo[snapshot.Length];
+            for (var i = 0; i < snapshot.Length; i++)
+                result[i] = new() { Version = snapshot[i].Version, Timestamp = snapshot[i].Timestamp, EventType = snapshot[i].EventType };
+            return result;
         }
     }
 }

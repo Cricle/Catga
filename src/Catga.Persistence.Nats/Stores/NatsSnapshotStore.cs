@@ -16,10 +16,8 @@ public sealed partial class NatsSnapshotStore : ISnapshotStore
     private readonly IMessageSerializer _serializer;
     private readonly SnapshotOptions _opts;
     private readonly ILogger<NatsSnapshotStore> _logger;
-    private INatsKVContext? _kv;
-    private INatsKVStore? _store;
-    private readonly SemaphoreSlim _initLock = new(1, 1);
-    private bool _initialized;
+    private volatile INatsKVStore? _store;
+    private Task? _initTask;
 
     public NatsSnapshotStore(
         INatsConnection nats,
@@ -37,27 +35,40 @@ public sealed partial class NatsSnapshotStore : ISnapshotStore
 
     private async ValueTask EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
+        if (_store != null) return;
 
-        await _initLock.WaitAsync(ct);
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var existing = Interlocked.CompareExchange(ref _initTask, tcs.Task, null);
+        if (existing != null)
+        {
+            await existing.WaitAsync(ct).ConfigureAwait(false);
+            return;
+        }
+
         try
         {
-            if (_initialized) return;
-
-            _kv = new NatsKVContext(new NatsJSContext(_nats));
-            _store = await _kv.CreateStoreAsync(new NatsKVConfig("snapshots")
+            var kv = new NatsKVContext(new NatsJSContext(_nats));
+            try
             {
-                History = 1,
-                Storage = NatsKVStorageType.File,
-                MaxAge = TimeSpan.FromDays(30)
-            }, ct);
-
-            _initialized = true;
+                _store = await kv.CreateStoreAsync(new NatsKVConfig("snapshots")
+                {
+                    History = 1,
+                    Storage = NatsKVStorageType.File,
+                    MaxAge = TimeSpan.FromDays(30)
+                }, ct);
+            }
+            catch (NatsKVException)
+            {
+                // Store already exists, get it
+                _store = await kv.GetStoreAsync("snapshots", ct);
+            }
+            tcs.SetResult();
         }
-        catch (NatsKVException) { _initialized = true; }
-        finally
+        catch (Exception ex)
         {
-            _initLock.Release();
+            _ = Interlocked.Exchange(ref _initTask, null);
+            tcs.SetException(ex);
+            throw;
         }
     }
 

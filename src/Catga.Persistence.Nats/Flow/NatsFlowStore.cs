@@ -17,11 +17,9 @@ public sealed class NatsFlowStore : IFlowStore
     private readonly IMessageSerializer _serializer;
     private readonly string _bucketName;
     private readonly string _indexBucket;
-    private INatsKVContext? _kv;
-    private INatsKVStore? _store;
-    private INatsKVStore? _indexStore;
-    private readonly SemaphoreSlim _initLock = new(1, 1);
-    private bool _initialized;
+    private volatile INatsKVStore? _store;
+    private volatile INatsKVStore? _indexStore;
+    private Task? _initTask;
 
     public NatsFlowStore(INatsConnection nats, IMessageSerializer serializer, string bucketName = "flows")
     {
@@ -37,37 +35,35 @@ public sealed class NatsFlowStore : IFlowStore
 
     private async ValueTask EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
+        if (_store != null && _indexStore != null) return;
 
-        await _initLock.WaitAsync(ct);
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var existing = Interlocked.CompareExchange(ref _initTask, tcs.Task, null);
+        if (existing != null)
+        {
+            await existing.WaitAsync(ct).ConfigureAwait(false);
+            return;
+        }
+
         try
         {
-            if (_initialized) return;
-
-            _kv = new NatsKVContext(new NatsJSContext(_nats));
+            var kv = new NatsKVContext(new NatsJSContext(_nats));
 
             // Main flow state bucket
-            _store = await _kv.CreateStoreAsync(new NatsKVConfig(_bucketName)
-            {
-                History = 1,
-                Storage = NatsKVStorageType.File,
-                MaxAge = TimeSpan.FromDays(7)
-            }, ct);
+            try { _store = await kv.CreateStoreAsync(new NatsKVConfig(_bucketName) { History = 1, Storage = NatsKVStorageType.File, MaxAge = TimeSpan.FromDays(7) }, ct); }
+            catch (NatsKVException) { _store = await kv.GetStoreAsync(_bucketName, ct); }
 
             // Type index bucket (stores flow IDs by type)
-            _indexStore = await _kv.CreateStoreAsync(new NatsKVConfig(_indexBucket)
-            {
-                History = 64, // Keep some history for index updates
-                Storage = NatsKVStorageType.File,
-                MaxAge = TimeSpan.FromDays(7)
-            }, ct);
+            try { _indexStore = await kv.CreateStoreAsync(new NatsKVConfig(_indexBucket) { History = 64, Storage = NatsKVStorageType.File, MaxAge = TimeSpan.FromDays(7) }, ct); }
+            catch (NatsKVException) { _indexStore = await kv.GetStoreAsync(_indexBucket, ct); }
 
-            _initialized = true;
+            tcs.SetResult();
         }
-        catch (NatsKVException) { _initialized = true; } // Bucket exists
-        finally
+        catch (Exception ex)
         {
-            _initLock.Release();
+            _ = Interlocked.Exchange(ref _initTask, null);
+            tcs.SetException(ex);
+            throw;
         }
     }
 

@@ -20,8 +20,8 @@ public abstract class MessageTransportBase : IMessageTransport
 
     // Batch queue
     private readonly ConcurrentQueue<BatchItem> _batchQueue = new();
-    private readonly object _flushLock = new();
     private int _batchCount;
+    private int _flushing; // 0 = not flushing, 1 = flushing
     private Timer? _batchTimer;
 
     public abstract string Name { get; }
@@ -179,14 +179,15 @@ public abstract class MessageTransportBase : IMessageTransport
 
     private void TryFlushBatchImmediate(BatchTransportOptions batch)
     {
-        if (!Monitor.TryEnter(_flushLock)) return;
+        // Lock-free: only one thread can flush at a time
+        if (Interlocked.CompareExchange(ref _flushing, 1, 0) != 0) return;
         try
         {
             FlushBatchInternalAsync(batch).GetAwaiter().GetResult();
         }
         finally
         {
-            Monitor.Exit(_flushLock);
+            Interlocked.Exchange(ref _flushing, 0);
         }
     }
 
@@ -194,14 +195,14 @@ public abstract class MessageTransportBase : IMessageTransport
     {
         var batch = BatchOptions;
         if (batch is not { EnableAutoBatching: true }) return;
-        if (!Monitor.TryEnter(_flushLock)) return;
+        if (Interlocked.CompareExchange(ref _flushing, 1, 0) != 0) return;
         try
         {
             FlushBatchInternalAsync(batch).GetAwaiter().GetResult();
         }
         finally
         {
-            Monitor.Exit(_flushLock);
+            Interlocked.Exchange(ref _flushing, 0);
         }
     }
 

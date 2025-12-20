@@ -18,9 +18,8 @@ public sealed class NatsEnhancedSnapshotStore : IEnhancedSnapshotStore
     private readonly IMessageSerializer _serializer;
     private readonly IResiliencePipelineProvider _provider;
     private readonly string _bucketName;
-    private INatsKVContext? _kv;
-    private INatsKVStore? _kvStore;
-    private readonly SemaphoreSlim _initLock = new(1, 1);
+    private volatile INatsKVStore? _kvStore;
+    private Task? _initTask;
 
     public NatsEnhancedSnapshotStore(
         INatsConnection nats,
@@ -38,27 +37,35 @@ public sealed class NatsEnhancedSnapshotStore : IEnhancedSnapshotStore
     {
         if (_kvStore != null) return;
 
-        await _initLock.WaitAsync(ct);
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var existing = Interlocked.CompareExchange(ref _initTask, tcs.Task, null);
+        if (existing != null)
+        {
+            await existing.WaitAsync(ct).ConfigureAwait(false);
+            return;
+        }
+
         try
         {
-            if (_kvStore != null) return;
-
-            _kv = new NatsKVContext(new NatsJSContext(_nats));
+            var kv = new NatsKVContext(new NatsJSContext(_nats));
             try
             {
-                _kvStore = await _kv.GetStoreAsync(_bucketName, ct);
+                _kvStore = await kv.GetStoreAsync(_bucketName, ct);
             }
             catch (NatsKVException)
             {
-                _kvStore = await _kv.CreateStoreAsync(new NatsKVConfig(_bucketName)
+                _kvStore = await kv.CreateStoreAsync(new NatsKVConfig(_bucketName)
                 {
                     History = 64 // Keep history for version queries
                 }, ct);
             }
+            tcs.SetResult();
         }
-        finally
+        catch (Exception ex)
         {
-            _initLock.Release();
+            _ = Interlocked.Exchange(ref _initTask, null);
+            tcs.SetException(ex);
+            throw;
         }
     }
 

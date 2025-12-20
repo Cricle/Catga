@@ -10,21 +10,34 @@ namespace Catga.Persistence.Nats;
 /// <summary>NATS KV-based subscription store.</summary>
 public sealed class NatsSubscriptionStore(INatsConnection nats, IMessageSerializer serializer, IResiliencePipelineProvider provider, string bucketName = "subscriptions") : ISubscriptionStore
 {
-    private INatsKVStore? _kvStore;
-    private readonly SemaphoreSlim _initLock = new(1, 1);
+    private volatile INatsKVStore? _kvStore;
+    private Task? _initTask;
 
     private async ValueTask EnsureInitializedAsync(CancellationToken ct)
     {
         if (_kvStore != null) return;
-        await _initLock.WaitAsync(ct);
+
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var existing = Interlocked.CompareExchange(ref _initTask, tcs.Task, null);
+        if (existing != null)
+        {
+            await existing.WaitAsync(ct).ConfigureAwait(false);
+            return;
+        }
+
         try
         {
-            if (_kvStore != null) return;
             var kv = new NatsKVContext(new NatsJSContext(nats));
             try { _kvStore = await kv.GetStoreAsync(bucketName, ct); }
             catch (NatsKVException) { _kvStore = await kv.CreateStoreAsync(new NatsKVConfig(bucketName), ct); }
+            tcs.SetResult();
         }
-        finally { _initLock.Release(); }
+        catch (Exception ex)
+        {
+            _ = Interlocked.Exchange(ref _initTask, null);
+            tcs.SetException(ex);
+            throw;
+        }
     }
 
     public async ValueTask SaveAsync(PersistentSubscription subscription, CancellationToken ct = default)

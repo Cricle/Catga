@@ -1,175 +1,262 @@
 using Catga;
-using Xunit;
+using FluentAssertions;
 
 namespace Catga.Tests.Attributes;
 
+/// <summary>
+/// Comprehensive tests for distributed attributes: RetryAttribute, TimeoutAttribute, 
+/// CircuitBreakerAttribute, IdempotentAttribute, DistributedLockAttribute, etc.
+/// </summary>
 public class DistributedAttributesTests
 {
-    [Fact]
-    public void IdempotentAttribute_DefaultValues()
-    {
-        // Arrange & Act
-        var attr = new IdempotentAttribute();
-
-        // Assert
-        Assert.Null(attr.Key);
-        Assert.Equal(86400, attr.TtlSeconds);
-    }
+    #region RetryAttribute Tests
 
     [Fact]
-    public void IdempotentAttribute_CustomValues()
+    public void RetryAttribute_DefaultValues_ShouldBeCorrect()
     {
-        // Arrange & Act
-        var attr = new IdempotentAttribute { Key = "{request.Id}", TtlSeconds = 3600 };
-
-        // Assert
-        Assert.Equal("{request.Id}", attr.Key);
-        Assert.Equal(3600, attr.TtlSeconds);
-    }
-
-    [Fact]
-    public void DistributedLockAttribute_RequiresKey()
-    {
-        // Arrange & Act
-        var attr = new DistributedLockAttribute("resource:{id}");
-
-        // Assert
-        Assert.Equal("resource:{id}", attr.Key);
-        Assert.Equal(30, attr.TimeoutSeconds);
-        Assert.Equal(10, attr.WaitSeconds);
-    }
-
-    [Fact]
-    public void DistributedLockAttribute_CustomTimeouts()
-    {
-        // Arrange & Act
-        var attr = new DistributedLockAttribute("key") { TimeoutSeconds = 60, WaitSeconds = 30 };
-
-        // Assert
-        Assert.Equal("key", attr.Key);
-        Assert.Equal(60, attr.TimeoutSeconds);
-        Assert.Equal(30, attr.WaitSeconds);
-    }
-
-    [Fact]
-    public void RetryAttribute_DefaultValues()
-    {
-        // Arrange & Act
         var attr = new RetryAttribute();
-
-        // Assert
-        Assert.Equal(3, attr.MaxAttempts);
-        Assert.Equal(100, attr.DelayMs);
-        Assert.True(attr.Exponential);
+        
+        attr.MaxAttempts.Should().Be(3);
+        attr.DelayMs.Should().Be(100);
+        attr.Exponential.Should().BeTrue();
     }
 
     [Fact]
-    public void RetryAttribute_CustomValues()
+    public void RetryAttribute_CustomValues_ShouldBeSet()
     {
-        // Arrange & Act
-        var attr = new RetryAttribute { MaxAttempts = 5, DelayMs = 500, Exponential = false };
-
-        // Assert
-        Assert.Equal(5, attr.MaxAttempts);
-        Assert.Equal(500, attr.DelayMs);
-        Assert.False(attr.Exponential);
+        var attr = new RetryAttribute
+        {
+            MaxAttempts = 5,
+            DelayMs = 500,
+            Exponential = false
+        };
+        
+        attr.MaxAttempts.Should().Be(5);
+        attr.DelayMs.Should().Be(500);
+        attr.Exponential.Should().BeFalse();
     }
 
     [Fact]
-    public void TimeoutAttribute_RequiresSeconds()
+    public void RetryAttribute_ShouldBeApplicableToClass()
     {
-        // Arrange & Act
+        var attrUsage = typeof(RetryAttribute)
+            .GetCustomAttributes(typeof(AttributeUsageAttribute), false)
+            .FirstOrDefault() as AttributeUsageAttribute;
+        
+        attrUsage.Should().NotBeNull();
+        attrUsage!.ValidOn.Should().HaveFlag(AttributeTargets.Class);
+    }
+
+    #endregion
+
+    #region TimeoutAttribute Tests
+
+    [Fact]
+    public void TimeoutAttribute_Constructor_ShouldSetSeconds()
+    {
         var attr = new TimeoutAttribute(30);
-
-        // Assert
-        Assert.Equal(30, attr.Seconds);
+        
+        attr.Seconds.Should().Be(30);
     }
 
     [Fact]
-    public void CircuitBreakerAttribute_DefaultValues()
+    public void TimeoutAttribute_ShouldBeApplicableToClass()
     {
-        // Arrange & Act
+        var attrUsage = typeof(TimeoutAttribute)
+            .GetCustomAttributes(typeof(AttributeUsageAttribute), false)
+            .FirstOrDefault() as AttributeUsageAttribute;
+        
+        attrUsage.Should().NotBeNull();
+        attrUsage!.ValidOn.Should().HaveFlag(AttributeTargets.Class);
+    }
+
+    #endregion
+
+    #region CircuitBreakerAttribute Tests
+
+    [Fact]
+    public void CircuitBreakerAttribute_DefaultValues_ShouldBeCorrect()
+    {
         var attr = new CircuitBreakerAttribute();
-
-        // Assert
-        Assert.Equal(5, attr.FailureThreshold);
-        Assert.Equal(30, attr.BreakDurationSeconds);
+        
+        attr.FailureThreshold.Should().Be(5);
+        attr.BreakDurationSeconds.Should().Be(30);
     }
 
     [Fact]
-    public void CircuitBreakerAttribute_CustomValues()
+    public void CircuitBreakerAttribute_CustomValues_ShouldBeSet()
     {
-        // Arrange & Act
-        var attr = new CircuitBreakerAttribute { FailureThreshold = 10, BreakDurationSeconds = 60 };
-
-        // Assert
-        Assert.Equal(10, attr.FailureThreshold);
-        Assert.Equal(60, attr.BreakDurationSeconds);
+        var attr = new CircuitBreakerAttribute
+        {
+            FailureThreshold = 10,
+            BreakDurationSeconds = 60
+        };
+        
+        attr.FailureThreshold.Should().Be(10);
+        attr.BreakDurationSeconds.Should().Be(60);
     }
 
     [Fact]
-    public void ShardedAttribute_RequiresKey()
+    public void CircuitBreakerAttribute_ShouldBeApplicableToClass()
     {
-        // Arrange & Act
-        var attr = new ShardedAttribute("{request.CustomerId}");
+        var attrUsage = typeof(CircuitBreakerAttribute)
+            .GetCustomAttributes(typeof(AttributeUsageAttribute), false)
+            .FirstOrDefault() as AttributeUsageAttribute;
+        
+        attrUsage.Should().NotBeNull();
+        attrUsage!.ValidOn.Should().HaveFlag(AttributeTargets.Class);
+    }
 
-        // Assert
-        Assert.Equal("{request.CustomerId}", attr.Key);
+    #endregion
+
+    #region IdempotentAttribute Tests
+
+    [Fact]
+    public void IdempotentAttribute_DefaultValues_ShouldBeCorrect()
+    {
+        var attr = new IdempotentAttribute();
+        
+        attr.TtlSeconds.Should().Be(86400);
+        attr.Key.Should().BeNull();
     }
 
     [Fact]
-    public void LeaderOnlyAttribute_NoProperties()
+    public void IdempotentAttribute_CustomValues_ShouldBeSet()
     {
-        // Arrange & Act
-        var attr = new LeaderOnlyAttribute();
-
-        // Assert - just verify it can be created
-        Assert.NotNull(attr);
+        var attr = new IdempotentAttribute
+        {
+            TtlSeconds = 7200,
+            Key = "custom-key"
+        };
+        
+        attr.TtlSeconds.Should().Be(7200);
+        attr.Key.Should().Be("custom-key");
     }
 
     [Fact]
-    public void BroadcastAttribute_NoProperties()
+    public void IdempotentAttribute_ShouldBeApplicableToClass()
     {
-        // Arrange & Act
-        var attr = new BroadcastAttribute();
+        var attrUsage = typeof(IdempotentAttribute)
+            .GetCustomAttributes(typeof(AttributeUsageAttribute), false)
+            .FirstOrDefault() as AttributeUsageAttribute;
+        
+        attrUsage.Should().NotBeNull();
+        attrUsage!.ValidOn.Should().HaveFlag(AttributeTargets.Class);
+    }
 
-        // Assert
-        Assert.NotNull(attr);
+    #endregion
+
+    #region DistributedLockAttribute Tests
+
+    [Fact]
+    public void DistributedLockAttribute_Constructor_ShouldSetKey()
+    {
+        var attr = new DistributedLockAttribute("my-lock");
+        
+        attr.Key.Should().Be("my-lock");
     }
 
     [Fact]
-    public void ClusterSingletonAttribute_NoProperties()
+    public void DistributedLockAttribute_DefaultValues_ShouldBeCorrect()
     {
-        // Arrange & Act
-        var attr = new ClusterSingletonAttribute();
-
-        // Assert
-        Assert.NotNull(attr);
+        var attr = new DistributedLockAttribute("my-lock");
+        
+        attr.TimeoutSeconds.Should().Be(30);
+        attr.WaitSeconds.Should().Be(10);
     }
 
     [Fact]
-    public void Attributes_CanBeAppliedToClass()
+    public void DistributedLockAttribute_CustomValues_ShouldBeSet()
     {
-        // Arrange & Act
-        var type = typeof(TestHandler);
-        var attrs = type.GetCustomAttributes(false);
-
-        // Assert
-        Assert.Contains(attrs, a => a is IdempotentAttribute);
-        Assert.Contains(attrs, a => a is DistributedLockAttribute);
-        Assert.Contains(attrs, a => a is RetryAttribute);
-        Assert.Contains(attrs, a => a is TimeoutAttribute);
+        var attr = new DistributedLockAttribute("my-lock")
+        {
+            TimeoutSeconds = 60,
+            WaitSeconds = 20
+        };
+        
+        attr.Key.Should().Be("my-lock");
+        attr.TimeoutSeconds.Should().Be(60);
+        attr.WaitSeconds.Should().Be(20);
     }
 
-    [Idempotent(Key = "{request.Id}")]
-    [DistributedLock("test:{request.Id}")]
-    [Retry(MaxAttempts = 5)]
-    [Timeout(30)]
-    private class TestHandler { }
+    [Fact]
+    public void DistributedLockAttribute_ShouldBeApplicableToClass()
+    {
+        var attrUsage = typeof(DistributedLockAttribute)
+            .GetCustomAttributes(typeof(AttributeUsageAttribute), false)
+            .FirstOrDefault() as AttributeUsageAttribute;
+        
+        attrUsage.Should().NotBeNull();
+        attrUsage!.ValidOn.Should().HaveFlag(AttributeTargets.Class);
+    }
+
+    #endregion
+
+    #region ShardedAttribute Tests
+
+    [Fact]
+    public void ShardedAttribute_Constructor_ShouldSetKey()
+    {
+        var attr = new ShardedAttribute("CustomerId");
+        
+        attr.Key.Should().Be("CustomerId");
+    }
+
+    [Fact]
+    public void ShardedAttribute_ShouldBeApplicableToClass()
+    {
+        var attrUsage = typeof(ShardedAttribute)
+            .GetCustomAttributes(typeof(AttributeUsageAttribute), false)
+            .FirstOrDefault() as AttributeUsageAttribute;
+        
+        attrUsage.Should().NotBeNull();
+        attrUsage!.ValidOn.Should().HaveFlag(AttributeTargets.Class);
+    }
+
+    #endregion
+
+    #region BroadcastAttribute Tests
+
+    [Fact]
+    public void BroadcastAttribute_ShouldBeApplicableToClass()
+    {
+        var attrUsage = typeof(BroadcastAttribute)
+            .GetCustomAttributes(typeof(AttributeUsageAttribute), false)
+            .FirstOrDefault() as AttributeUsageAttribute;
+        
+        attrUsage.Should().NotBeNull();
+        attrUsage!.ValidOn.Should().HaveFlag(AttributeTargets.Class);
+    }
+
+    #endregion
+
+    #region LeaderOnlyAttribute Tests
+
+    [Fact]
+    public void LeaderOnlyAttribute_ShouldBeApplicableToClass()
+    {
+        var attrUsage = typeof(LeaderOnlyAttribute)
+            .GetCustomAttributes(typeof(AttributeUsageAttribute), false)
+            .FirstOrDefault() as AttributeUsageAttribute;
+        
+        attrUsage.Should().NotBeNull();
+        attrUsage!.ValidOn.Should().HaveFlag(AttributeTargets.Class);
+    }
+
+    #endregion
+
+    #region ClusterSingletonAttribute Tests
+
+    [Fact]
+    public void ClusterSingletonAttribute_ShouldBeApplicableToClass()
+    {
+        var attrUsage = typeof(ClusterSingletonAttribute)
+            .GetCustomAttributes(typeof(AttributeUsageAttribute), false)
+            .FirstOrDefault() as AttributeUsageAttribute;
+        
+        attrUsage.Should().NotBeNull();
+        attrUsage!.ValidOn.Should().HaveFlag(AttributeTargets.Class);
+    }
+
+    #endregion
 }
-
-
-
-
-
-

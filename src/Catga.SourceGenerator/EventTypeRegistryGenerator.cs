@@ -41,8 +41,11 @@ public sealed class EventTypeRegistryGenerator : IIncrementalGenerator
         if (symbol is null) return null;
         var implementsEvent = symbol.AllInterfaces.Any(i => i.Name == "IEvent");
         if (!implementsEvent) return null;
-        var ns = symbol.ContainingNamespace?.ToDisplayString();
-        var fullName = string.IsNullOrEmpty(ns) ? symbol.Name : ns + "." + symbol.Name;
+        // Use ToDisplayString with FullyQualifiedFormat to get proper type name
+        var fullName = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        // Remove global:: prefix as we add it in the template
+        if (fullName.StartsWith("global::"))
+            fullName = fullName.Substring(8);
         return fullName;
     }
 
@@ -62,7 +65,7 @@ public sealed class EventTypeRegistryGenerator : IIncrementalGenerator
         sb.AppendLine("        {");
         foreach (var fullName in eventTypeFullNames.Distinct().OrderBy(n => n))
         {
-            sb.AppendLine($"            Catga.Generated.EventTypeRegistry.Register<{fullName}>();");
+            sb.AppendLine($"            Catga.Generated.EventTypeRegistry.Register<global::{fullName}>();");
         }
         sb.AppendLine("        }");
         sb.AppendLine("    }");

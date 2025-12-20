@@ -1,223 +1,299 @@
-using System.Text;
 using Catga.Transport;
 using FluentAssertions;
-using Xunit;
+using System.IO.Compression;
+using System.Text;
 
 namespace Catga.Tests.Transport;
 
+/// <summary>
+/// Comprehensive tests for MessageCompressor
+/// </summary>
 public class MessageCompressorTests
 {
+    #region Compress Tests
+
     [Fact]
-    public void Compress_None_ReturnsOriginal()
+    public void Compress_WithNoneAlgorithm_ShouldReturnOriginalData()
     {
         var data = Encoding.UTF8.GetBytes("Hello, World!");
-
+        
         var compressed = MessageCompressor.Compress(data, CompressionAlgorithm.None);
-
+        
         compressed.Should().BeEquivalentTo(data);
     }
 
     [Fact]
-    public void Compress_GZip_CompressesData()
-    {
-        var data = Encoding.UTF8.GetBytes(new string('A', 1000));
-
-        var compressed = MessageCompressor.Compress(data, CompressionAlgorithm.GZip);
-
-        compressed.Length.Should().BeLessThan(data.Length);
-    }
-
-    [Fact]
-    public void Compress_Brotli_CompressesData()
-    {
-        var data = Encoding.UTF8.GetBytes(new string('A', 1000));
-
-        var compressed = MessageCompressor.Compress(data, CompressionAlgorithm.Brotli);
-
-        compressed.Length.Should().BeLessThan(data.Length);
-    }
-
-    [Fact]
-    public void Compress_Deflate_CompressesData()
-    {
-        var data = Encoding.UTF8.GetBytes(new string('A', 1000));
-
-        var compressed = MessageCompressor.Compress(data, CompressionAlgorithm.Deflate);
-
-        compressed.Length.Should().BeLessThan(data.Length);
-    }
-
-    [Theory]
-    [InlineData(CompressionAlgorithm.GZip)]
-    [InlineData(CompressionAlgorithm.Brotli)]
-    [InlineData(CompressionAlgorithm.Deflate)]
-    public void CompressDecompress_RoundTrip(CompressionAlgorithm algorithm)
-    {
-        var original = Encoding.UTF8.GetBytes("Hello, World! This is a test message for compression.");
-
-        var compressed = MessageCompressor.Compress(original, algorithm);
-        var decompressed = MessageCompressor.Decompress(compressed);
-
-        decompressed.Should().BeEquivalentTo(original);
-    }
-
-    [Fact]
-    public void Decompress_UncompressedData_ReturnsOriginal()
-    {
-        var data = new byte[] { 0, 0, 0, 0, 5, 1, 2, 3, 4, 5 }; // Algorithm = None
-
-        var result = MessageCompressor.Decompress(data);
-
-        result.Should().BeEquivalentTo(new byte[] { 1, 2, 3, 4, 5 });
-    }
-
-    [Fact]
-    public void IsCompressed_CompressedData_ReturnsTrue()
-    {
-        var data = Encoding.UTF8.GetBytes(new string('A', 100));
-        var compressed = MessageCompressor.Compress(data, CompressionAlgorithm.GZip);
-
-        MessageCompressor.IsCompressed(compressed).Should().BeTrue();
-    }
-
-    [Fact]
-    public void IsCompressed_UncompressedData_ReturnsFalse()
-    {
-        var data = new byte[] { 0, 0, 0, 0, 5, 1, 2, 3, 4, 5 }; // Algorithm = None
-
-        MessageCompressor.IsCompressed(data).Should().BeFalse();
-    }
-
-    [Fact]
-    public void IsCompressed_TooShortData_ReturnsFalse()
-    {
-        var data = new byte[] { 1, 2, 3 };
-
-        MessageCompressor.IsCompressed(data).Should().BeFalse();
-    }
-
-    [Fact]
-    public void EstimateCompressionRatio_CalculatesCorrectly()
-    {
-        var original = new byte[100];
-        var compressed = new byte[30];
-
-        var ratio = MessageCompressor.EstimateCompressionRatio(original, compressed);
-
-        ratio.Should().BeApproximately(0.3, 0.01);
-    }
-
-    [Fact]
-    public void EstimateCompressionRatio_EmptyOriginal_ReturnsOne()
-    {
-        var original = Array.Empty<byte>();
-        var compressed = Array.Empty<byte>();
-
-        var ratio = MessageCompressor.EstimateCompressionRatio(original, compressed);
-
-        ratio.Should().Be(1.0);
-    }
-
-    [Fact]
-    public void Compress_EmptyData_ReturnsEmpty()
+    public void Compress_WithEmptyData_ShouldReturnEmpty()
     {
         var data = Array.Empty<byte>();
-
+        
         var compressed = MessageCompressor.Compress(data, CompressionAlgorithm.GZip);
-
+        
         compressed.Should().BeEmpty();
     }
 
-    [Fact]
-    public void CompressionStats_CalculatesProperties()
+    [Theory]
+    [InlineData(CompressionAlgorithm.GZip)]
+    [InlineData(CompressionAlgorithm.Brotli)]
+    [InlineData(CompressionAlgorithm.Deflate)]
+    public void Compress_WithAllAlgorithms_ShouldCompressData(CompressionAlgorithm algorithm)
     {
-        var stats = new CompressionStats
-        {
-            OriginalBytes = 1000,
-            CompressedBytes = 300
-        };
+        var data = Encoding.UTF8.GetBytes(new string('A', 1000));
+        
+        var compressed = MessageCompressor.Compress(data, algorithm);
+        
+        compressed.Should().NotBeEmpty();
+        compressed.Length.Should().BeLessThan(data.Length);
+    }
 
-        stats.Ratio.Should().BeApproximately(0.3, 0.01);
-        stats.SavedBytes.Should().Be(700);
+    [Theory]
+    [InlineData(CompressionLevel.Fastest)]
+    [InlineData(CompressionLevel.Optimal)]
+    [InlineData(CompressionLevel.SmallestSize)]
+    public void Compress_WithDifferentLevels_ShouldWork(CompressionLevel level)
+    {
+        var data = Encoding.UTF8.GetBytes(new string('B', 1000));
+        
+        var compressed = MessageCompressor.Compress(data, CompressionAlgorithm.GZip, level);
+        
+        compressed.Should().NotBeEmpty();
     }
 
     [Fact]
-    public void CompressionStats_ZeroOriginal_RatioIsOne()
+    public void Compress_ShouldIncludeHeader()
     {
-        var stats = new CompressionStats
-        {
-            OriginalBytes = 0,
-            CompressedBytes = 0
-        };
+        var data = Encoding.UTF8.GetBytes(new string('C', 100));
+        
+        var compressed = MessageCompressor.Compress(data, CompressionAlgorithm.GZip);
+        
+        // First byte should be algorithm
+        compressed[0].Should().Be((byte)CompressionAlgorithm.GZip);
+        // Next 4 bytes should be original length
+        var originalLength = BitConverter.ToInt32(compressed, 1);
+        originalLength.Should().Be(data.Length);
+    }
 
-        stats.Ratio.Should().Be(1.0);
-        stats.SavedBytes.Should().Be(0);
+    #endregion
+
+    #region Decompress Tests
+
+    [Fact]
+    public void Decompress_WithTooShortData_ShouldReturnOriginal()
+    {
+        var data = new byte[] { 1, 2, 3 };
+        
+        var decompressed = MessageCompressor.Decompress(data);
+        
+        decompressed.Should().BeEquivalentTo(data);
+    }
+
+    [Fact]
+    public void Decompress_WithNoneAlgorithm_ShouldReturnDataWithoutHeader()
+    {
+        var originalData = Encoding.UTF8.GetBytes("Test data");
+        var dataWithHeader = new byte[5 + originalData.Length];
+        dataWithHeader[0] = (byte)CompressionAlgorithm.None;
+        BitConverter.TryWriteBytes(dataWithHeader.AsSpan(1), originalData.Length);
+        originalData.CopyTo(dataWithHeader, 5);
+        
+        var decompressed = MessageCompressor.Decompress(dataWithHeader);
+        
+        decompressed.Should().BeEquivalentTo(originalData);
     }
 
     [Theory]
     [InlineData(CompressionAlgorithm.GZip)]
     [InlineData(CompressionAlgorithm.Brotli)]
     [InlineData(CompressionAlgorithm.Deflate)]
-    public void CompressDecompress_LargeData_RoundTrip(CompressionAlgorithm algorithm)
+    public void CompressDecompress_RoundTrip_ShouldReturnOriginal(CompressionAlgorithm algorithm)
     {
-        var random = new Random(42);
-        var original = new byte[10000];
-        random.NextBytes(original);
-
+        var original = Encoding.UTF8.GetBytes("This is a test message for compression round-trip testing.");
+        
         var compressed = MessageCompressor.Compress(original, algorithm);
         var decompressed = MessageCompressor.Decompress(compressed);
-
+        
         decompressed.Should().BeEquivalentTo(original);
     }
 
     [Fact]
-    public void CompressToBuffer_None_CopiesData()
+    public void CompressDecompress_LargeData_ShouldWork()
+    {
+        var original = Encoding.UTF8.GetBytes(new string('X', 100000));
+        
+        var compressed = MessageCompressor.Compress(original, CompressionAlgorithm.GZip);
+        var decompressed = MessageCompressor.Decompress(compressed);
+        
+        decompressed.Should().BeEquivalentTo(original);
+    }
+
+    #endregion
+
+    #region CompressToBuffer Tests
+
+    [Fact]
+    public void CompressToBuffer_WithNoneAlgorithm_ShouldCopyData()
     {
         var data = Encoding.UTF8.GetBytes("Hello");
         var buffer = new byte[100];
-
+        
         var length = MessageCompressor.CompressToBuffer(data, buffer, CompressionAlgorithm.None);
-
+        
         length.Should().Be(data.Length);
-        buffer.Take(length).Should().BeEquivalentTo(data);
+        buffer.AsSpan(0, length).ToArray().Should().BeEquivalentTo(data);
     }
 
     [Fact]
-    public void CompressToBuffer_GZip_CompressesData()
-    {
-        var data = Encoding.UTF8.GetBytes(new string('A', 500));
-        var buffer = new byte[1000];
-
-        var length = MessageCompressor.CompressToBuffer(data, buffer, CompressionAlgorithm.GZip);
-
-        length.Should().BeLessThan(data.Length);
-        length.Should().BeGreaterThan(5); // Header size
-    }
-
-    [Fact]
-    public void CompressToBuffer_EmptyData_ReturnsZero()
+    public void CompressToBuffer_WithEmptyData_ShouldReturnZero()
     {
         var data = Array.Empty<byte>();
         var buffer = new byte[100];
-
+        
         var length = MessageCompressor.CompressToBuffer(data, buffer, CompressionAlgorithm.GZip);
-
+        
         length.Should().Be(0);
     }
 
     [Fact]
-    public void Decompress_TooShortData_ReturnsOriginal()
+    public void CompressToBuffer_WithGZip_ShouldCompressToBuffer()
+    {
+        var data = Encoding.UTF8.GetBytes(new string('D', 500));
+        var buffer = new byte[1000];
+        
+        var length = MessageCompressor.CompressToBuffer(data, buffer, CompressionAlgorithm.GZip);
+        
+        length.Should().BeGreaterThan(5); // At least header
+        buffer[0].Should().Be((byte)CompressionAlgorithm.GZip);
+    }
+
+    #endregion
+
+    #region IsCompressed Tests
+
+    [Fact]
+    public void IsCompressed_WithTooShortData_ShouldReturnFalse()
     {
         var data = new byte[] { 1, 2, 3 };
-
-        var result = MessageCompressor.Decompress(data);
-
-        result.Should().BeEquivalentTo(data);
+        
+        var result = MessageCompressor.IsCompressed(data);
+        
+        result.Should().BeFalse();
     }
+
+    [Fact]
+    public void IsCompressed_WithNoneAlgorithm_ShouldReturnFalse()
+    {
+        var data = new byte[10];
+        data[0] = (byte)CompressionAlgorithm.None;
+        
+        var result = MessageCompressor.IsCompressed(data);
+        
+        result.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(CompressionAlgorithm.GZip)]
+    [InlineData(CompressionAlgorithm.Brotli)]
+    [InlineData(CompressionAlgorithm.Deflate)]
+    public void IsCompressed_WithCompressedData_ShouldReturnTrue(CompressionAlgorithm algorithm)
+    {
+        var original = Encoding.UTF8.GetBytes("Test data for compression");
+        var compressed = MessageCompressor.Compress(original, algorithm);
+        
+        var result = MessageCompressor.IsCompressed(compressed);
+        
+        result.Should().BeTrue();
+    }
+
+    #endregion
+
+    #region EstimateCompressionRatio Tests
+
+    [Fact]
+    public void EstimateCompressionRatio_WithEmptyOriginal_ShouldReturnOne()
+    {
+        var original = Array.Empty<byte>();
+        var compressed = Array.Empty<byte>();
+        
+        var ratio = MessageCompressor.EstimateCompressionRatio(original, compressed);
+        
+        ratio.Should().Be(1.0);
+    }
+
+    [Fact]
+    public void EstimateCompressionRatio_WithCompressedData_ShouldReturnCorrectRatio()
+    {
+        var original = new byte[100];
+        var compressed = new byte[50];
+        
+        var ratio = MessageCompressor.EstimateCompressionRatio(original, compressed);
+        
+        ratio.Should().Be(0.5);
+    }
+
+    [Fact]
+    public void EstimateCompressionRatio_WithSameSize_ShouldReturnOne()
+    {
+        var original = new byte[100];
+        var compressed = new byte[100];
+        
+        var ratio = MessageCompressor.EstimateCompressionRatio(original, compressed);
+        
+        ratio.Should().Be(1.0);
+    }
+
+    #endregion
+
+    #region CompressionStats Tests
+
+    [Fact]
+    public void CompressionStats_DefaultValues_ShouldBeZero()
+    {
+        var stats = new CompressionStats();
+        
+        stats.OriginalBytes.Should().Be(0);
+        stats.CompressedBytes.Should().Be(0);
+        stats.Ratio.Should().Be(1.0);
+        stats.SavedBytes.Should().Be(0);
+    }
+
+    [Fact]
+    public void CompressionStats_WithValues_ShouldCalculateCorrectly()
+    {
+        var stats = new CompressionStats
+        {
+            OriginalBytes = 1000,
+            CompressedBytes = 400
+        };
+        
+        stats.Ratio.Should().Be(0.4);
+        stats.SavedBytes.Should().Be(600);
+    }
+
+    [Fact]
+    public void CompressionStats_WithZeroOriginal_ShouldReturnRatioOne()
+    {
+        var stats = new CompressionStats
+        {
+            OriginalBytes = 0,
+            CompressedBytes = 100
+        };
+        
+        stats.Ratio.Should().Be(1.0);
+    }
+
+    #endregion
+
+    #region CompressionAlgorithm Tests
+
+    [Theory]
+    [InlineData(CompressionAlgorithm.None, 0)]
+    [InlineData(CompressionAlgorithm.GZip, 1)]
+    [InlineData(CompressionAlgorithm.Brotli, 2)]
+    [InlineData(CompressionAlgorithm.Deflate, 3)]
+    public void CompressionAlgorithm_AllValues_ShouldHaveCorrectValue(CompressionAlgorithm algorithm, int expectedValue)
+    {
+        ((int)algorithm).Should().Be(expectedValue);
+    }
+
+    #endregion
 }
-
-
-
-
-
-

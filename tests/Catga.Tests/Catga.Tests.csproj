@@ -19,8 +19,11 @@
     <Compile Remove="E2E/**/*.cs" />
     <Compile Remove="Integration/**/*.cs" />
     <Compile Remove="SourceGeneration/**/*.cs" />
-    <!-- Exclude all Flow tests that reference deleted InMemoryDslFlowStore -->
+    <!-- Exclude old Flow tests that reference deleted InMemoryDslFlowStore, but include new comprehensive tests -->
     <Compile Remove="Flow/**/*.cs" />
+    <Compile Include="Flow/FlowComprehensiveTests.cs" />
+    <Compile Include="Flow/FlowPositionComprehensiveTests.cs" />
+    <Compile Include="Flow/WaitConditionComprehensiveTests.cs" />
     <Compile Remove="Distributed/DistributedStoresExtendedTests.cs" />
     <Compile Remove="Distributed/InMemoryDistributedStoresTests.cs" />
     <Compile Remove="Pipeline/InboxBehaviorTests.cs" />
@@ -70,6 +73,7 @@
     <ProjectReference Include="..\..\src\Catga.Transport.Nats\Catga.Transport.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.Persistence.Nats\Catga.Persistence.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj" />
+    <ProjectReference Include="..\..\examples\OrderSystem\OrderSystem.csproj" />
     <ProjectReference Include="..\..\examples\OrderSystem.Api\OrderSystem.Api.csproj" />
     <!-- Source generator disabled for test project to avoid conflicts with test handlers -->
     <!-- <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" /> -->

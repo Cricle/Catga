@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)\GeneratedFiles</CompilerGeneratedFilesOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Catga\Catga.csproj" />
+    <ProjectReference Include="..\..\src\Catga.AspNetCore\Catga.AspNetCore.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Cluster\Catga.Cluster.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Persistence.Redis\Catga.Persistence.Redis.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Persistence.Nats\Catga.Persistence.Nats.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Transport.InMemory\Catga.Transport.InMemory.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Transport.Redis\Catga.Transport.Redis.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Transport.Nats\Catga.Transport.Nats.csproj" />
+    <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj">
+      <OutputItemType>Analyzer</OutputItemType>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+
+</Project>

@@ -27,11 +27,9 @@ public sealed class FlowDslRegistrationGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(flowConfigs, static (spc, items) =>
         {
             var flows = items.Where(i => i is not null).ToList();
-            if (flows.Count > 0)
-            {
-                spc.AddSource("CatgaGeneratedFlowRegistrations.g.cs",
-                    SourceText.From(GenerateFlowRegistrations(flows!), Encoding.UTF8));
-            }
+            // Always generate the class, even if empty
+            spc.AddSource("CatgaGeneratedFlowRegistrations.g.cs",
+                SourceText.From(GenerateFlowRegistrations(flows!), Encoding.UTF8));
         });
     }
 

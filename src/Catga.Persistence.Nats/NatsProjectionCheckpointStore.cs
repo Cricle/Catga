@@ -11,19 +11,20 @@ namespace Catga.Persistence.Nats;
 public sealed class NatsProjectionCheckpointStore(INatsConnection nats, IMessageSerializer serializer, IResiliencePipelineProvider provider, string bucketName = "projection-checkpoints") : IProjectionCheckpointStore
 {
     private INatsKVStore? _kvStore;
-    private readonly Lock _initLock = new();
+    private readonly SemaphoreSlim _initLock = new(1, 1);
 
-    private ValueTask EnsureInitializedAsync(CancellationToken ct)
+    private async ValueTask EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_kvStore != null) return ValueTask.CompletedTask;
-        lock (_initLock)
+        if (_kvStore != null) return;
+        await _initLock.WaitAsync(ct);
+        try
         {
-            if (_kvStore != null) return ValueTask.CompletedTask;
+            if (_kvStore != null) return;
             var kv = new NatsKVContext(new NatsJSContext(nats));
-            try { _kvStore = kv.GetStoreAsync(bucketName, ct).AsTask().GetAwaiter().GetResult(); }
-            catch (NatsKVException) { _kvStore = kv.CreateStoreAsync(new NatsKVConfig(bucketName), ct).AsTask().GetAwaiter().GetResult(); }
+            try { _kvStore = await kv.GetStoreAsync(bucketName, ct); }
+            catch (NatsKVException) { _kvStore = await kv.CreateStoreAsync(new NatsKVConfig(bucketName), ct); }
         }
-        return ValueTask.CompletedTask;
+        finally { _initLock.Release(); }
     }
 
     public async ValueTask SaveAsync(ProjectionCheckpoint checkpoint, CancellationToken ct = default)

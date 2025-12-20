@@ -24,10 +24,10 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
     private readonly Func<Type, string>? _naming = options?.Naming;
     private readonly ConcurrentDictionary<string, Task> _subs = new();
     private readonly ConcurrentDictionary<long, long> _dedup = new();
-    private readonly ConcurrentQueue<long> _dedupOrder = new();
     private readonly ConcurrentQueue<(string Subject, byte[] Payload, NatsHeaders Headers, QualityOfService QoS)> _batch = new();
     private readonly CancellationTokenSource _cts = new();
     private readonly Lock _jsLock = new();
+    private long _lastDedupCleanup;
     private readonly object _flushLock = new();
     private volatile bool _jsReady;
     private int _batchCount;
@@ -43,10 +43,13 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
 
     private void CleanupDedup(long nowTicks)
     {
+        if (Interlocked.Exchange(ref _lastDedupCleanup, nowTicks) == nowTicks) return;
+        
         var evicted = 0;
+        var cutoff = nowTicks - DedupTtl.Ticks;
         foreach (var kv in _dedup)
         {
-            if (nowTicks - kv.Value > DedupTtl.Ticks)
+            if (kv.Value < cutoff)
             {
                 if (_dedup.TryRemove(kv.Key, out _)) evicted++;
             }
@@ -54,15 +57,6 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
         if (evicted > 0) NatsDiagnostics.NatsDedupEvictions.Add(evicted);
     }
 
-    private void EvictIfNeeded()
-    {
-        var evicted = 0;
-        while (_dedup.Count > DedupCap && _dedupOrder.TryDequeue(out var old))
-        {
-            if (_dedup.TryRemove(old, out _)) evicted++;
-        }
-        if (evicted > 0) NatsDiagnostics.NatsDedupEvictions.Add(evicted);
-    }
 
     public async ValueTask DisposeAsync()
     {
@@ -309,17 +303,14 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                                 continue;
                             }
                             _dedup[messageId.Value] = now;
-                            _dedupOrder.Enqueue(messageId.Value);
                         }
                         else
                         {
-                            if (_dedup.TryAdd(messageId.Value, now))
-                                _dedupOrder.Enqueue(messageId.Value);
+                            _dedup.TryAdd(messageId.Value, now);
                         }
                         if (_dedup.Count > DedupCap)
                         {
                             CleanupDedup(now);
-                            EvictIfNeeded();
                         }
                     }
 

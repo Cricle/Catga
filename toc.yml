@@ -2,6 +2,7 @@
   href: README.md
 - name: Documentation
   href: docs/
+- name: Examples
+  href: examples/README.md
 - name: API Reference
   href: api/
-

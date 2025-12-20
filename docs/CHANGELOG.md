@@ -22,7 +22,6 @@
 - ✅ **Subscriptions** - 持久订阅 (Pattern matching)
 - ✅ **Enhanced Snapshots** - 增强快照 (版本历史/时间旅行)
 - ✅ **Time Travel** - 时间旅行查询 (任意版本状态重建)
-- ✅ **Audit & Compliance** - 审计日志、不可变性验证、GDPR 支持
 - ✅ **Event Versioning** - 事件版本升级 (Upcasters)
 
 #### 工具
@@ -30,7 +29,7 @@
 - ✅ **Catga.Dashboard** - Web 监控面板
 
 #### OrderSystem.Api 示例
-- ✅ 完整 UI 展示所有功能 (Time Travel/Projections/Subscriptions/Audit/Snapshots)
+- ✅ 完整 UI 展示所有功能 (Time Travel/Projections/Subscriptions/Snapshots)
 - ✅ 新增 API 端点组
 
 #### 文档

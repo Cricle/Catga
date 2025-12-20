@@ -169,48 +169,6 @@ var history = await timeTravelService.GetVersionHistoryAsync("order-1");
 var comparison = await timeTravelService.CompareVersionsAsync("order-1", 5, 10);
 ```
 
-## Audit & Compliance
-
-### Immutability Verification
-
-```csharp
-var verifier = new ImmutabilityVerifier(eventStore);
-var result = await verifier.VerifyStreamAsync("Order-123");
-
-if (result.IsValid)
-    Console.WriteLine($"Stream hash: {result.Hash}");
-else
-    Console.WriteLine($"Verification failed: {result.Error}");
-```
-
-### Audit Logging
-
-```csharp
-await auditStore.LogAsync(new AuditLogEntry
-{
-    StreamId = "Order-123",
-    Action = AuditAction.EventAppended,
-    UserId = "admin",
-    Details = "Order created"
-});
-
-var logs = await auditStore.GetLogsAsync("Order-123");
-var recentLogs = await auditStore.GetLogsByTimeRangeAsync(from, to);
-```
-
-### GDPR Support
-
-```csharp
-// Request erasure
-await gdprService.RequestErasureAsync("customer-123", "admin");
-
-// Get pending requests
-var pending = await gdprService.GetPendingRequestsAsync();
-
-// Crypto erasure (destroy encryption keys)
-await cryptoErasureService.EraseAsync("customer-123");
-```
-
 ## Event Versioning
 
 Handle schema evolution:

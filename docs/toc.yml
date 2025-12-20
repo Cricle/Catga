@@ -1,6 +1,6 @@
 - name: Getting Started
   href: articles/getting-started.md
-- name: Core Concepts
+- name: Core
   items:
     - name: Architecture
       href: architecture/ARCHITECTURE.md
@@ -14,67 +14,31 @@
       href: articles/event-sourcing.md
     - name: Flow DSL
       href: guides/flow-dsl.md
-    - name: Flow DSL Best Practices
-      href: guides/flow-dsl-best-practices.md
-    - name: Resilience & Retry
+    - name: Resilience
       href: Resilience.md
 - name: Guides
   items:
     - name: Source Generator
       href: guides/source-generator.md
-    - name: Auto DI Registration
-      href: guides/auto-di-registration.md
     - name: Error Handling
       href: guides/error-handling.md
-    - name: Distributed ID
-      href: guides/distributed-id.md
     - name: Serialization
       href: guides/serialization.md
-    - name: Memory Optimization
-      href: guides/memory-optimization-guide.md
-    - name: Mediator Auto-Batching
-      href: guides/mediator-auto-batching.md
-    - name: Analyzers
-      href: guides/analyzers.md
 - name: Observability
   items:
-    - name: OpenTelemetry Integration
+    - name: OpenTelemetry
       href: articles/opentelemetry-integration.md
     - name: Distributed Tracing
       href: observability/DISTRIBUTED-TRACING-GUIDE.md
-    - name: Jaeger Guide
-      href: observability/JAEGER-COMPLETE-GUIDE.md
 - name: Deployment
   items:
+    - name: Native AOT
+      href: deployment/native-aot-publishing.md
     - name: Kubernetes
       href: deployment/kubernetes.md
-    - name: Native AOT Publishing
-      href: deployment/native-aot-publishing.md
-    - name: AOT Deployment
-      href: articles/aot-deployment.md
-- name: Performance
-  items:
-    - name: Benchmark Results
-      href: BENCHMARK-RESULTS.md
-    - name: Performance Report
-      href: PERFORMANCE-REPORT.md
-    - name: Performance Optimization
-      href: performance-optimization-guide.md
 - name: Examples
   items:
-    - name: OrderSystem Demo
+    - name: OrderSystem
       href: ../examples/README.md
-    - name: E2E Scenarios
-      href: examples/e2e-scenarios.md
-    - name: Basic Usage
-      href: examples/basic-usage.md
-- name: Development
-  items:
-    - name: Contributing
-      href: development/CONTRIBUTING.md
-    - name: AI Learning Guide
-      href: development/AI-LEARNING-GUIDE.md
 - name: API Reference
   href: api/index.md
-- name: GitHub
-  href: https://github.com/Cricle/Catga

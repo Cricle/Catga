@@ -3,9 +3,7 @@
     {
       "src": [
         {
-          "files": [
-            "src/**/Catga*.csproj"
-          ],
+          "files": ["src/**/Catga*.csproj"],
           "exclude": [
             "**/bin/**",
             "**/obj/**",
@@ -16,89 +14,34 @@
         }
       ],
       "dest": "api",
-      "disableGitFeatures": false,
       "properties": {
         "TargetFramework": "net9.0"
       }
     }
   ],
   "build": {
-    "markdownEngineName": "markdig",
-    "markdownEngineProperties": {
-      "noYamlHeader": true
-    },
     "content": [
       {
-        "files": [
-          "docs/toc.yml"
-        ]
+        "files": ["docs/toc.yml", "docs/**/*.md", "examples/README.md"],
+        "exclude": ["docs/web/**", "**/bin/**", "**/obj/**"]
       },
       {
-        "files": [
-          "docs/**.md",
-          "docs/**/*.md"
-        ],
-        "exclude": [
-          "docs/web/**",
-          "**/node_modules/**",
-          "**/bin/**",
-          "**/obj/**"
-        ]
-      },
-      {
-        "files": [
-          "examples/README.md"
-        ]
-      },
-      {
-        "files": [
-          "src/Catga.Testing/README.md"
-        ]
-      },
-      {
-        "files": [
-          "api/**.yml",
-          "api/**.md"
-        ]
+        "files": ["api/**/*.yml", "api/**/*.md"]
       }
     ],
     "resource": [
       {
-        "files": [
-          "docs/images/**",
-          "docs/web/**",
-          "images/**"
-        ],
-        "exclude": [
-          "docs/web/**.md"
-        ]
+        "files": ["docs/images/**", "docs/web/**"],
+        "exclude": ["docs/web/**/*.md"]
       }
     ],
     "dest": "_site",
     "globalMetadata": {
-      "_appTitle": "Catga Documentation",
+      "_appTitle": "Catga",
       "_appName": "Catga",
-      "_appFooter": "© 2025 Catga Framework",
-      "_enableSearch": true,
-      "_gitContribute": {
-        "repo": "https://github.com/Cricle/Catga",
-        "branch": "master",
-        "apiSpecFolder": "docs/api"
-      }
+      "_appFooter": "© 2025 Catga",
+      "_enableSearch": true
     },
-    "template": [
-      "default",
-      "modern"
-    ],
-    "postProcessors": [],
-    "keepFileLink": false,
-    "disableGitFeatures": false,
-    "noLangKeyword": false,
-    "sitemap": {
-      "baseUrl": "https://cricle.github.io/Catga/",
-      "priority": 0.5,
-      "changefreq": "weekly"
-    }
+    "template": ["default", "modern"]
   }
 }
-

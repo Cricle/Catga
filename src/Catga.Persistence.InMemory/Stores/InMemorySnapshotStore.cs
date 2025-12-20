@@ -27,15 +27,14 @@ public sealed class InMemorySnapshotStore : ISnapshotStore
 /// <summary>Enhanced in-memory snapshot store with multiple versions and time travel support.</summary>
 public sealed class EnhancedInMemorySnapshotStore : IEnhancedSnapshotStore
 {
-    private readonly Dictionary<string, List<(object State, long Version, DateTime Timestamp)>> _snapshots = [];
-    private readonly Lock _lock = new();
+    private readonly ConcurrentDictionary<string, List<(object State, long Version, DateTime Timestamp)>> _snapshots = new();
 
     public ValueTask SaveAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TAggregate>(
         string streamId, TAggregate aggregate, long version, CancellationToken ct = default) where TAggregate : class
     {
-        lock (_lock)
+        var list = _snapshots.GetOrAdd(streamId, _ => []);
+        lock (list)
         {
-            if (!_snapshots.TryGetValue(streamId, out var list)) _snapshots[streamId] = list = [];
             list.Add((aggregate, version, DateTime.UtcNow));
             list.Sort((a, b) => a.Version.CompareTo(b.Version));
         }
@@ -45,10 +44,13 @@ public sealed class EnhancedInMemorySnapshotStore : IEnhancedSnapshotStore
     public ValueTask<Snapshot<TAggregate>?> LoadAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TAggregate>(
         string streamId, CancellationToken ct = default) where TAggregate : class
     {
-        lock (_lock)
+        if (_snapshots.TryGetValue(streamId, out var list))
         {
-            if (_snapshots.TryGetValue(streamId, out var list) && list.Count > 0 && list[^1].State is TAggregate state)
-                return ValueTask.FromResult<Snapshot<TAggregate>?>(new() { StreamId = streamId, State = state, Version = list[^1].Version, Timestamp = list[^1].Timestamp });
+            lock (list)
+            {
+                if (list.Count > 0 && list[^1].State is TAggregate state)
+                    return ValueTask.FromResult<Snapshot<TAggregate>?>(new() { StreamId = streamId, State = state, Version = list[^1].Version, Timestamp = list[^1].Timestamp });
+            }
         }
         return ValueTask.FromResult<Snapshot<TAggregate>?>(null);
     }
@@ -56,9 +58,9 @@ public sealed class EnhancedInMemorySnapshotStore : IEnhancedSnapshotStore
     public ValueTask<Snapshot<TAggregate>?> LoadAtVersionAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TAggregate>(
         string streamId, long version, CancellationToken ct = default) where TAggregate : class
     {
-        lock (_lock)
+        if (_snapshots.TryGetValue(streamId, out var list))
         {
-            if (_snapshots.TryGetValue(streamId, out var list))
+            lock (list)
             {
                 var s = list.Where(x => x.Version <= version).OrderByDescending(x => x.Version).FirstOrDefault();
                 if (s.State is TAggregate state)
@@ -70,25 +72,24 @@ public sealed class EnhancedInMemorySnapshotStore : IEnhancedSnapshotStore
 
     public ValueTask<IReadOnlyList<SnapshotInfo>> GetSnapshotHistoryAsync(string streamId, CancellationToken ct = default)
     {
-        lock (_lock)
+        if (_snapshots.TryGetValue(streamId, out var list))
         {
-            if (_snapshots.TryGetValue(streamId, out var list))
-                return ValueTask.FromResult<IReadOnlyList<SnapshotInfo>>(list.Select(s => new SnapshotInfo(s.Version, s.Timestamp)).ToList());
+            lock (list) return ValueTask.FromResult<IReadOnlyList<SnapshotInfo>>(list.Select(s => new SnapshotInfo(s.Version, s.Timestamp)).ToList());
         }
         return ValueTask.FromResult<IReadOnlyList<SnapshotInfo>>([]);
     }
 
-    public ValueTask DeleteAsync(string streamId, CancellationToken ct = default) { lock (_lock) _snapshots.Remove(streamId); return ValueTask.CompletedTask; }
+    public ValueTask DeleteAsync(string streamId, CancellationToken ct = default) { _snapshots.TryRemove(streamId, out _); return ValueTask.CompletedTask; }
 
     public ValueTask DeleteBeforeVersionAsync(string streamId, long version, CancellationToken ct = default)
     {
-        lock (_lock) if (_snapshots.TryGetValue(streamId, out var list)) list.RemoveAll(s => s.Version < version);
+        if (_snapshots.TryGetValue(streamId, out var list)) lock (list) list.RemoveAll(s => s.Version < version);
         return ValueTask.CompletedTask;
     }
 
     public ValueTask CleanupAsync(string streamId, int keepCount, CancellationToken ct = default)
     {
-        lock (_lock) if (_snapshots.TryGetValue(streamId, out var list) && list.Count > keepCount) list.RemoveRange(0, list.Count - keepCount);
+        if (_snapshots.TryGetValue(streamId, out var list)) lock (list) if (list.Count > keepCount) list.RemoveRange(0, list.Count - keepCount);
         return ValueTask.CompletedTask;
     }
 }

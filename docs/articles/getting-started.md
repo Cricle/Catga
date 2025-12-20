@@ -538,8 +538,6 @@ var result = await fixture.Mediator.SendAsync(new CreateUserCommand("Test", "tes
 result.Should().BeSuccessful();
 ```
 
-See [Testing Documentation](../../src/Catga.Testing/README.md)
-
 </details>
 
 <details>

@@ -34,15 +34,15 @@ public record FlowSnapshot<TState> where TState : class, IFlowState
         DateTime? createdAt = null,
         DateTime? updatedAt = null,
         int version = 1) => new()
-    {
-        FlowId = flowId,
-        State = state,
-        Position = new FlowPosition([currentStep]),
-        Status = status,
-        Error = error,
-        WaitCondition = waitCondition,
-        CreatedAt = createdAt ?? DateTime.UtcNow,
-        UpdatedAt = updatedAt ?? DateTime.UtcNow,
-        Version = version
-    };
+        {
+            FlowId = flowId,
+            State = state,
+            Position = new FlowPosition([currentStep]),
+            Status = status,
+            Error = error,
+            WaitCondition = waitCondition,
+            CreatedAt = createdAt ?? DateTime.UtcNow,
+            UpdatedAt = updatedAt ?? DateTime.UtcNow,
+            Version = version
+        };
 }

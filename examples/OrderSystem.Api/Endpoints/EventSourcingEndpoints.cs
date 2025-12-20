@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.EventSourcing;
 using OrderSystem.Api;
@@ -11,6 +12,7 @@ namespace OrderSystem.Api.Endpoints;
 /// </summary>
 public static class EventSourcingEndpoints
 {
+    [RequiresUnreferencedCode("Uses reflection for endpoint mapping")]
     public static IEndpointRouteBuilder MapEventSourcingEndpoints(this IEndpointRouteBuilder app)
     {
         MapTimeTravelEndpoints(app);
@@ -21,6 +23,8 @@ public static class EventSourcingEndpoints
         return app;
     }
 
+    [RequiresDynamicCode("Calls Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapPost(String, Delegate)")]
+    [RequiresUnreferencedCode("Calls Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapPost(String, Delegate)")]
     private static void MapTimeTravelEndpoints(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/timetravel")
@@ -72,6 +76,8 @@ public static class EventSourcingEndpoints
         .WithSummary("Get complete version history for an order");
     }
 
+    [RequiresDynamicCode("Calls Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapGet(String, Delegate)")]
+    [RequiresUnreferencedCode("Calls Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapGet(String, Delegate)")]
     private static void MapProjectionEndpoints(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/projections")
@@ -101,6 +107,7 @@ public static class EventSourcingEndpoints
         .WithSummary("Get customer statistics");
     }
 
+    [RequiresUnreferencedCode("Calls Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapGet(String, Delegate)")]
     private static void MapSubscriptionEndpoints(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/subscriptions")
@@ -134,6 +141,7 @@ public static class EventSourcingEndpoints
         .WithSummary("Process events for a subscription");
     }
 
+    [RequiresUnreferencedCode("Calls Microsoft.AspNetCore.Builder.EndpointRouteBuilderExtensions.MapPost(String, Delegate)")]
     private static void MapSnapshotEndpoints(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/snapshots")

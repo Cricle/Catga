@@ -29,7 +29,8 @@ public sealed class RedisSubscriptionStore(IConnectionMultiplexer redis, IResili
             var d = entries.ToDictionary(e => (string)e.Name!, e => e.Value);
             var sub = new PersistentSubscription((string)d["name"]!, (string)d["streamPattern"]!)
             {
-                Position = (long)d["position"], ProcessedCount = (long)d["processedCount"],
+                Position = (long)d["position"],
+                ProcessedCount = (long)d["processedCount"],
                 LastProcessedAt = (long)d["lastProcessedAt"] > 0 ? new DateTime((long)d["lastProcessedAt"], DateTimeKind.Utc) : null
             };
             var filter = (string?)d["eventTypeFilter"];

@@ -44,7 +44,7 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
     private void CleanupDedup(long nowTicks)
     {
         if (Interlocked.Exchange(ref _lastDedupCleanup, nowTicks) == nowTicks) return;
-        
+
         var evicted = 0;
         var cutoff = nowTicks - DedupTtl.Ticks;
         foreach (var kv in _dedup)

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.EventSourcing;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,8 @@ namespace OrderSystem.Api.Endpoints;
 /// </summary>
 public static class ReadModelSyncEndpoints
 {
+    [RequiresDynamicCode("Uses reflection for endpoint mapping")]
+    [RequiresUnreferencedCode("Uses reflection for endpoint mapping")]
     public static void MapReadModelSyncEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/readmodelsync")

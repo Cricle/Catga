@@ -59,6 +59,7 @@ public static class ProgramFlowDslExtensions
     /// Configure Flow DSL endpoints and middleware.
     /// </summary>
     [RequiresUnreferencedCode("Uses reflection to discover flow types")]
+    [RequiresDynamicCode("Uses reflection to discover flow types")]
     public static WebApplication UseFlowDsl(this WebApplication app)
     {
         // Map Flow DSL management endpoints

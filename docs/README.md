@@ -201,10 +201,6 @@
 
 编写高质量测试
 
-| 文档 | 说明 |
-|------|------|
-| [Catga.Testing 使用](../src/Catga.Testing/README.md) | 测试辅助库完整指南 |
-
 #### 测试示例
 
 ```csharp
@@ -382,8 +378,7 @@ builder.Services.AddRedisTransport(o =>
 <summary>❓ 如何编写测试？</summary>
 
 1. 安装 `Catga.Testing` 包
-2. 阅读 [测试辅助库文档](../src/Catga.Testing/README.md)
-3. 参考示例项目的测试代码
+2. 参考示例项目的测试代码
 
 </details>
 

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga;
 using Microsoft.AspNetCore.Mvc;
 using OrderSystem.Api.Domain;
@@ -11,6 +12,8 @@ namespace OrderSystem.Api.Endpoints;
 /// </summary>
 public static class OrderEndpoints
 {
+    [RequiresDynamicCode("Uses reflection for endpoint mapping")]
+    [RequiresUnreferencedCode("Uses reflection for endpoint mapping")]
     public static IEndpointRouteBuilder MapOrderEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/orders")

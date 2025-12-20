@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using OrderSystem.Api.Domain;
 
 namespace OrderSystem.Api.Endpoints;
@@ -37,6 +38,8 @@ public static class AuthEndpoints
         Users[customerUser.Email] = customerUser;
     }
 
+    [RequiresDynamicCode("Uses reflection for endpoint mapping")]
+    [RequiresUnreferencedCode("Uses reflection for endpoint mapping")]
     public static void MapAuthEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/auth")

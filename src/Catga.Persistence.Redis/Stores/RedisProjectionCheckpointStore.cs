@@ -23,7 +23,8 @@ public sealed class RedisProjectionCheckpointStore(IConnectionMultiplexer redis,
             var d = entries.ToDictionary(e => (string)e.Name!, e => e.Value);
             return new ProjectionCheckpoint
             {
-                ProjectionName = projectionName, Position = (long)d["position"],
+                ProjectionName = projectionName,
+                Position = (long)d["position"],
                 LastUpdated = new((long)d["lastUpdated"], DateTimeKind.Utc),
                 StreamId = string.IsNullOrEmpty((string?)d["streamId"]) ? null : (string?)d["streamId"]
             };

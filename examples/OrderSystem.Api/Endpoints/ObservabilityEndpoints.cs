@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Mvc;
 
 namespace OrderSystem.Api.Endpoints;
@@ -9,6 +10,8 @@ namespace OrderSystem.Api.Endpoints;
 /// </summary>
 public static class ObservabilityEndpoints
 {
+    [RequiresDynamicCode("Uses reflection for endpoint mapping")]
+    [RequiresUnreferencedCode("Uses reflection for endpoint mapping")]
     public static void MapObservabilityEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/observability").WithTags("Observability");

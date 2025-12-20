@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using OrderSystem.Api;
 using OrderSystem.Api.Domain;
 using OrderSystem.Api.Services;
@@ -9,6 +10,8 @@ namespace OrderSystem.Api.Endpoints;
 /// </summary>
 public static class PaymentEndpoints
 {
+    [RequiresDynamicCode("Uses reflection for endpoint mapping")]
+    [RequiresUnreferencedCode("Uses reflection for endpoint mapping")]
     public static void MapPaymentEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/payments")

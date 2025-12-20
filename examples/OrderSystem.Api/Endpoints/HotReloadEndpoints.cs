@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Flow.HotReload;
 using Microsoft.AspNetCore.Mvc;
 using OrderSystem.Api;
@@ -12,6 +13,8 @@ namespace OrderSystem.Api.Endpoints;
 /// </summary>
 public static class HotReloadEndpoints
 {
+    [RequiresDynamicCode("Uses reflection for endpoint mapping")]
+    [RequiresUnreferencedCode("Uses reflection for endpoint mapping")]
     public static void MapHotReloadEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/hotreload")

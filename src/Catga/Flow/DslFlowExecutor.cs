@@ -362,11 +362,11 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         }
     }
 
-        private async Task<StepResult> ExecuteSendAsync(
-        TState state,
-        FlowStep step,
-        int stepIndex,
-        CancellationToken cancellationToken)
+    private async Task<StepResult> ExecuteSendAsync(
+    TState state,
+    FlowStep step,
+    int stepIndex,
+    CancellationToken cancellationToken)
     {
         if (step.CreateRequest == null)
             return StepResult.Failed("No request factory configured");

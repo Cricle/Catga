@@ -55,19 +55,22 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install DocFX (Chocolatey)
-        run: |
-          choco install docfx -y
-          refreshenv
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
 
-      - name: Build DocFX site
+      - name: Install DocFX
+        run: dotnet tool install -g docfx
+
+      - name: Build DocFX site (skip metadata, use pre-generated api/)
         run: |
-          docfx docfx.json --warningsAsErrors | Tee-Object -FilePath docfx.log
+          docfx build docfx.json --warningsAsErrors 2>&1 | tee docfx.log
 
       - name: Upload docfx.log
         if: always()

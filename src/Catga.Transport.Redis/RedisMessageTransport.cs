@@ -313,10 +313,13 @@ public sealed class RedisMessageTransport : MessageTransportBase, IAsyncDisposab
 
     private static NameValueEntry[] BuildStreamEntries(string payload, string? tp, string? ts)
     {
-        var list = new List<NameValueEntry>(3) { new("data", payload) };
-        if (!string.IsNullOrEmpty(tp)) list.Add(new("traceparent", tp));
-        if (!string.IsNullOrEmpty(ts)) list.Add(new("tracestate", ts));
-        return list.ToArray();
+        if (string.IsNullOrEmpty(tp) && string.IsNullOrEmpty(ts))
+            return [new("data", payload)];
+        if (string.IsNullOrEmpty(ts))
+            return [new("data", payload), new("traceparent", tp!)];
+        if (string.IsNullOrEmpty(tp))
+            return [new("data", payload), new("tracestate", ts!)];
+        return [new("data", payload), new("traceparent", tp!), new("tracestate", ts!)];
     }
 
     public async ValueTask DisposeAsync()

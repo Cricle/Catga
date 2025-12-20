@@ -11,13 +11,22 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
     <PackageReference Include="MediatR" />
+    <PackageReference Include="MassTransit" />
     <PackageReference Include="MemoryPack" />
+    <PackageReference Include="NATS.Client.Core" />
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="Testcontainers" />
+    <PackageReference Include="Testcontainers.Redis" />
+    <PackageReference Include="Testcontainers.Nats" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Catga\Catga.csproj" />
     <ProjectReference Include="..\..\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj" />
     <ProjectReference Include="..\..\src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Transport.InMemory\Catga.Transport.InMemory.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Transport.Redis\Catga.Transport.Redis.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Transport.Nats\Catga.Transport.Nats.csproj" />
   </ItemGroup>
 
 </Project>

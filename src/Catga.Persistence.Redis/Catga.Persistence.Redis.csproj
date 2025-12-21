@@ -1,17 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <IsAotCompatible>true</IsAotCompatible>
+    <Description>Redis persistence for Catga - event store, snapshot, idempotency</Description>
+    <PackageTags>$(PackageTags);redis;persistence;event-sourcing</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Catga\Catga.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="MemoryPack" />
     <PackageReference Include="DistributedLock.Redis" />

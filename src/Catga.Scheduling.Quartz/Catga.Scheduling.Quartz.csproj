@@ -1,22 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <IsTrimmable>true</IsTrimmable>
-    <IsAotCompatible>true</IsAotCompatible>
     <Description>Quartz.NET integration for Catga Flow scheduling</Description>
+    <PackageTags>$(PackageTags);quartz;scheduling;jobs</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Catga\Catga.csproj" />
     <PackageReference Include="Quartz" />
     <PackageReference Include="Quartz.Extensions.DependencyInjection" />
     <PackageReference Include="Quartz.Extensions.Hosting" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Catga\Catga.csproj" />
   </ItemGroup>
 
 </Project>

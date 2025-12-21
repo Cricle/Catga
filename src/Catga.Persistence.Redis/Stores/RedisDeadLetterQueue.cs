@@ -35,8 +35,8 @@ public sealed class RedisDeadLetterQueue : RedisStoreBase, IDeadLetterQueue
         using var _ = CatgaDiagnostics.ActivitySource.StartActivity("Redis.DLQ.Send", ActivityKind.Producer);
         var db = GetDatabase();
         var id = message.MessageId.ToString();
-        var dlm = new DeadLetterMessage { MessageId = message.MessageId, MessageType = TypeNameCache<TMessage>.Name, MessageJson = Convert.ToBase64String(Serializer.Serialize(message, typeof(TMessage))), ExceptionType = ex.GetType().Name, ExceptionMessage = ex.Message, StackTrace = ex.StackTrace ?? "", RetryCount = retryCount, FailedAt = DateTime.UtcNow };
-        await db.HashSetAsync($"{_hashPrefix}{id}", [new("MessageType", dlm.MessageType), new("MessageJson", dlm.MessageJson), new("ExceptionType", dlm.ExceptionType), new("ExceptionMessage", dlm.ExceptionMessage), new("StackTrace", dlm.StackTrace), new("FailedAt", dlm.FailedAt.Ticks), new("RetryCount", dlm.RetryCount)]);
+        var dlm = new DeadLetterMessage { MessageId = message.MessageId, MessageType = TypeNameCache<TMessage>.Name, Message = Convert.ToBase64String(Serializer.Serialize(message, typeof(TMessage))), ExceptionType = ex.GetType().Name, ExceptionMessage = ex.Message, StackTrace = ex.StackTrace ?? "", RetryCount = retryCount, FailedAt = DateTime.UtcNow };
+        await db.HashSetAsync($"{_hashPrefix}{id}", [new("MessageType", dlm.MessageType), new("MessageJson", dlm.Message), new("ExceptionType", dlm.ExceptionType), new("ExceptionMessage", dlm.ExceptionMessage), new("StackTrace", dlm.StackTrace), new("FailedAt", dlm.FailedAt.Ticks), new("RetryCount", dlm.RetryCount)]);
         await db.ListLeftPushAsync(_listKey, id);
         CatgaDiagnostics.DeadLetters.Add(1);
     }
@@ -52,7 +52,7 @@ public sealed class RedisDeadLetterQueue : RedisStoreBase, IDeadLetterQueue
             var h = await db.HashGetAllAsync($"{_hashPrefix}{id}");
             if (h.Length == 0) continue;
             var d = h.ToDictionary(x => x.Name.ToString(), x => x.Value);
-            result.Add(new() { MessageId = long.Parse(id!), MessageType = d.GetValueOrDefault("MessageType").ToString(), MessageJson = d.GetValueOrDefault("MessageJson").ToString(), ExceptionType = d.GetValueOrDefault("ExceptionType").ToString(), ExceptionMessage = d.GetValueOrDefault("ExceptionMessage").ToString(), StackTrace = d.GetValueOrDefault("StackTrace").ToString(), FailedAt = new((long)d.GetValueOrDefault("FailedAt")), RetryCount = (int)d.GetValueOrDefault("RetryCount") });
+            result.Add(new() { MessageId = long.Parse(id!), MessageType = d.GetValueOrDefault("MessageType").ToString(), Message = d.GetValueOrDefault("MessageJson").ToString(), ExceptionType = d.GetValueOrDefault("ExceptionType").ToString(), ExceptionMessage = d.GetValueOrDefault("ExceptionMessage").ToString(), StackTrace = d.GetValueOrDefault("StackTrace").ToString(), FailedAt = new((long)d.GetValueOrDefault("FailedAt")), RetryCount = (int)d.GetValueOrDefault("RetryCount") });
         }
         return result;
     }

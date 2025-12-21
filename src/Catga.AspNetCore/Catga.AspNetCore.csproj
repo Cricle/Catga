@@ -1,14 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <IsAotCompatible>true</IsAotCompatible>
-    <IsPackable>true</IsPackable>
-    <PackageId>Catga.AspNetCore</PackageId>
     <Description>ASP.NET Core integration for Catga CQRS framework</Description>
-    <PackageTags>catga;cqrs;aspnetcore;webapi;minimal-api</PackageTags>
+    <PackageTags>$(PackageTags);aspnetcore;webapi;minimal-api</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,4 +11,3 @@
   </ItemGroup>
 
 </Project>
-

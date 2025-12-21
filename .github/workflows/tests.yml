@@ -196,10 +196,6 @@ jobs:
 
         # Serialization and Testing
         dotnet pack src/Catga.Serialization.MemoryPack/Catga.Serialization.MemoryPack.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.Testing/Catga.Testing.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
-
-        # CLI Tool (dotnet tool)
-        dotnet pack tools/Catga.Cli/Catga.Cli.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
 
     - name: Upload NuGet packages
       uses: actions/upload-artifact@v4

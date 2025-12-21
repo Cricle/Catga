@@ -1,17 +1,7 @@
-﻿ <Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <IsTestProject>true</IsTestProject>
-    <IsPackable>false</IsPackable>
-    <!-- Suppress warnings in test code that are acceptable for tests -->
-    <NoWarn>$(NoWarn);CS8602;CS8603;CS1998</NoWarn>
-  </PropertyGroup>
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <!-- Exclude test files that use .Step() helper method not in actual API or have conflicting definitions -->
+    <!-- Exclude test files that use APIs not in actual implementation -->
     <Compile Remove="Benchmarks/**/*.cs" />
     <Compile Remove="Performance/**/*.cs" />
     <Compile Remove="LoadTests/**/*.cs" />
@@ -19,7 +9,6 @@
     <Compile Remove="E2E/**/*.cs" />
     <Compile Remove="Integration/**/*.cs" />
     <Compile Remove="SourceGeneration/**/*.cs" />
-    <!-- Exclude old Flow tests that reference deleted InMemoryDslFlowStore, but include new comprehensive tests -->
     <Compile Remove="Flow/**/*.cs" />
     <Compile Include="Flow/FlowComprehensiveTests.cs" />
     <Compile Include="Flow/FlowPositionComprehensiveTests.cs" />
@@ -75,9 +64,6 @@
     <ProjectReference Include="..\..\src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj" />
     <ProjectReference Include="..\..\examples\OrderSystem\OrderSystem.csproj" />
     <ProjectReference Include="..\..\examples\OrderSystem.Api\OrderSystem.Api.csproj" />
-    <!-- Source generator disabled for test project to avoid conflicts with test handlers -->
-    <!-- <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" /> -->
   </ItemGroup>
-
 
 </Project>

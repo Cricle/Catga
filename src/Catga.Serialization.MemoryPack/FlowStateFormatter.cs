@@ -223,7 +223,7 @@ public sealed class DeadLetterMessageFormatter : MemoryPackFormatter<DeadLetterM
         writer.WriteObjectHeader(8);
         writer.WriteUnmanaged(value.MessageId);
         writer.WriteString(value.MessageType);
-        writer.WriteString(value.MessageJson);
+        writer.WriteString(value.Message);
         writer.WriteString(value.ExceptionType);
         writer.WriteString(value.ExceptionMessage);
         writer.WriteString(value.StackTrace);
@@ -252,7 +252,7 @@ public sealed class DeadLetterMessageFormatter : MemoryPackFormatter<DeadLetterM
         {
             MessageId = messageId,
             MessageType = messageType,
-            MessageJson = messageJson,
+            Message = messageJson,
             ExceptionType = exceptionType,
             ExceptionMessage = exceptionMessage,
             StackTrace = stackTrace,

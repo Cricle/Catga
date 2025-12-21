@@ -1,24 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>
-		<TargetFrameworks>net9.0;net8.0</TargetFrameworks>
-		<LangVersion>latest</LangVersion>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Nullable>enable</Nullable>
+  <PropertyGroup>
+    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
+    <Description>Catga cluster support using DotNext Raft consensus</Description>
+    <PackageTags>$(PackageTags);cluster;raft;consensus</PackageTags>
+  </PropertyGroup>
 
-		<Version>0.1.0</Version>
-		<Description>Catga cluster support using DotNext Raft consensus</Description>
-
-		<IsAotCompatible>true</IsAotCompatible>
-		<IsTrimmable>true</IsTrimmable>
-	</PropertyGroup>
-
-	<ItemGroup>
-		<ProjectReference Include="..\Catga\Catga.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<PackageReference Include="DotNext.Net.Cluster" />
-	</ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Catga\Catga.csproj" />
+    <PackageReference Include="DotNext.Net.Cluster" />
+  </ItemGroup>
 
 </Project>

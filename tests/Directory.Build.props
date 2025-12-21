@@ -1,0 +1,13 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- Test projects are not packable -->
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    
+    <!-- Suppress warnings acceptable in test code -->
+    <NoWarn>$(NoWarn);CS8602;CS8603;CS1998</NoWarn>
+  </PropertyGroup>
+
+</Project>

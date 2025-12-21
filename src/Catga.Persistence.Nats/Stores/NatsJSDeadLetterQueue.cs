@@ -33,7 +33,7 @@ public sealed class NatsJSDeadLetterQueue(INatsConnection connection, IMessageSe
             {
                 MessageId = message.MessageId,
                 MessageType = TypeNameCache<TMessage>.Name,
-                MessageJson = messageData,
+                Message = messageData,
                 ExceptionType = exception.GetType().Name,
                 ExceptionMessage = exception.Message,
                 StackTrace = exception.StackTrace ?? string.Empty,

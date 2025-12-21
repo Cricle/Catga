@@ -1,22 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-
-    <!-- AOT Compatibility -->
-    <IsAotCompatible>true</IsAotCompatible>
-    <IsTrimmable>true</IsTrimmable>
-    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <Description>NATS transport for Catga - JetStream messaging</Description>
+    <PackageTags>$(PackageTags);nats;jetstream;transport;messaging</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Catga\Catga.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="NATS.Client.JetStream" />
   </ItemGroup>
 

@@ -1,49 +1,34 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>
-		<TargetFrameworks>net9.0;net8.0</TargetFrameworks>
-		<LangVersion>latest</LangVersion>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Nullable>enable</Nullable>
+  <PropertyGroup>
+    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
+    <Description>高性能、100% AOT 兼容的分布式 CQRS 框架核心库</Description>
+    <PackageTags>$(PackageTags);event-sourcing;nats;redis;memorypack;aspnetcore;microservices</PackageTags>
+  </PropertyGroup>
 
-	<!-- Package Information -->
-	<Version>0.1.0</Version>
-	<AssemblyVersion>0.1.0.0</AssemblyVersion>
-	<FileVersion>0.1.0.0</FileVersion>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Polly" />
+    <PackageReference Include="Polly.RateLimiting" Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))" />
+    <PackageReference Include="DistributedLock.Core" />
+    <PackageReference Include="DistributedLock.WaitHandles" />
+    <PackageReference Include="PolySharp">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <None Include="../Catga.SourceGenerator/bin/$(Configuration)/netstandard2.0/Catga.SourceGenerator.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
 
-		<IsAotCompatible>true</IsAotCompatible>
-		<IsTrimmable>true</IsTrimmable>
-		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-		<EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
-
-		<EnableSourceLink>false</EnableSourceLink>
-		<EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
-	</PropertyGroup>
-
-	<ItemGroup>
-		<!-- Core dependencies - minimal set -->
-		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
-		<PackageReference Include="Polly" />
-		<PackageReference Include="Polly.RateLimiting" Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))" />
-		<PackageReference Include="DistributedLock.Core" />
-		<PackageReference Include="DistributedLock.WaitHandles" />
-		<PackageReference Include="PolySharp">
-		  <PrivateAssets>all</PrivateAssets>
-		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-	  	<None Include="../Catga.SourceGenerator/bin/$(Configuration)/netstandard2.0/Catga.SourceGenerator.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<InternalsVisibleTo Include="Catga.Benchmarks" />
-		<InternalsVisibleTo Include="Catga.Tests" />
-		<InternalsVisibleTo Include="Catga.Cluster" />
-		<InternalsVisibleTo Include="Catga.Persistence.InMemory" />
-		<InternalsVisibleTo Include="Catga.Persistence.Nats" />
-		<InternalsVisibleTo Include="Catga.Persistence.Redis" />
-		<InternalsVisibleTo Include="Catga.Transport.InMemory" />
-		<InternalsVisibleTo Include="Catga.Transport.Nats" />
-		<InternalsVisibleTo Include="Catga.Transport.Redis" />
-	</ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Catga.Benchmarks" />
+    <InternalsVisibleTo Include="Catga.Tests" />
+    <InternalsVisibleTo Include="Catga.Cluster" />
+    <InternalsVisibleTo Include="Catga.Persistence.InMemory" />
+    <InternalsVisibleTo Include="Catga.Persistence.Nats" />
+    <InternalsVisibleTo Include="Catga.Persistence.Redis" />
+    <InternalsVisibleTo Include="Catga.Transport.InMemory" />
+    <InternalsVisibleTo Include="Catga.Transport.Nats" />
+    <InternalsVisibleTo Include="Catga.Transport.Redis" />
+  </ItemGroup>
 
 </Project>

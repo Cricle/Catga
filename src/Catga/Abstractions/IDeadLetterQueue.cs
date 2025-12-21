@@ -33,7 +33,7 @@ public struct DeadLetterMessage
 {
     public required long MessageId { get; set; }
     public required string MessageType { get; set; }
-    public required string MessageJson { get; set; }
+    public required string Message { get; set; }
     public required string ExceptionType { get; set; }
     public required string ExceptionMessage { get; set; }
     public required string StackTrace { get; set; }

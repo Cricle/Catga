@@ -17,7 +17,7 @@ public class DeadLetterMessageTests
         {
             MessageId = 12345L,
             MessageType = "TestMessage",
-            MessageJson = "{\"test\":\"value\"}",
+            Message = "{\"test\":\"value\"}",
             ExceptionType = "System.InvalidOperationException",
             ExceptionMessage = "Test exception",
             StackTrace = "at Test.Method()"
@@ -26,7 +26,7 @@ public class DeadLetterMessageTests
         // Assert
         message.MessageId.Should().Be(12345L);
         message.MessageType.Should().Be("TestMessage");
-        message.MessageJson.Should().Be("{\"test\":\"value\"}");
+        message.Message.Should().Be("{\"test\":\"value\"}");
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public class DeadLetterMessageTests
         {
             MessageId = 12345L,
             MessageType = "TestMessage",
-            MessageJson = "{}",
+            Message = "{}",
             ExceptionType = "System.InvalidOperationException",
             ExceptionMessage = "Test exception",
             StackTrace = "at Test.Method()\n   at Test.Caller()"
@@ -57,7 +57,7 @@ public class DeadLetterMessageTests
         {
             MessageId = 12345L,
             MessageType = "TestMessage",
-            MessageJson = "{}",
+            Message = "{}",
             ExceptionType = "System.Exception",
             ExceptionMessage = "Error",
             StackTrace = "",
@@ -79,7 +79,7 @@ public class DeadLetterMessageTests
         {
             MessageId = 12345L,
             MessageType = "TestMessage",
-            MessageJson = "{}",
+            Message = "{}",
             ExceptionType = "System.Exception",
             ExceptionMessage = "Error",
             StackTrace = "",
@@ -105,7 +105,7 @@ public class DeadLetterMessageTests
         {
             MessageId = 12345L,
             MessageType = "TestMessage",
-            MessageJson = "{}",
+            Message = "{}",
             ExceptionType = "System.Exception",
             ExceptionMessage = "Error",
             StackTrace = ""

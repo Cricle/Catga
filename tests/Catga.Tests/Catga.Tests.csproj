@@ -1,5 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
   <ItemGroup>
     <!-- Exclude test files that use APIs not in actual implementation -->
     <Compile Remove="Benchmarks/**/*.cs" />
@@ -59,7 +65,7 @@
     <PackageReference Include="Xunit.SkippableFact" />
     <PackageReference Include="FsCheck" />
     <PackageReference Include="FsCheck.Xunit" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Condition="'$(TargetFramework)' == 'net9.0'" />
   </ItemGroup>
 
   <ItemGroup>

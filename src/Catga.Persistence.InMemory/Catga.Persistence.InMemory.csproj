@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
     <Description>In-memory persistence for Catga - event store, cache, outbox/inbox</Description>
     <PackageTags>$(PackageTags);in-memory;persistence;event-sourcing;cache</PackageTags>
     <!-- Suppress IL2026 from System.Text.Json.SourceGeneration -->

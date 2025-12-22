@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
     <Description>Redis transport for Catga - Pub/Sub and Streams messaging</Description>
     <PackageTags>$(PackageTags);redis;transport;pubsub;streams;messaging</PackageTags>
   </PropertyGroup>

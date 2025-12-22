@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
     <Description>NATS JetStream persistence for Catga - event store, KV store</Description>
     <PackageTags>$(PackageTags);nats;jetstream;kv;persistence;event-sourcing</PackageTags>
   </PropertyGroup>

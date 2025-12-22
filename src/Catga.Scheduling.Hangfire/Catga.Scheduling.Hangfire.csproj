@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
     <Description>Hangfire integration for Catga Flow scheduling</Description>
     <PackageTags>$(PackageTags);hangfire;scheduling;jobs</PackageTags>
   </PropertyGroup>

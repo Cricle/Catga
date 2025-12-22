@@ -30,7 +30,7 @@ public static class RedisCatgaBuilderExtensions
         }
 
         // Event sourcing
-        builder.Services.AddRedisEventStore();
+        builder.Services.AddRedisEventStore(replaceExisting: true);
         builder.Services.AddRedisSnapshotStore();
         builder.Services.AddRedisEnhancedSnapshotStore();
         builder.Services.AddRedisDeadLetterQueue();

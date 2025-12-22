@@ -227,11 +227,23 @@ public static class RedisPersistenceServiceCollectionExtensions
     public static IServiceCollection AddRedisEventStore(
         this IServiceCollection services,
         string? prefix = null,
-        IEventTypeRegistry? registry = null)
+        IEventTypeRegistry? registry = null,
+        bool replaceExisting = true)
     {
         EnsureRedisConnectionRegistered(services);
         prefix ??= RedisKeyPrefixes.Events;
-        services.TryAddSingleton<IEventStore>(sp =>
+        
+        if (replaceExisting)
+        {
+            // Remove existing IEventStore registration if any
+            var existingDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IEventStore));
+            if (existingDescriptor != null)
+            {
+                services.Remove(existingDescriptor);
+            }
+        }
+        
+        services.AddSingleton<IEventStore>(sp =>
         {
             var redis = sp.GetRequiredService<IConnectionMultiplexer>();
             var serializer = sp.GetRequiredService<IMessageSerializer>();

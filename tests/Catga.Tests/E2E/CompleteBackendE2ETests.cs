@@ -3,7 +3,6 @@ using Catga.Abstractions;
 using Catga.Core;
 using Catga.DependencyInjection;
 using Catga.EventSourcing;
-using Catga.Persistence.Redis.Stores;
 using Catga.Resilience;
 using Catga.Serialization.MemoryPack;
 using DotNet.Testcontainers.Builders;
@@ -12,7 +11,6 @@ using FluentAssertions;
 using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using StackExchange.Redis;
 using Testcontainers.Redis;
 using Xunit;
 
@@ -131,28 +129,11 @@ public class CompleteBackendE2ETests
         var services = new ServiceCollection();
         services.AddLogging();
         
-        // Register Redis connection
-        var redis = ConnectionMultiplexer.Connect(redisConnectionString);
-        services.AddSingleton<IConnectionMultiplexer>(redis);
+        // Register Catga first
+        services.AddCatga()
+            .UseMemoryPack()
+            .UseRedis(redisConnectionString);
         
-        // Register serializer
-        services.AddSingleton<IMessageSerializer, MemoryPackMessageSerializer>();
-        
-        // Register resilience
-        services.AddSingleton<IResiliencePipelineProvider, DefaultResiliencePipelineProvider>();
-        
-        // Register EventStore - use AddSingleton instead of TryAddSingleton to force override
-        services.AddSingleton<IEventStore>(sp =>
-        {
-            var redisConn = sp.GetRequiredService<IConnectionMultiplexer>();
-            var serializer = sp.GetRequiredService<IMessageSerializer>();
-            var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-            var logger = sp.GetRequiredService<ILogger<RedisEventStore>>();
-            return new RedisEventStore(redisConn, serializer, provider, logger);
-        });
-        
-        // Register Catga
-        services.AddCatga();
         services.AddRedisTransport(redisConnectionString);
         
         // Register handlers manually
@@ -191,15 +172,6 @@ public class CompleteBackendE2ETests
 
         // Act & Assert - Verify Events
         var events = await eventStore.ReadAsync(orderId);
-        
-        // Debug: Print all events
-        Console.WriteLine($"Total events read: {events.Events.Count}");
-        for (int i = 0; i < events.Events.Count; i++)
-        {
-            var evt = events.Events[i];
-            Console.WriteLine($"Event {i}: Type={evt.EventType}, Version={evt.Version}");
-        }
-        
         events.Events.Should().HaveCount(3);
         events.Events[0].Event.Should().BeOfType<E2EOrderCreatedEvent>();
         events.Events[1].Event.Should().BeOfType<E2EOrderPaidEvent>();
@@ -243,9 +215,12 @@ public class CompleteBackendE2ETests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddNatsConnection(natsUrl);
+        
+        // Register Catga first
         services.AddCatga()
             .UseMemoryPack()
             .UseNats();
+        
         services.AddNatsTransport(natsUrl);
         
         // Register handlers manually
@@ -671,9 +646,7 @@ public class E2ECreateOrderCommandHandler : IRequestHandler<E2ECreateOrderComman
             Amount = request.Amount
         };
 
-        Console.WriteLine($"[CREATE] Appending OrderCreatedEvent for {request.OrderId}, EventStore type={_eventStore.GetType().Name}");
         await _eventStore.AppendAsync(request.OrderId, new[] { @event }, expectedVersion: -1, cancellationToken);
-        Console.WriteLine($"[CREATE] Successfully appended OrderCreatedEvent for {request.OrderId}");
         await _mediator.PublishAsync(@event, cancellationToken);
 
         return CatgaResult<E2EOrderCreatedResult>.Success(
@@ -701,9 +674,7 @@ public class E2EPayOrderCommandHandler : IRequestHandler<E2EPayOrderCommand>
             OrderId = request.OrderId
         };
 
-        Console.WriteLine($"[PAY] Appending OrderPaidEvent for {request.OrderId}");
         await _eventStore.AppendAsync(request.OrderId, new[] { @event }, expectedVersion: -1, cancellationToken);
-        Console.WriteLine($"[PAY] Successfully appended OrderPaidEvent for {request.OrderId}");
         await _mediator.PublishAsync(@event, cancellationToken);
 
         return CatgaResult.Success();
@@ -731,9 +702,7 @@ public class E2EShipOrderCommandHandler : IRequestHandler<E2EShipOrderCommand>
             TrackingNumber = request.TrackingNumber
         };
 
-        Console.WriteLine($"[SHIP] Appending OrderShippedEvent for {request.OrderId}");
         await _eventStore.AppendAsync(request.OrderId, new[] { @event }, expectedVersion: -1, cancellationToken);
-        Console.WriteLine($"[SHIP] Successfully appended OrderShippedEvent for {request.OrderId}");
         await _mediator.PublishAsync(@event, cancellationToken);
 
         return CatgaResult.Success();

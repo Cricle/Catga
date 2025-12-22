@@ -31,11 +31,22 @@ public static class NatsPersistenceServiceCollectionExtensions
     public static IServiceCollection AddNatsEventStore(
         this IServiceCollection services,
         string? streamName = null,
-        Action<NatsJSStoreOptions>? configure = null)
+        Action<NatsJSStoreOptions>? configure = null,
+        bool replaceExisting = true)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.TryAddSingleton<IEventStore>(sp =>
+        if (replaceExisting)
+        {
+            // Remove existing IEventStore registration if any
+            var existingDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IEventStore));
+            if (existingDescriptor != null)
+            {
+                services.Remove(existingDescriptor);
+            }
+        }
+
+        services.AddSingleton<IEventStore>(sp =>
         {
             var connection = sp.GetRequiredService<INatsConnection>();
             var serializer = sp.GetRequiredService<IMessageSerializer>();
@@ -282,7 +293,7 @@ public static class NatsPersistenceServiceCollectionExtensions
         var options = new NatsPersistenceOptions();
         configure?.Invoke(options);
 
-        services.AddNatsEventStore(options.EventStreamName);
+        services.AddNatsEventStore(options.EventStreamName, replaceExisting: true);
         services.AddNatsOutboxStore(options.OutboxStreamName);
         services.AddNatsInboxStore(options.InboxStreamName);
         services.AddNatsDeadLetterQueue();

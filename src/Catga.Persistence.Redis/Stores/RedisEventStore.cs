@@ -46,13 +46,9 @@ public sealed partial class RedisEventStore : IEventStore
         CancellationToken cancellationToken = default)
     {
         // No retry for append - has optimistic concurrency control
-        try
+        await _provider.ExecutePersistenceNoRetryAsync(async ct =>
         {
-            Console.WriteLine($"[Redis AppendAsync ENTER] Stream={streamId}, EventCount={events.Count}, ExpectedVersion={expectedVersion}");
-            await _provider.ExecutePersistenceNoRetryAsync(async ct =>
-            {
-                Console.WriteLine($"[Redis AppendAsync INSIDE] Stream={streamId}, EventCount={events.Count}");
-                var start = MetricsHelper.StartTimestamp();
+            var start = MetricsHelper.StartTimestamp();
                 using var activity = MetricsHelper.StartPersistenceActivity("EventStore", "Append");
 
                 ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
@@ -127,8 +123,6 @@ public sealed partial class RedisEventStore : IEventStore
                     keys: new RedisKey[] { versionKey, streamKey },
                     values: args.ToArray());
 
-                Console.WriteLine($"[Redis AppendAsync] Stream={streamId}, Result={result}, IsNull={result.IsNull}");
-
                 if (result.IsNull)
                 {
                     var actualVersion = await GetVersionInternalAsync(db, versionKey);
@@ -138,7 +132,6 @@ public sealed partial class RedisEventStore : IEventStore
                 }
 
                 var finalVersion = (long)result;
-                Console.WriteLine($"[Redis AppendAsync] Stream={streamId}, FinalVersion={finalVersion}, EventCount={events.Count}");
 
                 activity?.AddEvent(new ActivityEvent("events.appended",
                     tags: new ActivityTagsCollection
@@ -151,13 +144,6 @@ public sealed partial class RedisEventStore : IEventStore
                 MetricsHelper.RecordEventStoreAppend(events.Count, start);
                 LogEventsAppended(_logger, streamId, events.Count, finalVersion);
             }, cancellationToken);
-            Console.WriteLine($"[Redis AppendAsync EXIT] Stream={streamId}, EventCount={events.Count}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Redis AppendAsync EXCEPTION] Stream={streamId}, Exception={ex.GetType().Name}, Message={ex.Message}");
-            throw;
-        }
     }
 
     public async ValueTask<EventStream> ReadAsync(
@@ -181,7 +167,6 @@ public sealed partial class RedisEventStore : IEventStore
             try
             {
                 var entries = await db.StreamReadAsync(streamKey, "0-0", maxCount);
-                Console.WriteLine($"[Redis ReadAsync] Stream={streamId}, Entries count={entries.Length}");
                 
                 if (entries.Length == 0)
                 {
@@ -196,8 +181,6 @@ public sealed partial class RedisEventStore : IEventStore
                 foreach (var entry in entries)
                 {
                     var version = (long)entry["version"];
-                    Console.WriteLine($"[Redis ReadAsync] Entry ID={entry.Id}, Version={version}");
-                    
                     var typeName = (string)entry["type"]!;
                     var data = (byte[])entry["data"]!;
                     var timestamp = (long)entry["timestamp"];

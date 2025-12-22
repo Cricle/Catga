@@ -62,6 +62,9 @@ public sealed partial class RedisEventStore : IEventStore
 
             // Check expected version with optimistic concurrency
             var currentVersion = await GetVersionInternalAsync(db, versionKey);
+            
+            // expectedVersion = -1 means "append to current version" (no concurrency check)
+            // For other values, enforce strict version matching
             if (expectedVersion != -1 && currentVersion != expectedVersion)
             {
                 var ex = new ConcurrencyException(streamId, expectedVersion, currentVersion);
@@ -69,7 +72,7 @@ public sealed partial class RedisEventStore : IEventStore
                 throw ex;
             }
 
-            // Append events to stream
+            // Append events to stream using Lua script for atomicity
             var newVersion = currentVersion;
             foreach (var @event in events)
             {
@@ -80,12 +83,47 @@ public sealed partial class RedisEventStore : IEventStore
                 var data = _serializer.Serialize(@event, runtimeType);
                 var timestamp = DateTime.UtcNow.Ticks;
 
-                await db.StreamAddAsync(streamKey, [
-                    new NameValueEntry("version", (RedisValue)newVersion),
-                    new NameValueEntry("type", typeFull),
-                    new NameValueEntry("data", data),
-                    new NameValueEntry("timestamp", (RedisValue)timestamp)
-                ]);
+                // Use Lua script to atomically check version and append event
+                var script = @"
+                    local versionKey = KEYS[1]
+                    local streamKey = KEYS[2]
+                    local expectedVer = tonumber(ARGV[1])
+                    local newVer = tonumber(ARGV[2])
+                    local version = ARGV[3]
+                    local type = ARGV[4]
+                    local data = ARGV[5]
+                    local timestamp = ARGV[6]
+                    
+                    local currentVer = redis.call('GET', versionKey)
+                    if currentVer == false then
+                        currentVer = -1
+                    else
+                        currentVer = tonumber(currentVer)
+                    end
+                    
+                    if expectedVer ~= -1 and currentVer ~= expectedVer then
+                        return {err = 'Version mismatch: expected ' .. expectedVer .. ', got ' .. currentVer}
+                    end
+                    
+                    redis.call('XADD', streamKey, '*', 'version', version, 'type', type, 'data', data, 'timestamp', timestamp)
+                    redis.call('SET', versionKey, newVer)
+                    return newVer
+                ";
+
+                var result = await db.ScriptEvaluateAsync(script,
+                    keys: new RedisKey[] { versionKey, streamKey },
+                    values: new RedisValue[] { currentVersion, newVersion, newVersion, typeFull, data, timestamp });
+
+                if (result.IsNull)
+                {
+                    var actualVersion = await GetVersionInternalAsync(db, versionKey);
+                    var ex = new ConcurrencyException(streamId, expectedVersion == -1 ? currentVersion : expectedVersion, actualVersion);
+                    MetricsHelper.SetActivityError(activity, ex);
+                    throw ex;
+                }
+
+                // Update currentVersion for next iteration
+                currentVersion = newVersion;
 
                 activity?.AddEvent(new ActivityEvent("event.appended",
                     tags: new ActivityTagsCollection
@@ -95,9 +133,6 @@ public sealed partial class RedisEventStore : IEventStore
                         { "event.type", runtimeType.Name }
                     }));
             }
-
-            // Update version
-            await db.StringSetAsync(versionKey, (RedisValue)newVersion);
 
             MetricsHelper.RecordEventStoreAppend(events.Count, start);
             LogEventsAppended(_logger, streamId, events.Count, newVersion);
@@ -138,8 +173,7 @@ public sealed partial class RedisEventStore : IEventStore
                 foreach (var entry in entries)
                 {
                     var version = (long)entry["version"];
-                    if (version < fromVersion) continue;
-
+                    
                     var typeName = (string)entry["type"]!;
                     var data = (byte[])entry["data"]!;
                     var timestamp = (long)entry["timestamp"];
@@ -154,15 +188,19 @@ public sealed partial class RedisEventStore : IEventStore
                     var @event = (IEvent?)_serializer.Deserialize(data, eventType);
                     if (@event == null) continue;
 
-                    storedEvents.Add(new StoredEvent
+                    // Only add events that match the version filter
+                    if (version >= fromVersion)
                     {
-                        Version = version,
-                        Event = @event,
-                        Timestamp = new DateTime(timestamp, DateTimeKind.Utc),
-                        EventType = eventType.Name
-                    });
+                        storedEvents.Add(new StoredEvent
+                        {
+                            Version = version,
+                            Event = @event,
+                            Timestamp = new DateTime(timestamp, DateTimeKind.Utc),
+                            EventType = eventType.Name
+                        });
 
-                    if (storedEvents.Count >= maxCount) break;
+                        if (storedEvents.Count >= maxCount) break;
+                    }
                 }
             }
             catch (RedisServerException ex) when (ex.Message.Contains("NOGROUP") || ex.Message.Contains("no such key"))

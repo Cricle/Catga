@@ -3,6 +3,7 @@ using Catga.Abstractions;
 using Catga.Core;
 using Catga.DependencyInjection;
 using Catga.EventSourcing;
+using Catga.Resilience;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using FluentAssertions;
@@ -191,6 +192,9 @@ public class CompleteBackendE2ETests : IAsyncLifetime
         
         shipResult.IsSuccess.Should().BeTrue();
 
+        // Wait a bit for Redis to persist all events
+        await Task.Delay(100);
+
         // Act & Assert - Verify Events
         var events = await eventStore.ReadAsync(orderId);
         events.Events.Should().HaveCount(3);
@@ -221,10 +225,15 @@ public class CompleteBackendE2ETests : IAsyncLifetime
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddNatsConnection(_natsUrl);
+        
         services.AddCatga()
             .UseMemoryPack()
             .UseNats();
         services.AddNatsTransport(_natsUrl);
+        
+        // Configure longer timeout for NATS - MUST be after UseNats() to override
+        services.AddSingleton<IResiliencePipelineProvider>(new DefaultResiliencePipelineProvider(
+            new CatgaResilienceOptions { PersistenceTimeout = TimeSpan.FromSeconds(10) }));
         
         // Register handlers manually
         services.AddScoped<IRequestHandler<E2ECreateOrderCommand, E2EOrderCreatedResult>, E2ECreateOrderCommandHandler>();

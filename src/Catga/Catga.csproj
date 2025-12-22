@@ -12,6 +12,7 @@
     <PackageReference Include="Polly.RateLimiting" Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))" />
     <PackageReference Include="DistributedLock.Core" />
     <PackageReference Include="DistributedLock.WaitHandles" />
+    <PackageReference Include="MemoryPack" />
     <PackageReference Include="PolySharp">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

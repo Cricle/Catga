@@ -45,4 +45,25 @@ public interface IDslFlowStore
 
     /// <summary>Clear ForEach progress.</summary>
     Task ClearForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default);
+
+    /// <summary>Query flows by status.</summary>
+    Task<IReadOnlyList<FlowSummary>> QueryByStatusAsync(DslFlowStatus status, CancellationToken ct = default);
+
+    /// <summary>Query flows by type name.</summary>
+    Task<IReadOnlyList<FlowSummary>> QueryByTypeAsync(string typeName, CancellationToken ct = default);
+
+    /// <summary>Query flows by date range.</summary>
+    Task<IReadOnlyList<FlowSummary>> QueryByDateRangeAsync(DateTime from, DateTime to, CancellationToken ct = default);
 }
+
+/// <summary>
+/// Summary information for a flow (used in query results).
+/// </summary>
+public record FlowSummary(
+    string FlowId,
+    string TypeName,
+    DslFlowStatus Status,
+    DateTime CreatedAt,
+    DateTime UpdatedAt,
+    int Version
+);

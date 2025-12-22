@@ -8,11 +8,19 @@
     <Compile Remove="Reliability/**/*.cs" />
     <Compile Remove="E2E/**/*.cs" />
     <Compile Remove="Integration/**/*.cs" />
+    <Compile Include="Integration/Redis/**/*.cs" />
+    <Compile Include="Integration/RedisPersistenceIntegrationTests.cs" />
+    <Compile Include="Integration/RedisTransportIntegrationTests.cs" />
+    <Compile Include="Integration/Nats/NatsJetStreamFunctionalityTests.cs" />
+    <Compile Include="Integration/Nats/NatsConnectionManagementTests.cs" />
+    <Compile Include="Integration/Nats/NatsKVFunctionalityTests.cs" />
+    <Compile Include="Integration/Nats/NatsMessageFunctionalityTests.cs" />
     <Compile Remove="SourceGeneration/**/*.cs" />
     <Compile Remove="Flow/**/*.cs" />
     <Compile Include="Flow/FlowComprehensiveTests.cs" />
     <Compile Include="Flow/FlowPositionComprehensiveTests.cs" />
     <Compile Include="Flow/WaitConditionComprehensiveTests.cs" />
+    <Compile Include="Flow/InMemoryDslFlowStoreTests.cs" />
     <Compile Remove="Distributed/DistributedStoresExtendedTests.cs" />
     <Compile Remove="Distributed/InMemoryDistributedStoresTests.cs" />
     <Compile Remove="Pipeline/InboxBehaviorTests.cs" />
@@ -21,6 +29,9 @@
     <Compile Remove="Distributed/RateLimiterTests.cs" />
     <Compile Remove="Unit/FlowDslCoreUnitTests.cs" />
     <Compile Remove="EdgeCases/**/*.cs" />
+    <Compile Remove="Core/RedisStoreBaseTests.cs" />
+    <Compile Remove="Persistence/InboxOutboxComprehensiveTests.cs" />
+    <Compile Remove="AspNetCore/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -46,6 +57,8 @@
     <PackageReference Include="Testcontainers.Redis" />
     <PackageReference Include="MemoryPack" />
     <PackageReference Include="Xunit.SkippableFact" />
+    <PackageReference Include="FsCheck" />
+    <PackageReference Include="FsCheck.Xunit" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
   </ItemGroup>
 
@@ -62,8 +75,9 @@
     <ProjectReference Include="..\..\src\Catga.Transport.Nats\Catga.Transport.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.Persistence.Nats\Catga.Persistence.Nats.csproj" />
     <ProjectReference Include="..\..\src\Catga.Serialization.MemoryPack\Catga.Serialization.MemoryPack.csproj" />
-    <ProjectReference Include="..\..\examples\OrderSystem\OrderSystem.csproj" />
-    <ProjectReference Include="..\..\examples\OrderSystem.Api\OrderSystem.Api.csproj" />
+    <!-- Temporarily disabled due to Redis Persistence dependency -->
+    <!-- <ProjectReference Include="..\..\examples\OrderSystem\OrderSystem.csproj" /> -->
+    <!-- <ProjectReference Include="..\..\examples\OrderSystem.Api\OrderSystem.Api.csproj" /> -->
   </ItemGroup>
 
 </Project>

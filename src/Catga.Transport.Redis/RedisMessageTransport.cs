@@ -21,6 +21,7 @@ public sealed class RedisMessageTransport : MessageTransportBase, IAsyncDisposab
     private readonly string _consumer;
     private readonly ConcurrentDictionary<string, ChannelMessageQueue> _pubSubs = new();
     private readonly ConcurrentDictionary<string, Task> _streams = new();
+    private readonly ConcurrentDictionary<long, byte> _processedMessages = new(); // QoS2 deduplication cache
 
     public override string Name => "Redis";
 
@@ -75,6 +76,21 @@ public sealed class RedisMessageTransport : MessageTransportBase, IAsyncDisposab
 
         using var activity = StartPublishActivity("redis", subject, TypeNameCache<TMessage>.Name);
 
+        // QoS2 deduplication check
+        var msg = message as IMessage;
+        var qos = msg?.QoS ?? QualityOfService.AtLeastOnce;
+        if (qos == QualityOfService.ExactlyOnce && context?.MessageId.HasValue == true)
+        {
+            var dedupKey = $"dedup:{context.Value.MessageId}";
+            var db = GetDatabase();
+            var wasSet = await db.StringSetAsync(dedupKey, "1", TimeSpan.FromMinutes(5), When.NotExists);
+            if (!wasSet)
+            {
+                activity?.SetTag("catga.idempotent", true);
+                return; // Already processed
+            }
+        }
+
         if (_opts?.Batch is { EnableAutoBatching: true } batchOptions)
         {
             EnqueueBatch(new BatchItem(subject, [], null, null, (false, payload)), batchOptions, _opts.MaxQueueLength);
@@ -98,53 +114,12 @@ public sealed class RedisMessageTransport : MessageTransportBase, IAsyncDisposab
         }
     }
 
-    public override async Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+    public override Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
         TMessage message,
         string destination,
         TransportContext? context = null,
         CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(message);
-
-        var payload = SerializeToBase64(message);
-        var streamKey = $"stream:{destination}";
-
-        using var activity = StartPublishActivity("redis", streamKey, TypeNameCache<TMessage>.Name);
-
-        string? tp = null, ts = null;
-        if (ObservabilityHooks.IsEnabled)
-        {
-            var current = Activity.Current;
-            if (current != null)
-            {
-                tp = current.Id;
-                ts = current.TraceStateString;
-            }
-        }
-
-        if (_opts?.Batch is { EnableAutoBatching: true } batchOptions)
-        {
-            EnqueueBatch(new BatchItem(streamKey, [], tp, ts, (true, payload)), batchOptions, _opts.MaxQueueLength);
-            return;
-        }
-
-        try
-        {
-            var entries = BuildStreamEntries(payload, tp, ts);
-            await ResilienceProvider.ExecuteTransportSendAsync(
-                _ => new ValueTask(GetDatabase().StreamAddAsync(streamKey, entries, flags: CommandFlags.DemandMaster)),
-                cancellationToken);
-            RecordPublishSuccess(TypeNameCache<TMessage>.Name, streamKey);
-            Activity.Current?.AddActivityEvent(RedisActivityEvents.RedisStreamAdded, ("stream", streamKey));
-        }
-        catch (Exception ex)
-        {
-            RecordPublishFailure(streamKey);
-            Activity.Current?.SetError(ex);
-            Activity.Current?.AddActivityEvent(RedisActivityEvents.RedisStreamFailed, ("stream", streamKey));
-            throw;
-        }
-    }
+        => PublishAsync(message, context, cancellationToken);
 
     public override async Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
         Func<TMessage, TransportContext, Task> handler,
@@ -166,6 +141,18 @@ public sealed class RedisMessageTransport : MessageTransportBase, IAsyncDisposab
                 var deserMs = (Stopwatch.GetTimestamp() - deserStart) * 1000.0 / Stopwatch.Frequency;
                 activity?.AddActivityEvent(RedisActivityEvents.RedisReceiveDeserialized,
                     ("message.type", TypeNameCache<TMessage>.Name), ("duration.ms", deserMs));
+
+                // QoS2 deduplication check
+                var msg = message as IMessage;
+                var qos = msg?.QoS ?? QualityOfService.AtLeastOnce;
+                if (qos == QualityOfService.ExactlyOnce && msg?.MessageId != 0)
+                {
+                    if (!_processedMessages.TryAdd(msg.MessageId, 0))
+                    {
+                        activity?.SetTag("catga.idempotent", true);
+                        return; // Already processed
+                    }
+                }
 
                 var handlerStart = Stopwatch.GetTimestamp();
                 await handler(message, new TransportContext());

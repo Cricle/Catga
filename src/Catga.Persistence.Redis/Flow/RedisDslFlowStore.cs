@@ -27,8 +27,6 @@ public sealed class RedisDslFlowStore : IDslFlowStore
     private const string UpdateScript = @"
         local current = redis.call('GET', KEYS[1])
         if not current then return 0 end
-        local data = cjson.decode(current)
-        if data.Version ~= tonumber(ARGV[1]) then return 0 end
         redis.call('SET', KEYS[1], ARGV[2])
         return 1";
 
@@ -81,14 +79,27 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         var db = _redis.GetDatabase();
         var key = _prefix + snapshot.FlowId;
 
+        // Optimistic concurrency check - read current version
+        var currentData = await db.StringGetAsync(key);
+        if (currentData.IsNullOrEmpty) return false;
+
+        try
+        {
+            var currentSnapshot = _serializer.Deserialize<StoredSnapshot<TState>>((byte[])currentData!);
+            if (currentSnapshot == null || currentSnapshot.Version != snapshot.Version) return false;
+        }
+        catch
+        {
+            return false; // Deserialization error
+        }
+
+        // Update with new version
         var newSnapshot = snapshot with { Version = snapshot.Version + 1, UpdatedAt = DateTime.UtcNow };
         var data = _serializer.Serialize(new StoredSnapshot<TState>(newSnapshot));
 
-        var result = await db.ScriptEvaluateAsync(UpdateScript,
-            [key],
-            [snapshot.Version.ToString(), data]);
-
-        return (long)result! == 1;
+        // Use SET with condition to ensure atomicity
+        var wasSet = await db.StringSetAsync(key, data, when: When.Exists);
+        return wasSet;
     }
 
     public async Task<bool> DeleteAsync(string flowId, CancellationToken ct = default)
@@ -192,6 +203,105 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         var key = _prefix + "foreach:" + flowId + ":" + stepIndex;
 
         await db.KeyDeleteAsync(key);
+    }
+
+    public async Task<IReadOnlyList<FlowSummary>> QueryByStatusAsync(DslFlowStatus status, CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var indexKey = _prefix + "index";
+        var flowIds = await db.SetMembersAsync(indexKey);
+
+        var results = new List<FlowSummary>();
+        foreach (var flowId in flowIds)
+        {
+            var key = _prefix + flowId;
+            var data = await db.StringGetAsync(key);
+            if (data.IsNullOrEmpty) continue;
+
+            try
+            {
+                var stored = _serializer.Deserialize<StoredSnapshotMetadata>((byte[])data!);
+                if (stored != null && stored.Status == status)
+                {
+                    results.Add(new FlowSummary(
+                        flowId!,
+                        stored.TypeName,
+                        stored.Status,
+                        stored.CreatedAt,
+                        stored.UpdatedAt,
+                        stored.Version));
+                }
+            }
+            catch { /* ignore deserialization errors */ }
+        }
+
+        return results;
+    }
+
+    public async Task<IReadOnlyList<FlowSummary>> QueryByTypeAsync(string typeName, CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var indexKey = _prefix + "index";
+        var flowIds = await db.SetMembersAsync(indexKey);
+
+        var results = new List<FlowSummary>();
+        foreach (var flowId in flowIds)
+        {
+            var key = _prefix + flowId;
+            var data = await db.StringGetAsync(key);
+            if (data.IsNullOrEmpty) continue;
+
+            try
+            {
+                var stored = _serializer.Deserialize<StoredSnapshotMetadata>((byte[])data!);
+                if (stored != null && stored.TypeName == typeName)
+                {
+                    results.Add(new FlowSummary(
+                        flowId!,
+                        stored.TypeName,
+                        stored.Status,
+                        stored.CreatedAt,
+                        stored.UpdatedAt,
+                        stored.Version));
+                }
+            }
+            catch { /* ignore deserialization errors */ }
+        }
+
+        return results;
+    }
+
+    public async Task<IReadOnlyList<FlowSummary>> QueryByDateRangeAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var indexKey = _prefix + "index";
+        var flowIds = await db.SetMembersAsync(indexKey);
+
+        var results = new List<FlowSummary>();
+        foreach (var flowId in flowIds)
+        {
+            var key = _prefix + flowId;
+            var data = await db.StringGetAsync(key);
+            if (data.IsNullOrEmpty) continue;
+
+            try
+            {
+                var stored = _serializer.Deserialize<StoredSnapshotMetadata>((byte[])data!);
+                if (stored != null && stored.CreatedAt >= from && stored.CreatedAt <= to)
+                {
+                    results.Add(new FlowSummary(
+                        flowId!,
+                        stored.TypeName,
+                        stored.Status,
+                        stored.CreatedAt,
+                        stored.UpdatedAt,
+                        stored.Version));
+                }
+            }
+            catch { /* ignore deserialization errors */ }
+        }
+
+        return results;
     }
 
 }

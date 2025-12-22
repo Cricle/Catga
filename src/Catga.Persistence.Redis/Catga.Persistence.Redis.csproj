@@ -7,7 +7,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Catga\Catga.csproj" />
-    <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="MemoryPack" />
     <PackageReference Include="DistributedLock.Redis" />
   </ItemGroup>

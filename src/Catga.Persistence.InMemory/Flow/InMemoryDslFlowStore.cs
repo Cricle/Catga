@@ -1,5 +1,7 @@
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using Catga.Abstractions;
 using Catga.Flow;
 using Catga.Flow.Dsl;
@@ -16,9 +18,50 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
     private readonly ConcurrentDictionary<string, WaitCondition> _waitConditions = new();
     private readonly ConcurrentDictionary<string, ForEachProgress> _forEachProgress = new();
 
+    /// <summary>
+    /// Creates a new InMemoryDslFlowStore with a default JSON serializer.
+    /// </summary>
+    public InMemoryDslFlowStore() : this(new DefaultJsonSerializer())
+    {
+    }
+
     public InMemoryDslFlowStore(IMessageSerializer serializer)
     {
         _serializer = serializer;
+    }
+
+    /// <summary>
+    /// Default JSON serializer for in-memory store.
+    /// </summary>
+    private sealed class DefaultJsonSerializer : IMessageSerializer
+    {
+        public string Name => "default-json";
+        
+        public byte[] Serialize<T>(T value) => JsonSerializer.SerializeToUtf8Bytes(value);
+        
+        public T Deserialize<T>(byte[] data) => JsonSerializer.Deserialize<T>(data)!;
+        
+        public T Deserialize<T>(ReadOnlySpan<byte> data) => JsonSerializer.Deserialize<T>(data)!;
+        
+        public void Serialize<T>(T value, IBufferWriter<byte> bufferWriter)
+        {
+            using var writer = new Utf8JsonWriter(bufferWriter);
+            JsonSerializer.Serialize(writer, value);
+        }
+        
+        public byte[] Serialize(object value, Type type) => JsonSerializer.SerializeToUtf8Bytes(value, type);
+        
+        public object? Deserialize(byte[] data, Type type) => JsonSerializer.Deserialize(data, type);
+        
+        public object? Deserialize(ReadOnlySpan<byte> data, Type type) => JsonSerializer.Deserialize(data, type);
+        
+        public void Serialize(object value, Type type, IBufferWriter<byte> bufferWriter)
+        {
+            using var writer = new Utf8JsonWriter(bufferWriter);
+            JsonSerializer.Serialize(writer, value, type);
+        }
+        
+        public int GetSizeEstimate<T>(T value) => 1024;
     }
 
     public Task<bool> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
@@ -26,7 +69,13 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
         where TState : class, IFlowState
     {
         var data = _serializer.Serialize(snapshot);
-        var entry = new FlowEntry(typeof(TState).FullName ?? typeof(TState).Name, data, 0);
+        var entry = new FlowEntry(
+            typeof(TState).FullName ?? typeof(TState).Name,
+            data,
+            0,
+            snapshot.Status,
+            snapshot.CreatedAt,
+            snapshot.UpdatedAt);
         return Task.FromResult(_flows.TryAdd(snapshot.FlowId, entry));
     }
 
@@ -53,6 +102,8 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
             return Task.FromResult(false);
 
         entry.Data = _serializer.Serialize(snapshot);
+        entry.Status = snapshot.Status;
+        entry.UpdatedAt = snapshot.UpdatedAt;
         return Task.FromResult(true);
     }
 
@@ -114,17 +165,68 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
         return Task.CompletedTask;
     }
 
+    public Task<IReadOnlyList<FlowSummary>> QueryByStatusAsync(DslFlowStatus status, CancellationToken ct = default)
+    {
+        var results = _flows
+            .Where(kvp => kvp.Value.Status == status)
+            .Select(kvp => new FlowSummary(
+                kvp.Key,
+                kvp.Value.TypeName,
+                kvp.Value.Status,
+                kvp.Value.CreatedAt,
+                kvp.Value.UpdatedAt,
+                (int)kvp.Value.Version))
+            .ToList();
+        return Task.FromResult<IReadOnlyList<FlowSummary>>(results);
+    }
+
+    public Task<IReadOnlyList<FlowSummary>> QueryByTypeAsync(string typeName, CancellationToken ct = default)
+    {
+        var results = _flows
+            .Where(kvp => kvp.Value.TypeName == typeName)
+            .Select(kvp => new FlowSummary(
+                kvp.Key,
+                kvp.Value.TypeName,
+                kvp.Value.Status,
+                kvp.Value.CreatedAt,
+                kvp.Value.UpdatedAt,
+                (int)kvp.Value.Version))
+            .ToList();
+        return Task.FromResult<IReadOnlyList<FlowSummary>>(results);
+    }
+
+    public Task<IReadOnlyList<FlowSummary>> QueryByDateRangeAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var results = _flows
+            .Where(kvp => kvp.Value.CreatedAt >= from && kvp.Value.CreatedAt <= to)
+            .Select(kvp => new FlowSummary(
+                kvp.Key,
+                kvp.Value.TypeName,
+                kvp.Value.Status,
+                kvp.Value.CreatedAt,
+                kvp.Value.UpdatedAt,
+                (int)kvp.Value.Version))
+            .ToList();
+        return Task.FromResult<IReadOnlyList<FlowSummary>>(results);
+    }
+
     private sealed class FlowEntry
     {
         public string TypeName { get; }
         public byte[] Data { get; set; }
         public long Version;
+        public DslFlowStatus Status { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
 
-        public FlowEntry(string typeName, byte[] data, long version)
+        public FlowEntry(string typeName, byte[] data, long version, DslFlowStatus status, DateTime createdAt, DateTime updatedAt)
         {
             TypeName = typeName;
             Data = data;
             Version = version;
+            Status = status;
+            CreatedAt = createdAt;
+            UpdatedAt = updatedAt;
         }
     }
 }

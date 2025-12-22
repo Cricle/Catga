@@ -19,7 +19,7 @@ public class InMemoryDeadLetterQueue(ILogger<InMemoryDeadLetterQueue> logger, IM
         {
             MessageId = message.MessageId,
             MessageType = TypeNameCache<TMessage>.Name,
-            Message = Convert.ToBase64String(serializer.Serialize(message, typeof(TMessage))),
+            Message = serializer.Serialize(message, typeof(TMessage)),
             ExceptionType = exception.GetType().Name,
             ExceptionMessage = exception.Message,
             StackTrace = exception.StackTrace ?? "",

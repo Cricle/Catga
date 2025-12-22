@@ -115,7 +115,7 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
 
         // Assert - Verify message was stored in Redis
         var db = _redis!.GetDatabase();
-        var key = $"outbox:msg:{message.MessageId}";
+        var key = $"catga:outbox:msg:{message.MessageId}";
         var exists = await db.KeyExistsAsync(key);
         exists.Should().BeTrue();
     }
@@ -161,7 +161,7 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
         // Assert - Verify status changed and removed from pending set
         var db = _redis!.GetDatabase();
         var pendingSetKey = "outbox:pending";
-        var inPendingSet = await db.SortedSetScoreAsync(pendingSetKey, message.MessageId);
+        var inPendingSet = await db.SortedSetScoreAsync(pendingSetKey, message.MessageId.ToString());
         inPendingSet.HasValue.Should().BeFalse("message should be removed from pending set");
     }
 
@@ -213,7 +213,7 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
 
         // Verify in Redis
         var db = _redis!.GetDatabase();
-        var key = $"inbox:msg:{MessageId}";
+        var key = $"catga:inbox:msg:{MessageId}";
         var exists = await db.KeyExistsAsync(key);
         exists.Should().BeTrue();
     }
@@ -272,7 +272,7 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
 
         // Assert - Message should persist with 24h TTL
         var db = _redis!.GetDatabase();
-        var key = $"inbox:msg:{MessageId}";
+        var key = $"catga:inbox:msg:{MessageId}";
         var ttl = await db.KeyTimeToLiveAsync(key);
         ttl.Should().NotBeNull();
         ttl.Value.Should().BeCloseTo(TimeSpan.FromHours(24), TimeSpan.FromMinutes(1));

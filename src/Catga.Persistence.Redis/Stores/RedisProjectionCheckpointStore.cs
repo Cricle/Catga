@@ -11,7 +11,9 @@ public sealed class RedisProjectionCheckpointStore(IConnectionMultiplexer redis,
         => await provider.ExecutePersistenceAsync(async _ =>
         {
             await redis.GetDatabase().HashSetAsync(prefix + checkpoint.ProjectionName, [
-                new("position", checkpoint.Position), new("lastUpdated", checkpoint.LastUpdated.Ticks), new("streamId", checkpoint.StreamId ?? "")
+                new HashEntry("position", (RedisValue)checkpoint.Position),
+                new HashEntry("lastUpdated", (RedisValue)checkpoint.LastUpdated.Ticks),
+                new HashEntry("streamId", checkpoint.StreamId ?? "")
             ]);
         }, ct);
 

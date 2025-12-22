@@ -17,7 +17,7 @@ public class DeadLetterMessageTests
         {
             MessageId = 12345L,
             MessageType = "TestMessage",
-            Message = "{\"test\":\"value\"}",
+            Message = [0x01, 0x02, 0x03],
             ExceptionType = "System.InvalidOperationException",
             ExceptionMessage = "Test exception",
             StackTrace = "at Test.Method()"
@@ -26,7 +26,7 @@ public class DeadLetterMessageTests
         // Assert
         message.MessageId.Should().Be(12345L);
         message.MessageType.Should().Be("TestMessage");
-        message.Message.Should().Be("{\"test\":\"value\"}");
+        message.Message.Should().BeEquivalentTo(new byte[] { 0x01, 0x02, 0x03 });
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public class DeadLetterMessageTests
         {
             MessageId = 12345L,
             MessageType = "TestMessage",
-            Message = "{}",
+            Message = [],
             ExceptionType = "System.InvalidOperationException",
             ExceptionMessage = "Test exception",
             StackTrace = "at Test.Method()\n   at Test.Caller()"
@@ -57,7 +57,7 @@ public class DeadLetterMessageTests
         {
             MessageId = 12345L,
             MessageType = "TestMessage",
-            Message = "{}",
+            Message = [],
             ExceptionType = "System.Exception",
             ExceptionMessage = "Error",
             StackTrace = "",
@@ -79,7 +79,7 @@ public class DeadLetterMessageTests
         {
             MessageId = 12345L,
             MessageType = "TestMessage",
-            Message = "{}",
+            Message = [],
             ExceptionType = "System.Exception",
             ExceptionMessage = "Error",
             StackTrace = "",
@@ -105,7 +105,7 @@ public class DeadLetterMessageTests
         {
             MessageId = 12345L,
             MessageType = "TestMessage",
-            Message = "{}",
+            Message = [],
             ExceptionType = "System.Exception",
             ExceptionMessage = "Error",
             StackTrace = ""

@@ -276,7 +276,7 @@ public sealed class RedisTransportE2ETests : IAsyncLifetime
 
         using var listener = new ActivityListener
         {
-            ShouldListenTo = s => s.Name == CatgaDiagnostics.ActivitySourceName,
+            ShouldListenTo = s => s.Name == CatgaActivitySource.SourceName,
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
             ActivityStarted = _ => activityStarted = true
         };

@@ -142,9 +142,9 @@ public sealed class InMemoryMessageTransport(
             .AddRetry(new RetryStrategyOptions
             {
                 MaxRetryAttempts = 3,
-                Delay = TimeSpan.FromMilliseconds(100),
+                Delay = TimeSpan.FromMilliseconds(50),
                 BackoffType = DelayBackoffType.Exponential,
-                UseJitter = true,
+                UseJitter = false,
                 ShouldHandle = new PredicateBuilder().Handle<Exception>()
             })
             .Build();
@@ -155,7 +155,7 @@ public sealed class InMemoryMessageTransport(
         }, cancellationToken), cancellationToken);
 #else
         var retryPolicy = Policy.Handle<Exception>()
-            .WaitAndRetryAsync(3, attempt => TimeSpan.FromMilliseconds(100 * Math.Pow(2, attempt - 1)));
+            .WaitAndRetryAsync(3, attempt => TimeSpan.FromMilliseconds(50 * Math.Pow(2, attempt - 1)));
         return Task.Run(() => retryPolicy.ExecuteAsync(() => ExecuteHandlersAsync(handlers, message, ctx), cancellationToken), cancellationToken);
 #endif
     }

@@ -326,7 +326,8 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
     public async Task DeadLetterQueue_SendAndGet_ShouldWork()
     {
         if (_redis is null) return;
-        var dlq = new RedisDeadLetterQueue(_redis, _serializer, $"dlq-{Guid.NewGuid():N}:");
+        var options = Options.Create(new RedisDeadLetterQueueOptions { KeyPrefix = $"dlq-{Guid.NewGuid():N}:" });
+        var dlq = new RedisDeadLetterQueue(_redis, _serializer, options);
         var message = new TestMessage { MessageId = MessageExtensions.NewMessageId(), Data = "dlq-test" };
 
         await dlq.SendAsync(message, new Exception("Test error"), retryCount: 3);
@@ -339,7 +340,8 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
     public async Task DeadLetterQueue_MultipleMessages_ShouldRetrieveAll()
     {
         if (_redis is null) return;
-        var dlq = new RedisDeadLetterQueue(_redis, _serializer, $"dlq-multi-{Guid.NewGuid():N}:");
+        var options = Options.Create(new RedisDeadLetterQueueOptions { KeyPrefix = $"dlq-multi-{Guid.NewGuid():N}:" });
+        var dlq = new RedisDeadLetterQueue(_redis, _serializer, options);
 
         for (int i = 0; i < 5; i++)
         {

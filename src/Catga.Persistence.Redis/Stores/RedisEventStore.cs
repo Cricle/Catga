@@ -81,10 +81,10 @@ public sealed partial class RedisEventStore : IEventStore
                 var timestamp = DateTime.UtcNow.Ticks;
 
                 await db.StreamAddAsync(streamKey, [
-                    new NameValueEntry("version", newVersion),
+                    new NameValueEntry("version", (RedisValue)newVersion),
                     new NameValueEntry("type", typeFull),
                     new NameValueEntry("data", data),
-                    new NameValueEntry("timestamp", timestamp)
+                    new NameValueEntry("timestamp", (RedisValue)timestamp)
                 ]);
 
                 activity?.AddEvent(new ActivityEvent("event.appended",
@@ -97,7 +97,7 @@ public sealed partial class RedisEventStore : IEventStore
             }
 
             // Update version
-            await db.StringSetAsync(versionKey, newVersion);
+            await db.StringSetAsync(versionKey, (RedisValue)newVersion);
 
             MetricsHelper.RecordEventStoreAppend(events.Count, start);
             LogEventsAppended(_logger, streamId, events.Count, newVersion);

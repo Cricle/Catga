@@ -173,7 +173,7 @@ public class InMemoryMessageTransportTests
 
         // Act
         await _transport.PublishAsync(message);
-        await Task.Delay(1000); // Wait for retries (100ms, 200ms, 400ms)
+        await Task.Delay(2000); // Wait for retries (50ms, 100ms, 200ms + processing time)
 
         // Assert - should retry up to 3 times
         attemptCount.Should().BeGreaterOrEqualTo(3);

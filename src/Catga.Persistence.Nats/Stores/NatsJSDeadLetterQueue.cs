@@ -27,7 +27,7 @@ public sealed class NatsJSDeadLetterQueue(INatsConnection connection, IMessageSe
         {
             await EnsureInitializedAsync(ct);
 
-            var messageData = Convert.ToBase64String(serializer.Serialize(message, typeof(TMessage)));
+            var messageData = serializer.Serialize(message, typeof(TMessage));
 
             var dlqMessage = new DeadLetterMessage
             {

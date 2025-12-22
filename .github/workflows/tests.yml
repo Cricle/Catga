@@ -180,22 +180,22 @@ jobs:
     - name: Pack NuGet packages
       run: |
         # Core packages
-        dotnet pack src/Catga/Catga.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.AspNetCore/Catga.AspNetCore.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.Hosting.Aspire/Catga.Hosting.Aspire.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga/Catga.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.AspNetCore/Catga.AspNetCore.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Hosting.Aspire/Catga.Hosting.Aspire.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
 
         # Persistence packages
-        dotnet pack src/Catga.Persistence.InMemory/Catga.Persistence.InMemory.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.Persistence.Nats/Catga.Persistence.Nats.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.Persistence.Redis/Catga.Persistence.Redis.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Persistence.InMemory/Catga.Persistence.InMemory.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Persistence.Nats/Catga.Persistence.Nats.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Persistence.Redis/Catga.Persistence.Redis.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
 
         # Transport packages
-        dotnet pack src/Catga.Transport.InMemory/Catga.Transport.InMemory.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.Transport.Nats/Catga.Transport.Nats.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.Transport.Redis/Catga.Transport.Redis.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Transport.InMemory/Catga.Transport.InMemory.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Transport.Nats/Catga.Transport.Nats.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Transport.Redis/Catga.Transport.Redis.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
 
         # Serialization and Testing
-        dotnet pack src/Catga.Serialization.MemoryPack/Catga.Serialization.MemoryPack.csproj --no-build --configuration Release --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Serialization.MemoryPack/Catga.Serialization.MemoryPack.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
 
     - name: Upload NuGet packages
       uses: actions/upload-artifact@v4

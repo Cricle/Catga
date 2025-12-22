@@ -14,9 +14,13 @@ public sealed class RedisSubscriptionStore(IConnectionMultiplexer redis, IResili
         {
             var db = redis.GetDatabase();
             await db.HashSetAsync(prefix + subscription.Name, [
-                new("name", subscription.Name), new("streamPattern", subscription.StreamPattern), new("position", subscription.Position),
-                new("eventTypeFilter", string.Join(",", subscription.EventTypeFilter)), new("processedCount", subscription.ProcessedCount),
-                new("lastProcessedAt", subscription.LastProcessedAt?.Ticks ?? 0), new("createdAt", subscription.CreatedAt.Ticks)
+                new HashEntry("name", subscription.Name),
+                new HashEntry("streamPattern", subscription.StreamPattern),
+                new HashEntry("position", (RedisValue)subscription.Position),
+                new HashEntry("eventTypeFilter", string.Join(",", subscription.EventTypeFilter)),
+                new HashEntry("processedCount", (RedisValue)subscription.ProcessedCount),
+                new HashEntry("lastProcessedAt", (RedisValue)(subscription.LastProcessedAt?.Ticks ?? 0)),
+                new HashEntry("createdAt", (RedisValue)subscription.CreatedAt.Ticks)
             ]);
             await db.SetAddAsync(prefix + "index", subscription.Name);
         }, ct);

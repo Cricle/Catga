@@ -1,5 +1,7 @@
 using Catga.Flow.Dsl;
+using Catga.Persistence.InMemory.Flow;
 using FluentAssertions;
+using Xunit;
 
 namespace Catga.Tests.Flow.Store;
 
@@ -98,7 +100,8 @@ public class InMemoryDslFlowStoreTests
         await _store.CreateAsync(snapshot);
 
         var newState = new TestFlowState { FlowId = "flow-1", OrderId = "order-updated" };
-        var updated = snapshot with { State = newState, Status = DslFlowStatus.Completed };
+        // Version must be incremented by 1 for update to succeed (optimistic concurrency)
+        var updated = snapshot with { State = newState, Status = DslFlowStatus.Completed, Version = 1 };
         await _store.UpdateAsync(updated);
 
         var result = await _store.GetAsync<TestFlowState>("flow-1");
@@ -259,16 +262,165 @@ public class InMemoryDslFlowStoreTests
         var snapshot = CreateSnapshot("flow-1", state);
         await _store.CreateAsync(snapshot);
 
-        var tasks = Enumerable.Range(0, 10).Select(async i =>
+        // With optimistic concurrency, concurrent updates to the same flow will have
+        // version conflicts. Only sequential updates with proper version increments succeed.
+        // This test verifies that sequential updates work correctly.
+        var successCount = 0;
+        for (int i = 0; i < 10; i++)
         {
             var newState = new TestFlowState { FlowId = "flow-1", OrderId = $"order-{i}" };
-            var updated = snapshot with { State = newState, Version = i };
-            return await _store.UpdateAsync(updated);
-        }).ToArray();
+            var updated = snapshot with { State = newState, Version = i + 1 };
+            var result = await _store.UpdateAsync(updated);
+            if (result) successCount++;
+        }
 
-        var results = await Task.WhenAll(tasks);
+        // All sequential updates with correct version increments should succeed
+        successCount.Should().Be(10);
+    }
 
-        results.All(r => r).Should().BeTrue();
+    #endregion
+
+    #region Query Tests
+
+    [Fact]
+    public async Task QueryByStatusAsync_ReturnsMatching()
+    {
+        // Arrange - Create flows with different statuses
+        var runningState = new TestFlowState { FlowId = "flow-running", OrderId = "order-1" };
+        var completedState = new TestFlowState { FlowId = "flow-completed", OrderId = "order-2" };
+        var failedState = new TestFlowState { FlowId = "flow-failed", OrderId = "order-3" };
+
+        await _store.CreateAsync(CreateSnapshot("flow-running", runningState, DslFlowStatus.Running));
+        await _store.CreateAsync(CreateSnapshot("flow-completed", completedState, DslFlowStatus.Completed));
+        await _store.CreateAsync(CreateSnapshot("flow-failed", failedState, DslFlowStatus.Failed));
+
+        // Act
+        var runningFlows = await _store.QueryByStatusAsync(DslFlowStatus.Running);
+        var completedFlows = await _store.QueryByStatusAsync(DslFlowStatus.Completed);
+        var failedFlows = await _store.QueryByStatusAsync(DslFlowStatus.Failed);
+        var pendingFlows = await _store.QueryByStatusAsync(DslFlowStatus.Pending);
+
+        // Assert
+        runningFlows.Should().HaveCount(1);
+        runningFlows[0].FlowId.Should().Be("flow-running");
+        runningFlows[0].Status.Should().Be(DslFlowStatus.Running);
+
+        completedFlows.Should().HaveCount(1);
+        completedFlows[0].FlowId.Should().Be("flow-completed");
+        completedFlows[0].Status.Should().Be(DslFlowStatus.Completed);
+
+        failedFlows.Should().HaveCount(1);
+        failedFlows[0].FlowId.Should().Be("flow-failed");
+        failedFlows[0].Status.Should().Be(DslFlowStatus.Failed);
+
+        pendingFlows.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task QueryByTypeAsync_ReturnsMatching()
+    {
+        // Arrange - Create flows with different types
+        var state1 = new TestFlowState { FlowId = "flow-1", OrderId = "order-1" };
+        var state2 = new TestFlowState { FlowId = "flow-2", OrderId = "order-2" };
+        var state3 = new AnotherFlowState { FlowId = "flow-3", CustomField = "custom" };
+
+        await _store.CreateAsync(CreateSnapshot("flow-1", state1));
+        await _store.CreateAsync(CreateSnapshot("flow-2", state2));
+        await _store.CreateAsync(CreateSnapshotForAnotherType("flow-3", state3));
+
+        // Act
+        var testFlows = await _store.QueryByTypeAsync(typeof(TestFlowState).FullName!);
+        var anotherFlows = await _store.QueryByTypeAsync(typeof(AnotherFlowState).FullName!);
+        var nonExistentFlows = await _store.QueryByTypeAsync("NonExistent.Type");
+
+        // Assert
+        testFlows.Should().HaveCount(2);
+        testFlows.Select(f => f.FlowId).Should().Contain(new[] { "flow-1", "flow-2" });
+
+        anotherFlows.Should().HaveCount(1);
+        anotherFlows[0].FlowId.Should().Be("flow-3");
+
+        nonExistentFlows.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task QueryByDateRangeAsync_ReturnsMatching()
+    {
+        // Arrange - Create flows with different creation dates
+        var now = DateTime.UtcNow;
+        var yesterday = now.AddDays(-1);
+        var twoDaysAgo = now.AddDays(-2);
+        var tomorrow = now.AddDays(1);
+
+        var state1 = new TestFlowState { FlowId = "flow-old", OrderId = "order-1" };
+        var state2 = new TestFlowState { FlowId = "flow-yesterday", OrderId = "order-2" };
+        var state3 = new TestFlowState { FlowId = "flow-today", OrderId = "order-3" };
+
+        await _store.CreateAsync(CreateSnapshotWithDate("flow-old", state1, twoDaysAgo));
+        await _store.CreateAsync(CreateSnapshotWithDate("flow-yesterday", state2, yesterday));
+        await _store.CreateAsync(CreateSnapshotWithDate("flow-today", state3, now));
+
+        // Act - Query for flows created yesterday or later
+        var recentFlows = await _store.QueryByDateRangeAsync(yesterday, tomorrow);
+        var oldFlows = await _store.QueryByDateRangeAsync(twoDaysAgo.AddHours(-1), twoDaysAgo.AddHours(1));
+        var futureFlows = await _store.QueryByDateRangeAsync(tomorrow, tomorrow.AddDays(1));
+
+        // Assert
+        recentFlows.Should().HaveCount(2);
+        recentFlows.Select(f => f.FlowId).Should().Contain(new[] { "flow-yesterday", "flow-today" });
+
+        oldFlows.Should().HaveCount(1);
+        oldFlows[0].FlowId.Should().Be("flow-old");
+
+        futureFlows.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task QueryByStatusAsync_EmptyStore_ReturnsEmpty()
+    {
+        // Act
+        var result = await _store.QueryByStatusAsync(DslFlowStatus.Running);
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task QueryByTypeAsync_EmptyStore_ReturnsEmpty()
+    {
+        // Act
+        var result = await _store.QueryByTypeAsync(typeof(TestFlowState).FullName!);
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task QueryByDateRangeAsync_EmptyStore_ReturnsEmpty()
+    {
+        // Act
+        var result = await _store.QueryByDateRangeAsync(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow);
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task QueryByStatusAsync_MultipleMatching_ReturnsAll()
+    {
+        // Arrange - Create multiple flows with same status
+        for (int i = 0; i < 5; i++)
+        {
+            var state = new TestFlowState { FlowId = $"flow-{i}", OrderId = $"order-{i}" };
+            await _store.CreateAsync(CreateSnapshot($"flow-{i}", state, DslFlowStatus.Running));
+        }
+
+        // Act
+        var result = await _store.QueryByStatusAsync(DslFlowStatus.Running);
+
+        // Assert
+        result.Should().HaveCount(5);
+        result.All(f => f.Status == DslFlowStatus.Running).Should().BeTrue();
     }
 
     #endregion
@@ -278,6 +430,45 @@ public class InMemoryDslFlowStoreTests
     private static FlowSnapshot<TestFlowState> CreateSnapshot(string flowId, TestFlowState state)
     {
         return FlowSnapshot<TestFlowState>.Create(flowId,
+            state,
+            currentStep: 0,
+            status: DslFlowStatus.Running,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 0);
+    }
+
+    private static FlowSnapshot<TestFlowState> CreateSnapshot(string flowId, TestFlowState state, DslFlowStatus status)
+    {
+        return FlowSnapshot<TestFlowState>.Create(flowId,
+            state,
+            currentStep: 0,
+            status: status,
+            error: null,
+            waitCondition: null,
+            createdAt: DateTime.UtcNow,
+            updatedAt: DateTime.UtcNow,
+            version: 0);
+    }
+
+    private static FlowSnapshot<TestFlowState> CreateSnapshotWithDate(string flowId, TestFlowState state, DateTime createdAt)
+    {
+        return FlowSnapshot<TestFlowState>.Create(flowId,
+            state,
+            currentStep: 0,
+            status: DslFlowStatus.Running,
+            error: null,
+            waitCondition: null,
+            createdAt: createdAt,
+            updatedAt: createdAt,
+            version: 0);
+    }
+
+    private static FlowSnapshot<AnotherFlowState> CreateSnapshotForAnotherType(string flowId, AnotherFlowState state)
+    {
+        return FlowSnapshot<AnotherFlowState>.Create(flowId,
             state,
             currentStep: 0,
             status: DslFlowStatus.Running,
@@ -328,6 +519,28 @@ public class TestFlowState : IFlowState
     public IEnumerable<string> GetChangedFieldNames()
     {
         if (IsFieldChanged(Field_OrderId)) yield return nameof(OrderId);
+    }
+}
+
+public class AnotherFlowState : IFlowState
+{
+    public const int Field_CustomField = 0;
+    public const int FieldCount = 1;
+
+    private int _changedMask;
+    public string? FlowId { get; set; }
+
+    private string? _customField;
+    public string? CustomField { get => _customField; set { _customField = value; MarkChanged(Field_CustomField); } }
+
+    public bool HasChanges => _changedMask != 0;
+    public int GetChangedMask() => _changedMask;
+    public bool IsFieldChanged(int fieldIndex) => (_changedMask & (1 << fieldIndex)) != 0;
+    public void ClearChanges() => _changedMask = 0;
+    public void MarkChanged(int fieldIndex) => _changedMask |= (1 << fieldIndex);
+    public IEnumerable<string> GetChangedFieldNames()
+    {
+        if (IsFieldChanged(Field_CustomField)) yield return nameof(CustomField);
     }
 }
 

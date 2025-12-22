@@ -1,4 +1,6 @@
+using System.Runtime.CompilerServices;
 using Catga.Flow;
+using Catga.Flow.Dsl;
 using Catga.Outbox;
 using Catga.Inbox;
 using Catga.DeadLetter;
@@ -84,7 +86,15 @@ public static class CatgaMemoryPackFormatters
         MemoryPackFormatterProvider.Register(new OutboxMessageFormatter());
         MemoryPackFormatterProvider.Register(new InboxMessageFormatter());
         MemoryPackFormatterProvider.Register(new DeadLetterMessageFormatter());
+        // Note: WaitCondition, ForEachProgress, FlowCompletedEventData, StoredSnapshotMetadata, StoredSnapshot<T>
+        // are now marked with [MemoryPackable] and don't need custom formatters
     }
+
+    /// <summary>
+    /// Module initializer to automatically register formatters when the assembly is loaded.
+    /// </summary>
+    [ModuleInitializer]
+    internal static void Initialize() => Register();
 }
 
 public sealed class OutboxMessageFormatter : MemoryPackFormatter<OutboxMessage>
@@ -223,7 +233,7 @@ public sealed class DeadLetterMessageFormatter : MemoryPackFormatter<DeadLetterM
         writer.WriteObjectHeader(8);
         writer.WriteUnmanaged(value.MessageId);
         writer.WriteString(value.MessageType);
-        writer.WriteString(value.Message);
+        writer.WriteArray(value.Message);
         writer.WriteString(value.ExceptionType);
         writer.WriteString(value.ExceptionMessage);
         writer.WriteString(value.StackTrace);
@@ -241,7 +251,7 @@ public sealed class DeadLetterMessageFormatter : MemoryPackFormatter<DeadLetterM
 
         reader.ReadUnmanaged(out long messageId);
         var messageType = reader.ReadString()!;
-        var messageJson = reader.ReadString()!;
+        var messageData = reader.ReadArray<byte>()!;
         var exceptionType = reader.ReadString()!;
         var exceptionMessage = reader.ReadString()!;
         var stackTrace = reader.ReadString()!;
@@ -252,7 +262,7 @@ public sealed class DeadLetterMessageFormatter : MemoryPackFormatter<DeadLetterM
         {
             MessageId = messageId,
             MessageType = messageType,
-            Message = messageJson,
+            Message = messageData,
             ExceptionType = exceptionType,
             ExceptionMessage = exceptionMessage,
             StackTrace = stackTrace,

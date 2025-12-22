@@ -34,7 +34,7 @@
     <PackageVersion Include="NATS.Client.JetStream" Version="2.5.2" />
     <PackageVersion Include="NATS.Client.KeyValueStore" Version="2.5.2" />
     <!-- Redis 客户端 -->
-    <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />
+    <PackageVersion Include="StackExchange.Redis" Version="2.8.37" />
     <PackageVersion Include="StackExchange.Redis.MultiplexerPool" Version="2.2.0" />
     <!-- 序列化 -->
     <PackageVersion Include="MemoryPack" Version="1.21.3" />
@@ -54,6 +54,9 @@
     <PackageVersion Include="Testcontainers.Redis" Version="4.0.0" />
     <PackageVersion Include="Testcontainers.Nats" Version="4.0.0" />
     <PackageVersion Include="Xunit.SkippableFact" Version="1.4.13" />
+    <!-- Property-Based Testing -->
+    <PackageVersion Include="FsCheck" Version="2.16.6" />
+    <PackageVersion Include="FsCheck.Xunit" Version="2.16.6" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
     <!-- Web API -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.8" />

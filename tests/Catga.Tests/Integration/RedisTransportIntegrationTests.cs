@@ -248,38 +248,32 @@ public partial class RedisTransportIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task SendAsync_ShouldAppendToRedisStream()
+    public async Task SendAsync_ShouldDelegateToPublishAsync()
     {
         // Arrange
         var destination = "worker-queue";
-        var streamKey = $"stream:{destination}";
         var testEvent = new TestEvent
         {
             MessageId = MessageExtensions.NewMessageId(),
-            Id = "stream-1",
-            Data = "Stream payload",
+            Id = "send-1",
+            Data = "Send payload",
             QoS = QualityOfService.AtLeastOnce
         };
 
+        var received = false;
+        await _transport!.SubscribeAsync<TestEvent>(async (msg, ctx) =>
+        {
+            received = true;
+            await Task.CompletedTask;
+        });
+        await Task.Delay(100);
+
         // Act
-        await _transport!.SendAsync(testEvent, destination);
+        await _transport.SendAsync(testEvent, destination);
         await Task.Delay(200);
 
-        // Assert - read back from Redis Stream
-        var entries = await _redis!.GetDatabase().StreamReadAsync(streamKey, "0-0");
-        entries.Should().NotBeNull();
-        entries.Should().NotBeEmpty();
-        var last = entries[^1];
-        var dataField = last.Values.FirstOrDefault(v => v.Name == "data");
-        dataField.Value.HasValue.Should().BeTrue("stream entry should contain 'data' field");
-
-        // Deserialize
-        var base64 = (string)dataField.Value!;
-        var bytes = Convert.FromBase64String(base64);
-        var restored = (TestEvent?)_serializer!.Deserialize(bytes, typeof(TestEvent));
-        restored.Should().NotBeNull();
-        restored!.Id.Should().Be("stream-1");
-        restored.Data.Should().Be("Stream payload");
+        // Assert - message should be delivered via PubSub (like PublishAsync)
+        received.Should().BeTrue("SendAsync should delegate to PublishAsync");
     }
 
     #region Test Models

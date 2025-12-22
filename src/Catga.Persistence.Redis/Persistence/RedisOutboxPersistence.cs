@@ -30,7 +30,7 @@ public class RedisOutboxPersistence(IConnectionMultiplexer redis, IMessageSerial
             var transaction = db.CreateTransaction();
             _ = transaction.StringSetAsync(key, data);
             var score = new DateTimeOffset(message.CreatedAt).ToUnixTimeSeconds();
-            _ = transaction.SortedSetAddAsync(_pendingKey, message.MessageId, score);
+            _ = transaction.SortedSetAddAsync(_pendingKey, message.MessageId, (double)score);
 
             if (await transaction.ExecuteAsync())
             {
@@ -87,7 +87,7 @@ public class RedisOutboxPersistence(IConnectionMultiplexer redis, IMessageSerial
             message.Status = OutboxStatus.Published;
             message.PublishedAt = DateTime.UtcNow;
 
-            await db.ScriptEvaluateAsync(MarkPublishedScript, [key, _pendingKey], [messageId, serializer.Serialize(message, typeof(OutboxMessage)), (int)TimeSpan.FromHours(24).TotalSeconds]);
+            await db.ScriptEvaluateAsync(MarkPublishedScript, [key, _pendingKey], [messageId, serializer.Serialize(message, typeof(OutboxMessage)), (RedisValue)(int)TimeSpan.FromHours(24).TotalSeconds]);
             CatgaLog.OutboxMarkedPublished(logger, messageId);
             CatgaDiagnostics.OutboxPublished.Add(1);
         }, cancellationToken);
@@ -138,5 +138,5 @@ public class RedisOutboxPersistence(IConnectionMultiplexer redis, IMessageSerial
         }, cancellationToken);
     }
 
-    private string GetMessageKey(long messageId) => $"{_prefix}:msg:{messageId}";
+    private string GetMessageKey(long messageId) => $"{_prefix}msg:{messageId}";
 }

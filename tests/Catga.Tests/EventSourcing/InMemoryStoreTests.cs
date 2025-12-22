@@ -88,6 +88,211 @@ public class InMemoryStoreTests
         version.Should().Be(2); // 0-indexed, so 3 events = version 2
     }
 
+    #region Version Control Tests (Requirements 1.6-1.10)
+
+    /// <summary>
+    /// Tests that appending with expectedVersion = -1 (Any) always succeeds regardless of current stream state.
+    /// Validates: Requirement 1.8 - THE InMemoryEventStore SHALL support ExpectedVersion.Any for unconditional append
+    /// </summary>
+    [Fact]
+    public async Task Append_ExpectedVersionAny_AlwaysSucceeds()
+    {
+        // Arrange
+        var store = new InMemoryEventStore(new DiagnosticResiliencePipelineProvider());
+        
+        // Act & Assert - First append to new stream with Any (-1)
+        await store.AppendAsync("stream-1", [new TestEvent("first")], expectedVersion: -1);
+        var version1 = await store.GetVersionAsync("stream-1");
+        version1.Should().Be(0);
+
+        // Second append with Any (-1) should also succeed
+        await store.AppendAsync("stream-1", [new TestEvent("second")], expectedVersion: -1);
+        var version2 = await store.GetVersionAsync("stream-1");
+        version2.Should().Be(1);
+
+        // Third append with Any (-1) should also succeed
+        await store.AppendAsync("stream-1", [new TestEvent("third")], expectedVersion: -1);
+        var version3 = await store.GetVersionAsync("stream-1");
+        version3.Should().Be(2);
+
+        // Verify all events are stored
+        var result = await store.ReadAsync("stream-1");
+        result.Events.Should().HaveCount(3);
+    }
+
+    /// <summary>
+    /// Tests that appending with expectedVersion = -1 succeeds for a new stream (no existing events).
+    /// Validates: Requirement 1.9 - THE InMemoryEventStore SHALL support ExpectedVersion.NoStream for new streams
+    /// Note: In this implementation, -1 serves as both "Any" and "NoStream" for new streams.
+    /// </summary>
+    [Fact]
+    public async Task Append_ExpectedVersionNoStream_SucceedsForNewStream()
+    {
+        // Arrange
+        var store = new InMemoryEventStore(new DiagnosticResiliencePipelineProvider());
+        
+        // Act - Append to a brand new stream with expectedVersion = -1
+        await store.AppendAsync("new-stream", [new TestEvent("first-event")], expectedVersion: -1);
+
+        // Assert
+        var version = await store.GetVersionAsync("new-stream");
+        version.Should().Be(0); // First event has version 0
+        
+        var result = await store.ReadAsync("new-stream");
+        result.Events.Should().HaveCount(1);
+        ((TestEvent)result.Events[0].Event).Data.Should().Be("first-event");
+    }
+
+    /// <summary>
+    /// Tests that appending with the correct expected version succeeds.
+    /// Validates: Requirement 1.6 - THE InMemoryEventStore SHALL track stream version correctly after each append
+    /// </summary>
+    [Fact]
+    public async Task Append_CorrectExpectedVersion_Succeeds()
+    {
+        // Arrange
+        var store = new InMemoryEventStore(new DiagnosticResiliencePipelineProvider());
+        
+        // First append - new stream has version -1, so we use -1 or just append without version check
+        await store.AppendAsync("stream-1", [new TestEvent("first")], expectedVersion: -1);
+        var currentVersion = await store.GetVersionAsync("stream-1");
+        currentVersion.Should().Be(0);
+
+        // Act - Append with correct expected version (0)
+        await store.AppendAsync("stream-1", [new TestEvent("second")], expectedVersion: 0);
+
+        // Assert
+        var newVersion = await store.GetVersionAsync("stream-1");
+        newVersion.Should().Be(1);
+        
+        var result = await store.ReadAsync("stream-1");
+        result.Events.Should().HaveCount(2);
+    }
+
+    /// <summary>
+    /// Tests that appending with the correct expected version succeeds for multiple sequential appends.
+    /// Validates: Requirement 1.6 - THE InMemoryEventStore SHALL track stream version correctly after each append
+    /// </summary>
+    [Fact]
+    public async Task Append_CorrectExpectedVersion_SucceedsForMultipleAppends()
+    {
+        // Arrange
+        var store = new InMemoryEventStore(new DiagnosticResiliencePipelineProvider());
+        
+        // Act & Assert - Sequential appends with correct expected versions
+        await store.AppendAsync("stream-1", [new TestEvent("e1")], expectedVersion: -1);
+        (await store.GetVersionAsync("stream-1")).Should().Be(0);
+
+        await store.AppendAsync("stream-1", [new TestEvent("e2")], expectedVersion: 0);
+        (await store.GetVersionAsync("stream-1")).Should().Be(1);
+
+        await store.AppendAsync("stream-1", [new TestEvent("e3")], expectedVersion: 1);
+        (await store.GetVersionAsync("stream-1")).Should().Be(2);
+
+        await store.AppendAsync("stream-1", [new TestEvent("e4"), new TestEvent("e5")], expectedVersion: 2);
+        (await store.GetVersionAsync("stream-1")).Should().Be(4);
+
+        // Verify all events
+        var result = await store.ReadAsync("stream-1");
+        result.Events.Should().HaveCount(5);
+    }
+
+    /// <summary>
+    /// Tests that appending with a wrong expected version throws ConcurrencyException.
+    /// Validates: Requirement 1.7 - THE InMemoryEventStore SHALL reject append with wrong expected version (optimistic concurrency)
+    /// Validates: Requirement 1.10 - THE InMemoryEventStore SHALL throw ConcurrencyException on version conflict
+    /// </summary>
+    [Fact]
+    public async Task Append_WrongExpectedVersion_ThrowsConcurrencyException()
+    {
+        // Arrange
+        var store = new InMemoryEventStore(new DiagnosticResiliencePipelineProvider());
+        await store.AppendAsync("stream-1", [new TestEvent("first"), new TestEvent("second")]);
+        var currentVersion = await store.GetVersionAsync("stream-1");
+        currentVersion.Should().Be(1); // Two events = version 1
+
+        // Act - Try to append with wrong expected version
+        var act = async () => await store.AppendAsync("stream-1", [new TestEvent("third")], expectedVersion: 5);
+
+        // Assert
+        var exception = await act.Should().ThrowAsync<ConcurrencyException>();
+        exception.Which.StreamId.Should().Be("stream-1");
+        exception.Which.ExpectedVersion.Should().Be(5);
+        exception.Which.ActualVersion.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Tests that appending with expected version 0 to an existing stream with version > 0 throws ConcurrencyException.
+    /// Validates: Requirement 1.7 - THE InMemoryEventStore SHALL reject append with wrong expected version
+    /// </summary>
+    [Fact]
+    public async Task Append_ExpectedVersionZero_OnExistingStream_ThrowsConcurrencyException()
+    {
+        // Arrange
+        var store = new InMemoryEventStore(new DiagnosticResiliencePipelineProvider());
+        await store.AppendAsync("stream-1", [new TestEvent("first"), new TestEvent("second"), new TestEvent("third")]);
+        var currentVersion = await store.GetVersionAsync("stream-1");
+        currentVersion.Should().Be(2); // Three events = version 2
+
+        // Act - Try to append with expected version 0 (stale)
+        var act = async () => await store.AppendAsync("stream-1", [new TestEvent("fourth")], expectedVersion: 0);
+
+        // Assert
+        var exception = await act.Should().ThrowAsync<ConcurrencyException>();
+        exception.Which.ExpectedVersion.Should().Be(0);
+        exception.Which.ActualVersion.Should().Be(2);
+    }
+
+    /// <summary>
+    /// Tests that appending with a lower expected version than actual throws ConcurrencyException.
+    /// Validates: Requirement 1.7 - THE InMemoryEventStore SHALL reject append with wrong expected version
+    /// </summary>
+    [Fact]
+    public async Task Append_LowerExpectedVersion_ThrowsConcurrencyException()
+    {
+        // Arrange
+        var store = new InMemoryEventStore(new DiagnosticResiliencePipelineProvider());
+        // Append 5 events to get version 4
+        await store.AppendAsync("stream-1", [
+            new TestEvent("e1"), new TestEvent("e2"), new TestEvent("e3"), 
+            new TestEvent("e4"), new TestEvent("e5")
+        ]);
+        var currentVersion = await store.GetVersionAsync("stream-1");
+        currentVersion.Should().Be(4);
+
+        // Act - Try to append with expected version 2 (lower than actual 4)
+        var act = async () => await store.AppendAsync("stream-1", [new TestEvent("e6")], expectedVersion: 2);
+
+        // Assert
+        var exception = await act.Should().ThrowAsync<ConcurrencyException>();
+        exception.Which.ExpectedVersion.Should().Be(2);
+        exception.Which.ActualVersion.Should().Be(4);
+    }
+
+    /// <summary>
+    /// Tests that appending with a higher expected version than actual throws ConcurrencyException.
+    /// Validates: Requirement 1.7 - THE InMemoryEventStore SHALL reject append with wrong expected version
+    /// </summary>
+    [Fact]
+    public async Task Append_HigherExpectedVersion_ThrowsConcurrencyException()
+    {
+        // Arrange
+        var store = new InMemoryEventStore(new DiagnosticResiliencePipelineProvider());
+        await store.AppendAsync("stream-1", [new TestEvent("e1")]);
+        var currentVersion = await store.GetVersionAsync("stream-1");
+        currentVersion.Should().Be(0);
+
+        // Act - Try to append with expected version 10 (higher than actual 0)
+        var act = async () => await store.AppendAsync("stream-1", [new TestEvent("e2")], expectedVersion: 10);
+
+        // Assert
+        var exception = await act.Should().ThrowAsync<ConcurrencyException>();
+        exception.Which.ExpectedVersion.Should().Be(10);
+        exception.Which.ActualVersion.Should().Be(0);
+    }
+
+    #endregion
+
     #endregion
 
     #region InMemorySubscriptionStore Tests

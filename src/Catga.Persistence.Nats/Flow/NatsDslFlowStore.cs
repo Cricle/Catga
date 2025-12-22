@@ -320,4 +320,103 @@ public sealed class NatsDslFlowStore : IDslFlowStore
         catch (NatsKVKeyNotFoundException) { /* already deleted */ }
     }
 
+    public async Task<IReadOnlyList<FlowSummary>> QueryByStatusAsync(DslFlowStatus status, CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync(ct);
+
+        var results = new List<FlowSummary>();
+        await foreach (var key in _store!.GetKeysAsync(cancellationToken: ct))
+        {
+            // Skip ForEach progress keys (they contain ':')
+            if (key.Contains(':')) continue;
+
+            try
+            {
+                var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
+                if (entry.Value == null) continue;
+
+                var stored = _serializer.Deserialize<StoredSnapshotMetadata>(entry.Value);
+                if (stored != null && stored.Status == status)
+                {
+                    results.Add(new FlowSummary(
+                        stored.FlowId,
+                        stored.TypeName,
+                        stored.Status,
+                        stored.CreatedAt,
+                        stored.UpdatedAt,
+                        stored.Version));
+                }
+            }
+            catch { /* ignore individual failures */ }
+        }
+
+        return results;
+    }
+
+    public async Task<IReadOnlyList<FlowSummary>> QueryByTypeAsync(string typeName, CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync(ct);
+
+        var results = new List<FlowSummary>();
+        await foreach (var key in _store!.GetKeysAsync(cancellationToken: ct))
+        {
+            // Skip ForEach progress keys (they contain ':')
+            if (key.Contains(':')) continue;
+
+            try
+            {
+                var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
+                if (entry.Value == null) continue;
+
+                var stored = _serializer.Deserialize<StoredSnapshotMetadata>(entry.Value);
+                if (stored != null && stored.TypeName == typeName)
+                {
+                    results.Add(new FlowSummary(
+                        stored.FlowId,
+                        stored.TypeName,
+                        stored.Status,
+                        stored.CreatedAt,
+                        stored.UpdatedAt,
+                        stored.Version));
+                }
+            }
+            catch { /* ignore individual failures */ }
+        }
+
+        return results;
+    }
+
+    public async Task<IReadOnlyList<FlowSummary>> QueryByDateRangeAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync(ct);
+
+        var results = new List<FlowSummary>();
+        await foreach (var key in _store!.GetKeysAsync(cancellationToken: ct))
+        {
+            // Skip ForEach progress keys (they contain ':')
+            if (key.Contains(':')) continue;
+
+            try
+            {
+                var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
+                if (entry.Value == null) continue;
+
+                var stored = _serializer.Deserialize<StoredSnapshotMetadata>(entry.Value);
+                if (stored != null && stored.CreatedAt >= from && stored.CreatedAt <= to)
+                {
+                    results.Add(new FlowSummary(
+                        stored.FlowId,
+                        stored.TypeName,
+                        stored.Status,
+                        stored.CreatedAt,
+                        stored.UpdatedAt,
+                        stored.Version));
+                }
+            }
+            catch { /* ignore individual failures */ }
+        }
+
+        return results;
+    }
+
 }

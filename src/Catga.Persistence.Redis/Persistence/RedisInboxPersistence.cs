@@ -26,7 +26,7 @@ public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSeriali
 
             var message = new InboxMessage { MessageId = messageId, MessageType = "", Payload = [], Status = InboxStatus.Processing, LockExpiresAt = DateTime.UtcNow.Add(lockDuration) };
             var data = Serializer.Serialize(message, typeof(InboxMessage));
-            var result = await db.ScriptEvaluateAsync(TryLockScript, [key], [messageId, (int)lockDuration.TotalSeconds, data]);
+            var result = await db.ScriptEvaluateAsync(TryLockScript, [key], [messageId, (RedisValue)(int)lockDuration.TotalSeconds, data]);
             var locked = (int)result == 1;
 
             if (locked)
@@ -95,5 +95,5 @@ public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSeriali
 
     public ValueTask DeleteProcessedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
 
-    private string GetMessageKey(long messageId) => $"{KeyPrefix}:msg:{messageId}";
+    private string GetMessageKey(long messageId) => $"{KeyPrefix}msg:{messageId}";
 }

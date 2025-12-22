@@ -67,7 +67,10 @@ builder.Services.AddCatgaHandlers();
 builder.Services.AddSingleton<OrderStore>();
 builder.Services.AddSingleton(new NodeInfo(nodeId, isCluster, transport, persistence));
 builder.Services.ConfigureHttpJsonOptions(opt =>
-    opt.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default));
+{
+    opt.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default);
+    opt.SerializerOptions.Converters.Add(new JsonStringEnumConverter<OrderStatus>());
+});
 
 var app = builder.Build();
 
@@ -83,7 +86,7 @@ app.MapGet("/", (NodeInfo node) => Results.Ok(new SystemInfoResponse(
     Timestamp: DateTime.UtcNow
 )));
 
-app.MapGet("/health", () => Results.Ok(new HealthResponse("healthy", DateTime.UtcNow)));
+app.MapGet("/health", () => Results.Ok("Healthy"));
 
 app.MapPost("/orders", async (CreateOrderRequest req, ICatgaMediator mediator) =>
 {
@@ -103,22 +106,31 @@ app.MapGet("/orders", async (ICatgaMediator mediator) =>
     return Results.Ok(result.Value ?? new List<Order>());
 });
 
-app.MapPost("/orders/{id}/pay", async (string id, PayOrderRequest req, ICatgaMediator mediator) =>
+app.MapPost("/orders/{id}/pay", async (string id, ICatgaMediator mediator, OrderStore store) =>
 {
-    var result = await mediator.SendAsync<PayOrderCommand>(new PayOrderCommand(id, req.PaymentMethod));
-    return result.IsSuccess ? Results.Ok() : Results.BadRequest(result.Error);
+    var result = await mediator.SendAsync<PayOrderCommand>(new PayOrderCommand(id, "default"));
+    if (!result.IsSuccess) return Results.BadRequest(result.Error);
+    
+    var order = store.Get(id);
+    return order != null ? Results.Ok(order) : Results.NotFound();
 });
 
-app.MapPost("/orders/{id}/ship", async (string id, ShipOrderRequest req, ICatgaMediator mediator) =>
+app.MapPost("/orders/{id}/ship", async (string id, ICatgaMediator mediator, OrderStore store) =>
 {
-    var result = await mediator.SendAsync<ShipOrderCommand>(new ShipOrderCommand(id, req.TrackingNumber));
-    return result.IsSuccess ? Results.Ok() : Results.BadRequest(result.Error);
+    var result = await mediator.SendAsync<ShipOrderCommand>(new ShipOrderCommand(id, "TRACK-" + Guid.NewGuid().ToString("N")[..8]));
+    if (!result.IsSuccess) return Results.BadRequest(result.Error);
+    
+    var order = store.Get(id);
+    return order != null ? Results.Ok(order) : Results.NotFound();
 });
 
-app.MapPost("/orders/{id}/cancel", async (string id, ICatgaMediator mediator) =>
+app.MapPost("/orders/{id}/cancel", async (string id, ICatgaMediator mediator, OrderStore store) =>
 {
     var result = await mediator.SendAsync<CancelOrderCommand>(new CancelOrderCommand(id));
-    return result.IsSuccess ? Results.Ok() : Results.BadRequest(result.Error);
+    if (!result.IsSuccess) return Results.BadRequest(result.Error);
+    
+    var order = store.Get(id);
+    return order != null ? Results.Ok(order) : Results.NotFound();
 });
 
 app.MapGet("/orders/{id}/history", (string id, OrderStore store) => 
@@ -306,5 +318,6 @@ namespace OrderSystem
     [JsonSerializable(typeof(Dictionary<string, int>))]
     [JsonSerializable(typeof(List<object>))]
     [JsonSerializable(typeof(ErrorInfo))]
+    [JsonSerializable(typeof(OrderStatus))]
     internal partial class AppJsonContext : JsonSerializerContext;
 }

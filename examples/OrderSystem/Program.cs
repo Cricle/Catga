@@ -1,6 +1,6 @@
-// Catga OrderSystem Example - Minimal CQRS Demo
-// Supports: InMemory | Redis | NATS (Transport & Persistence)
-// Run modes: Standalone | Cluster (Leader/Follower)
+// Catga OrderSystem Example - Complete CQRS Demo
+// Features: InMemory/Redis/NATS, Standalone/Cluster, Event Sourcing
+// Usage: dotnet run -- [--transport inmemory|redis|nats] [--persistence inmemory|redis|nats] [--cluster] [--port 5000]
 
 using System.Collections.Concurrent;
 using System.Text.Json.Serialization;
@@ -13,42 +13,77 @@ using OrderSystem;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
+// Parse command line arguments
 var transport = GetArg(args, "--transport") ?? "inmemory";
 var persistence = GetArg(args, "--persistence") ?? "inmemory";
 var redisConn = GetArg(args, "--redis") ?? "localhost:6379";
 var natsUrl = GetArg(args, "--nats") ?? "nats://localhost:4222";
 var isCluster = args.Contains("--cluster");
-var nodeId = GetArg(args, "--node-id") ?? "node1";
+var nodeId = GetArg(args, "--node-id") ?? $"node-{Guid.NewGuid().ToString("N")[..6]}";
 var port = int.Parse(GetArg(args, "--port") ?? "5000");
 
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
+// Configure Catga with MemoryPack serialization
 var catga = builder.Services.AddCatga().UseMemoryPack();
 
+// Configure persistence backend
 switch (persistence.ToLower())
 {
-    case "redis": catga.UseRedis(redisConn); break;
-    case "nats": builder.Services.AddNatsConnection(natsUrl); catga.UseNats(); break;
-    default: catga.UseInMemory(); break;
+    case "redis": 
+        catga.UseRedis(redisConn); 
+        Console.WriteLine($"✓ Persistence: Redis ({redisConn})");
+        break;
+    case "nats": 
+        builder.Services.AddNatsConnection(natsUrl); 
+        catga.UseNats(); 
+        Console.WriteLine($"✓ Persistence: NATS ({natsUrl})");
+        break;
+    default: 
+        catga.UseInMemory(); 
+        Console.WriteLine("✓ Persistence: InMemory");
+        break;
 }
 
+// Configure transport backend
 switch (transport.ToLower())
 {
-    case "redis": builder.Services.AddRedisTransport(redisConn); break;
-    case "nats": builder.Services.AddNatsTransport(natsUrl); break;
-    default: builder.Services.AddInMemoryTransport(); break;
+    case "redis": 
+        builder.Services.AddRedisTransport(redisConn); 
+        Console.WriteLine($"✓ Transport: Redis ({redisConn})");
+        break;
+    case "nats": 
+        builder.Services.AddNatsTransport(natsUrl); 
+        Console.WriteLine($"✓ Transport: NATS ({natsUrl})");
+        break;
+    default: 
+        builder.Services.AddInMemoryTransport(); 
+        Console.WriteLine("✓ Transport: InMemory");
+        break;
 }
 
+// Register handlers and services
 builder.Services.AddCatgaHandlers();
 builder.Services.AddSingleton<OrderStore>();
-builder.Services.AddSingleton(new NodeInfo(nodeId, isCluster));
+builder.Services.AddSingleton(new NodeInfo(nodeId, isCluster, transport, persistence));
 builder.Services.ConfigureHttpJsonOptions(opt =>
     opt.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default));
 
 var app = builder.Build();
 
-app.MapGet("/health", () => Results.Ok(new HealthResponse("healthy")));
-app.MapGet("/", (NodeInfo node) => Results.Ok(new SystemInfoResponse(node.NodeId, node.IsCluster, transport, persistence, isCluster ? "Cluster" : "Standalone")));
+// Health and system info endpoints
+app.MapGet("/", (NodeInfo node) => Results.Ok(new SystemInfoResponse(
+    Service: "Catga OrderSystem",
+    Version: "1.0.0",
+    Node: node.NodeId,
+    Mode: node.IsCluster ? "Cluster" : "Standalone",
+    Transport: node.Transport,
+    Persistence: node.Persistence,
+    Status: "running",
+    Timestamp: DateTime.UtcNow
+)));
+
+app.MapGet("/health", () => Results.Ok(new HealthResponse("healthy", DateTime.UtcNow)));
 
 app.MapPost("/orders", async (CreateOrderRequest req, ICatgaMediator mediator) =>
 {
@@ -86,9 +121,50 @@ app.MapPost("/orders/{id}/cancel", async (string id, ICatgaMediator mediator) =>
     return result.IsSuccess ? Results.Ok() : Results.BadRequest(result.Error);
 });
 
-app.MapGet("/orders/{id}/history", (string id, OrderStore store) => Results.Ok(store.GetEvents(id)));
+app.MapGet("/orders/{id}/history", (string id, OrderStore store) => 
+{
+    var events = store.GetEvents(id);
+    return events.Count > 0 ? Results.Ok(events) : Results.NotFound();
+});
 
-Console.WriteLine($"OrderSystem: port={port}, transport={transport}, persistence={persistence}, mode={(isCluster ? $"cluster({nodeId})" : "standalone")}");
+// Statistics endpoint
+app.MapGet("/stats", (OrderStore store) =>
+{
+    var orders = store.GetAll();
+    var byStatus = orders.GroupBy(o => o.Status).ToDictionary(g => g.Key.ToString(), g => g.Count());
+    var totalRevenue = orders.Where(o => o.Status != OrderStatus.Cancelled).Sum(o => o.Total);
+    
+    return Results.Ok(new StatsResponse(
+        TotalOrders: orders.Count,
+        ByStatus: byStatus,
+        TotalRevenue: totalRevenue,
+        Timestamp: DateTime.UtcNow
+    ));
+});
+
+Console.WriteLine($@"
+╔══════════════════════════════════════════════════════════════╗
+║              Catga OrderSystem - Running                     ║
+╠══════════════════════════════════════════════════════════════╣
+║ Mode:        {(isCluster ? $"Cluster ({nodeId})" : "Standalone"),-45} ║
+║ Port:        {port,-45} ║
+║ Transport:   {transport,-45} ║
+║ Persistence: {persistence,-45} ║
+╠══════════════════════════════════════════════════════════════╣
+║ Endpoints:                                                   ║
+║   GET  /                    - System info                    ║
+║   GET  /health              - Health check                   ║
+║   GET  /stats               - Statistics                     ║
+║   POST /orders              - Create order                   ║
+║   GET  /orders              - List orders                    ║
+║   GET  /orders/{{id}}         - Get order                      ║
+║   POST /orders/{{id}}/pay     - Pay order                      ║
+║   POST /orders/{{id}}/ship    - Ship order                     ║
+║   POST /orders/{{id}}/cancel  - Cancel order                   ║
+║   GET  /orders/{{id}}/history - Event history                  ║
+╚══════════════════════════════════════════════════════════════╝
+");
+
 app.Run();
 
 static string? GetArg(string[] args, string name)
@@ -118,8 +194,9 @@ namespace OrderSystem
     public record CreateOrderRequest(string CustomerId, List<OrderItem> Items);
     public record PayOrderRequest(string PaymentMethod);
     public record ShipOrderRequest(string TrackingNumber);
-    public record HealthResponse(string Status);
-    public record SystemInfoResponse(string NodeId, bool IsCluster, string Transport, string Persistence, string Mode);
+    public record HealthResponse(string Status, DateTime Timestamp);
+    public record SystemInfoResponse(string Service, string Version, string Node, string Mode, string Transport, string Persistence, string Status, DateTime Timestamp);
+    public record StatsResponse(int TotalOrders, Dictionary<string, int> ByStatus, decimal TotalRevenue, DateTime Timestamp);
 
     public sealed class CreateOrderHandler(OrderStore store, ICatgaMediator mediator) : IRequestHandler<CreateOrderCommand, OrderCreatedResult>
     {
@@ -209,18 +286,24 @@ namespace OrderSystem
         public List<object> GetEvents(string orderId) => _events.TryGetValue(orderId, out var events) ? [.. events] : [];
     }
 
-    public record NodeInfo(string NodeId, bool IsCluster);
+    public record NodeInfo(string NodeId, bool IsCluster, string Transport, string Persistence);
 
     [JsonSerializable(typeof(Order))]
     [JsonSerializable(typeof(List<Order>))]
     [JsonSerializable(typeof(OrderItem))]
     [JsonSerializable(typeof(List<OrderItem>))]
     [JsonSerializable(typeof(OrderCreatedResult))]
+    [JsonSerializable(typeof(OrderCreatedEvent))]
+    [JsonSerializable(typeof(OrderPaidEvent))]
+    [JsonSerializable(typeof(OrderShippedEvent))]
+    [JsonSerializable(typeof(OrderCancelledEvent))]
     [JsonSerializable(typeof(CreateOrderRequest))]
     [JsonSerializable(typeof(PayOrderRequest))]
     [JsonSerializable(typeof(ShipOrderRequest))]
     [JsonSerializable(typeof(HealthResponse))]
     [JsonSerializable(typeof(SystemInfoResponse))]
+    [JsonSerializable(typeof(StatsResponse))]
+    [JsonSerializable(typeof(Dictionary<string, int>))]
     [JsonSerializable(typeof(List<object>))]
     [JsonSerializable(typeof(ErrorInfo))]
     internal partial class AppJsonContext : JsonSerializerContext;

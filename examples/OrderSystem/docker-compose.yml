@@ -1,22 +1,140 @@
+version: '3.8'
+
 services:
+  # Redis - For persistence and transport
   redis:
-    image: redis:7-alpine
+    image: redis:alpine
+    container_name: catga-redis
     ports:
       - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
-      retries: 3
+      retries: 5
 
+  # NATS - For messaging and persistence
   nats:
-    image: nats:2-alpine
+    image: nats:alpine
+    container_name: catga-nats
     ports:
-      - "4222:4222"
-      - "8222:8222"
-    command: ["--jetstream", "-m", "8222"]
+      - "4222:4222"  # Client connections
+      - "8222:8222"  # HTTP monitoring
+    command: ["-js", "-m", "8222"]  # Enable JetStream and monitoring
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
       interval: 5s
       timeout: 3s
-      retries: 3
+      retries: 5
+
+  # OrderSystem - InMemory mode
+  ordersystem-inmemory:
+    build: .
+    container_name: ordersystem-inmemory
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_URLS=http://+:5000
+    command: ["--port", "5000"]
+    profiles:
+      - inmemory
+
+  # OrderSystem - Redis mode
+  ordersystem-redis:
+    build: .
+    container_name: ordersystem-redis
+    ports:
+      - "5001:5001"
+    environment:
+      - ASPNETCORE_URLS=http://+:5001
+    command: ["--transport", "redis", "--persistence", "redis", "--redis", "redis:6379", "--port", "5001"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - redis
+
+  # OrderSystem - NATS mode
+  ordersystem-nats:
+    build: .
+    container_name: ordersystem-nats
+    ports:
+      - "5002:5002"
+    environment:
+      - ASPNETCORE_URLS=http://+:5002
+    command: ["--transport", "nats", "--persistence", "nats", "--nats", "nats://nats:4222", "--port", "5002"]
+    depends_on:
+      nats:
+        condition: service_healthy
+    profiles:
+      - nats
+
+  # OrderSystem Cluster - Node 1
+  ordersystem-cluster-1:
+    build: .
+    container_name: ordersystem-cluster-1
+    ports:
+      - "5011:5011"
+    environment:
+      - ASPNETCORE_URLS=http://+:5011
+    command: ["--cluster", "--node-id", "node1", "--transport", "redis", "--persistence", "redis", "--redis", "redis:6379", "--port", "5011"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - cluster
+
+  # OrderSystem Cluster - Node 2
+  ordersystem-cluster-2:
+    build: .
+    container_name: ordersystem-cluster-2
+    ports:
+      - "5012:5012"
+    environment:
+      - ASPNETCORE_URLS=http://+:5012
+    command: ["--cluster", "--node-id", "node2", "--transport", "redis", "--persistence", "redis", "--redis", "redis:6379", "--port", "5012"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - cluster
+
+  # OrderSystem Cluster - Node 3
+  ordersystem-cluster-3:
+    build: .
+    container_name: ordersystem-cluster-3
+    ports:
+      - "5013:5013"
+    environment:
+      - ASPNETCORE_URLS=http://+:5013
+    command: ["--cluster", "--node-id", "node3", "--transport", "redis", "--persistence", "redis", "--redis", "redis:6379", "--port", "5013"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - cluster
+
+volumes:
+  redis-data:
+
+# Usage:
+# Start infrastructure only:
+#   docker-compose up -d redis nats
+#
+# Start with InMemory mode:
+#   docker-compose --profile inmemory up -d
+#
+# Start with Redis mode:
+#   docker-compose --profile redis up -d
+#
+# Start with NATS mode:
+#   docker-compose --profile nats up -d
+#
+# Start cluster (3 nodes):
+#   docker-compose --profile cluster up -d
+#
+# Start everything:
+#   docker-compose --profile inmemory --profile redis --profile nats --profile cluster up -d

@@ -49,11 +49,33 @@ public class CompleteBackendE2ETests
         }
     }
 
+    /// <summary>
+    /// Clear CatgaMediator's static caches to avoid test interference.
+    /// This is necessary because the static caches persist across tests.
+    /// </summary>
+    private static void ClearMediatorCaches()
+    {
+        var mediatorType = typeof(CatgaMediator);
+        var handlerCacheField = mediatorType.GetField("_handlerCache", 
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var behaviorCacheField = mediatorType.GetField("_behaviorCache", 
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+
+        if (handlerCacheField?.GetValue(null) is System.Collections.IDictionary handlerCache)
+            handlerCache.Clear();
+        
+        if (behaviorCacheField?.GetValue(null) is System.Collections.IDictionary behaviorCache)
+            behaviorCache.Clear();
+    }
+
     #region Test 1: Complete Order Flow - InMemory
 
     [Fact]
     public async Task CompleteOrderFlow_InMemory_ShouldWorkEndToEnd()
     {
+        // Clear static caches to avoid test interference
+        ClearMediatorCaches();
+        
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
@@ -62,11 +84,11 @@ public class CompleteBackendE2ETests
             .UseInMemory();
         services.AddInMemoryTransport();
         
-        // Register handlers manually
-        services.AddScoped<IRequestHandler<E2ECreateOrderCommand, E2EOrderCreatedResult>, E2ECreateOrderCommandHandler>();
-        services.AddScoped<IRequestHandler<E2EPayOrderCommand>, E2EPayOrderCommandHandler>();
-        services.AddScoped<IRequestHandler<E2EShipOrderCommand>, E2EShipOrderCommandHandler>();
-        services.AddScoped<IRequestHandler<E2EGetOrderQuery, E2EOrderDto?>, E2EGetOrderQueryHandler>();
+        // Register handlers manually - use Transient to avoid static caching issues
+        services.AddTransient<IRequestHandler<E2ECreateOrderCommand, E2EOrderCreatedResult>, E2ECreateOrderCommandHandler>();
+        services.AddTransient<IRequestHandler<E2EPayOrderCommand>, E2EPayOrderCommandHandler>();
+        services.AddTransient<IRequestHandler<E2EShipOrderCommand>, E2EShipOrderCommandHandler>();
+        services.AddTransient<IRequestHandler<E2EGetOrderQuery, E2EOrderDto?>, E2EGetOrderQueryHandler>();
         
         var provider = services.BuildServiceProvider();
         var mediator = provider.GetRequiredService<ICatgaMediator>();
@@ -119,6 +141,9 @@ public class CompleteBackendE2ETests
     {
         if (!IsDockerRunning()) return;
 
+        // Clear static caches to avoid test interference
+        ClearMediatorCaches();
+
         // Arrange - Create isolated Redis container for this test
         await using var redisContainer = new RedisBuilder()
             .WithImage("redis:7-alpine")
@@ -136,11 +161,11 @@ public class CompleteBackendE2ETests
         
         services.AddRedisTransport(redisConnectionString);
         
-        // Register handlers manually
-        services.AddScoped<IRequestHandler<E2ECreateOrderCommand, E2EOrderCreatedResult>, E2ECreateOrderCommandHandler>();
-        services.AddScoped<IRequestHandler<E2EPayOrderCommand>, E2EPayOrderCommandHandler>();
-        services.AddScoped<IRequestHandler<E2EShipOrderCommand>, E2EShipOrderCommandHandler>();
-        services.AddScoped<IRequestHandler<E2EGetOrderQuery, E2EOrderDto?>, E2EGetOrderQueryHandler>();
+        // Register handlers manually - use Transient to avoid static caching issues
+        services.AddTransient<IRequestHandler<E2ECreateOrderCommand, E2EOrderCreatedResult>, E2ECreateOrderCommandHandler>();
+        services.AddTransient<IRequestHandler<E2EPayOrderCommand>, E2EPayOrderCommandHandler>();
+        services.AddTransient<IRequestHandler<E2EShipOrderCommand>, E2EShipOrderCommandHandler>();
+        services.AddTransient<IRequestHandler<E2EGetOrderQuery, E2EOrderDto?>, E2EGetOrderQueryHandler>();
         
         var provider = services.BuildServiceProvider();
         var mediator = provider.GetRequiredService<ICatgaMediator>();
@@ -196,6 +221,9 @@ public class CompleteBackendE2ETests
     {
         if (!IsDockerRunning()) return;
 
+        // Clear static caches to avoid test interference
+        ClearMediatorCaches();
+
         // Arrange - Create isolated NATS container for this test
         await using var natsContainer = new ContainerBuilder()
             .WithImage("nats:latest")
@@ -223,11 +251,11 @@ public class CompleteBackendE2ETests
         
         services.AddNatsTransport(natsUrl);
         
-        // Register handlers manually
-        services.AddScoped<IRequestHandler<E2ECreateOrderCommand, E2EOrderCreatedResult>, E2ECreateOrderCommandHandler>();
-        services.AddScoped<IRequestHandler<E2EPayOrderCommand>, E2EPayOrderCommandHandler>();
-        services.AddScoped<IRequestHandler<E2EShipOrderCommand>, E2EShipOrderCommandHandler>();
-        services.AddScoped<IRequestHandler<E2EGetOrderQuery, E2EOrderDto?>, E2EGetOrderQueryHandler>();
+        // Register handlers manually - use Transient to avoid static caching issues
+        services.AddTransient<IRequestHandler<E2ECreateOrderCommand, E2EOrderCreatedResult>, E2ECreateOrderCommandHandler>();
+        services.AddTransient<IRequestHandler<E2EPayOrderCommand>, E2EPayOrderCommandHandler>();
+        services.AddTransient<IRequestHandler<E2EShipOrderCommand>, E2EShipOrderCommandHandler>();
+        services.AddTransient<IRequestHandler<E2EGetOrderQuery, E2EOrderDto?>, E2EGetOrderQueryHandler>();
         
         var provider = services.BuildServiceProvider();
         var mediator = provider.GetRequiredService<ICatgaMediator>();

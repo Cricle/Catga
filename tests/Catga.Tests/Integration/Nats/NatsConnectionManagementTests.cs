@@ -175,10 +175,11 @@ public partial class NatsConnectionManagementTests : IAsyncLifetime
 
         await Task.Delay(500);
 
-        // Create durable consumer
-        var consumerConfig = new ConsumerConfig($"durable_{Guid.NewGuid():N}")
+        // Create durable consumer - name and durable name must match
+        var consumerName = $"durable_{Guid.NewGuid():N}";
+        var consumerConfig = new ConsumerConfig(consumerName)
         {
-            DurableName = $"durable_{Guid.NewGuid():N}",
+            DurableName = consumerName, // Must match the name parameter
             AckPolicy = ConsumerConfigAckPolicy.Explicit
         };
 
@@ -186,25 +187,37 @@ public partial class NatsConnectionManagementTests : IAsyncLifetime
 
         // Consume first 2 messages
         var receivedCount = 0;
-        await foreach (var msg in consumer.ConsumeAsync<byte[]>().WithCancellation(new CancellationTokenSource(2000).Token))
+        var cts1 = new CancellationTokenSource(2000);
+        await foreach (var msg in consumer.ConsumeAsync<byte[]>().WithCancellation(cts1.Token))
         {
             receivedCount++;
             await msg.AckAsync();
-            if (receivedCount >= 2) break;
+            if (receivedCount >= 2)
+            {
+                cts1.Cancel(); // Cancel to stop consuming
+                break;
+            }
         }
 
-        // Simulate reconnection by creating new consumer with same durable name
-        var reconnectedConsumer = await stream.GetConsumerAsync(consumerConfig.DurableName!);
+        await Task.Delay(500); // Wait for ack to be processed
+
+        // Simulate reconnection by getting consumer with same name
+        var reconnectedConsumer = await stream.GetConsumerAsync(consumerName);
 
         // Act - Continue consuming after "reconnection"
         var replayedMessages = new List<string>();
-        await foreach (var msg in reconnectedConsumer.ConsumeAsync<byte[]>().WithCancellation(new CancellationTokenSource(3000).Token))
+        var cts2 = new CancellationTokenSource(3000);
+        await foreach (var msg in reconnectedConsumer.ConsumeAsync<byte[]>().WithCancellation(cts2.Token))
         {
             var evt = _serializer!.Deserialize<TestEvent>(msg.Data);
             replayedMessages.Add(evt.Id);
             await msg.AckAsync();
             
-            if (replayedMessages.Count >= 3) break; // Should receive remaining 3 messages
+            if (replayedMessages.Count >= 3)
+            {
+                cts2.Cancel(); // Cancel to stop consuming
+                break;
+            }
         }
 
         // Assert

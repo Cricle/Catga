@@ -537,12 +537,16 @@ public partial class NatsKVFunctionalityTests : IAsyncLifetime
         var key = "delete-me";
         await store.PutAsync(key, _serializer!.Serialize(new TestData { Id = "temp", Value = "Temporary" }));
 
+        // Verify key exists
+        var beforeDelete = await store.GetEntryAsync<byte[]>(key);
+        beforeDelete.Should().NotBeNull();
+
         // Act
         await store.DeleteAsync(key);
 
-        // Assert
-        var entry = await store.GetEntryAsync<byte[]>(key);
-        entry.Should().BeNull();
+        // Assert - After delete, GetEntryAsync should throw NatsKVKeyDeletedException
+        var act = async () => await store.GetEntryAsync<byte[]>(key);
+        await act.Should().ThrowAsync<NatsKVKeyDeletedException>();
     }
 
     /// <summary>
@@ -566,12 +570,16 @@ public partial class NatsKVFunctionalityTests : IAsyncLifetime
             await store.PutAsync(key, _serializer!.Serialize(new TestData { Id = $"v{i}", Value = $"Version {i}" }));
         }
 
+        // Verify key exists
+        var beforePurge = await store.GetEntryAsync<byte[]>(key);
+        beforePurge.Should().NotBeNull();
+
         // Act - Purge (delete all versions)
         await store.PurgeAsync(key);
 
-        // Assert
-        var entry = await store.GetEntryAsync<byte[]>(key);
-        entry.Should().BeNull();
+        // Assert - After purge, GetEntryAsync should throw NatsKVKeyDeletedException
+        var act = async () => await store.GetEntryAsync<byte[]>(key);
+        await act.Should().ThrowAsync<NatsKVKeyDeletedException>();
     }
 
     #endregion

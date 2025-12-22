@@ -50,7 +50,7 @@ public class CompleteBackendE2ETests : IAsyncLifetime
                     .ForPath("/varz")))
             .Build();
         await _natsContainer.StartAsync();
-        await Task.Delay(2000);
+        await Task.Delay(5000); // Wait longer for NATS to be fully ready
         var natsPort = _natsContainer.GetMappedPublicPort(4222);
         _natsUrl = $"nats://localhost:{natsPort}";
     }
@@ -148,7 +148,7 @@ public class CompleteBackendE2ETests : IAsyncLifetime
 
     #region Test 2: Complete Order Flow - Redis
 
-    [Fact(Skip = "Redis EventStore 测试隔离问题待修复 - 单独运行通过，批量运行失败")]
+    [Fact(Skip = "Redis EventStore 测试隔离问题 - 单独运行通过，批量运行时第一个事件丢失（可能是共享容器导致的数据污染）")]
     public async Task CompleteOrderFlow_Redis_ShouldWorkEndToEnd()
     {
         if (_redisConnectionString == null) return;
@@ -216,7 +216,7 @@ public class CompleteBackendE2ETests : IAsyncLifetime
 
     #region Test 3: Complete Order Flow - NATS
 
-    [Fact(Skip = "NATS JetStream PublishAsync 超时问题待修复 - 需要进一步调查 Stream 初始化和并发写入")]
+    [Fact(Skip = "NATS EventStore AppendAsync 超时 - 可能是 JetStream PublishAsync 在并发场景下的问题，需要进一步调查")]
     public async Task CompleteOrderFlow_NATS_ShouldWorkEndToEnd()
     {
         if (_natsUrl == null) return;
@@ -226,14 +226,18 @@ public class CompleteBackendE2ETests : IAsyncLifetime
         services.AddLogging();
         services.AddNatsConnection(_natsUrl);
         
+        // Configure longer timeout for NATS - register BEFORE UseNats()
+        var resilienceOptions = new CatgaResilienceOptions { PersistenceTimeout = TimeSpan.FromSeconds(30) };
+        services.AddSingleton(resilienceOptions);
+        services.AddSingleton<IResiliencePipelineProvider>(sp => new DefaultResiliencePipelineProvider(resilienceOptions));
+        
         services.AddCatga()
             .UseMemoryPack()
-            .UseNats();
-        services.AddNatsTransport(_natsUrl);
+            .UseEventSourcing(); // Only register event sourcing, not full UseNats()
         
-        // Configure longer timeout for NATS - MUST be after UseNats() to override
-        services.AddSingleton<IResiliencePipelineProvider>(new DefaultResiliencePipelineProvider(
-            new CatgaResilienceOptions { PersistenceTimeout = TimeSpan.FromSeconds(10) }));
+        // Manually register NATS stores without calling UseNats() to avoid overriding resilience
+        services.AddNatsPersistence();
+        services.AddNatsTransport(_natsUrl);
         
         // Register handlers manually
         services.AddScoped<IRequestHandler<E2ECreateOrderCommand, E2EOrderCreatedResult>, E2ECreateOrderCommandHandler>();

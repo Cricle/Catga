@@ -123,6 +123,8 @@ public sealed partial class RedisEventStore : IEventStore
                 keys: new RedisKey[] { versionKey, streamKey },
                 values: args.ToArray());
 
+            Console.WriteLine($"[Redis AppendAsync] Stream={streamId}, Result={result}, IsNull={result.IsNull}");
+
             if (result.IsNull)
             {
                 var actualVersion = await GetVersionInternalAsync(db, versionKey);
@@ -132,6 +134,7 @@ public sealed partial class RedisEventStore : IEventStore
             }
 
             var finalVersion = (long)result;
+            Console.WriteLine($"[Redis AppendAsync] Stream={streamId}, FinalVersion={finalVersion}, EventCount={events.Count}");
 
             activity?.AddEvent(new ActivityEvent("events.appended",
                 tags: new ActivityTagsCollection
@@ -167,6 +170,8 @@ public sealed partial class RedisEventStore : IEventStore
             try
             {
                 var entries = await db.StreamReadAsync(streamKey, "0-0", maxCount);
+                Console.WriteLine($"[Redis ReadAsync] Stream={streamId}, Entries count={entries.Length}");
+                
                 if (entries.Length == 0)
                 {
                     return new EventStream
@@ -180,6 +185,7 @@ public sealed partial class RedisEventStore : IEventStore
                 foreach (var entry in entries)
                 {
                     var version = (long)entry["version"];
+                    Console.WriteLine($"[Redis ReadAsync] Entry ID={entry.Id}, Version={version}");
                     
                     var typeName = (string)entry["type"]!;
                     var data = (byte[])entry["data"]!;
@@ -195,20 +201,18 @@ public sealed partial class RedisEventStore : IEventStore
                     var @event = (IEvent?)_serializer.Deserialize(data, eventType);
                     if (@event == null) continue;
 
-                    // Only add events that match the version filter
-                    if (version >= fromVersion)
+                    // Add all events first, then filter by version
+                    storedEvents.Add(new StoredEvent
                     {
-                        storedEvents.Add(new StoredEvent
-                        {
-                            Version = version,
-                            Event = @event,
-                            Timestamp = new DateTime(timestamp, DateTimeKind.Utc),
-                            EventType = eventType.Name
-                        });
-
-                        if (storedEvents.Count >= maxCount) break;
-                    }
+                        Version = version,
+                        Event = @event,
+                        Timestamp = new DateTime(timestamp, DateTimeKind.Utc),
+                        EventType = eventType.Name
+                    });
                 }
+                
+                // Filter by fromVersion after collecting all events
+                storedEvents = storedEvents.Where(e => e.Version >= fromVersion).Take(maxCount).ToList();
             }
             catch (RedisServerException ex) when (ex.Message.Contains("NOGROUP") || ex.Message.Contains("no such key"))
             {

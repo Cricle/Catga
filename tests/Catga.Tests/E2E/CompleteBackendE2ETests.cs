@@ -21,6 +21,7 @@ namespace Catga.Tests.E2E;
 /// </summary>
 [Trait("Category", "E2E")]
 [Trait("Requires", "Docker")]
+[Collection("E2E Tests")]  // Force sequential execution
 public class CompleteBackendE2ETests
 {
 
@@ -162,10 +163,19 @@ public class CompleteBackendE2ETests
         shipResult.IsSuccess.Should().BeTrue();
 
         // Wait a bit for Redis to persist all events
-        await Task.Delay(100);
+        await Task.Delay(500);
 
         // Act & Assert - Verify Events
         var events = await eventStore.ReadAsync(orderId);
+        
+        // Debug: Print all events
+        Console.WriteLine($"Total events read: {events.Events.Count}");
+        for (int i = 0; i < events.Events.Count; i++)
+        {
+            var evt = events.Events[i];
+            Console.WriteLine($"Event {i}: Type={evt.EventType}, Version={evt.Version}");
+        }
+        
         events.Events.Should().HaveCount(3);
         events.Events[0].Event.Should().BeOfType<E2EOrderCreatedEvent>();
         events.Events[1].Event.Should().BeOfType<E2EOrderPaidEvent>();
@@ -246,7 +256,7 @@ public class CompleteBackendE2ETests
         shipResult.IsSuccess.Should().BeTrue($"Ship order should succeed, but got error: {shipResult.Error}");
 
         // Wait a bit for NATS to persist all events
-        await Task.Delay(1000);
+        await Task.Delay(2000);
 
         // Act & Assert - Verify Events
         var events = await eventStore.ReadAsync(orderId);
@@ -637,7 +647,9 @@ public class E2ECreateOrderCommandHandler : IRequestHandler<E2ECreateOrderComman
             Amount = request.Amount
         };
 
+        Console.WriteLine($"[CREATE] Appending OrderCreatedEvent for {request.OrderId}");
         await _eventStore.AppendAsync(request.OrderId, new[] { @event }, expectedVersion: -1, cancellationToken);
+        Console.WriteLine($"[CREATE] Successfully appended OrderCreatedEvent for {request.OrderId}");
         await _mediator.PublishAsync(@event, cancellationToken);
 
         return CatgaResult<E2EOrderCreatedResult>.Success(
@@ -665,7 +677,9 @@ public class E2EPayOrderCommandHandler : IRequestHandler<E2EPayOrderCommand>
             OrderId = request.OrderId
         };
 
+        Console.WriteLine($"[PAY] Appending OrderPaidEvent for {request.OrderId}");
         await _eventStore.AppendAsync(request.OrderId, new[] { @event }, expectedVersion: -1, cancellationToken);
+        Console.WriteLine($"[PAY] Successfully appended OrderPaidEvent for {request.OrderId}");
         await _mediator.PublishAsync(@event, cancellationToken);
 
         return CatgaResult.Success();
@@ -693,7 +707,9 @@ public class E2EShipOrderCommandHandler : IRequestHandler<E2EShipOrderCommand>
             TrackingNumber = request.TrackingNumber
         };
 
+        Console.WriteLine($"[SHIP] Appending OrderShippedEvent for {request.OrderId}");
         await _eventStore.AppendAsync(request.OrderId, new[] { @event }, expectedVersion: -1, cancellationToken);
+        Console.WriteLine($"[SHIP] Successfully appended OrderShippedEvent for {request.OrderId}");
         await _mediator.PublishAsync(@event, cancellationToken);
 
         return CatgaResult.Success();

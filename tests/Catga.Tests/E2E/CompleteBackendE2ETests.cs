@@ -17,49 +17,12 @@ namespace Catga.Tests.E2E;
 /// <summary>
 /// Complete E2E tests covering InMemory, Redis, and NATS backends
 /// Tests full CQRS + Event Sourcing workflow with all backends
+/// Each test creates its own isolated containers to avoid test interference
 /// </summary>
 [Trait("Category", "E2E")]
 [Trait("Requires", "Docker")]
-public class CompleteBackendE2ETests : IAsyncLifetime
+public class CompleteBackendE2ETests
 {
-    private RedisContainer? _redisContainer;
-    private IContainer? _natsContainer;
-    private string? _redisConnectionString;
-    private string? _natsUrl;
-
-    public async Task InitializeAsync()
-    {
-        if (!IsDockerRunning()) return;
-
-        // Start Redis
-        _redisContainer = new RedisBuilder()
-            .WithImage("redis:7-alpine")
-            .Build();
-        await _redisContainer.StartAsync();
-        _redisConnectionString = _redisContainer.GetConnectionString();
-
-        // Start NATS
-        _natsContainer = new ContainerBuilder()
-            .WithImage("nats:latest")
-            .WithPortBinding(4222, true)
-            .WithPortBinding(8222, true)
-            .WithCommand("-js", "-m", "8222")
-            .WithWaitStrategy(Wait.ForUnixContainer()
-                .UntilHttpRequestIsSucceeded(r => r
-                    .ForPort(8222)
-                    .ForPath("/varz")))
-            .Build();
-        await _natsContainer.StartAsync();
-        await Task.Delay(5000); // Wait longer for NATS to be fully ready
-        var natsPort = _natsContainer.GetMappedPublicPort(4222);
-        _natsUrl = $"nats://localhost:{natsPort}";
-    }
-
-    public async Task DisposeAsync()
-    {
-        if (_redisContainer != null) await _redisContainer.DisposeAsync();
-        if (_natsContainer != null) await _natsContainer.DisposeAsync();
-    }
 
     private static bool IsDockerRunning()
     {
@@ -148,18 +111,24 @@ public class CompleteBackendE2ETests : IAsyncLifetime
 
     #region Test 2: Complete Order Flow - Redis
 
-    [Fact(Skip = "Redis EventStore 测试隔离问题 - 单独运行通过，批量运行时第一个事件丢失（可能是共享容器导致的数据污染）")]
+    [Fact]
     public async Task CompleteOrderFlow_Redis_ShouldWorkEndToEnd()
     {
-        if (_redisConnectionString == null) return;
+        if (!IsDockerRunning()) return;
 
-        // Arrange
+        // Arrange - Create isolated Redis container for this test
+        await using var redisContainer = new RedisBuilder()
+            .WithImage("redis:7-alpine")
+            .Build();
+        await redisContainer.StartAsync();
+        var redisConnectionString = redisContainer.GetConnectionString();
+
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddCatga()
             .UseMemoryPack()
-            .UseRedis(_redisConnectionString);
-        services.AddRedisTransport(_redisConnectionString);
+            .UseRedis(redisConnectionString);
+        services.AddRedisTransport(redisConnectionString);
         
         // Register handlers manually
         services.AddScoped<IRequestHandler<E2ECreateOrderCommand, E2EOrderCreatedResult>, E2ECreateOrderCommandHandler>();
@@ -216,28 +185,34 @@ public class CompleteBackendE2ETests : IAsyncLifetime
 
     #region Test 3: Complete Order Flow - NATS
 
-    [Fact(Skip = "NATS EventStore AppendAsync 超时 - 可能是 JetStream PublishAsync 在并发场景下的问题，需要进一步调查")]
+    [Fact]
     public async Task CompleteOrderFlow_NATS_ShouldWorkEndToEnd()
     {
-        if (_natsUrl == null) return;
+        if (!IsDockerRunning()) return;
 
-        // Arrange
+        // Arrange - Create isolated NATS container for this test
+        await using var natsContainer = new ContainerBuilder()
+            .WithImage("nats:latest")
+            .WithPortBinding(4222, true)
+            .WithPortBinding(8222, true)
+            .WithCommand("-js", "-m", "8222")
+            .WithWaitStrategy(Wait.ForUnixContainer()
+                .UntilHttpRequestIsSucceeded(r => r
+                    .ForPort(8222)
+                    .ForPath("/varz")))
+            .Build();
+        await natsContainer.StartAsync();
+        await Task.Delay(5000); // Wait longer for NATS to be fully ready
+        var natsPort = natsContainer.GetMappedPublicPort(4222);
+        var natsUrl = $"nats://localhost:{natsPort}";
+
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddNatsConnection(_natsUrl);
-        
-        // Configure longer timeout for NATS - register BEFORE UseNats()
-        var resilienceOptions = new CatgaResilienceOptions { PersistenceTimeout = TimeSpan.FromSeconds(30) };
-        services.AddSingleton(resilienceOptions);
-        services.AddSingleton<IResiliencePipelineProvider>(sp => new DefaultResiliencePipelineProvider(resilienceOptions));
-        
+        services.AddNatsConnection(natsUrl);
         services.AddCatga()
             .UseMemoryPack()
-            .UseEventSourcing(); // Only register event sourcing, not full UseNats()
-        
-        // Manually register NATS stores without calling UseNats() to avoid overriding resilience
-        services.AddNatsPersistence();
-        services.AddNatsTransport(_natsUrl);
+            .UseNats();
+        services.AddNatsTransport(natsUrl);
         
         // Register handlers manually
         services.AddScoped<IRequestHandler<E2ECreateOrderCommand, E2EOrderCreatedResult>, E2ECreateOrderCommandHandler>();
@@ -255,20 +230,23 @@ public class CompleteBackendE2ETests : IAsyncLifetime
         var createResult = await mediator.SendAsync<E2ECreateOrderCommand, E2EOrderCreatedResult>(
             new E2ECreateOrderCommand { OrderId = orderId, CustomerId = "customer-nats", Amount = 300m });
         
-        createResult.IsSuccess.Should().BeTrue();
+        createResult.IsSuccess.Should().BeTrue($"Create order should succeed, but got error: {createResult.Error}");
         createResult.Value!.OrderId.Should().Be(orderId);
 
         // Act & Assert - Pay Order
         var payResult = await mediator.SendAsync<E2EPayOrderCommand>(
             new E2EPayOrderCommand { OrderId = orderId });
         
-        payResult.IsSuccess.Should().BeTrue();
+        payResult.IsSuccess.Should().BeTrue($"Pay order should succeed, but got error: {payResult.Error}");
 
         // Act & Assert - Ship Order
         var shipResult = await mediator.SendAsync<E2EShipOrderCommand>(
             new E2EShipOrderCommand { OrderId = orderId, TrackingNumber = "TRACK-NATS" });
         
-        shipResult.IsSuccess.Should().BeTrue();
+        shipResult.IsSuccess.Should().BeTrue($"Ship order should succeed, but got error: {shipResult.Error}");
+
+        // Wait a bit for NATS to persist all events
+        await Task.Delay(1000);
 
         // Act & Assert - Verify Events
         var events = await eventStore.ReadAsync(orderId);
@@ -329,14 +307,20 @@ public class CompleteBackendE2ETests : IAsyncLifetime
     [Fact]
     public async Task SnapshotStore_Redis_ShouldPersistAndRestore()
     {
-        if (_redisConnectionString == null) return;
+        if (!IsDockerRunning()) return;
 
-        // Arrange
+        // Arrange - Create isolated Redis container for this test
+        await using var redisContainer = new RedisBuilder()
+            .WithImage("redis:7-alpine")
+            .Build();
+        await redisContainer.StartAsync();
+        var redisConnectionString = redisContainer.GetConnectionString();
+
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddCatga()
             .UseMemoryPack()
-            .UseRedis(_redisConnectionString);
+            .UseRedis(redisConnectionString);
         
         var provider = services.BuildServiceProvider();
         var snapshotStore = provider.GetRequiredService<ISnapshotStore>();
@@ -366,12 +350,27 @@ public class CompleteBackendE2ETests : IAsyncLifetime
     [Fact]
     public async Task SnapshotStore_NATS_ShouldPersistAndRestore()
     {
-        if (_natsUrl == null) return;
+        if (!IsDockerRunning()) return;
 
-        // Arrange
+        // Arrange - Create isolated NATS container for this test
+        await using var natsContainer = new ContainerBuilder()
+            .WithImage("nats:latest")
+            .WithPortBinding(4222, true)
+            .WithPortBinding(8222, true)
+            .WithCommand("-js", "-m", "8222")
+            .WithWaitStrategy(Wait.ForUnixContainer()
+                .UntilHttpRequestIsSucceeded(r => r
+                    .ForPort(8222)
+                    .ForPath("/varz")))
+            .Build();
+        await natsContainer.StartAsync();
+        await Task.Delay(2000); // Wait for NATS to be fully ready
+        var natsPort = natsContainer.GetMappedPublicPort(4222);
+        var natsUrl = $"nats://localhost:{natsPort}";
+
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddNatsConnection(_natsUrl);
+        services.AddNatsConnection(natsUrl);
         services.AddCatga()
             .UseMemoryPack()
             .UseNats();
@@ -441,15 +440,21 @@ public class CompleteBackendE2ETests : IAsyncLifetime
     [Fact]
     public async Task EventPublishing_Redis_ShouldDeliverToHandlers()
     {
-        if (_redisConnectionString == null) return;
+        if (!IsDockerRunning()) return;
 
-        // Arrange
+        // Arrange - Create isolated Redis container for this test
+        await using var redisContainer = new RedisBuilder()
+            .WithImage("redis:7-alpine")
+            .Build();
+        await redisContainer.StartAsync();
+        var redisConnectionString = redisContainer.GetConnectionString();
+
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddCatga()
             .UseMemoryPack()
-            .UseRedis(_redisConnectionString);
-        services.AddRedisTransport(_redisConnectionString);
+            .UseRedis(redisConnectionString);
+        services.AddRedisTransport(redisConnectionString);
         services.AddScoped<IEventHandler<E2EOrderCreatedEvent>, E2EOrderCreatedEventHandler>();
         
         var provider = services.BuildServiceProvider();
@@ -476,16 +481,31 @@ public class CompleteBackendE2ETests : IAsyncLifetime
     [Fact]
     public async Task EventPublishing_NATS_ShouldDeliverToHandlers()
     {
-        if (_natsUrl == null) return;
+        if (!IsDockerRunning()) return;
 
-        // Arrange
+        // Arrange - Create isolated NATS container for this test
+        await using var natsContainer = new ContainerBuilder()
+            .WithImage("nats:latest")
+            .WithPortBinding(4222, true)
+            .WithPortBinding(8222, true)
+            .WithCommand("-js", "-m", "8222")
+            .WithWaitStrategy(Wait.ForUnixContainer()
+                .UntilHttpRequestIsSucceeded(r => r
+                    .ForPort(8222)
+                    .ForPath("/varz")))
+            .Build();
+        await natsContainer.StartAsync();
+        await Task.Delay(2000); // Wait for NATS to be fully ready
+        var natsPort = natsContainer.GetMappedPublicPort(4222);
+        var natsUrl = $"nats://localhost:{natsPort}";
+
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddNatsConnection(_natsUrl);
+        services.AddNatsConnection(natsUrl);
         services.AddCatga()
             .UseMemoryPack()
             .UseNats();
-        services.AddNatsTransport(_natsUrl);
+        services.AddNatsTransport(natsUrl);
         services.AddScoped<IEventHandler<E2EOrderCreatedEvent>, E2EOrderCreatedEventHandler>();
         
         var provider = services.BuildServiceProvider();

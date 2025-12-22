@@ -73,69 +73,76 @@ public sealed partial class RedisEventStore : IEventStore
             }
 
             // Append events to stream using Lua script for atomicity
-            var newVersion = currentVersion;
+            // Use a single Lua script to append all events atomically
+            var script = @"
+                local versionKey = KEYS[1]
+                local streamKey = KEYS[2]
+                local expectedVer = tonumber(ARGV[1])
+                local eventCount = tonumber(ARGV[2])
+                
+                local currentVer = redis.call('GET', versionKey)
+                if currentVer == false then
+                    currentVer = -1
+                else
+                    currentVer = tonumber(currentVer)
+                end
+                
+                if expectedVer ~= -1 and currentVer ~= expectedVer then
+                    return {err = 'Version mismatch: expected ' .. expectedVer .. ', got ' .. currentVer}
+                end
+                
+                local newVer = currentVer
+                for i = 1, eventCount do
+                    newVer = newVer + 1
+                    local offset = 2 + (i - 1) * 3
+                    local type = ARGV[offset + 1]
+                    local data = ARGV[offset + 2]
+                    local timestamp = ARGV[offset + 3]
+                    redis.call('XADD', streamKey, '*', 'version', newVer, 'type', type, 'data', data, 'timestamp', timestamp)
+                end
+                
+                redis.call('SET', versionKey, newVer)
+                return newVer
+            ";
+
+            // Prepare arguments: expectedVersion, eventCount, then for each event: type, data, timestamp
+            var args = new List<RedisValue> { expectedVersion, events.Count };
             foreach (var @event in events)
             {
-                newVersion++;
                 var runtimeType = _registry.GetPreservedType(@event);
                 var typeFull = runtimeType.AssemblyQualifiedName ?? runtimeType.FullName!;
-
                 var data = _serializer.Serialize(@event, runtimeType);
                 var timestamp = DateTime.UtcNow.Ticks;
-
-                // Use Lua script to atomically check version and append event
-                var script = @"
-                    local versionKey = KEYS[1]
-                    local streamKey = KEYS[2]
-                    local expectedVer = tonumber(ARGV[1])
-                    local newVer = tonumber(ARGV[2])
-                    local version = ARGV[3]
-                    local type = ARGV[4]
-                    local data = ARGV[5]
-                    local timestamp = ARGV[6]
-                    
-                    local currentVer = redis.call('GET', versionKey)
-                    if currentVer == false then
-                        currentVer = -1
-                    else
-                        currentVer = tonumber(currentVer)
-                    end
-                    
-                    if expectedVer ~= -1 and currentVer ~= expectedVer then
-                        return {err = 'Version mismatch: expected ' .. expectedVer .. ', got ' .. currentVer}
-                    end
-                    
-                    redis.call('XADD', streamKey, '*', 'version', version, 'type', type, 'data', data, 'timestamp', timestamp)
-                    redis.call('SET', versionKey, newVer)
-                    return newVer
-                ";
-
-                var result = await db.ScriptEvaluateAsync(script,
-                    keys: new RedisKey[] { versionKey, streamKey },
-                    values: new RedisValue[] { currentVersion, newVersion, newVersion, typeFull, data, timestamp });
-
-                if (result.IsNull)
-                {
-                    var actualVersion = await GetVersionInternalAsync(db, versionKey);
-                    var ex = new ConcurrencyException(streamId, expectedVersion == -1 ? currentVersion : expectedVersion, actualVersion);
-                    MetricsHelper.SetActivityError(activity, ex);
-                    throw ex;
-                }
-
-                // Update currentVersion for next iteration
-                currentVersion = newVersion;
-
-                activity?.AddEvent(new ActivityEvent("event.appended",
-                    tags: new ActivityTagsCollection
-                    {
-                        { "stream", streamId },
-                        { "version", newVersion },
-                        { "event.type", runtimeType.Name }
-                    }));
+                
+                args.Add(typeFull);
+                args.Add(data);
+                args.Add(timestamp);
             }
 
+            var result = await db.ScriptEvaluateAsync(script,
+                keys: new RedisKey[] { versionKey, streamKey },
+                values: args.ToArray());
+
+            if (result.IsNull)
+            {
+                var actualVersion = await GetVersionInternalAsync(db, versionKey);
+                var ex = new ConcurrencyException(streamId, expectedVersion, actualVersion);
+                MetricsHelper.SetActivityError(activity, ex);
+                throw ex;
+            }
+
+            var finalVersion = (long)result;
+
+            activity?.AddEvent(new ActivityEvent("events.appended",
+                tags: new ActivityTagsCollection
+                {
+                    { "stream", streamId },
+                    { "version", finalVersion },
+                    { "event.count", events.Count }
+                }));
+
             MetricsHelper.RecordEventStoreAppend(events.Count, start);
-            LogEventsAppended(_logger, streamId, events.Count, newVersion);
+            LogEventsAppended(_logger, streamId, events.Count, finalVersion);
         }, cancellationToken);
     }
 

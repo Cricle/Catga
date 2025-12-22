@@ -1,867 +1,907 @@
-# Catga AI Guide - Complete Usage Reference
+# Catga Framework - AI Development Guide
 
-This document is designed for AI assistants to understand how to use Catga framework correctly.
+> **For AI Assistants**: This guide provides comprehensive instructions for helping developers use the Catga CQRS framework effectively.
 
-## Overview
+## 📋 Table of Contents
 
-Catga is a high-performance .NET mediator framework with:
-- CQRS pattern (Commands, Queries, Events)
-- Event Sourcing
-- Distributed messaging (Redis, NATS)
-- Flow/Saga orchestration
-- AOT compatible
+1. [Framework Overview](#framework-overview)
+2. [Core Concepts](#core-concepts)
+3. [Getting Started](#getting-started)
+4. [Architecture Patterns](#architecture-patterns)
+5. [Best Practices](#best-practices)
+6. [Common Pitfalls](#common-pitfalls)
+7. [Code Generation Guidelines](#code-generation-guidelines)
+8. [Testing Strategies](#testing-strategies)
+9. [Performance Optimization](#performance-optimization)
+10. [Troubleshooting](#troubleshooting)
 
-## Project Structure
+---
 
-```
-src/
-├── Catga/                      # Core library
-├── Catga.Abstractions/         # Interfaces (merged into Catga)
-├── Catga.AspNetCore/           # ASP.NET Core integration
-├── Catga.Cluster/              # Cluster coordination
-├── Catga.Persistence.InMemory/ # InMemory stores
-├── Catga.Persistence.Redis/    # Redis stores
-├── Catga.Persistence.Nats/     # NATS JetStream stores
-├── Catga.Transport.InMemory/   # InMemory transport
-├── Catga.Transport.Redis/      # Redis Pub/Sub transport
-├── Catga.Transport.Nats/       # NATS transport
-├── Catga.Serialization.MemoryPack/ # MemoryPack serializer
-├── Catga.Scheduling.Hangfire/  # Hangfire integration
-├── Catga.Scheduling.Quartz/    # Quartz integration
-└── Catga.SourceGenerator/      # Source generators
-```
+## Framework Overview
 
-## Basic Setup
+### What is Catga?
 
-### Minimal Setup (InMemory)
-```csharp
-var services = new ServiceCollection();
-services.AddCatga();
-services.AddInMemoryPersistence();
-services.AddInMemoryTransport();
-services.UseMemoryPackSerializer();
-services.AddCatgaResilience();
-```
+Catga is a high-performance, AOT-compatible CQRS (Command Query Responsibility Segregation) framework for .NET 8/9 that provides:
 
-### Redis Setup
-```csharp
-var redis = await ConnectionMultiplexer.ConnectAsync("localhost:6379");
-services.AddCatga();
-services.AddSingleton(redis);
-services.UseMemoryPackSerializer();
-services.AddCatgaResilience();
-services.AddRedisTransport(redis);
-services.AddRedisEventStore();
-services.AddRedisSnapshotStore();
-services.AddRedisIdempotencyStore();
-services.AddRedisDeadLetterQueue();
-services.AddRedisDistributedLock();
-```
+- **CQRS Pattern**: Separate command and query handling
+- **Event Sourcing**: Complete event history tracking
+- **Multiple Backends**: InMemory, Redis, NATS support
+- **Distributed Messaging**: Pub/Sub with multiple transports
+- **AOT Compilation**: Native AOT ready for optimal performance
+- **Type Safety**: Full compile-time checking
+- **Zero Boilerplate**: Minimal code, maximum features
 
-### NATS Setup
-```csharp
-var nats = new NatsConnection(new NatsOpts { Url = "nats://localhost:4222" });
-await nats.ConnectAsync();
-services.AddCatga();
-services.AddSingleton(nats);
-services.UseMemoryPackSerializer();
-services.AddCatgaResilience();
-services.AddNatsTransport("nats://localhost:4222");
-```
+### Key Features
 
-### Mixed Backend (Redis Transport + InMemory Persistence)
-```csharp
-services.AddCatga();
-services.AddSingleton(redis);
-services.UseMemoryPackSerializer();
-services.AddCatgaResilience();
-services.AddRedisTransport(redis);      // Transport: Redis
-services.AddInMemoryPersistence();       // Persistence: InMemory
-```
+✅ **Commands & Queries**: Type-safe request/response pattern  
+✅ **Events**: Pub/Sub event handling  
+✅ **Flow DSL**: Workflow orchestration  
+✅ **Event Sourcing**: Aggregate state management  
+✅ **Persistence**: Multiple storage backends  
+✅ **Transport**: Multiple messaging backends  
+✅ **Serialization**: MemoryPack for high performance  
+✅ **Observability**: Built-in metrics and tracing  
 
+---
 
-## Message Types
+## Core Concepts
 
-### CRITICAL: Message Definition Rules
-1. All messages MUST be `record` types
-2. Queries inherit from `QueryBase<TResponse>`
-3. Commands inherit from `CommandBase`
-4. Events inherit from `EventBase`
+### 1. Messages
+
+All messages in Catga implement marker interfaces:
 
 ```csharp
-// Query - returns a value
-public record GetOrderQuery : QueryBase<OrderDto>
+// Commands - Write operations
+public record CreateOrderCommand(string CustomerId, List<OrderItem> Items) 
+    : IRequest<OrderCreatedResult>
 {
-    public string OrderId { get; init; } = "";
+    public long MessageId { get; init; }
 }
 
-// Command - no return value (returns CatgaResult)
-public record CreateOrderCommand : CommandBase
+// Queries - Read operations
+public record GetOrderQuery(string OrderId) 
+    : IRequest<Order?>
 {
-    public string CustomerId { get; init; } = "";
-    public List<OrderItem> Items { get; init; } = new();
+    public long MessageId { get; init; }
 }
 
-// Event - for event sourcing and pub/sub
-public record OrderCreatedEvent : EventBase
+// Events - Domain events
+public record OrderCreatedEvent(string OrderId, decimal Total) 
+    : IEvent
 {
-    public string OrderId { get; init; } = "";
-    public decimal Total { get; init; }
+    public long MessageId { get; init; }
 }
 ```
 
-### Handler Implementation
+**Important**: 
+- All messages MUST have a `MessageId` property
+- Use records for immutability
+- Commands should be imperative (CreateOrder, UpdateOrder)
+- Events should be past tense (OrderCreated, OrderUpdated)
+
+### 2. Handlers
+
+Handlers process messages:
 
 ```csharp
-// Query handler - returns CatgaResult<T>
-public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, OrderDto>
+// Command Handler
+public sealed class CreateOrderHandler(OrderStore store, ICatgaMediator mediator) 
+    : IRequestHandler<CreateOrderCommand, OrderCreatedResult>
 {
-    public ValueTask<CatgaResult<OrderDto>> HandleAsync(GetOrderQuery request, CancellationToken ct = default)
+    public async ValueTask<CatgaResult<OrderCreatedResult>> HandleAsync(
+        CreateOrderCommand cmd, CancellationToken ct = default)
     {
-        var order = /* fetch order */;
-        return ValueTask.FromResult(CatgaResult<OrderDto>.Success(order));
+        // 1. Validate
+        if (string.IsNullOrEmpty(cmd.CustomerId))
+            return CatgaResult<OrderCreatedResult>.Failure("Customer ID required");
+        
+        // 2. Execute business logic
+        var order = new Order(/* ... */);
+        store.Save(order);
+        
+        // 3. Publish events
+        await mediator.PublishAsync(new OrderCreatedEvent(order.Id, order.Total), ct);
+        
+        // 4. Return result
+        return CatgaResult<OrderCreatedResult>.Success(
+            new OrderCreatedResult(order.Id, order.Total));
     }
 }
 
-// Command handler - returns CatgaResult
-public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand>
+// Event Handler
+public sealed class OrderEventLogger : IEventHandler<OrderCreatedEvent>
 {
-    public ValueTask<CatgaResult> HandleAsync(CreateOrderCommand request, CancellationToken ct = default)
+    public ValueTask HandleAsync(OrderCreatedEvent evt, CancellationToken ct = default)
     {
-        // process command
-        return ValueTask.FromResult(CatgaResult.Success());
-    }
-}
-
-// Event handler
-public class OrderCreatedEventHandler : IEventHandler<OrderCreatedEvent>
-{
-    public ValueTask HandleAsync(OrderCreatedEvent @event, CancellationToken ct = default)
-    {
-        // handle event
+        Console.WriteLine($"Order {evt.OrderId} created: ${evt.Total}");
         return ValueTask.CompletedTask;
     }
 }
 ```
 
-## Using the Mediator
+**Important**:
+- Handlers should be `sealed` for performance
+- Use `ValueTask` for async operations
+- Always handle `CancellationToken`
+- Return `CatgaResult<T>` for commands/queries
+- Event handlers return `ValueTask` (no result)
 
-### CRITICAL: SendAsync Type Parameters
-```csharp
-// For queries - TWO type parameters required
-var result = await mediator.SendAsync<GetOrderQuery, OrderDto>(new GetOrderQuery { OrderId = "123" });
+### 3. Mediator
 
-// For commands - ONE type parameter
-var result = await mediator.SendAsync<CreateOrderCommand>(new CreateOrderCommand { ... });
-
-// Publishing events
-await mediator.PublishAsync(new OrderCreatedEvent { OrderId = "123" });
-```
-
-## CatgaResult Pattern
-
-### CRITICAL: Correct Method Names
-```csharp
-// SUCCESS - use Success(), NOT Ok()
-CatgaResult.Success()
-CatgaResult<T>.Success(value)
-
-// FAILURE - use Failure(), NOT Fail()
-CatgaResult.Failure("error message")
-CatgaResult<T>.Failure("error message")
-
-// Checking result
-if (result.IsSuccess)
-{
-    var value = result.Value; // for CatgaResult<T>
-}
-else
-{
-    var error = result.Error;
-}
-```
-
-
-## Event Sourcing
-
-### Event Store
-```csharp
-var eventStore = sp.GetRequiredService<IEventStore>();
-
-// Append events - use AppendAsync, NOT SaveAsync
-await eventStore.AppendAsync(streamId, events, expectedVersion);
-
-// Read events - use ReadAsync, NOT LoadAsync
-var stream = await eventStore.ReadAsync(streamId);
-foreach (var evt in stream.Events)
-{
-    // process event
-}
-```
-
-### Snapshot Store
-```csharp
-var snapshotStore = sp.GetRequiredService<ISnapshotStore>();
-
-// Save snapshot
-await snapshotStore.SaveAsync(aggregateId, state, version);
-
-// Load snapshot - use LoadAsync<T>
-var snapshot = await snapshotStore.LoadAsync<MyState>(aggregateId);
-if (snapshot != null)
-{
-    var state = snapshot.State;
-    var version = snapshot.Version;
-}
-```
-
-### Aggregate Repository Pattern
-```csharp
-public class OrderAggregate : AggregateRoot
-{
-    public string CustomerId { get; private set; } = "";
-    public decimal Total { get; private set; }
-    
-    public void Create(string customerId)
-    {
-        Apply(new OrderCreatedEvent { CustomerId = customerId });
-    }
-    
-    protected override void When(IEvent @event)
-    {
-        switch (@event)
-        {
-            case OrderCreatedEvent e:
-                CustomerId = e.CustomerId;
-                break;
-        }
-    }
-}
-
-// Using repository
-var repo = sp.GetRequiredService<IAggregateRepository<OrderAggregate>>();
-var order = await repo.LoadAsync(orderId);
-order.Create("customer-1");
-await repo.SaveAsync(order);
-```
-
-## Idempotency Store
+The mediator routes messages to handlers:
 
 ```csharp
-var idempotencyStore = sp.GetRequiredService<IIdempotencyStore>();
-
-// Check if processed - use HasBeenProcessedAsync
-var exists = await idempotencyStore.HasBeenProcessedAsync(messageId);
-
-// Mark as processed - use MarkAsProcessedAsync<T>
-await idempotencyStore.MarkAsProcessedAsync<string>(messageId, "result");
-```
-
-## Distributed Lock
-
-```csharp
-var lockProvider = sp.GetRequiredService<IDistributedLockProvider>();
-
-// Create lock instance
-var distLock = lockProvider.CreateLock("my-lock-key");
-
-// Acquire lock with timeout
-await using var handle = await distLock.TryAcquireAsync(TimeSpan.FromSeconds(30));
-if (handle != null)
-{
-    // Lock acquired, do work
-    // Lock automatically released when handle is disposed
-}
-```
-
-
-## Attributes for Behaviors
-
-### Retry
-```csharp
-[Retry]  // Default: 3 attempts, 100ms delay, exponential backoff
-public record MyCommand : CommandBase { }
-
-// Custom settings
-[Retry]
-public record MyCommand : CommandBase { }
-// Then configure via attribute properties:
-// MaxAttempts = 5, DelayMs = 200, Exponential = true
-```
-
-### Timeout
-```csharp
-[Timeout(30)]  // 30 seconds timeout
-public record MyCommand : CommandBase { }
-```
-
-### Circuit Breaker
-```csharp
-[CircuitBreaker]  // Default: 5 failures, 30s break duration
-public record MyCommand : CommandBase { }
-```
-
-### Idempotent
-```csharp
-[Idempotent]  // Enables idempotency checking
-public record MyCommand : CommandBase { }
-
-// With custom TTL
-[Idempotent]  // TtlSeconds = 3600
-public record MyCommand : CommandBase { }
-```
-
-### Distributed Lock
-```csharp
-[DistributedLock("order-{OrderId}")]  // Lock key with placeholder
-public record ProcessOrderCommand : CommandBase
-{
-    public string OrderId { get; init; } = "";
-}
-```
-
-### Sharding
-```csharp
-[Sharded("CustomerId")]  // Route to shard based on CustomerId
-public record CustomerCommand : CommandBase
-{
-    public string CustomerId { get; init; } = "";
-}
-```
-
-### Cluster Attributes
-```csharp
-[LeaderOnly]  // Only execute on leader node
-public record LeaderCommand : CommandBase { }
-
-[Broadcast]  // Execute on all nodes
-public record BroadcastCommand : CommandBase { }
-
-[ClusterSingleton]  // Single instance across cluster
-public record SingletonTask : CommandBase { }
-```
-
-## Message Transport
-
-```csharp
-var transport = sp.GetRequiredService<IMessageTransport>();
+// Send command/query
+var result = await mediator.SendAsync<CreateOrderCommand, OrderCreatedResult>(command);
 
 // Publish event
-await transport.PublishAsync(new MyEvent { Data = "test" });
-
-// Subscribe to events (typically done at startup)
-await transport.SubscribeAsync<MyEvent>(async (evt, ct) =>
-{
-    // Handle event
-});
+await mediator.PublishAsync(new OrderCreatedEvent(orderId, total));
 ```
 
+---
 
-## Flow/Saga DSL
+## Getting Started
 
-### Basic Flow Definition
-```csharp
-public class OrderFlow : IFlow<OrderFlowState>
-{
-    public void Configure(IFlowBuilder<OrderFlowState> builder)
-    {
-        builder
-            .Step("ValidateOrder", async (state, ct) =>
-            {
-                // Validation logic
-                return new StepResult(true, null);
-            })
-            .Step("ProcessPayment", async (state, ct) =>
-            {
-                // Payment logic
-                state.PaymentId = "pay-123";
-                return new StepResult(true, null);
-            })
-            .Step("ShipOrder", async (state, ct) =>
-            {
-                // Shipping logic
-                return new StepResult(true, null);
-            });
-    }
-}
+### Step 1: Install Packages
 
-public class OrderFlowState : BaseFlowState
-{
-    public string OrderId { get; set; } = "";
-    public string PaymentId { get; set; } = "";
-}
+```xml
+<ItemGroup>
+  <PackageReference Include="Catga" Version="0.1.0" />
+  <PackageReference Include="Catga.Serialization.MemoryPack" Version="0.1.0" />
+  
+  <!-- Choose transport -->
+  <PackageReference Include="Catga.Transport.InMemory" Version="0.1.0" />
+  <!-- OR -->
+  <PackageReference Include="Catga.Transport.Redis" Version="0.1.0" />
+  <!-- OR -->
+  <PackageReference Include="Catga.Transport.Nats" Version="0.1.0" />
+  
+  <!-- Choose persistence -->
+  <PackageReference Include="Catga.Persistence.InMemory" Version="0.1.0" />
+  <!-- OR -->
+  <PackageReference Include="Catga.Persistence.Redis" Version="0.1.0" />
+  <!-- OR -->
+  <PackageReference Include="Catga.Persistence.Nats" Version="0.1.0" />
+</ItemGroup>
 ```
 
-### Flow State
-```csharp
-var state = new FlowState
-{
-    Id = "flow-123",
-    Type = "OrderFlow",
-    Status = FlowStatus.Running
-};
-```
+### Step 2: Configure Services
 
-### FlowResult
-```csharp
-var result = new FlowResult(
-    IsSuccess: true,
-    CompletedSteps: 3,
-    Duration: TimeSpan.FromSeconds(5)
-);
-```
-
-## Distributed ID Generation
-
-```csharp
-// Snowflake ID Generator
-var generator = new SnowflakeIdGenerator(nodeId: 1);
-var id = generator.NextId();  // Returns long
-
-// MessageId
-var messageId = MessageId.NewId(generator);
-
-// CorrelationId
-var correlationId = CorrelationId.NewId(generator);
-
-// Simple ID generation
-var base64Id = IdGenerator.NewBase64Id();
-```
-
-## Serialization
-
-### MemoryPack (Required - AOT Compatible)
-
-Catga uses MemoryPack for all internal serialization. It's binary, fast, and AOT compatible.
-
-```csharp
-// Register serializer (REQUIRED)
-services.UseMemoryPackSerializer();
-```
-
-### CRITICAL: All Serializable Types Must Have [MemoryPackable]
-
-```csharp
-// DTOs, Snapshots, and any persisted state
-[MemoryPackable]
-public partial class OrderDto
-{
-    public string Id { get; set; } = "";
-    public string CustomerId { get; set; } = "";
-    public decimal Total { get; set; }
-}
-
-[MemoryPackable]
-public partial class OrderSnapshot
-{
-    public string OrderId { get; set; } = "";
-    public OrderStatus Status { get; set; }
-    public List<OrderItem> Items { get; set; } = new();
-}
-
-// Complex nested types
-[MemoryPackable]
-public partial class OrderItem
-{
-    public string ProductId { get; set; } = "";
-    public int Quantity { get; set; }
-    public decimal Price { get; set; }
-}
-
-// Collections and dictionaries work automatically
-[MemoryPackable]
-public partial class ComplexState
-{
-    public List<string>? Items { get; set; }
-    public Dictionary<string, int>? Metadata { get; set; }
-}
-```
-
-### Message Types (record) - No [MemoryPackable] Needed
-
-Message types (Query, Command, Event) that inherit from base classes don't need `[MemoryPackable]`:
-
-```csharp
-// These work without [MemoryPackable]
-public record CreateOrderCommand : CommandBase
-{
-    public string CustomerId { get; init; } = "";
-}
-
-public record OrderCreatedEvent : EventBase
-{
-    public string OrderId { get; init; } = "";
-}
-```
-
-### Manual Serialization (if needed)
-
-```csharp
-// Serialize
-var bytes = MemoryPackSerializer.Serialize(myObject);
-
-// Deserialize
-var obj = MemoryPackSerializer.Deserialize<MyType>(bytes);
-```
-
-
-## ASP.NET Core Integration
-
-### Setup
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddCatga();
-builder.Services.AddInMemoryPersistence();
-builder.Services.AddInMemoryTransport();
-builder.Services.UseMemoryPackSerializer();
-builder.Services.AddCatgaResilience();
 
-var app = builder.Build();
-app.UseCatga();  // Add middleware
+// Add Catga with MemoryPack serialization
+var catga = builder.Services.AddCatga().UseMemoryPack();
+
+// Configure persistence
+catga.UseInMemory(); // Development
+// OR
+catga.UseRedis("localhost:6379"); // Production
+// OR
+builder.Services.AddNatsConnection("nats://localhost:4222");
+catga.UseNats(); // High-performance
+
+// Configure transport
+builder.Services.AddInMemoryTransport(); // Development
+// OR
+builder.Services.AddRedisTransport("localhost:6379"); // Production
+// OR
+builder.Services.AddNatsTransport("nats://localhost:4222"); // High-performance
+
+// Register handlers
+builder.Services.AddCatgaHandlers();
 ```
 
-### Minimal API Endpoints
-```csharp
-app.MapPost("/orders", async (CreateOrderCommand cmd, ICatgaMediator mediator) =>
-{
-    var result = await mediator.SendAsync<CreateOrderCommand>(cmd);
-    return result.IsSuccess ? Results.Ok() : Results.BadRequest(result.Error);
-});
-
-app.MapGet("/orders/{id}", async (string id, ICatgaMediator mediator) =>
-{
-    var result = await mediator.SendAsync<GetOrderQuery, OrderDto>(new GetOrderQuery { OrderId = id });
-    return result.IsSuccess ? Results.Ok(result.Value) : Results.NotFound();
-});
-```
-
-## Dead Letter Queue
+### Step 3: Define Messages
 
 ```csharp
-var dlq = sp.GetRequiredService<IDeadLetterQueue>();
+using MemoryPack;
 
-// Messages are automatically sent to DLQ on failure
-// Manual inspection:
-var messages = await dlq.GetMessagesAsync(limit: 100);
-```
-
-## Resilience Pipeline
-
-```csharp
-var resilienceProvider = sp.GetRequiredService<IResiliencePipelineProvider>();
-
-// Get pipeline for specific operation
-var pipeline = resilienceProvider.GetPipeline("my-operation");
-
-// Execute with resilience
-var result = await pipeline.ExecuteAsync(async ct =>
-{
-    // Your operation
-    return "result";
-});
-```
-
-## Common Mistakes to Avoid
-
-### 1. Wrong Result Methods
-```csharp
-// WRONG
-CatgaResult.Ok()
-CatgaResult.Fail("error")
-
-// CORRECT
-CatgaResult.Success()
-CatgaResult.Failure("error")
-```
-
-### 2. Wrong Event Store Methods
-```csharp
-// WRONG
-await eventStore.SaveAsync(...)
-await eventStore.LoadAsync(...)
-
-// CORRECT
-await eventStore.AppendAsync(streamId, events, expectedVersion)
-var stream = await eventStore.ReadAsync(streamId)
-```
-
-### 3. Missing Type Parameters
-```csharp
-// WRONG - for queries
-await mediator.SendAsync(new GetOrderQuery { ... });
-
-// CORRECT - queries need TWO type parameters
-await mediator.SendAsync<GetOrderQuery, OrderDto>(new GetOrderQuery { ... });
-```
-
-### 4. Non-Record Message Types
-```csharp
-// WRONG
-public class MyCommand : CommandBase { }
-
-// CORRECT
-public record MyCommand : CommandBase { }
-```
-
-### 5. Missing MemoryPackable Attribute
-```csharp
-// WRONG - DTOs/Snapshots won't serialize
-public partial class MySnapshot { }
-
-// CORRECT - Add [MemoryPackable] for any persisted type
 [MemoryPackable]
-public partial class MySnapshot { }
-```
-
-### 6. Using JSON Instead of MemoryPack
-```csharp
-// WRONG - Catga doesn't use JSON for internal serialization
-services.AddJsonSerializer();
-
-// CORRECT - Use MemoryPack
-services.UseMemoryPackSerializer();
-```
-
-
-## Service Registration Order
-
-The order of service registration matters:
-
-```csharp
-// 1. Core Catga
-services.AddCatga();
-
-// 2. External dependencies (Redis, NATS connections)
-services.AddSingleton(redisConnection);
-services.AddSingleton(natsConnection);
-
-// 3. Serializer
-services.UseMemoryPackSerializer();
-
-// 4. Resilience (adds behaviors)
-services.AddCatgaResilience();
-
-// 5. Transport (choose one)
-services.AddInMemoryTransport();
-// OR
-services.AddRedisTransport(redis);
-// OR
-services.AddNatsTransport(url);
-
-// 6. Persistence (choose one or mix)
-services.AddInMemoryPersistence();
-// OR
-services.AddRedisEventStore();
-services.AddRedisSnapshotStore();
-// etc.
-```
-
-## Async Disposal
-
-When using NATS or services with IAsyncDisposable:
-
-```csharp
-// WRONG
-using var sp = services.BuildServiceProvider();
-
-// CORRECT
-await using var sp = services.BuildServiceProvider();
-```
-
-## Testing
-
-### Build Command
-```bash
-dotnet build Catga.sln --no-restore
-```
-
-### Test Command
-```bash
-dotnet test tests/Catga.Tests/Catga.Tests.csproj --no-build --verbosity minimal
-```
-
-### AOT Validation
-```bash
-# InMemory only
-dotnet run --project tests/Catga.AotValidation -- inmemory
-
-# Redis (requires Redis server)
-dotnet run --project tests/Catga.AotValidation -- redis
-
-# NATS (requires NATS server)
-dotnet run --project tests/Catga.AotValidation -- nats
-
-# All backends
-dotnet run --project tests/Catga.AotValidation -- all
-
-# Mixed backend test
-dotnet run --project tests/Catga.AotValidation -- mixed
-```
-
-## Key Interfaces Reference
-
-| Interface | Purpose | InMemory | Redis | NATS |
-|-----------|---------|----------|-------|------|
-| `ICatgaMediator` | Send commands/queries | ✓ | ✓ | ✓ |
-| `IEventStore` | Event sourcing | ✓ | ✓ | ✓ |
-| `ISnapshotStore` | Aggregate snapshots | ✓ | ✓ | - |
-| `IIdempotencyStore` | Deduplication | ✓ | ✓ | ✓ |
-| `IMessageTransport` | Pub/Sub messaging | ✓ | ✓ | ✓ |
-| `IDeadLetterQueue` | Failed messages | ✓ | ✓ | ✓ |
-| `IDistributedLockProvider` | Distributed locks | ✓ | ✓ | ✓ |
-| `IProjectionCheckpointStore` | Projection state | ✓ | ✓ | ✓ |
-| `IFlowStore` | Flow/Saga state | ✓ | ✓ | ✓ |
-| `IResiliencePipelineProvider` | Polly pipelines | ✓ | ✓ | ✓ |
-
-## Environment Variables
-
-```bash
-REDIS_CONNECTION=localhost:6379
-NATS_URL=nats://localhost:4222
-```
-
-## Docker Commands for Testing
-
-```bash
-# Start Redis
-docker run -d --name catga-redis -p 6379:6379 redis:latest
-
-# Start NATS
-docker run -d --name catga-nats -p 4222:4222 nats:latest
-
-# Stop and remove
-docker stop catga-redis catga-nats
-docker rm catga-redis catga-nats
-```
-
-
-## Complete Example: Order System
-
-```csharp
-// Program.cs
-var builder = WebApplication.CreateBuilder(args);
-
-// Setup Catga
-builder.Services.AddCatga();
-builder.Services.UseMemoryPackSerializer();
-builder.Services.AddCatgaResilience();
-builder.Services.AddInMemoryPersistence();
-builder.Services.AddInMemoryTransport();
-
-var app = builder.Build();
-app.UseCatga();
-
-// Endpoints
-app.MapPost("/orders", async (CreateOrderCommand cmd, ICatgaMediator mediator) =>
+public partial record CreateOrderCommand(string CustomerId, List<OrderItem> Items) 
+    : IRequest<OrderCreatedResult>
 {
-    var result = await mediator.SendAsync<CreateOrderCommand>(cmd);
-    return result.IsSuccess ? Results.Created($"/orders/{cmd.OrderId}", null) : Results.BadRequest(result.Error);
-});
-
-app.MapGet("/orders/{id}", async (string id, ICatgaMediator mediator) =>
-{
-    var result = await mediator.SendAsync<GetOrderQuery, OrderDto>(new GetOrderQuery { OrderId = id });
-    return result.IsSuccess ? Results.Ok(result.Value) : Results.NotFound();
-});
-
-app.Run();
-
-// Messages
-public record CreateOrderCommand : CommandBase
-{
-    public string OrderId { get; init; } = IdGenerator.NewBase64Id();
-    public string CustomerId { get; init; } = "";
-    public List<OrderItem> Items { get; init; } = new();
-}
-
-public record GetOrderQuery : QueryBase<OrderDto>
-{
-    public string OrderId { get; init; } = "";
-}
-
-public record OrderCreatedEvent : EventBase
-{
-    public string OrderId { get; init; } = "";
-    public string CustomerId { get; init; } = "";
-    public decimal Total { get; init; }
-}
-
-// DTOs - MUST have [MemoryPackable] for persistence
-[MemoryPackable]
-public partial class OrderDto
-{
-    public string Id { get; set; } = "";
-    public string CustomerId { get; set; } = "";
-    public decimal Total { get; set; }
+    public long MessageId { get; init; }
 }
 
 [MemoryPackable]
-public partial class OrderItem
+public partial record OrderCreatedResult(string OrderId, decimal Total, DateTime CreatedAt);
+
+[MemoryPackable]
+public partial record OrderCreatedEvent(string OrderId, string CustomerId, decimal Total) 
+    : IEvent
 {
-    public string ProductId { get; set; } = "";
-    public int Quantity { get; set; }
-    public decimal Price { get; set; }
+    public long MessageId { get; init; }
+}
+```
+
+**Important**:
+- Add `[MemoryPackable]` attribute
+- Make record `partial`
+- Include `MessageId` property
+
+### Step 4: Implement Handlers
+
+```csharp
+public sealed class CreateOrderHandler(OrderStore store, ICatgaMediator mediator) 
+    : IRequestHandler<CreateOrderCommand, OrderCreatedResult>
+{
+    public async ValueTask<CatgaResult<OrderCreatedResult>> HandleAsync(
+        CreateOrderCommand cmd, CancellationToken ct = default)
+    {
+        var orderId = Guid.NewGuid().ToString("N")[..8];
+        var total = cmd.Items.Sum(i => i.Price * i.Quantity);
+        
+        var order = new Order(orderId, cmd.CustomerId, cmd.Items, total);
+        store.Save(order);
+        
+        await mediator.PublishAsync(
+            new OrderCreatedEvent(orderId, cmd.CustomerId, total), ct);
+        
+        return CatgaResult<OrderCreatedResult>.Success(
+            new OrderCreatedResult(orderId, total, DateTime.UtcNow));
+    }
+}
+```
+
+### Step 5: Use in API
+
+```csharp
+app.MapPost("/orders", async (CreateOrderRequest req, ICatgaMediator mediator) =>
+{
+    var command = new CreateOrderCommand(req.CustomerId, req.Items);
+    var result = await mediator.SendAsync<CreateOrderCommand, OrderCreatedResult>(command);
+    
+    return result.IsSuccess 
+        ? Results.Created($"/orders/{result.Value!.OrderId}", result.Value)
+        : Results.BadRequest(result.Error);
+});
+```
+
+---
+
+## Architecture Patterns
+
+### 1. CQRS Pattern
+
+**Separate reads from writes:**
+
+```csharp
+// Write side - Commands
+public record CreateOrderCommand(...) : IRequest<OrderCreatedResult>;
+public record UpdateOrderCommand(...) : IRequest;
+
+// Read side - Queries
+public record GetOrderQuery(string OrderId) : IRequest<Order?>;
+public record GetAllOrdersQuery : IRequest<List<Order>>;
+```
+
+**Benefits**:
+- Optimized read/write models
+- Independent scaling
+- Clear separation of concerns
+
+### 2. Event Sourcing
+
+**Store events, not state:**
+
+```csharp
+public sealed class OrderAggregate
+{
+    private readonly List<object> _events = new();
+    
+    public void CreateOrder(string customerId, decimal total)
+    {
+        var evt = new OrderCreatedEvent(Id, customerId, total);
+        Apply(evt);
+        _events.Add(evt);
+    }
+    
+    private void Apply(OrderCreatedEvent evt)
+    {
+        Id = evt.OrderId;
+        CustomerId = evt.CustomerId;
+        Total = evt.Total;
+        Status = OrderStatus.Pending;
+    }
+    
+    public IReadOnlyList<object> GetUncommittedEvents() => _events;
+}
+```
+
+### 3. Domain Events
+
+**Publish events for side effects:**
+
+```csharp
+// In handler
+await mediator.PublishAsync(new OrderCreatedEvent(orderId, total), ct);
+
+// Multiple subscribers
+public sealed class OrderNotificationHandler : IEventHandler<OrderCreatedEvent>
+{
+    public async ValueTask HandleAsync(OrderCreatedEvent evt, CancellationToken ct)
+    {
+        await SendEmailAsync(evt.CustomerId, evt.OrderId);
+    }
 }
 
-// Handlers
-public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand>
+public sealed class OrderAnalyticsHandler : IEventHandler<OrderCreatedEvent>
 {
-    private readonly IEventStore _eventStore;
-    private readonly IMessageTransport _transport;
-    
-    public CreateOrderCommandHandler(IEventStore eventStore, IMessageTransport transport)
+    public async ValueTask HandleAsync(OrderCreatedEvent evt, CancellationToken ct)
     {
-        _eventStore = eventStore;
-        _transport = transport;
-    }
-    
-    public async ValueTask<CatgaResult> HandleAsync(CreateOrderCommand request, CancellationToken ct = default)
-    {
-        var total = request.Items.Sum(i => i.Price * i.Quantity);
-        var evt = new OrderCreatedEvent
-        {
-            OrderId = request.OrderId,
-            CustomerId = request.CustomerId,
-            Total = total
-        };
-        
-        await _eventStore.AppendAsync($"order-{request.OrderId}", new List<IEvent> { evt }, -1, ct);
-        await _transport.PublishAsync(evt, ct);
-        
-        return CatgaResult.Success();
-    }
-}
-
-public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, OrderDto>
-{
-    private readonly IEventStore _eventStore;
-    
-    public GetOrderQueryHandler(IEventStore eventStore)
-    {
-        _eventStore = eventStore;
-    }
-    
-    public async ValueTask<CatgaResult<OrderDto>> HandleAsync(GetOrderQuery request, CancellationToken ct = default)
-    {
-        var stream = await _eventStore.ReadAsync($"order-{request.OrderId}", ct: ct);
-        if (stream.Events.Count == 0)
-            return CatgaResult<OrderDto>.Failure("Order not found");
-        
-        var created = stream.Events.OfType<OrderCreatedEvent>().FirstOrDefault();
-        if (created == null)
-            return CatgaResult<OrderDto>.Failure("Order not found");
-        
-        return CatgaResult<OrderDto>.Success(new OrderDto
-        {
-            Id = created.OrderId,
-            CustomerId = created.CustomerId,
-            Total = created.Total
-        });
+        await TrackOrderCreatedAsync(evt.OrderId, evt.Total);
     }
 }
 ```
 
 ---
 
-*Last updated: December 2024*
-*Catga Version: Latest*
+## Best Practices
+
+### 1. Message Design
+
+✅ **DO**:
+- Use records for immutability
+- Include all required data in message
+- Use descriptive names
+- Keep messages small and focused
+
+❌ **DON'T**:
+- Include behavior in messages
+- Use mutable properties
+- Share messages across bounded contexts
+- Include infrastructure concerns
+
+### 2. Handler Design
+
+✅ **DO**:
+- Keep handlers focused (single responsibility)
+- Use dependency injection
+- Handle errors gracefully
+- Return meaningful results
+- Make handlers `sealed`
+
+❌ **DON'T**:
+- Call other handlers directly
+- Access database directly (use repositories)
+- Throw exceptions for business logic failures
+- Block async operations
+
+### 3. Error Handling
+
+```csharp
+// Good - Return result
+public async ValueTask<CatgaResult<Order>> HandleAsync(
+    GetOrderQuery query, CancellationToken ct)
+{
+    var order = await repository.GetAsync(query.OrderId);
+    
+    if (order == null)
+        return CatgaResult<Order>.Failure("Order not found");
+    
+    return CatgaResult<Order>.Success(order);
+}
+
+// Bad - Throw exception
+public async ValueTask<CatgaResult<Order>> HandleAsync(
+    GetOrderQuery query, CancellationToken ct)
+{
+    var order = await repository.GetAsync(query.OrderId);
+    
+    if (order == null)
+        throw new OrderNotFoundException(); // ❌ Don't do this
+    
+    return CatgaResult<Order>.Success(order);
+}
+```
+
+### 4. Serialization
+
+✅ **DO**:
+- Use MemoryPack for performance
+- Add `[MemoryPackable]` to all messages
+- Make records `partial`
+- Use simple types (primitives, strings, lists)
+
+❌ **DON'T**:
+- Use complex inheritance hierarchies
+- Include circular references
+- Use interfaces in message properties
+- Forget `MessageId` property
+
+### 5. Testing
+
+```csharp
+[Fact]
+public async Task CreateOrder_ValidCommand_ReturnsSuccess()
+{
+    // Arrange
+    var store = new OrderStore();
+    var mediator = Substitute.For<ICatgaMediator>();
+    var handler = new CreateOrderHandler(store, mediator);
+    
+    var command = new CreateOrderCommand(
+        "customer-1", 
+        new List<OrderItem> { new("p1", "Product", 1, 99.99m) });
+    
+    // Act
+    var result = await handler.HandleAsync(command);
+    
+    // Assert
+    result.IsSuccess.Should().BeTrue();
+    result.Value.Should().NotBeNull();
+    result.Value!.Total.Should().Be(99.99m);
+    
+    await mediator.Received(1).PublishAsync(
+        Arg.Any<OrderCreatedEvent>(), 
+        Arg.Any<CancellationToken>());
+}
+```
+
+---
+
+## Common Pitfalls
+
+### 1. Missing MessageId
+
+❌ **Wrong**:
+```csharp
+public record CreateOrderCommand(string CustomerId) : IRequest<OrderCreatedResult>;
+```
+
+✅ **Correct**:
+```csharp
+public record CreateOrderCommand(string CustomerId) : IRequest<OrderCreatedResult>
+{
+    public long MessageId { get; init; }
+}
+```
+
+### 2. Forgetting MemoryPackable
+
+❌ **Wrong**:
+```csharp
+public record CreateOrderCommand(...) : IRequest<OrderCreatedResult>;
+```
+
+✅ **Correct**:
+```csharp
+[MemoryPackable]
+public partial record CreateOrderCommand(...) : IRequest<OrderCreatedResult>;
+```
+
+### 3. Blocking Async Operations
+
+❌ **Wrong**:
+```csharp
+public ValueTask<CatgaResult> HandleAsync(Command cmd, CancellationToken ct)
+{
+    var result = SomeAsyncOperation().Result; // ❌ Blocking!
+    return ValueTask.FromResult(CatgaResult.Success());
+}
+```
+
+✅ **Correct**:
+```csharp
+public async ValueTask<CatgaResult> HandleAsync(Command cmd, CancellationToken ct)
+{
+    var result = await SomeAsyncOperation(); // ✅ Async
+    return CatgaResult.Success();
+}
+```
+
+### 4. Not Handling Cancellation
+
+❌ **Wrong**:
+```csharp
+public async ValueTask<CatgaResult> HandleAsync(Command cmd, CancellationToken ct)
+{
+    await Task.Delay(1000); // ❌ Ignores cancellation
+}
+```
+
+✅ **Correct**:
+```csharp
+public async ValueTask<CatgaResult> HandleAsync(Command cmd, CancellationToken ct)
+{
+    await Task.Delay(1000, ct); // ✅ Respects cancellation
+}
+```
+
+### 5. Mutable Messages
+
+❌ **Wrong**:
+```csharp
+public class CreateOrderCommand : IRequest<OrderCreatedResult>
+{
+    public string CustomerId { get; set; } // ❌ Mutable
+}
+```
+
+✅ **Correct**:
+```csharp
+[MemoryPackable]
+public partial record CreateOrderCommand(string CustomerId) : IRequest<OrderCreatedResult>
+{
+    public long MessageId { get; init; }
+}
+```
+
+---
+
+## Code Generation Guidelines
+
+### When Helping Developers
+
+1. **Always include**:
+   - `[MemoryPackable]` attribute
+   - `partial` keyword for records
+   - `MessageId` property
+   - Proper interface (`IRequest<T>`, `IEvent`)
+
+2. **Use proper naming**:
+   - Commands: Imperative (CreateOrder, UpdateOrder)
+   - Events: Past tense (OrderCreated, OrderUpdated)
+   - Queries: Get/Find prefix (GetOrder, FindOrders)
+
+3. **Follow patterns**:
+   - Commands return `CatgaResult<T>`
+   - Queries return `CatgaResult<T>`
+   - Events return `ValueTask`
+
+4. **Include error handling**:
+   - Validate inputs
+   - Return meaningful error messages
+   - Don't throw exceptions for business logic
+
+5. **Add documentation**:
+   - XML comments for public APIs
+   - Inline comments for complex logic
+   - Examples in documentation
+
+### Example Template
+
+```csharp
+/// <summary>
+/// Creates a new order for a customer.
+/// </summary>
+[MemoryPackable]
+public partial record CreateOrderCommand(
+    string CustomerId, 
+    List<OrderItem> Items) : IRequest<OrderCreatedResult>
+{
+    public long MessageId { get; init; }
+}
+
+/// <summary>
+/// Result of creating an order.
+/// </summary>
+[MemoryPackable]
+public partial record OrderCreatedResult(
+    string OrderId, 
+    decimal Total, 
+    DateTime CreatedAt);
+
+/// <summary>
+/// Handles order creation.
+/// </summary>
+public sealed class CreateOrderHandler(
+    IOrderRepository repository, 
+    ICatgaMediator mediator) 
+    : IRequestHandler<CreateOrderCommand, OrderCreatedResult>
+{
+    public async ValueTask<CatgaResult<OrderCreatedResult>> HandleAsync(
+        CreateOrderCommand cmd, 
+        CancellationToken ct = default)
+    {
+        // Validate
+        if (string.IsNullOrEmpty(cmd.CustomerId))
+            return CatgaResult<OrderCreatedResult>.Failure("Customer ID is required");
+        
+        if (cmd.Items == null || cmd.Items.Count == 0)
+            return CatgaResult<OrderCreatedResult>.Failure("Order must have at least one item");
+        
+        // Execute
+        var orderId = Guid.NewGuid().ToString("N")[..8];
+        var total = cmd.Items.Sum(i => i.Price * i.Quantity);
+        var now = DateTime.UtcNow;
+        
+        var order = new Order(orderId, cmd.CustomerId, cmd.Items, total, now);
+        await repository.SaveAsync(order, ct);
+        
+        // Publish event
+        await mediator.PublishAsync(
+            new OrderCreatedEvent(orderId, cmd.CustomerId, total, now), ct);
+        
+        // Return result
+        return CatgaResult<OrderCreatedResult>.Success(
+            new OrderCreatedResult(orderId, total, now));
+    }
+}
+```
+
+---
+
+## Testing Strategies
+
+### Unit Testing
+
+```csharp
+public class CreateOrderHandlerTests
+{
+    [Fact]
+    public async Task Handle_ValidCommand_CreatesOrder()
+    {
+        // Arrange
+        var repository = Substitute.For<IOrderRepository>();
+        var mediator = Substitute.For<ICatgaMediator>();
+        var handler = new CreateOrderHandler(repository, mediator);
+        
+        var command = new CreateOrderCommand(
+            "customer-1",
+            new List<OrderItem> { new("p1", "Product", 1, 99.99m) });
+        
+        // Act
+        var result = await handler.HandleAsync(command);
+        
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        await repository.Received(1).SaveAsync(
+            Arg.Any<Order>(), 
+            Arg.Any<CancellationToken>());
+    }
+    
+    [Fact]
+    public async Task Handle_EmptyCustomerId_ReturnsFailure()
+    {
+        // Arrange
+        var handler = new CreateOrderHandler(null!, null!);
+        var command = new CreateOrderCommand("", new List<OrderItem>());
+        
+        // Act
+        var result = await handler.HandleAsync(command);
+        
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Contain("Customer ID");
+    }
+}
+```
+
+### Integration Testing
+
+```csharp
+public class OrderSystemIntegrationTests : IAsyncLifetime
+{
+    private WebApplication _app = null!;
+    private HttpClient _client = null!;
+    
+    public async Task InitializeAsync()
+    {
+        var builder = WebApplication.CreateSlimBuilder();
+        
+        builder.Services.AddCatga()
+            .UseMemoryPack()
+            .UseInMemory();
+        
+        builder.Services.AddInMemoryTransport();
+        builder.Services.AddCatgaHandlers();
+        
+        _app = builder.Build();
+        _app.MapPost("/orders", async (CreateOrderRequest req, ICatgaMediator mediator) =>
+        {
+            var result = await mediator.SendAsync<CreateOrderCommand, OrderCreatedResult>(
+                new CreateOrderCommand(req.CustomerId, req.Items));
+            return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
+        });
+        
+        await _app.StartAsync();
+        _client = new HttpClient { BaseAddress = new Uri("http://localhost:5000") };
+    }
+    
+    [Fact]
+    public async Task CreateOrder_ValidRequest_ReturnsCreated()
+    {
+        // Arrange
+        var request = new CreateOrderRequest(
+            "customer-1",
+            new List<OrderItem> { new("p1", "Product", 1, 99.99m) });
+        
+        // Act
+        var response = await _client.PostAsJsonAsync("/orders", request);
+        
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<OrderCreatedResult>();
+        result.Should().NotBeNull();
+        result!.Total.Should().Be(99.99m);
+    }
+    
+    public async Task DisposeAsync()
+    {
+        await _app.DisposeAsync();
+        _client.Dispose();
+    }
+}
+```
+
+---
+
+## Performance Optimization
+
+### 1. Use MemoryPack
+
+MemoryPack is 10-50x faster than JSON:
+
+```csharp
+// Configure
+builder.Services.AddCatga().UseMemoryPack();
+```
+
+### 2. Choose Right Backend
+
+- **InMemory**: Development, < 1ms latency
+- **Redis**: Production, 1-5ms latency, distributed
+- **NATS**: High-performance, < 2ms latency, 100k+ ops/sec
+
+### 3. Enable AOT Compilation
+
+```xml
+<PropertyGroup>
+  <PublishAot>true</PublishAot>
+</PropertyGroup>
+```
+
+### 4. Use ValueTask
+
+```csharp
+// Good - ValueTask for hot paths
+public ValueTask<CatgaResult> HandleAsync(Command cmd, CancellationToken ct)
+{
+    if (IsValid(cmd))
+        return ValueTask.FromResult(CatgaResult.Success());
+    
+    return HandleAsyncCore(cmd, ct);
+}
+
+private async ValueTask<CatgaResult> HandleAsyncCore(Command cmd, CancellationToken ct)
+{
+    // Async work
+}
+```
+
+### 5. Batch Operations
+
+```csharp
+// Process multiple commands
+var tasks = commands.Select(cmd => mediator.SendAsync(cmd));
+var results = await Task.WhenAll(tasks);
+```
+
+---
+
+## Troubleshooting
+
+### Issue: "JsonTypeInfo metadata not provided"
+
+**Cause**: Missing JSON serialization context
+
+**Solution**: Add types to `JsonSerializerContext`:
+
+```csharp
+[JsonSerializable(typeof(Order))]
+[JsonSerializable(typeof(OrderCreatedResult))]
+internal partial class AppJsonContext : JsonSerializerContext;
+```
+
+### Issue: "Handler not found"
+
+**Cause**: Handler not registered
+
+**Solution**: Call `AddCatgaHandlers()`:
+
+```csharp
+builder.Services.AddCatgaHandlers();
+```
+
+### Issue: "MemoryPack serialization failed"
+
+**Cause**: Missing `[MemoryPackable]` or `partial`
+
+**Solution**: Add attributes:
+
+```csharp
+[MemoryPackable]
+public partial record MyCommand(...) : IRequest<MyResult>;
+```
+
+### Issue: "Deadlock in async code"
+
+**Cause**: Blocking async operations
+
+**Solution**: Use `await` instead of `.Result`:
+
+```csharp
+// Bad
+var result = SomeAsyncMethod().Result;
+
+// Good
+var result = await SomeAsyncMethod();
+```
+
+### Issue: "High memory usage"
+
+**Cause**: Not disposing resources
+
+**Solution**: Use `using` or implement `IDisposable`:
+
+```csharp
+await using var scope = serviceProvider.CreateAsyncScope();
+var mediator = scope.ServiceProvider.GetRequiredService<ICatgaMediator>();
+```
+
+---
+
+## Quick Reference
+
+### Message Types
+
+| Type | Interface | Returns | Use Case |
+|------|-----------|---------|----------|
+| Command | `IRequest<T>` | `CatgaResult<T>` | Write operations |
+| Query | `IRequest<T>` | `CatgaResult<T>` | Read operations |
+| Event | `IEvent` | `ValueTask` | Domain events |
+
+### Handler Types
+
+| Type | Interface | Method | Returns |
+|------|-----------|--------|---------|
+| Command/Query | `IRequestHandler<TRequest, TResponse>` | `HandleAsync` | `ValueTask<CatgaResult<TResponse>>` |
+| Event | `IEventHandler<TEvent>` | `HandleAsync` | `ValueTask` |
+
+### Configuration
+
+```csharp
+// Minimal setup
+builder.Services.AddCatga()
+    .UseMemoryPack()
+    .UseInMemory();
+builder.Services.AddInMemoryTransport();
+builder.Services.AddCatgaHandlers();
+
+// Production setup
+builder.Services.AddCatga()
+    .UseMemoryPack()
+    .UseRedis("localhost:6379");
+builder.Services.AddRedisTransport("localhost:6379");
+builder.Services.AddCatgaHandlers();
+```
+
+---
+
+## Additional Resources
+
+- **Example**: See `examples/OrderSystem/` for complete working example
+- **Documentation**: See `docs/` for detailed guides
+- **Tests**: See `tests/Catga.Tests/` for test examples
+- **Benchmarks**: See `benchmarks/` for performance comparisons
+
+---
+
+## Summary for AI Assistants
+
+When helping developers with Catga:
+
+1. ✅ Always include `[MemoryPackable]` and `partial`
+2. ✅ Always include `MessageId` property
+3. ✅ Use proper interfaces (`IRequest<T>`, `IEvent`)
+4. ✅ Return `CatgaResult<T>` for commands/queries
+5. ✅ Use `ValueTask` for async operations
+6. ✅ Handle `CancellationToken` properly
+7. ✅ Make handlers `sealed`
+8. ✅ Validate inputs and return meaningful errors
+9. ✅ Follow naming conventions
+10. ✅ Include XML documentation
+
+**Remember**: Catga is designed for simplicity and performance. Keep code minimal, type-safe, and AOT-compatible.

@@ -13,6 +13,7 @@
     <Compile Remove="LoadTests/**/*.cs" />
     <Compile Remove="Reliability/**/*.cs" />
     <Compile Remove="E2E/**/*.cs" />
+    <Compile Include="E2E/CompleteBackendE2ETests.cs" />
     <Compile Remove="Integration/**/*.cs" />
     <Compile Include="Integration/Redis/**/*.cs" />
     <Compile Include="Integration/RedisPersistenceIntegrationTests.cs" />

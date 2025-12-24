@@ -40,7 +40,7 @@ public class FlowSchedulingE2ETests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var scheduler = Substitute.For<IFlowScheduler>();
 
         mediator.SendAsync(Arg.Any<CreateOrderCommand>(), Arg.Any<CancellationToken>())
@@ -69,7 +69,7 @@ public class FlowSchedulingE2ETests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var scheduler = Substitute.For<IFlowScheduler>();
 
         mediator.SendAsync(Arg.Any<CreateOrderCommand>(), Arg.Any<CancellationToken>())
@@ -98,7 +98,7 @@ public class FlowSchedulingE2ETests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var scheduler = Substitute.For<IFlowScheduler>();
 
         scheduler.ScheduleResumeAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
@@ -124,7 +124,7 @@ public class FlowSchedulingE2ETests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var scheduler = Substitute.For<IFlowScheduler>();
 
         DateTimeOffset capturedTime = default;
@@ -158,7 +158,7 @@ public class FlowSchedulingE2ETests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var scheduler = Substitute.For<IFlowScheduler>();
 
         mediator.SendAsync(Arg.Any<CreateOrderCommand>(), Arg.Any<CancellationToken>())
@@ -195,7 +195,7 @@ public class FlowSchedulingE2ETests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var scheduler = Substitute.For<IFlowScheduler>();
 
         scheduler.ScheduleResumeAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())

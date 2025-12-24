@@ -128,7 +128,7 @@ public class StorageFeatureComparisonTests
 
         var stores = new List<(string Name, IDslFlowStore Store)>
         {
-            ("InMemory", new InMemoryDslFlowStore()),
+            ("InMemory", TestStoreExtensions.CreateTestFlowStore()),
             // Add mocked stores for testing
         };
 

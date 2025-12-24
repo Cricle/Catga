@@ -22,7 +22,7 @@ public class PerformanceBenchmarkTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestHighThroughputFlow();
 
         var state = new TestPerformanceState
@@ -76,7 +76,7 @@ public class PerformanceBenchmarkTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestParallelScalingFlow();
 
         var taskCount = 1000;
@@ -119,7 +119,7 @@ public class PerformanceBenchmarkTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestComplexNestedFlow();
 
         var state = new TestPerformanceState

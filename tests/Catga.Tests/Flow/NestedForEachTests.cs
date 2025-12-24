@@ -134,7 +134,7 @@ public class NestedForEachTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new SimpleNestedForEachFlow();
         config.Build();
 
@@ -194,7 +194,7 @@ public class NestedForEachTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ConditionalNestedForEachFlow();
         config.Build();
 
@@ -231,7 +231,7 @@ public class NestedForEachTests
     public async Task NestedForEach_ShouldSupportRecovery()
     {
         // Test that nested ForEach supports recovery at different levels
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         // Simulate interruption during nested processing
         // Outer ForEach progress: completed order1, working on order2

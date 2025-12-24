@@ -19,7 +19,7 @@ public class MemoryOptimizationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestLargeCollectionFlow();
 
         var itemCount = 10000; // Large collection
@@ -84,7 +84,7 @@ public class MemoryOptimizationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestStreamingForEachFlow();
 
         var itemCount = 50000; // Very large collection
@@ -142,7 +142,7 @@ public class MemoryOptimizationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestBatchProcessingFlow();
 
         var itemCount = 20000;
@@ -196,7 +196,7 @@ public class MemoryOptimizationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestLargeCollectionFlow();
 
         var itemCount = 15000;
@@ -270,7 +270,7 @@ public class MemoryOptimizationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestManyParallelTasksFlow();
 
         var taskCount = 1000; // Many parallel tasks
@@ -318,7 +318,7 @@ public class MemoryOptimizationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestLargeCollectionFlow();
 
         var state = new TestMemoryState

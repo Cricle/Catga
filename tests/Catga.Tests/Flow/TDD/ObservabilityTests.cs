@@ -22,7 +22,7 @@ public class ObservabilityTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestObservableFlow();
         var meterProvider = new TestMeterProvider();
 
@@ -66,7 +66,7 @@ public class ObservabilityTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestObservableFlow();
         var logger = new TestLogger<DslFlowExecutor<TestObservabilityState, TestObservableFlow>>();
 
@@ -113,7 +113,7 @@ public class ObservabilityTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestObservableFlow();
         var activitySource = new ActivitySource("Catga.Flow.Test");
         var activities = new ConcurrentBag<Activity>();
@@ -179,7 +179,7 @@ public class ObservabilityTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestObservableFlow();
         var logger = new TestLogger<DslFlowExecutor<TestObservabilityState, TestObservableFlow>>();
         var meterProvider = new TestMeterProvider();
@@ -237,7 +237,7 @@ public class ObservabilityTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestPerformanceObservableFlow();
         var performanceTracker = new TestPerformanceTracker();
 
@@ -291,7 +291,7 @@ public class ObservabilityTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestObservableFlow();
         var logger = new TestLogger<DslFlowExecutor<TestObservabilityState, TestObservableFlow>>();
 

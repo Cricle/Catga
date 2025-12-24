@@ -100,7 +100,7 @@ public class ForEachFlowDslTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestForEachFlow();
         var executor = new DslFlowExecutor<OrderFlowState, TestForEachFlow>(mediator, store, config);
 
@@ -131,7 +131,7 @@ public class ForEachFlowDslTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestForEachFlow();
         var executor = new DslFlowExecutor<OrderFlowState, TestForEachFlow>(mediator, store, config);
 
@@ -155,7 +155,7 @@ public class ForEachFlowDslTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new FailureHandlingForEachFlow();
         var executor = new DslFlowExecutor<OrderFlowState, FailureHandlingForEachFlow>(mediator, store, config);
 
@@ -189,7 +189,7 @@ public class ForEachFlowDslTests
     public async Task ForEach_Recovery_ShouldResumeFromCorrectPosition()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var state = new OrderFlowState
         {
             FlowId = "flow-foreach-001",

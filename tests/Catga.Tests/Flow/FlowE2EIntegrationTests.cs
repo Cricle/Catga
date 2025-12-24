@@ -18,7 +18,7 @@ public class FlowE2EIntegrationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new OrderProcessingFlow();
         var executor = new DslFlowExecutor<OrderState, OrderProcessingFlow>(mediator, store, config);
 
@@ -51,7 +51,7 @@ public class FlowE2EIntegrationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new OrderProcessingFlow();
         var executor = new DslFlowExecutor<OrderState, OrderProcessingFlow>(mediator, store, config);
 
@@ -79,7 +79,7 @@ public class FlowE2EIntegrationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new PartialShipmentFlow();
         var executor = new DslFlowExecutor<OrderState, PartialShipmentFlow>(mediator, store, config);
 
@@ -114,7 +114,7 @@ public class FlowE2EIntegrationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new UserRegistrationFlow();
         var executor = new DslFlowExecutor<RegistrationState, UserRegistrationFlow>(mediator, store, config);
 
@@ -142,7 +142,7 @@ public class FlowE2EIntegrationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new UserRegistrationFlow();
         var executor = new DslFlowExecutor<RegistrationState, UserRegistrationFlow>(mediator, store, config);
 
@@ -172,7 +172,7 @@ public class FlowE2EIntegrationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new DataPipelineFlow();
         var executor = new DslFlowExecutor<PipelineState, DataPipelineFlow>(mediator, store, config);
 
@@ -198,7 +198,7 @@ public class FlowE2EIntegrationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new DataPipelineWithErrorHandlingFlow();
         var executor = new DslFlowExecutor<PipelineState, DataPipelineWithErrorHandlingFlow>(mediator, store, config);
 
@@ -229,7 +229,7 @@ public class FlowE2EIntegrationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ApprovalWorkflowFlow();
         var executor = new DslFlowExecutor<ApprovalState, ApprovalWorkflowFlow>(mediator, store, config);
 
@@ -256,7 +256,7 @@ public class FlowE2EIntegrationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ApprovalWorkflowFlow();
         var executor = new DslFlowExecutor<ApprovalState, ApprovalWorkflowFlow>(mediator, store, config);
 
@@ -283,7 +283,7 @@ public class FlowE2EIntegrationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ApprovalWorkflowFlow();
         var executor = new DslFlowExecutor<ApprovalState, ApprovalWorkflowFlow>(mediator, store, config);
 
@@ -315,7 +315,7 @@ public class FlowE2EIntegrationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new RecoverableOrderFlow();
         var executor = new DslFlowExecutor<OrderState, RecoverableOrderFlow>(mediator, store, config);
 
@@ -359,7 +359,7 @@ public class FlowE2EIntegrationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new PersistentStateFlow();
         var executor = new DslFlowExecutor<CounterState, PersistentStateFlow>(mediator, store, config);
 

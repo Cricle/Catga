@@ -18,7 +18,7 @@ public class SwitchCaseLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new NullSelectorFlow();
         var executor = new DslFlowExecutor<TestSwitchState, NullSelectorFlow>(mediator, store, config);
 
@@ -42,7 +42,7 @@ public class SwitchCaseLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new MixedTypesSwitchFlow();
         var executor = new DslFlowExecutor<TestSwitchState, MixedTypesSwitchFlow>(mediator, store, config);
 
@@ -64,7 +64,7 @@ public class SwitchCaseLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var caseCount = 1000;
         var config = new LargeSwitchFlow(caseCount);
         var executor = new DslFlowExecutor<TestSwitchState, LargeSwitchFlow>(mediator, store, config);
@@ -92,7 +92,7 @@ public class SwitchCaseLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new DuplicateCasesFlow();
         var executor = new DslFlowExecutor<TestSwitchState, DuplicateCasesFlow>(mediator, store, config);
 
@@ -114,7 +114,7 @@ public class SwitchCaseLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new NoDefaultSwitchFlow();
         var executor = new DslFlowExecutor<TestSwitchState, NoDefaultSwitchFlow>(mediator, store, config);
 
@@ -134,7 +134,7 @@ public class SwitchCaseLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ExceptionSelectorFlow();
         var executor = new DslFlowExecutor<TestSwitchState, ExceptionSelectorFlow>(mediator, store, config);
 
@@ -152,7 +152,7 @@ public class SwitchCaseLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ComplexObjectSwitchFlow();
         var executor = new DslFlowExecutor<TestSwitchState, ComplexObjectSwitchFlow>(mediator, store, config);
 
@@ -178,7 +178,7 @@ public class SwitchCaseLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new NestedSwitchFlow();
         var executor = new DslFlowExecutor<TestSwitchState, NestedSwitchFlow>(mediator, store, config);
 
@@ -208,7 +208,7 @@ public class SwitchCaseLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new LargeSwitchFlow(caseCount);
 
         SetupMediatorForSwitch(mediator);

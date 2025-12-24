@@ -18,7 +18,7 @@ public class ErrorHandlingTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestErrorHandlingFlow();
 
         var state = new TestErrorState
@@ -61,7 +61,7 @@ public class ErrorHandlingTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestStopOnFailureFlow();
 
         var state = new TestErrorState
@@ -104,7 +104,7 @@ public class ErrorHandlingTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestRetryFlow();
 
         var state = new TestErrorState
@@ -148,7 +148,7 @@ public class ErrorHandlingTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestMixedResultsFlow();
 
         var state = new TestErrorState
@@ -192,7 +192,7 @@ public class ErrorHandlingTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestDetailedErrorFlow();
 
         var state = new TestErrorState

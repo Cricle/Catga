@@ -17,7 +17,7 @@ public class EdgeCaseValidationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new EmptyCollectionFlow();
         var executor = new DslFlowExecutor<EdgeCaseState, EmptyCollectionFlow>(mediator, store, config);
 
@@ -41,7 +41,7 @@ public class EdgeCaseValidationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new NullCollectionFlow();
         var executor = new DslFlowExecutor<EdgeCaseState, NullCollectionFlow>(mediator, store, config);
 
@@ -71,7 +71,7 @@ public class EdgeCaseValidationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ScalableCollectionFlow();
         var executor = new DslFlowExecutor<EdgeCaseState, ScalableCollectionFlow>(mediator, store, config);
 
@@ -108,7 +108,7 @@ public class EdgeCaseValidationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new CircularReferenceFlow();
         var executor = new DslFlowExecutor<EdgeCaseState, CircularReferenceFlow>(mediator, store, config);
 
@@ -135,7 +135,7 @@ public class EdgeCaseValidationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new LargeStateFlow();
         var executor = new DslFlowExecutor<EdgeCaseState, LargeStateFlow>(mediator, store, config);
 
@@ -167,7 +167,7 @@ public class EdgeCaseValidationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new SpecialCharactersFlow();
         var executor = new DslFlowExecutor<EdgeCaseState, SpecialCharactersFlow>(mediator, store, config);
 
@@ -216,7 +216,7 @@ public class EdgeCaseValidationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ConcurrentModificationFlow();
         var executor = new DslFlowExecutor<EdgeCaseState, ConcurrentModificationFlow>(mediator, store, config);
 
@@ -254,7 +254,7 @@ public class EdgeCaseValidationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new BoundaryValueFlow();
         var executor = new DslFlowExecutor<EdgeCaseState, BoundaryValueFlow>(mediator, store, config);
 
@@ -285,7 +285,7 @@ public class EdgeCaseValidationTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new DeepNestingFlow();
         var executor = new DslFlowExecutor<EdgeCaseState, DeepNestingFlow>(mediator, store, config);
 

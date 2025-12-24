@@ -81,7 +81,7 @@ public class ForEachPerformanceTests
     {
         // Arrange
         var mediator = CreateFastMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new PerformanceTestFlow(batchSize);
         config.Build();
 
@@ -132,7 +132,7 @@ public class ForEachPerformanceTests
         // when using appropriate batch sizes
 
         var mediator = CreateFastMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         var results = new List<(int ItemCount, long MemoryUsed, TimeSpan Duration)>();
 
@@ -197,7 +197,7 @@ public class ForEachPerformanceTests
         const int itemCount = 2000;
 
         var mediator = CreateFastMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new PerformanceTestFlow(batchSize);
         config.Build();
 
@@ -232,7 +232,7 @@ public class ForEachPerformanceTests
         // Test that recovery mechanism doesn't significantly slow down processing
         const int itemCount = 1000;
 
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         // Pre-populate some progress (simulate partial completion)
         var progress = new ForEachProgress

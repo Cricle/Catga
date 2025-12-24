@@ -1,7 +1,5 @@
-using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
 using Catga.Abstractions;
 using Catga.Flow;
 using Catga.Flow.Dsl;
@@ -19,49 +17,12 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
     private readonly ConcurrentDictionary<string, ForEachProgress> _forEachProgress = new();
 
     /// <summary>
-    /// Creates a new InMemoryDslFlowStore with a default JSON serializer.
+    /// Creates a new InMemoryDslFlowStore with the specified serializer.
     /// </summary>
-    public InMemoryDslFlowStore() : this(new DefaultJsonSerializer())
-    {
-    }
-
+    /// <param name="serializer">The message serializer to use for flow state serialization.</param>
     public InMemoryDslFlowStore(IMessageSerializer serializer)
     {
-        _serializer = serializer;
-    }
-
-    /// <summary>
-    /// Default JSON serializer for in-memory store.
-    /// </summary>
-    private sealed class DefaultJsonSerializer : IMessageSerializer
-    {
-        public string Name => "default-json";
-        
-        public byte[] Serialize<T>(T value) => JsonSerializer.SerializeToUtf8Bytes(value);
-        
-        public T Deserialize<T>(byte[] data) => JsonSerializer.Deserialize<T>(data)!;
-        
-        public T Deserialize<T>(ReadOnlySpan<byte> data) => JsonSerializer.Deserialize<T>(data)!;
-        
-        public void Serialize<T>(T value, IBufferWriter<byte> bufferWriter)
-        {
-            using var writer = new Utf8JsonWriter(bufferWriter);
-            JsonSerializer.Serialize(writer, value);
-        }
-        
-        public byte[] Serialize(object value, Type type) => JsonSerializer.SerializeToUtf8Bytes(value, type);
-        
-        public object? Deserialize(byte[] data, Type type) => JsonSerializer.Deserialize(data, type);
-        
-        public object? Deserialize(ReadOnlySpan<byte> data, Type type) => JsonSerializer.Deserialize(data, type);
-        
-        public void Serialize(object value, Type type, IBufferWriter<byte> bufferWriter)
-        {
-            using var writer = new Utf8JsonWriter(bufferWriter);
-            JsonSerializer.Serialize(writer, value, type);
-        }
-        
-        public int GetSizeEstimate<T>(T value) => 1024;
+        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
     }
 
     public Task<bool> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(

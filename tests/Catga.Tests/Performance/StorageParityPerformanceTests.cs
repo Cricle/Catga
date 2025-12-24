@@ -29,7 +29,7 @@ public class StorageParityPerformanceTests
         // Test create operation performance
         var stores = new Dictionary<string, IDslFlowStore>
         {
-            ["InMemory"] = new InMemoryDslFlowStore(),
+            ["InMemory"] = TestStoreExtensions.CreateTestFlowStore(),
             // Add mocked Redis and NATS for unit test
         };
 
@@ -65,7 +65,7 @@ public class StorageParityPerformanceTests
     [Fact]
     public async Task Performance_UpdateWithOptimisticLocking()
     {
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var flowId = "optimistic-lock-perf";
         var snapshot = CreateSnapshot(flowId);
         await store.CreateAsync(snapshot);
@@ -123,7 +123,7 @@ public class StorageParityPerformanceTests
     [Fact]
     public async Task Performance_ForEachProgress_LargeScale()
     {
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var flowId = "foreach-perf";
         const int itemCount = 10000;
         const int batchSize = 100;
@@ -175,7 +175,7 @@ public class StorageParityPerformanceTests
     [Fact]
     public async Task Performance_WaitCondition_ManySignals()
     {
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var flowId = "wait-perf";
         const int signalCount = 1000;
 
@@ -218,7 +218,7 @@ public class StorageParityPerformanceTests
     [Fact]
     public async Task Performance_TimeoutScanning_LargeDataset()
     {
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         const int conditionCount = 10000;
         const int expiredPercentage = 10;
 
@@ -257,7 +257,7 @@ public class StorageParityPerformanceTests
     [Fact]
     public async Task Performance_ConcurrentMixedOperations()
     {
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         const int flowCount = 100;
         const int operationsPerFlow = 10;
 
@@ -335,7 +335,7 @@ public class StorageParityPerformanceTests
     [Fact]
     public async Task Performance_MemoryUsage_LargeStateObjects()
     {
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         const int flowCount = 100;
         const int itemsPerFlow = 1000;
 

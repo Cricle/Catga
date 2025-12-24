@@ -119,7 +119,7 @@ public class InMemoryFlowStorePropertyTests
                 var snapshot = wrapper.Snapshot;
                 
                 // Arrange
-                var store = new InMemoryDslFlowStore();
+                var store = TestStoreExtensions.CreateTestFlowStore();
 
                 // Act
                 var createResult = store.CreateAsync(snapshot).GetAwaiter().GetResult();
@@ -213,7 +213,7 @@ public class InMemoryFlowStorePropertyTests
                 var initialSnapshot = wrapper.Snapshot;
                 
                 // Arrange
-                var store = new InMemoryDslFlowStore();
+                var store = TestStoreExtensions.CreateTestFlowStore();
                 
                 // Create initial snapshot with version 0
                 var snapshotV0 = new FlowSnapshot<SimpleTestFlowState>
@@ -312,7 +312,7 @@ public class InMemoryFlowStorePropertyTests
             (flowIdNum, amount, itemCount) =>
             {
                 // Arrange
-                var store = new InMemoryDslFlowStore();
+                var store = TestStoreExtensions.CreateTestFlowStore();
                 var flowId = $"flow-{flowIdNum}";
                 var items = Enumerable.Range(1, itemCount).Select(i => $"item-{i}").ToList();
                 
@@ -408,7 +408,7 @@ public class InMemoryFlowStorePropertyTests
                 var originalSnapshot = wrapper.Snapshot;
                 
                 // Arrange
-                var store = new InMemoryDslFlowStore();
+                var store = TestStoreExtensions.CreateTestFlowStore();
 
                 // Act - Create original flow
                 var firstCreate = store.CreateAsync(originalSnapshot).GetAwaiter().GetResult();
@@ -481,7 +481,7 @@ public class InMemoryFlowStorePropertyTests
                 var snapshot = wrapper.Snapshot;
                 
                 // Arrange
-                var store = new InMemoryDslFlowStore();
+                var store = TestStoreExtensions.CreateTestFlowStore();
 
                 // Act - Create and then delete
                 var createResult = store.CreateAsync(snapshot).GetAwaiter().GetResult();
@@ -535,7 +535,7 @@ public class InMemoryFlowStorePropertyTests
             (data) =>
             {
                 // Arrange
-                var store = new InMemoryDslFlowStore();
+                var store = TestStoreExtensions.CreateTestFlowStore();
                 var flowId = $"flow-{data.flowIdNum}";
                 
                 // Ensure counts are valid (completed + failed <= total)
@@ -625,7 +625,7 @@ public class InMemoryFlowStorePropertyTests
             (flowIdNum, checkpointCount) =>
             {
                 // Arrange
-                var store = new InMemoryDslFlowStore();
+                var store = TestStoreExtensions.CreateTestFlowStore();
                 var flowId = $"flow-{flowIdNum}";
                 var checkpoints = new Dictionary<int, ForEachProgress>();
 
@@ -697,7 +697,7 @@ public class InMemoryFlowStorePropertyTests
             (flowIdNum, stepIndex) =>
             {
                 // Arrange
-                var store = new InMemoryDslFlowStore();
+                var store = TestStoreExtensions.CreateTestFlowStore();
                 var flowId = $"flow-{flowIdNum}";
                 
                 var checkpoint = new ForEachProgress

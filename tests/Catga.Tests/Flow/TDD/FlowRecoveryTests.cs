@@ -17,7 +17,7 @@ public class FlowRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new RecoverableFlow();
         var executor = new DslFlowExecutor<RecoveryState, RecoverableFlow>(mediator, store, config);
 
@@ -52,7 +52,7 @@ public class FlowRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new MultiFailureFlow();
         var executor = new DslFlowExecutor<RecoveryState, MultiFailureFlow>(mediator, store, config);
 
@@ -86,7 +86,7 @@ public class FlowRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new StatefulRecoveryFlow();
         var executor = new DslFlowExecutor<RecoveryState, StatefulRecoveryFlow>(mediator, store, config);
 
@@ -135,7 +135,7 @@ public class FlowRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ConcurrentRecoveryFlow();
 
         var state = new RecoveryState
@@ -187,7 +187,7 @@ public class FlowRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new SystemRestartFlow();
 
         var state = new RecoveryState
@@ -227,7 +227,7 @@ public class FlowRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TimeoutRecoveryFlow();
         var executor = new DslFlowExecutor<RecoveryState, TimeoutRecoveryFlow>(mediator, store, config);
 

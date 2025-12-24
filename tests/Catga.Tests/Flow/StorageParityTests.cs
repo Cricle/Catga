@@ -37,7 +37,7 @@ public class StorageParityTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         // Setup InMemory store
-        _stores.Add(new InMemoryDslFlowStore());
+        _stores.Add(TestStoreExtensions.CreateTestFlowStore());
 
         // Setup Redis store (mock for unit tests)
         _redisConnection = Substitute.For<IConnectionMultiplexer>();

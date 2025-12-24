@@ -399,7 +399,7 @@ public class NullBoundaryTests
     public async Task FlowStore_Get_NullFlowId_ThrowsArgumentNull()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         // Act
         var act = async () => await store.GetAsync<TestFlowState>(null!);
@@ -416,7 +416,7 @@ public class NullBoundaryTests
     public async Task FlowStore_Get_EmptyFlowId_ReturnsNull()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         // Act
         var result = await store.GetAsync<TestFlowState>(string.Empty);
@@ -434,7 +434,7 @@ public class NullBoundaryTests
     public async Task FlowStore_Delete_NullFlowId_ThrowsArgumentNull()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         // Act
         var act = async () => await store.DeleteAsync(null!);
@@ -451,7 +451,7 @@ public class NullBoundaryTests
     public async Task FlowStore_Delete_NonExistentFlowId_ReturnsFalse()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         // Act
         var result = await store.DeleteAsync("non-existent-flow");
@@ -468,7 +468,7 @@ public class NullBoundaryTests
     public async Task FlowStore_Create_NullSnapshot_ThrowsException()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         // Act
         var act = async () => await store.CreateAsync<TestFlowState>(null!);
@@ -485,7 +485,7 @@ public class NullBoundaryTests
     public async Task FlowStore_Get_DefaultGuid_ReturnsNull()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var defaultGuidString = Guid.Empty.ToString();
 
         // Act

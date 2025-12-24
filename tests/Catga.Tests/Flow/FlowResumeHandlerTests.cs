@@ -141,7 +141,7 @@ public class FlowTimeoutServiceTests
     [Fact]
     public async Task CheckTimeouts_MarksTimedOutConditions()
     {
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         // Create a timed out condition
         var timedOut = new WaitCondition
@@ -172,7 +172,7 @@ public class FlowTimeoutServiceTests
     [Fact]
     public async Task StartStop_WorksCorrectly()
     {
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var service = new FlowTimeoutService(store, TimeSpan.FromMilliseconds(50));
 
         service.Start();

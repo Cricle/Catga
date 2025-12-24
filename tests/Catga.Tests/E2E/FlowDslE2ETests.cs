@@ -204,7 +204,7 @@ public class FlowDslE2ETests
         // Arrange
         var services = new ServiceCollection();
         var mediator = SetupMediatorForRecovery();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         services.AddSingleton(mediator);
         services.AddSingleton<IDslFlowStore>(store);

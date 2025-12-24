@@ -17,7 +17,7 @@ public class BranchingLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new NullConditionFlow();
         var executor = new DslFlowExecutor<BranchingTestState, NullConditionFlow>(mediator, store, config);
 
@@ -37,7 +37,7 @@ public class BranchingLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new EmptyBranchFlow();
         var executor = new DslFlowExecutor<BranchingTestState, EmptyBranchFlow>(mediator, store, config);
 
@@ -64,7 +64,7 @@ public class BranchingLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ManyElseIfFlow();
         var executor = new DslFlowExecutor<BranchingTestState, ManyElseIfFlow>(mediator, store, config);
 
@@ -87,7 +87,7 @@ public class BranchingLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new NestedConditionFlow();
         var executor = new DslFlowExecutor<BranchingTestState, NestedConditionFlow>(mediator, store, config);
 
@@ -114,7 +114,7 @@ public class BranchingLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ExceptionConditionFlow();
         var executor = new DslFlowExecutor<BranchingTestState, ExceptionConditionFlow>(mediator, store, config);
 
@@ -132,7 +132,7 @@ public class BranchingLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new StateModifyingConditionFlow();
         var executor = new DslFlowExecutor<BranchingTestState, StateModifyingConditionFlow>(mediator, store, config);
 
@@ -155,7 +155,7 @@ public class BranchingLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new NoMatchingBranchFlow();
         var executor = new DslFlowExecutor<BranchingTestState, NoMatchingBranchFlow>(mediator, store, config);
 
@@ -178,7 +178,7 @@ public class BranchingLogicTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new PerformanceBranchFlow(branchCount);
         var executor = new DslFlowExecutor<BranchingTestState, PerformanceBranchFlow>(mediator, store, config);
 

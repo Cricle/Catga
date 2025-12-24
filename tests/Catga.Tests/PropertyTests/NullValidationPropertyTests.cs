@@ -5,6 +5,7 @@ using Catga.Persistence.InMemory.Flow;
 using Catga.Persistence.InMemory.Stores;
 using Catga.Persistence.Stores;
 using Catga.Resilience;
+using Catga.Tests.Helpers;
 using Catga.Transport;
 using FsCheck;
 using FsCheck.Xunit;
@@ -209,7 +210,7 @@ public class NullValidationPropertyTests
             (data) =>
             {
                 // Arrange
-                var store = new InMemoryDslFlowStore();
+                var store = TestStoreExtensions.CreateTestFlowStore();
 
                 // Act & Assert - Operations with null flowId should throw
                 var getThrows = false;
@@ -256,7 +257,7 @@ public class NullValidationPropertyTests
                 var defaultGuidString = Guid.Empty.ToString();
                 var eventStore = new InMemoryEventStore(new DiagnosticResiliencePipelineProvider());
                 var snapshotStore = new InMemoryEnhancedSnapshotStore(new TestJsonSerializer());
-                var flowStore = new InMemoryDslFlowStore();
+                var flowStore = TestStoreExtensions.CreateTestFlowStore();
 
                 // Act & Assert - Default Guid should be handled gracefully
                 var eventStoreHandles = false;

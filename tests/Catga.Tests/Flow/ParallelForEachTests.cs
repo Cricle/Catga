@@ -105,7 +105,7 @@ public class ParallelForEachTests
     {
         // Arrange
         var mediator = CreateSlowMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ParallelFlow(4);
         config.Build();
 
@@ -142,7 +142,7 @@ public class ParallelForEachTests
     {
         // Arrange
         var mediator = CreateSlowMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new SequentialFlow();
         config.Build();
 
@@ -185,7 +185,7 @@ public class ParallelForEachTests
     {
         // Arrange
         var mediator = CreateSlowMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ParallelFlow(parallelism);
         config.Build();
 
@@ -222,7 +222,7 @@ public class ParallelForEachTests
     {
         // Arrange
         var mediator = CreateFailingMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ParallelFlow(3);
         config.Build();
 
@@ -256,7 +256,7 @@ public class ParallelForEachTests
     {
         // Test that parallel processing still respects batch boundaries
         var mediator = CreateFastMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         var config = new ParallelBatchFlow(parallelism: 2, batchSize: 3);
         config.Build();

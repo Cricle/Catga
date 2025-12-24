@@ -18,7 +18,7 @@ public class ExecuteIfAsyncTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new SimpleIfFlow();
 
         var state = new IfTestState
@@ -52,7 +52,7 @@ public class ExecuteIfAsyncTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new SimpleIfFlow();
 
         var state = new IfTestState
@@ -86,7 +86,7 @@ public class ExecuteIfAsyncTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ComplexIfFlow();
 
         var state = new ComplexIfTestState
@@ -120,7 +120,7 @@ public class ExecuteIfAsyncTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ComplexIfFlow();
 
         var state = new ComplexIfTestState
@@ -154,7 +154,7 @@ public class ExecuteIfAsyncTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new NestedIfFlow();
 
         var state = new NestedIfTestState
@@ -191,7 +191,7 @@ public class ExecuteIfAsyncTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new PerformanceIfFlow();
 
         var processedCount = 0;
@@ -236,7 +236,7 @@ public class ExecuteIfAsyncTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new EmptyBranchIfFlow();
 
         var state = new IfTestState

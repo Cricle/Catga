@@ -18,7 +18,7 @@ public class FlowDslEdgeCaseTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new NullCollectionFlow();
         var executor = new DslFlowExecutor<NullTestState, NullCollectionFlow>(mediator, store, config);
 
@@ -34,7 +34,7 @@ public class FlowDslEdgeCaseTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new NullConditionFlow();
         var executor = new DslFlowExecutor<NullTestState, NullConditionFlow>(mediator, store, config);
 
@@ -54,7 +54,7 @@ public class FlowDslEdgeCaseTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new NullSwitchFlow();
         var executor = new DslFlowExecutor<NullTestState, NullSwitchFlow>(mediator, store, config);
 
@@ -78,7 +78,7 @@ public class FlowDslEdgeCaseTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new DeeplyNestedIfFlow();
         var executor = new DslFlowExecutor<NestedState, DeeplyNestedIfFlow>(mediator, store, config);
 
@@ -104,7 +104,7 @@ public class FlowDslEdgeCaseTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new SwitchInsideIfFlow();
         var executor = new DslFlowExecutor<NestedState, SwitchInsideIfFlow>(mediator, store, config);
 
@@ -133,7 +133,7 @@ public class FlowDslEdgeCaseTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new MultiStepFlow();
         var executor = new DslFlowExecutor<SimpleState, MultiStepFlow>(mediator, store, config);
 
@@ -155,7 +155,7 @@ public class FlowDslEdgeCaseTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new MultiStepFlow();
         var executor = new DslFlowExecutor<SimpleState, MultiStepFlow>(mediator, store, config);
 
@@ -184,7 +184,7 @@ public class FlowDslEdgeCaseTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new OptionalStepFlow();
         var executor = new DslFlowExecutor<SimpleState, OptionalStepFlow>(mediator, store, config);
 
@@ -217,7 +217,7 @@ public class FlowDslEdgeCaseTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new CounterFlow();
 
         SetupCounterMediator(mediator);
@@ -247,7 +247,7 @@ public class FlowDslEdgeCaseTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new LargeCollectionFlow();
         var executor = new DslFlowExecutor<LargeState, LargeCollectionFlow>(mediator, store, config);
 
@@ -275,7 +275,7 @@ public class FlowDslEdgeCaseTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new StateMutationFlow();
         var executor = new DslFlowExecutor<MutableState, StateMutationFlow>(mediator, store, config);
 
@@ -305,7 +305,7 @@ public class FlowDslEdgeCaseTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new SlowFlow();
         var executor = new DslFlowExecutor<SimpleState, SlowFlow>(mediator, store, config);
 

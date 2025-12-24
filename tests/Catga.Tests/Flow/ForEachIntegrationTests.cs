@@ -60,7 +60,7 @@ public class ForEachIntegrationTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new IntegrationFlow();
         config.Build();
 
@@ -88,7 +88,7 @@ public class ForEachIntegrationTests
     public async Task ForEach_Integration_ShouldSupportRecovery()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         // Simulate partial progress
         var progress = new ForEachProgress
@@ -127,7 +127,7 @@ public class ForEachIntegrationTests
     {
         // Arrange
         var mediator = CreateFailingMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new FailureHandlingFlow();
         config.Build();
 
@@ -178,7 +178,7 @@ public class ForEachIntegrationTests
         {
             // Arrange
             var mediator = CreateMockMediator();
-            var store = new InMemoryDslFlowStore();
+            var store = TestStoreExtensions.CreateTestFlowStore();
             var config = new BatchTestFlow(batchSize);
             config.Build();
 

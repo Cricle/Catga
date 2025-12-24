@@ -22,7 +22,7 @@ public class MemoryOptimizationImprovementTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestOptimizedForEachFlow();
 
         var state = new TestMemoryState
@@ -72,7 +72,7 @@ public class MemoryOptimizationImprovementTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestStreamingOptimizedFlow();
 
         var itemCount = 50000; // Large collection
@@ -136,7 +136,7 @@ public class MemoryOptimizationImprovementTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestBatchOptimizedFlow();
 
         var itemCount = 20000;

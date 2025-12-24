@@ -114,7 +114,7 @@ public class BenchmarkRunner
     {
         Console.WriteLine("## ForEach Performance");
 
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var items = Enumerable.Range(1, 1000).Select(i => $"item{i}").ToList();
 
         // Sequential

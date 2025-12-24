@@ -18,7 +18,7 @@ public class ForEachRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestForEachFlow();
 
         var state = new TestForEachState
@@ -82,7 +82,7 @@ public class ForEachRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestParallelForEachFlow();
 
         var state = new TestForEachState
@@ -160,7 +160,7 @@ public class ForEachRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestForEachWithErrorHandlingFlow();
 
         var state = new TestForEachState
@@ -226,7 +226,7 @@ public class ForEachRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestBatchForEachFlow();
 
         var state = new TestForEachState
@@ -353,9 +353,9 @@ public class ForEachRecoveryTests
     {
         return storeType switch
         {
-            "InMemory" => new InMemoryDslFlowStore(),
-            "Redis" => new InMemoryDslFlowStore(), // TODO: Replace with actual Redis store
-            "Nats" => new InMemoryDslFlowStore(),  // TODO: Replace with actual NATS store
+            "InMemory" => TestStoreExtensions.CreateTestFlowStore(),
+            "Redis" => TestStoreExtensions.CreateTestFlowStore(), // TODO: Replace with actual Redis store
+            "Nats" => TestStoreExtensions.CreateTestFlowStore(),  // TODO: Replace with actual NATS store
             _ => throw new ArgumentException($"Unknown store type: {storeType}")
         };
     }

@@ -62,7 +62,7 @@ public class ForEachDebugTest
                 return CatgaResult<string>.Success($"result-{request.ItemId}");
             });
 
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestFlow();
         config.Build();
 

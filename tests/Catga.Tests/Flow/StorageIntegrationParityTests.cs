@@ -43,7 +43,7 @@ public class StorageIntegrationParityTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         // Always add InMemory store
-        _stores.Add(new InMemoryDslFlowStore());
+        _stores.Add(TestStoreExtensions.CreateTestFlowStore());
 
         // Try to connect to Redis
         if (_redisAvailable)

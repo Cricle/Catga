@@ -14,7 +14,7 @@ public class DslFlowE2ETests
     public async Task E2E_FlowPersistence_SavesAndRestoresState()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         var state = new TestFlowState { OrderId = "ORD-005", Amount = 100 };
         var snapshot = FlowSnapshot<TestFlowState>.Create(
@@ -38,7 +38,7 @@ public class DslFlowE2ETests
     public async Task E2E_FlowPersistence_UpdatesState()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         var state = new TestFlowState { OrderId = "ORD-006", Amount = 100 };
         var snapshot = FlowSnapshot<TestFlowState>.Create(
@@ -67,7 +67,7 @@ public class DslFlowE2ETests
     public async Task E2E_FlowPersistence_DeletesFlow()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         var state = new TestFlowState { OrderId = "ORD-007" };
         var snapshot = FlowSnapshot<TestFlowState>.Create(
@@ -91,7 +91,7 @@ public class DslFlowE2ETests
     public async Task E2E_FlowPersistence_WaitCondition_SavesAndRestores()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var correlationId = "corr-001";
         var waitCondition = new WaitCondition
         {
@@ -120,7 +120,7 @@ public class DslFlowE2ETests
     public async Task E2E_FlowPersistence_WaitCondition_Updates()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var correlationId = "corr-002";
         var waitCondition = new WaitCondition
         {
@@ -158,7 +158,7 @@ public class DslFlowE2ETests
     public async Task E2E_FlowPersistence_MultipleFlows_IndependentState()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         var state1 = new TestFlowState { OrderId = "ORD-A", Amount = 100 };
         var state2 = new TestFlowState { OrderId = "ORD-B", Amount = 200 };
@@ -206,7 +206,7 @@ public class DslFlowE2ETests
     public async Task E2E_FlowPersistence_ConcurrentUpdates_LastWriteWins()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         var state = new TestFlowState { OrderId = "ORD-CONCURRENT" };
         var snapshot = FlowSnapshot<TestFlowState>.Create(flowId: "flow-concurrent",

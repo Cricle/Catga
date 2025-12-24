@@ -18,7 +18,7 @@ public class BranchRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestIfFlow();
 
         var state = new TestBranchState
@@ -77,7 +77,7 @@ public class BranchRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestIfFlow();
 
         var state = new TestBranchState
@@ -130,7 +130,7 @@ public class BranchRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestSwitchFlow();
 
         var state = new TestBranchState
@@ -191,7 +191,7 @@ public class BranchRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestNestedBranchFlow();
 
         var state = new TestBranchState
@@ -290,9 +290,9 @@ public class BranchRecoveryTests
     {
         return storeType switch
         {
-            "InMemory" => new InMemoryDslFlowStore(),
-            "Redis" => new InMemoryDslFlowStore(), // TODO: Replace with actual Redis store
-            "Nats" => new InMemoryDslFlowStore(),  // TODO: Replace with actual NATS store
+            "InMemory" => TestStoreExtensions.CreateTestFlowStore(),
+            "Redis" => TestStoreExtensions.CreateTestFlowStore(), // TODO: Replace with actual Redis store
+            "Nats" => TestStoreExtensions.CreateTestFlowStore(),  // TODO: Replace with actual NATS store
             _ => throw new ArgumentException($"Unknown store type: {storeType}")
         };
     }

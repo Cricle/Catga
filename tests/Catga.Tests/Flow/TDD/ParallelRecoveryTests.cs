@@ -18,7 +18,7 @@ public class ParallelRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestWhenAllFlow();
 
         var state = new TestParallelState
@@ -96,7 +96,7 @@ public class ParallelRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestWhenAnyFlow();
 
         var state = new TestParallelState
@@ -176,7 +176,7 @@ public class ParallelRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestWhenAllWithTimeoutFlow();
 
         var state = new TestParallelState
@@ -305,9 +305,9 @@ public class ParallelRecoveryTests
     {
         return storeType switch
         {
-            "InMemory" => new InMemoryDslFlowStore(),
-            "Redis" => new InMemoryDslFlowStore(), // TODO: Replace with actual Redis store
-            "Nats" => new InMemoryDslFlowStore(),  // TODO: Replace with actual NATS store
+            "InMemory" => TestStoreExtensions.CreateTestFlowStore(),
+            "Redis" => TestStoreExtensions.CreateTestFlowStore(), // TODO: Replace with actual Redis store
+            "Nats" => TestStoreExtensions.CreateTestFlowStore(),  // TODO: Replace with actual NATS store
             _ => throw new ArgumentException($"Unknown store type: {storeType}")
         };
     }

@@ -20,7 +20,7 @@ public class ConcurrencySafetyTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestConcurrentFlow();
 
         var concurrentFlows = 10;
@@ -92,7 +92,7 @@ public class ConcurrencySafetyTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestConcurrentParallelForEachFlow();
 
         var itemCount = 1000;
@@ -150,7 +150,7 @@ public class ConcurrencySafetyTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestStateModificationFlow();
 
         var concurrentModifications = 50;
@@ -212,7 +212,7 @@ public class ConcurrencySafetyTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestRecoveryFlow();
 
         var concurrentRecoveries = 5;
@@ -286,7 +286,7 @@ public class ConcurrencySafetyTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new TestHighVolumeFlow();
 
         var itemCount = 10000;

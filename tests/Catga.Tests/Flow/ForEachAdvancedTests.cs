@@ -98,7 +98,7 @@ public class ForEachAdvancedTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ComplexForEachFlow();
         config.Build();
 
@@ -134,7 +134,7 @@ public class ForEachAdvancedTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new LargeCollectionFlow();
         config.Build();
 
@@ -170,7 +170,7 @@ public class ForEachAdvancedTests
     public async Task ForEach_ShouldSupportRecoveryWithLargeCollections()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         // Simulate a flow that was interrupted at item 500
         var progress = new ForEachProgress
@@ -227,7 +227,7 @@ public class ForEachAdvancedTests
         // In a real implementation, we would monitor memory usage
 
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
 
         // Create a flow with specific batch size
         var flowConfig = new TestBatchFlow(batchSize);

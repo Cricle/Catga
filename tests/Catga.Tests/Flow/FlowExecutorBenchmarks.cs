@@ -139,7 +139,7 @@ public class FlowExecutorBenchmarks
     {
         _output.WriteLine("## ForEach Performance (Sequential vs Parallel)");
 
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new BenchmarkForEachFlow();
         config.Build();
 
@@ -181,7 +181,7 @@ public class FlowExecutorBenchmarks
     {
         _output.WriteLine("## Nested Flow Performance");
 
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new NestedBenchmarkFlow();
         config.Build();
 
@@ -215,7 +215,7 @@ public class FlowExecutorBenchmarks
         var initialMemory = GC.GetTotalMemory(true);
 
         // Run a complex flow
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new ComplexBenchmarkFlow();
         config.Build();
 

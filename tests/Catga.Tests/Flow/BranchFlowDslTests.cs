@@ -445,7 +445,7 @@ public class BranchFlowDslTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new SimpleIfElseFlow();
         var executor = new DslFlowExecutor<OrderFlowState, SimpleIfElseFlow>(mediator, store, config);
 
@@ -473,7 +473,7 @@ public class BranchFlowDslTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new SimpleIfElseFlow();
         var executor = new DslFlowExecutor<OrderFlowState, SimpleIfElseFlow>(mediator, store, config);
 
@@ -501,7 +501,7 @@ public class BranchFlowDslTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new SwitchCaseFlow();
         var executor = new DslFlowExecutor<OrderFlowState, SwitchCaseFlow>(mediator, store, config);
 
@@ -525,7 +525,7 @@ public class BranchFlowDslTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new SwitchCaseFlow();
         var executor = new DslFlowExecutor<OrderFlowState, SwitchCaseFlow>(mediator, store, config);
 
@@ -549,7 +549,7 @@ public class BranchFlowDslTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new NestedIfFlow();
         var executor = new DslFlowExecutor<OrderFlowState, NestedIfFlow>(mediator, store, config);
 
@@ -577,7 +577,7 @@ public class BranchFlowDslTests
     {
         // Arrange
         var mediator = CreateMockMediator();
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var config = new SimpleIfElseFlow();
         var executor = new DslFlowExecutor<OrderFlowState, SimpleIfElseFlow>(mediator, store, config);
 
@@ -714,7 +714,7 @@ public class BranchFlowDslTests
     public async Task E2E_BranchRecovery_StoresNestedPosition()
     {
         // Arrange
-        var store = new InMemoryDslFlowStore();
+        var store = TestStoreExtensions.CreateTestFlowStore();
         var state = new OrderFlowState
         {
             FlowId = "flow-recovery-001",

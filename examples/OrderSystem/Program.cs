@@ -25,6 +25,9 @@ builder.Services.AddSingleton(new NodeInfo(nodeId, isCluster, transport, persist
 
 var app = builder.Build();
 
+// Enable static files
+app.UseStaticFiles();
+
 // Map endpoints
 app.MapOrderSystemEndpoints();
 

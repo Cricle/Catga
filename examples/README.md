@@ -4,7 +4,7 @@ This directory contains example applications demonstrating Catga framework featu
 
 ## OrderSystem
 
-A comprehensive example showcasing all Catga features in a simple order management system.
+A comprehensive example showcasing all Catga features in a production-ready order management system.
 
 **Location**: `OrderSystem/`
 
@@ -13,6 +13,8 @@ A comprehensive example showcasing all Catga features in a simple order manageme
 - ✅ Event Sourcing (Complete event history)
 - ✅ Multiple Backends (InMemory, Redis, NATS)
 - ✅ Distributed Messaging (Pub/Sub)
+- ✅ Hosted Services (Automatic lifecycle management)
+- ✅ Health Checks (Kubernetes-ready probes)
 - ✅ Cluster Mode (Multi-node deployment)
 - ✅ AOT Compilation (Native compilation ready)
 - ✅ MemoryPack Serialization (High-performance)
@@ -24,11 +26,15 @@ dotnet run
 ```
 
 **Documentation**:
-- [README.md](OrderSystem/README.md) - Complete usage guide
-- [FEATURES.md](OrderSystem/FEATURES.md) - Feature showcase
+- [README.md](OrderSystem/README.md) - Complete usage guide and API reference
+
+**Test Scripts**:
 - [quick-test.ps1](OrderSystem/quick-test.ps1) - Quick validation
+- [test-all.ps1](OrderSystem/test-all.ps1) - Comprehensive test suite
+- [test-apis.ps1](OrderSystem/test-apis.ps1) - API endpoint tests
 
 **Deployment Modes**:
+
 1. **InMemory** (Development)
    ```bash
    dotnet run
@@ -65,12 +71,11 @@ dotnet run
 1. **Clone the repository**
    ```bash
    git clone https://github.com/Cricle/Catga.git
-   cd Catga/examples
+   cd Catga/examples/OrderSystem
    ```
 
-2. **Run an example**
+2. **Run the example**
    ```bash
-   cd OrderSystem
    dotnet run
    ```
 
@@ -84,16 +89,33 @@ dotnet run
      -H "Content-Type: application/json" \
      -d '{"customerId":"c1","items":[{"productId":"p1","name":"Product","quantity":1,"price":99.99}]}'
    
-   # Get statistics
+   # Get order statistics
    curl http://localhost:5000/stats
+   
+   # Check health
+   curl http://localhost:5000/health
    ```
+
+## Docker Support
+
+Use Docker Compose to start infrastructure:
+
+```bash
+cd OrderSystem
+docker-compose up -d
+```
+
+This starts:
+- Redis (port 6379)
+- NATS with JetStream (port 4222)
 
 ## Learn More
 
 - [Catga Documentation](../docs/README.md)
+- [Getting Started Guide](../docs/articles/getting-started.md)
+- [Hosting Configuration](../docs/guides/hosting-configuration.md)
 - [CQRS Pattern](../docs/patterns/cqrs.md)
 - [Event Sourcing](../docs/patterns/event-sourcing.md)
-- [Deployment Guide](../docs/deployment/README.md)
 
 ## Contributing
 

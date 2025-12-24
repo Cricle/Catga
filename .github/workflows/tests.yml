@@ -94,7 +94,7 @@ jobs:
 
   build-and-pack:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [smoke-windows, smoke-macos, docker-redis7-alpine, docker-redis7]
+    needs: [unit, integration]
     name: Build and Create NuGet Packages
     runs-on: ubuntu-latest
     steps:

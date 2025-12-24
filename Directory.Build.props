@@ -26,7 +26,6 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/Cricle/Catga</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageIcon>icon.png</PackageIcon>
     <PackageTags>cqrs;mediator;distributed;aot;native-aot;high-performance</PackageTags>
     <PackageReleaseNotes>https://github.com/Cricle/Catga/releases</PackageReleaseNotes>
 

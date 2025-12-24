@@ -14,13 +14,33 @@ A comprehensive example demonstrating all Catga features: CQRS, Event Sourcing, 
 ✅ **Cluster Mode** - Multi-node deployment  
 ✅ **AOT Compilation** - Native AOT ready  
 ✅ **MemoryPack Serialization** - High-performance binary serialization  
+✅ **Web UI** - Interactive single-page application for testing and demonstration  
 
-## Quick Start
+## Web UI
+
+The OrderSystem includes a beautiful, responsive Web UI for easy testing and demonstration:
+
+**Features:**
+- 📊 Real-time system information and statistics
+- 📝 Create orders with custom items
+- 📦 View all orders with status indicators
+- 💳 Pay, ship, and cancel orders with one click
+- 📜 View event history for each order
+- 🔄 Auto-refresh statistics every 5 seconds
+- 📱 Mobile-responsive design
+
+**Access:** Simply run the application and open `http://localhost:5000` in your browser.
+
+![Web UI Screenshot](../../docs/screenshots/ordersystem-ui.png)
+
+## API Endpoints
 
 ### 1. InMemory (Standalone)
 ```bash
 dotnet run
 ```
+
+Then open your browser and navigate to `http://localhost:5000` to access the Web UI.
 
 ### 2. Redis Backend
 ```bash
@@ -84,7 +104,25 @@ dotnet run -- --cluster --node-id node3 --port 5003 --transport redis --persiste
 
 ## Example Usage
 
-### Create Order
+### Using the Web UI
+
+1. Start the application:
+   ```bash
+   dotnet run
+   ```
+
+2. Open your browser and navigate to `http://localhost:5000`
+
+3. Use the interface to:
+   - Create orders by filling in the form
+   - View all orders in real-time
+   - Pay, ship, or cancel orders with buttons
+   - View event history for each order
+   - Monitor system statistics
+
+### Using the REST API
+
+#### Create Order
 ```bash
 curl -X POST http://localhost:5000/orders \
   -H "Content-Type: application/json" \

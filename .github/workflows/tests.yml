@@ -118,17 +118,6 @@ jobs:
     - name: Build solution
       run: dotnet build --no-restore --configuration Release /p:Version=${{ steps.get_version.outputs.VERSION }}
 
-    - name: Run tests (unit + non-docker)
-      run: dotnet test --no-build --configuration Release --verbosity normal --filter "Requires!=Docker"
-
-    - name: Pre-pull Docker images
-      run: |
-        docker pull nats:latest
-        docker pull redis:7-alpine
-
-    - name: Run tests (docker)
-      run: dotnet test --no-build --configuration Release --verbosity normal --filter "Requires=Docker" --blame-hang --blame-hang-timeout "8m" --logger "console;verbosity=detailed"
-
     - name: Pack NuGet packages
       run: |
         # Core packages

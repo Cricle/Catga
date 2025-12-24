@@ -174,7 +174,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
     {
         // Try generated router first
         var router = _serviceProvider.GetService<IGeneratedEventRouter>();
-        if (router != null && router.TryRoute(_serviceProvider, @event, cancellationToken, out var task))
+        if (router != null && router.TryRoute(_serviceProvider, @event, out var task, cancellationToken))
         {
             if (task != null) await task.ConfigureAwait(false);
             return;
@@ -344,7 +344,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
         // Try generated router first
         var router = _serviceProvider.GetService<IGeneratedEventRouter>();
-        if (router != null && router.TryRoute(_serviceProvider, @event, cancellationToken, out var task))
+        if (router != null && router.TryRoute(_serviceProvider, @event, out var task, cancellationToken))
         {
             if (task != null) await task.ConfigureAwait(false);
             if (_enableLogging) CatgaLog.EventPublished(_logger, eventType, @event.MessageId, 0);

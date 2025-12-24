@@ -1,5 +1,6 @@
 using Catga.Flow.Dsl;
 using Catga.Persistence.InMemory.Flow;
+using Catga.Tests.Helpers;
 using Catga.Tests.PropertyTests.Generators;
 using FsCheck;
 using FsCheck.Xunit;

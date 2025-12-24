@@ -45,8 +45,22 @@ if (Test-Endpoint "系统信息" {
 # 2. 测试健康检查
 if (Test-Endpoint "健康检查" {
     $health = Invoke-RestMethod -Uri "$BaseUrl/health" -Method Get
-    if ($health -ne "Healthy") { throw "Not healthy: $health" }
-    Write-Host "  Status: $health" -ForegroundColor Gray
+    if ($health.status -ne "Healthy") { throw "Not healthy: $($health.status)" }
+    Write-Host "  Overall Status: $($health.status)" -ForegroundColor Gray
+}) { $passed++ } else { $failed++ }
+
+# 2.1 测试就绪探针
+if (Test-Endpoint "就绪探针" {
+    $ready = Invoke-RestMethod -Uri "$BaseUrl/health/ready" -Method Get
+    if ($ready.status -ne "Healthy") { throw "Not ready: $($ready.status)" }
+    Write-Host "  Readiness: $($ready.status)" -ForegroundColor Gray
+}) { $passed++ } else { $failed++ }
+
+# 2.2 测试存活探针
+if (Test-Endpoint "存活探针" {
+    $live = Invoke-RestMethod -Uri "$BaseUrl/health/live" -Method Get
+    if ($live.status -ne "Healthy") { throw "Not live: $($live.status)" }
+    Write-Host "  Liveness: $($live.status)" -ForegroundColor Gray
 }) { $passed++ } else { $failed++ }
 
 # 3. 测试统计信息

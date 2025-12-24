@@ -8,6 +8,9 @@ A comprehensive example demonstrating all Catga features: CQRS, Event Sourcing, 
 ✅ **Event Sourcing** - Full event history tracking  
 ✅ **Multiple Backends** - InMemory, Redis, NATS  
 ✅ **Distributed Messaging** - Pub/Sub with multiple transports  
+✅ **Hosted Services** - Automatic lifecycle management with RecoveryHostedService, TransportHostedService, OutboxProcessorService  
+✅ **Health Checks** - Kubernetes-ready liveness and readiness probes  
+✅ **Graceful Shutdown** - Proper message completion before shutdown  
 ✅ **Cluster Mode** - Multi-node deployment  
 ✅ **AOT Compilation** - Native AOT ready  
 ✅ **MemoryPack Serialization** - High-performance binary serialization  
@@ -65,7 +68,9 @@ dotnet run -- --cluster --node-id node3 --port 5003 --transport redis --persiste
 
 ### System Endpoints
 - `GET /` - System information and configuration
-- `GET /health` - Health check
+- `GET /health` - Overall health status (all checks)
+- `GET /health/ready` - Readiness probe (for Kubernetes)
+- `GET /health/live` - Liveness probe (for Kubernetes)
 - `GET /stats` - Order statistics
 
 ### Order Management
@@ -253,6 +258,13 @@ The compiled binary will be in `bin/Release/net9.0/publish/`
 └────────┬────────┘         └─────────────────────────────┘
          │
 ┌────────▼─────────────────────────────────────────────────┐
+│              Hosted Services                             │
+│  - RecoveryHostedService (Health Check & Auto Recovery) │
+│  - TransportHostedService (Lifecycle Management)        │
+│  - OutboxProcessorService (Background Processing)       │
+└──────────────────────────────────────────────────────────┘
+         │
+┌────────▼─────────────────────────────────────────────────┐
 │              Transport Layer                             │
 │  InMemory | Redis Pub/Sub | NATS JetStream              │
 └──────────────────────────────────────────────────────────┘
@@ -262,6 +274,32 @@ The compiled binary will be in `bin/Release/net9.0/publish/`
 │  InMemory | Redis | NATS KV Store                        │
 └──────────────────────────────────────────────────────────┘
 ```
+
+## Hosted Services
+
+This example demonstrates Catga's integration with Microsoft.Extensions.Hosting:
+
+### RecoveryHostedService
+- Automatically monitors component health every 30 seconds
+- Attempts recovery when components become unhealthy
+- Configurable retry logic with exponential backoff
+
+### TransportHostedService
+- Manages transport layer lifecycle (startup/shutdown)
+- Handles graceful shutdown (stops accepting new messages, waits for completion)
+- Integrates with IHostApplicationLifetime
+
+### OutboxProcessorService
+- Processes outbox messages in the background every 2 seconds
+- Ensures reliable message delivery
+- Configurable batch size and scan interval
+
+### Health Checks
+- `/health` - Overall health status
+- `/health/ready` - Readiness probe (checks transport and persistence)
+- `/health/live` - Liveness probe (checks recovery service)
+
+Perfect for Kubernetes deployments!
 
 ## Order State Machine
 

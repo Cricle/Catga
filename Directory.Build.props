@@ -7,8 +7,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
-    <!-- Default Target Framework -->
-    <TargetFramework Condition="'$(TargetFramework)' == ''">net9.0</TargetFramework>
+    <!-- Default Target Frameworks -->
+    <TargetFrameworks Condition="'$(TargetFrameworks)' == '' AND '$(MSBuildProjectExtension)' == '.csproj' AND '$(MSBuildProjectName)' != 'Catga.SourceGenerator'">net9.0;net8.0</TargetFrameworks>
+    <TargetFramework Condition="'$(TargetFramework)' == '' AND '$(TargetFrameworks)' == ''">net9.0</TargetFramework>
 
     <!-- Version (centralized) -->
     <Version>0.1.0</Version>
@@ -53,12 +54,23 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
+  <!-- Test Project Settings -->
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true' OR $(MSBuildProjectName.Contains('Tests')) OR $(MSBuildProjectName.Contains('Benchmark'))">
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
   <!-- README and Icon -->
   <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)README.md')">
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)icon.png')">
     <None Include="$(MSBuildThisFileDirectory)icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Common Test References -->
+  <ItemGroup Condition="'$(IsTestProject)' == 'true'">
+    <Using Include="Xunit" />
   </ItemGroup>
 
 </Project>

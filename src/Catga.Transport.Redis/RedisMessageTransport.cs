@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Catga.Abstractions;
 using Catga.Core;
+using Catga.Hosting;
 using Catga.Observability;
 using Catga.Resilience;
 using Catga.Transport.Redis.Observability;
@@ -13,7 +14,7 @@ using StackExchange.Redis.MultiplexerPool;
 namespace Catga.Transport;
 
 /// <summary>Redis-based message transport with QoS support.</summary>
-public sealed class RedisMessageTransport : MessageTransportBase, IAsyncDisposable
+public sealed class RedisMessageTransport : MessageTransportBase, IAsyncInitializable, IStoppable, IWaitable, IHealthCheckable, IAsyncDisposable
 {
     private readonly IConnectionMultiplexerPool _pool;
     private readonly RedisTransportOptions? _opts;
@@ -23,7 +24,28 @@ public sealed class RedisMessageTransport : MessageTransportBase, IAsyncDisposab
     private readonly ConcurrentDictionary<string, Task> _streams = new();
     private readonly ConcurrentDictionary<long, byte> _processedMessages = new(); // QoS2 deduplication cache
 
+    // IStoppable implementation
+    private volatile bool _acceptingMessages = true;
+    
+    // IWaitable implementation
+    private int _pendingOperations = 0;
+    
+    // IHealthCheckable implementation
+    private volatile bool _isHealthy = false;
+    private DateTimeOffset? _lastHealthCheck;
+
     public override string Name => "Redis";
+    
+    // IStoppable properties
+    public bool IsAcceptingMessages => _acceptingMessages;
+    
+    // IWaitable properties
+    public int PendingOperations => _pendingOperations;
+    
+    // IHealthCheckable properties
+    public bool IsHealthy => _isHealthy;
+    public string? HealthStatus => _isHealthy ? "Connected" : "Disconnected";
+    public DateTimeOffset? LastHealthCheck => _lastHealthCheck;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IConnectionMultiplexer GetConnection() => _pool.GetAsync().GetAwaiter().GetResult().Connection;
@@ -53,6 +75,56 @@ public sealed class RedisMessageTransport : MessageTransportBase, IAsyncDisposab
         InitializeBatchTimer(options?.Batch);
     }
 
+    // IAsyncInitializable implementation
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Test connection by pinging Redis
+            var connection = await GetConnectionAsync();
+            var db = connection.GetDatabase();
+            await db.PingAsync();
+            
+            _isHealthy = true;
+            _lastHealthCheck = DateTimeOffset.UtcNow;
+        }
+        catch (Exception)
+        {
+            _isHealthy = false;
+            _lastHealthCheck = DateTimeOffset.UtcNow;
+            throw;
+        }
+    }
+
+    // IStoppable implementation
+    public void StopAcceptingMessages()
+    {
+        _acceptingMessages = false;
+    }
+
+    // IWaitable implementation
+    public async Task WaitForCompletionAsync(CancellationToken cancellationToken = default)
+    {
+        var timeout = TimeSpan.FromSeconds(30);
+        var sw = Stopwatch.StartNew();
+        
+        while (_pendingOperations > 0 && sw.Elapsed < timeout)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                break;
+            
+            try
+            {
+                await Task.Delay(100, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancelled
+                break;
+            }
+        }
+    }
+
     public RedisMessageTransport(
         IConnectionMultiplexer redis,
         IMessageSerializer serializer,
@@ -71,46 +143,60 @@ public sealed class RedisMessageTransport : MessageTransportBase, IAsyncDisposab
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        var subject = GetSubject<TMessage>();
-        var payload = SerializeToBase64(message);
-
-        using var activity = StartPublishActivity("redis", subject, TypeNameCache<TMessage>.Name);
-
-        // QoS2 deduplication check
-        var msg = message as IMessage;
-        var qos = msg?.QoS ?? QualityOfService.AtLeastOnce;
-        if (qos == QualityOfService.ExactlyOnce && context?.MessageId.HasValue == true)
+        // Check if accepting messages
+        if (!_acceptingMessages)
         {
-            var dedupKey = $"dedup:{context.Value.MessageId}";
-            var db = GetDatabase();
-            var wasSet = await db.StringSetAsync(dedupKey, "1", TimeSpan.FromMinutes(5), When.NotExists);
-            if (!wasSet)
-            {
-                activity?.SetTag("catga.idempotent", true);
-                return; // Already processed
-            }
+            throw new InvalidOperationException("Transport is not accepting new messages");
         }
-
-        if (_opts?.Batch is { EnableAutoBatching: true } batchOptions)
-        {
-            EnqueueBatch(new BatchItem(subject, [], null, null, (false, payload)), batchOptions, _opts.MaxQueueLength);
-            return;
-        }
-
+        
+        Interlocked.Increment(ref _pendingOperations);
         try
         {
-            await ResilienceProvider.ExecuteTransportPublishAsync(
-                _ => new ValueTask(GetSubscriber().PublishAsync(RedisChannel.Literal(subject), payload, CommandFlags.FireAndForget)),
-                cancellationToken);
-            RecordPublishSuccess(TypeNameCache<TMessage>.Name, subject);
-            Activity.Current?.AddActivityEvent(RedisActivityEvents.RedisPublishSent, ("channel", subject));
+            var subject = GetSubject<TMessage>();
+            var payload = SerializeToBase64(message);
+
+            using var activity = StartPublishActivity("redis", subject, TypeNameCache<TMessage>.Name);
+
+            // QoS2 deduplication check
+            var msg = message as IMessage;
+            var qos = msg?.QoS ?? QualityOfService.AtLeastOnce;
+            if (qos == QualityOfService.ExactlyOnce && context?.MessageId.HasValue == true)
+            {
+                var dedupKey = $"dedup:{context.Value.MessageId}";
+                var db = GetDatabase();
+                var wasSet = await db.StringSetAsync(dedupKey, "1", TimeSpan.FromMinutes(5), When.NotExists);
+                if (!wasSet)
+                {
+                    activity?.SetTag("catga.idempotent", true);
+                    return; // Already processed
+                }
+            }
+
+            if (_opts?.Batch is { EnableAutoBatching: true } batchOptions)
+            {
+                EnqueueBatch(new BatchItem(subject, [], null, null, (false, payload)), batchOptions, _opts.MaxQueueLength);
+                return;
+            }
+
+            try
+            {
+                await ResilienceProvider.ExecuteTransportPublishAsync(
+                    _ => new ValueTask(GetSubscriber().PublishAsync(RedisChannel.Literal(subject), payload, CommandFlags.FireAndForget)),
+                    cancellationToken);
+                RecordPublishSuccess(TypeNameCache<TMessage>.Name, subject);
+                Activity.Current?.AddActivityEvent(RedisActivityEvents.RedisPublishSent, ("channel", subject));
+            }
+            catch (Exception ex)
+            {
+                RecordPublishFailure(subject);
+                Activity.Current?.SetError(ex);
+                Activity.Current?.AddActivityEvent(RedisActivityEvents.RedisPublishFailed, ("channel", subject));
+                throw;
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            RecordPublishFailure(subject);
-            Activity.Current?.SetError(ex);
-            Activity.Current?.AddActivityEvent(RedisActivityEvents.RedisPublishFailed, ("channel", subject));
-            throw;
+            Interlocked.Decrement(ref _pendingOperations);
         }
     }
 
@@ -145,7 +231,7 @@ public sealed class RedisMessageTransport : MessageTransportBase, IAsyncDisposab
                 // QoS2 deduplication check
                 var msg = message as IMessage;
                 var qos = msg?.QoS ?? QualityOfService.AtLeastOnce;
-                if (qos == QualityOfService.ExactlyOnce && msg?.MessageId != 0)
+                if (qos == QualityOfService.ExactlyOnce && msg != null && msg.MessageId != 0)
                 {
                     if (!_processedMessages.TryAdd(msg.MessageId, 0))
                     {
@@ -311,6 +397,15 @@ public sealed class RedisMessageTransport : MessageTransportBase, IAsyncDisposab
 
     public async ValueTask DisposeAsync()
     {
+        StopAcceptingMessages();
+        
+        // Wait for pending operations
+        try
+        {
+            await WaitForCompletionAsync(Cts.Token);
+        }
+        catch { }
+        
         await DisposeAsyncCore();
 
         foreach (var queue in _pubSubs.Values)
@@ -320,6 +415,8 @@ public sealed class RedisMessageTransport : MessageTransportBase, IAsyncDisposab
         if (_streams.Count > 0)
             await Task.WhenAll(_streams.Values);
         _streams.Clear();
+        
+        _isHealthy = false;
     }
 
     /// <summary>Wrapper to adapt single IConnectionMultiplexer to IConnectionMultiplexerPool interface</summary>

@@ -62,6 +62,30 @@ switch (transport.ToLower())
         break;
 }
 
+// Enable hosted services for lifecycle management
+catga.AddHostedServices(options =>
+{
+    // Configure based on environment
+    if (builder.Environment.IsProduction())
+    {
+        options.Recovery.CheckInterval = TimeSpan.FromMinutes(2);
+        options.OutboxProcessor.ScanInterval = TimeSpan.FromSeconds(5);
+        options.ShutdownTimeout = TimeSpan.FromSeconds(60);
+    }
+    else
+    {
+        options.Recovery.CheckInterval = TimeSpan.FromSeconds(30);
+        options.OutboxProcessor.ScanInterval = TimeSpan.FromSeconds(2);
+        options.ShutdownTimeout = TimeSpan.FromSeconds(30);
+    }
+});
+Console.WriteLine("✓ Hosted Services: Enabled (Recovery, Transport, Outbox)");
+
+// Add health checks
+builder.Services.AddHealthChecks()
+    .AddCatgaHealthChecks();
+Console.WriteLine("✓ Health Checks: Enabled");
+
 // Register handlers and services
 builder.Services.AddCatgaHandlers();
 builder.Services.AddSingleton<OrderStore>();
@@ -86,7 +110,16 @@ app.MapGet("/", (NodeInfo node) => Results.Ok(new SystemInfoResponse(
     Timestamp: DateTime.UtcNow
 )));
 
-app.MapGet("/health", () => Results.Ok("Healthy"));
+// Health check endpoints
+app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live")
+});
 
 app.MapPost("/orders", async (CreateOrderRequest req, ICatgaMediator mediator) =>
 {
@@ -165,7 +198,9 @@ Console.WriteLine($@"
 ╠══════════════════════════════════════════════════════════════╣
 ║ Endpoints:                                                   ║
 ║   GET  /                    - System info                    ║
-║   GET  /health              - Health check                   ║
+║   GET  /health              - Health check (all)             ║
+║   GET  /health/ready        - Readiness probe                ║
+║   GET  /health/live         - Liveness probe                 ║
 ║   GET  /stats               - Statistics                     ║
 ║   POST /orders              - Create order                   ║
 ║   GET  /orders              - List orders                    ║
@@ -174,6 +209,11 @@ Console.WriteLine($@"
 ║   POST /orders/{{id}}/ship    - Ship order                     ║
 ║   POST /orders/{{id}}/cancel  - Cancel order                   ║
 ║   GET  /orders/{{id}}/history - Event history                  ║
+╠══════════════════════════════════════════════════════════════╣
+║ Hosted Services:                                             ║
+║   ✓ RecoveryHostedService   - Auto health check & recovery  ║
+║   ✓ TransportHostedService  - Lifecycle management          ║
+║   ✓ OutboxProcessorService  - Background message processing ║
 ╚══════════════════════════════════════════════════════════════╝
 ");
 

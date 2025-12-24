@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Catga.Abstractions;
+using Catga.Hosting;
 using Catga.Observability;
 using Catga.Outbox;
 using Catga.Resilience;
@@ -18,10 +19,25 @@ public class RedisOutboxStoreOptions
 }
 
 /// <summary>Redis-based outbox store for reliable message publishing.</summary>
-public sealed class RedisOutboxStore : RedisStoreBase, IOutboxStore
+public sealed class RedisOutboxStore : RedisStoreBase, IOutboxStore, IHealthCheckable, Hosting.IRecoverableComponent
 {
     private readonly IResiliencePipelineProvider _provider;
     private readonly string _pendingSetKey;
+    private bool _isHealthy = true;
+    private string? _healthStatus = "Initialized";
+    private DateTimeOffset? _lastHealthCheck;
+    
+    /// <inheritdoc/>
+    public bool IsHealthy => _isHealthy;
+    
+    /// <inheritdoc/>
+    public string? HealthStatus => _healthStatus;
+    
+    /// <inheritdoc/>
+    public DateTimeOffset? LastHealthCheck => _lastHealthCheck;
+    
+    /// <inheritdoc/>
+    public string ComponentName => "RedisOutboxStore";
 
     public RedisOutboxStore(
         IConnectionMultiplexer redis,
@@ -42,28 +58,38 @@ public sealed class RedisOutboxStore : RedisStoreBase, IOutboxStore
             ArgumentNullException.ThrowIfNull(message);
             if (message.MessageId == 0) throw new ArgumentException("MessageId must be > 0");
 
-            var db = GetDatabase();
-            var key = BuildKey(message.MessageId);
-
-            var entries = new List<HashEntry>
+            try
             {
-                new HashEntry("MessageId", message.MessageId),
-                new HashEntry("MessageType", message.MessageType),
-                new HashEntry("Payload", message.Payload),
-                new HashEntry("CreatedAt", (RedisValue)message.CreatedAt.Ticks),
-                new HashEntry("Status", (RedisValue)(int)OutboxStatus.Pending),
-                new HashEntry("RetryCount", (RedisValue)message.RetryCount),
-                new HashEntry("MaxRetries", (RedisValue)message.MaxRetries)
-            };
+                var db = GetDatabase();
+                var key = BuildKey(message.MessageId);
 
-            if (message.CorrelationId.HasValue)
-                entries.Add(new HashEntry("CorrelationId", message.CorrelationId.Value));
-            if (message.Metadata != null)
-                entries.Add(new HashEntry("Metadata", message.Metadata));
+                var entries = new List<HashEntry>
+                {
+                    new HashEntry("MessageId", message.MessageId),
+                    new HashEntry("MessageType", message.MessageType),
+                    new HashEntry("Payload", message.Payload),
+                    new HashEntry("CreatedAt", (RedisValue)message.CreatedAt.Ticks),
+                    new HashEntry("Status", (RedisValue)(int)OutboxStatus.Pending),
+                    new HashEntry("RetryCount", (RedisValue)message.RetryCount),
+                    new HashEntry("MaxRetries", (RedisValue)message.MaxRetries)
+                };
 
-            await db.HashSetAsync(key, entries.ToArray());
-            await db.SortedSetAddAsync(_pendingSetKey, message.MessageId, (double)message.CreatedAt.Ticks);
-            CatgaDiagnostics.OutboxAdded.Add(1);
+                if (message.CorrelationId.HasValue)
+                    entries.Add(new HashEntry("CorrelationId", message.CorrelationId.Value));
+                if (message.Metadata != null)
+                    entries.Add(new HashEntry("Metadata", message.Metadata));
+
+                await db.HashSetAsync(key, entries.ToArray());
+                await db.SortedSetAddAsync(_pendingSetKey, message.MessageId, (double)message.CreatedAt.Ticks);
+                CatgaDiagnostics.OutboxAdded.Add(1);
+                
+                UpdateHealthStatus(true);
+            }
+            catch (Exception ex)
+            {
+                UpdateHealthStatus(false, ex.Message);
+                throw;
+            }
         }, ct);
     }
 
@@ -182,5 +208,37 @@ public sealed class RedisOutboxStore : RedisStoreBase, IOutboxStore
             if (keysToDelete.Count > 0)
                 await db.KeyDeleteAsync(keysToDelete.ToArray());
         }, ct);
+    }
+    
+    /// <inheritdoc/>
+    public async Task RecoverAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Verify connection by attempting a simple operation
+            var db = GetDatabase();
+            await db.PingAsync();
+            
+            _isHealthy = true;
+            _healthStatus = "Recovered successfully";
+            _lastHealthCheck = DateTimeOffset.UtcNow;
+        }
+        catch (Exception ex)
+        {
+            _isHealthy = false;
+            _healthStatus = $"Recovery failed: {ex.Message}";
+            _lastHealthCheck = DateTimeOffset.UtcNow;
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// Updates health status based on operation results
+    /// </summary>
+    private void UpdateHealthStatus(bool success, string? errorMessage = null)
+    {
+        _isHealthy = success;
+        _healthStatus = success ? "Healthy" : $"Unhealthy: {errorMessage}";
+        _lastHealthCheck = DateTimeOffset.UtcNow;
     }
 }

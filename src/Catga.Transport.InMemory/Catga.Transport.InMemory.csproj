@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
     <Description>In-memory message transport for Catga - for development and testing</Description>
     <PackageTags>$(PackageTags);in-memory;transport;messaging</PackageTags>
   </PropertyGroup>

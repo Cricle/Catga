@@ -1,0 +1,15 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- Benchmarks are not packable -->
+    <IsPackable>false</IsPackable>
+    
+    <!-- Benchmarks don't need documentation -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    
+    <!-- Benchmarks typically target single framework -->
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+
+</Project>

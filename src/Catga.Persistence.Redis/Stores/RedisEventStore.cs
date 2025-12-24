@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.EventSourcing;
+using Catga.Hosting;
 using Catga.Observability;
 using Catga.Resilience;
 using Microsoft.Extensions.Logging;
@@ -14,7 +15,7 @@ namespace Catga.Persistence.Redis.Stores;
 /// Redis Streams-based event store with optimistic concurrency.
 /// Uses Redis Streams for event storage with version tracking.
 /// </summary>
-public sealed partial class RedisEventStore : IEventStore
+public sealed partial class RedisEventStore : IEventStore, IHealthCheckable, Hosting.IRecoverableComponent
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly IMessageSerializer _serializer;
@@ -22,6 +23,21 @@ public sealed partial class RedisEventStore : IEventStore
     private readonly IEventTypeRegistry _registry;
     private readonly ILogger<RedisEventStore> _logger;
     private readonly string _prefix;
+    private bool _isHealthy = true;
+    private string? _healthStatus = "Initialized";
+    private DateTimeOffset? _lastHealthCheck;
+    
+    /// <inheritdoc/>
+    public bool IsHealthy => _isHealthy;
+    
+    /// <inheritdoc/>
+    public string? HealthStatus => _healthStatus;
+    
+    /// <inheritdoc/>
+    public DateTimeOffset? LastHealthCheck => _lastHealthCheck;
+    
+    /// <inheritdoc/>
+    public string ComponentName => "RedisEventStore";
 
     public RedisEventStore(
         IConnectionMultiplexer redis,
@@ -49,11 +65,13 @@ public sealed partial class RedisEventStore : IEventStore
         await _provider.ExecutePersistenceNoRetryAsync(async ct =>
         {
             var start = MetricsHelper.StartTimestamp();
-                using var activity = MetricsHelper.StartPersistenceActivity("EventStore", "Append");
+            using var activity = MetricsHelper.StartPersistenceActivity("EventStore", "Append");
 
-                ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
-                ArgumentNullException.ThrowIfNull(events);
+            ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
+            ArgumentNullException.ThrowIfNull(events);
 
+            try
+            {
                 if (events.Count == 0) return;
 
                 var db = _redis.GetDatabase();
@@ -143,7 +161,15 @@ public sealed partial class RedisEventStore : IEventStore
 
                 MetricsHelper.RecordEventStoreAppend(events.Count, start);
                 LogEventsAppended(_logger, streamId, events.Count, finalVersion);
-            }, cancellationToken);
+                
+                UpdateHealthStatus(true);
+            }
+            catch (Exception ex)
+            {
+                UpdateHealthStatus(false, ex.Message);
+                throw;
+            }
+        }, cancellationToken);
     }
 
     public async ValueTask<EventStream> ReadAsync(
@@ -449,6 +475,38 @@ public sealed partial class RedisEventStore : IEventStore
     }
 
     #endregion
+
+    /// <inheritdoc/>
+    public async Task RecoverAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Verify connection by attempting a simple operation
+            var db = _redis.GetDatabase();
+            await db.PingAsync();
+            
+            _isHealthy = true;
+            _healthStatus = "Recovered successfully";
+            _lastHealthCheck = DateTimeOffset.UtcNow;
+        }
+        catch (Exception ex)
+        {
+            _isHealthy = false;
+            _healthStatus = $"Recovery failed: {ex.Message}";
+            _lastHealthCheck = DateTimeOffset.UtcNow;
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// Updates health status based on operation results
+    /// </summary>
+    private void UpdateHealthStatus(bool success, string? errorMessage = null)
+    {
+        _isHealthy = success;
+        _healthStatus = success ? "Healthy" : $"Unhealthy: {errorMessage}";
+        _lastHealthCheck = DateTimeOffset.UtcNow;
+    }
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Events appended to stream {StreamId}: count={Count}, version={Version}")]
     private static partial void LogEventsAppended(ILogger logger, string streamId, int count, long version);

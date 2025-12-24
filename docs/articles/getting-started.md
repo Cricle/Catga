@@ -64,10 +64,14 @@ builder.Services.AddCatga(options =>
         options.ForDevelopment();  // Detailed logging for debugging
     else
         options.Minimal();         // Max performance for production
-});
+})
+.UseInMemory()              // Add persistence layer
+.AddInMemoryTransport()     // Add transport layer
+.AddHostedServices();       // ⭐ Enable hosted services for lifecycle management
 
-// Optional: Add in-memory transport (development)
-builder.Services.AddInMemoryTransport();
+// Add health checks with Catga integration
+builder.Services.AddHealthChecks()
+    .AddCatgaHealthChecks();  // ⭐ Monitor transport, persistence, and recovery
 
 // Optional: Add ASP.NET Core endpoints
 builder.Services.AddCatgaEndpoints();
@@ -90,13 +94,20 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.MapControllers();
 
+// Map health check endpoints
+app.MapHealthChecks("/health");  // ⭐ Health check endpoint for monitoring
+
 // Optional: Map Catga diagnostic endpoints
 app.MapCatgaDiagnostics(); // Access /catga/health, /catga/metrics
 
 app.Run();
 ```
 
-**That's it!** Catga will automatically discover and register all handlers via source generator.
+**That's it!** Catga will automatically:
+- Discover and register all handlers via source generator
+- Manage service lifecycle (startup, shutdown, recovery)
+- Monitor component health
+- Process outbox messages in the background
 
 ---
 
@@ -500,6 +511,7 @@ dotnet run -c Release --filter *MediatRComparison*
 
 | Resource | Description | Time |
 |----------|-------------|------|
+| [Hosting Configuration](../guides/hosting-configuration.md) | Hosted services and health checks | 30 min |
 | [Configuration Guide](./configuration.md) | Detailed configuration options | 30 min |
 | [Architecture Overview](../architecture/overview.md) | Understand framework design | 30 min |
 | [Error Handling](../guides/error-handling.md) | Exception handling and rollback | 20 min |
@@ -515,6 +527,30 @@ dotnet run -c Release --filter *MediatRComparison*
 <summary>Q: Why are handlers auto-registered?</summary>
 
 A: Catga uses a source generator to scan all classes implementing `IRequestHandler` or `IEventHandler` at compile time and automatically generates registration code. No manual registration needed!
+
+</details>
+
+<details>
+<summary>Q: What do hosted services do?</summary>
+
+A: Catga's hosted services provide automatic lifecycle management:
+- **RecoveryHostedService**: Monitors component health and auto-recovers from failures
+- **TransportHostedService**: Manages message transport connections and graceful shutdown
+- **OutboxProcessorService**: Processes outbox messages in the background
+
+These services integrate with Microsoft.Extensions.Hosting for seamless startup/shutdown handling.
+
+</details>
+
+<details>
+<summary>Q: How do health checks work?</summary>
+
+A: Catga provides three health checks:
+- **catga_transport**: Monitors message transport connection status
+- **catga_persistence**: Monitors persistence layer availability
+- **catga_recovery**: Monitors recovery service and component health
+
+Access via `/health` endpoint. Perfect for Kubernetes liveness/readiness probes!
 
 </details>
 
@@ -556,6 +592,27 @@ return CatgaResult<User>.Failure("User not found");
 ```
 
 See [Error Handling Guide](../guides/error-handling.md)
+
+</details>
+
+<details>
+<summary>Q: How to configure graceful shutdown?</summary>
+
+A: Catga automatically handles graceful shutdown via hosted services:
+
+```csharp
+.AddHostedServices(options =>
+{
+    options.ShutdownTimeout = TimeSpan.FromSeconds(60);  // Wait up to 60s for messages to complete
+});
+```
+
+When you press Ctrl+C or send SIGTERM:
+1. Stop accepting new messages
+2. Wait for in-flight messages to complete
+3. Close connections gracefully
+
+See [Hosting Configuration Guide](../guides/hosting-configuration.md)
 
 </details>
 

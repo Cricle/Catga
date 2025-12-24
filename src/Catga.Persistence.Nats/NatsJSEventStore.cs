@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.EventSourcing;
+using Catga.Hosting;
 using Catga.Observability;
 using Catga.Resilience;
 using NATS.Client.Core;
@@ -13,9 +14,24 @@ namespace Catga.Persistence;
 
 /// <summary>NATS JetStream-based event store.</summary>
 public sealed class NatsJSEventStore(INatsConnection connection, IMessageSerializer serializer, IResiliencePipelineProvider provider, IEventTypeRegistry? registry = null, string? streamName = null, NatsJSStoreOptions? options = null)
-    : NatsJSStoreBase(connection, streamName ?? "CATGA_EVENTS", options), IEventStore
+    : NatsJSStoreBase(connection, streamName ?? "CATGA_EVENTS", options), IEventStore, IHealthCheckable, Hosting.IRecoverableComponent
 {
     private readonly IEventTypeRegistry _registry = registry ?? new DefaultEventTypeRegistry();
+    private bool _isHealthy = true;
+    private string? _healthStatus = "Initialized";
+    private DateTimeOffset? _lastHealthCheck;
+    
+    /// <inheritdoc/>
+    public bool IsHealthy => _isHealthy;
+    
+    /// <inheritdoc/>
+    public string? HealthStatus => _healthStatus;
+    
+    /// <inheritdoc/>
+    public DateTimeOffset? LastHealthCheck => _lastHealthCheck;
+    
+    /// <inheritdoc/>
+    public string ComponentName => "NatsJSEventStore";
 
     protected override string[] GetSubjects() => [$"{StreamName}.>"];
 
@@ -28,25 +44,36 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.EventStore.Append", ActivityKind.Producer);
             ArgumentException.ThrowIfNullOrWhiteSpace(streamId);
             ArgumentNullException.ThrowIfNull(events);
-            await EnsureInitializedAsync(ct);
-            if (events.Count == 0) return;
-
-            var currentVersion = await GetVersionAsync(streamId, ct);
-            if (expectedVersion != -1 && currentVersion != expectedVersion)
-                throw new ConcurrencyException(streamId, expectedVersion, currentVersion);
-
-            var subject = $"{StreamName}.{streamId}";
-            foreach (var @event in events)
+            
+            try
             {
-                var runtimeType = _registry.GetPreservedType(@event);
-                var typeFull = runtimeType.AssemblyQualifiedName ?? runtimeType.FullName!;
-                var data = serializer.Serialize(@event, runtimeType);
-                var headers = new NatsHeaders { ["EventType"] = typeFull };
-                var ack = await JetStream.PublishAsync(subject, data, headers: headers, cancellationToken: ct);
-                if (ack.Error != null) throw new InvalidOperationException($"Failed to publish event: {ack.Error.Description}");
+                await EnsureInitializedAsync(ct);
+                if (events.Count == 0) return;
+
+                var currentVersion = await GetVersionAsync(streamId, ct);
+                if (expectedVersion != -1 && currentVersion != expectedVersion)
+                    throw new ConcurrencyException(streamId, expectedVersion, currentVersion);
+
+                var subject = $"{StreamName}.{streamId}";
+                foreach (var @event in events)
+                {
+                    var runtimeType = _registry.GetPreservedType(@event);
+                    var typeFull = runtimeType.AssemblyQualifiedName ?? runtimeType.FullName!;
+                    var data = serializer.Serialize(@event, runtimeType);
+                    var headers = new NatsHeaders { ["EventType"] = typeFull };
+                    var ack = await JetStream.PublishAsync(subject, data, headers: headers, cancellationToken: ct);
+                    if (ack.Error != null) throw new InvalidOperationException($"Failed to publish event: {ack.Error.Description}");
+                }
+                CatgaDiagnostics.EventStoreAppends.Add(events.Count);
+                CatgaDiagnostics.EventStoreAppendDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+                
+                UpdateHealthStatus(true);
             }
-            CatgaDiagnostics.EventStoreAppends.Add(events.Count);
-            CatgaDiagnostics.EventStoreAppendDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+            catch (Exception ex)
+            {
+                UpdateHealthStatus(false, ex.Message);
+                throw;
+            }
         }, cancellationToken);
     }
 
@@ -293,5 +320,39 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
             }
             return (IReadOnlyList<string>)streamIds.ToList();
         }, cancellationToken);
+    }
+    
+    /// <inheritdoc/>
+    public async Task RecoverAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Attempt to re-initialize the stream
+            await EnsureInitializedAsync(cancellationToken);
+            
+            // Verify connection by attempting a simple operation
+            await GetVersionAsync("__health_check__", cancellationToken);
+            
+            _isHealthy = true;
+            _healthStatus = "Recovered successfully";
+            _lastHealthCheck = DateTimeOffset.UtcNow;
+        }
+        catch (Exception ex)
+        {
+            _isHealthy = false;
+            _healthStatus = $"Recovery failed: {ex.Message}";
+            _lastHealthCheck = DateTimeOffset.UtcNow;
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// Updates health status based on operation results
+    /// </summary>
+    private void UpdateHealthStatus(bool success, string? errorMessage = null)
+    {
+        _isHealthy = success;
+        _healthStatus = success ? "Healthy" : $"Unhealthy: {errorMessage}";
+        _lastHealthCheck = DateTimeOffset.UtcNow;
     }
 }

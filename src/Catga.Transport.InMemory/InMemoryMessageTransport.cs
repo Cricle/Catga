@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using Catga.Abstractions;
 using Catga.Configuration;
 using Catga.Core;
+using Catga.Hosting;
 using Catga.Idempotency;
 using Catga.Observability;
 using Catga.Resilience;
@@ -21,86 +22,174 @@ public sealed class InMemoryMessageTransport(
     ILogger<InMemoryMessageTransport>? logger,
     IResiliencePipelineProvider provider,
     CatgaOptions? globalOptions = null)
-    : MessageTransportBase(new NullSerializer(), provider, "inmemory.", globalOptions?.EndpointNamingConvention)
+    : MessageTransportBase(new NullSerializer(), provider, "inmemory.", globalOptions?.EndpointNamingConvention), IAsyncInitializable, IStoppable, IWaitable, IHealthCheckable
 {
     private readonly InMemoryIdempotencyStore _idem = new();
 
+    // IStoppable implementation
+    private volatile bool _acceptingMessages = true;
+    
+    // IWaitable implementation
+    private int _pendingOperations = 0;
+    
+    // IHealthCheckable implementation
+    private volatile bool _isHealthy = true; // In-memory is always healthy
+    private DateTimeOffset? _lastHealthCheck;
+
     public override string Name => "InMemory";
+    
+    // IStoppable properties
+    public bool IsAcceptingMessages => _acceptingMessages;
+    
+    // IWaitable properties
+    public int PendingOperations => _pendingOperations;
+    
+    // IHealthCheckable properties
+    public bool IsHealthy => _isHealthy;
+    public string? HealthStatus => "In-Memory (Always Available)";
+    public DateTimeOffset? LastHealthCheck => _lastHealthCheck;
+
+    // IAsyncInitializable implementation
+    public Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        _isHealthy = true;
+        _lastHealthCheck = DateTimeOffset.UtcNow;
+        logger?.LogInformation("InMemory transport initialized");
+        return Task.CompletedTask;
+    }
+
+    // IStoppable implementation
+    public void StopAcceptingMessages()
+    {
+        _acceptingMessages = false;
+        logger?.LogInformation("InMemory transport stopped accepting new messages");
+    }
+
+    // IWaitable implementation
+    public async Task WaitForCompletionAsync(CancellationToken cancellationToken = default)
+    {
+        logger?.LogInformation("Waiting for {Count} pending operations to complete", _pendingOperations);
+        
+        var timeout = TimeSpan.FromSeconds(30);
+        var sw = Stopwatch.StartNew();
+        
+        while (_pendingOperations > 0 && sw.Elapsed < timeout)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                logger?.LogWarning("Wait for completion cancelled with {Count} operations pending", _pendingOperations);
+                break;
+            }
+            
+            try
+            {
+                await Task.Delay(100, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancelled
+                break;
+            }
+        }
+        
+        if (_pendingOperations > 0)
+        {
+            logger?.LogWarning("Timeout waiting for operations to complete. {Count} operations still pending", _pendingOperations);
+        }
+        else
+        {
+            logger?.LogInformation("All pending operations completed");
+        }
+    }
 
     public override async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
         TMessage message,
         TransportContext? context = null,
         CancellationToken cancellationToken = default)
     {
-        var handlers = TypedSubscribers<TMessage>.GetHandlers();
-        if (handlers.Count == 0) return;
-
-        var ctx = context ?? new TransportContext
+        // Check if accepting messages
+        if (!_acceptingMessages)
         {
-            MessageId = MessageExtensions.NewMessageId(),
-            MessageType = TypeNameCache<TMessage>.FullName,
-            SentAt = DateTime.UtcNow
-        };
-
-        var msg = message as IMessage;
-        var qos = msg?.QoS ?? QualityOfService.AtLeastOnce;
-        var logicalName = Naming != null ? Naming(typeof(TMessage)) : TypeNameCache<TMessage>.Name;
-
-        using var activity = StartPublishActivity("inmemory", logicalName, logicalName, ctx.MessageId?.ToString());
-
-        CatgaDiagnostics.IncrementActiveMessages();
+            throw new InvalidOperationException("Transport is not accepting new messages");
+        }
+        
+        Interlocked.Increment(ref _pendingOperations);
         try
         {
-            switch (qos)
-            {
-                case QualityOfService.AtMostOnce:
-                    try
-                    {
-                        await ExecuteHandlersAsync(handlers, message, ctx).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger?.LogWarning(ex, "QoS0 processing failed for {MessageId} {MessageType}", ctx.MessageId, logicalName);
-                    }
-                    break;
+            var handlers = TypedSubscribers<TMessage>.GetHandlers();
+            if (handlers.Count == 0) return;
 
-                case QualityOfService.AtLeastOnce:
-                    if ((msg?.DeliveryMode ?? DeliveryMode.WaitForResult) == DeliveryMode.WaitForResult)
-                    {
+            var ctx = context ?? new TransportContext
+            {
+                MessageId = MessageExtensions.NewMessageId(),
+                MessageType = TypeNameCache<TMessage>.FullName,
+                SentAt = DateTime.UtcNow
+            };
+
+            var msg = message as IMessage;
+            var qos = msg?.QoS ?? QualityOfService.AtLeastOnce;
+            var logicalName = Naming != null ? Naming(typeof(TMessage)) : TypeNameCache<TMessage>.Name;
+
+            using var activity = StartPublishActivity("inmemory", logicalName, logicalName, ctx.MessageId?.ToString());
+
+            CatgaDiagnostics.IncrementActiveMessages();
+            try
+            {
+                switch (qos)
+                {
+                    case QualityOfService.AtMostOnce:
+                        try
+                        {
+                            await ExecuteHandlersAsync(handlers, message, ctx).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger?.LogWarning(ex, "QoS0 processing failed for {MessageId} {MessageType}", ctx.MessageId, logicalName);
+                        }
+                        break;
+
+                    case QualityOfService.AtLeastOnce:
+                        if ((msg?.DeliveryMode ?? DeliveryMode.WaitForResult) == DeliveryMode.WaitForResult)
+                        {
+                            await ResilienceProvider.ExecuteTransportPublishAsync(
+                                _ => new ValueTask(ExecuteHandlersAsync(handlers, message, ctx)),
+                                cancellationToken);
+                        }
+                        else
+                        {
+                            _ = ExecuteFireAndForgetAsync(handlers, message, ctx, cancellationToken);
+                        }
+                        break;
+
+                    case QualityOfService.ExactlyOnce:
+                        if (ctx.MessageId.HasValue && _idem.IsProcessed(ctx.MessageId.Value))
+                        {
+                            activity?.SetTag("catga.idempotent", true);
+                            return;
+                        }
                         await ResilienceProvider.ExecuteTransportPublishAsync(
                             _ => new ValueTask(ExecuteHandlersAsync(handlers, message, ctx)),
                             cancellationToken);
-                    }
-                    else
-                    {
-                        _ = ExecuteFireAndForgetAsync(handlers, message, ctx, cancellationToken);
-                    }
-                    break;
+                        if (ctx.MessageId.HasValue) _idem.MarkAsProcessed(ctx.MessageId.Value);
+                        break;
+                }
 
-                case QualityOfService.ExactlyOnce:
-                    if (ctx.MessageId.HasValue && _idem.IsProcessed(ctx.MessageId.Value))
-                    {
-                        activity?.SetTag("catga.idempotent", true);
-                        return;
-                    }
-                    await ResilienceProvider.ExecuteTransportPublishAsync(
-                        _ => new ValueTask(ExecuteHandlersAsync(handlers, message, ctx)),
-                        cancellationToken);
-                    if (ctx.MessageId.HasValue) _idem.MarkAsProcessed(ctx.MessageId.Value);
-                    break;
+                RecordPublishSuccess(logicalName, logicalName);
             }
-
-            RecordPublishSuccess(logicalName, logicalName);
-        }
-        catch (Exception ex)
-        {
-            RecordPublishFailure(logicalName);
-            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            throw;
+            catch (Exception ex)
+            {
+                RecordPublishFailure(logicalName);
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                throw;
+            }
+            finally
+            {
+                CatgaDiagnostics.DecrementActiveMessages();
+            }
         }
         finally
         {
-            CatgaDiagnostics.DecrementActiveMessages();
+            Interlocked.Decrement(ref _pendingOperations);
         }
     }
 

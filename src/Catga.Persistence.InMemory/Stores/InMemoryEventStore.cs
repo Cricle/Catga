@@ -1,5 +1,6 @@
 using Catga.Abstractions;
 using Catga.EventSourcing;
+using Catga.Hosting;
 using Catga.Observability;
 using Catga.Resilience;
 using System.Collections.Concurrent;
@@ -8,10 +9,25 @@ using System.Diagnostics;
 namespace Catga.Persistence.Stores;
 
 /// <summary>High-performance in-memory event store for testing and single-node scenarios.</summary>
-public sealed class InMemoryEventStore(IResiliencePipelineProvider provider) : IEventStore
+public sealed class InMemoryEventStore(IResiliencePipelineProvider provider) : IEventStore, IHealthCheckable, Hosting.IRecoverableComponent
 {
     private readonly ConcurrentDictionary<string, Stream> _streams = new();
     private static readonly KeyValuePair<string, object?> Tag = new("component", "EventStore.InMemory");
+    private bool _isHealthy = true;
+    private string? _healthStatus = "Initialized";
+    private DateTimeOffset? _lastHealthCheck;
+    
+    /// <inheritdoc/>
+    public bool IsHealthy => _isHealthy;
+    
+    /// <inheritdoc/>
+    public string? HealthStatus => _healthStatus;
+    
+    /// <inheritdoc/>
+    public DateTimeOffset? LastHealthCheck => _lastHealthCheck;
+    
+    /// <inheritdoc/>
+    public string ComponentName => "InMemoryEventStore";
 
     public ValueTask AppendAsync(string streamId, IReadOnlyList<IEvent> events, long expectedVersion = -1, CancellationToken ct = default)
     {
@@ -29,11 +45,18 @@ public sealed class InMemoryEventStore(IResiliencePipelineProvider provider) : I
                 stream.Append(events, expectedVersion);
                 CatgaDiagnostics.EventStoreAppends.Add(1, Tag);
                 CatgaDiagnostics.EventStoreAppendDuration.Record(Stopwatch.GetElapsedTime(sw).TotalMilliseconds, Tag);
+                UpdateHealthStatus(true);
             }
             catch (InvalidOperationException)
             {
                 CatgaDiagnostics.EventStoreFailures.Add(1, Tag, new("reason", "concurrency"));
+                UpdateHealthStatus(false, "Concurrency exception");
                 throw new ConcurrencyException(streamId, expectedVersion, stream.Version);
+            }
+            catch (Exception ex)
+            {
+                UpdateHealthStatus(false, ex.Message);
+                throw;
             }
             return ValueTask.CompletedTask;
         }, ct);
@@ -130,6 +153,36 @@ public sealed class InMemoryEventStore(IResiliencePipelineProvider provider) : I
     public void Clear() => _streams.Clear();
     public int StreamCount => _streams.Count;
     public int GetEventCount(string streamId) => _streams.TryGetValue(streamId, out var s) ? (int)(s.Version + 1) : 0;
+
+    /// <inheritdoc/>
+    public Task RecoverAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // In-memory store doesn't need recovery, just verify it's operational
+            _isHealthy = true;
+            _healthStatus = "Healthy";
+            _lastHealthCheck = DateTimeOffset.UtcNow;
+            return Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            _isHealthy = false;
+            _healthStatus = $"Recovery failed: {ex.Message}";
+            _lastHealthCheck = DateTimeOffset.UtcNow;
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// Updates health status based on operation results
+    /// </summary>
+    private void UpdateHealthStatus(bool success, string? errorMessage = null)
+    {
+        _isHealthy = success;
+        _healthStatus = success ? "Healthy" : $"Unhealthy: {errorMessage}";
+        _lastHealthCheck = DateTimeOffset.UtcNow;
+    }
 
     /// <summary>Lock-free stream using immutable snapshots with CAS.</summary>
     private sealed class Stream

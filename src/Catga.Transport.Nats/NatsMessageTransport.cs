@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using Catga.Abstractions;
 using Catga.Configuration;
 using Catga.Core;
+using Catga.Hosting;
 using Catga.Observability;
 using Catga.Resilience;
 using Catga.Transport.Nats.Observability;
@@ -17,7 +18,7 @@ namespace Catga.Transport.Nats;
 
 /// <summary>NATS transport with QoS support (Core Pub/Sub + JetStream).</summary>
 public class NatsMessageTransport(INatsConnection connection, IMessageSerializer serializer, ILogger<NatsMessageTransport> logger, IResiliencePipelineProvider provider, NatsTransportOptions? options = null)
-    : IMessageTransport, IAsyncDisposable
+    : IMessageTransport, IAsyncInitializable, IStoppable, IWaitable, IHealthCheckable, IAsyncDisposable
 {
     private readonly NatsJSContext _js = new(connection);
     private readonly string _prefix = (options?.SubjectPrefix ?? "catga").TrimEnd('.');
@@ -26,7 +27,11 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
     private readonly ConcurrentDictionary<long, long> _dedup = new();
     private readonly ConcurrentQueue<(string Subject, byte[] Payload, NatsHeaders Headers, QualityOfService QoS)> _batch = new();
     private readonly CancellationTokenSource _cts = new();
+#if NET9_0_OR_GREATER
     private readonly Lock _jsLock = new();
+#else
+    private readonly object _jsLock = new();
+#endif
     private long _lastDedupCleanup;
     private readonly object _flushLock = new();
     private volatile bool _jsReady;
@@ -35,11 +40,110 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
         ? new Timer(static s => { try { ((NatsMessageTransport)s!).TryFlushBatchTimer(); } catch { } }, null, b.BatchTimeout, b.BatchTimeout)
         : null;
 
+    // IStoppable implementation
+    private volatile bool _acceptingMessages = true;
+    
+    // IWaitable implementation
+    private int _pendingOperations = 0;
+    
+    // IHealthCheckable implementation
+    private volatile bool _isHealthy = false;
+    private DateTimeOffset? _lastHealthCheck;
+
     public string Name => "NATS";
     public BatchTransportOptions? BatchOptions => null;
     public CompressionTransportOptions? CompressionOptions => null;
+    
+    // IStoppable properties
+    public bool IsAcceptingMessages => _acceptingMessages;
+    
+    // IWaitable properties
+    public int PendingOperations => _pendingOperations;
+    
+    // IHealthCheckable properties
+    public bool IsHealthy => _isHealthy;
+    public string? HealthStatus => _isHealthy ? "Connected" : "Disconnected";
+    public DateTimeOffset? LastHealthCheck => _lastHealthCheck;
     private const int DedupCap = 10000;
     private static readonly TimeSpan DedupTtl = TimeSpan.FromMinutes(2);
+
+    // IAsyncInitializable implementation
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Test connection by attempting to ensure stream (lightweight check)
+            // For NATS, if connection is established, we're healthy
+            if (connection != null)
+            {
+                _isHealthy = true;
+                _lastHealthCheck = DateTimeOffset.UtcNow;
+                logger.LogInformation("NATS transport initialized successfully");
+            }
+            else
+            {
+                _isHealthy = false;
+                logger.LogWarning("NATS transport initialized but connection unavailable");
+            }
+            
+            // Ensure JetStream is ready if needed
+            if (options?.Batch is { EnableAutoBatching: true })
+            {
+                await EnsureStreamAsync(cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _isHealthy = false;
+            _lastHealthCheck = DateTimeOffset.UtcNow;
+            logger.LogError(ex, "Failed to initialize NATS transport");
+            throw;
+        }
+    }
+
+    // IStoppable implementation
+    public void StopAcceptingMessages()
+    {
+        _acceptingMessages = false;
+        logger.LogInformation("NATS transport stopped accepting new messages");
+    }
+
+    // IWaitable implementation
+    public async Task WaitForCompletionAsync(CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation("Waiting for {Count} pending operations to complete", _pendingOperations);
+        
+        var timeout = TimeSpan.FromSeconds(30);
+        var sw = Stopwatch.StartNew();
+        
+        while (_pendingOperations > 0 && sw.Elapsed < timeout)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning("Wait for completion cancelled with {Count} operations pending", _pendingOperations);
+                break;
+            }
+            
+            try
+            {
+                await Task.Delay(100, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancelled
+                break;
+            }
+        }
+        
+        if (_pendingOperations > 0)
+        {
+            logger.LogWarning("Timeout waiting for operations to complete. {Count} operations still pending", _pendingOperations);
+        }
+        else
+        {
+            logger.LogInformation("All pending operations completed");
+        }
+    }
 
     private void CleanupDedup(long nowTicks)
     {
@@ -60,7 +164,20 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
 
     public async ValueTask DisposeAsync()
     {
-        try { _cts.Cancel(); } catch { }
+        try 
+        { 
+            StopAcceptingMessages();
+            _cts.Cancel(); 
+        } 
+        catch { }
+        
+        // Wait for pending operations
+        try
+        {
+            await WaitForCompletionAsync(_cts.Token);
+        }
+        catch { }
+        
         if (!_subs.IsEmpty)
         {
             try { await Task.WhenAll(_subs.Values); } catch { /* ignore */ }
@@ -68,6 +185,8 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
         }
         _timer?.Dispose();
         _cts.Dispose();
+        
+        _isHealthy = false;
     }
 
     public NatsMessageTransport(INatsConnection connection, IMessageSerializer serializer, ILogger<NatsMessageTransport> logger, IResiliencePipelineProvider provider, CatgaOptions globalOptions, NatsTransportOptions? options = null)
@@ -79,120 +198,134 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
 
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
     {
-        var subject = GetSubjectCached<TMessage>();
-        var qos = message is IEvent ev
-            ? ev.QoS
-            : (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
-        var ctx = context ?? new TransportContext { MessageId = MessageExtensions.NewMessageId(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
-
-        using var activity = ObservabilityHooks.IsEnabled ? CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Publish", ActivityKind.Producer) : null;
-        if (activity != null)
+        // Check if accepting messages
+        if (!_acceptingMessages)
         {
-            activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, "nats");
-            activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, subject);
-            activity.SetTag(CatgaActivitySource.Tags.MessageType, TypeNameCache<TMessage>.Name);
-            activity.SetTag(CatgaActivitySource.Tags.MessageId, ctx.MessageId);
+            throw new InvalidOperationException("Transport is not accepting new messages");
         }
-
-        var payload = serializer.Serialize(message!, typeof(TMessage));
-        var headers = new NatsHeaders
-        {
-            ["MessageId"] = ctx.MessageId?.ToString() ?? string.Empty,
-            ["MessageType"] = ctx.MessageType ?? TypeNameCache<TMessage>.FullName,
-            ["SentAt"] = ctx.SentAt?.ToString("O") ?? DateTime.UtcNow.ToString("O"),
-            ["QoS"] = ((int)qos).ToString()
-        };
-        if (ctx.CorrelationId.HasValue)
-            headers["CorrelationId"] = ctx.CorrelationId.Value.ToString();
-        // W3C trace propagation (if any)
-        var current = Activity.Current;
-        if (ObservabilityHooks.IsEnabled && current != null)
-        {
-            headers["traceparent"] = current.Id;
-            if (!string.IsNullOrEmpty(current.TraceStateString))
-                headers["tracestate"] = current.TraceStateString;
-        }
-
-        var tag_component = new KeyValuePair<string, object?>("component", "Transport.NATS");
-        var tag_type = new KeyValuePair<string, object?>("message_type", TypeNameCache<TMessage>.Name);
-        var tag_dest = new KeyValuePair<string, object?>("destination", subject);
-        var tag_qos = new KeyValuePair<string, object?>("qos", ((int)qos).ToString());
-
-        // Optional auto-batching
-        if (options?.Batch is { EnableAutoBatching: true } batchOptions)
-        {
-            Enqueue(subject, payload, headers, qos, batchOptions);
-            System.Diagnostics.Activity.Current?.AddActivityEvent(NatsActivityEvents.NatsPublishEnqueued,
-                ("subject", subject),
-                ("qos", (int)qos));
-            return; // queued for background flush
-        }
-
+        
+        Interlocked.Increment(ref _pendingOperations);
         try
         {
-            // Delegate QoS handling to NATS native capabilities
-            switch (qos)
+            var subject = GetSubjectCached<TMessage>();
+            var qos = message is IEvent ev
+                ? ev.QoS
+                : (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
+            var ctx = context ?? new TransportContext { MessageId = MessageExtensions.NewMessageId(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
+
+            using var activity = ObservabilityHooks.IsEnabled ? CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Publish", ActivityKind.Producer) : null;
+            if (activity != null)
             {
-                case QualityOfService.AtMostOnce:
-                    // NATS Core Pub/Sub: fire-and-forget, no ack, no persistence
-                    await provider.ExecuteTransportPublishAsync(ct =>
-                        connection.PublishAsync(subject, payload, headers: headers, cancellationToken: ct),
-                        cancellationToken);
-                    NatsLog.NatsPublishedCore(logger, ctx.MessageId);
-                    System.Diagnostics.Activity.Current?.AddActivityEvent(NatsActivityEvents.NatsPublishSent,
-                        ("subject", subject),
-                        ("qos", (int)qos));
-                    break;
-
-                case QualityOfService.AtLeastOnce:
-                    await EnsureStreamAsync(cancellationToken);
-                    // JetStream: guaranteed delivery, may duplicate (consumer acks)
-                    var ack1 = await provider.ExecuteTransportPublishAsync(ct =>
-                        _js!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: ct),
-                        cancellationToken);
-                    NatsLog.NatsPublishedQoS1(logger, ctx.MessageId, ack1.Seq, ack1.Duplicate);
-                    System.Diagnostics.Activity.Current?.AddActivityEvent(NatsActivityEvents.NatsPublishSent,
-                        ("subject", subject),
-                        ("qos", (int)qos),
-                        ("seq", (long)ack1.Seq),
-                        ("dup", ack1.Duplicate));
-                    break;
-
-                case QualityOfService.ExactlyOnce:
-                    await EnsureStreamAsync(cancellationToken);
-                    // JetStream with MsgId deduplication: exactly-once using NATS native dedup window (default 2 minutes)
-                    // Note: Application-level idempotency (via IdempotencyBehavior) provides additional business logic dedup
-                    var ack2 = await provider.ExecuteTransportPublishAsync(ct =>
-                        _js!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: ct),
-                        cancellationToken);
-                    NatsLog.NatsPublishedQoS2(logger, ctx.MessageId, ack2.Seq, ack2.Duplicate);
-                    System.Diagnostics.Activity.Current?.AddActivityEvent(NatsActivityEvents.NatsPublishSent,
-                        ("subject", subject),
-                        ("qos", (int)qos),
-                        ("seq", (long)ack2.Seq),
-                        ("dup", ack2.Duplicate));
-                    break;
+                activity.SetTag(CatgaActivitySource.Tags.MessagingSystem, "nats");
+                activity.SetTag(CatgaActivitySource.Tags.MessagingDestination, subject);
+                activity.SetTag(CatgaActivitySource.Tags.MessageType, TypeNameCache<TMessage>.Name);
+                activity.SetTag(CatgaActivitySource.Tags.MessageId, ctx.MessageId);
             }
 
-            if (ObservabilityHooks.IsEnabled)
+            var payload = serializer.Serialize(message!, typeof(TMessage));
+            var headers = new NatsHeaders
             {
-                CatgaDiagnostics.MessagesPublished.Add(1, tag_component, tag_type, tag_dest, tag_qos);
+                ["MessageId"] = ctx.MessageId?.ToString() ?? string.Empty,
+                ["MessageType"] = ctx.MessageType ?? TypeNameCache<TMessage>.FullName,
+                ["SentAt"] = ctx.SentAt?.ToString("O") ?? DateTime.UtcNow.ToString("O"),
+                ["QoS"] = ((int)qos).ToString()
+            };
+            if (ctx.CorrelationId.HasValue)
+                headers["CorrelationId"] = ctx.CorrelationId.Value.ToString();
+            // W3C trace propagation (if any)
+            var current = Activity.Current;
+            if (ObservabilityHooks.IsEnabled && current != null)
+            {
+                headers["traceparent"] = current.Id;
+                if (!string.IsNullOrEmpty(current.TraceStateString))
+                    headers["tracestate"] = current.TraceStateString;
+            }
+
+            var tag_component = new KeyValuePair<string, object?>("component", "Transport.NATS");
+            var tag_type = new KeyValuePair<string, object?>("message_type", TypeNameCache<TMessage>.Name);
+            var tag_dest = new KeyValuePair<string, object?>("destination", subject);
+            var tag_qos = new KeyValuePair<string, object?>("qos", ((int)qos).ToString());
+
+            // Optional auto-batching
+            if (options?.Batch is { EnableAutoBatching: true } batchOptions)
+            {
+                Enqueue(subject, payload, headers, qos, batchOptions);
+                System.Diagnostics.Activity.Current?.AddActivityEvent(NatsActivityEvents.NatsPublishEnqueued,
+                    ("subject", subject),
+                    ("qos", (int)qos));
+                return; // queued for background flush
+            }
+
+            try
+            {
+                // Delegate QoS handling to NATS native capabilities
+                switch (qos)
+                {
+                    case QualityOfService.AtMostOnce:
+                        // NATS Core Pub/Sub: fire-and-forget, no ack, no persistence
+                        await provider.ExecuteTransportPublishAsync(ct =>
+                            connection.PublishAsync(subject, payload, headers: headers, cancellationToken: ct),
+                            cancellationToken);
+                        NatsLog.NatsPublishedCore(logger, ctx.MessageId);
+                        System.Diagnostics.Activity.Current?.AddActivityEvent(NatsActivityEvents.NatsPublishSent,
+                            ("subject", subject),
+                            ("qos", (int)qos));
+                        break;
+
+                    case QualityOfService.AtLeastOnce:
+                        await EnsureStreamAsync(cancellationToken);
+                        // JetStream: guaranteed delivery, may duplicate (consumer acks)
+                        var ack1 = await provider.ExecuteTransportPublishAsync(ct =>
+                            _js!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: ct),
+                            cancellationToken);
+                        NatsLog.NatsPublishedQoS1(logger, ctx.MessageId, ack1.Seq, ack1.Duplicate);
+                        System.Diagnostics.Activity.Current?.AddActivityEvent(NatsActivityEvents.NatsPublishSent,
+                            ("subject", subject),
+                            ("qos", (int)qos),
+                            ("seq", (long)ack1.Seq),
+                            ("dup", ack1.Duplicate));
+                        break;
+
+                    case QualityOfService.ExactlyOnce:
+                        await EnsureStreamAsync(cancellationToken);
+                        // JetStream with MsgId deduplication: exactly-once using NATS native dedup window (default 2 minutes)
+                        // Note: Application-level idempotency (via IdempotencyBehavior) provides additional business logic dedup
+                        var ack2 = await provider.ExecuteTransportPublishAsync(ct =>
+                            _js!.PublishAsync(subject: subject, data: payload, opts: new NatsJSPubOpts { MsgId = ctx.MessageId?.ToString() }, headers: headers, cancellationToken: ct),
+                            cancellationToken);
+                        NatsLog.NatsPublishedQoS2(logger, ctx.MessageId, ack2.Seq, ack2.Duplicate);
+                        System.Diagnostics.Activity.Current?.AddActivityEvent(NatsActivityEvents.NatsPublishSent,
+                            ("subject", subject),
+                            ("qos", (int)qos),
+                            ("seq", (long)ack2.Seq),
+                            ("dup", ack2.Duplicate));
+                        break;
+                }
+
+                if (ObservabilityHooks.IsEnabled)
+                {
+                    CatgaDiagnostics.MessagesPublished.Add(1, tag_component, tag_type, tag_dest, tag_qos);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (ObservabilityHooks.IsEnabled)
+                {
+                    CatgaDiagnostics.MessagesFailed.Add(1,
+                        new KeyValuePair<string, object?>("component", "Transport.NATS"),
+                        new KeyValuePair<string, object?>("destination", subject),
+                        new KeyValuePair<string, object?>("reason", "publish"));
+                }
+                NatsLog.NatsPublishFailed(logger, ex, subject, ctx.MessageId);
+                System.Diagnostics.Activity.Current?.SetError(ex);
+                System.Diagnostics.Activity.Current?.AddActivityEvent(NatsActivityEvents.NatsPublishFailed,
+                    ("subject", subject));
+                throw;
             }
         }
-        catch (Exception ex)
+        finally
         {
-            if (ObservabilityHooks.IsEnabled)
-            {
-                CatgaDiagnostics.MessagesFailed.Add(1,
-                    new KeyValuePair<string, object?>("component", "Transport.NATS"),
-                    new KeyValuePair<string, object?>("destination", subject),
-                    new KeyValuePair<string, object?>("reason", "publish"));
-            }
-            NatsLog.NatsPublishFailed(logger, ex, subject, ctx.MessageId);
-            System.Diagnostics.Activity.Current?.SetError(ex);
-            System.Diagnostics.Activity.Current?.AddActivityEvent(NatsActivityEvents.NatsPublishFailed,
-                ("subject", subject));
-            throw;
+            Interlocked.Decrement(ref _pendingOperations);
         }
     }
 

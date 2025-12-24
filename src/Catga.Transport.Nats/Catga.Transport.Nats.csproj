@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
     <Description>NATS transport for Catga - JetStream messaging</Description>
     <PackageTags>$(PackageTags);nats;jetstream;transport;messaging</PackageTags>
   </PropertyGroup>

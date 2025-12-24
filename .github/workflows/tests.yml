@@ -148,9 +148,6 @@ jobs:
         # Serialization packages
         dotnet pack src/Catga.Serialization.MemoryPack/Catga.Serialization.MemoryPack.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
 
-        # Source Generator packages
-        dotnet pack src/Catga.SourceGenerator/Catga.SourceGenerator.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
-
         # Cluster packages
         dotnet pack src/Catga.Cluster/Catga.Cluster.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
 

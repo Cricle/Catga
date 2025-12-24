@@ -373,7 +373,7 @@ public sealed class RedisMessageTransport : MessageTransportBase, IAsyncInitiali
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private string SerializeToBase64<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message) where TMessage : class
     {
-        var bytes = Serializer.Serialize(message, typeof(TMessage));
+        var bytes = Serializer.Serialize(message);
         return Convert.ToBase64String(bytes);
     }
 

@@ -20,6 +20,13 @@ namespace Catga.Serialization.MemoryPack;
 /// </remarks>
 public class MemoryPackMessageSerializer : MessageSerializerBase
 {
+    static MemoryPackMessageSerializer()
+    {
+        MemoryPackFormatterProvider.Register(new FlowStateFormatter());
+        MemoryPackFormatterProvider.Register(new OutboxMessageFormatter());
+        MemoryPackFormatterProvider.Register(new InboxMessageFormatter());
+        MemoryPackFormatterProvider.Register(new DeadLetterMessageFormatter());
+    }
     public override string Name => "MemoryPack";
 
     /// <summary>

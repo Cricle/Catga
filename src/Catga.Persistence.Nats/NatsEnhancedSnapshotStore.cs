@@ -84,10 +84,10 @@ public sealed class NatsEnhancedSnapshotStore : IEnhancedSnapshotStore
                 Version = version,
                 TimestampTicks = DateTime.UtcNow.Ticks,
                 TypeName = typeof(TAggregate).AssemblyQualifiedName!,
-                Data = _serializer.Serialize(aggregate, typeof(TAggregate))
+                Data = _serializer.Serialize(aggregate)
             };
 
-            var bytes = _serializer.Serialize(data, typeof(SnapshotData));
+            var bytes = _serializer.Serialize(data);
             var key = $"{streamId}.v{version:D10}";
             await _kvStore!.PutAsync(key, bytes, cancellationToken: ct);
 

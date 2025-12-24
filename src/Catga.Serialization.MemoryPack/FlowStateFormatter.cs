@@ -1,9 +1,7 @@
-using System.Runtime.CompilerServices;
-using Catga.Flow;
-using Catga.Flow.Dsl;
-using Catga.Outbox;
-using Catga.Inbox;
 using Catga.DeadLetter;
+using Catga.Flow;
+using Catga.Inbox;
+using Catga.Outbox;
 using MemoryPack;
 
 namespace Catga.Serialization.MemoryPack;
@@ -36,7 +34,7 @@ public sealed class FlowStateFormatter : MemoryPackFormatter<FlowState>
 
     public override void Deserialize(ref MemoryPackReader reader, scoped ref FlowState? value)
     {
-        if (!reader.TryReadObjectHeader(out var count))
+        if (!reader.TryReadObjectHeader(out _))
         {
             value = null;
             return;
@@ -65,36 +63,6 @@ public sealed class FlowStateFormatter : MemoryPackFormatter<FlowState>
             Error = error
         };
     }
-}
-
-/// <summary>
-/// Registration helper for MemoryPack formatters.
-/// </summary>
-public static class CatgaMemoryPackFormatters
-{
-    private static bool _registered;
-
-    /// <summary>
-    /// Register all Catga MemoryPack formatters. Call this once at application startup.
-    /// </summary>
-    public static void Register()
-    {
-        if (_registered) return;
-        _registered = true;
-
-        MemoryPackFormatterProvider.Register(new FlowStateFormatter());
-        MemoryPackFormatterProvider.Register(new OutboxMessageFormatter());
-        MemoryPackFormatterProvider.Register(new InboxMessageFormatter());
-        MemoryPackFormatterProvider.Register(new DeadLetterMessageFormatter());
-        // Note: WaitCondition, ForEachProgress, FlowCompletedEventData, StoredSnapshotMetadata, StoredSnapshot<T>
-        // are now marked with [MemoryPackable] and don't need custom formatters
-    }
-
-    /// <summary>
-    /// Module initializer to automatically register formatters when the assembly is loaded.
-    /// </summary>
-    [ModuleInitializer]
-    internal static void Initialize() => Register();
 }
 
 public sealed class OutboxMessageFormatter : MemoryPackFormatter<OutboxMessage>

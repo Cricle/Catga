@@ -13,7 +13,7 @@ public sealed class RedisEnhancedSnapshotStore(IConnectionMultiplexer redis, IMe
         string streamId, TAggregate aggregate, long version, CancellationToken ct = default) where TAggregate : class
         => await provider.ExecutePersistenceAsync(async _ =>
         {
-            var data = serializer.Serialize(aggregate, typeof(TAggregate));
+            var data = serializer.Serialize(aggregate);
             await redis.GetDatabase().SortedSetAddAsync(prefix + streamId,
                 new SortedSetEntry[] { new($"{version}:{DateTime.UtcNow.Ticks}:{Convert.ToBase64String(data)}", version) });
         }, ct);

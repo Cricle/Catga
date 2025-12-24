@@ -35,7 +35,7 @@ public sealed class RedisDeadLetterQueue : RedisStoreBase, IDeadLetterQueue
         using var _ = CatgaDiagnostics.ActivitySource.StartActivity("Redis.DLQ.Send", ActivityKind.Producer);
         var db = GetDatabase();
         var id = message.MessageId.ToString();
-        var messageBytes = Serializer.Serialize(message, typeof(TMessage));
+        var messageBytes = Serializer.Serialize(message);
         var dlm = new DeadLetterMessage { MessageId = message.MessageId, MessageType = TypeNameCache<TMessage>.Name, Message = messageBytes, ExceptionType = ex.GetType().Name, ExceptionMessage = ex.Message, StackTrace = ex.StackTrace ?? "", RetryCount = retryCount, FailedAt = DateTime.UtcNow };
         await db.HashSetAsync($"{_hashPrefix}{id}", [
             new HashEntry("MessageType", dlm.MessageType),

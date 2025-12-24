@@ -187,6 +187,7 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
         _cts.Dispose();
         
         _isHealthy = false;
+        GC.SuppressFinalize(this);
     }
 
     public NatsMessageTransport(INatsConnection connection, IMessageSerializer serializer, ILogger<NatsMessageTransport> logger, IResiliencePipelineProvider provider, CatgaOptions globalOptions, NatsTransportOptions? options = null)
@@ -222,7 +223,7 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                 activity.SetTag(CatgaActivitySource.Tags.MessageId, ctx.MessageId);
             }
 
-            var payload = serializer.Serialize(message!, typeof(TMessage));
+            var payload = serializer.Serialize(message!);
             var headers = new NatsHeaders
             {
                 ["MessageId"] = ctx.MessageId?.ToString() ?? string.Empty,
@@ -335,7 +336,7 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
     public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(Func<TMessage, TransportContext, Task> handler, CancellationToken cancellationToken = default) where TMessage : class
     {
         var subject = GetSubjectCached<TMessage>();
-        var task = Task.Run(async () =>
+        var task = Task.Factory.StartNew(async () =>
         {
             var ct = _cts.Token;
             await foreach (var msg in connection.SubscribeAsync<byte[]>(subject, cancellationToken: ct))
@@ -465,7 +466,7 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                 }
                 catch (Exception ex) { NatsLog.NatsProcessingError(logger, ex, subject); activity?.SetError(ex); }
             }
-        }, cancellationToken);
+        }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         _subs[subject] = task;
         return Task.CompletedTask;
     }

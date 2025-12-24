@@ -44,7 +44,7 @@ public sealed class NatsProjectionCheckpointStore(INatsConnection nats, IMessage
         => await provider.ExecutePersistenceAsync(async _ =>
         {
             await EnsureInitializedAsync(ct);
-            var bytes = serializer.Serialize(new CheckpointData { Position = checkpoint.Position, LastUpdatedTicks = checkpoint.LastUpdated.Ticks, StreamId = checkpoint.StreamId }, typeof(CheckpointData));
+            var bytes = serializer.Serialize(new CheckpointData { Position = checkpoint.Position, LastUpdatedTicks = checkpoint.LastUpdated.Ticks, StreamId = checkpoint.StreamId });
             await _kvStore!.PutAsync(checkpoint.ProjectionName, bytes, cancellationToken: ct);
         }, ct);
 

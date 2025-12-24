@@ -25,7 +25,7 @@ public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSeriali
             var key = GetMessageKey(messageId);
 
             var message = new InboxMessage { MessageId = messageId, MessageType = "", Payload = [], Status = InboxStatus.Processing, LockExpiresAt = DateTime.UtcNow.Add(lockDuration) };
-            var data = Serializer.Serialize(message, typeof(InboxMessage));
+            var data = Serializer.Serialize(message);
             var result = await db.ScriptEvaluateAsync(TryLockScript, [key], [messageId, (RedisValue)(int)lockDuration.TotalSeconds, data]);
             var locked = (int)result == 1;
 
@@ -54,7 +54,7 @@ public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSeriali
             message.ProcessedAt = DateTime.UtcNow;
             message.LockExpiresAt = null;
 
-            var data = Serializer.Serialize(message, typeof(InboxMessage));
+            var data = Serializer.Serialize(message);
             await db.StringSetAsync(key, data, TimeSpan.FromHours(24));
             CatgaLog.InboxMarkedProcessed(logger, message.MessageId);
             CatgaDiagnostics.InboxProcessed.Add(1);

@@ -35,7 +35,7 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
             message.Status = InboxStatus.Processing;
             message.LockExpiresAt = DateTime.UtcNow.Add(lockDuration);
 
-            var data = serializer.Serialize(message, typeof(InboxMessage));
+            var data = serializer.Serialize(message);
             var ack = await JetStream.PublishAsync(subject, data, cancellationToken: ct);
             if (ack.Error == null) CatgaDiagnostics.InboxLocksAcquired.Add(1);
             return ack.Error == null;
@@ -55,7 +55,7 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
             message.LockExpiresAt = null;
 
             var subject = $"{StreamName}.{message.MessageId}";
-            var data = serializer.Serialize(message, typeof(InboxMessage));
+            var data = serializer.Serialize(message);
             await JetStream.PublishAsync(subject, data, cancellationToken: ct);
             CatgaDiagnostics.InboxProcessed.Add(1);
         }, cancellationToken);
@@ -92,7 +92,7 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
                 message.Status = InboxStatus.Pending;
                 message.LockExpiresAt = null;
                 var subject = $"{StreamName}.{messageId}";
-                var data = serializer.Serialize(message, typeof(InboxMessage));
+                var data = serializer.Serialize(message);
                 await JetStream.PublishAsync(subject, data, cancellationToken: ct);
                 CatgaDiagnostics.InboxLocksReleased.Add(1);
             }

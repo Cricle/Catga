@@ -25,7 +25,7 @@ public class RedisOutboxPersistence(IConnectionMultiplexer redis, IMessageSerial
 
             var db = redis.GetDatabase();
             var key = GetMessageKey(message.MessageId);
-            var data = serializer.Serialize(message, typeof(OutboxMessage));
+            var data = serializer.Serialize(message);
 
             var transaction = db.CreateTransaction();
             _ = transaction.StringSetAsync(key, data);
@@ -87,7 +87,7 @@ public class RedisOutboxPersistence(IConnectionMultiplexer redis, IMessageSerial
             message.Status = OutboxStatus.Published;
             message.PublishedAt = DateTime.UtcNow;
 
-            await db.ScriptEvaluateAsync(MarkPublishedScript, [key, _pendingKey], [messageId, serializer.Serialize(message, typeof(OutboxMessage)), (RedisValue)(int)TimeSpan.FromHours(24).TotalSeconds]);
+            await db.ScriptEvaluateAsync(MarkPublishedScript, [key, _pendingKey], [messageId, serializer.Serialize(message), (RedisValue)(int)TimeSpan.FromHours(24).TotalSeconds]);
             CatgaLog.OutboxMarkedPublished(logger, messageId);
             CatgaDiagnostics.OutboxPublished.Add(1);
         }, cancellationToken);
@@ -113,7 +113,7 @@ public class RedisOutboxPersistence(IConnectionMultiplexer redis, IMessageSerial
             {
                 message.Status = OutboxStatus.Failed;
                 var transaction = db.CreateTransaction();
-                _ = transaction.StringSetAsync(key, serializer.Serialize(message, typeof(OutboxMessage)));
+                _ = transaction.StringSetAsync(key, serializer.Serialize(message));
                 _ = transaction.SortedSetRemoveAsync(_pendingKey, messageId);
                 await transaction.ExecuteAsync();
                 CatgaLog.OutboxMessageFailedAfterRetries(logger, messageId, message.RetryCount);
@@ -122,7 +122,7 @@ public class RedisOutboxPersistence(IConnectionMultiplexer redis, IMessageSerial
             else
             {
                 message.Status = OutboxStatus.Pending;
-                await db.StringSetAsync(key, serializer.Serialize(message, typeof(OutboxMessage)));
+                await db.StringSetAsync(key, serializer.Serialize(message));
             }
         }, cancellationToken);
     }

@@ -27,7 +27,7 @@ public sealed class NatsJSDeadLetterQueue(INatsConnection connection, IMessageSe
         {
             await EnsureInitializedAsync(ct);
 
-            var messageData = serializer.Serialize(message, typeof(TMessage));
+            var messageData = serializer.Serialize(message);
 
             var dlqMessage = new DeadLetterMessage
             {
@@ -42,7 +42,7 @@ public sealed class NatsJSDeadLetterQueue(INatsConnection connection, IMessageSe
             };
 
             var subject = $"{StreamName.ToLowerInvariant()}.{message.MessageId}";
-            var data = serializer.Serialize(dlqMessage, typeof(DeadLetterMessage));
+            var data = serializer.Serialize(dlqMessage);
 
             await JetStream.PublishAsync(subject, data, cancellationToken: ct);
         }, cancellationToken);

@@ -23,7 +23,7 @@ public sealed class InMemoryIdempotencyStore(IMessageSerializer serializer, IOpt
     public Task MarkAsProcessedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
         long messageId, TResult? result = default, CancellationToken ct = default)
     {
-        _store[messageId] = (DateTime.UtcNow, result is null ? null : serializer.Serialize(result, typeof(TResult)));
+        _store[messageId] = (DateTime.UtcNow, result is null ? null : serializer.Serialize(result));
         return Task.CompletedTask;
     }
 

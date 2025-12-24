@@ -37,6 +37,9 @@
     <!-- Compiler Options -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <NoWarn>$(NoWarn);CS1591;RS2008</NoWarn>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 
     <!-- SourceLink -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

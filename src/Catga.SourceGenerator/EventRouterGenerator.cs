@@ -67,7 +67,7 @@ namespace Catga.SourceGenerator
 			sb.AppendLine("{");
 			sb.AppendLine("    internal sealed class GeneratedEventRouter : IGeneratedEventRouter");
 			sb.AppendLine("    {");
-			sb.AppendLine("        public bool TryRoute<TEvent>(IServiceProvider sp, TEvent @event, CancellationToken ct, out Task? dispatched) where TEvent : IEvent");
+			sb.AppendLine("        public bool TryRoute<TEvent>(IServiceProvider sp, TEvent @event, out Task? dispatched, CancellationToken ct = default) where TEvent : IEvent");
 			sb.AppendLine("        {");
 			sb.AppendLine("            dispatched = null;");
 			if (handlers.Count == 0)

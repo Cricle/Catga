@@ -81,7 +81,7 @@ public sealed class NatsJSIdempotencyStore(INatsConnection connection, IMessageS
 
             if (result != null)
             {
-                data = serializer.Serialize(result, typeof(TResult));
+                data = serializer.Serialize(result);
             }
             else
             {

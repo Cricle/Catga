@@ -73,7 +73,7 @@ public class MemoryIdempotencyStore : IIdempotencyStore
 
             if (result != null)
             {
-                var resultData = _serializer.Serialize(result, typeof(TResult));
+                var resultData = _serializer.Serialize(result);
                 if (!_typedResults.TryGetValue(messageId, out var dict))
                 {
                     dict = new Dictionary<Type, byte[]>();

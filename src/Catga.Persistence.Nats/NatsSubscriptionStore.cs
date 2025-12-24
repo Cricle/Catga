@@ -45,7 +45,7 @@ public sealed class NatsSubscriptionStore(INatsConnection nats, IMessageSerializ
         {
             await EnsureInitializedAsync(ct);
             var data = new SubscriptionData { Name = subscription.Name, StreamPattern = subscription.StreamPattern, Position = subscription.Position, EventTypeFilter = subscription.EventTypeFilter, ProcessedCount = subscription.ProcessedCount, LastProcessedAtTicks = subscription.LastProcessedAt?.Ticks ?? 0, CreatedAtTicks = subscription.CreatedAt.Ticks };
-            await _kvStore!.PutAsync(subscription.Name, serializer.Serialize(data, typeof(SubscriptionData)), cancellationToken: ct);
+            await _kvStore!.PutAsync(subscription.Name, serializer.Serialize(data), cancellationToken: ct);
         }, ct);
 
     public async ValueTask<PersistentSubscription?> LoadAsync(string name, CancellationToken ct = default)

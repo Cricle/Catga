@@ -32,8 +32,8 @@ public partial class RedisIdempotencyStore(
         => await provider.ExecutePersistenceAsync(async c =>
         {
             using var activity = MetricsHelper.StartPersistenceActivity("Redis.Idempotency", "MarkProcessed");
-            var entry = new Entry { MessageId = messageId, ProcessedAt = DateTime.UtcNow, ResultType = result?.GetType().AssemblyQualifiedName, ResultBytes = result != null ? Serializer.Serialize(result, typeof(TResult)) : null };
-            await GetDatabase().StringSetAsync(BuildKey(messageId), Serializer.Serialize(entry, typeof(Entry)), _expiry);
+            var entry = new Entry { MessageId = messageId, ProcessedAt = DateTime.UtcNow, ResultType = result?.GetType().AssemblyQualifiedName, ResultBytes = result != null ? Serializer.Serialize(result) : null };
+            await GetDatabase().StringSetAsync(BuildKey(messageId), Serializer.Serialize(entry), _expiry);
         }, ct);
 
     public async Task<TResult?> GetCachedResultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(long messageId, CancellationToken ct = default)

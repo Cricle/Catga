@@ -1,0 +1,12 @@
+  姝ｅ湪纭畾瑕佽繕鍘熺殑椤圭洰鈥?
+  宸茶繕鍘?C:\Users\huaji\Workplace\github\Catga\src\Catga\Catga.csproj (鐢ㄦ椂 691 姣)銆?
+  Catga -> C:\Users\huaji\Workplace\github\Catga\src\Catga\bin\Debug\net8.0\Catga.dll
+  Catga -> C:\Users\huaji\Workplace\github\Catga\src\Catga\bin\Debug\net9.0\Catga.dll
+
+宸叉垚鍔熺敓鎴愩€?
+    0 涓鍛?
+    0 涓敊璇?
+
+宸茬敤鏃堕棿 00:00:06.36
+
+鏈夊彲鐢ㄧ殑宸ヤ綔璐熻浇鏇存柊銆傛湁鍏宠缁嗕俊鎭紝璇疯繍琛?`dotnet workload list`銆?

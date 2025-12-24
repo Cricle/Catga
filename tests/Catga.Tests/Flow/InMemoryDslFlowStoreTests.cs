@@ -1,5 +1,6 @@
 using Catga.Flow.Dsl;
 using Catga.Persistence.InMemory.Flow;
+using Catga.Tests.Helpers;
 using FluentAssertions;
 using Xunit;
 
@@ -10,7 +11,7 @@ namespace Catga.Tests.Flow.Store;
 /// </summary>
 public class InMemoryDslFlowStoreTests
 {
-    private readonly InMemoryDslFlowStore _store = new();
+    private readonly InMemoryDslFlowStore _store = TestStoreExtensions.CreateTestFlowStore();
 
     #region Create Tests
 

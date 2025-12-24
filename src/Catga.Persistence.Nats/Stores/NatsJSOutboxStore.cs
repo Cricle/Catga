@@ -24,7 +24,7 @@ public sealed class NatsJSOutboxStore(INatsConnection connection, IMessageSerial
             await EnsureInitializedAsync(ct);
 
             var subject = $"{StreamName}.{message.MessageId}";
-            var data = serializer.Serialize(message, typeof(OutboxMessage));
+            var data = serializer.Serialize(message);
             var ack = await JetStream.PublishAsync(subject, data, cancellationToken: ct);
             if (ack.Error != null) throw new InvalidOperationException($"Failed to add outbox message: {ack.Error.Description}");
             CatgaDiagnostics.OutboxAdded.Add(1);
@@ -86,7 +86,7 @@ public sealed class NatsJSOutboxStore(INatsConnection connection, IMessageSerial
                         {
                             outboxMsg.Status = OutboxStatus.Published;
                             outboxMsg.PublishedAt = DateTime.UtcNow;
-                            var updatedData = serializer.Serialize(outboxMsg, typeof(OutboxMessage));
+                            var updatedData = serializer.Serialize(outboxMsg);
                             var ack = await JetStream.PublishAsync(subject, updatedData, cancellationToken: ct);
                             if (ack.Error != null) throw new InvalidOperationException($"Failed to mark outbox message as published: {ack.Error.Description}");
                             await msg.AckAsync(cancellationToken: ct);
@@ -125,7 +125,7 @@ public sealed class NatsJSOutboxStore(INatsConnection connection, IMessageSerial
                             outboxMsg.RetryCount++;
                             outboxMsg.LastError = errorMessage;
                             outboxMsg.Status = outboxMsg.RetryCount >= outboxMsg.MaxRetries ? OutboxStatus.Failed : OutboxStatus.Pending;
-                            var updatedData = serializer.Serialize(outboxMsg, typeof(OutboxMessage));
+                            var updatedData = serializer.Serialize(outboxMsg);
                             var ack = await JetStream.PublishAsync(subject, updatedData, cancellationToken: ct);
                             if (ack.Error != null) throw new InvalidOperationException($"Failed to update outbox message: {ack.Error.Description}");
                             await msg.AckAsync(cancellationToken: ct);

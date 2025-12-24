@@ -28,6 +28,6 @@ public interface IEventHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMe
 public interface IGeneratedEventRouter
 {
     // Returns true if a fast-path route exists for this event type
-    bool TryRoute<TEvent>(IServiceProvider sp, TEvent @event, CancellationToken ct, out Task? dispatched) where TEvent : IEvent;
+    bool TryRoute<TEvent>(IServiceProvider sp, TEvent @event, out Task? dispatched, CancellationToken ct = default) where TEvent : IEvent;
 }
 

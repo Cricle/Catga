@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catga OrderSystem - 演示控制台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #818cf8;
+            --success: #10b981;
+            --success-light: #34d399;
+            --warning: #f59e0b;
+            --warning-light: #fbbf24;
+            --danger: #ef4444;
+            --danger-light: #f87171;
+            --dark: #1e293b;
+            --dark-light: #334155;
+            --light: #f8fafc;
+            --border: #e2e8f0;
+            --shadow: rgba(0, 0, 0, 0.1);
+            --shadow-lg: rgba(0, 0, 0, 0.15);
+            --glass-bg: rgba(255, 255, 255, 0.9);
+            --glass-border: rgba(255, 255, 255, 0.3);
+        }
+
+        [data-theme="dark"] {
+            --primary: #818cf8;
+            --primary-dark: #6366f1;
+            --primary-light: #a5b4fc;
+            --dark: #f1f5f9;
+            --dark-light: #cbd5e1;
+            --light: #0f172a;
+            --border: #334155;
+            --shadow: rgba(0, 0, 0, 0.3);
+            --shadow-lg: rgba(0, 0, 0, 0.5);
+            --glass-bg: rgba(15, 23, 42, 0.9);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.3s ease;
+        }
+
+        [data-theme="dark"] body {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px var(--shadow-lg);
+            animation: slideDown 0.5s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            color: var(--dark);
+            font-size: 32px;
+            margin-bottom: 8px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header .subtitle {
+            color: var(--dark-light);
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .theme-toggle {
+            background: var(--light);
+            border: 1px solid var(--border);
+            border-radius: 50px;
+            padding: 8px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px var(--shadow);
+        }
+
+        .system-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .info-card {
+            background: var(--light);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .info-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .info-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--shadow);
+        }
+
+        .info-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .info-card .label {
+            font-size: 11px;
+            color: var(--dark-light);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .info-card .value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 8px 32px var(--shadow-lg);
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .panel h2 {
+            color: var(--dark);
+            font-size: 22px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid var(--border);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--dark);
+            margin-bottom: 6px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: var(--light);
+            color: var(--dark);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .form-group input:hover,
+        .form-group select:hover {
+            border-color: var(--primary-light);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:active::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success) 0%, var(--success-light) 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, var(--warning) 0%, var(--warning-light) 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger) 0%, var(--danger-light) 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .orders-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .order-card {
+            background: var(--light);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border-left: 4px solid var(--primary);
+            transition: all 0.3s ease;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .order-card:hover {
+            transform: translateX(4px);
+            box-shadow: 0 8px 24px var(--shadow);
+        }
+
+        .order-card.pending { 
+            border-left-color: var(--warning);
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.05) 0%, var(--light) 20%);
+        }
+        .order-card.paid { 
+            border-left-color: var(--primary);
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.05) 0%, var(--light) 20%);
+        }
+        .order-card.shipped { 
+            border-left-color: var(--success);
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, var(--light) 20%);
+        }
+        .order-card.cancelled { 
+            border-left-color: var(--danger);
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.05) 0%, var(--light) 20%);
+            opacity: 0.7;
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .order-id {
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .order-status {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .status-pending { 
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            color: #92400e;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+        .status-paid { 
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            color: #1e40af;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+        .status-shipped { 
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            color: #065f46;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+        .status-cancelled { 
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #991b1b;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+
+        .order-details {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .order-items {
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .order-item {
+            font-size: 13px;
+            padding: 4px 0;
+        }
+
+        .order-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .order-actions .btn {
+            flex: 1;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--light);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px var(--shadow);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            animation: countUp 0.5s ease;
+        }
+
+        @keyframes countUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--dark-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px var(--shadow-lg);
+            z-index: 1000;
+            animation: slideInRight 0.3s ease;
+            max-width: 400px;
+            backdrop-filter: blur(20px);
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .toast.error {
+            background: rgba(254, 226, 226, 0.95);
+            color: #991b1b;
+            border-left: 4px solid var(--danger);
+        }
+
+        .toast.success {
+            background: rgba(209, 250, 229, 0.95);
+            color: #065f46;
+            border-left: 4px solid var(--success);
+        }
+
+        .toast.info {
+            background: rgba(219, 234, 254, 0.95);
+            color: #1e40af;
+            border-left: 4px solid var(--primary);
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            border-left: 4px solid var(--danger);
+            animation: shake 0.5s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            border-left: 4px solid var(--success);
+            animation: slideDown 0.3s ease;
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, var(--border) 25%, var(--light) 50%, var(--border) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s ease-in-out infinite;
+            border-radius: 8px;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .refresh-indicator {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--primary);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-top">
+                <div>
+                    <h1>🚀 Catga OrderSystem</h1>
+                    <p class="subtitle">CQRS + Event Sourcing 演示系统</p>
+                </div>
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <span id="themeIcon">🌙</span>
+                    <span id="themeText">深色模式</span>
+                </button>
+            </div>
+            <div class="system-info" id="systemInfo">
+                <div class="info-card">
+                    <div class="label">节点</div>
+                    <div class="value" id="nodeId">-</div>
+                </div>
+                <div class="info-card">
+                    <div class="label">模式</div>
+                    <div class="value" id="mode">-</div>
+                </div>
+                <div class="info-card">
+                    <div class="label">传输</div>
+                    <div class="value" id="transport">-</div>
+                </div>
+                <div class="info-card">
+                    <div class="label">持久化</div>
+                    <div class="value" id="persistence">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="panel">
+                <h2>📝 创建订单</h2>
+                <div id="createError" class="error" style="display: none;"></div>
+                <div id="createSuccess" class="success" style="display: none;"></div>
+                
+                <div class="form-group">
+                    <label>客户 ID</label>
+                    <input type="text" id="customerId" placeholder="customer-001" value="customer-001">
+                </div>
+
+                <div class="form-group">
+                    <label>商品 ID</label>
+                    <input type="text" id="productId" placeholder="product-001" value="product-001">
+                </div>
+
+                <div class="form-group">
+                    <label>商品名称</label>
+                    <input type="text" id="productName" placeholder="示例商品" value="示例商品">
+                </div>
+
+                <div class="form-group">
+                    <label>数量</label>
+                    <input type="number" id="quantity" placeholder="1" value="1" min="1">
+                </div>
+
+                <div class="form-group">
+                    <label>单价</label>
+                    <input type="number" id="price" placeholder="99.99" value="99.99" step="0.01" min="0">
+                </div>
+
+                <button class="btn btn-primary" onclick="createOrder()" style="width: 100%;">创建订单</button>
+            </div>
+
+            <div class="panel">
+                <h2>📊 统计信息</h2>
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalOrders">0</div>
+                        <div class="stat-label">总订单</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalRevenue">¥0</div>
+                        <div class="stat-label">总收入</div>
+                    </div>
+                </div>
+                <div id="statusStats"></div>
+            </div>
+        </div>
+
+        <div class="panel" style="margin-top: 20px;">
+            <h2>
+                📦 订单列表
+                <span id="autoRefreshIndicator" style="margin-left: auto; font-size: 14px; font-weight: normal; color: var(--dark-light);"></span>
+            </h2>
+            <button class="btn btn-primary" onclick="loadOrders()" style="margin-bottom: 16px;">
+                <span id="refreshText">刷新订单</span>
+            </button>
+            <div id="ordersList" class="orders-list">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let autoRefreshInterval = null;
+
+        // Theme management
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            const icon = document.getElementById('themeIcon');
+            const text = document.getElementById('themeText');
+            if (newTheme === 'dark') {
+                icon.textContent = '☀️';
+                text.textContent = '浅色模式';
+            } else {
+                icon.textContent = '🌙';
+                text.textContent = '深色模式';
+            }
+        }
+
+        // Initialize theme
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            if (savedTheme === 'dark') {
+                document.getElementById('themeIcon').textContent = '☀️';
+                document.getElementById('themeText').textContent = '浅色模式';
+            }
+        }
+
+        // Toast notifications
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideInRight 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch(`${API_BASE}/`);
+                const data = await response.json();
+                document.getElementById('nodeId').textContent = data.node;
+                document.getElementById('mode').textContent = data.mode;
+                document.getElementById('transport').textContent = data.transport;
+                document.getElementById('persistence').textContent = data.persistence;
+            } catch (error) {
+                console.error('Failed to load system info:', error);
+                showToast('加载系统信息失败', 'error');
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/stats`);
+                const data = await response.json();
+                document.getElementById('totalOrders').textContent = data.totalOrders;
+                document.getElementById('totalRevenue').textContent = `¥${data.totalRevenue.toFixed(2)}`;
+                
+                const statusStats = document.getElementById('statusStats');
+                statusStats.innerHTML = '<div style="margin-top: 16px; display: grid; gap: 8px;">';
+                for (const [status, count] of Object.entries(data.byStatus)) {
+                    const statusClass = status.toLowerCase();
+                    statusStats.innerHTML += `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--light); border-radius: 8px; border-left: 3px solid var(--${getStatusColor(status)});">
+                            <span style="font-weight: 600; color: var(--dark);">${getStatusLabel(status)}</span>
+                            <span style="font-size: 18px; font-weight: 700; color: var(--${getStatusColor(status)});">${count}</span>
+                        </div>
+                    `;
+                }
+                statusStats.innerHTML += '</div>';
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'Pending': 'warning',
+                'Paid': 'primary',
+                'Shipped': 'success',
+                'Cancelled': 'danger'
+            };
+            return colors[status] || 'primary';
+        }
+
+        function getStatusLabel(status) {
+            const labels = {
+                'Pending': '待支付',
+                'Paid': '已支付',
+                'Shipped': '已发货',
+                'Cancelled': '已取消'
+            };
+            return labels[status] || status;
+        }
+
+        async function loadOrders() {
+            const ordersList = document.getElementById('ordersList');
+            const refreshText = document.getElementById('refreshText');
+            
+            refreshText.innerHTML = '<span class="refresh-indicator"></span> 加载中...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/orders`);
+                const orders = await response.json();
+                
+                refreshText.textContent = '刷新订单';
+                
+                if (orders.length === 0) {
+                    ordersList.innerHTML = '<div class="loading">暂无订单</div>';
+                    return;
+                }
+                
+                ordersList.innerHTML = orders.map(order => `
+                    <div class="order-card ${order.status.toLowerCase()}">
+                        <div class="order-header">
+                            <span class="order-id">订单 #${order.id.substring(0, 8)}</span>
+                            <span class="order-status status-${order.status.toLowerCase()}">${getStatusLabel(order.status)}</span>
+                        </div>
+                        <div class="order-details">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-bottom: 8px;">
+                                <div><strong>客户:</strong> ${order.customerId}</div>
+                                <div><strong>总额:</strong> <span style="color: var(--success); font-weight: 700;">¥${order.total.toFixed(2)}</span></div>
+                            </div>
+                            <div style="font-size: 12px; color: var(--dark-light); margin-top: 8px;">
+                                <div>创建: ${new Date(order.createdAt).toLocaleString('zh-CN')}</div>
+                                ${order.paidAt ? `<div>支付: ${new Date(order.paidAt).toLocaleString('zh-CN')}</div>` : ''}
+                                ${order.shippedAt ? `<div>发货: ${new Date(order.shippedAt).toLocaleString('zh-CN')}</div>` : ''}
+                                ${order.trackingNumber ? `<div>物流: ${order.trackingNumber}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="order-items">
+                            <div style="font-weight: 600; margin-bottom: 6px; color: var(--dark);">订单商品:</div>
+                            ${order.items.map(item => `
+                                <div class="order-item" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);">
+                                    <span>${item.name} × ${item.quantity}</span>
+                                    <span style="font-weight: 600;">¥${(item.price * item.quantity).toFixed(2)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="order-actions">
+                            ${order.status === 'Pending' ? `
+                                <button class="btn btn-success" onclick="payOrder('${order.id}')">💳 支付</button>
+                                <button class="btn btn-danger" onclick="cancelOrder('${order.id}')">❌ 取消</button>
+                            ` : ''}
+                            ${order.status === 'Paid' ? `
+                                <button class="btn btn-primary" onclick="shipOrder('${order.id}')">🚚 发货</button>
+                                <button class="btn btn-danger" onclick="cancelOrder('${order.id}')">❌ 取消</button>
+                            ` : ''}
+                            <button class="btn btn-warning" onclick="viewHistory('${order.id}')">📜 历史</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                ordersList.innerHTML = '<div class="error">加载订单失败</div>';
+                console.error('Failed to load orders:', error);
+                showToast('加载订单失败', 'error');
+                refreshText.textContent = '刷新订单';
+            }
+        }
+
+        async function createOrder() {
+            const customerId = document.getElementById('customerId').value;
+            const productId = document.getElementById('productId').value;
+            const productName = document.getElementById('productName').value;
+            const quantity = parseInt(document.getElementById('quantity').value);
+            const price = parseFloat(document.getElementById('price').value);
+
+            const errorDiv = document.getElementById('createError');
+            const successDiv = document.getElementById('createSuccess');
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+
+            // Validation
+            if (!customerId || !productId || !productName || !quantity || !price) {
+                showToast('请填写所有字段', 'error');
+                return;
+            }
+
+            if (quantity < 1) {
+                showToast('数量必须大于0', 'error');
+                return;
+            }
+
+            if (price < 0) {
+                showToast('价格不能为负数', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/orders`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        customerId,
+                        items: [{
+                            productId,
+                            name: productName,
+                            quantity,
+                            price
+                        }]
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showToast(`订单创建成功！订单号: ${result.orderId.substring(0, 8)}`, 'success');
+                    successDiv.textContent = `订单创建成功！订单号: ${result.orderId}`;
+                    successDiv.style.display = 'block';
+                    await loadOrders();
+                    await loadStats();
+                } else {
+                    const error = await response.json();
+                    const errorMsg = `创建失败: ${error.error || '未知错误'}`;
+                    showToast(errorMsg, 'error');
+                    errorDiv.textContent = errorMsg;
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                const errorMsg = `创建失败: ${error.message}`;
+                showToast(errorMsg, 'error');
+                errorDiv.textContent = errorMsg;
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        async function payOrder(orderId) {
+            try {
+                const response = await fetch(`${API_BASE}/orders/${orderId}/pay`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (response.ok) {
+                    showToast('支付成功！', 'success');
+                    await loadOrders();
+                    await loadStats();
+                } else {
+                    showToast('支付失败', 'error');
+                }
+            } catch (error) {
+                showToast(`支付失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function shipOrder(orderId) {
+            try {
+                const response = await fetch(`${API_BASE}/orders/${orderId}/ship`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (response.ok) {
+                    showToast('发货成功！', 'success');
+                    await loadOrders();
+                    await loadStats();
+                } else {
+                    showToast('发货失败', 'error');
+                }
+            } catch (error) {
+                showToast(`发货失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function cancelOrder(orderId) {
+            if (!confirm('确定要取消这个订单吗？')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/orders/${orderId}/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (response.ok) {
+                    showToast('订单已取消', 'info');
+                    await loadOrders();
+                    await loadStats();
+                } else {
+                    showToast('取消失败', 'error');
+                }
+            } catch (error) {
+                showToast(`取消失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function viewHistory(orderId) {
+            try {
+                const response = await fetch(`${API_BASE}/orders/${orderId}/history`);
+                const events = await response.json();
+                
+                const eventList = events.map(e => {
+                    const type = Object.keys(e)[0];
+                    const data = e[type];
+                    return `• ${type}\n  ${JSON.stringify(data, null, 2)}`;
+                }).join('\n\n');
+                
+                alert(`订单 ${orderId.substring(0, 8)} 的事件历史:\n\n${eventList}`);
+            } catch (error) {
+                showToast(`加载历史失败: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-refresh management
+        function startAutoRefresh() {
+            const indicator = document.getElementById('autoRefreshIndicator');
+            let countdown = 10;
+            
+            indicator.textContent = `自动刷新: ${countdown}秒`;
+            
+            autoRefreshInterval = setInterval(() => {
+                countdown--;
+                if (countdown <= 0) {
+                    loadStats();
+                    countdown = 10;
+                }
+                indicator.textContent = `自动刷新: ${countdown}秒`;
+            }, 1000);
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+        }
+
+        // Initialize
+        initTheme();
+        loadSystemInfo();
+        loadOrders();
+        loadStats();
+        startAutoRefresh();
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', stopAutoRefresh);
+    </script>
+</body>
+</html>

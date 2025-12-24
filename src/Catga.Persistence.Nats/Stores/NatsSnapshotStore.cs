@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 using Catga.EventSourcing;
-using MemoryPack;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NATS.Client.Core;
@@ -160,8 +159,7 @@ public sealed partial class NatsSnapshotStore : ISnapshotStore
     private static partial void LogSnapshotDeleted(ILogger logger, string streamId);
 
     // Internal storage format
-    [MemoryPackable]
-    private partial class StoredSnapshot
+    private class StoredSnapshot
     {
         public string StreamId { get; set; } = "";
         public long Version { get; set; }

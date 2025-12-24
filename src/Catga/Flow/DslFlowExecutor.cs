@@ -764,8 +764,8 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         if (position.Path.Length < 2)
             return null;
 
-        var parentPosition = new FlowPosition(position.Path[..^1]);
-        var step = GetStepAtPosition(new FlowPosition(position.Path[..^2]));
+        var parentPosition = new FlowPosition(position.Path[..^1].ToArray());
+        var step = GetStepAtPosition(new FlowPosition(position.Path[..^2].ToArray()));
 
         if (step == null)
             return null;

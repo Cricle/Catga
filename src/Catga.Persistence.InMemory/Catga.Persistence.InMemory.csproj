@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Catga\Catga.csproj" />
     <PackageReference Include="DistributedLock.FileSystem" />
+    <PackageReference Include="DistributedLock.WaitHandles" />
   </ItemGroup>
 
 </Project>

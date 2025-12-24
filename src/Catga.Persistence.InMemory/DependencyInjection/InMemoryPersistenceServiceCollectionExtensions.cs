@@ -12,6 +12,7 @@ using Catga.Persistence.Stores;
 using Catga.Resilience;
 using Medallion.Threading;
 using Medallion.Threading.FileSystem;
+using Medallion.Threading.WaitHandles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -93,6 +94,14 @@ public static class InMemoryPersistenceServiceCollectionExtensions
         var dir = new DirectoryInfo(lockDirectory ?? Path.Combine(Path.GetTempPath(), "catga-locks"));
         if (!dir.Exists) dir.Create();
         services.TryAddSingleton<IDistributedLockProvider>(new FileDistributedSynchronizationProvider(dir));
+        return services;
+    }
+
+    /// <summary>Adds WaitHandle-based distributed lock to the service collection (in-process only, for testing).</summary>
+    public static IServiceCollection AddWaitHandleDistributedLock(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<IDistributedLockProvider>(new WaitHandleDistributedSynchronizationProvider());
         return services;
     }
 

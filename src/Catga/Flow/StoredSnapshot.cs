@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Flow.Dsl;
-using MemoryPack;
 
 namespace Catga.Flow;
 
@@ -8,8 +7,7 @@ namespace Catga.Flow;
 /// Serialization-friendly snapshot format for persistence.
 /// Used by Redis, NATS, and other distributed stores.
 /// </summary>
-[MemoryPackable]
-public partial record StoredSnapshot<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState> where TState : class, IFlowState
+public record StoredSnapshot<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState> where TState : class, IFlowState
 {
     public string FlowId { get; init; }
     public string TypeName { get; init; }
@@ -22,7 +20,6 @@ public partial record StoredSnapshot<[DynamicallyAccessedMembers(DynamicallyAcce
     public DateTime UpdatedAt { get; init; }
     public int Version { get; init; }
 
-    [MemoryPackConstructor]
     public StoredSnapshot(
         string flowId,
         string typeName,
@@ -51,18 +48,18 @@ public partial record StoredSnapshot<[DynamicallyAccessedMembers(DynamicallyAcce
     /// Create from FlowSnapshot.
     /// </summary>
     public StoredSnapshot(FlowSnapshot<TState> snapshot)
-        : this(
-            snapshot.FlowId,
-            typeof(TState).FullName ?? typeof(TState).Name,
-            snapshot.State,
-            snapshot.Position.Path,
-            snapshot.Status,
-            snapshot.Error,
-            snapshot.WaitCondition?.CorrelationId,
-            snapshot.CreatedAt,
-            snapshot.UpdatedAt,
-            snapshot.Version)
-    { }
+    {
+        FlowId = snapshot.FlowId;
+        TypeName = typeof(TState).FullName ?? typeof(TState).Name;
+        State = snapshot.State;
+        PositionPath = snapshot.Position.Path;
+        Status = snapshot.Status;
+        Error = snapshot.Error;
+        WaitConditionId = snapshot.WaitCondition?.CorrelationId;
+        CreatedAt = snapshot.CreatedAt;
+        UpdatedAt = snapshot.UpdatedAt;
+        Version = snapshot.Version;
+    }
 
     /// <summary>
     /// Convert back to FlowSnapshot.
@@ -84,8 +81,7 @@ public partial record StoredSnapshot<[DynamicallyAccessedMembers(DynamicallyAcce
 /// Metadata-only snapshot format for query operations.
 /// Used when we don't need to deserialize the full state.
 /// </summary>
-[MemoryPackable]
-public partial record StoredSnapshotMetadata(
+public record StoredSnapshotMetadata(
     string FlowId,
     string TypeName,
     DslFlowStatus Status,

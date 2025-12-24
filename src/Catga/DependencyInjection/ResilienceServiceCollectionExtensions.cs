@@ -1,8 +1,6 @@
 using Catga.Resilience;
 using Catga.Pipeline;
 using Catga.Pipeline.Behaviors;
-using Medallion.Threading;
-using Medallion.Threading.WaitHandles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -30,7 +28,8 @@ public static class ResilienceServiceCollectionExtensions
         services.AddSingleton(options);
         services.AddSingleton<IResiliencePipelineProvider>(sp => new DefaultResiliencePipelineProvider(options));
         services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(PollyBehavior<,>));
-        services.TryAddSingleton<IDistributedLockProvider>(new WaitHandleDistributedSynchronizationProvider());
+        // Note: IDistributedLockProvider must be registered by implementation libraries
+        // (e.g., Catga.Persistence.InMemory, Catga.Persistence.Redis)
         services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(AttributeDrivenBehavior<,>));
 
         return services;

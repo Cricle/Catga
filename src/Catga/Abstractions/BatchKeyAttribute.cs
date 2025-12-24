@@ -1,5 +1,3 @@
-using System;
-
 namespace Catga.Abstractions;
 
 [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]

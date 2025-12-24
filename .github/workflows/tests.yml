@@ -182,7 +182,6 @@ jobs:
         # Core packages
         dotnet pack src/Catga/Catga.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
         dotnet pack src/Catga.AspNetCore/Catga.AspNetCore.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.Hosting.Aspire/Catga.Hosting.Aspire.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
 
         # Persistence packages
         dotnet pack src/Catga.Persistence.InMemory/Catga.Persistence.InMemory.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
@@ -194,8 +193,15 @@ jobs:
         dotnet pack src/Catga.Transport.Nats/Catga.Transport.Nats.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
         dotnet pack src/Catga.Transport.Redis/Catga.Transport.Redis.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
 
-        # Serialization and Testing
+        # Serialization packages
         dotnet pack src/Catga.Serialization.MemoryPack/Catga.Serialization.MemoryPack.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+
+        # Cluster packages
+        dotnet pack src/Catga.Cluster/Catga.Cluster.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+
+        # Scheduling packages
+        dotnet pack src/Catga.Scheduling.Hangfire/Catga.Scheduling.Hangfire.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Scheduling.Quartz/Catga.Scheduling.Quartz.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
 
     - name: Upload NuGet packages
       uses: actions/upload-artifact@v4

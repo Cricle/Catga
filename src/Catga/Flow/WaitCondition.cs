@@ -1,12 +1,9 @@
-using MemoryPack;
-
 namespace Catga.Flow.Dsl;
 
 /// <summary>
 /// Wait condition for WhenAll/WhenAny.
 /// </summary>
-[MemoryPackable]
-public partial record WaitCondition
+public record WaitCondition
 {
     public required string CorrelationId { get; init; }
     public required WaitType Type { get; init; }
@@ -35,13 +32,11 @@ public enum WaitType
 /// <summary>
 /// Flow completed event data for WhenAll/WhenAny coordination.
 /// </summary>
-[MemoryPackable]
-public partial record FlowCompletedEventData
+public record FlowCompletedEventData
 {
     public required string FlowId { get; init; }
     public string? ParentCorrelationId { get; init; }
     public bool Success { get; init; }
     public string? Error { get; init; }
-    [MemoryPackIgnore]
     public object? Result { get; init; }
 }

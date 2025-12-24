@@ -215,6 +215,39 @@ Response:
 }
 ```
 
+## API Testing
+
+### Automated API Tests
+
+Run the comprehensive API test suite to verify all endpoints:
+
+```bash
+# Windows (PowerShell)
+.\test-api.ps1
+
+# Linux/Mac (Bash)
+chmod +x test-api.sh
+./test-api.sh
+
+# Custom URL
+.\test-api.ps1 -BaseUrl "http://localhost:8080"
+./test-api.sh http://localhost:8080
+
+# Verbose output
+.\test-api.ps1 -Verbose
+VERBOSE=true ./test-api.sh
+```
+
+The test script will:
+- ✅ Verify service availability
+- ✅ Test all health check endpoints
+- ✅ Create, pay, ship, and cancel orders
+- ✅ Validate order lifecycle and event history
+- ✅ Check statistics and data consistency
+- ✅ Test error handling
+
+See [TEST-API-README.md](./TEST-API-README.md) for detailed documentation.
+
 ## Testing Different Configurations
 
 ### Test Script

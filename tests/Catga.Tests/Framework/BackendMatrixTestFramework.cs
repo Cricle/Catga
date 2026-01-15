@@ -266,7 +266,7 @@ public abstract class BackendMatrixTestBase : IAsyncLifetime
             
             if (!RedisFixture.IsDockerAvailable)
             {
-                Skip.If(true, "Docker is not available. Skipping backend matrix test.");
+                // Docker not available - tests will be skipped
                 return;
             }
         }
@@ -279,7 +279,7 @@ public abstract class BackendMatrixTestBase : IAsyncLifetime
             
             if (!NatsFixture.IsDockerAvailable)
             {
-                Skip.If(true, "Docker is not available. Skipping backend matrix test.");
+                // Docker not available - tests will be skipped
                 return;
             }
         }

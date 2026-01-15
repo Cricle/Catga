@@ -231,7 +231,7 @@ public class EventStoreDepthTests : BackendMatrixTestBase
     /// 
     /// Requirements: Requirement 41.4
     /// </summary>
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(GetBackendCombinations))]
     public async Task EventStore_StreamDeletionAndRecreation_HandlesCorrectly(
         BackendType eventStore, BackendType transport, BackendType flowStore)
@@ -239,6 +239,14 @@ public class EventStoreDepthTests : BackendMatrixTestBase
         // Arrange
         ConfigureBackends(eventStore, transport, flowStore);
         await InitializeAsync();
+        
+        // Skip if Docker is not available for Redis/NATS backends
+        if ((eventStore == BackendType.Redis && (RedisFixture == null || !RedisFixture.IsDockerAvailable)) ||
+            (eventStore == BackendType.Nats && (NatsFixture == null || !NatsFixture.IsDockerAvailable)))
+        {
+            Skip.If(true, "Docker is not available. Skipping backend matrix test.");
+            return;
+        }
 
         var streamId = $"delete-recreate-stream-{Guid.NewGuid():N}";
         
@@ -280,7 +288,7 @@ public class EventStoreDepthTests : BackendMatrixTestBase
     /// 
     /// Requirements: Requirement 41.5
     /// </summary>
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(GetBackendCombinations))]
     public async Task EventStore_VersionGapsDetection_HandlesCorrectly(
         BackendType eventStore, BackendType transport, BackendType flowStore)
@@ -288,6 +296,14 @@ public class EventStoreDepthTests : BackendMatrixTestBase
         // Arrange
         ConfigureBackends(eventStore, transport, flowStore);
         await InitializeAsync();
+        
+        // Skip if Docker is not available for Redis/NATS backends
+        if ((eventStore == BackendType.Redis && (RedisFixture == null || !RedisFixture.IsDockerAvailable)) ||
+            (eventStore == BackendType.Nats && (NatsFixture == null || !NatsFixture.IsDockerAvailable)))
+        {
+            Skip.If(true, "Docker is not available. Skipping backend matrix test.");
+            return;
+        }
 
         var streamId = $"version-gap-stream-{Guid.NewGuid():N}";
         
@@ -321,7 +337,7 @@ public class EventStoreDepthTests : BackendMatrixTestBase
     /// 
     /// Requirements: Requirement 41.6
     /// </summary>
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(GetBackendCombinations))]
     public async Task EventStore_StreamMetadataAndTagging_WorksCorrectly(
         BackendType eventStore, BackendType transport, BackendType flowStore)
@@ -329,6 +345,14 @@ public class EventStoreDepthTests : BackendMatrixTestBase
         // Arrange
         ConfigureBackends(eventStore, transport, flowStore);
         await InitializeAsync();
+        
+        // Skip if Docker is not available for Redis/NATS backends
+        if ((eventStore == BackendType.Redis && (RedisFixture == null || !RedisFixture.IsDockerAvailable)) ||
+            (eventStore == BackendType.Nats && (NatsFixture == null || !NatsFixture.IsDockerAvailable)))
+        {
+            Skip.If(true, "Docker is not available. Skipping backend matrix test.");
+            return;
+        }
 
         var streamId = $"metadata-stream-{Guid.NewGuid():N}";
         
@@ -364,7 +388,7 @@ public class EventStoreDepthTests : BackendMatrixTestBase
     /// 
     /// Requirements: Requirement 41.7
     /// </summary>
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(GetBackendCombinations))]
     public async Task EventStore_EventFilteringByType_WorksCorrectly(
         BackendType eventStore, BackendType transport, BackendType flowStore)
@@ -372,6 +396,14 @@ public class EventStoreDepthTests : BackendMatrixTestBase
         // Arrange
         ConfigureBackends(eventStore, transport, flowStore);
         await InitializeAsync();
+        
+        // Skip if Docker is not available for Redis/NATS backends
+        if ((eventStore == BackendType.Redis && (RedisFixture == null || !RedisFixture.IsDockerAvailable)) ||
+            (eventStore == BackendType.Nats && (NatsFixture == null || !NatsFixture.IsDockerAvailable)))
+        {
+            Skip.If(true, "Docker is not available. Skipping backend matrix test.");
+            return;
+        }
 
         var streamId = $"filter-stream-{Guid.NewGuid():N}";
         
@@ -402,7 +434,7 @@ public class EventStoreDepthTests : BackendMatrixTestBase
     /// 
     /// Requirements: Requirement 41.8
     /// </summary>
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(GetBackendCombinations))]
     public async Task EventStore_EventTransformationOnRead_WorksCorrectly(
         BackendType eventStore, BackendType transport, BackendType flowStore)
@@ -410,6 +442,14 @@ public class EventStoreDepthTests : BackendMatrixTestBase
         // Arrange
         ConfigureBackends(eventStore, transport, flowStore);
         await InitializeAsync();
+        
+        // Skip if Docker is not available for Redis/NATS backends
+        if ((eventStore == BackendType.Redis && (RedisFixture == null || !RedisFixture.IsDockerAvailable)) ||
+            (eventStore == BackendType.Nats && (NatsFixture == null || !NatsFixture.IsDockerAvailable)))
+        {
+            Skip.If(true, "Docker is not available. Skipping backend matrix test.");
+            return;
+        }
 
         var streamId = $"transform-stream-{Guid.NewGuid():N}";
         
@@ -453,7 +493,7 @@ public class EventStoreDepthTests : BackendMatrixTestBase
     /// 
     /// Requirements: Requirement 41.9
     /// </summary>
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(GetBackendCombinations))]
     public async Task EventStore_ClockSkewInTimestamps_HandlesCorrectly(
         BackendType eventStore, BackendType transport, BackendType flowStore)
@@ -461,6 +501,14 @@ public class EventStoreDepthTests : BackendMatrixTestBase
         // Arrange
         ConfigureBackends(eventStore, transport, flowStore);
         await InitializeAsync();
+        
+        // Skip if Docker is not available for Redis/NATS backends
+        if ((eventStore == BackendType.Redis && (RedisFixture == null || !RedisFixture.IsDockerAvailable)) ||
+            (eventStore == BackendType.Nats && (NatsFixture == null || !NatsFixture.IsDockerAvailable)))
+        {
+            Skip.If(true, "Docker is not available. Skipping backend matrix test.");
+            return;
+        }
 
         var streamId = $"clock-skew-stream-{Guid.NewGuid():N}";
         
@@ -497,7 +545,7 @@ public class EventStoreDepthTests : BackendMatrixTestBase
     /// 
     /// Requirements: Requirement 41.10
     /// </summary>
-    [Theory]
+    [SkippableTheory]
     [MemberData(nameof(GetBackendCombinations))]
     public async Task EventStore_SoftDeleteAndHardDelete_WorkCorrectly(
         BackendType eventStore, BackendType transport, BackendType flowStore)
@@ -505,6 +553,14 @@ public class EventStoreDepthTests : BackendMatrixTestBase
         // Arrange
         ConfigureBackends(eventStore, transport, flowStore);
         await InitializeAsync();
+        
+        // Skip if Docker is not available for Redis/NATS backends
+        if ((eventStore == BackendType.Redis && (RedisFixture == null || !RedisFixture.IsDockerAvailable)) ||
+            (eventStore == BackendType.Nats && (NatsFixture == null || !NatsFixture.IsDockerAvailable)))
+        {
+            Skip.If(true, "Docker is not available. Skipping backend matrix test.");
+            return;
+        }
 
         var streamId = $"delete-stream-{Guid.NewGuid():N}";
         

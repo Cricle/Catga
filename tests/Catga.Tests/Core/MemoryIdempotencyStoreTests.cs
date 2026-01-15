@@ -1,38 +1,21 @@
 using Catga.Abstractions;
 using Catga.Idempotency;
+using Catga.Serialization.MemoryPack;
 using FluentAssertions;
-using NSubstitute;
-using System.Text;
 using Xunit;
 
 namespace Catga.Tests.Core;
 
-public class MemoryIdempotencyStoreTests
+public partial class MemoryIdempotencyStoreTests
 {
-    private readonly IMessageSerializer _mockSerializer;
+    private readonly IMessageSerializer _serializer;
     private readonly MemoryIdempotencyStore _store;
 
     public MemoryIdempotencyStoreTests()
     {
-        _mockSerializer = Substitute.For<IMessageSerializer>();
-
-        // Setup default serializer behavior
-        _mockSerializer.Serialize(Arg.Any<object>(), Arg.Any<Type>())
-            .Returns(callInfo =>
-            {
-                var obj = callInfo.ArgAt<object>(0);
-                return Encoding.UTF8.GetBytes(obj?.ToString() ?? "null");
-            });
-
-        _mockSerializer.Deserialize(Arg.Any<byte[]>(), Arg.Any<Type>())
-            .Returns(callInfo =>
-            {
-                var bytes = callInfo.ArgAt<byte[]>(0);
-                var text = Encoding.UTF8.GetString(bytes);
-                return text;
-            });
-
-        _store = new MemoryIdempotencyStore(_mockSerializer);
+        // Use real serializer instead of mock to avoid generic method mocking issues
+        _serializer = new MemoryPackMessageSerializer();
+        _store = new MemoryIdempotencyStore(_serializer);
     }
 
     // ==================== Constructor Tests ====================
@@ -52,7 +35,7 @@ public class MemoryIdempotencyStoreTests
     public void Constructor_WithValidSerializer_ShouldSucceed()
     {
         // Act
-        var store = new MemoryIdempotencyStore(_mockSerializer);
+        var store = new MemoryIdempotencyStore(_serializer);
 
         // Assert
         store.Should().NotBeNull();
@@ -125,15 +108,12 @@ public class MemoryIdempotencyStoreTests
         var messageId = 222L;
         var result = "test-result";
 
-        // Setup serializer to return specific bytes
-        var expectedBytes = Encoding.UTF8.GetBytes(result);
-        _mockSerializer.Serialize(result, typeof(string)).Returns(expectedBytes);
-
         // Act
         await _store.MarkAsProcessedAsync(messageId, result);
 
-        // Assert
-        _mockSerializer.Received(1).Serialize(result, typeof(string));
+        // Assert - Verify we can retrieve the result
+        var retrieved = await _store.GetCachedResultAsync<string>(messageId);
+        retrieved.Should().Be(result);
     }
 
     [Fact]
@@ -172,14 +152,15 @@ public class MemoryIdempotencyStoreTests
         // Arrange
         var messageId = 555L;
         var complexResult = new TestResult { Value = 42, Message = "test" };
-        var serializedBytes = Encoding.UTF8.GetBytes("serialized");
-        _mockSerializer.Serialize(complexResult, typeof(TestResult)).Returns(serializedBytes);
 
         // Act
         await _store.MarkAsProcessedAsync(messageId, complexResult);
 
-        // Assert
-        _mockSerializer.Received(1).Serialize(complexResult, typeof(TestResult));
+        // Assert - Verify we can retrieve the complex result
+        var retrieved = await _store.GetCachedResultAsync<TestResult>(messageId);
+        retrieved.Should().NotBeNull();
+        retrieved!.Value.Should().Be(42);
+        retrieved.Message.Should().Be("test");
     }
 
     // ==================== GetCachedResultAsync Tests ====================
@@ -203,10 +184,6 @@ public class MemoryIdempotencyStoreTests
         // Arrange
         var messageId = 777L;
         var expectedResult = "cached-result";
-        var serializedBytes = Encoding.UTF8.GetBytes(expectedResult);
-
-        _mockSerializer.Serialize(expectedResult, typeof(string)).Returns(serializedBytes);
-        _mockSerializer.Deserialize(serializedBytes, typeof(string)).Returns(expectedResult);
 
         await _store.MarkAsProcessedAsync(messageId, expectedResult);
 
@@ -215,7 +192,6 @@ public class MemoryIdempotencyStoreTests
 
         // Assert
         result.Should().Be(expectedResult);
-        _mockSerializer.Received(1).Deserialize(Arg.Any<byte[]>(), typeof(string));
     }
 
     [Fact]
@@ -302,14 +278,6 @@ public class MemoryIdempotencyStoreTests
         var messageId = 3000L;
         var stringResult = "string-result";
         var intResult = 42;
-
-        var stringBytes = Encoding.UTF8.GetBytes(stringResult);
-        var intBytes = BitConverter.GetBytes(intResult);
-
-        _mockSerializer.Serialize(stringResult, typeof(string)).Returns(stringBytes);
-        _mockSerializer.Serialize(intResult, typeof(int)).Returns(intBytes);
-        _mockSerializer.Deserialize(stringBytes, typeof(string)).Returns(stringResult);
-        _mockSerializer.Deserialize(intBytes, typeof(int)).Returns(intResult);
 
         // Act
         await _store.MarkAsProcessedAsync(messageId, stringResult);
@@ -402,7 +370,8 @@ public class MemoryIdempotencyStoreTests
 
     // ==================== Test Helpers ====================
 
-    public class TestResult
+    [MemoryPack.MemoryPackable]
+    public partial class TestResult
     {
         public int Value { get; set; }
         public string Message { get; set; } = string.Empty;

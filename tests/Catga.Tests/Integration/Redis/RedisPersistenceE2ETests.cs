@@ -12,6 +12,7 @@ using Catga.Persistence.Redis.Persistence;
 using Catga.Persistence.Redis.Stores;
 using Catga.Resilience;
 using Catga.Serialization.MemoryPack;
+using Catga.Tests.Helpers;
 using FluentAssertions;
 using MemoryPack;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -610,7 +611,8 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
     public async Task DslFlowStore_CreateAndGet_ShouldWork()
     {
         if (_redis is null) return;
-        var store = new RedisDslFlowStore(_redis, _serializer, $"dslflow-{Guid.NewGuid():N}:");
+        var jsonSerializer = new TestMessageSerializer(); // Use JSON for generic types
+        var store = new RedisDslFlowStore(_redis, jsonSerializer, $"dslflow-{Guid.NewGuid():N}:");
         var flowId = $"dsl-{Guid.NewGuid():N}";
         var snapshot = FlowSnapshot<TestFlowState>.Create(
             flowId,
@@ -629,7 +631,8 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
     public async Task DslFlowStore_Update_ShouldWork()
     {
         if (_redis is null) return;
-        var store = new RedisDslFlowStore(_redis, _serializer, $"dslflow-upd-{Guid.NewGuid():N}:");
+        var jsonSerializer = new TestMessageSerializer(); // Use JSON for generic types
+        var store = new RedisDslFlowStore(_redis, jsonSerializer, $"dslflow-upd-{Guid.NewGuid():N}:");
         var flowId = $"dsl-{Guid.NewGuid():N}";
         var snapshot = FlowSnapshot<TestFlowState>.Create(
             flowId,
@@ -647,7 +650,8 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
     public async Task DslFlowStore_Delete_ShouldRemoveFlow()
     {
         if (_redis is null) return;
-        var store = new RedisDslFlowStore(_redis, _serializer, $"dslflow-del-{Guid.NewGuid():N}:");
+        var jsonSerializer = new TestMessageSerializer(); // Use JSON for generic types
+        var store = new RedisDslFlowStore(_redis, jsonSerializer, $"dslflow-del-{Guid.NewGuid():N}:");
         var flowId = $"dsl-{Guid.NewGuid():N}";
         var snapshot = FlowSnapshot<TestFlowState>.Create(
             flowId,
@@ -667,7 +671,8 @@ public sealed class RedisPersistenceE2ETests : IAsyncLifetime
     public async Task DslFlowStore_WaitCondition_ShouldWork()
     {
         if (_redis is null) return;
-        var store = new RedisDslFlowStore(_redis, _serializer, $"dslflow-wait-{Guid.NewGuid():N}:");
+        var jsonSerializer = new TestMessageSerializer(); // Use JSON for generic types
+        var store = new RedisDslFlowStore(_redis, jsonSerializer, $"dslflow-wait-{Guid.NewGuid():N}:");
         var correlationId = $"corr-{Guid.NewGuid():N}";
         var flowId = $"flow-{Guid.NewGuid():N}";
         var condition = new WaitCondition

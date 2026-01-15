@@ -58,7 +58,7 @@ public class OutboxProcessorServiceTests
 
         var options = new OutboxProcessorOptions
         {
-            ScanInterval = TimeSpan.FromMilliseconds(100),
+            ScanInterval = TimeSpan.FromMilliseconds(50), // 减少扫描间隔
             BatchSize = 10,
             ErrorDelay = TimeSpan.FromMilliseconds(10)
         };
@@ -70,13 +70,14 @@ public class OutboxProcessorServiceTests
         var startTask = service.StartAsync(cts.Token);
         await startTask;
 
-        // 等待至少一次扫描
-        await Task.Delay(200);
+        // 等待足够长的时间确保至少一次扫描完成
+        await Task.Delay(300); // 增加等待时间
 
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
         // Assert
+        // 验证至少调用了一次 GetPendingMessagesAsync
         await outboxStore.Received().GetPendingMessagesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
         await outboxStore.Received(2).MarkAsPublishedAsync(Arg.Any<long>(), Arg.Any<CancellationToken>());
         Assert.Equal(2, service.TotalProcessed);

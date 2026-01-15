@@ -57,8 +57,9 @@ public sealed partial class OutboxProcessorService : BackgroundService
             {
                 try
                 {
-                    await Task.Delay(_options.ScanInterval, stoppingToken);
+                    // Process batch first, then wait
                     await ProcessBatchAsync(stoppingToken);
+                    await Task.Delay(_options.ScanInterval, stoppingToken);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {

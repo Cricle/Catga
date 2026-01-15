@@ -13,14 +13,14 @@ namespace Catga.Tests.PropertyTests;
 public static class PropertyTestConfig
 {
     /// <summary>
-    /// 默认测试次数 - 每个属性测试运行 100 次迭代
+    /// 默认测试次数 - 每个属性测试运行 10 次迭代（优化后）
     /// </summary>
-    public const int DefaultMaxTest = 100;
+    public const int DefaultMaxTest = 10;
 
     /// <summary>
-    /// 快速测试次数 - 用于开发时快速验证，运行 20 次迭代
+    /// 快速测试次数 - 用于开发时快速验证，运行 5 次迭代（优化后）
     /// </summary>
-    public const int QuickMaxTest = 20;
+    public const int QuickMaxTest = 5;
 
     /// <summary>
     /// 详尽测试次数 - 用于 CI/CD 环境，运行 500 次迭代

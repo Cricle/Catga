@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
 using Catga.Flow.Dsl;
 
 namespace Catga.Flow;
@@ -20,6 +21,7 @@ public record StoredSnapshot<[DynamicallyAccessedMembers(DynamicallyAccessedMemb
     public DateTime UpdatedAt { get; init; }
     public int Version { get; init; }
 
+    [JsonConstructor]
     public StoredSnapshot(
         string flowId,
         string typeName,

@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using Catga.Abstractions;
 using Catga.EventSourcing;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,7 @@ public sealed partial class NatsSnapshotStore : ISnapshotStore
     private readonly ILogger<NatsSnapshotStore> _logger;
     private volatile INatsKVStore? _store;
     private Task? _initTask;
+    private static readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = false };
 
     public NatsSnapshotStore(
         INatsConnection nats,
@@ -87,7 +89,7 @@ public sealed partial class NatsSnapshotStore : ISnapshotStore
             AggregateType = typeof(TAggregate).AssemblyQualifiedName ?? typeof(TAggregate).Name,
             State = _serializer.Serialize(aggregate)
         };
-        var data = _serializer.Serialize(stored);
+        var data = JsonSerializer.SerializeToUtf8Bytes(stored, _jsonOptions);
 
         try
         {
@@ -115,7 +117,7 @@ public sealed partial class NatsSnapshotStore : ISnapshotStore
             var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
             if (entry.Value == null) return null;
 
-            var stored = _serializer.Deserialize<StoredSnapshot>(entry.Value);
+            var stored = JsonSerializer.Deserialize<StoredSnapshot>(entry.Value, _jsonOptions);
             if (stored == null || stored.State == null) return null;
 
             var state = _serializer.Deserialize<TAggregate>(stored.State);

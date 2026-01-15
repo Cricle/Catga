@@ -123,11 +123,12 @@ public class RecoveryHostedServiceTests
 
         // Act
         await service.StartAsync(cts.Token);
-        await Task.Delay(300); // 等待检查周期
+        await Task.Delay(500); // 增加等待时间确保至少一次检查周期完成
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
         // Assert
+        // 验证至少尝试了一次恢复
         await component.Received().RecoverAsync(Arg.Any<CancellationToken>());
     }
 

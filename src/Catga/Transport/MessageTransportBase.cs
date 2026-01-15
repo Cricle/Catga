@@ -275,11 +275,34 @@ public abstract class MessageTransportBase : IMessageTransport
 
     #region Dispose
 
+    private bool _disposed;
+
     protected virtual async ValueTask DisposeAsyncCore()
     {
-        await Cts.CancelAsync();
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
+        try
+        {
+            await Cts.CancelAsync();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Already disposed, ignore
+        }
+
         _batchTimer?.Dispose();
-        Cts.Dispose();
+
+        try
+        {
+            Cts.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Already disposed, ignore
+        }
     }
 
     #endregion

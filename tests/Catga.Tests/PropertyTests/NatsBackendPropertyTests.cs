@@ -21,116 +21,66 @@ using Xunit;
 namespace Catga.Tests.PropertyTests;
 
 /// <summary>
-/// NATS 容器共享 Fixture
+/// NATS 容器共享 Fixture - 使用全局共享容器
 /// 用于在所有 NATS 属性测试之间共享同一个 NATS 容器
 /// </summary>
 public class NatsContainerFixture : IAsyncLifetime
 {
-    public IContainer? Container { get; private set; }
+    private readonly SharedTestContainers _sharedContainers;
     public NatsConnection? NatsConnection { get; private set; }
     public INatsJSContext? JetStreamContext { get; private set; }
 
+    public NatsContainerFixture()
+    {
+        _sharedContainers = SharedTestContainers.Instance;
+    }
+
     public async Task InitializeAsync()
     {
-        // 检查 Docker 是否运行
-        if (!IsDockerRunning())
+        await _sharedContainers.InitializeAsync();
+
+        if (_sharedContainers.NatsConnectionString != null)
         {
-            return; // 跳过初始化，测试将被跳过
+            // 等待 NATS 完全启动
+            await Task.Delay(1000);
+
+            var opts = new NatsOpts
+            {
+                Url = _sharedContainers.NatsConnectionString,
+                ConnectTimeout = TimeSpan.FromSeconds(10)
+            };
+
+            NatsConnection = new NatsConnection(opts);
+            await NatsConnection.ConnectAsync();
+
+            // 创建 JetStream 上下文
+            JetStreamContext = new NatsJSContext(NatsConnection);
         }
-
-        var natsImage = Environment.GetEnvironmentVariable("TEST_NATS_IMAGE") ?? "nats:latest";
-        Container = new ContainerBuilder()
-            .WithImage(natsImage)
-            .WithPortBinding(4222, true)
-            .WithPortBinding(8222, true)
-            .WithCommand("-js", "-m", "8222") // Enable JetStream and monitoring
-            .WithWaitStrategy(Wait.ForUnixContainer()
-                .UntilHttpRequestIsSucceeded(r => r
-                    .ForPort(8222)
-                    .ForPath("/varz")))
-            .Build();
-
-        await Container.StartAsync();
-
-        // 等待 NATS 完全启动
-        await Task.Delay(2000);
-
-        // 连接到 NATS
-        var port = Container.GetMappedPublicPort(4222);
-        var opts = new NatsOpts
-        {
-            Url = $"nats://localhost:{port}",
-            ConnectTimeout = TimeSpan.FromSeconds(10)
-        };
-
-        NatsConnection = new NatsConnection(opts);
-        await NatsConnection.ConnectAsync();
-
-        // 创建 JetStream 上下文
-        JetStreamContext = new NatsJSContext(NatsConnection);
     }
 
     public async Task DisposeAsync()
     {
         if (NatsConnection != null)
             await NatsConnection.DisposeAsync();
-
-        if (Container != null)
-            await Container.DisposeAsync();
-    }
-
-    private static bool IsDockerRunning()
-    {
-        try
-        {
-            var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "docker",
-                Arguments = "info",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            });
-            process?.WaitForExit(5000);
-            return process?.ExitCode == 0;
-        }
-        catch
-        {
-            return false;
-        }
+        // 不释放共享容器
     }
 
     /// <summary>
     /// 清理 NATS JetStream 数据（在每个测试前调用）
+    /// 优化：使用唯一的stream名称隔离而不是删除所有streams
     /// </summary>
     public async Task CleanupStreamsAsync()
     {
-        if (JetStreamContext == null) return;
+        // 不再删除所有 streams，改用唯一的 stream 名称隔离
+        await Task.CompletedTask;
+    }
 
-        try
-        {
-            // 列出所有 streams 并删除
-            await foreach (var stream in JetStreamContext.ListStreamsAsync())
-            {
-                try
-                {
-                    var streamName = stream.Info.Config.Name;
-                    if (!string.IsNullOrEmpty(streamName))
-                    {
-                        await JetStreamContext.DeleteStreamAsync(streamName);
-                    }
-                }
-                catch
-                {
-                    // Ignore errors during cleanup
-                }
-            }
-        }
-        catch
-        {
-            // Ignore errors during cleanup
-        }
+    /// <summary>
+    /// 生成唯一的 stream 名称用于测试隔离
+    /// </summary>
+    public string GenerateStreamName(string baseName)
+    {
+        return $"{baseName}_{Guid.NewGuid():N}";
     }
 }
 
@@ -199,10 +149,7 @@ public class NatsEventStorePropertyTests
             EventGenerators.SmallEventListArbitrary(),
             (streamId, events) =>
             {
-                // Clean streams before test
-                _fixture.CleanupStreamsAsync().GetAwaiter().GetResult();
-
-                // Use unique stream name for each test
+                // Use unique stream name for each test - no cleanup needed
                 var uniqueStreamName = $"TEST_EVENTS_{Guid.NewGuid():N}";
                 var store = CreateStore(uniqueStreamName);
 
@@ -290,10 +237,7 @@ public class NatsEventStorePropertyTests
             EventGenerators.SmallEventListArbitrary(),
             (streamId, events) =>
             {
-                // Clean streams before test
-                _fixture.CleanupStreamsAsync().GetAwaiter().GetResult();
-
-                // Use unique stream name for each test
+                // Use unique stream name for each test - no cleanup needed
                 var uniqueStreamName = $"TEST_EVENTS_{Guid.NewGuid():N}";
                 var store = CreateStore(uniqueStreamName);
 
@@ -329,10 +273,7 @@ public class NatsEventStorePropertyTests
             EventGenerators.SmallEventListArbitrary(),
             (streamId, events) =>
             {
-                // Clean streams before test
-                _fixture.CleanupStreamsAsync().GetAwaiter().GetResult();
-
-                // Use unique stream name for each test
+                // Use unique stream name for each test - no cleanup needed
                 var uniqueStreamName = $"TEST_EVENTS_{Guid.NewGuid():N}";
                 var store = CreateStore(uniqueStreamName);
 
@@ -416,10 +357,7 @@ public class NatsSnapshotStorePropertyTests
             Gen.Choose(0, 10000).ToArbitrary(),
             (aggregateId, snapshot, version) =>
             {
-                // Clean streams before test
-                _fixture.CleanupStreamsAsync().GetAwaiter().GetResult();
-
-                // Use unique key prefix for each test
+                // Use unique key prefix for each test - no cleanup needed
                 var store = CreateStore();
 
                 // Arrange & Act
@@ -460,10 +398,7 @@ public class NatsSnapshotStorePropertyTests
             SnapshotGenerators.TestSnapshotArbitrary(),
             (aggregateId, snapshot1, snapshot2) =>
             {
-                // Clean streams before test
-                _fixture.CleanupStreamsAsync().GetAwaiter().GetResult();
-
-                // Use unique key prefix for each test
+                // Use unique key prefix for each test - no cleanup needed
                 var store = CreateStore();
 
                 // Arrange - Save two versions

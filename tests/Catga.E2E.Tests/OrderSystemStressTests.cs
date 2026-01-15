@@ -12,8 +12,8 @@ namespace Catga.E2E.Tests;
 /// Stress and load tests for OrderSystem.Api
 /// These tests require a running instance and may have timing issues in CI.
 /// </summary>
-[Collection("Sequential")]
-public class OrderSystemStressTests : IClassFixture<OrderSystemWebApplicationFactory>
+[Collection("OrderSystem")]
+public class OrderSystemStressTests
 {
     private readonly HttpClient _client;
     private readonly ITestOutputHelper _output;
@@ -22,7 +22,7 @@ public class OrderSystemStressTests : IClassFixture<OrderSystemWebApplicationFac
         PropertyNameCaseInsensitive = true
     };
 
-    public OrderSystemStressTests(OrderSystemWebApplicationFactory factory, ITestOutputHelper output)
+    public OrderSystemStressTests(OrderSystemFixture factory, ITestOutputHelper output)
     {
         _client = factory.CreateClient();
         _output = output;
@@ -54,7 +54,7 @@ public class OrderSystemStressTests : IClassFixture<OrderSystemWebApplicationFac
                         }
                     };
 
-                    var response = await _client.PostAsJsonAsync("/api/orders", request);
+                    var response = await _client.PostAsJsonAsync("/orders", request);
                     reqSw.Stop();
                     results.Add((response.IsSuccessStatusCode, reqSw.ElapsedMilliseconds));
                 }
@@ -102,7 +102,7 @@ public class OrderSystemStressTests : IClassFixture<OrderSystemWebApplicationFac
                 CustomerId = $"read-test-{i}",
                 Items = new[] { new { ProductId = "READ-001", ProductName = "Read Product", Quantity = 1, UnitPrice = 10.00m } }
             };
-            await _client.PostAsJsonAsync("/api/orders", request);
+            await _client.PostAsJsonAsync("/orders", request);
         }
 
         var concurrency = 5;
@@ -117,7 +117,7 @@ public class OrderSystemStressTests : IClassFixture<OrderSystemWebApplicationFac
                 var reqSw = Stopwatch.StartNew();
                 try
                 {
-                    var response = await _client.GetAsync("/api/orders/stats");
+                    var response = await _client.GetAsync("/stats");
                     reqSw.Stop();
                     results.Add((response.IsSuccessStatusCode, reqSw.ElapsedMilliseconds));
                 }
@@ -166,7 +166,7 @@ public class OrderSystemStressTests : IClassFixture<OrderSystemWebApplicationFac
                     {
                         // Read operation
                         var orderId = orderIds[random.Next(orderIds.Count)];
-                        var response = await _client.GetAsync($"/api/orders/{orderId}", cts.Token);
+                        var response = await _client.GetAsync($"/orders/{orderId}", cts.Token);
                         reqSw.Stop();
                         results.Add(("Read", response.IsSuccessStatusCode, reqSw.ElapsedMilliseconds));
                     }
@@ -178,7 +178,7 @@ public class OrderSystemStressTests : IClassFixture<OrderSystemWebApplicationFac
                             CustomerId = $"mixed-{workerId}-{Guid.NewGuid():N}",
                             Items = new[] { new { ProductId = "MIX-001", ProductName = "Mixed", Quantity = 1, UnitPrice = 10.00m } }
                         };
-                        var response = await _client.PostAsJsonAsync("/api/orders", request, cts.Token);
+                        var response = await _client.PostAsJsonAsync("/orders", request, cts.Token);
                         reqSw.Stop();
 
                         if (response.IsSuccessStatusCode)
@@ -236,7 +236,7 @@ public class OrderSystemStressTests : IClassFixture<OrderSystemWebApplicationFac
                         CustomerId = $"lifecycle-{workerId}-{i}",
                         Items = new[] { new { ProductId = "LIFE-001", ProductName = "Lifecycle", Quantity = 1, UnitPrice = 100.00m } }
                     };
-                    var createResponse = await _client.PostAsJsonAsync("/api/orders", createRequest);
+                    var createResponse = await _client.PostAsJsonAsync("/orders", createRequest);
                     if (!createResponse.IsSuccessStatusCode) { results.Add((false, sw.ElapsedMilliseconds)); continue; }
 
                     var created = await createResponse.Content.ReadFromJsonAsync<OrderCreatedResponse>(_jsonOptions);
@@ -244,23 +244,15 @@ public class OrderSystemStressTests : IClassFixture<OrderSystemWebApplicationFac
 
                     // Pay
                     var payRequest = new { PaymentMethod = "Card", TransactionId = $"TXN-{Guid.NewGuid():N}" };
-                    var payResponse = await _client.PostAsJsonAsync($"/api/orders/{orderId}/pay", payRequest);
+                    var payResponse = await _client.PostAsJsonAsync($"/orders/{orderId}/pay", payRequest);
                     if (!payResponse.IsSuccessStatusCode) { results.Add((false, sw.ElapsedMilliseconds)); continue; }
-
-                    // Process
-                    var processResponse = await _client.PostAsJsonAsync($"/api/orders/{orderId}/process", new { });
-                    if (!processResponse.IsSuccessStatusCode) { results.Add((false, sw.ElapsedMilliseconds)); continue; }
 
                     // Ship
                     var shipRequest = new { TrackingNumber = $"TRK-{Guid.NewGuid():N}" };
-                    var shipResponse = await _client.PostAsJsonAsync($"/api/orders/{orderId}/ship", shipRequest);
-                    if (!shipResponse.IsSuccessStatusCode) { results.Add((false, sw.ElapsedMilliseconds)); continue; }
-
-                    // Deliver
-                    var deliverResponse = await _client.PostAsJsonAsync($"/api/orders/{orderId}/deliver", new { });
+                    var shipResponse = await _client.PostAsJsonAsync($"/orders/{orderId}/ship", shipRequest);
 
                     sw.Stop();
-                    results.Add((deliverResponse.IsSuccessStatusCode, sw.ElapsedMilliseconds));
+                    results.Add((shipResponse.IsSuccessStatusCode, sw.ElapsedMilliseconds));
                 }
                 catch
                 {
@@ -301,7 +293,7 @@ public class OrderSystemStressTests : IClassFixture<OrderSystemWebApplicationFac
                     CustomerId = $"burst-{i}",
                     Items = new[] { new { ProductId = "BURST-001", ProductName = "Burst", Quantity = 1, UnitPrice = 10.00m } }
                 };
-                var response = await _client.PostAsJsonAsync("/api/orders", request);
+                var response = await _client.PostAsJsonAsync("/orders", request);
                 reqSw.Stop();
                 results.Add((response.IsSuccessStatusCode, reqSw.ElapsedMilliseconds));
             }

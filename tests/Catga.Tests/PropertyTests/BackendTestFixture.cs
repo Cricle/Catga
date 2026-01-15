@@ -19,99 +19,132 @@ public enum BackendType
 }
 
 /// <summary>
-/// 后端测试夹具
-/// 管理 Redis 和 NATS 容器的生命周期
+/// 全局共享的测试容器基础设施
+/// 所有测试共享同一个Redis和NATS容器实例，大幅提升测试速度
 /// </summary>
-public class BackendTestFixture : IAsyncLifetime
+public sealed class SharedTestContainers
 {
-    private readonly BackendType _backendType;
+    private static readonly SemaphoreSlim _initLock = new(1, 1);
+    private static SharedTestContainers? _instance;
+    private static bool _isInitialized = false;
+
     private RedisContainer? _redisContainer;
     private IContainer? _natsContainer;
 
-    /// <summary>
-    /// Redis 连接字符串（仅 Redis 后端可用）
-    /// </summary>
     public string? RedisConnectionString { get; private set; }
-
-    /// <summary>
-    /// NATS 连接字符串（仅 NATS 后端可用）
-    /// </summary>
     public string? NatsConnectionString { get; private set; }
-
-    /// <summary>
-    /// 当前后端类型
-    /// </summary>
-    public BackendType BackendType => _backendType;
-
-    /// <summary>
-    /// Docker 是否可用
-    /// </summary>
     public bool IsDockerAvailable { get; private set; }
 
-    public BackendTestFixture(BackendType backendType)
+    private SharedTestContainers() { }
+
+    public static SharedTestContainers Instance
     {
-        _backendType = backendType;
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = new SharedTestContainers();
+            }
+            return _instance;
+        }
     }
 
     public async Task InitializeAsync()
     {
-        // 检查 Docker 是否可用
-        IsDockerAvailable = await CheckDockerAvailableAsync();
-        if (!IsDockerAvailable)
+        await _initLock.WaitAsync();
+        try
         {
-            return;
-        }
+            if (_isInitialized)
+                return;
 
-        switch (_backendType)
-        {
-            case BackendType.Redis:
-                await InitializeRedisAsync();
-                break;
-            case BackendType.Nats:
-                await InitializeNatsAsync();
-                break;
-            case BackendType.InMemory:
-                // InMemory 不需要容器
-                break;
-        }
-    }
+            Console.WriteLine("🚀 Initializing shared test containers...");
 
-    public async Task DisposeAsync()
-    {
-        if (_redisContainer != null)
-        {
-            await _redisContainer.DisposeAsync();
-        }
+            // Fix Docker endpoint for Windows - Testcontainers has a bug with npipe URI format
+            if (OperatingSystem.IsWindows() && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DOCKER_HOST")))
+            {
+                Environment.SetEnvironmentVariable("DOCKER_HOST", "npipe://./pipe/docker_engine");
+                Console.WriteLine("✓ Set DOCKER_HOST for Windows: npipe://./pipe/docker_engine");
+            }
 
-        if (_natsContainer != null)
+            // 检查 Docker 是否可用
+            IsDockerAvailable = await CheckDockerAvailableAsync();
+            if (!IsDockerAvailable)
+            {
+                Console.WriteLine("⚠ Docker not available, tests will use InMemory implementations");
+                _isInitialized = true;
+                return;
+            }
+
+            // 启动 Redis 容器
+            await InitializeRedisAsync();
+
+            // 启动 NATS 容器
+            await InitializeNatsAsync();
+
+            _isInitialized = true;
+            Console.WriteLine("✓ Shared test containers ready");
+        }
+        catch (Exception ex)
         {
-            await _natsContainer.DisposeAsync();
+            Console.WriteLine($"⚠ Failed to initialize containers: {ex.Message}");
+            IsDockerAvailable = false;
+            _isInitialized = true;
+        }
+        finally
+        {
+            _initLock.Release();
         }
     }
 
     private async Task InitializeRedisAsync()
     {
-        _redisContainer = new RedisBuilder()
-            .WithImage("redis:7-alpine")
-            .Build();
+        try
+        {
+            _redisContainer = new RedisBuilder()
+                .WithImage("redis:7-alpine")
+                .WithName($"catga-test-redis-{Guid.NewGuid():N}")
+                .WithCommand("redis-server", "--save", "", "--appendonly", "no")
+                .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(6379))
+                .WithCleanUp(true)
+                .Build();
 
-        await _redisContainer.StartAsync();
-        RedisConnectionString = _redisContainer.GetConnectionString();
+            await _redisContainer.StartAsync();
+            RedisConnectionString = _redisContainer.GetConnectionString();
+            Console.WriteLine($"✓ Redis container started: {RedisConnectionString}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠ Redis container failed: {ex.Message}");
+        }
     }
 
     private async Task InitializeNatsAsync()
     {
-        _natsContainer = new ContainerBuilder()
-            .WithImage("nats:2.10-alpine")
-            .WithCommand("-js") // Enable JetStream
-            .WithPortBinding(4222, true)
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(4222))
-            .Build();
+        try
+        {
+            _natsContainer = new ContainerBuilder()
+                .WithImage("nats:2.10-alpine")
+                .WithName($"catga-test-nats-{Guid.NewGuid():N}")
+                .WithCommand("-js", "-m", "8222")
+                .WithPortBinding(4222, true)
+                .WithPortBinding(8222, true)
+                .WithWaitStrategy(Wait.ForUnixContainer()
+                    .UntilHttpRequestIsSucceeded(r => r
+                        .ForPort(8222)
+                        .ForPath("/varz")))
+                .WithCleanUp(true)
+                .Build();
 
-        await _natsContainer.StartAsync();
-        var host = _natsContainer.Hostname;
-        var port = _natsContainer.GetMappedPublicPort(4222);
-        NatsConnectionString = $"nats://{host}:{port}";
+            await _natsContainer.StartAsync();
+            var host = _natsContainer.Hostname;
+            var port = _natsContainer.GetMappedPublicPort(4222);
+            NatsConnectionString = $"nats://{host}:{port}";
+            Console.WriteLine($"✓ NATS container started: {NatsConnectionString}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠ NATS container failed: {ex.Message}");
+        }
     }
 
     private static async Task<bool> CheckDockerAvailableAsync()
@@ -137,6 +170,45 @@ public class BackendTestFixture : IAsyncLifetime
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// 生成唯一的键前缀用于测试隔离
+    /// </summary>
+    public static string GenerateKeyPrefix(string testName)
+    {
+        return $"test:{testName}:{Guid.NewGuid():N}:";
+    }
+}
+
+/// <summary>
+/// 后端测试夹具 - 使用共享容器
+/// </summary>
+public class BackendTestFixture : IAsyncLifetime
+{
+    private readonly BackendType _backendType;
+    private readonly SharedTestContainers _sharedContainers;
+
+    public string? RedisConnectionString => _sharedContainers.RedisConnectionString;
+    public string? NatsConnectionString => _sharedContainers.NatsConnectionString;
+    public BackendType BackendType => _backendType;
+    public bool IsDockerAvailable => _sharedContainers.IsDockerAvailable;
+
+    public BackendTestFixture(BackendType backendType)
+    {
+        _backendType = backendType;
+        _sharedContainers = SharedTestContainers.Instance;
+    }
+
+    public async Task InitializeAsync()
+    {
+        await _sharedContainers.InitializeAsync();
+    }
+
+    public Task DisposeAsync()
+    {
+        // 不释放共享容器，让它们在整个测试会话中保持运行
+        return Task.CompletedTask;
     }
 }
 

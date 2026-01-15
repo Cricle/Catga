@@ -7,11 +7,19 @@ using OrderSystem.Extensions;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
-// Parse command line arguments
-var transport = GetArg(args, "--transport") ?? "inmemory";
-var persistence = GetArg(args, "--persistence") ?? "inmemory";
-var redisConn = GetArg(args, "--redis") ?? "localhost:6379";
-var natsUrl = GetArg(args, "--nats") ?? "nats://localhost:4222";
+// Parse command line arguments or configuration
+var transport = GetArg(args, "--transport") 
+    ?? builder.Configuration["Catga:Transport"] 
+    ?? "inmemory";
+var persistence = GetArg(args, "--persistence") 
+    ?? builder.Configuration["Catga:Persistence"] 
+    ?? "inmemory";
+var redisConn = GetArg(args, "--redis") 
+    ?? builder.Configuration["Catga:Redis:ConnectionString"] 
+    ?? "localhost:6379";
+var natsUrl = GetArg(args, "--nats") 
+    ?? builder.Configuration["Catga:Nats:Url"] 
+    ?? "nats://localhost:4222";
 var isCluster = args.Contains("--cluster");
 var nodeId = GetArg(args, "--node-id") ?? $"node-{Guid.NewGuid().ToString("N")[..6]}";
 var port = int.Parse(GetArg(args, "--port") ?? "5000");
@@ -41,3 +49,6 @@ static string? GetArg(string[] args, string name)
     var idx = Array.IndexOf(args, name);
     return idx >= 0 && idx < args.Length - 1 ? args[idx + 1] : null;
 }
+
+// Make Program accessible to tests
+public partial class Program { }

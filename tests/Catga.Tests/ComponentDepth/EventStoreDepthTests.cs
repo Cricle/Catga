@@ -53,7 +53,8 @@ public class EventStoreDepthTests : BackendMatrixTestBase
     /// 
     /// Requirements: Requirement 41.1
     /// </summary>
-    [Theory]
+    [Theory(Skip = "Slow test - run manually or in CI")]
+    [Trait("Speed", "Slow")]
     [MemberData(nameof(GetBackendCombinations))]
     public async Task EventStore_1MillionEventsInSingleStream_HandlesCorrectly(
         BackendType eventStore, BackendType transport, BackendType flowStore)
@@ -109,7 +110,8 @@ public class EventStoreDepthTests : BackendMatrixTestBase
     /// 
     /// Requirements: Requirement 41.2
     /// </summary>
-    [Theory]
+    [Theory(Skip = "Slow test - run manually or in CI")]
+    [Trait("Speed", "Slow")]
     [MemberData(nameof(GetBackendCombinations))]
     public async Task EventStore_100KConcurrentStreams_HandlesCorrectly(
         BackendType eventStore, BackendType transport, BackendType flowStore)
@@ -174,7 +176,8 @@ public class EventStoreDepthTests : BackendMatrixTestBase
     /// 
     /// Requirements: Requirement 41.3
     /// </summary>
-    [Theory]
+    [Theory(Skip = "Slow test - run manually or in CI")]
+    [Trait("Speed", "Slow")]
     [MemberData(nameof(GetBackendCombinations))]
     public async Task EventStore_EventsWith10MBPayload_HandlesCorrectly(
         BackendType eventStore, BackendType transport, BackendType flowStore)

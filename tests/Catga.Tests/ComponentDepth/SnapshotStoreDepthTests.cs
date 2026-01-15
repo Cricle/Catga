@@ -176,14 +176,6 @@ public class SnapshotStoreDepthTests : BackendMatrixTestBase
         // Arrange
         ConfigureBackends(eventStore, transport, flowStore);
         await InitializeAsync();
-        
-        // Skip if Docker is not available for Redis/NATS backends
-        if ((eventStore == BackendType.Redis && (RedisFixture == null || !RedisFixture.IsDockerAvailable)) ||
-            (eventStore == BackendType.Nats && (NatsFixture == null || !NatsFixture.IsDockerAvailable)))
-        {
-            Skip.If(true, "Docker is not available. Skipping backend matrix test.");
-            return;
-        }
 
         var streamId = $"versioned-snapshot-{Guid.NewGuid():N}";
         
@@ -229,14 +221,6 @@ public class SnapshotStoreDepthTests : BackendMatrixTestBase
         // Arrange
         ConfigureBackends(eventStore, transport, flowStore);
         await InitializeAsync();
-        
-        // Skip if Docker is not available for Redis/NATS backends
-        if ((eventStore == BackendType.Redis && (RedisFixture == null || !RedisFixture.IsDockerAvailable)) ||
-            (eventStore == BackendType.Nats && (NatsFixture == null || !NatsFixture.IsDockerAvailable)))
-        {
-            Skip.If(true, "Docker is not available. Skipping backend matrix test.");
-            return;
-        }
 
         var streamId = $"incremental-snapshot-{Guid.NewGuid():N}";
         
@@ -385,14 +369,6 @@ public class SnapshotStoreDepthTests : BackendMatrixTestBase
         // Arrange
         ConfigureBackends(eventStore, transport, flowStore);
         await InitializeAsync();
-        
-        // Skip if Docker is not available for Redis/NATS backends
-        if ((eventStore == BackendType.Redis && (RedisFixture == null || !RedisFixture.IsDockerAvailable)) ||
-            (eventStore == BackendType.Nats && (NatsFixture == null || !NatsFixture.IsDockerAvailable)))
-        {
-            Skip.If(true, "Docker is not available. Skipping backend matrix test.");
-            return;
-        }
 
         var streamId = $"validated-snapshot-{Guid.NewGuid():N}";
         
@@ -480,14 +456,6 @@ public class SnapshotStoreDepthTests : BackendMatrixTestBase
         // Arrange
         ConfigureBackends(eventStore, transport, flowStore);
         await InitializeAsync();
-        
-        // Skip if Docker is not available for Redis/NATS backends
-        if ((eventStore == BackendType.Redis && (RedisFixture == null || !RedisFixture.IsDockerAvailable)) ||
-            (eventStore == BackendType.Nats && (NatsFixture == null || !NatsFixture.IsDockerAvailable)))
-        {
-            Skip.If(true, "Docker is not available. Skipping backend matrix test.");
-            return;
-        }
 
         var streamId = $"metadata-snapshot-{Guid.NewGuid():N}";
         
@@ -532,14 +500,6 @@ public class SnapshotStoreDepthTests : BackendMatrixTestBase
         // Arrange
         ConfigureBackends(eventStore, transport, flowStore);
         await InitializeAsync();
-        
-        // Skip if Docker is not available for Redis/NATS backends
-        if ((eventStore == BackendType.Redis && (RedisFixture == null || !RedisFixture.IsDockerAvailable)) ||
-            (eventStore == BackendType.Nats && (NatsFixture == null || !NatsFixture.IsDockerAvailable)))
-        {
-            Skip.If(true, "Docker is not available. Skipping backend matrix test.");
-            return;
-        }
 
         var streamIds = Enumerable.Range(0, 10)
             .Select(i => $"stats-snapshot-{i}-{Guid.NewGuid():N}")

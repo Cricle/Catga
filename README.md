@@ -100,19 +100,24 @@ var result = await mediator.SendAsync<CreateOrder, Order>(new("PROD-001", 5));
 A complete e-commerce system demonstrating best practices. Focus on your business logic, not framework boilerplate.
 
 ```
-examples/OrderSystem.Api/
-├── Domain/           # Business entities
-├── Messages/         # Commands, Queries, Events
+examples/OrderSystem/
+├── Commands/         # Command definitions
+├── Queries/          # Query definitions
+├── Events/           # Event definitions
 ├── Handlers/         # Business logic
 ├── Flows/            # Distributed workflows
+├── Models/           # Domain models
 └── Program.cs        # Minimal setup
 ```
 
 ### Run
 
 ```bash
-cd examples/OrderSystem.Api
+cd examples/OrderSystem
 dotnet run
+
+# Run tests
+.\test.ps1
 ```
 
 ### Key Patterns

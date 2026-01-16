@@ -127,8 +127,11 @@ function Test-ServiceAvailable {
 function Test-PortAvailable {
     param([string]$HostName = "localhost", [int]$Port)
     try {
-        $result = Test-NetConnection -ComputerName $HostName -Port $Port -WarningAction SilentlyContinue -ErrorAction Stop
-        return $result.TcpTestSucceeded
+        $tcp = New-Object System.Net.Sockets.TcpClient
+        $tcp.ConnectAsync($HostName, $Port).Wait(1000) | Out-Null
+        $result = $tcp.Connected
+        $tcp.Close()
+        return $result
     } catch {
         return $false
     }

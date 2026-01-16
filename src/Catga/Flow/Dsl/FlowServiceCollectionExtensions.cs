@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -23,7 +24,7 @@ public static class FlowServiceCollectionExtensions
     /// <summary>
     /// Add Flow DSL support with a custom store.
     /// </summary>
-    public static IServiceCollection AddFlowDsl<TStore>(this IServiceCollection services)
+    public static IServiceCollection AddFlowDsl<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TStore>(this IServiceCollection services)
         where TStore : class, IDslFlowStore
     {
         services.TryAddSingleton<IDslFlowStore, TStore>();

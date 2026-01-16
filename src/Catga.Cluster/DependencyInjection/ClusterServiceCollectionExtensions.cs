@@ -56,6 +56,8 @@ public static class ClusterServiceCollectionExtensions
     /// Adds forward-to-leader behavior to the pipeline.
     /// Commands will be forwarded to leader if not on leader node.
     /// </summary>
+    [RequiresUnreferencedCode("JSON serialization and deserialization might require types that cannot be statically analyzed.")]
+    [RequiresDynamicCode("JSON serialization and deserialization might require types that cannot be statically analyzed.")]
     public static IServiceCollection AddForwardToLeaderBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(this IServiceCollection services)
         where TRequest : IRequest<TResponse>
     {

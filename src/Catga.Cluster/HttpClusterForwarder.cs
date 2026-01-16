@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Catga.Abstractions;
@@ -29,6 +30,8 @@ public sealed class HttpClusterForwarder : IClusterForwarder
         };
     }
 
+    [RequiresUnreferencedCode("JSON serialization and deserialization might require types that cannot be statically analyzed.")]
+    [RequiresDynamicCode("JSON serialization and deserialization might require types that cannot be statically analyzed.")]
     public async Task<CatgaResult<TResponse>> ForwardAsync<TRequest, TResponse>(
         TRequest request,
         string leaderEndpoint,

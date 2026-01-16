@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 
 namespace Catga.Flow.Dsl;
@@ -13,8 +14,8 @@ public interface ISwitchBuilder<TState, TValue> where TState : class, IFlowState
 /// <summary>Case builder for Switch.</summary>
 public interface ICaseBuilder<TState> where TState : class, IFlowState
 {
-    ICaseBuilder<TState> Send<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest;
-    ICaseBuilder<TState, TResult> Send<TResult>(Func<TState, IRequest<TResult>> factory);
+    ICaseBuilder<TState> Send<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest;
+    ICaseBuilder<TState, TResult> Send<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(Func<TState, TRequest> factory) where TRequest : IRequest<TResult>;
     ICaseBuilder<TState> Publish<TEvent>(Func<TState, TEvent> factory) where TEvent : IEvent;
 }
 

@@ -57,6 +57,8 @@ internal class StepBuilder<TState, TResult> : StepBuilderBase<TState, StepBuilde
     public IStepBuilder<TState> Into(Action<TState, TResult> setter)
     {
         Step.ResultSetter = setter;
+        // Also set the typed wrapper for execution
+        Step.SetResult = (state, result) => setter((TState)state, (TResult)result!);
         return new StepBuilder<TState>(Builder!, Step);
     }
 

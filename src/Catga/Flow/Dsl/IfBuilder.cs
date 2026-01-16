@@ -1,4 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
+using Catga.Core;
 
 namespace Catga.Flow.Dsl;
 
@@ -19,23 +21,50 @@ internal class IfBuilder<TState> : IIfBuilder<TState> where TState : class, IFlo
         _currentBranch = currentBranch;
     }
 
-    public IIfBuilder<TState> Send<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest
+    public IIfBuilder<TState> Send<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest
     {
-        var step = new FlowStep { Type = StepType.Send, RequestFactory = factory };
+        var step = new FlowStep
+        {
+            Type = StepType.Send,
+            RequestFactory = factory,
+            CreateRequest = state => factory((TState)state),
+            ExecuteRequest = async (mediator, request, ct) =>
+            {
+                var result = await mediator.SendAsync((TRequest)request, ct);
+                return (result.IsSuccess, result.Error, null);
+            }
+        };
         _currentBranch.Add(step);
         return this;
     }
 
-    public IIfBuilder<TState, TResult> Send<TResult>(Func<TState, IRequest<TResult>> factory)
+    public IIfBuilder<TState, TResult> Send<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(Func<TState, TRequest> factory) where TRequest : IRequest<TResult>
     {
-        var step = new FlowStep { Type = StepType.Send, HasResult = true, RequestFactory = factory };
+        var step = new FlowStep
+        {
+            Type = StepType.Send,
+            HasResult = true,
+            RequestFactory = factory,
+            CreateRequest = state => factory((TState)state),
+            ExecuteRequest = async (mediator, request, ct) =>
+            {
+                var typedRequest = (TRequest)request;
+                var result = await mediator.SendAsync<TRequest, TResult>(typedRequest, ct);
+                return (result.IsSuccess, result.Error, result.Value);
+            }
+        };
         _currentBranch.Add(step);
         return new IfBuilderWithResult<TState, TResult>(this, step);
     }
 
     public IIfBuilder<TState> Publish<TEvent>(Func<TState, TEvent> factory) where TEvent : IEvent
     {
-        var step = new FlowStep { Type = StepType.Publish, RequestFactory = factory };
+        var step = new FlowStep
+        {
+            Type = StepType.Publish,
+            RequestFactory = factory,
+            CreateRequest = state => factory((TState)state)!
+        };
         _currentBranch.Add(step);
         return this;
     }
@@ -127,6 +156,8 @@ internal class IfBuilderWithResult<TState, TResult>(IfBuilder<TState> parent, Fl
     public IIfBuilder<TState> Into(Action<TState, TResult> setter)
     {
         step.ResultSetter = setter;
+        // Also set the typed wrapper for execution
+        step.SetResult = (state, result) => setter((TState)state, (TResult)result!);
         return parent;
     }
 }

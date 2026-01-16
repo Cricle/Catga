@@ -1,6 +1,7 @@
 using Catga.Flow.Dsl;
 using OrderSystem.Commands;
 using OrderSystem.Events;
+using OrderSystem.Models;
 using OrderSystem.Queries;
 
 namespace OrderSystem.Flows;
@@ -19,7 +20,7 @@ public class ComplexOrderFlow : FlowConfig<ComplexOrderState>
         flow.Name("complex-order");
 
         // Step 1: Create order
-        flow.Send(state => new CreateOrderCommand(state.CustomerId, state.Items))
+        flow.Send<ComplexOrderState, CreateOrderCommand, OrderCreatedResult>(state => new CreateOrderCommand(state.CustomerId, state.Items))
             .Into((state, result) =>
             {
                 state.OrderId = result.OrderId;
@@ -51,7 +52,7 @@ public class ComplexOrderFlow : FlowConfig<ComplexOrderState>
             {
                 // In a real scenario, this would be a command to process the item
                 // For demo, we'll just use GetOrderQuery
-                builder.Send(state => new GetOrderQuery(state.OrderId));
+                builder.Query<ComplexOrderState, GetOrderQuery, Order?>(state => new GetOrderQuery(state.OrderId));
             })
             .OnItemSuccess((state, item, result) =>
             {

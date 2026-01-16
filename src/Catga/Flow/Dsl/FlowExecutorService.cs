@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Core;
 
 namespace Catga.Flow.Dsl;
@@ -18,7 +19,7 @@ public sealed class FlowExecutorService : IFlowExecutor
         _scheduler = scheduler;
     }
 
-    public async Task<DslFlowResult<TState>> ExecuteAsync<TFlow, TState>(
+    public async Task<DslFlowResult<TState>> ExecuteAsync<TFlow, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
         TState initialState,
         CancellationToken cancellationToken = default)
         where TFlow : FlowConfig<TState>, new()
@@ -29,7 +30,7 @@ public sealed class FlowExecutorService : IFlowExecutor
         return await executor.RunAsync(initialState, cancellationToken);
     }
 
-    public async Task<DslFlowResult<TState>> ResumeAsync<TFlow, TState>(
+    public async Task<DslFlowResult<TState>> ResumeAsync<TFlow, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
         string flowId,
         CancellationToken cancellationToken = default)
         where TFlow : FlowConfig<TState>, new()
@@ -40,7 +41,7 @@ public sealed class FlowExecutorService : IFlowExecutor
         return await executor.ResumeAsync(flowId, cancellationToken);
     }
 
-    public async Task<FlowSnapshot<TState>?> GetSnapshotAsync<TState>(
+    public async Task<FlowSnapshot<TState>?> GetSnapshotAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
         string flowId,
         CancellationToken cancellationToken = default)
         where TState : class, IFlowState, new()

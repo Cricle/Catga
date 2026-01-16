@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Configuration;
 using Catga.Flow.Dsl;
 using Catga.Abstractions;
@@ -23,6 +24,9 @@ public static class ServiceCollectionExtensions
         // Register core services - InMemory store requires Catga.Persistence.InMemory package
         // Users should call AddInMemoryPersistence() from that package before AddFlowDsl()
         // or use the combined method from the persistence package
+
+        // Register flow executor
+        services.TryAddSingleton<IFlowExecutor, FlowExecutorService>();
 
         // Register mediator and pipeline behaviors
         services.AddCatga();

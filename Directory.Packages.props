@@ -111,5 +111,7 @@
     <!-- Hangfire Scheduling -->
     <PackageVersion Include="Hangfire.Core" Version="1.8.17" />
     <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.17" />
+    <!-- Newtonsoft.Json - pinned to fix security vulnerability in transitive dependency -->
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,7 @@
 using Catga.Flow.Dsl;
 using OrderSystem.Commands;
 using OrderSystem.Events;
+using OrderSystem.Models;
 using OrderSystem.Queries;
 
 namespace OrderSystem.Flows;
@@ -20,7 +21,7 @@ public class OrderFulfillmentFlow : FlowConfig<OrderFulfillmentState>
         flow.Name("order-fulfillment");
 
         // Step 1: Create the order
-        flow.Send(state => new CreateOrderCommand(state.CustomerId, state.Items))
+        flow.Send<OrderFulfillmentState, CreateOrderCommand, OrderCreatedResult>(state => new CreateOrderCommand(state.CustomerId, state.Items))
             .Into((state, result) =>
             {
                 state.OrderId = result.OrderId;
@@ -30,7 +31,7 @@ public class OrderFulfillmentFlow : FlowConfig<OrderFulfillmentState>
 
         // Step 2: Validate order (conditional)
         flow.If(state => state.Total > 0)
-            .Send(state => new GetOrderQuery(state.OrderId))
+            .Send<GetOrderQuery, Order?>(state => new GetOrderQuery(state.OrderId))
             .Into((state, order) => state.IsValidated = order != null)
             .EndIf();
 

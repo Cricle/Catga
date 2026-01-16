@@ -44,6 +44,8 @@ public interface ILeaderOnlyCommand { }
 /// Pipeline behavior that forwards commands to leader if not on leader node.
 /// Requires IClusterForwarder implementation.
 /// </summary>
+[RequiresUnreferencedCode("JSON serialization and deserialization might require types that cannot be statically analyzed.")]
+[RequiresDynamicCode("JSON serialization and deserialization might require types that cannot be statically analyzed.")]
 public sealed class ForwardToLeaderBehavior<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : IRequest<TResponse>
@@ -85,6 +87,8 @@ public sealed class ForwardToLeaderBehavior<[DynamicallyAccessedMembers(Dynamica
 /// </summary>
 public interface IClusterForwarder
 {
+    [RequiresUnreferencedCode("JSON serialization and deserialization might require types that cannot be statically analyzed.")]
+    [RequiresDynamicCode("JSON serialization and deserialization might require types that cannot be statically analyzed.")]
     Task<CatgaResult<TResponse>> ForwardAsync<TRequest, TResponse>(
         TRequest request,
         string leaderEndpoint,

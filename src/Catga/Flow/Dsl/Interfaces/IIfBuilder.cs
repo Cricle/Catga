@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
 
 namespace Catga.Flow.Dsl;
@@ -5,8 +6,11 @@ namespace Catga.Flow.Dsl;
 /// <summary>If branch builder.</summary>
 public interface IIfBuilder<TState> where TState : class, IFlowState
 {
-    IIfBuilder<TState> Send<TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest;
-    IIfBuilder<TState, TResult> Send<TResult>(Func<TState, IRequest<TResult>> factory);
+    IIfBuilder<TState> Send<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(Func<TState, TRequest> factory) where TRequest : IRequest;
+    
+    /// <summary>Send a request with result using concrete request type (recommended for AOT compatibility).</summary>
+    IIfBuilder<TState, TResult> Send<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(Func<TState, TRequest> factory) where TRequest : IRequest<TResult>;
+    
     IIfBuilder<TState> Publish<TEvent>(Func<TState, TEvent> factory) where TEvent : IEvent;
 
     IIfBuilder<TState> If(Func<TState, bool> condition);

@@ -11,15 +11,35 @@ namespace Catga.Persistence.InMemory.Flow;
 /// </summary>
 public sealed class InMemoryDslFlowStore : IDslFlowStore
 {
-    private readonly ConcurrentDictionary<string, object> _flows = new();
+    private readonly ConcurrentDictionary<string, FlowEntry> _flows = new();
     private readonly ConcurrentDictionary<string, WaitCondition> _waitConditions = new();
     private readonly ConcurrentDictionary<string, ForEachProgress> _forEachProgress = new();
+
+    // Internal wrapper to store flow metadata without reflection
+    private sealed class FlowEntry
+    {
+        public required object Snapshot { get; init; }
+        public required string TypeName { get; init; }
+        public required DslFlowStatus Status { get; init; }
+        public required DateTime CreatedAt { get; init; }
+        public required DateTime UpdatedAt { get; init; }
+        public required int Version { get; init; }
+    }
 
     public Task<bool> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
         FlowSnapshot<TState> snapshot, CancellationToken ct = default)
         where TState : class, IFlowState
     {
-        return Task.FromResult(_flows.TryAdd(snapshot.FlowId, snapshot));
+        var entry = new FlowEntry
+        {
+            Snapshot = snapshot,
+            TypeName = typeof(TState).FullName ?? typeof(TState).Name,
+            Status = snapshot.Status,
+            CreatedAt = snapshot.CreatedAt,
+            UpdatedAt = snapshot.UpdatedAt,
+            Version = snapshot.Version
+        };
+        return Task.FromResult(_flows.TryAdd(snapshot.FlowId, entry));
     }
 
     public Task<FlowSnapshot<TState>?> GetAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
@@ -29,7 +49,7 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
         if (!_flows.TryGetValue(flowId, out var entry))
             return Task.FromResult<FlowSnapshot<TState>?>(null);
 
-        return Task.FromResult<FlowSnapshot<TState>?>(entry as FlowSnapshot<TState>);
+        return Task.FromResult(entry.Snapshot as FlowSnapshot<TState>);
     }
 
     public Task<bool> UpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
@@ -39,7 +59,16 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
         if (!_flows.ContainsKey(snapshot.FlowId))
             return Task.FromResult(false);
 
-        _flows[snapshot.FlowId] = snapshot;
+        var entry = new FlowEntry
+        {
+            Snapshot = snapshot,
+            TypeName = typeof(TState).FullName ?? typeof(TState).Name,
+            Status = snapshot.Status,
+            CreatedAt = snapshot.CreatedAt,
+            UpdatedAt = snapshot.UpdatedAt,
+            Version = snapshot.Version
+        };
+        _flows[snapshot.FlowId] = entry;
         return Task.FromResult(true);
     }
 
@@ -104,41 +133,14 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
     public Task<IReadOnlyList<FlowSummary>> QueryByStatusAsync(DslFlowStatus status, CancellationToken ct = default)
     {
         var results = _flows
-            .Where(kvp =>
-            {
-                var type = kvp.Value.GetType();
-                if (!type.IsGenericType || type.GetGenericTypeDefinition() != typeof(FlowSnapshot<>))
-                    return false;
-                
-                var statusProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.Status));
-                if (statusProp == null) return false;
-                
-                var flowStatus = (DslFlowStatus)statusProp.GetValue(kvp.Value)!;
-                return flowStatus == status;
-            })
-            .Select(kvp =>
-            {
-                var type = kvp.Value.GetType();
-                var stateProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.State))!;
-                var statusProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.Status))!;
-                var createdAtProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.CreatedAt))!;
-                var updatedAtProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.UpdatedAt))!;
-                var versionProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.Version))!;
-                
-                var state = (IFlowState)stateProp.GetValue(kvp.Value)!;
-                var flowStatus = (DslFlowStatus)statusProp.GetValue(kvp.Value)!;
-                var createdAt = (DateTime)createdAtProp.GetValue(kvp.Value)!;
-                var updatedAt = (DateTime)updatedAtProp.GetValue(kvp.Value)!;
-                var version = (int)versionProp.GetValue(kvp.Value)!;
-                
-                return new FlowSummary(
-                    kvp.Key,
-                    state.GetType().FullName ?? state.GetType().Name,
-                    flowStatus,
-                    createdAt,
-                    updatedAt,
-                    version);
-            })
+            .Where(kvp => kvp.Value.Status == status)
+            .Select(kvp => new FlowSummary(
+                kvp.Key,
+                kvp.Value.TypeName,
+                kvp.Value.Status,
+                kvp.Value.CreatedAt,
+                kvp.Value.UpdatedAt,
+                kvp.Value.Version))
             .ToList();
         return Task.FromResult<IReadOnlyList<FlowSummary>>(results);
     }
@@ -146,43 +148,14 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
     public Task<IReadOnlyList<FlowSummary>> QueryByTypeAsync(string typeName, CancellationToken ct = default)
     {
         var results = _flows
-            .Where(kvp =>
-            {
-                var type = kvp.Value.GetType();
-                if (!type.IsGenericType || type.GetGenericTypeDefinition() != typeof(FlowSnapshot<>))
-                    return false;
-                
-                var stateProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.State));
-                if (stateProp == null) return false;
-                
-                var state = (IFlowState)stateProp.GetValue(kvp.Value)!;
-                var stateType = state.GetType();
-                // Support both full name and short name matching
-                return stateType.FullName == typeName || stateType.Name == typeName;
-            })
-            .Select(kvp =>
-            {
-                var type = kvp.Value.GetType();
-                var stateProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.State))!;
-                var statusProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.Status))!;
-                var createdAtProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.CreatedAt))!;
-                var updatedAtProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.UpdatedAt))!;
-                var versionProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.Version))!;
-                
-                var state = (IFlowState)stateProp.GetValue(kvp.Value)!;
-                var flowStatus = (DslFlowStatus)statusProp.GetValue(kvp.Value)!;
-                var createdAt = (DateTime)createdAtProp.GetValue(kvp.Value)!;
-                var updatedAt = (DateTime)updatedAtProp.GetValue(kvp.Value)!;
-                var version = (int)versionProp.GetValue(kvp.Value)!;
-                
-                return new FlowSummary(
-                    kvp.Key,
-                    state.GetType().FullName ?? state.GetType().Name,
-                    flowStatus,
-                    createdAt,
-                    updatedAt,
-                    version);
-            })
+            .Where(kvp => kvp.Value.TypeName == typeName || kvp.Value.TypeName.EndsWith("." + typeName))
+            .Select(kvp => new FlowSummary(
+                kvp.Key,
+                kvp.Value.TypeName,
+                kvp.Value.Status,
+                kvp.Value.CreatedAt,
+                kvp.Value.UpdatedAt,
+                kvp.Value.Version))
             .ToList();
         return Task.FromResult<IReadOnlyList<FlowSummary>>(results);
     }
@@ -190,41 +163,14 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
     public Task<IReadOnlyList<FlowSummary>> QueryByDateRangeAsync(DateTime from, DateTime to, CancellationToken ct = default)
     {
         var results = _flows
-            .Where(kvp =>
-            {
-                var type = kvp.Value.GetType();
-                if (!type.IsGenericType || type.GetGenericTypeDefinition() != typeof(FlowSnapshot<>))
-                    return false;
-                
-                var createdAtProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.CreatedAt));
-                if (createdAtProp == null) return false;
-                
-                var createdAt = (DateTime)createdAtProp.GetValue(kvp.Value)!;
-                return createdAt >= from && createdAt <= to;
-            })
-            .Select(kvp =>
-            {
-                var type = kvp.Value.GetType();
-                var stateProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.State))!;
-                var statusProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.Status))!;
-                var createdAtProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.CreatedAt))!;
-                var updatedAtProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.UpdatedAt))!;
-                var versionProp = type.GetProperty(nameof(FlowSnapshot<IFlowState>.Version))!;
-                
-                var state = (IFlowState)stateProp.GetValue(kvp.Value)!;
-                var flowStatus = (DslFlowStatus)statusProp.GetValue(kvp.Value)!;
-                var createdAt = (DateTime)createdAtProp.GetValue(kvp.Value)!;
-                var updatedAt = (DateTime)updatedAtProp.GetValue(kvp.Value)!;
-                var version = (int)versionProp.GetValue(kvp.Value)!;
-                
-                return new FlowSummary(
-                    kvp.Key,
-                    state.GetType().FullName ?? state.GetType().Name,
-                    flowStatus,
-                    createdAt,
-                    updatedAt,
-                    version);
-            })
+            .Where(kvp => kvp.Value.CreatedAt >= from && kvp.Value.CreatedAt <= to)
+            .Select(kvp => new FlowSummary(
+                kvp.Key,
+                kvp.Value.TypeName,
+                kvp.Value.Status,
+                kvp.Value.CreatedAt,
+                kvp.Value.UpdatedAt,
+                kvp.Value.Version))
             .ToList();
         return Task.FromResult<IReadOnlyList<FlowSummary>>(results);
     }

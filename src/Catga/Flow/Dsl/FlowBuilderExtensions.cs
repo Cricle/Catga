@@ -34,10 +34,11 @@ public static class FlowBuilderExtensions
     }
 
     /// <summary>Add a Send step that sends a request and expects a result.</summary>
-    public static IStepBuilder<TState, TResult> Send<TState, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
+    public static IStepBuilder<TState, TResult> Send<TState, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
         this IFlowBuilder<TState> builder,
-        Func<TState, IRequest<TResult>> factory)
+        Func<TState, TRequest> factory)
         where TState : class, IFlowState
+        where TRequest : IRequest<TResult>
     {
         var flowBuilder = GetFlowBuilder(builder);
         var step = new FlowStep
@@ -48,8 +49,8 @@ public static class FlowBuilderExtensions
             CreateRequest = state => factory((TState)state),
             ExecuteRequest = async (mediator, request, ct) =>
             {
-                var typedRequest = (IRequest<TResult>)request;
-                var result = await mediator.SendAsync<IRequest<TResult>, TResult>(typedRequest, ct);
+                var typedRequest = (TRequest)request;
+                var result = await mediator.SendAsync<TRequest, TResult>(typedRequest, ct);
                 return (result.IsSuccess, result.Error, result.Value);
             }
         };
@@ -58,10 +59,11 @@ public static class FlowBuilderExtensions
     }
 
     /// <summary>Add a Query step that sends a query and expects a result.</summary>
-    public static IQueryBuilder<TState, TResult> Query<TState, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
+    public static IQueryBuilder<TState, TResult> Query<TState, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
         this IFlowBuilder<TState> builder,
-        Func<TState, IRequest<TResult>> factory)
+        Func<TState, TRequest> factory)
         where TState : class, IFlowState
+        where TRequest : IRequest<TResult>
     {
         var flowBuilder = GetFlowBuilder(builder);
         var step = new FlowStep
@@ -72,8 +74,8 @@ public static class FlowBuilderExtensions
             CreateRequest = state => factory((TState)state),
             ExecuteRequest = async (mediator, request, ct) =>
             {
-                var typedRequest = (IRequest<TResult>)request;
-                var result = await mediator.SendAsync<IRequest<TResult>, TResult>(typedRequest, ct);
+                var typedRequest = (TRequest)request;
+                var result = await mediator.SendAsync<TRequest, TResult>(typedRequest, ct);
                 return (result.IsSuccess, result.Error, result.Value);
             }
         };

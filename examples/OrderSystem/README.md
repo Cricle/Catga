@@ -1,435 +1,144 @@
-# Catga OrderSystem - Complete CQRS Example
+# Catga OrderSystem Example
 
-A comprehensive example demonstrating all Catga features: CQRS, Event Sourcing, multiple backends, and cluster support.
+完整的 CQRS + Event Sourcing 示例，演示 Catga 所有核心功能。
 
-## Features Demonstrated
+## 功能演示
 
-✅ **CQRS Pattern** - Commands and Queries separation  
-✅ **Event Sourcing** - Full event history tracking  
-✅ **Multiple Backends** - InMemory, Redis, NATS  
-✅ **Distributed Messaging** - Pub/Sub with multiple transports  
-✅ **Hosted Services** - Automatic lifecycle management with RecoveryHostedService, TransportHostedService, OutboxProcessorService  
-✅ **Health Checks** - Kubernetes-ready liveness and readiness probes  
-✅ **Graceful Shutdown** - Proper message completion before shutdown  
-✅ **Cluster Mode** - Multi-node deployment  
-✅ **AOT Compilation** - Native AOT ready  
-✅ **MemoryPack Serialization** - High-performance binary serialization  
-✅ **Web UI** - Interactive single-page application for testing and demonstration  
+| 功能 | 说明 |
+|------|------|
+| CQRS | 命令/查询分离 |
+| Event Sourcing | 事件溯源 |
+| Flow DSL | 工作流编排 (If/Switch/ForEach) |
+| 多后端 | InMemory / Redis / NATS |
+| 集群模式 | 多节点分布式部署 |
+| Hosted Services | 自动恢复、生命周期管理、Outbox处理 |
+| Health Checks | Kubernetes 就绪/存活探针 |
+| AOT | Native AOT 编译支持 |
+| MemoryPack | 高性能二进制序列化 |
 
-## Web UI
+## 快速开始
 
-The OrderSystem includes a beautiful, responsive Web UI for easy testing and demonstration:
-
-**Features:**
-- 📊 Real-time system information and statistics
-- 📝 Create orders with custom items
-- 📦 View all orders with status indicators
-- 💳 Pay, ship, and cancel orders with one click
-- 📜 View event history for each order
-- 🔄 Auto-refresh statistics every 5 seconds
-- 📱 Mobile-responsive design
-
-**Access:** Simply run the application and open `http://localhost:5000` in your browser.
-
-![Web UI Screenshot](../../docs/screenshots/ordersystem-ui.png)
-
-## API Endpoints
-
-### 1. InMemory (Standalone)
 ```bash
+# 单机模式 (InMemory)
 dotnet run
-```
 
-Then open your browser and navigate to `http://localhost:5000` to access the Web UI.
-
-### 2. Redis Backend
-```bash
-# Start Redis
-docker run -d -p 6379:6379 redis:alpine
-
-# Run with Redis
+# Redis 后端
 dotnet run -- --transport redis --persistence redis
-```
 
-### 3. NATS Backend
-```bash
-# Start NATS with JetStream
-docker run -d -p 4222:4222 nats:alpine -js
-
-# Run with NATS
+# NATS 后端
 dotnet run -- --transport nats --persistence nats
+
+# 集群模式 (3节点)
+dotnet run -- --cluster --port 5001 --transport redis --persistence redis
+dotnet run -- --cluster --port 5002 --transport redis --persistence redis
+dotnet run -- --cluster --port 5003 --transport redis --persistence redis
 ```
 
-### 4. Cluster Mode (3 nodes with Redis)
-```bash
-# Terminal 1 - Node 1
-dotnet run -- --cluster --node-id node1 --port 5001 --transport redis --persistence redis
+## 命令行参数
 
-# Terminal 2 - Node 2
-dotnet run -- --cluster --node-id node2 --port 5002 --transport redis --persistence redis
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--transport` | `inmemory` | 传输后端: inmemory/redis/nats |
+| `--persistence` | `inmemory` | 持久化后端: inmemory/redis/nats |
+| `--port` | `5000` | HTTP 端口 |
+| `--cluster` | - | 启用集群模式 |
+| `--node-id` | auto | 节点ID |
 
-# Terminal 3 - Node 3
-dotnet run -- --cluster --node-id node3 --port 5003 --transport redis --persistence redis
-```
+## API 端点
 
-## Command Line Options
+### 系统
+- `GET /` - 系统信息
+- `GET /health` - 健康检查
+- `GET /stats` - 统计信息
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--transport` | `inmemory` | Transport backend: `inmemory`, `redis`, `nats` |
-| `--persistence` | `inmemory` | Persistence backend: `inmemory`, `redis`, `nats` |
-| `--redis` | `localhost:6379` | Redis connection string |
-| `--nats` | `nats://localhost:4222` | NATS server URL |
-| `--cluster` | `false` | Enable cluster mode |
-| `--node-id` | `auto` | Node identifier for cluster |
-| `--port` | `5000` | HTTP port |
+### 订单管理
+- `POST /orders` - 创建订单
+- `GET /orders` - 订单列表
+- `GET /orders/{id}` - 订单详情
+- `POST /orders/{id}/pay` - 支付
+- `POST /orders/{id}/ship` - 发货
+- `POST /orders/{id}/cancel` - 取消
+- `GET /orders/{id}/history` - 事件历史
 
-## API Endpoints
+### Flow DSL
+- `POST /api/flows/fulfillment/start` - 启动履约流程
+- `POST /api/flows/complex/start` - 启动复杂流程
+- `GET /api/flows/status/{flowId}` - 流程状态
+- `POST /api/flows/resume/{flowId}` - 恢复流程
+- `POST /api/flows/cancel/{flowId}` - 取消流程
 
-### System Endpoints
-- `GET /` - System information and configuration
-- `GET /health` - Overall health status (all checks)
-- `GET /health/ready` - Readiness probe (for Kubernetes)
-- `GET /health/live` - Liveness probe (for Kubernetes)
-- `GET /stats` - Order statistics
-
-### Order Management
-- `POST /orders` - Create new order
-- `GET /orders` - List all orders
-- `GET /orders/{id}` - Get order details
-- `POST /orders/{id}/pay` - Pay for order
-- `POST /orders/{id}/ship` - Ship order
-- `POST /orders/{id}/cancel` - Cancel order
-- `GET /orders/{id}/history` - Get event history
-
-## Example Usage
-
-### Using the Web UI
-
-1. Start the application:
-   ```bash
-   dotnet run
-   ```
-
-2. Open your browser and navigate to `http://localhost:5000`
-
-3. Use the interface to:
-   - Create orders by filling in the form
-   - View all orders in real-time
-   - Pay, ship, or cancel orders with buttons
-   - View event history for each order
-   - Monitor system statistics
-
-### Using the REST API
-
-#### Create Order
-```bash
-curl -X POST http://localhost:5000/orders \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customerId": "customer-123",
-    "items": [
-      {
-        "productId": "prod-1",
-        "name": "Laptop",
-        "quantity": 1,
-        "price": 999.99
-      },
-      {
-        "productId": "prod-2",
-        "name": "Mouse",
-        "quantity": 2,
-        "price": 29.99
-      }
-    ]
-  }'
-```
-
-Response:
-```json
-{
-  "orderId": "a1b2c3d4",
-  "total": 1059.97,
-  "createdAt": "2025-01-15T10:30:00Z"
-}
-```
-
-### Pay Order
-```bash
-curl -X POST http://localhost:5000/orders/a1b2c3d4/pay \
-  -H "Content-Type: application/json" \
-  -d '{"paymentMethod": "credit_card"}'
-```
-
-### Ship Order
-```bash
-curl -X POST http://localhost:5000/orders/a1b2c3d4/ship \
-  -H "Content-Type: application/json" \
-  -d '{"trackingNumber": "TRACK-12345"}'
-```
-
-### Get Order History (Event Sourcing)
-```bash
-curl http://localhost:5000/orders/a1b2c3d4/history
-```
-
-Response:
-```json
-[
-  {
-    "orderId": "a1b2c3d4",
-    "customerId": "customer-123",
-    "total": 1059.97,
-    "createdAt": "2025-01-15T10:30:00Z"
-  },
-  {
-    "orderId": "a1b2c3d4",
-    "paymentMethod": "credit_card",
-    "paidAt": "2025-01-15T10:31:00Z"
-  },
-  {
-    "orderId": "a1b2c3d4",
-    "trackingNumber": "TRACK-12345",
-    "shippedAt": "2025-01-15T10:32:00Z"
-  }
-]
-```
-
-### Get Statistics
-```bash
-curl http://localhost:5000/stats
-```
-
-Response:
-```json
-{
-  "totalOrders": 10,
-  "byStatus": {
-    "Pending": 3,
-    "Paid": 2,
-    "Shipped": 4,
-    "Cancelled": 1
-  },
-  "totalRevenue": 5299.85,
-  "timestamp": "2025-01-15T10:35:00Z"
-}
-```
-
-## API Testing
-
-### Automated API Tests
-
-Run the comprehensive API test suite to verify all endpoints:
+## 测试
 
 ```bash
-# Windows (PowerShell)
-.\test-api.ps1
+# 运行所有测试
+.\test.ps1
 
-# Linux/Mac (Bash)
-chmod +x test-api.sh
-./test-api.sh
+# 指定场景
+.\test.ps1 -Scenario api      # API测试
+.\test.ps1 -Scenario flow     # Flow DSL测试
+.\test.ps1 -Scenario cluster  # 集群测试
 
-# Custom URL
-.\test-api.ps1 -BaseUrl "http://localhost:8080"
-./test-api.sh http://localhost:8080
-
-# Verbose output
-.\test-api.ps1 -Verbose
-VERBOSE=true ./test-api.sh
+# 跳过特定测试
+.\test.ps1 -SkipRedis -SkipNats
 ```
 
-The test script will:
-- ✅ Verify service availability
-- ✅ Test all health check endpoints
-- ✅ Create, pay, ship, and cancel orders
-- ✅ Validate order lifecycle and event history
-- ✅ Check statistics and data consistency
-- ✅ Test error handling
+## 项目结构
 
-See [TEST-API-README.md](./TEST-API-README.md) for detailed documentation.
-
-## Testing Different Configurations
-
-### Test Script
-Run the included test script to verify all configurations:
-
-```bash
-# Windows
-.\test-all.ps1
-
-# Linux/Mac
-chmod +x test-all.sh
-./test-all.sh
+```
+OrderSystem/
+├── Commands/           # 命令定义
+├── Queries/            # 查询定义
+├── Events/             # 事件定义
+├── Handlers/           # 命令/查询/事件处理器
+├── Flows/              # Flow DSL 工作流
+│   ├── OrderFulfillmentFlow.cs   # 订单履约流程
+│   └── ComplexOrderFlow.cs       # 复杂流程 (Switch/ForEach)
+├── Models/             # 领域模型
+├── Extensions/         # 服务配置扩展
+├── Program.cs          # 入口点
+└── test.ps1            # 一键测试脚本
 ```
 
-### Manual Testing
+## Flow DSL 示例
 
-1. **InMemory (Development)**
-   ```bash
-   dotnet run
-   ```
+### OrderFulfillmentFlow
+演示: 顺序执行、条件分支、补偿(Saga)、事件发布
 
-2. **Redis (Production-like)**
-   ```bash
-   docker run -d -p 6379:6379 redis:alpine
-   dotnet run -- --transport redis --persistence redis
-   ```
+```csharp
+flow.Send<CreateOrderCommand, OrderCreatedResult>(...)
+    .Into((state, result) => state.OrderId = result.OrderId)
+    .IfFail(state => new CancelOrderCommand(state.OrderId));
 
-3. **NATS (High-performance)**
-   ```bash
-   docker run -d -p 4222:4222 nats:alpine -js
-   dotnet run -- --transport nats --persistence nats
-   ```
+flow.If(state => state.Total > 0)
+    .Send<GetOrderQuery, Order?>(...)
+    .EndIf();
 
-4. **Mixed Configuration**
-   ```bash
-   # Redis for persistence, NATS for transport
-   dotnet run -- --transport nats --persistence redis
-   ```
+flow.Send(state => new PayOrderCommand(...))
+    .IfFail(state => new CancelOrderCommand(...));
+```
 
-## Docker Compose
+### ComplexOrderFlow
+演示: Switch分支、ForEach迭代
 
-Start all infrastructure:
+```csharp
+flow.Switch(state => state.Type)
+    .Case(OrderType.Standard, branch => ...)
+    .Case(OrderType.Express, branch => ...)
+    .Default(branch => ...);
+
+flow.ForEach(state => state.Items)
+    .Configure((item, builder) => ...)
+    .OnItemSuccess((state, item, result) => state.ProcessedItems++)
+    .EndForEach();
+```
+
+## Docker
 
 ```bash
+# 启动 Redis + NATS
 docker-compose up -d
+
+# 或单独启动
+docker run -d -p 6379:6379 redis:alpine
+docker run -d -p 4222:4222 nats:alpine -js
 ```
-
-This starts:
-- Redis (port 6379)
-- NATS with JetStream (port 4222)
-
-## AOT Compilation
-
-Build native executable:
-
-```bash
-dotnet publish -c Release
-```
-
-The compiled binary will be in `bin/Release/net9.0/publish/`
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    HTTP API Layer                       │
-│  (Minimal API Endpoints - AOT Compatible)               │
-└────────────────────┬────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────────┐
-│                 Catga Mediator                          │
-│  (Command/Query/Event Routing)                          │
-└────────┬───────────────────────────┬────────────────────┘
-         │                           │
-┌────────▼────────┐         ┌────────▼────────────────────┐
-│   Handlers      │         │   Event Handlers            │
-│  - Commands     │         │  - OrderEventLogger         │
-│  - Queries      │         │  - (Extensible)             │
-└────────┬────────┘         └─────────────────────────────┘
-         │
-┌────────▼─────────────────────────────────────────────────┐
-│              Hosted Services                             │
-│  - RecoveryHostedService (Health Check & Auto Recovery) │
-│  - TransportHostedService (Lifecycle Management)        │
-│  - OutboxProcessorService (Background Processing)       │
-└──────────────────────────────────────────────────────────┘
-         │
-┌────────▼─────────────────────────────────────────────────┐
-│              Transport Layer                             │
-│  InMemory | Redis Pub/Sub | NATS JetStream              │
-└──────────────────────────────────────────────────────────┘
-         │
-┌────────▼─────────────────────────────────────────────────┐
-│            Persistence Layer                             │
-│  InMemory | Redis | NATS KV Store                        │
-└──────────────────────────────────────────────────────────┘
-```
-
-## Hosted Services
-
-This example demonstrates Catga's integration with Microsoft.Extensions.Hosting:
-
-### RecoveryHostedService
-- Automatically monitors component health every 30 seconds
-- Attempts recovery when components become unhealthy
-- Configurable retry logic with exponential backoff
-
-### TransportHostedService
-- Manages transport layer lifecycle (startup/shutdown)
-- Handles graceful shutdown (stops accepting new messages, waits for completion)
-- Integrates with IHostApplicationLifetime
-
-### OutboxProcessorService
-- Processes outbox messages in the background every 2 seconds
-- Ensures reliable message delivery
-- Configurable batch size and scan interval
-
-### Health Checks
-- `/health` - Overall health status
-- `/health/ready` - Readiness probe (checks transport and persistence)
-- `/health/live` - Liveness probe (checks recovery service)
-
-Perfect for Kubernetes deployments!
-
-## Order State Machine
-
-```
-┌─────────┐
-│ Pending │
-└────┬────┘
-     │ Pay
-┌────▼────┐
-│  Paid   │
-└────┬────┘
-     │ Ship
-┌────▼────┐
-│ Shipped │
-└────┬────┘
-     │ Deliver
-┌────▼─────────┐
-│  Delivered   │
-└──────────────┘
-
-Cancel allowed from: Pending, Paid
-```
-
-## Performance Tips
-
-1. **Use Redis/NATS for production** - Better performance and scalability
-2. **Enable cluster mode** - Distribute load across multiple nodes
-3. **Use AOT compilation** - Faster startup and lower memory usage
-4. **Monitor with /stats endpoint** - Track system health
-
-## Troubleshooting
-
-### Redis Connection Failed
-```bash
-# Check Redis is running
-docker ps | grep redis
-
-# Test connection
-redis-cli ping
-```
-
-### NATS Connection Failed
-```bash
-# Check NATS is running
-docker ps | grep nats
-
-# Test connection
-nats server check
-```
-
-### Port Already in Use
-```bash
-# Use different port
-dotnet run -- --port 5001
-```
-
-## Learn More
-
-- [Catga Documentation](../../docs/README.md)
-- [CQRS Pattern](../../docs/patterns/cqrs.md)
-- [Event Sourcing](../../docs/patterns/event-sourcing.md)
-- [Cluster Setup](../../docs/deployment/cluster.md)

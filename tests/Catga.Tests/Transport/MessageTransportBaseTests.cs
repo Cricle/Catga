@@ -145,11 +145,9 @@ public class MessageTransportBaseTests
     public async Task SubscribeAsync_ShouldRegisterHandler()
     {
         var transport = new TestMessageTransport(_serializerMock.Object, _resilienceProviderMock.Object);
-        var handled = false;
 
         await transport.SubscribeAsync<TestMessage>(async (msg, ctx) =>
         {
-            handled = true;
             await Task.CompletedTask;
         });
 

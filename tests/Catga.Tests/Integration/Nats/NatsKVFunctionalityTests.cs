@@ -203,13 +203,13 @@ public partial class NatsKVFunctionalityTests : IAsyncLifetime
         // Assert - Latest version
         var latest = await store.GetEntryAsync<byte[]>(key);
         latest.Should().NotBeNull();
-        var latestData = _serializer!.Deserialize<TestData>(latest!.Value);
+        var latestData = _serializer!.Deserialize<TestData>(latest!.Value!);
         latestData.Id.Should().Be("v3");
 
         // Assert - Specific version
         var entry2 = await store.GetEntryAsync<byte[]>(key, revision: revision2);
         entry2.Should().NotBeNull();
-        var data2 = _serializer!.Deserialize<TestData>(entry2!.Value);
+        var data2 = _serializer!.Deserialize<TestData>(entry2!.Value!);
         data2.Id.Should().Be("v2");
     }
 
@@ -240,7 +240,7 @@ public partial class NatsKVFunctionalityTests : IAsyncLifetime
         var history = new List<TestData>();
         await foreach (var entry in store.HistoryAsync<byte[]>(key))
         {
-            var data = _serializer!.Deserialize<TestData>(entry.Value);
+            var data = _serializer!.Deserialize<TestData>(entry.Value!);
             history.Add(data);
         }
 
@@ -274,7 +274,7 @@ public partial class NatsKVFunctionalityTests : IAsyncLifetime
         revision2.Should().BeGreaterThan(revision1);
 
         var latest = await store.GetEntryAsync<byte[]>(key);
-        var latestData = _serializer!.Deserialize<TestData>(latest!.Value);
+        var latestData = _serializer!.Deserialize<TestData>(latest!.Value!);
         latestData.Id.Should().Be("v2");
     }
 
@@ -481,7 +481,7 @@ public partial class NatsKVFunctionalityTests : IAsyncLifetime
 
         // Assert
         retrieved.Should().NotBeNull();
-        var data = _serializer!.Deserialize<TestData>(retrieved!.Value);
+        var data = _serializer!.Deserialize<TestData>(retrieved!.Value!);
         data.Id.Should().Be("repl");
     }
 

@@ -357,7 +357,7 @@ public partial class NatsJetStreamFunctionalityTests : IAsyncLifetime
         {
             await foreach (var msg in consumer.ConsumeAsync<byte[]>().WithCancellation(cts.Token))
             {
-                var evt = _serializer!.Deserialize<TestEvent>(msg.Data);
+                var evt = _serializer!.Deserialize<TestEvent>(msg.Data!);
                 var id = int.Parse(evt.Id.Split('-')[1]);
                 receivedMessages.Add(id);
                 await msg.AckAsync();
@@ -425,7 +425,7 @@ public partial class NatsJetStreamFunctionalityTests : IAsyncLifetime
         {
             await foreach (var msg in consumer.ConsumeAsync<byte[]>().WithCancellation(cts.Token))
             {
-                var evt = _serializer!.Deserialize<TestEvent>(msg.Data);
+                var evt = _serializer!.Deserialize<TestEvent>(msg.Data!);
                 receivedIds.Add(evt.Id);
                 await msg.AckAsync();
                 
@@ -487,7 +487,7 @@ public partial class NatsJetStreamFunctionalityTests : IAsyncLifetime
         {
             await foreach (var msg in consumer.ConsumeAsync<byte[]>().WithCancellation(cts.Token))
             {
-                var evt = _serializer!.Deserialize<TestEvent>(msg.Data);
+                var evt = _serializer!.Deserialize<TestEvent>(msg.Data!);
                 receivedIds.Add(evt.Id);
                 await msg.AckAsync();
                 

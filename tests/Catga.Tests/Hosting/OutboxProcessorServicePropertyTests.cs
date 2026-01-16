@@ -109,7 +109,6 @@ public class OutboxProcessorServicePropertyTests
                     });
                 }
 
-                var publishedCount = 0;
                 var markedAsPublishedCount = 0;
                 var firstCall = true;
 

@@ -139,7 +139,7 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
         {
             await foreach (var msg in consumer.ConsumeAsync<byte[]>().WithCancellation(cts1.Token))
             {
-                var evt = _serializer!.Deserialize<TestEvent>(msg.Data);
+                var evt = _serializer!.Deserialize<TestEvent>(msg.Data!);
                 firstBatch.Add(evt.Id);
                 await msg.AckAsync();
                 
@@ -166,7 +166,7 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
         {
             await foreach (var msg in reconnectedConsumer.ConsumeAsync<byte[]>().WithCancellation(cts2.Token))
             {
-                var evt = _serializer!.Deserialize<TestEvent>(msg.Data);
+                var evt = _serializer!.Deserialize<TestEvent>(msg.Data!);
                 secondBatch.Add(evt.Id);
                 await msg.AckAsync();
                 
@@ -421,7 +421,7 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
         var received = false;
         await foreach (var msg in consumer.ConsumeAsync<byte[]>().WithCancellation(new CancellationTokenSource(3000).Token))
         {
-            var evt = _serializer!.Deserialize<LargeEvent>(msg.Data);
+            var evt = _serializer!.Deserialize<LargeEvent>(msg.Data!);
             evt.Data.Length.Should().Be(128 * 1024);
             received = true;
             await msg.AckAsync();
@@ -467,7 +467,7 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
         var received = false;
         await foreach (var msg in consumer.ConsumeAsync<byte[]>().WithCancellation(new CancellationTokenSource(2000).Token))
         {
-            var evt = _serializer!.Deserialize<TestEvent>(msg.Data);
+            var evt = _serializer!.Deserialize<TestEvent>(msg.Data!);
             evt.Id.Should().Be("small");
             received = true;
             await msg.AckAsync();

@@ -229,7 +229,7 @@ public sealed class ClusterCoordinatorTests
         coordinator.Dispose();
 
         // Assert - should not throw when raising event after dispose
-        mockCluster.Raise(c => c.LeaderChanged += null, mockCluster.Object, null);
+        mockCluster.Raise(c => c.LeaderChanged += null, mockCluster.Object, null!);
     }
 
     private static Mock<IRaftCluster> CreateMockCluster(bool isLeader, CancellationToken leadershipToken, string? leaderEndpoint = null)

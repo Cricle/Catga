@@ -223,7 +223,7 @@ public class RedisEventStorePropertyTests
                     var expected = events.Count - 1;
                     return version == expected;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     return false;
                 }
@@ -277,7 +277,7 @@ public class RedisEventStorePropertyTests
 
                     return originalMessageIds.SequenceEqual(loadedMessageIds);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     return false;
                 }

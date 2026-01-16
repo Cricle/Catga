@@ -23,6 +23,7 @@
     <Compile Remove="SourceGeneration/**/*.cs" />
     <Compile Remove="Flow/**/*.cs" />
     <Compile Include="Flow/InMemoryDslFlowStoreTests.cs" />
+    <Compile Include="Flow/FlowDslStrictTests.cs" />
     <Compile Remove="Distributed/DistributedStoresExtendedTests.cs" />
     <Compile Remove="Distributed/InMemoryDistributedStoresTests.cs" />
     <Compile Remove="Pipeline/InboxBehaviorTests.cs" />

@@ -240,7 +240,7 @@ public class OutboxProcessorServiceTests
 
         var options = new OutboxProcessorOptions
         {
-            ScanInterval = TimeSpan.FromMilliseconds(100),
+            ScanInterval = TimeSpan.FromMilliseconds(50),
             BatchSize = 10,
             ErrorDelay = TimeSpan.FromMilliseconds(10)
         };
@@ -252,8 +252,9 @@ public class OutboxProcessorServiceTests
         var startTask = service.StartAsync(cts.Token);
         await startTask;
 
-        // 等待至少一次扫描
-        await Task.Delay(200);
+        // 等待足够时间让 ExecuteAsync 开始执行并完成至少一次扫描
+        // BackgroundService.StartAsync 只是启动后台任务，不等待 ExecuteAsync
+        await Task.Delay(300);
 
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);

@@ -244,7 +244,7 @@ public class HealthCheckPropertyTests
     /// 额外属性测试：持久化层无组件时应返回 Healthy
     /// </summary>
     [Fact]
-    public void PersistenceHealthCheck_ReturnsHealthyWhenNoComponents()
+    public async Task PersistenceHealthCheck_ReturnsHealthyWhenNoComponents()
     {
         // Arrange
         var components = new List<IHealthCheckable>();
@@ -252,7 +252,7 @@ public class HealthCheckPropertyTests
         var context = new HealthCheckContext();
 
         // Act
-        var result = healthCheck.CheckHealthAsync(context, CancellationToken.None).Result;
+        var result = await healthCheck.CheckHealthAsync(context, CancellationToken.None);
 
         // Assert
         Assert.Equal(HealthStatus.Healthy, result.Status);
@@ -263,7 +263,7 @@ public class HealthCheckPropertyTests
     /// 额外属性测试：恢复服务无组件时应返回 Healthy
     /// </summary>
     [Fact]
-    public void RecoveryHealthCheck_ReturnsHealthyWhenNoComponents()
+    public async Task RecoveryHealthCheck_ReturnsHealthyWhenNoComponents()
     {
         // Arrange
         var components = new List<IRecoverableComponent>();
@@ -271,7 +271,7 @@ public class HealthCheckPropertyTests
         var context = new HealthCheckContext();
 
         // Act
-        var result = healthCheck.CheckHealthAsync(context, CancellationToken.None).Result;
+        var result = await healthCheck.CheckHealthAsync(context, CancellationToken.None);
 
         // Assert
         Assert.Equal(HealthStatus.Healthy, result.Status);

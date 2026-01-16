@@ -83,7 +83,7 @@ public class IdGeneratorComprehensiveTests
     }
 
     [Fact]
-    public void NewBase64Id_ShouldBeThreadSafe()
+    public async Task NewBase64Id_ShouldBeThreadSafe()
     {
         var ids = new System.Collections.Concurrent.ConcurrentBag<string>();
         var tasks = new List<Task>();
@@ -99,14 +99,14 @@ public class IdGeneratorComprehensiveTests
             }));
         }
         
-        Task.WaitAll(tasks.ToArray());
+        await Task.WhenAll(tasks.ToArray());
         
         ids.Count.Should().Be(1000);
         ids.Distinct().Count().Should().Be(1000);
     }
 
     [Fact]
-    public void NewBase64IdNoPadding_ShouldBeThreadSafe()
+    public async Task NewBase64IdNoPadding_ShouldBeThreadSafe()
     {
         var ids = new System.Collections.Concurrent.ConcurrentBag<string>();
         var tasks = new List<Task>();
@@ -122,7 +122,7 @@ public class IdGeneratorComprehensiveTests
             }));
         }
         
-        Task.WaitAll(tasks.ToArray());
+        await Task.WhenAll(tasks.ToArray());
         
         ids.Count.Should().Be(1000);
         ids.Distinct().Count().Should().Be(1000);

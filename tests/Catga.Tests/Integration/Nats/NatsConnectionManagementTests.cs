@@ -217,7 +217,7 @@ public partial class NatsConnectionManagementTests : IAsyncLifetime
         {
             await foreach (var msg in reconnectedConsumer.ConsumeAsync<byte[]>().WithCancellation(cts2.Token))
             {
-                var evt = _serializer!.Deserialize<TestEvent>(msg.Data);
+                var evt = _serializer!.Deserialize<TestEvent>(msg.Data!);
                 replayedMessages.Add(evt.Id);
                 await msg.AckAsync();
                 
@@ -275,7 +275,7 @@ public partial class NatsConnectionManagementTests : IAsyncLifetime
         var firstBatch = new List<string>();
         await foreach (var msg in consumer.ConsumeAsync<byte[]>().WithCancellation(new CancellationTokenSource(2000).Token))
         {
-            var evt = _serializer!.Deserialize<TestEvent>(msg.Data);
+            var evt = _serializer!.Deserialize<TestEvent>(msg.Data!);
             firstBatch.Add(evt.Id);
             await msg.AckAsync();
             break;
@@ -296,7 +296,7 @@ public partial class NatsConnectionManagementTests : IAsyncLifetime
         var secondBatch = new List<string>();
         await foreach (var msg in reconnectedConsumer.ConsumeAsync<byte[]>().WithCancellation(new CancellationTokenSource(2000).Token))
         {
-            var evt = _serializer!.Deserialize<TestEvent>(msg.Data);
+            var evt = _serializer!.Deserialize<TestEvent>(msg.Data!);
             secondBatch.Add(evt.Id);
             await msg.AckAsync();
             break;
@@ -474,7 +474,7 @@ public partial class NatsConnectionManagementTests : IAsyncLifetime
         var received = false;
         await foreach (var msg in consumer.ConsumeAsync<byte[]>().WithCancellation(new CancellationTokenSource(2000).Token))
         {
-            var evt = _serializer!.Deserialize<TestEvent>(msg.Data);
+            var evt = _serializer!.Deserialize<TestEvent>(msg.Data!);
             evt.Id.Should().Be("single-node");
             received = true;
             await msg.AckAsync();

@@ -294,19 +294,19 @@ public class InMemoryProjectionCheckpointStoreTests
     }
 
     [Fact]
-    public void Clear_ShouldRemoveAllCheckpoints()
+    public async Task Clear_ShouldRemoveAllCheckpoints()
     {
         var store = new InMemoryProjectionCheckpointStore();
-        store.SaveAsync(new ProjectionCheckpoint
+        await store.SaveAsync(new ProjectionCheckpoint
         {
             ProjectionName = "test",
             Position = 100,
             LastUpdated = DateTime.UtcNow
-        }).AsTask().Wait();
+        });
 
         store.Clear();
 
-        var loaded = store.LoadAsync("test").AsTask().Result;
+        var loaded = await store.LoadAsync("test");
         loaded.Should().BeNull();
     }
 }
@@ -403,14 +403,14 @@ public class InMemorySubscriptionStoreExtendedTests
     }
 
     [Fact]
-    public void Clear_ShouldRemoveAllSubscriptions()
+    public async Task Clear_ShouldRemoveAllSubscriptions()
     {
         var store = new InMemorySubscriptionStore();
-        store.SaveAsync(new PersistentSubscription("sub-1", "*")).AsTask().Wait();
+        await store.SaveAsync(new PersistentSubscription("sub-1", "*"));
 
         store.Clear();
 
-        var loaded = store.LoadAsync("sub-1").AsTask().Result;
+        var loaded = await store.LoadAsync("sub-1");
         loaded.Should().BeNull();
     }
 }

@@ -11,17 +11,18 @@ namespace Catga.Tests.Flow.Store;
 /// </summary>
 public class InMemoryDslFlowStoreTests
 {
-    private readonly InMemoryDslFlowStore _store = TestStoreExtensions.CreateTestFlowStore();
+    private InMemoryDslFlowStore CreateStore() => TestStoreExtensions.CreateTestFlowStore();
 
     #region Create Tests
 
     [Fact]
     public async Task CreateAsync_NewFlow_ReturnsTrue()
     {
+        var store = CreateStore();
         var state = new TestFlowState { FlowId = "flow-1", OrderId = "order-1" };
         var snapshot = CreateSnapshot("flow-1", state);
 
-        var result = await _store.CreateAsync(snapshot);
+        var result = await store.CreateAsync(snapshot);
 
         result.Should().BeTrue();
     }
@@ -29,11 +30,12 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task CreateAsync_DuplicateId_ReturnsFalse()
     {
+        var store = CreateStore();
         var state = new TestFlowState { FlowId = "flow-1", OrderId = "order-1" };
         var snapshot = CreateSnapshot("flow-1", state);
 
-        await _store.CreateAsync(snapshot);
-        var result = await _store.CreateAsync(snapshot);
+        await store.CreateAsync(snapshot);
+        var result = await store.CreateAsync(snapshot);
 
         result.Should().BeFalse();
     }
@@ -45,11 +47,12 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task GetAsync_ExistingFlow_ReturnsSnapshot()
     {
+        var store = CreateStore();
         var state = new TestFlowState { FlowId = "flow-1", OrderId = "order-1" };
         var snapshot = CreateSnapshot("flow-1", state);
-        await _store.CreateAsync(snapshot);
+        await store.CreateAsync(snapshot);
 
-        var result = await _store.GetAsync<TestFlowState>("flow-1");
+        var result = await store.GetAsync<TestFlowState>("flow-1");
 
         result.Should().NotBeNull();
         result!.FlowId.Should().Be("flow-1");
@@ -59,7 +62,8 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task GetAsync_NonExistingFlow_ReturnsNull()
     {
-        var result = await _store.GetAsync<TestFlowState>("non-existing");
+        var store = CreateStore();
+        var result = await store.GetAsync<TestFlowState>("non-existing");
 
         result.Should().BeNull();
     }
@@ -71,13 +75,14 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task UpdateAsync_ExistingFlow_ReturnsTrue()
     {
+        var store = CreateStore();
         var state = new TestFlowState { FlowId = "flow-1", OrderId = "order-1" };
         var snapshot = CreateSnapshot("flow-1", state);
-        await _store.CreateAsync(snapshot);
+        await store.CreateAsync(snapshot);
 
         state.OrderId = "order-2";
         var updated = snapshot with { State = state, Version = 1 };
-        var result = await _store.UpdateAsync(updated);
+        var result = await store.UpdateAsync(updated);
 
         result.Should().BeTrue();
     }
@@ -85,10 +90,11 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task UpdateAsync_NonExistingFlow_ReturnsFalse()
     {
+        var store = CreateStore();
         var state = new TestFlowState { FlowId = "flow-1", OrderId = "order-1" };
         var snapshot = CreateSnapshot("flow-1", state);
 
-        var result = await _store.UpdateAsync(snapshot);
+        var result = await store.UpdateAsync(snapshot);
 
         result.Should().BeFalse();
     }
@@ -96,16 +102,17 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task UpdateAsync_UpdatesState()
     {
+        var store = CreateStore();
         var state = new TestFlowState { FlowId = "flow-1", OrderId = "order-1" };
         var snapshot = CreateSnapshot("flow-1", state);
-        await _store.CreateAsync(snapshot);
+        await store.CreateAsync(snapshot);
 
         var newState = new TestFlowState { FlowId = "flow-1", OrderId = "order-updated" };
         // Version must be incremented by 1 for update to succeed (optimistic concurrency)
         var updated = snapshot with { State = newState, Status = DslFlowStatus.Completed, Version = 1 };
-        await _store.UpdateAsync(updated);
+        await store.UpdateAsync(updated);
 
-        var result = await _store.GetAsync<TestFlowState>("flow-1");
+        var result = await store.GetAsync<TestFlowState>("flow-1");
         result!.State.OrderId.Should().Be("order-updated");
         result.Status.Should().Be(DslFlowStatus.Completed);
     }
@@ -117,11 +124,12 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task DeleteAsync_ExistingFlow_ReturnsTrue()
     {
+        var store = CreateStore();
         var state = new TestFlowState { FlowId = "flow-1", OrderId = "order-1" };
         var snapshot = CreateSnapshot("flow-1", state);
-        await _store.CreateAsync(snapshot);
+        await store.CreateAsync(snapshot);
 
-        var result = await _store.DeleteAsync("flow-1");
+        var result = await store.DeleteAsync("flow-1");
 
         result.Should().BeTrue();
     }
@@ -129,7 +137,8 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task DeleteAsync_NonExistingFlow_ReturnsFalse()
     {
-        var result = await _store.DeleteAsync("non-existing");
+        var store = CreateStore();
+        var result = await store.DeleteAsync("non-existing");
 
         result.Should().BeFalse();
     }
@@ -137,13 +146,14 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task DeleteAsync_RemovesFlow()
     {
+        var store = CreateStore();
         var state = new TestFlowState { FlowId = "flow-1", OrderId = "order-1" };
         var snapshot = CreateSnapshot("flow-1", state);
-        await _store.CreateAsync(snapshot);
+        await store.CreateAsync(snapshot);
 
-        await _store.DeleteAsync("flow-1");
+        await store.DeleteAsync("flow-1");
 
-        var result = await _store.GetAsync<TestFlowState>("flow-1");
+        var result = await store.GetAsync<TestFlowState>("flow-1");
         result.Should().BeNull();
     }
 
@@ -154,11 +164,12 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task SetWaitConditionAsync_StoresCondition()
     {
+        var store = CreateStore();
         var condition = CreateWaitCondition("corr-1");
 
-        await _store.SetWaitConditionAsync("corr-1", condition);
+        await store.SetWaitConditionAsync("corr-1", condition);
 
-        var result = await _store.GetWaitConditionAsync("corr-1");
+        var result = await store.GetWaitConditionAsync("corr-1");
         result.Should().NotBeNull();
         result!.CorrelationId.Should().Be("corr-1");
     }
@@ -166,7 +177,8 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task GetWaitConditionAsync_NonExisting_ReturnsNull()
     {
-        var result = await _store.GetWaitConditionAsync("non-existing");
+        var store = CreateStore();
+        var result = await store.GetWaitConditionAsync("non-existing");
 
         result.Should().BeNull();
     }
@@ -174,14 +186,15 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task UpdateWaitConditionAsync_UpdatesCondition()
     {
+        var store = CreateStore();
         var condition = CreateWaitCondition("corr-1");
-        await _store.SetWaitConditionAsync("corr-1", condition);
+        await store.SetWaitConditionAsync("corr-1", condition);
 
         condition.CompletedCount = 1;
         condition.Results.Add(new FlowCompletedEventData { FlowId = "child-1", Success = true });
-        await _store.UpdateWaitConditionAsync("corr-1", condition);
+        await store.UpdateWaitConditionAsync("corr-1", condition);
 
-        var result = await _store.GetWaitConditionAsync("corr-1");
+        var result = await store.GetWaitConditionAsync("corr-1");
         result!.CompletedCount.Should().Be(1);
         result.Results.Should().HaveCount(1);
     }
@@ -189,18 +202,20 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task ClearWaitConditionAsync_RemovesCondition()
     {
+        var store = CreateStore();
         var condition = CreateWaitCondition("corr-1");
-        await _store.SetWaitConditionAsync("corr-1", condition);
+        await store.SetWaitConditionAsync("corr-1", condition);
 
-        await _store.ClearWaitConditionAsync("corr-1");
+        await store.ClearWaitConditionAsync("corr-1");
 
-        var result = await _store.GetWaitConditionAsync("corr-1");
+        var result = await store.GetWaitConditionAsync("corr-1");
         result.Should().BeNull();
     }
 
     [Fact]
     public async Task GetTimedOutWaitConditionsAsync_ReturnsTimedOut()
     {
+        var store = CreateStore();
         var timedOut = new WaitCondition
         {
             CorrelationId = "corr-1",
@@ -227,10 +242,10 @@ public class InMemoryDslFlowStoreTests
             Step = 0
         };
 
-        await _store.SetWaitConditionAsync("corr-1", timedOut);
-        await _store.SetWaitConditionAsync("corr-2", notTimedOut);
+        await store.SetWaitConditionAsync("corr-1", timedOut);
+        await store.SetWaitConditionAsync("corr-2", notTimedOut);
 
-        var result = await _store.GetTimedOutWaitConditionsAsync();
+        var result = await store.GetTimedOutWaitConditionsAsync();
 
         result.Should().HaveCount(1);
         result[0].CorrelationId.Should().Be("corr-1");
@@ -243,11 +258,12 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task ConcurrentCreates_OnlyOneSucceeds()
     {
+        var store = CreateStore();
         var tasks = Enumerable.Range(0, 10).Select(i =>
         {
             var state = new TestFlowState { FlowId = "flow-1", OrderId = $"order-{i}" };
             var snapshot = CreateSnapshot("flow-1", state);
-            return _store.CreateAsync(snapshot);
+            return store.CreateAsync(snapshot);
         }).ToArray();
 
         var results = await Task.WhenAll(tasks);
@@ -259,9 +275,10 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task ConcurrentUpdates_AllSucceed()
     {
+        var store = CreateStore();
         var state = new TestFlowState { FlowId = "flow-1", OrderId = "order-1" };
         var snapshot = CreateSnapshot("flow-1", state);
-        await _store.CreateAsync(snapshot);
+        await store.CreateAsync(snapshot);
 
         // With optimistic concurrency, concurrent updates to the same flow will have
         // version conflicts. Only sequential updates with proper version increments succeed.
@@ -271,7 +288,7 @@ public class InMemoryDslFlowStoreTests
         {
             var newState = new TestFlowState { FlowId = "flow-1", OrderId = $"order-{i}" };
             var updated = snapshot with { State = newState, Version = i + 1 };
-            var result = await _store.UpdateAsync(updated);
+            var result = await store.UpdateAsync(updated);
             if (result) successCount++;
         }
 
@@ -286,20 +303,21 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task QueryByStatusAsync_ReturnsMatching()
     {
+        var store = CreateStore();
         // Arrange - Create flows with different statuses
         var runningState = new TestFlowState { FlowId = "flow-running", OrderId = "order-1" };
         var completedState = new TestFlowState { FlowId = "flow-completed", OrderId = "order-2" };
         var failedState = new TestFlowState { FlowId = "flow-failed", OrderId = "order-3" };
 
-        await _store.CreateAsync(CreateSnapshot("flow-running", runningState, DslFlowStatus.Running));
-        await _store.CreateAsync(CreateSnapshot("flow-completed", completedState, DslFlowStatus.Completed));
-        await _store.CreateAsync(CreateSnapshot("flow-failed", failedState, DslFlowStatus.Failed));
+        await store.CreateAsync(CreateSnapshot("flow-running", runningState, DslFlowStatus.Running));
+        await store.CreateAsync(CreateSnapshot("flow-completed", completedState, DslFlowStatus.Completed));
+        await store.CreateAsync(CreateSnapshot("flow-failed", failedState, DslFlowStatus.Failed));
 
         // Act
-        var runningFlows = await _store.QueryByStatusAsync(DslFlowStatus.Running);
-        var completedFlows = await _store.QueryByStatusAsync(DslFlowStatus.Completed);
-        var failedFlows = await _store.QueryByStatusAsync(DslFlowStatus.Failed);
-        var pendingFlows = await _store.QueryByStatusAsync(DslFlowStatus.Pending);
+        var runningFlows = await store.QueryByStatusAsync(DslFlowStatus.Running);
+        var completedFlows = await store.QueryByStatusAsync(DslFlowStatus.Completed);
+        var failedFlows = await store.QueryByStatusAsync(DslFlowStatus.Failed);
+        var pendingFlows = await store.QueryByStatusAsync(DslFlowStatus.Pending);
 
         // Assert
         runningFlows.Should().HaveCount(1);
@@ -320,19 +338,20 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task QueryByTypeAsync_ReturnsMatching()
     {
+        var store = CreateStore();
         // Arrange - Create flows with different types
         var state1 = new TestFlowState { FlowId = "flow-1", OrderId = "order-1" };
         var state2 = new TestFlowState { FlowId = "flow-2", OrderId = "order-2" };
         var state3 = new AnotherFlowState { FlowId = "flow-3", CustomField = "custom" };
 
-        await _store.CreateAsync(CreateSnapshot("flow-1", state1));
-        await _store.CreateAsync(CreateSnapshot("flow-2", state2));
-        await _store.CreateAsync(CreateSnapshotForAnotherType("flow-3", state3));
+        await store.CreateAsync(CreateSnapshot("flow-1", state1));
+        await store.CreateAsync(CreateSnapshot("flow-2", state2));
+        await store.CreateAsync(CreateSnapshotForAnotherType("flow-3", state3));
 
         // Act
-        var testFlows = await _store.QueryByTypeAsync(typeof(TestFlowState).FullName!);
-        var anotherFlows = await _store.QueryByTypeAsync(typeof(AnotherFlowState).FullName!);
-        var nonExistentFlows = await _store.QueryByTypeAsync("NonExistent.Type");
+        var testFlows = await store.QueryByTypeAsync(typeof(TestFlowState).FullName!);
+        var anotherFlows = await store.QueryByTypeAsync(typeof(AnotherFlowState).FullName!);
+        var nonExistentFlows = await store.QueryByTypeAsync("NonExistent.Type");
 
         // Assert
         testFlows.Should().HaveCount(2);
@@ -347,6 +366,7 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task QueryByDateRangeAsync_ReturnsMatching()
     {
+        var store = CreateStore();
         // Arrange - Create flows with different creation dates
         var now = DateTime.UtcNow;
         var yesterday = now.AddDays(-1);
@@ -357,14 +377,14 @@ public class InMemoryDslFlowStoreTests
         var state2 = new TestFlowState { FlowId = "flow-yesterday", OrderId = "order-2" };
         var state3 = new TestFlowState { FlowId = "flow-today", OrderId = "order-3" };
 
-        await _store.CreateAsync(CreateSnapshotWithDate("flow-old", state1, twoDaysAgo));
-        await _store.CreateAsync(CreateSnapshotWithDate("flow-yesterday", state2, yesterday));
-        await _store.CreateAsync(CreateSnapshotWithDate("flow-today", state3, now));
+        await store.CreateAsync(CreateSnapshotWithDate("flow-old", state1, twoDaysAgo));
+        await store.CreateAsync(CreateSnapshotWithDate("flow-yesterday", state2, yesterday));
+        await store.CreateAsync(CreateSnapshotWithDate("flow-today", state3, now));
 
         // Act - Query for flows created yesterday or later
-        var recentFlows = await _store.QueryByDateRangeAsync(yesterday, tomorrow);
-        var oldFlows = await _store.QueryByDateRangeAsync(twoDaysAgo.AddHours(-1), twoDaysAgo.AddHours(1));
-        var futureFlows = await _store.QueryByDateRangeAsync(tomorrow, tomorrow.AddDays(1));
+        var recentFlows = await store.QueryByDateRangeAsync(yesterday, tomorrow);
+        var oldFlows = await store.QueryByDateRangeAsync(twoDaysAgo.AddHours(-1), twoDaysAgo.AddHours(1));
+        var futureFlows = await store.QueryByDateRangeAsync(tomorrow, tomorrow.AddDays(1));
 
         // Assert
         recentFlows.Should().HaveCount(2);
@@ -379,8 +399,9 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task QueryByStatusAsync_EmptyStore_ReturnsEmpty()
     {
+        var store = CreateStore();
         // Act
-        var result = await _store.QueryByStatusAsync(DslFlowStatus.Running);
+        var result = await store.QueryByStatusAsync(DslFlowStatus.Running);
 
         // Assert
         result.Should().BeEmpty();
@@ -389,8 +410,9 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task QueryByTypeAsync_EmptyStore_ReturnsEmpty()
     {
+        var store = CreateStore();
         // Act
-        var result = await _store.QueryByTypeAsync(typeof(TestFlowState).FullName!);
+        var result = await store.QueryByTypeAsync(typeof(TestFlowState).FullName!);
 
         // Assert
         result.Should().BeEmpty();
@@ -399,8 +421,9 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task QueryByDateRangeAsync_EmptyStore_ReturnsEmpty()
     {
+        var store = CreateStore();
         // Act
-        var result = await _store.QueryByDateRangeAsync(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow);
+        var result = await store.QueryByDateRangeAsync(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow);
 
         // Assert
         result.Should().BeEmpty();
@@ -409,15 +432,16 @@ public class InMemoryDslFlowStoreTests
     [Fact]
     public async Task QueryByStatusAsync_MultipleMatching_ReturnsAll()
     {
+        var store = CreateStore();
         // Arrange - Create multiple flows with same status
         for (int i = 0; i < 5; i++)
         {
             var state = new TestFlowState { FlowId = $"flow-{i}", OrderId = $"order-{i}" };
-            await _store.CreateAsync(CreateSnapshot($"flow-{i}", state, DslFlowStatus.Running));
+            await store.CreateAsync(CreateSnapshot($"flow-{i}", state, DslFlowStatus.Running));
         }
 
         // Act
-        var result = await _store.QueryByStatusAsync(DslFlowStatus.Running);
+        var result = await store.QueryByStatusAsync(DslFlowStatus.Running);
 
         // Assert
         result.Should().HaveCount(5);

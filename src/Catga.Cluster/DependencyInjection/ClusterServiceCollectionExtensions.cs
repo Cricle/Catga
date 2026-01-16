@@ -4,6 +4,7 @@ using Catga.Pipeline;
 using DotNext.Net.Cluster.Consensus.Raft;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Catga.Cluster.DependencyInjection;
 
@@ -16,14 +17,26 @@ public static class ClusterServiceCollectionExtensions
     /// Adds Catga cluster coordinator using DotNext Raft.
     /// Requires IRaftCluster to be registered (e.g., via DotNext.AspNetCore.Cluster).
     /// </summary>
-    public static IServiceCollection AddCatgaCluster(this IServiceCollection services)
+    public static IServiceCollection AddCatgaCluster(this IServiceCollection services, Action<ClusterOptions>? configure = null)
     {
+        var options = new ClusterOptions();
+        configure?.Invoke(options);
+
         services.TryAddSingleton<IClusterCoordinator>(sp =>
         {
             var cluster = sp.GetRequiredService<IRaftCluster>();
             var logger = sp.GetService<Microsoft.Extensions.Logging.ILogger<ClusterCoordinator>>();
             return new ClusterCoordinator(cluster, logger);
         });
+
+        // Register HTTP forwarder if enabled
+        if (options.EnableHttpForwarder)
+        {
+            services.AddHttpClient<IClusterForwarder, HttpClusterForwarder>(client =>
+            {
+                client.Timeout = options.ForwardTimeout;
+            });
+        }
 
         return services;
     }
@@ -59,4 +72,29 @@ public static class ClusterServiceCollectionExtensions
         services.AddHostedService<TTask>();
         return services;
     }
+
+    /// <summary>
+    /// Adds cluster health check to the health check builder.
+    /// </summary>
+    public static IHealthChecksBuilder AddClusterHealthCheck(this IHealthChecksBuilder builder)
+    {
+        builder.AddCheck<ClusterHealthCheck>("cluster", tags: new[] { "cluster", "ready" });
+        return builder;
+    }
+}
+
+/// <summary>
+/// Configuration options for Catga cluster.
+/// </summary>
+public sealed class ClusterOptions
+{
+    /// <summary>
+    /// Enable HTTP-based request forwarding to leader.
+    /// </summary>
+    public bool EnableHttpForwarder { get; set; } = true;
+
+    /// <summary>
+    /// Timeout for forwarding requests to leader.
+    /// </summary>
+    public TimeSpan ForwardTimeout { get; set; } = TimeSpan.FromSeconds(30);
 }

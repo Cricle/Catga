@@ -1,154 +1,130 @@
 using Catga.Cluster;
-using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
-using NSubstitute;
+using Moq;
 using Xunit;
 
 namespace Catga.Tests.Cluster;
 
-/// <summary>
-/// Unit tests for SingletonTaskRunner.
-/// Tests that tasks only run on leader nodes.
-/// </summary>
-public class SingletonTaskRunnerTests
+public sealed class SingletonTaskRunnerTests
 {
-    private readonly IClusterCoordinator _mockCoordinator;
-
-    public SingletonTaskRunnerTests()
+    private sealed class TestSingletonTask : SingletonTaskRunner
     {
-        _mockCoordinator = Substitute.For<IClusterCoordinator>();
-    }
+        private readonly TaskCompletionSource<bool> _executionStarted = new();
+        private readonly TaskCompletionSource<bool> _shouldComplete = new();
 
-    [Fact]
-    public async Task ExecuteAsync_WhenNotLeader_ShouldWaitAndNotExecuteTask()
-    {
-        // Arrange
-        _mockCoordinator.IsLeader.Returns(false);
-        _mockCoordinator.NodeId.Returns("node-1");
-
-        var task = new TestSingletonTask(_mockCoordinator);
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(500));
-
-        // Act
-        await task.StartAsync(cts.Token);
-        await Task.Delay(300);
-        await task.StopAsync(CancellationToken.None);
-
-        // Assert
-        task.ExecutionCount.Should().Be(0);
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WhenLeader_ShouldExecuteTask()
-    {
-        // Arrange
-        _mockCoordinator.IsLeader.Returns(true);
-        _mockCoordinator.NodeId.Returns("node-1");
-        _mockCoordinator.ExecuteIfLeaderAsync(Arg.Any<Func<CancellationToken, Task>>(), Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                var action = callInfo.Arg<Func<CancellationToken, Task>>();
-                var ct = callInfo.Arg<CancellationToken>();
-                return Task.FromResult(true);
-            });
-
-        var task = new TestSingletonTask(_mockCoordinator);
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(500));
-
-        // Act
-        await task.StartAsync(cts.Token);
-        await Task.Delay(300);
-        await task.StopAsync(CancellationToken.None);
-
-        // Assert
-        await _mockCoordinator.Received().ExecuteIfLeaderAsync(
-            Arg.Any<Func<CancellationToken, Task>>(),
-            Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WhenLeadershipLost_ShouldStopTask()
-    {
-        // Arrange
-        var isLeader = true;
-        _mockCoordinator.IsLeader.Returns(_ => isLeader);
-        _mockCoordinator.NodeId.Returns("node-1");
-
-        var taskCompletionSource = new TaskCompletionSource<bool>();
-        _mockCoordinator.ExecuteIfLeaderAsync(Arg.Any<Func<CancellationToken, Task>>(), Arg.Any<CancellationToken>())
-            .Returns(async callInfo =>
-            {
-                var action = callInfo.Arg<Func<CancellationToken, Task>>();
-                var ct = callInfo.Arg<CancellationToken>();
-                await action(ct);
-                return true;
-            });
-
-        var task = new TestSingletonTask(_mockCoordinator, taskCompletionSource);
-        var cts = new CancellationTokenSource();
-
-        // Act
-        await task.StartAsync(cts.Token);
-        await Task.Delay(100);
-
-        // Simulate leadership loss
-        isLeader = false;
-        taskCompletionSource.SetResult(true);
-
-        await Task.Delay(100);
-        await task.StopAsync(CancellationToken.None);
-
-        // Assert
-        task.ExecutionCount.Should().BeGreaterOrEqualTo(1);
-    }
-
-    [Fact]
-    public void Constructor_WithCustomCheckInterval_ShouldUseInterval()
-    {
-        // Arrange & Act
-        var task = new TestSingletonTask(
-            _mockCoordinator,
-            checkInterval: TimeSpan.FromSeconds(5));
-
-        // Assert
-        task.Should().NotBeNull();
-    }
-
-    // Test implementation of SingletonTaskRunner
-    public class TestSingletonTask : SingletonTaskRunner
-    {
-        private readonly TaskCompletionSource<bool>? _taskCompletion;
-        public int ExecutionCount { get; private set; }
-
-        public TestSingletonTask(
-            IClusterCoordinator coordinator,
-            TaskCompletionSource<bool>? taskCompletion = null,
-            TimeSpan? checkInterval = null)
-            : base(coordinator, NullLogger.Instance, checkInterval)
+        public TestSingletonTask(IClusterCoordinator coordinator)
+            : base(coordinator, NullLogger<TestSingletonTask>.Instance, TimeSpan.FromMilliseconds(50))
         {
-            _taskCompletion = taskCompletion;
         }
 
         protected override string TaskName => "TestTask";
 
+        public Task WaitForExecutionStartAsync() => _executionStarted.Task;
+        public void CompleteExecution() => _shouldComplete.SetResult(true);
+
         protected override async Task ExecuteLeaderTaskAsync(CancellationToken stoppingToken)
         {
-            ExecutionCount++;
-
-            if (_taskCompletion != null)
-            {
-                await _taskCompletion.Task;
-            }
-            else
-            {
-                // Run indefinitely until cancelled
-                while (!stoppingToken.IsCancellationRequested)
-                {
-                    await Task.Delay(100, stoppingToken);
-                }
-            }
+            _executionStarted.SetResult(true);
+            await _shouldComplete.Task.WaitAsync(stoppingToken);
         }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenLeader_StartsTask()
+    {
+        // Arrange
+        var mockCoordinator = new Mock<IClusterCoordinator>();
+        mockCoordinator.Setup(c => c.IsLeader).Returns(true);
+        mockCoordinator.Setup(c => c.NodeId).Returns("node1");
+        mockCoordinator
+            .Setup(c => c.ExecuteIfLeaderAsync(It.IsAny<Func<CancellationToken, Task>>(), It.IsAny<CancellationToken>()))
+            .Returns<Func<CancellationToken, Task>, CancellationToken>(async (action, ct) =>
+            {
+                await action(ct);
+                return true;
+            });
+
+        var task = new TestSingletonTask(mockCoordinator.Object);
+        using var cts = new CancellationTokenSource();
+
+        // Act
+        var runTask = task.StartAsync(cts.Token);
+        var executionStarted = await Task.WhenAny(task.WaitForExecutionStartAsync(), Task.Delay(1000));
+
+        // Assert
+        Assert.Equal(task.WaitForExecutionStartAsync(), executionStarted);
+
+        // Cleanup
+        task.CompleteExecution();
+        cts.Cancel();
+        await task.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenNotLeader_DoesNotStartTask()
+    {
+        // Arrange
+        var mockCoordinator = new Mock<IClusterCoordinator>();
+        mockCoordinator.Setup(c => c.IsLeader).Returns(false);
+        mockCoordinator.Setup(c => c.NodeId).Returns("node1");
+
+        var task = new TestSingletonTask(mockCoordinator.Object);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+
+        // Act
+        var runTask = task.StartAsync(cts.Token);
+        var executionStarted = await Task.WhenAny(task.WaitForExecutionStartAsync(), Task.Delay(150));
+
+        // Assert - task should not start
+        Assert.NotEqual(task.WaitForExecutionStartAsync(), executionStarted);
+
+        // Cleanup
+        await task.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenLeadershipLost_StopsTask()
+    {
+        // Arrange
+        var isLeader = true;
+        var mockCoordinator = new Mock<IClusterCoordinator>();
+        mockCoordinator.Setup(c => c.IsLeader).Returns(() => isLeader);
+        mockCoordinator.Setup(c => c.NodeId).Returns("node1");
+        mockCoordinator
+            .Setup(c => c.ExecuteIfLeaderAsync(It.IsAny<Func<CancellationToken, Task>>(), It.IsAny<CancellationToken>()))
+            .Returns<Func<CancellationToken, Task>, CancellationToken>(async (action, ct) =>
+            {
+                if (!isLeader) return false;
+                try
+                {
+                    await action(ct);
+                    return true;
+                }
+                catch (OperationCanceledException)
+                {
+                    return false;
+                }
+            });
+
+        var task = new TestSingletonTask(mockCoordinator.Object);
+        using var cts = new CancellationTokenSource();
+
+        // Act
+        var runTask = task.StartAsync(cts.Token);
+        await task.WaitForExecutionStartAsync();
+
+        // Simulate leadership loss
+        isLeader = false;
+        task.CompleteExecution();
+
+        // Give time for task to detect leadership loss
+        await Task.Delay(100);
+
+        // Cleanup
+        cts.Cancel();
+        await task.StopAsync(CancellationToken.None);
+
+        // Assert - task should have stopped
+        Assert.True(task.WaitForExecutionStartAsync().IsCompleted);
     }
 }

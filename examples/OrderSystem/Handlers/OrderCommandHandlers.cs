@@ -17,7 +17,7 @@ public sealed class CreateOrderHandler(OrderStore store, ICatgaMediator mediator
         store.Save(new Order(orderId, cmd.CustomerId, cmd.Items, OrderStatus.Pending, total, now));
         store.AppendEvent(orderId, new OrderCreatedEvent(orderId, cmd.CustomerId, total, now));
         await mediator.PublishAsync(new OrderCreatedEvent(orderId, cmd.CustomerId, total, now), ct);
-        return CatgaResult<OrderCreatedResult>.Success(new OrderCreatedResult(orderId, total, now));
+        return CatgaResult<OrderCreatedResult>.Success(new OrderCreatedResult(orderId, cmd.CustomerId, total, now));
     }
 }
 

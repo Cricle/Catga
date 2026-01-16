@@ -38,6 +38,7 @@ app.UseStaticFiles();
 
 // Map endpoints
 app.MapOrderSystemEndpoints();
+app.MapFlowEndpoints();
 
 // Print startup banner
 EndpointExtensions.PrintStartupBanner(nodeId, isCluster, port, transport, persistence);

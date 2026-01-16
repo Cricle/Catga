@@ -22,9 +22,6 @@
     <Compile Include="Integration/Nats/NatsMessageFunctionalityTests.cs" />
     <Compile Remove="SourceGeneration/**/*.cs" />
     <Compile Remove="Flow/**/*.cs" />
-    <Compile Include="Flow/FlowComprehensiveTests.cs" />
-    <Compile Include="Flow/FlowPositionComprehensiveTests.cs" />
-    <Compile Include="Flow/WaitConditionComprehensiveTests.cs" />
     <Compile Include="Flow/InMemoryDslFlowStoreTests.cs" />
     <Compile Remove="Distributed/DistributedStoresExtendedTests.cs" />
     <Compile Remove="Distributed/InMemoryDistributedStoresTests.cs" />
@@ -44,13 +41,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="Microsoft.TestPlatform.TestHost" PrivateAssets="All" />
     <PackageReference Include="Moq" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
-    <PackageReference Include="FluentAssertions" />
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
@@ -65,7 +56,12 @@
     <PackageReference Include="Xunit.SkippableFact" />
     <PackageReference Include="FsCheck" />
     <PackageReference Include="FsCheck.Xunit" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Condition="'$(TargetFramework)' == 'net9.0'" />
+  </ItemGroup>
+
+  <!-- Framework-specific packages -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" 
+                      VersionOverride="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)'))" />
   </ItemGroup>
 
   <ItemGroup>

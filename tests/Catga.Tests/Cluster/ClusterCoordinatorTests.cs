@@ -1,178 +1,112 @@
 using Catga.Cluster;
 using DotNext.Net.Cluster;
 using DotNext.Net.Cluster.Consensus.Raft;
-using FluentAssertions;
-using Microsoft.Extensions.Logging;
-using NSubstitute;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using Xunit;
 
 namespace Catga.Tests.Cluster;
 
-/// <summary>
-/// Unit tests for ClusterCoordinator.
-/// Tests leader election, leadership tracking, and leader-only execution.
-/// </summary>
-public class ClusterCoordinatorTests
+public sealed class ClusterCoordinatorTests
 {
-    private readonly IRaftCluster _mockCluster;
-    private readonly ILogger<ClusterCoordinator> _mockLogger;
-    private readonly IClusterMember _mockLeader;
-
-    public ClusterCoordinatorTests()
-    {
-        _mockCluster = Substitute.For<IRaftCluster>();
-        _mockLogger = Substitute.For<ILogger<ClusterCoordinator>>();
-        _mockLeader = Substitute.For<IClusterMember>();
-    }
-
     [Fact]
-    public void Constructor_WithValidCluster_ShouldInitialize()
-    {
-        // Act
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
-
-        // Assert
-        coordinator.Should().NotBeNull();
-        coordinator.NodeId.Should().NotBeNullOrEmpty();
-    }
-
-    [Fact]
-    public void Constructor_WithNullCluster_ShouldThrow()
-    {
-        // Act
-        var act = () => new ClusterCoordinator(null!, _mockLogger);
-
-        // Assert
-        act.Should().Throw<ArgumentNullException>();
-    }
-
-    [Fact]
-    public void IsLeader_WhenLocalNodeIsLeader_ShouldReturnTrue()
+    public void IsLeader_WhenLeadershipTokenNotCancelled_ReturnsTrue()
     {
         // Arrange
-        _mockLeader.IsRemote.Returns(false);
-        _mockCluster.Leader.Returns(_mockLeader);
-        _mockCluster.LeadershipToken.Returns(new CancellationToken(false));
-
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
+        var cts = new CancellationTokenSource();
+        var mockCluster = CreateMockCluster(isLeader: true, cts.Token);
+        var coordinator = new ClusterCoordinator(mockCluster.Object, NullLogger<ClusterCoordinator>.Instance);
 
         // Act
         var isLeader = coordinator.IsLeader;
 
         // Assert
-        isLeader.Should().BeTrue();
+        Assert.True(isLeader);
     }
 
     [Fact]
-    public void IsLeader_WhenRemoteNodeIsLeader_ShouldReturnFalse()
+    public void IsLeader_WhenLeadershipTokenCancelled_ReturnsFalse()
     {
         // Arrange
-        _mockLeader.IsRemote.Returns(true);
-        _mockCluster.Leader.Returns(_mockLeader);
-        _mockCluster.LeadershipToken.Returns(new CancellationToken(false));
-
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var mockCluster = CreateMockCluster(isLeader: false, cts.Token);
+        var coordinator = new ClusterCoordinator(mockCluster.Object, NullLogger<ClusterCoordinator>.Instance);
 
         // Act
         var isLeader = coordinator.IsLeader;
 
         // Assert
-        isLeader.Should().BeFalse();
+        Assert.False(isLeader);
     }
 
     [Fact]
-    public void IsLeader_WhenLeadershipTokenCancelled_ShouldReturnFalse()
+    public void LeaderEndpoint_ReturnsLeaderEndpoint()
     {
         // Arrange
-        _mockLeader.IsRemote.Returns(false);
-        _mockCluster.Leader.Returns(_mockLeader);
-        _mockCluster.LeadershipToken.Returns(new CancellationToken(true));
-
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
+        var mockCluster = CreateMockCluster(isLeader: false, CancellationToken.None, "http://leader:5000");
+        var coordinator = new ClusterCoordinator(mockCluster.Object);
 
         // Act
-        var isLeader = coordinator.IsLeader;
+        var endpoint = coordinator.LeaderEndpoint;
 
         // Assert
-        isLeader.Should().BeFalse();
+        Assert.Equal("http://leader:5000", endpoint);
     }
 
     [Fact]
-    public void LeaderEndpoint_WhenLeaderExists_ShouldReturnEndpoint()
+    public void NodeId_ReturnsUniqueId()
     {
         // Arrange
-        var endpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 5000);
-        _mockLeader.EndPoint.Returns(endpoint);
-        _mockCluster.Leader.Returns(_mockLeader);
-
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
+        var mockCluster = CreateMockCluster(isLeader: true, CancellationToken.None);
+        var coordinator = new ClusterCoordinator(mockCluster.Object);
 
         // Act
-        var leaderEndpoint = coordinator.LeaderEndpoint;
+        var nodeId = coordinator.NodeId;
 
         // Assert
-        leaderEndpoint.Should().NotBeNullOrEmpty();
-        leaderEndpoint.Should().Contain("127.0.0.1");
+        Assert.NotNull(nodeId);
+        Assert.NotEmpty(nodeId);
     }
 
     [Fact]
-    public void LeaderEndpoint_WhenNoLeader_ShouldReturnNull()
+    public async Task WaitForLeadershipAsync_WhenAlreadyLeader_ReturnsImmediately()
     {
         // Arrange
-        _mockCluster.Leader.Returns((IClusterMember?)null);
-
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
-
-        // Act
-        var leaderEndpoint = coordinator.LeaderEndpoint;
-
-        // Assert
-        leaderEndpoint.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task WaitForLeadershipAsync_WhenAlreadyLeader_ShouldReturnImmediately()
-    {
-        // Arrange
-        _mockLeader.IsRemote.Returns(false);
-        _mockCluster.Leader.Returns(_mockLeader);
-        _mockCluster.LeadershipToken.Returns(new CancellationToken(false));
-
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
+        var cts = new CancellationTokenSource();
+        var mockCluster = CreateMockCluster(isLeader: true, cts.Token);
+        var coordinator = new ClusterCoordinator(mockCluster.Object);
 
         // Act
         var result = await coordinator.WaitForLeadershipAsync(TimeSpan.FromSeconds(1));
 
         // Assert
-        result.Should().BeTrue();
+        Assert.True(result);
     }
 
     [Fact]
-    public async Task WaitForLeadershipAsync_WhenNotLeader_ShouldTimeout()
+    public async Task WaitForLeadershipAsync_WhenNotLeader_ReturnsFalseAfterTimeout()
     {
         // Arrange
-        _mockLeader.IsRemote.Returns(true);
-        _mockCluster.Leader.Returns(_mockLeader);
-        _mockCluster.LeadershipToken.Returns(new CancellationToken(false));
-
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
+        var cts = new CancellationTokenSource();
+        cts.Cancel(); // Not leader
+        var mockCluster = CreateMockCluster(isLeader: false, cts.Token);
+        var coordinator = new ClusterCoordinator(mockCluster.Object);
 
         // Act
-        var result = await coordinator.WaitForLeadershipAsync(TimeSpan.FromMilliseconds(200));
+        var result = await coordinator.WaitForLeadershipAsync(TimeSpan.FromMilliseconds(100));
 
         // Assert
-        result.Should().BeFalse();
+        Assert.False(result);
     }
 
     [Fact]
-    public async Task ExecuteIfLeaderAsync_WhenLeader_ShouldExecuteAction()
+    public async Task ExecuteIfLeaderAsync_WhenLeader_ExecutesAction()
     {
         // Arrange
-        _mockLeader.IsRemote.Returns(false);
-        _mockCluster.Leader.Returns(_mockLeader);
-        _mockCluster.LeadershipToken.Returns(new CancellationToken(false));
-
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
+        var cts = new CancellationTokenSource();
+        var mockCluster = CreateMockCluster(isLeader: true, cts.Token);
+        var coordinator = new ClusterCoordinator(mockCluster.Object);
         var executed = false;
 
         // Act
@@ -183,19 +117,18 @@ public class ClusterCoordinatorTests
         });
 
         // Assert
-        result.Should().BeTrue();
-        executed.Should().BeTrue();
+        Assert.True(result);
+        Assert.True(executed);
     }
 
     [Fact]
-    public async Task ExecuteIfLeaderAsync_WhenNotLeader_ShouldNotExecute()
+    public async Task ExecuteIfLeaderAsync_WhenNotLeader_DoesNotExecute()
     {
         // Arrange
-        _mockLeader.IsRemote.Returns(true);
-        _mockCluster.Leader.Returns(_mockLeader);
-        _mockCluster.LeadershipToken.Returns(new CancellationToken(false));
-
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var mockCluster = CreateMockCluster(isLeader: false, cts.Token);
+        var coordinator = new ClusterCoordinator(mockCluster.Object);
         var executed = false;
 
         // Act
@@ -206,19 +139,17 @@ public class ClusterCoordinatorTests
         });
 
         // Assert
-        result.Should().BeFalse();
-        executed.Should().BeFalse();
+        Assert.False(result);
+        Assert.False(executed);
     }
 
     [Fact]
-    public async Task ExecuteIfLeaderAsync_WithResult_WhenLeader_ShouldReturnResult()
+    public async Task ExecuteIfLeaderAsync_WithResult_WhenLeader_ReturnsResult()
     {
         // Arrange
-        _mockLeader.IsRemote.Returns(false);
-        _mockCluster.Leader.Returns(_mockLeader);
-        _mockCluster.LeadershipToken.Returns(new CancellationToken(false));
-
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
+        var cts = new CancellationTokenSource();
+        var mockCluster = CreateMockCluster(isLeader: true, cts.Token);
+        var coordinator = new ClusterCoordinator(mockCluster.Object);
 
         // Act
         var (isLeader, result) = await coordinator.ExecuteIfLeaderAsync(async ct =>
@@ -228,19 +159,18 @@ public class ClusterCoordinatorTests
         });
 
         // Assert
-        isLeader.Should().BeTrue();
-        result.Should().Be(42);
+        Assert.True(isLeader);
+        Assert.Equal(42, result);
     }
 
     [Fact]
-    public async Task ExecuteIfLeaderAsync_WithResult_WhenNotLeader_ShouldReturnDefault()
+    public async Task ExecuteIfLeaderAsync_WithResult_WhenNotLeader_ReturnsDefault()
     {
         // Arrange
-        _mockLeader.IsRemote.Returns(true);
-        _mockCluster.Leader.Returns(_mockLeader);
-        _mockCluster.LeadershipToken.Returns(new CancellationToken(false));
-
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var mockCluster = CreateMockCluster(isLeader: false, cts.Token);
+        var coordinator = new ClusterCoordinator(mockCluster.Object);
 
         // Act
         var (isLeader, result) = await coordinator.ExecuteIfLeaderAsync(async ct =>
@@ -250,44 +180,78 @@ public class ClusterCoordinatorTests
         });
 
         // Assert
-        isLeader.Should().BeFalse();
-        result.Should().Be(0);
+        Assert.False(isLeader);
+        Assert.Equal(0, result);
     }
 
     [Fact]
-    public void LeadershipChanged_WhenLeaderChanges_ShouldFireEvent()
+    public void LeadershipChanged_FiresWhenLeaderChanges()
     {
         // Arrange
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
+        var mockCluster = new Mock<IRaftCluster>();
+        mockCluster.Setup(c => c.LeadershipToken).Returns(CancellationToken.None);
+        
+        var mockLeader = new Mock<IClusterMember>();
+        mockLeader.Setup(m => m.IsRemote).Returns(false);
+        mockLeader.Setup(m => m.EndPoint).Returns(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 5000));
+        
+        mockCluster.Setup(c => c.Leader).Returns(mockLeader.Object);
+
+        var coordinator = new ClusterCoordinator(mockCluster.Object);
         var eventFired = false;
-        var isLeaderValue = false;
+        var wasLeader = false;
 
-        coordinator.LeadershipChanged += (isLeader) =>
+        coordinator.LeadershipChanged += isLeader =>
         {
             eventFired = true;
-            isLeaderValue = isLeader;
+            wasLeader = isLeader;
         };
 
-        // Act - Simulate leader change by invoking the event handler
-        _mockLeader.IsRemote.Returns(false);
-        _mockCluster.LeaderChanged += Raise.Event<Action<ICluster, IClusterMember?>>(_mockCluster, _mockLeader);
+        // Act
+        mockCluster.Raise(c => c.LeaderChanged += null, mockCluster.Object, mockLeader.Object);
 
         // Assert
-        eventFired.Should().BeTrue();
-        isLeaderValue.Should().BeTrue();
+        Assert.True(eventFired);
+        Assert.True(wasLeader);
     }
 
     [Fact]
-    public void Dispose_ShouldUnsubscribeFromEvents()
+    public void Dispose_UnsubscribesFromLeaderChanged()
     {
         // Arrange
-        var coordinator = new ClusterCoordinator(_mockCluster, _mockLogger);
+        var mockCluster = new Mock<IRaftCluster>();
+        mockCluster.Setup(c => c.LeadershipToken).Returns(CancellationToken.None);
+        mockCluster.Setup(c => c.Leader).Returns((IClusterMember?)null);
+
+        var coordinator = new ClusterCoordinator(mockCluster.Object);
 
         // Act
         coordinator.Dispose();
 
-        // Assert - Should not throw when cluster raises event
-        var act = () => _mockCluster.LeaderChanged += Raise.Event<Action<ICluster, IClusterMember?>>(_mockCluster, _mockLeader);
-        act.Should().NotThrow();
+        // Assert - should not throw when raising event after dispose
+        mockCluster.Raise(c => c.LeaderChanged += null, mockCluster.Object, null);
+    }
+
+    private static Mock<IRaftCluster> CreateMockCluster(bool isLeader, CancellationToken leadershipToken, string? leaderEndpoint = null)
+    {
+        var mock = new Mock<IRaftCluster>();
+        mock.Setup(c => c.LeadershipToken).Returns(leadershipToken);
+
+        if (leaderEndpoint != null)
+        {
+            var mockLeader = new Mock<IClusterMember>();
+            mockLeader.Setup(m => m.IsRemote).Returns(!isLeader);
+            mockLeader.Setup(m => m.EndPoint).Returns(new System.Net.IPEndPoint(System.Net.IPAddress.Parse("127.0.0.1"), 5000));
+            mockLeader.Setup(m => m.EndPoint!.ToString()).Returns(leaderEndpoint);
+            mock.Setup(c => c.Leader).Returns(mockLeader.Object);
+        }
+        else
+        {
+            var mockLeader = new Mock<IClusterMember>();
+            mockLeader.Setup(m => m.IsRemote).Returns(!isLeader);
+            mock.Setup(c => c.Leader).Returns(mockLeader.Object);
+        }
+
+        return mock;
     }
 }

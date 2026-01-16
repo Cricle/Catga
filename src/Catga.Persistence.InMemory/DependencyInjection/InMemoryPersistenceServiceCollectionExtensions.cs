@@ -117,7 +117,7 @@ public static class InMemoryPersistenceServiceCollectionExtensions
     public static IServiceCollection AddInMemoryDslFlowStore(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.TryAddSingleton<Catga.Flow.Dsl.IDslFlowStore>(sp => new InMemoryDslFlowStore(sp.GetRequiredService<IMessageSerializer>()));
+        services.TryAddSingleton<Catga.Flow.Dsl.IDslFlowStore, InMemoryDslFlowStore>();
         return services;
     }
 

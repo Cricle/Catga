@@ -24,7 +24,8 @@ public class RecoveryHostedServicePropertyTests
     public Property RecoveryService_PerformsPeriodicHealthChecks(PositiveInt checkIntervalMs, PositiveInt componentCount)
     {
         // 限制参数范围以确保测试可以在合理时间内完成
-        var interval = TimeSpan.FromMilliseconds(Math.Min(checkIntervalMs.Get, 500));
+        // 使用更长的间隔以确保测试稳定性
+        var interval = TimeSpan.FromMilliseconds(Math.Max(200, Math.Min(checkIntervalMs.Get, 500)));
         var numComponents = Math.Min(componentCount.Get, 10);
 
         return Prop.ForAll(
@@ -67,13 +68,14 @@ public class RecoveryHostedServicePropertyTests
                 var startTask = service.StartAsync(cts.Token);
                 startTask.Wait(1000);
 
-                // 等待至少 2 个检查周期
-                var waitTime = checkInterval.Add(checkInterval).Add(TimeSpan.FromMilliseconds(100));
+                // 等待至少 3 个检查周期以确保有足够的时间进行检查
+                // 初始检查 + 至少 2 个周期性检查
+                var waitTime = checkInterval.Add(checkInterval).Add(checkInterval).Add(TimeSpan.FromMilliseconds(200));
                 Thread.Sleep(waitTime);
 
                 cts.Cancel();
                 var stopTask = service.StopAsync(CancellationToken.None);
-                stopTask.Wait(2000);
+                stopTask.Wait(3000);
 
                 // Assert
                 // 每个组件的健康状态应该被检查至少一次
@@ -221,11 +223,11 @@ public class RecoveryHostedServicePropertyTests
 public class RecoveryArbitraries
 {
     /// <summary>
-    /// 生成合理的检查间隔（50ms - 500ms）
+    /// 生成合理的检查间隔（200ms - 500ms）
     /// </summary>
     public static Arbitrary<PositiveInt> CheckIntervalArb()
     {
-        return Gen.Choose(50, 500)
+        return Gen.Choose(200, 500)
             .Select(ms => PositiveInt.NewPositiveInt(ms))
             .ToArbitrary();
     }

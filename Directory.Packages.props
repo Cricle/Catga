@@ -20,7 +20,16 @@
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.0" />
     <PackageVersion Include="PolySharp" Version="1.15.0" />
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.0" />
@@ -57,18 +66,8 @@
     <!-- Property-Based Testing -->
     <PackageVersion Include="FsCheck" Version="2.16.6" />
     <PackageVersion Include="FsCheck.Xunit" Version="2.16.6" />
-    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
     <!-- Web API -->
-    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.8" />
-    <PackageVersion Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="7.2.0" />
-    <!-- SQLite (AOT compatible) -->
-    <PackageVersion Include="Microsoft.Data.Sqlite" Version="9.0.0" />
-    <!-- Hosting -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
-    <!-- Health Checks -->
-    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="9.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="9.0.0" />
     <!-- SourceLink -->
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
     <!-- Roslyn (Source Generators & Analyzers) -->
@@ -87,12 +86,10 @@
     <PackageVersion Include="DistributedLock.FileSystem" Version="1.0.3" />
     <PackageVersion Include="DistributedLock.WaitHandles" Version="1.0.1" />
     <!-- .NET Aspire -->
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="9.0.0" />
-    <PackageVersion Include="Aspire.Hosting.Redis" Version="9.0.0" />
-    <PackageVersion Include="Aspire.Hosting.Nats" Version="9.0.0" />
-    <PackageVersion Include="Aspire.StackExchange.Redis" Version="9.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="9.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.0.0" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="10.0.0" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="10.0.0" />
+    <PackageVersion Include="Aspire.Hosting.Nats" Version="10.0.0" />
+    <PackageVersion Include="Aspire.StackExchange.Redis" Version="10.0.0" />
     <!-- OpenTelemetry -->
     <PackageVersion Include="OpenTelemetry" Version="1.10.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.10.0" />
@@ -104,9 +101,8 @@
     <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     <PackageVersion Include="Spectre.Console" Version="0.49.1" />
     <!-- Authentication & Security -->
-    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.1.2" />
-    <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.1.2" />
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
+    <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.2.1" />
     <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
     <!-- Quartz.NET Scheduling -->
     <PackageVersion Include="Quartz" Version="3.13.1" />

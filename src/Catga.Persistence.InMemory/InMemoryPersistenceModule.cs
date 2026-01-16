@@ -53,7 +53,7 @@ public sealed class InMemoryPersistenceModule : IPersistenceModule
         services.TryAddSingleton<IDistributedLockProvider>(new FileDistributedSynchronizationProvider(lockDir));
 
         services.TryAddSingleton<IFlowStore, InMemoryFlowStore>();
-        services.TryAddSingleton<IDslFlowStore>(sp => new InMemoryDslFlowStore(sp.GetRequiredService<IMessageSerializer>()));
+        services.TryAddSingleton<IDslFlowStore, InMemoryDslFlowStore>();
 
         if (Options.IdempotencyRetention != TimeSpan.FromHours(24))
         {

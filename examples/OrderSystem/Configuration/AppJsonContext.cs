@@ -3,6 +3,8 @@ using Catga.Core;
 using OrderSystem.Commands;
 using OrderSystem.Dtos;
 using OrderSystem.Events;
+using OrderSystem.Extensions;
+using OrderSystem.Flows;
 using OrderSystem.Models;
 
 namespace OrderSystem.Configuration;
@@ -16,6 +18,7 @@ namespace OrderSystem.Configuration;
 [JsonSerializable(typeof(OrderPaidEvent))]
 [JsonSerializable(typeof(OrderShippedEvent))]
 [JsonSerializable(typeof(OrderCancelledEvent))]
+[JsonSerializable(typeof(OrderCompletedEvent))]
 [JsonSerializable(typeof(CreateOrderRequest))]
 [JsonSerializable(typeof(PayOrderRequest))]
 [JsonSerializable(typeof(ShipOrderRequest))]
@@ -26,4 +29,7 @@ namespace OrderSystem.Configuration;
 [JsonSerializable(typeof(List<object>))]
 [JsonSerializable(typeof(ErrorInfo))]
 [JsonSerializable(typeof(OrderStatus))]
+[JsonSerializable(typeof(OrderType))]
+[JsonSerializable(typeof(StartFulfillmentRequest))]
+[JsonSerializable(typeof(StartComplexOrderRequest))]
 internal partial class AppJsonContext : JsonSerializerContext;

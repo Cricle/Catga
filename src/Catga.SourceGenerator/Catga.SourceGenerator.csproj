@@ -2,8 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
     <ImplicitUsings>false</ImplicitUsings>
     <IsRoslynComponent>true</IsRoslynComponent>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
@@ -15,7 +13,6 @@
     <EnableSingleFileAnalyzer>false</EnableSingleFileAnalyzer>
 
     <!-- NuGet package metadata -->
-    <PackageId>Catga.SourceGenerator</PackageId>
     <Description>Source generator for Catga framework - Automatic handler registration with AOT support</Description>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <DevelopmentDependency>true</DevelopmentDependency>

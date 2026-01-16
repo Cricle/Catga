@@ -26,3 +26,9 @@ public partial record OrderCancelledEvent(string OrderId, DateTime CancelledAt) 
 {
     public long MessageId { get; init; }
 }
+
+[MemoryPackable]
+public partial record OrderCompletedEvent(string OrderId, decimal Total) : IEvent
+{
+    public long MessageId { get; init; }
+}

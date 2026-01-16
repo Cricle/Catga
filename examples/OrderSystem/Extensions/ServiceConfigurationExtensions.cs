@@ -72,6 +72,10 @@ public static class ServiceConfigurationExtensions
         });
         Console.WriteLine("✓ Hosted Services: Enabled (Recovery, Transport, Outbox)");
 
+        // Add Flow DSL support
+        catga.AddFlows();
+        Console.WriteLine("✓ Flow DSL: Enabled");
+
         // Add health checks
         services.AddHealthChecks().AddCatgaHealthChecks();
         Console.WriteLine("✓ Health Checks: Enabled");

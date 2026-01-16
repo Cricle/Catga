@@ -29,4 +29,4 @@ public partial record CancelOrderCommand(string OrderId) : IRequest
 }
 
 [MemoryPackable]
-public partial record OrderCreatedResult(string OrderId, decimal Total, DateTime CreatedAt);
+public partial record OrderCreatedResult(string OrderId, string CustomerId, decimal Total, DateTime CreatedAt);

@@ -210,34 +210,55 @@ public sealed class NatsFlowStore : IFlowStore
     }
 
     // Index management
-    private async ValueTask AddToTypeIndexAsync(string type, string flowId, CancellationToken ct)
+    private async ValueTask AddToTypeIndexAsync(string type, string flowId, CancellationToken ct, int maxRetries = 10)
     {
         var indexKey = $"type_{EncodeId(type)}";
-        try
+        
+        for (int attempt = 0; attempt < maxRetries; attempt++)
         {
-            var entry = await _indexStore!.GetEntryAsync<byte[]>(indexKey, cancellationToken: ct);
-            var ids = _serializer.Deserialize<HashSet<string>>(entry.Value!) ?? [];
-            ids.Add(flowId);
-            await _indexStore!.UpdateAsync(indexKey, _serializer.Serialize(ids), entry.Revision, cancellationToken: ct);
-        }
-        catch (NatsKVKeyNotFoundException)
-        {
-            var ids = new HashSet<string> { flowId };
             try
             {
-                await _indexStore!.CreateAsync(indexKey, _serializer.Serialize(ids), cancellationToken: ct);
+                try
+                {
+                    var entry = await _indexStore!.GetEntryAsync<byte[]>(indexKey, cancellationToken: ct);
+                    var ids = _serializer.Deserialize<HashSet<string>>(entry.Value!) ?? [];
+                    ids.Add(flowId);
+                    await _indexStore!.UpdateAsync(indexKey, _serializer.Serialize(ids), entry.Revision, cancellationToken: ct);
+                    return; // Success
+                }
+                catch (NatsKVKeyNotFoundException)
+                {
+                    var ids = new HashSet<string> { flowId };
+                    try
+                    {
+                        await _indexStore!.CreateAsync(indexKey, _serializer.Serialize(ids), cancellationToken: ct);
+                        return; // Success
+                    }
+                    catch (NatsKVCreateException)
+                    {
+                        // Race condition, retry
+                        if (attempt < maxRetries - 1)
+                        {
+                            await Task.Delay(TimeSpan.FromMilliseconds(Math.Pow(2, attempt)), ct);
+                            continue;
+                        }
+                        throw;
+                    }
+                }
             }
-            catch (NatsKVCreateException)
+            catch (NatsKVWrongLastRevisionException)
             {
-                // Race condition, retry
-                await AddToTypeIndexAsync(type, flowId, ct);
+                // Version conflict, retry with exponential backoff
+                if (attempt < maxRetries - 1)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(Math.Pow(2, attempt)), ct);
+                    continue;
+                }
+                throw;
             }
         }
-        catch (NatsKVWrongLastRevisionException)
-        {
-            // Retry on conflict
-            await AddToTypeIndexAsync(type, flowId, ct);
-        }
+        
+        throw new InvalidOperationException($"Failed to add flow to type index after {maxRetries} attempts");
     }
 
     private async ValueTask<IEnumerable<string>> GetTypeIndexAsync(string type, CancellationToken ct)

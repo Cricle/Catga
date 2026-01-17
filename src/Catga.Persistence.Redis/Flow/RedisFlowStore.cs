@@ -63,6 +63,22 @@ public sealed class RedisFlowStore : IFlowStore
 
     public async ValueTask<bool> CreateAsync(FlowState state, CancellationToken ct = default)
     {
+        // Validate input
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentException.ThrowIfNullOrWhiteSpace(state.Id, nameof(state.Id));
+        ArgumentException.ThrowIfNullOrWhiteSpace(state.Type, nameof(state.Type));
+        
+        if (state.Id.Length > 256)
+            throw new ArgumentException("Flow ID too long (max 256 characters)", nameof(state.Id));
+        if (state.Type.Length > 256)
+            throw new ArgumentException("Flow Type too long (max 256 characters)", nameof(state.Type));
+        if (state.Owner != null && state.Owner.Length > 256)
+            throw new ArgumentException("Owner too long (max 256 characters)", nameof(state.Owner));
+        if (state.Error != null && state.Error.Length > 4096)
+            throw new ArgumentException("Error message too long (max 4096 characters)", nameof(state.Error));
+        if (state.Data != null && state.Data.Length > 1024 * 1024)
+            throw new ArgumentException("Data too large (max 1MB)", nameof(state.Data));
+
         var db = _redis.GetDatabase();
         var key = _prefix + state.Id;
         var typeKey = _prefix + "type:" + state.Type;
@@ -85,6 +101,17 @@ public sealed class RedisFlowStore : IFlowStore
 
     public async ValueTask<bool> UpdateAsync(FlowState state, CancellationToken ct = default)
     {
+        // Validate input
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentException.ThrowIfNullOrWhiteSpace(state.Id, nameof(state.Id));
+        
+        if (state.Owner != null && state.Owner.Length > 256)
+            throw new ArgumentException("Owner too long (max 256 characters)", nameof(state.Owner));
+        if (state.Error != null && state.Error.Length > 4096)
+            throw new ArgumentException("Error message too long (max 4096 characters)", nameof(state.Error));
+        if (state.Data != null && state.Data.Length > 1024 * 1024)
+            throw new ArgumentException("Data too large (max 1MB)", nameof(state.Data));
+
         var db = _redis.GetDatabase();
         var key = _prefix + state.Id;
         var newVersion = state.Version + 1;

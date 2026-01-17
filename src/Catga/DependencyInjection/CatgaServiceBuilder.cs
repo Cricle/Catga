@@ -276,15 +276,16 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
             // Validate worker ID is within valid range (0-255 for default 44-8-11 Snowflake layout)
             if (workerId >= 0 && workerId <= 255)
             {
-                Console.WriteLine($"[Catga] Using WorkerId from {envVarName}: {workerId}");
                 return workerId;
             }
         }
 
-        // Generate a random worker ID (0-255 for default 8-bit worker ID)
-        // WARNING: Random WorkerId is NOT recommended for production clusters!
-        var randomWorkerId = Random.Shared.Next(0, 256);
-        Console.WriteLine($"[Catga] ⚠️ No valid {envVarName} found, using random WorkerId: {randomWorkerId} (NOT recommended for production!)");
-        return randomWorkerId;
+        // CRITICAL: WorkerId MUST be explicitly configured in production clusters
+        // Random WorkerId can cause ID conflicts in distributed environments
+        throw new InvalidOperationException(
+            $"[Catga] CRITICAL: No valid {envVarName} environment variable found. " +
+            $"WorkerId MUST be explicitly configured to prevent ID conflicts in distributed clusters. " +
+            $"Set {envVarName}=<unique_id> for each node (0-255). " +
+            $"Example: {envVarName}=1 for node 1, {envVarName}=2 for node 2, etc.");
     }
 }

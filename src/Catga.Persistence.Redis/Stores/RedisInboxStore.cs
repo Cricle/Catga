@@ -20,6 +20,41 @@ public sealed class RedisInboxStore : RedisStoreBase, IInboxStore
 {
     private readonly IResiliencePipelineProvider _provider;
 
+    // Lua script for atomic lock acquisition with status check
+    private const string TryLockScript = @"
+        -- Check if already processed
+        local status = redis.call('HGET', KEYS[1], 'Status')
+        if status == '2' then return 0 end
+        
+        -- Try to acquire lock
+        local lockKey = KEYS[2]
+        local now = tonumber(ARGV[1])
+        local lockDurationMs = tonumber(ARGV[2])
+        
+        -- Check if lock exists
+        local existingLock = redis.call('GET', lockKey)
+        if existingLock then
+            local lockTime = tonumber(existingLock)
+            -- Check if lock is expired
+            if now - lockTime <= lockDurationMs then
+                return 0  -- Lock still valid
+            end
+            -- Lock expired, delete it
+            redis.call('DEL', lockKey)
+        end
+        
+        -- Acquire lock with expiry
+        redis.call('SET', lockKey, ARGV[1], 'PX', ARGV[2])
+        
+        -- Update message status
+        redis.call('HSET', KEYS[1], 
+            'MessageId', ARGV[3],
+            'Status', '1',
+            'LockExpiresAt', ARGV[4])
+        
+        return 1
+    ";
+
     public RedisInboxStore(
         IConnectionMultiplexer redis,
         IMessageSerializer serializer,
@@ -38,37 +73,18 @@ public sealed class RedisInboxStore : RedisStoreBase, IInboxStore
             var db = GetDatabase();
             var key = BuildKey(messageId);
             var lockKey = $"{key}:lock";
+            var now = DateTime.UtcNow.Ticks;
+            var lockDurationMs = (long)lockDuration.TotalMilliseconds;
+            var lockExpiresAt = DateTime.UtcNow.Add(lockDuration).Ticks;
 
-            // Check if already processed
-            var statusBytes = await db.HashGetAsync(key, "Status");
-            if (statusBytes.HasValue && (InboxStatus)(int)statusBytes == InboxStatus.Processed)
-                return false;
+            // Use Lua script for atomic lock acquisition
+            var result = await db.ScriptEvaluateAsync(TryLockScript,
+                [key, lockKey],
+                [now.ToString(), lockDurationMs.ToString(), messageId.ToString(), lockExpiresAt.ToString()]);
 
-            // Try to acquire lock using SET NX with expiry
-            var lockAcquired = await db.StringSetAsync(lockKey, (RedisValue)DateTime.UtcNow.Ticks, lockDuration, When.NotExists);
-            if (!lockAcquired)
-            {
-                // Check if existing lock is expired
-                var existingLock = await db.StringGetAsync(lockKey);
-                if (existingLock.HasValue)
-                {
-                    var lockTime = new DateTime((long)existingLock);
-                    if (DateTime.UtcNow - lockTime > lockDuration)
-                    {
-                        // Lock expired, try to take over
-                        await db.KeyDeleteAsync(lockKey);
-                        lockAcquired = await db.StringSetAsync(lockKey, (RedisValue)DateTime.UtcNow.Ticks, lockDuration, When.NotExists);
-                    }
-                }
-            }
-
+            var lockAcquired = (long)result! == 1;
             if (lockAcquired)
             {
-                await db.HashSetAsync(key, [
-                    new HashEntry("MessageId", messageId),
-                    new HashEntry("Status", (RedisValue)(int)InboxStatus.Processing),
-                    new HashEntry("LockExpiresAt", (RedisValue)DateTime.UtcNow.Add(lockDuration).Ticks)
-                ]);
                 CatgaDiagnostics.InboxLocksAcquired.Add(1);
             }
 

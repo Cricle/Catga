@@ -28,6 +28,9 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
     private readonly bool _enableLogging;
     private readonly bool _enableTracing;
 
+    /// <summary>Initial size for event handler array pool.</summary>
+    private const int InitialEventHandlerPoolSize = 8;
+
     /// <summary>Static handler cache shared across all instances for zero-allocation dispatch.</summary>
     private static readonly ConcurrentDictionary<Type, object?> _handlerCache = new();
 
@@ -155,13 +158,12 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         CancellationToken cancellationToken)
         where TRequest : IRequest<TResponse>
     {
-        var handler = GetCachedHandler<TRequest, TResponse>();
+        var (handler, behaviors) = GetHandlerAndBehaviors<TRequest, TResponse>();
         if (handler == null)
             return ValueTask.FromResult(CatgaResult<TResponse>.Failure(
                 $"No handler for {TypeNameCache<TRequest>.Name}",
                 new HandlerNotFoundException(TypeNameCache<TRequest>.Name)));
 
-        var behaviors = GetCachedBehaviors<TRequest, TResponse>();
         return behaviors.Count == 0
             ? ExecuteHandlerAsync(handler, request, cancellationToken)
             : ExecutePipelineAsync(handler, request, behaviors, cancellationToken);
@@ -255,15 +257,12 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         try
         {
             // Fast-path: get handler from static cache
-            var handler = GetCachedHandler<TRequest, TResponse>();
+            var (handler, behaviorsList) = GetHandlerAndBehaviors<TRequest, TResponse>();
             if (handler == null)
             {
                 if (_enableTracing) ObservabilityHooks.RecordCommandError(reqType ?? TypeNameCache<TRequest>.Name, new HandlerNotFoundException(TypeNameCache<TRequest>.Name), activity);
                 return CatgaResult<TResponse>.Failure($"No handler for {TypeNameCache<TRequest>.Name}", new HandlerNotFoundException(TypeNameCache<TRequest>.Name));
             }
-
-            // Fast-path: get behaviors from static cache
-            var behaviorsList = GetCachedBehaviors<TRequest, TResponse>();
 
             if (behaviorsList.Count == 0)
                 return await ExecuteHandlerAsync(handler, request, cancellationToken).ConfigureAwait(false);
@@ -354,7 +353,7 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         // Fallback to dynamic resolution with pooled arrays
         var handlersEnumerable = _serviceProvider.GetServices<IEventHandler<TEvent>>();
         var pool = ArrayPool<IEventHandler<TEvent>>.Shared;
-        var arr = pool.Rent(8);
+        var arr = pool.Rent(InitialEventHandlerPoolSize);
         var count = 0;
 
         try
@@ -477,6 +476,19 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
     #endregion
 
     #region Caching
+
+    /// <summary>
+    /// Gets handler and behaviors from cache or resolves from DI.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private (IRequestHandler<TRequest, TResponse>? handler, IList<IPipelineBehavior<TRequest, TResponse>> behaviors) 
+        GetHandlerAndBehaviors<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>()
+        where TRequest : IRequest<TResponse>
+    {
+        var handler = GetCachedHandler<TRequest, TResponse>();
+        var behaviors = GetCachedBehaviors<TRequest, TResponse>();
+        return (handler, behaviors);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IRequestHandler<TRequest, TResponse>? GetCachedHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>()

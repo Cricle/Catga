@@ -1605,3 +1605,443 @@ if (newCount > _options.MaxQueueLength)
 **审查人**: AI Assistant  
 **审查日期**: 2026-01-17  
 **审查状态**: ✅ **完成** - 所有严重和中等问题已修复
+
+
+---
+
+## 🔐 安全性和分布式系统深度审查 (2026-01-17)
+
+### 🔴 严重安全问题
+
+#### 1. **WorkerId 随机生成导致 ID 冲突风险** (严重)
+
+**位置**: `src/Catga/DependencyInjection/CatgaServiceBuilder.cs:GetWorkerIdFromEnvironment()`
+
+**问题**: 
+```csharp
+// ❌ 严重安全隐患
+var randomWorkerId = Random.Shared.Next(0, 256);
+Console.WriteLine($"[Catga] ⚠️ No valid {envVarName} found, using random WorkerId: {randomWorkerId} (NOT recommended for production!)");
+return randomWorkerId;
+```
+
+**风险分析**:
+- 🔴 **ID 冲突**: 在集群环境中，多个节点可能生成相同的 WorkerId
+- 🔴 **数据一致性**: ID 冲突会导致分布式 ID 重复，破坏唯一性保证
+- 🔴 **生产事故**: 可能导致数据覆盖、事务冲突、审计失败
+- 🔴 **难以调试**: 随机 ID 使问题难以复现和追踪
+
+**影响范围**:
+- 所有使用 `IDistributedIdGenerator` 的场景
+- 消息 ID、聚合 ID、事件 ID 等
+- 分布式事务、幂等性、去重
+
+**建议修复**:
+```csharp
+private static int GetWorkerIdFromEnvironment(string envVarName)
+{
+    var envValue = Environment.GetEnvironmentVariable(envVarName);
+    if (!string.IsNullOrEmpty(envValue) && int.TryParse(envValue, out var workerId))
+    {
+        if (workerId >= 0 && workerId <= 255)
+        {
+            Console.WriteLine($"[Catga] Using WorkerId from {envVarName}: {workerId}");
+            return workerId;
+        }
+    }
+
+    // ✅ 修复：抛出异常而不是使用随机值
+    throw new InvalidOperationException(
+        $"[Catga] CRITICAL: No valid {envVarName} environment variable found. " +
+        $"WorkerId MUST be explicitly configured in production clusters to prevent ID conflicts. " +
+        $"Set {envVarName}=<unique_id> for each node (0-255).");
+}
+```
+
+**替代方案**:
+```csharp
+// 选项 1: 使用 MAC 地址哈希（仍有冲突风险）
+private static int GetWorkerIdFromMacAddress()
+{
+    var mac = NetworkInterface.GetAllNetworkInterfaces()
+        .FirstOrDefault(n => n.OperationalStatus == OperationalStatus.Up)
+        ?.GetPhysicalAddress().GetAddressBytes();
+    if (mac != null)
+        return mac[^1] % 256; // 使用最后一个字节
+    throw new InvalidOperationException("Cannot determine WorkerId from MAC address");
+}
+
+// 选项 2: 使用主机名哈希（更可靠）
+private static int GetWorkerIdFromHostname()
+{
+    var hostname = Environment.MachineName;
+    var hash = hostname.GetHashCode();
+    return Math.Abs(hash) % 256;
+}
+
+// 选项 3: 从配置中心获取（推荐）
+private static async Task<int> GetWorkerIdFromConfigCenter(IConfigurationService config)
+{
+    var workerId = await config.RegisterNodeAndGetWorkerIdAsync();
+    return workerId;
+}
+```
+
+---
+
+#### 2. **RedisInboxStore 分布式锁存在竞态条件** (严重)
+
+**位置**: `src/Catga.Persistence.Redis/Stores/RedisInboxStore.cs:TryLockMessageAsync()`
+
+**问题**:
+```csharp
+// ❌ 竞态条件：检查和获取锁之间有时间窗口
+var statusBytes = await db.HashGetAsync(key, "Status");
+if (statusBytes.HasValue && (InboxStatus)(int)statusBytes == InboxStatus.Processed)
+    return false;
+
+// 时间窗口：另一个线程可能在这里完成处理
+var lockAcquired = await db.StringSetAsync(lockKey, (RedisValue)DateTime.UtcNow.Ticks, lockDuration, When.NotExists);
+```
+
+**风险分析**:
+- 🔴 **重复处理**: 两个节点可能同时认为消息未处理
+- 🔴 **数据不一致**: 幂等性保证失效
+- 🟡 **锁过期检查不原子**: 检查过期和重新获取锁之间有竞态
+
+**建议修复**:
+```csharp
+// ✅ 使用 Lua 脚本实现原子操作
+private const string TryLockScript = @"
+    -- Check if already processed
+    local status = redis.call('HGET', KEYS[1], 'Status')
+    if status == '2' then return 0 end
+    
+    -- Try to acquire lock
+    local lockKey = KEYS[2]
+    local lockAcquired = redis.call('SET', lockKey, ARGV[1], 'NX', 'PX', ARGV[2])
+    if not lockAcquired then
+        -- Check if lock is expired
+        local existingLock = redis.call('GET', lockKey)
+        if existingLock then
+            local lockTime = tonumber(existingLock)
+            local now = tonumber(ARGV[1])
+            local duration = tonumber(ARGV[2])
+            if now - lockTime > duration then
+                -- Lock expired, delete and retry
+                redis.call('DEL', lockKey)
+                lockAcquired = redis.call('SET', lockKey, ARGV[1], 'NX', 'PX', ARGV[2])
+            end
+        end
+    end
+    
+    if lockAcquired then
+        redis.call('HSET', KEYS[1], 
+            'MessageId', ARGV[3],
+            'Status', '1',
+            'LockExpiresAt', ARGV[4])
+        return 1
+    end
+    return 0
+";
+
+public async ValueTask<bool> TryLockMessageAsync(long messageId, TimeSpan lockDuration, CancellationToken ct = default)
+{
+    var db = GetDatabase();
+    var key = BuildKey(messageId);
+    var lockKey = $"{key}:lock";
+    var now = DateTime.UtcNow.Ticks;
+    var lockDurationMs = (long)lockDuration.TotalMilliseconds;
+    var lockExpiresAt = DateTime.UtcNow.Add(lockDuration).Ticks;
+
+    var result = await db.ScriptEvaluateAsync(TryLockScript,
+        [key, lockKey],
+        [now.ToString(), lockDurationMs.ToString(), messageId.ToString(), lockExpiresAt.ToString()]);
+
+    return (long)result! == 1;
+}
+```
+
+---
+
+#### 3. **Flow 心跳机制存在时钟漂移风险** (中等)
+
+**位置**: `src/Catga/Flow/Flow.cs:ExecuteAsync()` 和 `HeartbeatLoopAsync()`
+
+**问题**:
+```csharp
+// ❌ 使用本地时钟判断超时
+var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+if (nowMs - state.HeartbeatAt < _claimTimeoutMs)
+    return /* 被其他节点持有 */;
+```
+
+**风险分析**:
+- 🟡 **时钟漂移**: 不同节点的时钟可能不同步
+- 🟡 **脑裂风险**: 时钟快的节点可能过早声明其他节点超时
+- 🟡 **重复执行**: 多个节点可能同时认为 Flow 已超时
+
+**建议修复**:
+```csharp
+// ✅ 使用 Redis/NATS 服务器时间
+public async Task<FlowResult> ExecuteAsync(...)
+{
+    // 从存储获取服务器时间
+    var serverTimeMs = await _store.GetServerTimeAsync(ct);
+    
+    if (state.Owner != _nodeId)
+    {
+        if (serverTimeMs - state.HeartbeatAt < _claimTimeoutMs)
+            return /* 被其他节点持有 */;
+        
+        // 使用 CAS 更新，包含版本检查
+        state.Owner = _nodeId;
+        state.HeartbeatAt = serverTimeMs;
+        state.Version++; // 递增版本
+        
+        if (!await _store.UpdateAsync(state, ct))
+            return /* CAS 失败，其他节点已声明 */;
+    }
+}
+
+// IFlowStore 接口添加
+public interface IFlowStore
+{
+    // ... 现有方法
+    
+    /// <summary>Get server time to avoid clock drift issues</summary>
+    ValueTask<long> GetServerTimeAsync(CancellationToken ct = default);
+}
+```
+
+---
+
+#### 4. **Console.WriteLine 泄露敏感信息** (低-中等)
+
+**位置**: `src/Catga/DependencyInjection/CatgaServiceBuilder.cs`
+
+**问题**:
+```csharp
+// ⚠️ 可能泄露配置信息
+Console.WriteLine($"[Catga] Using WorkerId from {envVarName}: {workerId}");
+Console.WriteLine($"[Catga] ⚠️ No valid {envVarName} found, using random WorkerId: {randomWorkerId}");
+```
+
+**风险分析**:
+- 🟡 **信息泄露**: Console 输出可能被日志收集系统捕获
+- 🟡 **审计问题**: 生产环境应使用结构化日志
+- 🟢 **低风险**: WorkerId 本身不敏感，但模式不佳
+
+**建议修复**:
+```csharp
+// ✅ 使用 ILogger 而不是 Console
+private static int GetWorkerIdFromEnvironment(string envVarName, ILogger? logger = null)
+{
+    var envValue = Environment.GetEnvironmentVariable(envVarName);
+    if (!string.IsNullOrEmpty(envValue) && int.TryParse(envValue, out var workerId))
+    {
+        if (workerId >= 0 && workerId <= 255)
+        {
+            logger?.LogInformation("Using WorkerId from {EnvVar}: {WorkerId}", envVarName, workerId);
+            return workerId;
+        }
+    }
+
+    throw new InvalidOperationException($"No valid {envVarName} environment variable found");
+}
+```
+
+---
+
+### 🟡 中等安全问题
+
+#### 5. **RedisFlowStore Lua 脚本未验证输入** (中等)
+
+**位置**: `src/Catga.Persistence.Redis/Flow/RedisFlowStore.cs`
+
+**问题**:
+```csharp
+// ⚠️ 直接使用用户输入构造 Lua 脚本参数
+var result = await db.ScriptEvaluateAsync(CreateScript,
+    [key, typeKey],
+    [
+        state.Type,  // 未验证
+        ((int)state.Status).ToString(),
+        state.Step.ToString(),
+        // ...
+    ]);
+```
+
+**风险分析**:
+- 🟡 **注入风险**: 虽然 Lua 脚本参数是安全的，但应验证输入
+- 🟡 **数据完整性**: 恶意输入可能导致数据损坏
+
+**建议修复**:
+```csharp
+public async ValueTask<bool> CreateAsync(FlowState state, CancellationToken ct = default)
+{
+    // ✅ 验证输入
+    ArgumentNullException.ThrowIfNull(state);
+    ArgumentException.ThrowIfNullOrWhiteSpace(state.Id, nameof(state.Id));
+    ArgumentException.ThrowIfNullOrWhiteSpace(state.Type, nameof(state.Type));
+    
+    if (state.Id.Length > 256)
+        throw new ArgumentException("Flow ID too long (max 256 chars)", nameof(state.Id));
+    if (state.Type.Length > 256)
+        throw new ArgumentException("Flow Type too long (max 256 chars)", nameof(state.Type));
+    
+    // ... 原有逻辑
+}
+```
+
+---
+
+#### 6. **NatsFlowStore 递归重试可能导致栈溢出** (中等)
+
+**位置**: `src/Catga.Persistence.Nats/Flow/NatsFlowStore.cs:AddToTypeIndexAsync()`
+
+**问题**:
+```csharp
+// ⚠️ 无限递归风险
+catch (NatsKVWrongLastRevisionException)
+{
+    // Retry on conflict
+    await AddToTypeIndexAsync(type, flowId, ct);  // 递归调用
+}
+```
+
+**风险分析**:
+- 🟡 **栈溢出**: 高并发下可能导致无限递归
+- 🟡 **性能问题**: 递归调用开销大
+
+**建议修复**:
+```csharp
+private async ValueTask AddToTypeIndexAsync(string type, string flowId, CancellationToken ct, int maxRetries = 10)
+{
+    for (int attempt = 0; attempt < maxRetries; attempt++)
+    {
+        try
+        {
+            var indexKey = $"type_{EncodeId(type)}";
+            try
+            {
+                var entry = await _indexStore!.GetEntryAsync<byte[]>(indexKey, cancellationToken: ct);
+                var ids = _serializer.Deserialize<HashSet<string>>(entry.Value!) ?? [];
+                ids.Add(flowId);
+                await _indexStore!.UpdateAsync(indexKey, _serializer.Serialize(ids), entry.Revision, cancellationToken: ct);
+                return; // 成功
+            }
+            catch (NatsKVKeyNotFoundException)
+            {
+                var ids = new HashSet<string> { flowId };
+                try
+                {
+                    await _indexStore!.CreateAsync(indexKey, _serializer.Serialize(ids), cancellationToken: ct);
+                    return; // 成功
+                }
+                catch (NatsKVCreateException)
+                {
+                    // 竞态条件，重试
+                    continue;
+                }
+            }
+        }
+        catch (NatsKVWrongLastRevisionException)
+        {
+            // 版本冲突，重试
+            if (attempt < maxRetries - 1)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(Math.Pow(2, attempt)), ct);
+                continue;
+            }
+            throw;
+        }
+    }
+    
+    throw new InvalidOperationException($"Failed to add flow to type index after {maxRetries} attempts");
+}
+```
+
+---
+
+### 🟢 低优先级安全建议
+
+#### 7. **缺少速率限制** (低)
+
+**建议**: 为 API 端点添加速率限制，防止 DoS 攻击
+
+#### 8. **缺少输入长度限制** (低)
+
+**建议**: 为所有字符串输入添加长度限制，防止内存耗尽
+
+#### 9. **缺少审计日志** (低)
+
+**建议**: 为关键操作（Flow 声明、锁获取）添加审计日志
+
+---
+
+## 📊 安全审查总结
+
+### 发现的问题
+
+| 优先级 | 问题数 | 描述 |
+|--------|--------|------|
+| 🔴 严重 | 2 | WorkerId 随机生成、分布式锁竞态条件 |
+| 🟡 中等 | 4 | 时钟漂移、Console 输出、输入验证、递归重试 |
+| 🟢 低 | 3 | 速率限制、长度限制、审计日志 |
+
+### 修复优先级
+
+1. **立即修复** (P0):
+   - WorkerId 随机生成 → 抛出异常
+   - RedisInboxStore 分布式锁 → 使用 Lua 脚本
+
+2. **尽快修复** (P1):
+   - Flow 心跳时钟漂移 → 使用服务器时间
+   - NatsFlowStore 递归重试 → 改为循环
+
+3. **持续改进** (P2):
+   - Console.WriteLine → ILogger
+   - 输入验证
+   - 速率限制、审计日志
+
+### 安全评级
+
+**修复前**: ⭐⭐⭐☆☆ (3/5) - 存在严重安全隐患  
+**修复后**: ⭐⭐⭐⭐⭐ (5/5) - 生产就绪
+
+---
+
+## 🎯 分布式系统检查清单
+
+### ✅ 已验证项
+
+- [x] CAS 操作正确性
+- [x] 幂等性设计
+- [x] 心跳机制
+- [x] 超时恢复
+- [x] 版本控制
+
+### ⚠️ 需要改进项
+
+- [ ] WorkerId 分配策略
+- [ ] 分布式锁原子性
+- [ ] 时钟同步机制
+- [ ] 输入验证完整性
+- [ ] 递归调用限制
+
+### 🔒 安全最佳实践
+
+1. **永远不要使用随机值作为分布式 ID 的一部分**
+2. **分布式锁必须使用原子操作（Lua 脚本或事务）**
+3. **避免依赖本地时钟进行分布式协调**
+4. **所有外部输入必须验证**
+5. **递归调用必须有深度限制**
+6. **使用结构化日志而不是 Console 输出**
+
+---
+
+**审查人**: AI Assistant  
+**审查日期**: 2026-01-17  
+**审查类型**: 安全性和分布式系统深度审查  
+**审查状态**: ⚠️ **发现 2 个严重问题** - 需要立即修复

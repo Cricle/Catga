@@ -97,6 +97,8 @@ jobs:
     needs: [unit, integration]
     name: Build and Create NuGet Packages
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -116,39 +118,71 @@ jobs:
       run: dotnet restore
 
     - name: Build solution
-      run: dotnet build --no-restore --configuration Release /p:Version=${{ steps.get_version.outputs.VERSION }}
+      run: dotnet build --no-restore --configuration Release
 
     - name: Pack NuGet packages
       run: |
         # Core packages
-        dotnet pack src/Catga/Catga.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.AspNetCore/Catga.AspNetCore.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga/Catga.csproj --no-build --configuration Release --output ./artifacts
+        dotnet pack src/Catga.AspNetCore/Catga.AspNetCore.csproj --no-build --configuration Release --output ./artifacts
 
         # Persistence packages
-        dotnet pack src/Catga.Persistence.InMemory/Catga.Persistence.InMemory.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.Persistence.Nats/Catga.Persistence.Nats.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.Persistence.Redis/Catga.Persistence.Redis.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Persistence.InMemory/Catga.Persistence.InMemory.csproj --no-build --configuration Release --output ./artifacts
+        dotnet pack src/Catga.Persistence.Nats/Catga.Persistence.Nats.csproj --no-build --configuration Release --output ./artifacts
+        dotnet pack src/Catga.Persistence.Redis/Catga.Persistence.Redis.csproj --no-build --configuration Release --output ./artifacts
 
         # Transport packages
-        dotnet pack src/Catga.Transport.InMemory/Catga.Transport.InMemory.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.Transport.Nats/Catga.Transport.Nats.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.Transport.Redis/Catga.Transport.Redis.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Transport.InMemory/Catga.Transport.InMemory.csproj --no-build --configuration Release --output ./artifacts
+        dotnet pack src/Catga.Transport.Nats/Catga.Transport.Nats.csproj --no-build --configuration Release --output ./artifacts
+        dotnet pack src/Catga.Transport.Redis/Catga.Transport.Redis.csproj --no-build --configuration Release --output ./artifacts
 
         # Serialization packages
-        dotnet pack src/Catga.Serialization.MemoryPack/Catga.Serialization.MemoryPack.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Serialization.MemoryPack/Catga.Serialization.MemoryPack.csproj --no-build --configuration Release --output ./artifacts
 
         # Cluster packages
-        dotnet pack src/Catga.Cluster/Catga.Cluster.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Cluster/Catga.Cluster.csproj --no-build --configuration Release --output ./artifacts
 
         # Scheduling packages
-        dotnet pack src/Catga.Scheduling.Hangfire/Catga.Scheduling.Hangfire.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/Catga.Scheduling.Quartz/Catga.Scheduling.Quartz.csproj --no-build --configuration Release --output ./artifacts /p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Catga.Scheduling.Hangfire/Catga.Scheduling.Hangfire.csproj --no-build --configuration Release --output ./artifacts
+        dotnet pack src/Catga.Scheduling.Quartz/Catga.Scheduling.Quartz.csproj --no-build --configuration Release --output ./artifacts
 
     - name: Upload NuGet packages
       uses: actions/upload-artifact@v4
       with:
         name: nuget-packages
         path: ./artifacts/*.nupkg
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: v${{ steps.get_version.outputs.VERSION }}
+        body: |
+          ## Catga v${{ steps.get_version.outputs.VERSION }}
+          
+          高性能、100% AOT 兼容的分布式 CQRS 框架
+          
+          ### 📦 NuGet 包
+          
+          此版本包含以下 NuGet 包：
+          - Catga
+          - Catga.AspNetCore
+          - Catga.Persistence.InMemory
+          - Catga.Persistence.Nats
+          - Catga.Persistence.Redis
+          - Catga.Transport.InMemory
+          - Catga.Transport.Nats
+          - Catga.Transport.Redis
+          - Catga.Serialization.MemoryPack
+          - Catga.Cluster
+          - Catga.Scheduling.Hangfire
+          - Catga.Scheduling.Quartz
+          
+          ### 📖 文档
+          
+          查看完整文档：https://cricle.github.io/Catga/
+        files: ./artifacts/*.nupkg
+        draft: false
+        prerelease: ${{ contains(github.ref, '-') }}
 
     - name: Publish to NuGet.org
       if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')

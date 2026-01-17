@@ -158,19 +158,19 @@ public abstract class MessageTransportBase : IMessageTransport
 
     protected void EnqueueBatch(BatchItem item, BatchTransportOptions batchOptions, int maxQueueLength)
     {
+        _batchQueue.Enqueue(item);
         var newCount = Interlocked.Increment(ref _batchCount);
 
         // Backpressure: drop oldest when exceeding MaxQueueLength
         if (maxQueueLength > 0 && newCount > maxQueueLength)
         {
-            while (Interlocked.CompareExchange(ref _batchCount, _batchCount, _batchCount) > maxQueueLength
-                   && _batchQueue.TryDequeue(out _))
+            // Drop oldest items until we're back under the limit
+            while (_batchCount > maxQueueLength && _batchQueue.TryDequeue(out _))
             {
                 Interlocked.Decrement(ref _batchCount);
+                ObservabilityHooks.RecordMediatorBatchOverflow();
             }
         }
-
-        _batchQueue.Enqueue(item);
 
         // Immediate flush by size
         if (newCount >= batchOptions.MaxBatchSize)

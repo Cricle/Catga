@@ -271,12 +271,15 @@ public sealed class AutoBatchingBehavior<
 
             public int Enqueue(Entry entry)
             {
-                var newCount = Interlocked.Increment(ref _count);
                 _queue.Enqueue(entry);
+                var newCount = Interlocked.Increment(ref _count);
                 Volatile.Write(ref _lastSeenTicks, DateTime.UtcNow.Ticks);
+                
+                // Backpressure: drop oldest when exceeding MaxQueueLength
                 if (newCount > _options.MaxQueueLength)
                 {
-                    if (_queue.TryDequeue(out var dropped))
+                    // Try to drop oldest items until we're back under the limit
+                    while (_count > _options.MaxQueueLength && _queue.TryDequeue(out var dropped))
                     {
                         Interlocked.Decrement(ref _count);
                         dropped.TrySetFailure(CatgaResult<TResponse>.Failure("Mediator batch queue overflow"));

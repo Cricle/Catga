@@ -81,7 +81,7 @@ public static class ServiceConfigurationExtensions
         Console.WriteLine("✓ Health Checks: Enabled");
 
         // Register handlers and services
-        services.AddCatgaHandlers();
+        services.AddCatgaServices();
         services.AddSingleton<OrderStore>();
     }
 

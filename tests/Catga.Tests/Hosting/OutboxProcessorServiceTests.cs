@@ -1,3 +1,4 @@
+using Catga.Abstractions;
 using Catga.Hosting;
 using Catga.Outbox;
 using Catga.Transport;
@@ -12,6 +13,13 @@ namespace Catga.Tests.Hosting;
 /// </summary>
 public class OutboxProcessorServiceTests
 {
+    private static IMessageSerializer CreateMockSerializer()
+    {
+        var serializer = Substitute.For<IMessageSerializer>();
+        serializer.Deserialize(Arg.Any<byte[]>(), Arg.Any<Type>())
+            .Returns(callInfo => new object()); // 返回一个简单的对象
+        return serializer;
+    }
     /// <summary>
     /// 测试批次处理逻辑 - 成功处理消息
     /// Requirements: 6.2, 6.4
@@ -63,7 +71,7 @@ public class OutboxProcessorServiceTests
             ErrorDelay = TimeSpan.FromMilliseconds(10)
         };
 
-        var service = new OutboxProcessorService(outboxStore, transport, logger, options);
+        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
         var cts = new CancellationTokenSource();
 
         // Act
@@ -143,7 +151,7 @@ public class OutboxProcessorServiceTests
             CompleteCurrentBatchOnShutdown = true
         };
 
-        var service = new OutboxProcessorService(outboxStore, transport, logger, options);
+        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
         var cts = new CancellationTokenSource();
 
         // Act
@@ -203,7 +211,7 @@ public class OutboxProcessorServiceTests
             ErrorDelay = TimeSpan.FromMilliseconds(10)
         };
 
-        var service = new OutboxProcessorService(outboxStore, transport, logger, options);
+        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
         var cts = new CancellationTokenSource();
 
         // Act
@@ -245,7 +253,7 @@ public class OutboxProcessorServiceTests
             ErrorDelay = TimeSpan.FromMilliseconds(10)
         };
 
-        var service = new OutboxProcessorService(outboxStore, transport, logger, options);
+        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
         var cts = new CancellationTokenSource();
 
         // Act
@@ -309,7 +317,7 @@ public class OutboxProcessorServiceTests
             ErrorDelay = TimeSpan.FromMilliseconds(10)
         };
 
-        var service = new OutboxProcessorService(outboxStore, transport, logger, options);
+        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
         var cts = new CancellationTokenSource();
 
         // Act
@@ -348,7 +356,7 @@ public class OutboxProcessorServiceTests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            new OutboxProcessorService(outboxStore, transport, logger, invalidOptions));
+            new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, invalidOptions));
     }
 
     /// <summary>
@@ -373,7 +381,7 @@ public class OutboxProcessorServiceTests
             ErrorDelay = TimeSpan.FromMilliseconds(10)
         };
 
-        var service = new OutboxProcessorService(outboxStore, transport, logger, options);
+        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
         var cts = new CancellationTokenSource();
 
         // Act

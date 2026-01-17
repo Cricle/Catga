@@ -491,7 +491,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
 }
 
 // 在 Program.cs 中自动注册
-builder.Services.AddCatgaHandlers(); // Source Generator 自动生成的扩展方法
+builder.Services.AddCatgaServices(); // Source Generator 自动生成的扩展方法
 ```
 
 ---
@@ -972,7 +972,7 @@ builder.Services.AddRedisTransport(options =>
 **解决方案**:
 ```csharp
 // 1. 检查处理器注册
-builder.Services.AddCatgaHandlers(); // Source Generator
+builder.Services.AddCatgaServices(); // Source Generator
 // 或手动注册
 builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, CreateOrderResponse>, CreateOrderCommandHandler>();
 

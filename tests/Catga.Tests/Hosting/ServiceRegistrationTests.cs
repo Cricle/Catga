@@ -4,6 +4,7 @@ using Catga.Transport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
+using System.Buffers;
 using Xunit;
 
 namespace Catga.Tests.Hosting;
@@ -27,6 +28,7 @@ public class ServiceRegistrationTests
         services.AddSingleton<IHostApplicationLifetime>(new TestApplicationLifetime());
         services.AddSingleton<IMessageTransport>(new TestMessageTransport());
         services.AddSingleton<Catga.Outbox.IOutboxStore>(new TestOutboxStore());
+        services.AddSingleton<Catga.Abstractions.IMessageSerializer>(new TestMessageSerializer());
         
         var options = new Catga.Configuration.CatgaOptions();
         var builder = new CatgaServiceBuilder(services, options);
@@ -64,6 +66,7 @@ public class ServiceRegistrationTests
         services.AddSingleton<IHostApplicationLifetime>(new TestApplicationLifetime());
         services.AddSingleton<IMessageTransport>(new TestMessageTransport());
         services.AddSingleton<Catga.Outbox.IOutboxStore>(new TestOutboxStore());
+        services.AddSingleton<Catga.Abstractions.IMessageSerializer>(new TestMessageSerializer());
         
         var options = new Catga.Configuration.CatgaOptions();
         var builder = new CatgaServiceBuilder(services, options);
@@ -137,6 +140,7 @@ public class ServiceRegistrationTests
         services.AddSingleton<IHostApplicationLifetime>(new TestApplicationLifetime());
         services.AddSingleton<IMessageTransport>(new TestMessageTransport());
         services.AddSingleton<Catga.Outbox.IOutboxStore>(new TestOutboxStore());
+        services.AddSingleton<Catga.Abstractions.IMessageSerializer>(new TestMessageSerializer());
         
         var options = new Catga.Configuration.CatgaOptions();
         var builder = new CatgaServiceBuilder(services, options);
@@ -177,6 +181,7 @@ public class ServiceRegistrationTests
         services.AddSingleton<IHostApplicationLifetime>(new TestApplicationLifetime());
         services.AddSingleton<IMessageTransport>(new TestMessageTransport());
         services.AddSingleton<Catga.Outbox.IOutboxStore>(new TestOutboxStore());
+        services.AddSingleton<Catga.Abstractions.IMessageSerializer>(new TestMessageSerializer());
         
         var options = new Catga.Configuration.CatgaOptions();
         var builder = new CatgaServiceBuilder(services, options);
@@ -210,6 +215,7 @@ public class ServiceRegistrationTests
         services.AddSingleton<IHostApplicationLifetime>(new TestApplicationLifetime());
         services.AddSingleton<IMessageTransport>(new TestMessageTransport());
         services.AddSingleton<Catga.Outbox.IOutboxStore>(new TestOutboxStore());
+        services.AddSingleton<Catga.Abstractions.IMessageSerializer>(new TestMessageSerializer());
         
         var options = new Catga.Configuration.CatgaOptions();
         var builder = new CatgaServiceBuilder(services, options);
@@ -278,5 +284,19 @@ public class ServiceRegistrationTests
 
         public ValueTask DeletePublishedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
             => ValueTask.CompletedTask;
+    }
+
+    private class TestMessageSerializer : Catga.Abstractions.IMessageSerializer
+    {
+        public string Name => "TestSerializer";
+        
+        public byte[] Serialize<T>(T value) => Array.Empty<byte>();
+        public T Deserialize<T>(byte[] data) => default!;
+        public T Deserialize<T>(ReadOnlySpan<byte> data) => default!;
+        public void Serialize<T>(T value, IBufferWriter<byte> bufferWriter) { }
+        public byte[] Serialize(object value, Type type) => Array.Empty<byte>();
+        public object? Deserialize(byte[] data, Type type) => new object();
+        public object? Deserialize(ReadOnlySpan<byte> data, Type type) => new object();
+        public void Serialize(object value, Type type, IBufferWriter<byte> bufferWriter) { }
     }
 }

@@ -26,7 +26,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add Catga
 builder.Services.AddCatga();
-builder.Services.AddGeneratedHandlers();
+builder.Services.AddCatgaServices();
 
 var app = builder.Build();
 
@@ -137,7 +137,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add Catga with NATS cluster
 builder.Services.AddCatga();
-builder.Services.AddGeneratedHandlers();
+builder.Services.AddCatgaServices();
 builder.Services.AddNatsCluster("nats://localhost:4222", "node-1", "http://localhost:5000");
 
 var app = builder.Build();

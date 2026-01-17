@@ -5,6 +5,7 @@ using FsCheck;
 using FsCheck.Xunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Buffers;
 using Xunit;
 
 namespace Catga.Tests.Hosting;
@@ -42,6 +43,9 @@ public class ServiceRegistrationPropertyTests
                 
                 // 添加模拟的 Outbox Store
                 services.AddSingleton<Catga.Outbox.IOutboxStore>(new TestOutboxStore());
+                
+                // 添加模拟的 Message Serializer
+                services.AddSingleton<Catga.Abstractions.IMessageSerializer>(new TestMessageSerializer());
                 
                 // 创建 Catga 服务构建器
                 var options = new Catga.Configuration.CatgaOptions();
@@ -120,6 +124,7 @@ public class ServiceRegistrationPropertyTests
                 services.AddSingleton<IHostApplicationLifetime>(new TestApplicationLifetime());
                 services.AddSingleton<IMessageTransport>(new TestMessageTransport());
                 services.AddSingleton<Catga.Outbox.IOutboxStore>(new TestOutboxStore());
+                services.AddSingleton<Catga.Abstractions.IMessageSerializer>(new TestMessageSerializer());
                 
                 // 创建 Catga 服务构建器
                 var options = new Catga.Configuration.CatgaOptions();
@@ -283,5 +288,22 @@ public class ServiceRegistrationPropertyTests
         {
             return ValueTask.CompletedTask;
         }
+    }
+
+    /// <summary>
+    /// 测试 Message Serializer
+    /// </summary>
+    private class TestMessageSerializer : Catga.Abstractions.IMessageSerializer
+    {
+        public string Name => "TestSerializer";
+        
+        public byte[] Serialize<T>(T value) => Array.Empty<byte>();
+        public T Deserialize<T>(byte[] data) => default!;
+        public T Deserialize<T>(ReadOnlySpan<byte> data) => default!;
+        public void Serialize<T>(T value, IBufferWriter<byte> bufferWriter) { }
+        public byte[] Serialize(object value, Type type) => Array.Empty<byte>();
+        public object? Deserialize(byte[] data, Type type) => new object();
+        public object? Deserialize(ReadOnlySpan<byte> data, Type type) => new object();
+        public void Serialize(object value, Type type, IBufferWriter<byte> bufferWriter) { }
     }
 }

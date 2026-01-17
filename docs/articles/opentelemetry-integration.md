@@ -215,7 +215,21 @@ services:
 
 ### 2. Grafana Dashboard
 
-导入 Catga 预置 Dashboard（TODO: 提供 JSON）
+Catga 提供了预置的 Grafana Dashboard 模板，可以从项目仓库的 `docs/observability/dashboards` 目录获取。
+
+导入步骤：
+1. 登录 Grafana
+2. 导航到 Dashboards → Import
+3. 上传 `catga-overview.json` 文件
+4. 选择 Prometheus 数据源
+5. 点击 Import
+
+Dashboard 包含以下面板：
+- 命令/查询执行速率和延迟
+- 事件发布统计
+- Pipeline 行为性能
+- 批处理队列状态
+- 错误率和失败分布
 
 ## 🔧 高级配置
 

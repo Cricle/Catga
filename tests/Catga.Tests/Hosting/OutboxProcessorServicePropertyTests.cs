@@ -1,3 +1,4 @@
+using Catga.Abstractions;
 using Catga.Hosting;
 using Catga.Outbox;
 using Catga.Transport;
@@ -15,6 +16,13 @@ namespace Catga.Tests.Hosting;
 /// </summary>
 public class OutboxProcessorServicePropertyTests
 {
+    private static IMessageSerializer CreateMockSerializer()
+    {
+        var serializer = Substitute.For<IMessageSerializer>();
+        serializer.Deserialize(Arg.Any<byte[]>(), Arg.Any<Type>())
+            .Returns(callInfo => new object());
+        return serializer;
+    }
     /// <summary>
     /// Property 10: Outbox 处理器定期扫描
     /// Feature: hosting-integration, Property 10: Outbox 处理器定期扫描
@@ -52,7 +60,7 @@ public class OutboxProcessorServicePropertyTests
                     ErrorDelay = TimeSpan.FromMilliseconds(10)
                 };
 
-                var service = new OutboxProcessorService(outboxStore, transport, logger, options);
+                var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
                 var cts = new CancellationTokenSource();
 
                 // Act
@@ -139,7 +147,7 @@ public class OutboxProcessorServicePropertyTests
                     CompleteCurrentBatchOnShutdown = true
                 };
 
-                var service = new OutboxProcessorService(outboxStore, transport, logger, options);
+                var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
                 var cts = new CancellationTokenSource();
 
                 // Act
@@ -206,7 +214,7 @@ public class OutboxProcessorServicePropertyTests
                     ErrorDelay = TimeSpan.FromMilliseconds(10)
                 };
 
-                var service = new OutboxProcessorService(outboxStore, transport, logger, options);
+                var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
                 var cts = new CancellationTokenSource();
 
                 // Act

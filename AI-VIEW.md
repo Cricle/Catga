@@ -395,7 +395,7 @@ else
 }
 
 // 4. 注册处理器
-builder.Services.AddCatgaHandlers();
+builder.Services.AddCatgaServices();
 
 // 5. 注册应用服务
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
@@ -1402,7 +1402,7 @@ public sealed class OrderAnalyticsHandler(
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddCatga().UseMemoryPack().UseInMemory();
 builder.Services.AddInMemoryTransport();
-// ❌ 忘记调用 AddCatgaHandlers()
+// ❌ 忘记调用 AddCatgaServices()
 
 // 错误 2: 配置顺序错误
 var builder = WebApplication.CreateBuilder(args);
@@ -1459,7 +1459,7 @@ else
 }
 
 // 4. 注册处理器
-builder.Services.AddCatgaHandlers(); ✅
+builder.Services.AddCatgaServices(); ✅
 
 // 5. 注册应用服务
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
@@ -1477,7 +1477,7 @@ builder.Services.AddCatga()
 builder.Services.AddRedisTransport(
     builder.Configuration.GetConnectionString("Redis")!); ✅
 
-builder.Services.AddCatgaHandlers(); ✅
+builder.Services.AddCatgaServices(); ✅
 
 // 正确 3: NATS 配置
 var builder = WebApplication.CreateBuilder(args);
@@ -1491,7 +1491,7 @@ builder.Services.AddNatsConnection(
 builder.Services.AddNatsTransport(
     builder.Configuration.GetConnectionString("Nats")!); ✅
 
-builder.Services.AddCatgaHandlers(); ✅
+builder.Services.AddCatgaServices(); ✅
 ```
 
 ### 6. 测试注意事项
@@ -1957,7 +1957,7 @@ public sealed class [QueryName]Handler(
 - [ ] 配置了序列化（`UseMemoryPack()`）
 - [ ] 配置了持久化（`UseInMemory()` / `UseRedis()` / `UseNats()`）
 - [ ] 配置了传输（`AddInMemoryTransport()` / `AddRedisTransport()` / `AddNatsTransport()`）
-- [ ] 调用了 `AddCatgaHandlers()`
+- [ ] 调用了 `AddCatgaServices()`
 - [ ] 配置顺序正确
 - [ ] 没有重复配置
 - [ ] 没有混用不同的后端
@@ -2026,14 +2026,14 @@ builder.Services.AddCatga()
     .UseMemoryPack()
     .UseInMemory();
 builder.Services.AddInMemoryTransport();
-builder.Services.AddCatgaHandlers();
+builder.Services.AddCatgaServices();
 
 // 生产环境 - Redis
 builder.Services.AddCatga()
     .UseMemoryPack()
     .UseRedis("localhost:6379");
 builder.Services.AddRedisTransport("localhost:6379");
-builder.Services.AddCatgaHandlers();
+builder.Services.AddCatgaServices();
 
 // 生产环境 - NATS
 builder.Services.AddCatga()
@@ -2041,7 +2041,7 @@ builder.Services.AddCatga()
     .UseNats();
 builder.Services.AddNatsConnection("nats://localhost:4222");
 builder.Services.AddNatsTransport("nats://localhost:4222");
-builder.Services.AddCatgaHandlers();
+builder.Services.AddCatgaServices();
 ```
 
 ### 常用接口

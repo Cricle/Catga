@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Catga.Abstractions;
 using Catga.Outbox;
 using Catga.Transport;
 
@@ -12,6 +13,7 @@ public sealed partial class OutboxProcessorService : BackgroundService
 {
     private readonly IOutboxStore _outboxStore;
     private readonly IMessageTransport _transport;
+    private readonly IMessageSerializer _serializer;
     private readonly ILogger<OutboxProcessorService> _logger;
     private readonly OutboxProcessorOptions _options;
     private volatile int _isProcessingBatch;
@@ -21,11 +23,13 @@ public sealed partial class OutboxProcessorService : BackgroundService
     public OutboxProcessorService(
         IOutboxStore outboxStore,
         IMessageTransport transport,
+        IMessageSerializer serializer,
         ILogger<OutboxProcessorService> logger,
         OutboxProcessorOptions options)
     {
         _outboxStore = outboxStore ?? throw new ArgumentNullException(nameof(outboxStore));
         _transport = transport ?? throw new ArgumentNullException(nameof(transport));
+        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         
@@ -187,21 +191,63 @@ public sealed partial class OutboxProcessorService : BackgroundService
 
     private async Task PublishMessageAsync(OutboxMessage message, CancellationToken cancellationToken)
     {
-        // 这里需要将 OutboxMessage 转换为传输层可以理解的格式
-        // 由于我们已经有序列化的 payload，我们需要反序列化然后发布
-        // 但是为了保持简单，我们假设传输层可以直接处理原始消息
-        
-        // 注意：实际实现中，这里可能需要使用 IMessageSerializer 来反序列化消息
-        // 然后调用 _transport.PublishAsync
-        
-        // 为了这个实现，我们假设有一个方法可以直接发布原始消息
-        // 这是一个简化的实现，实际使用中可能需要更复杂的逻辑
-        
-        await Task.CompletedTask; // 占位符 - 实际实现需要调用传输层
-        
-        // TODO: 实际实现应该类似：
-        // var deserializedMessage = await _serializer.DeserializeAsync(message.Payload, message.MessageType);
-        // await _transport.PublishAsync(deserializedMessage, cancellationToken);
+        // 从完整类型名称获取 Type 对象
+        // 格式应该是: "Namespace.TypeName, AssemblyName"
+        var messageType = Type.GetType(message.MessageType);
+        if (messageType == null)
+        {
+            throw new InvalidOperationException(
+                $"Cannot resolve message type: {message.MessageType}. " +
+                $"Ensure the type is available and properly referenced.");
+        }
+
+        try
+        {
+            // 使用 IMessageSerializer 反序列化消息
+            var deserializedMessage = _serializer.Deserialize(message.Payload, messageType);
+            if (deserializedMessage == null)
+            {
+                throw new InvalidOperationException(
+                    $"Deserialization returned null for message {message.MessageId} of type {message.MessageType}");
+            }
+
+            // 创建传输上下文
+            var context = new TransportContext
+            {
+                MessageId = message.MessageId,
+                CorrelationId = message.CorrelationId
+            };
+
+            // 使用反射调用 PublishAsync<T>
+            // 这是必需的，因为我们在运行时才知道消息类型
+            var publishMethod = _transport.GetType()
+                .GetMethod(nameof(IMessageTransport.PublishAsync))
+                ?.MakeGenericMethod(messageType);
+
+            if (publishMethod == null)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot find PublishAsync method on transport {_transport.GetType().Name}");
+            }
+
+            // 调用 PublishAsync<T>(message, context, cancellationToken)
+            var publishTask = publishMethod.Invoke(_transport, new[] { deserializedMessage, context, cancellationToken });
+            if (publishTask is Task task)
+            {
+                await task.ConfigureAwait(false);
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    $"PublishAsync did not return a Task for message {message.MessageId}");
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"Failed to publish outbox message {message.MessageId} of type {message.MessageType}",
+                ex);
+        }
     }
 
     #region Logging

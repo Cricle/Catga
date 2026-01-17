@@ -65,7 +65,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddCatga();
 
 // ✨ ONE LINE - Source generator does the rest!
-builder.Services.AddGeneratedHandlers();
+builder.Services.AddCatgaServices();
 
 var app = builder.Build();
 ```
@@ -82,9 +82,9 @@ The source generator runs during compilation and:
 
 2. **Generates registration code** in the `Catga.DependencyInjection` namespace:
    ```csharp
-   public static class CatgaGeneratedHandlerRegistrations
+   public static class CatgaUnifiedRegistrations
    {
-       public static IServiceCollection AddGeneratedHandlers(this IServiceCollection services)
+       public static IServiceCollection AddCatgaServices(this IServiceCollection services)
        {
            services.AddScoped<IRequestHandler<CreateUserCommand, CreateUserResponse>, CreateUserCommandHandler>();
            services.AddScoped<IEventHandler<UserCreatedEvent>, UserCreatedEventHandler>();
@@ -109,8 +109,8 @@ public class MyHandler : IRequestHandler<MyCommand, MyResponse>
 }
 ```
 
-#### `CatgaHandlerRegistration.g.cs`
-Contains the `AddGeneratedHandlers()` extension method with all discovered handlers.
+#### `CatgaUnifiedRegistrations.g.cs`
+Contains the `AddCatgaServices()` extension method with all discovered handlers and services.
 
 ## 📂 View Generated Code
 
@@ -157,7 +157,7 @@ public static void ScanHandlers() { ... }
 
 ```csharp
 // ✅ Simple, AOT-friendly registration
-services.AddGeneratedHandlers();
+services.AddCatgaServices();
 ```
 
 ## 🛠 Advanced Usage
@@ -191,11 +191,11 @@ public class NormalHandler : IRequestHandler<NormalCommand, NormalResponse>
 Each project with handlers should:
 
 1. Reference the source generator
-2. Call `AddGeneratedHandlers()` in startup
+2. Call `AddCatgaServices()` in startup
 
 ```csharp
 // In your main project
-services.AddGeneratedHandlers();  // Registers handlers from this assembly
+services.AddCatgaServices();  // Registers handlers and services from this assembly
 
 // If you have handlers in other assemblies, use manual registration:
 services.AddScoped<IRequestHandler<ExternalCommand, ExternalResponse>, ExternalHandler>();
@@ -205,7 +205,7 @@ services.AddScoped<IRequestHandler<ExternalCommand, ExternalResponse>, ExternalH
 
 ### Handlers Not Found
 
-**Problem**: `AddGeneratedHandlers()` doesn't register any handlers
+**Problem**: `AddCatgaServices()` doesn't register any handlers
 
 **Solutions**:
 1. Ensure handlers implement `IRequestHandler<,>` or `IEventHandler<>`
@@ -215,7 +215,7 @@ services.AddScoped<IRequestHandler<ExternalCommand, ExternalResponse>, ExternalH
 
 ### IntelliSense Not Working
 
-**Problem**: IDE doesn't recognize `AddGeneratedHandlers()`
+**Problem**: IDE doesn't recognize `AddCatgaServices()`
 
 **Solutions**:
 1. Rebuild the project
@@ -225,7 +225,7 @@ services.AddScoped<IRequestHandler<ExternalCommand, ExternalResponse>, ExternalH
 
 ### AOT Warnings
 
-**Problem**: Getting AOT warnings about `AddGeneratedHandlers()`
+**Problem**: Getting AOT warnings about `AddCatgaServices()`
 
 **This should NOT happen** - the generated code is fully AOT compatible. If you see warnings:
 1. Check if you're using the correct package version

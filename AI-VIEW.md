@@ -171,8 +171,37 @@ public T? Deserialize<T>(byte[] data)
 ### 源代码生成器
 
 #### Catga.SourceGenerator
-**职责**: 编译时代码生成
+**职责**: 编译时代码生成，自动生成处理器注册和模块初始化代码
 **依赖**: Microsoft.CodeAnalysis
+
+**包含的生成器**:
+- `UnifiedRegistrationGenerator` - 统一的服务注册生成器
+  - 生成 `AddCatgaServices()` 扩展方法
+  - 自动发现和注册所有处理器
+  - 支持命令、查询和事件处理器
+  
+- `UnifiedModuleInitializerGenerator` - 统一的模块初始化生成器
+  - 生成模块初始化代码
+  - 注册事件类型
+  - 配置 Mediator 批处理配置
+
+**关键特性**:
+```csharp
+// 自动生成的扩展方法
+public static class CatgaServiceCollectionExtensions
+{
+    public static IServiceCollection AddCatgaServices(this IServiceCollection services)
+    {
+        // 自动注册所有处理器
+        services.AddScoped<IRequestHandler<CreateOrderCommand, OrderCreatedResult>, 
+            CreateOrderHandler>();
+        services.AddScoped<IEventHandler<OrderCreatedEvent>, 
+            OrderNotificationHandler>();
+        // ...
+        return services;
+    }
+}
+```
 
 
 ## 🔧 完整功能编写指南
@@ -1991,6 +2020,61 @@ public sealed class [QueryName]Handler(
 - [ ] 使用批处理（如果适用）
 
 ## 🚀 快速参考
+
+### CI/CD 配置
+
+#### GitHub Actions 工作流
+
+项目使用 GitHub Actions 进行持续集成和部署：
+
+**测试工作流** (`.github/workflows/tests.yml`):
+- 单元测试（不需要 Docker）
+- 集成测试（需要 Redis 和 NATS）
+- 代码覆盖率收集
+- DocFX 文档生成和部署
+
+**发布工作流**:
+当推送 tag（如 `v0.1.0`）时自动触发：
+1. 运行所有测试
+2. 构建 Release 版本
+3. 打包所有 NuGet 包
+4. 创建 GitHub Release
+5. 发布到 NuGet.org（非预发布版本）
+
+**版本管理**:
+- 版本号在 `Directory.Build.props` 中统一管理
+- CI 构建使用 Directory.Build.props 中的版本号
+- 不在 CI 中覆盖版本号
+
+**发布流程**:
+```bash
+# 1. 更新 Directory.Build.props 中的版本号
+<Version>0.2.0</Version>
+
+# 2. 提交更改
+git add Directory.Build.props
+git commit -m "chore: bump version to 0.2.0"
+
+# 3. 创建并推送 tag
+git tag v0.2.0
+git push origin v0.2.0
+
+# 4. CI 自动完成构建、打包、发布
+```
+
+**NuGet 包列表**:
+- Catga（核心框架）
+- Catga.AspNetCore
+- Catga.Persistence.InMemory
+- Catga.Persistence.Nats
+- Catga.Persistence.Redis
+- Catga.Transport.InMemory
+- Catga.Transport.Nats
+- Catga.Transport.Redis
+- Catga.Serialization.MemoryPack
+- Catga.Cluster
+- Catga.Scheduling.Hangfire
+- Catga.Scheduling.Quartz
 
 ### 常用命令
 

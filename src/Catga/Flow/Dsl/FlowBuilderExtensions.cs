@@ -41,19 +41,7 @@ public static class FlowBuilderExtensions
         where TRequest : IRequest<TResult>
     {
         var flowBuilder = GetFlowBuilder(builder);
-        var step = new FlowStep
-        {
-            Type = StepType.Send,
-            HasResult = true,
-            RequestFactory = factory,
-            CreateRequest = state => factory((TState)state),
-            ExecuteRequest = async (mediator, request, ct) =>
-            {
-                var typedRequest = (TRequest)request;
-                var result = await mediator.SendAsync<TRequest, TResult>(typedRequest, ct);
-                return (result.IsSuccess, result.Error, result.Value);
-            }
-        };
+        var step = CreateRequestStep<TState, TRequest, TResult>(StepType.Send, factory);
         flowBuilder.Steps.Add(step);
         return new StepBuilder<TState, TResult>(flowBuilder, step);
     }
@@ -66,19 +54,7 @@ public static class FlowBuilderExtensions
         where TRequest : IRequest<TResult>
     {
         var flowBuilder = GetFlowBuilder(builder);
-        var step = new FlowStep
-        {
-            Type = StepType.Query,
-            HasResult = true,
-            RequestFactory = factory,
-            CreateRequest = state => factory((TState)state),
-            ExecuteRequest = async (mediator, request, ct) =>
-            {
-                var typedRequest = (TRequest)request;
-                var result = await mediator.SendAsync<TRequest, TResult>(typedRequest, ct);
-                return (result.IsSuccess, result.Error, result.Value);
-            }
-        };
+        var step = CreateRequestStep<TState, TRequest, TResult>(StepType.Query, factory);
         flowBuilder.Steps.Add(step);
         return new QueryBuilder<TState, TResult>(step);
     }
@@ -212,6 +188,31 @@ public static class FlowBuilderExtensions
         };
         flowBuilder.Steps.Add(step);
         return new ForEachBuilder<TState, TItem>(flowBuilder, step);
+    }
+
+    /// <summary>
+    /// Create a request step with result (DRY helper for Send and Query).
+    /// Extracted to reduce code duplication between Send and Query methods.
+    /// </summary>
+    private static FlowStep CreateRequestStep<TState, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
+        StepType stepType,
+        Func<TState, TRequest> factory)
+        where TState : class, IFlowState
+        where TRequest : IRequest<TResult>
+    {
+        return new FlowStep
+        {
+            Type = stepType,
+            HasResult = true,
+            RequestFactory = factory,
+            CreateRequest = state => factory((TState)state),
+            ExecuteRequest = async (mediator, request, ct) =>
+            {
+                var typedRequest = (TRequest)request;
+                var result = await mediator.SendAsync<TRequest, TResult>(typedRequest, ct);
+                return (result.IsSuccess, result.Error, result.Value);
+            }
+        };
     }
 
     // Helper to get FlowBuilder from IFlowBuilder

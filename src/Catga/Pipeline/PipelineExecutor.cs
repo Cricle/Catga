@@ -9,6 +9,12 @@ namespace Catga.Pipeline;
 
 public static class PipelineExecutor
 {
+    /// <summary>
+    /// Maximum pipeline depth to prevent stack overflow.
+    /// Typical applications have 5-10 behaviors, 100 is a safe upper limit.
+    /// </summary>
+    private const int MaxPipelineDepth = 100;
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static async ValueTask<CatgaResult<TResponse>> ExecuteAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(
         TRequest request, IRequestHandler<TRequest, TResponse> handler,
@@ -17,6 +23,12 @@ public static class PipelineExecutor
     {
         if (behaviors.Count == 0)
             return await handler.HandleAsync(request, cancellationToken);
+
+        if (behaviors.Count > MaxPipelineDepth)
+        {
+            return CatgaResult<TResponse>.Failure(
+                $"Pipeline depth ({behaviors.Count}) exceeds maximum allowed depth ({MaxPipelineDepth})");
+        }
 
         var context = new PipelineContext<TRequest, TResponse>
         {

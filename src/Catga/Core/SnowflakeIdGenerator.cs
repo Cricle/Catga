@@ -27,9 +27,18 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     private long _packedState = 0L;
 
     // Adaptive Strategy: Track recent batch request sizes
-    private long _recentBatchSize = 4096; // Default adaptive batch size
+    private long _recentBatchSize = DefaultAdaptiveBatchSize;
     private long _totalIdsGenerated;
     private long _batchRequestCount;
+
+    // Adaptive batch processing configuration
+    private const int DefaultAdaptiveBatchSize = 4096;
+    private const int MinAdaptiveBatchSize = 256;
+    private const int MaxAdaptiveBatchSize = 16384;
+    private const int LargeBatchThreshold = 10000;
+    private const double ExponentialMovingAverageAlpha = 0.3;  // Weight for new average
+    private const double ExponentialMovingAverageBeta = 0.7;   // Weight for historical average
+    private const int LargeBatchDivisor = 4;  // Divide large batches by 4 for adaptive sizing
 
     /// <summary>
     /// Create Snowflake ID generator with default layout
@@ -178,13 +187,27 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
     /// </summary>
     public int NextIds(Span<long> destination)
     {
+        if (!TryNextIds(destination, out var generated))
+        {
+            throw new InvalidOperationException("Clock moved backwards. Refusing to generate IDs");
+        }
+        return generated;
+    }
+
+    /// <summary>
+    /// Try to batch generate IDs into a span without throwing exceptions.
+    /// Returns false if clock moves backwards, true on success.
+    /// </summary>
+    public bool TryNextIds(Span<long> destination, out int generated)
+    {
         if (destination.Length == 0)
         {
-            return 0;
+            generated = 0;
+            return true;
         }
 
         var count = destination.Length;
-        var generated = 0;
+        generated = 0;
         SpinWait spinWait = default;
 
         // Update adaptive metrics (lock-free)
@@ -194,15 +217,16 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
         // Adaptive Strategy: Calculate optimal batch size based on recent patterns
         var avgBatchSize = _batchRequestCount > 0
             ? _totalIdsGenerated / _batchRequestCount
-            : 4096;
+            : DefaultAdaptiveBatchSize;
 
-        // Update recent batch size (exponential moving average)
-        var targetBatchSize = (long)((avgBatchSize * 0.3) + (_recentBatchSize * 0.7));
-        Interlocked.Exchange(ref _recentBatchSize, Math.Clamp(targetBatchSize, 256, 16384));
+        // Update recent batch size using exponential moving average (EMA)
+        // EMA = α × new_value + β × old_value, where α + β = 1
+        var targetBatchSize = (long)((avgBatchSize * ExponentialMovingAverageAlpha) + (_recentBatchSize * ExponentialMovingAverageBeta));
+        Interlocked.Exchange(ref _recentBatchSize, Math.Clamp(targetBatchSize, MinAdaptiveBatchSize, MaxAdaptiveBatchSize));
 
         // P1: For ultra-large batches (>10k), use adaptive reservation strategy
-        var maxBatchPerIteration = count > 10000
-            ? Math.Min((int)_layout.SequenceMask + 1, (int)Math.Min(count / 4, _recentBatchSize))
+        var maxBatchPerIteration = count > LargeBatchThreshold
+            ? Math.Min((int)_layout.SequenceMask + 1, (int)Math.Min(count / LargeBatchDivisor, _recentBatchSize))
             : (int)_layout.SequenceMask + 1; // Normal batching
 
         while (generated < count)
@@ -215,11 +239,10 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
             // Get current timestamp
             var timestamp = GetCurrentTimestamp();
 
-            // Clock moved backwards - fail fast
+            // Clock moved backwards - return false instead of throwing
             if (timestamp < lastTimestamp)
             {
-                throw new InvalidOperationException(
-                    $"Clock moved backwards. Refusing to generate IDs for {lastTimestamp - timestamp}ms");
+                return false;
             }
 
             long startSequence;
@@ -291,7 +314,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
             }
         }
 
-        return generated;
+        return true;
     }
 
     /// <summary>

@@ -386,6 +386,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
 #if NET7_0_OR_GREATER
         var remaining = destination.Length;
         var offset = 0;
+        var currentSequence = startSequence;
 
         // Process 4 IDs at a time using Vector256
         if (Avx2.IsSupported)
@@ -395,12 +396,12 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
             // Process chunks of 4
             while (remaining >= 4)
             {
-                // Create sequence vector: [startSeq, startSeq+1, startSeq+2, startSeq+3]
+                // Create sequence vector: [currentSeq, currentSeq+1, currentSeq+2, currentSeq+3]
                 var seqVector = Vector256.Create(
-                    startSequence + offset,
-                    startSequence + offset + 1,
-                    startSequence + offset + 2,
-                    startSequence + offset + 3
+                    currentSequence,
+                    currentSequence + 1,
+                    currentSequence + 2,
+                    currentSequence + 3
                 );
 
                 // OR operation: baseId | sequence
@@ -410,6 +411,7 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
                 resultVector.CopyTo(destination.Slice(offset, 4));
 
                 offset += 4;
+                currentSequence += 4;
                 remaining -= 4;
             }
         }
@@ -417,7 +419,8 @@ public sealed class SnowflakeIdGenerator : IDistributedIdGenerator
         // Handle remaining IDs (scalar fallback)
         for (var i = 0; i < remaining; i++)
         {
-            destination[offset + i] = baseId | (startSequence + offset + i);
+            destination[offset + i] = baseId | currentSequence;
+            currentSequence++;
         }
 #else
         // NET6: Scalar fallback only

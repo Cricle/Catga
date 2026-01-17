@@ -197,6 +197,61 @@ public class SnowflakeIdGeneratorTests
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
+
+    [Fact]
+    public void NextIds_ShouldGenerateSequentialIds_WithinSameMillisecond()
+    {
+        // Arrange
+        var generator = new SnowflakeIdGenerator(workerId: 1);
+        const int count = 100;
+        var ids = new long[count];
+
+        // Act
+        generator.NextIds(ids.AsSpan());
+
+        // Assert - Verify IDs are sequential (within same millisecond, sequence should increment)
+        for (int i = 1; i < ids.Length; i++)
+        {
+            var prevSeq = ids[i - 1] & 0xFFF;  // Extract sequence (last 12 bits)
+            var currSeq = ids[i] & 0xFFF;
+            
+            // Sequence should either increment by 1, or reset to 0 (new millisecond)
+            var isSequential = (currSeq == prevSeq + 1) || (currSeq == 0 && prevSeq == 0xFFF);
+            var isNewMillisecond = currSeq == 0 && ids[i] > ids[i - 1];
+            
+            (isSequential || isNewMillisecond).Should().BeTrue(
+                $"ID at index {i} should be sequential. Previous seq: {prevSeq}, Current seq: {currSeq}");
+        }
+    }
+
+    [Fact]
+    public void NextIds_LargeBatch_ShouldGenerateSequentialIds()
+    {
+        // Arrange
+        var generator = new SnowflakeIdGenerator(workerId: 1);
+        const int count = 10000;  // Large batch to test SIMD path
+        var ids = new long[count];
+
+        // Act
+        generator.NextIds(ids.AsSpan());
+
+        // Assert
+        ids.Distinct().Count().Should().Be(count, "All IDs should be unique");
+        
+        // Verify first 100 IDs are sequential (likely in same millisecond)
+        for (int i = 1; i < Math.Min(100, ids.Length); i++)
+        {
+            var prevSeq = ids[i - 1] & 0xFFF;
+            var currSeq = ids[i] & 0xFFF;
+            
+            // Within first 100 IDs, sequence should increment (unless millisecond changed)
+            if (currSeq != 0)  // If not reset to 0 (new millisecond)
+            {
+                currSeq.Should().Be(prevSeq + 1, 
+                    $"Sequence should increment. Index: {i}, Prev: {prevSeq}, Curr: {currSeq}");
+            }
+        }
+    }
 }
 
 

@@ -93,6 +93,9 @@ public sealed class AggregateRepository<[DynamicallyAccessedMembers(DynamicallyA
     private readonly ISnapshotStore? _snapshotStore;
     private readonly ISnapshotStrategy? _snapshotStrategy;
 
+    // Cache last snapshot version per aggregate to avoid redundant loads
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _lastSnapshotVersionCache = new();
+
     public AggregateRepository(
         IEventStore eventStore,
         ISnapshotStore? snapshotStore = null,
@@ -117,6 +120,8 @@ public sealed class AggregateRepository<[DynamicallyAccessedMembers(DynamicallyA
             {
                 aggregate = snapshot.Value.State;
                 fromVersion = snapshot.Value.Version + 1;
+                // Cache the snapshot version for later use in SaveAsync
+                _lastSnapshotVersionCache[streamId] = snapshot.Value.Version;
             }
         }
 
@@ -149,10 +154,14 @@ public sealed class AggregateRepository<[DynamicallyAccessedMembers(DynamicallyA
         // Take snapshot if needed
         if (_snapshotStore != null && _snapshotStrategy != null)
         {
-            // Assume last snapshot at version 0 for simplicity
-            if (_snapshotStrategy.ShouldTakeSnapshot(aggregate.Version, 0))
+            // Use cached snapshot version, or -1 if no snapshot exists
+            var lastSnapshotVersion = _lastSnapshotVersionCache.GetValueOrDefault(streamId, -1);
+            
+            if (_snapshotStrategy.ShouldTakeSnapshot(aggregate.Version, lastSnapshotVersion))
             {
                 await _snapshotStore.SaveAsync(streamId, aggregate, aggregate.Version, ct);
+                // Update cache after taking snapshot
+                _lastSnapshotVersionCache[streamId] = aggregate.Version;
             }
         }
     }

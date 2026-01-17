@@ -69,30 +69,51 @@ public class FrameworkVerificationTests
     [Fact]
     public async Task PerformanceBenchmarkFramework_SaveAndLoadBaseline_WorksCorrectly()
     {
-        // Arrange
-        var framework = new PerformanceBenchmarkFramework();
-        var baseline = new PerformanceBenchmarkFramework.Baseline
+        // Arrange - 使用唯一的临时目录避免并行测试冲突
+        var uniqueDir = Path.Combine(Path.GetTempPath(), $"catga-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(uniqueDir);
+        
+        try
         {
-            ThroughputOpsPerSec = 10000,
-            LatencyP99Ms = 5.0,
-            LatencyP95Ms = 3.0,
-            LatencyP50Ms = 1.0,
-            MemoryUsageBytes = 1024 * 1024,
-            StartupTime = TimeSpan.FromSeconds(2),
-            MeasuredAt = DateTime.UtcNow,
-            TestName = "Test",
-            BackendType = "InMemory"
-        };
+            var framework = new PerformanceBenchmarkFramework(uniqueDir);
+            var baseline = new PerformanceBenchmarkFramework.Baseline
+            {
+                ThroughputOpsPerSec = 10000,
+                LatencyP99Ms = 5.0,
+                LatencyP95Ms = 3.0,
+                LatencyP50Ms = 1.0,
+                MemoryUsageBytes = 1024 * 1024,
+                StartupTime = TimeSpan.FromSeconds(2),
+                MeasuredAt = DateTime.UtcNow,
+                TestName = "Test",
+                BackendType = "InMemory"
+            };
 
-        // Act
-        await framework.SaveBaselineAsync(baseline);
-        var loaded = await framework.LoadBaselineAsync();
+            // Act
+            await framework.SaveBaselineAsync(baseline);
+            var loaded = await framework.LoadBaselineAsync();
 
-        // Assert
-        Assert.NotNull(loaded);
-        Assert.Equal(baseline.ThroughputOpsPerSec, loaded.ThroughputOpsPerSec);
-        Assert.Equal(baseline.LatencyP99Ms, loaded.LatencyP99Ms);
-        Assert.Equal(baseline.TestName, loaded.TestName);
+            // Assert
+            Assert.NotNull(loaded);
+            Assert.Equal(baseline.ThroughputOpsPerSec, loaded.ThroughputOpsPerSec);
+            Assert.Equal(baseline.LatencyP99Ms, loaded.LatencyP99Ms);
+            Assert.Equal(baseline.TestName, loaded.TestName);
+        }
+        finally
+        {
+            // 清理临时目录
+            try
+            {
+                if (Directory.Exists(uniqueDir))
+                {
+                    Directory.Delete(uniqueDir, recursive: true);
+                }
+            }
+            catch
+            {
+                // 忽略清理错误
+            }
+        }
     }
 
     [Fact]

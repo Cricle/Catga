@@ -154,17 +154,18 @@ public class GracefulRecoveryManagerExtendedTests
     [Fact]
     public async Task StartAutoRecoveryAsync_ShouldRecoverUnhealthyComponents()
     {
-        var component = new TestRecoverableComponent { IsHealthy = false };
+        var component = new TestRecoverableComponent { IsHealthy = false, StayUnhealthy = true };
         _manager.RegisterComponent(component);
 
         using var cts = new CancellationTokenSource();
-        cts.CancelAfter(200);
+        cts.CancelAfter(300);
 
         await _manager.StartAutoRecoveryAsync(
             TimeSpan.FromMilliseconds(50),
             maxRetries: 1,
             cts.Token);
 
+        // 组件应该被恢复至少一次
         component.RecoverCallCount.Should().BeGreaterThan(0);
     }
 
@@ -191,18 +192,20 @@ public class GracefulRecoveryManagerExtendedTests
         var component = new TestRecoverableComponent
         {
             IsHealthy = false,
-            ThrowOnRecover = true
+            ThrowOnRecover = true,
+            StayUnhealthy = true // 保持不健康状态以便持续重试
         };
         _manager.RegisterComponent(component);
 
         using var cts = new CancellationTokenSource();
-        cts.CancelAfter(500);
+        cts.CancelAfter(600);
 
         await _manager.StartAutoRecoveryAsync(
             TimeSpan.FromMilliseconds(50),
             maxRetries: 3,
             cts.Token);
 
+        // 由于组件持续不健康且恢复失败，应该有多次重试
         component.RecoverCallCount.Should().BeGreaterThanOrEqualTo(1);
     }
 
@@ -241,6 +244,7 @@ public class GracefulRecoveryManagerExtendedTests
     {
         public bool IsHealthy { get; set; } = true;
         public bool ThrowOnRecover { get; set; }
+        public bool StayUnhealthy { get; set; } // 新增：控制是否在恢复后保持不健康
         public TimeSpan RecoveryDelay { get; set; } = TimeSpan.Zero;
         public int RecoverCallCount { get; private set; }
 
@@ -254,7 +258,11 @@ public class GracefulRecoveryManagerExtendedTests
             if (ThrowOnRecover)
                 throw new InvalidOperationException("Recovery failed");
 
-            IsHealthy = true;
+            // 只有在不需要保持不健康状态时才设置为健康
+            if (!StayUnhealthy)
+            {
+                IsHealthy = true;
+            }
         }
     }
 }

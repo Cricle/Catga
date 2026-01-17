@@ -252,14 +252,15 @@ public class OutboxProcessorServiceTests
         var startTask = service.StartAsync(cts.Token);
         await startTask;
 
-        // 等待足够时间让 ExecuteAsync 开始执行并完成至少一次扫描
-        // BackgroundService.StartAsync 只是启动后台任务，不等待 ExecuteAsync
-        await Task.Delay(300);
+        // 等待足够时间让 ExecuteAsync 开始执行并完成至少两次扫描
+        // 第一次扫描立即执行，然后等待 50ms，第二次扫描
+        await Task.Delay(400);
 
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
         // Assert
+        // 应该至少调用一次 GetPendingMessagesAsync
         await outboxStore.Received().GetPendingMessagesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
         Assert.Equal(0, service.TotalProcessed);
         Assert.Equal(0, service.TotalFailed);

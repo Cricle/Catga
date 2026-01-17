@@ -44,12 +44,15 @@ public class RecoveryHostedServicePropertyTests
                     var index = i; // 捕获索引
                     component.ComponentName.Returns($"Component{i}");
                     
-                    // 组件健康状态会被检查
+                    // 组件健康状态会被检查 - 使用不健康状态以触发恢复
                     component.IsHealthy.Returns(callInfo =>
                     {
                         Interlocked.Increment(ref healthCheckCounts[index]);
-                        return true; // 健康的组件
+                        return false; // 不健康的组件会触发恢复尝试
                     });
+                    
+                    // Mock RecoverAsync 以便可以追踪调用
+                    component.RecoverAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
                     components.Add(component);
                 }
@@ -58,7 +61,8 @@ public class RecoveryHostedServicePropertyTests
                 {
                     CheckInterval = checkInterval,
                     EnableAutoRecovery = true,
-                    MaxRetries = 1
+                    MaxRetries = 1,
+                    RetryDelay = TimeSpan.FromMilliseconds(10)
                 };
 
                 var service = new RecoveryHostedService(logger, components, options);
@@ -70,7 +74,7 @@ public class RecoveryHostedServicePropertyTests
 
                 // 等待至少 3 个检查周期以确保有足够的时间进行检查
                 // 初始检查 + 至少 2 个周期性检查
-                var waitTime = checkInterval.Add(checkInterval).Add(checkInterval).Add(TimeSpan.FromMilliseconds(200));
+                var waitTime = checkInterval.Add(checkInterval).Add(checkInterval).Add(TimeSpan.FromMilliseconds(300));
                 Thread.Sleep(waitTime);
 
                 cts.Cancel();

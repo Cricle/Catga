@@ -139,6 +139,9 @@ public sealed partial class GracefulRecoveryManager
 /// <summary>Recoverable component interface</summary>
 public interface IRecoverableComponent
 {
+    /// <summary>Component name for logging and identification</summary>
+    string ComponentName => GetType().Name;
+    
     bool IsHealthy { get; }
     Task RecoverAsync(CancellationToken cancellationToken = default);
 }

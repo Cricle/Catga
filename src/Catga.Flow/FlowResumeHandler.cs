@@ -19,7 +19,9 @@ public record FlowCompletedEvent(
 /// <summary>
 /// Handles FlowCompletedEvent to update wait conditions and resume parent flows.
 /// </summary>
-public class FlowResumeHandler(IDslFlowStore store) : IEventHandler<FlowCompletedEvent>
+public class FlowResumeHandler(
+    IDslFlowStore store,
+    IFlowResumeHandler? resumeHandler = null) : IEventHandler<FlowCompletedEvent>
 {
     public async ValueTask HandleAsync(FlowCompletedEvent @event, CancellationToken ct = default)
     {
@@ -54,8 +56,10 @@ public class FlowResumeHandler(IDslFlowStore store) : IEventHandler<FlowComplete
 
         if (shouldResume)
         {
-            // Publish event to trigger flow resume
-            // The actual resume is handled by FlowTimeoutService or a dedicated resume service
+            if (resumeHandler != null)
+            {
+                await resumeHandler.ResumeFlowAsync(waitCondition.FlowId, waitCondition.CorrelationId, ct);
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Catga;
 using Catga.DependencyInjection;
+using Catga.Flow.DependencyInjection;
 using OrderSystem.Configuration;
 using OrderSystem.Models;
 

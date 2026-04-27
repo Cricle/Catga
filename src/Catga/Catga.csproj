@@ -15,6 +15,7 @@
 	<ItemGroup>
 		<InternalsVisibleTo Include="Catga.Benchmarks" />
 		<InternalsVisibleTo Include="Catga.Tests" />
+		<InternalsVisibleTo Include="Catga.Flow" />
 		<InternalsVisibleTo Include="Catga.Cluster" />
 		<InternalsVisibleTo Include="Catga.Persistence.InMemory" />
 		<InternalsVisibleTo Include="Catga.Persistence.Nats" />

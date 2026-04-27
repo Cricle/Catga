@@ -26,6 +26,7 @@ internal class WhenAnyBuilder<TState, TResult>(FlowStep step) : IWhenAnyBuilder<
     public IStepBuilder<TState> Into(Action<TState, TResult> setter)
     {
         step.ResultSetter = setter;
+        step.SetResult = (state, result) => setter((TState)state, (TResult)result!);
         return new StepBuilder<TState>(step);
     }
 

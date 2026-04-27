@@ -4,9 +4,11 @@ using Catga.DependencyInjection;
 using Catga.EventSourcing;
 using Catga.Flow;
 using Catga.Flow.Dsl;
+using Catga.Flow.Persistence;
 using Catga.Idempotency;
 using Catga.Inbox;
 using Catga.Outbox;
+using Catga.Persistence;
 using Catga.Persistence.InMemory.Flow;
 using Catga.Persistence.InMemory.Stores;
 using Catga.Persistence.Stores;
@@ -16,15 +18,17 @@ using Medallion.Threading.FileSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Catga.Persistence.InMemory;
 
 /// <summary>
 /// InMemory persistence module - registers all InMemory store implementations.
+/// Implements IFlowPersistenceProvider to support Flow DSL stores.
 /// </summary>
-public sealed class InMemoryPersistenceModule : IPersistenceModule
+public sealed class InMemoryPersistenceModule : IPersistenceModule, IFlowPersistenceProvider
 {
+    public string Name => "InMemory";
+
     /// <summary>Options for InMemory persistence.</summary>
     public InMemoryPersistenceOptions Options { get; } = new();
 
@@ -46,37 +50,33 @@ public sealed class InMemoryPersistenceModule : IPersistenceModule
         services.TryAddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
         services.TryAddSingleton<ISnapshotStore, InMemorySnapshotStore>();
 
-        // Use DistributedLock.FileSystem for local distributed locking
         var lockDir = new DirectoryInfo(LockDirectory ?? Path.Combine(Path.GetTempPath(), "catga-locks"));
-        if (!lockDir.Exists)
-            lockDir.Create();
+        if (!lockDir.Exists) lockDir.Create();
         services.TryAddSingleton<IDistributedLockProvider>(new FileDistributedSynchronizationProvider(lockDir));
 
         services.TryAddSingleton<IFlowStore, InMemoryFlowStore>();
         services.TryAddSingleton<IDslFlowStore, InMemoryDslFlowStore>();
-
-        if (Options.IdempotencyRetention != TimeSpan.FromHours(24))
-        {
-            services.Configure<InMemoryPersistenceOptions>(o =>
-            {
-                o.IdempotencyRetention = Options.IdempotencyRetention;
-            });
-        }
     }
+
+    // IFlowPersistenceProvider
+    public IDslFlowStore? CreateDslFlowStore() => new InMemoryDslFlowStore();
+    public IFlowStore? CreateFlowStore() => new InMemoryFlowStore();
+
+    // IPersistenceProvider
+    public IOutboxStore? CreateOutboxStore() => null; // registered via DI
+    public IInboxStore? CreateInboxStore() => null;
+    public IEventStore? CreateEventStore() => null;
+    public IIdempotencyStore? CreateIdempotencyStore() => null;
+    public IDeadLetterQueue? CreateDeadLetterQueue() => null;
+    public ISnapshotStore? CreateSnapshotStore() => null;
+    public IDistributedLockProvider? CreateDistributedLockProvider() => null;
+    public IProjectionCheckpointStore? CreateProjectionCheckpointStore() => null;
 }
 
-/// <summary>
-/// Extension methods for InMemory persistence module.
-/// </summary>
 public static class InMemoryPersistenceModuleExtensions
 {
-    /// <summary>
-    /// Add InMemory persistence using the module pattern.
-    /// </summary>
     public static IServiceCollection AddInMemoryPersistenceModule(
         this IServiceCollection services,
         Action<InMemoryPersistenceModule>? configure = null)
-    {
-        return services.AddPersistenceModule(configure);
-    }
+        => services.AddPersistenceModule(configure);
 }

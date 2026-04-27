@@ -109,6 +109,7 @@ public class FlowStep
     // WhenAll/WhenAny specific
     internal List<Delegate>? ChildRequestFactories { get; set; }
     internal List<Func<object, IRequest>>? CreateChildRequests { get; set; }
+    internal List<Func<ICatgaMediator, object, CancellationToken, ValueTask>>? StartChildRequests { get; set; }
 
     // Branching (If/Switch)
     internal Delegate? BranchCondition { get; set; }
@@ -149,6 +150,24 @@ public class FlowStep
     internal Action<object, object, object?>? InvokeItemSuccess { get; set; }
     internal Action<object, object, string?>? InvokeItemFail { get; set; }
     internal Action<object>? InvokeComplete { get; set; }
+
+    // Parallel specific
+    /// <summary>Independent step branches to execute in parallel.</summary>
+    public List<List<FlowStep>>? ParallelBranches { get; set; }
+    /// <summary>Whether to wait for all branches (true) or any branch (false).</summary>
+    public bool ParallelWaitAll { get; set; } = true;
+
+    // Throttle specific
+    /// <summary>Maximum concurrent operations for Throttle step.</summary>
+    public int ThrottleCount { get; set; } = 1;
+    /// <summary>Steps to execute under throttle.</summary>
+    public List<FlowStep>? ThrottleSteps { get; set; }
+
+    // Per-step retry
+    /// <summary>Per-step retry count. 0 = use global setting.</summary>
+    public int RetryCount { get; set; } = 0;
+    /// <summary>Per-step retry delay.</summary>
+    public TimeSpan RetryDelay { get; set; } = TimeSpan.FromMilliseconds(100);
 }
 
 /// <summary>
@@ -165,5 +184,11 @@ public enum StepType
     Switch,
     ForEach,
     Delay,
-    ScheduleAt
+    ScheduleAt,
+    /// <summary>Execute multiple independent step branches in parallel.</summary>
+    Parallel,
+    /// <summary>Throttle concurrent execution with a semaphore.</summary>
+    Throttle,
+    /// <summary>Send a request to a remote service via IRequestClientFactory and await response.</summary>
+    RemoteSend
 }

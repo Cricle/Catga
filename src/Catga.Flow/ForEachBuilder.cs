@@ -64,6 +64,8 @@ internal class ForEachBuilder<TState, TItem> : IForEachBuilder<TState, TItem> wh
     {
         // Store the configuration delegate for runtime execution
         _forEachStep.ItemStepsConfigurator = configureSteps;
+        _forEachStep.ConfigureItemSteps = (item, builder) =>
+            configureSteps((TItem)item, (IFlowBuilder<TState>)builder);
 
         // For now, create empty item steps to indicate configuration was called
         _forEachStep.ItemSteps = [];
@@ -118,18 +120,23 @@ internal class ForEachBuilder<TState, TItem> : IForEachBuilder<TState, TItem> wh
     public IForEachBuilder<TState, TItem> OnItemSuccess(Action<TState, TItem, object> callback)
     {
         _forEachStep.OnItemSuccess = callback;
+        _forEachStep.InvokeItemSuccess = (state, item, result) =>
+            callback((TState)state, (TItem)item, result!);
         return this;
     }
 
     public IForEachBuilder<TState, TItem> OnItemFail(Action<TState, TItem, string> callback)
     {
         _forEachStep.OnItemFail = callback;
+        _forEachStep.InvokeItemFail = (state, item, error) =>
+            callback((TState)state, (TItem)item, error ?? string.Empty);
         return this;
     }
 
     public IForEachBuilder<TState, TItem> OnComplete(Action<TState> callback)
     {
         _forEachStep.OnComplete = callback;
+        _forEachStep.InvokeComplete = state => callback((TState)state);
         return this;
     }
 
@@ -138,4 +145,3 @@ internal class ForEachBuilder<TState, TItem> : IForEachBuilder<TState, TItem> wh
         return _flowBuilder;
     }
 }
-

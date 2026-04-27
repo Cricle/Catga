@@ -1,7 +1,5 @@
 using Catga.DeadLetter;
 using Catga.EventSourcing;
-using Catga.Flow;
-using Catga.Flow.Dsl;
 using Catga.Idempotency;
 using Catga.Inbox;
 using Catga.Outbox;
@@ -13,6 +11,7 @@ namespace Catga.Persistence;
 
 /// <summary>
 /// Fluent builder for registering persistence stores from a provider.
+/// For Flow DSL stores, use PersistenceBuilderFlowExtensions from Catga.Flow.
 /// </summary>
 public sealed class PersistenceBuilder
 {
@@ -25,13 +24,8 @@ public sealed class PersistenceBuilder
         _provider = provider;
     }
 
-    /// <summary>Add DSL flow store.</summary>
-    public PersistenceBuilder AddDslFlowStore()
-    {
-        var store = _provider.CreateDslFlowStore();
-        if (store != null) _services.TryAddSingleton(store);
-        return this;
-    }
+    public IServiceCollection Services => _services;
+    public IPersistenceProvider Provider => _provider;
 
     /// <summary>Add outbox store.</summary>
     public PersistenceBuilder AddOutbox()
@@ -89,14 +83,6 @@ public sealed class PersistenceBuilder
         return this;
     }
 
-    /// <summary>Add flow store (saga).</summary>
-    public PersistenceBuilder AddFlowStore()
-    {
-        var store = _provider.CreateFlowStore();
-        if (store != null) _services.TryAddSingleton(store);
-        return this;
-    }
-
     /// <summary>Add projection checkpoint store.</summary>
     public PersistenceBuilder AddProjectionCheckpoint()
     {
@@ -105,18 +91,16 @@ public sealed class PersistenceBuilder
         return this;
     }
 
-    /// <summary>Add all available stores from the provider.</summary>
+    /// <summary>Add all available stores from the provider (excluding Flow stores).</summary>
     public PersistenceBuilder AddAll()
     {
-        return AddDslFlowStore()
-            .AddOutbox()
+        return AddOutbox()
             .AddInbox()
             .AddEventStore()
             .AddIdempotency()
             .AddDeadLetterQueue()
             .AddSnapshotStore()
             .AddDistributedLock()
-            .AddFlowStore()
             .AddProjectionCheckpoint();
     }
 }
@@ -126,13 +110,8 @@ public sealed class PersistenceBuilder
 /// </summary>
 public static class PersistenceBuilderExtensions
 {
-    /// <summary>
-    /// Add persistence from a provider with fluent configuration.
-    /// </summary>
     public static PersistenceBuilder AddPersistence(
         this IServiceCollection services,
         IPersistenceProvider provider)
-    {
-        return new PersistenceBuilder(services, provider);
-    }
+        => new(services, provider);
 }

@@ -26,6 +26,16 @@ public static class PersistenceKeyHelper
     public static string ForEachKey(string prefix, string flowId, int stepIndex) => $"{prefix}foreach:{flowId}:{stepIndex}";
 
     /// <summary>
+    /// Build a key for Parallel progress.
+    /// </summary>
+    public static string ParallelKey(string flowId, int stepIndex) => $"{flowId}:parallel:{stepIndex}";
+
+    /// <summary>
+    /// Build a key for Parallel progress with prefix.
+    /// </summary>
+    public static string ParallelKey(string prefix, string flowId, int stepIndex) => $"{prefix}parallel:{flowId}:{stepIndex}";
+
+    /// <summary>
     /// Encode a key for NATS KV (replace special characters).
     /// NATS KV keys cannot contain '.', ':', or '/'.
     /// </summary>
@@ -43,4 +53,10 @@ public static class PersistenceKeyHelper
     /// </summary>
     public static string EncodeNatsForEachKey(string flowId, int stepIndex)
         => EncodeNatsKey($"{flowId}:foreach:{stepIndex}");
+
+    /// <summary>
+    /// Encode a Parallel key for NATS KV.
+    /// </summary>
+    public static string EncodeNatsParallelKey(string flowId, int stepIndex)
+        => EncodeNatsKey($"{flowId}:parallel:{stepIndex}");
 }

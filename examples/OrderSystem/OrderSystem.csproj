@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Catga\Catga.csproj" />
+    <ProjectReference Include="..\..\src\Catga.Flow\Catga.Flow.csproj" />
     <ProjectReference Include="..\..\src\Catga.AspNetCore\Catga.AspNetCore.csproj" />
     <ProjectReference Include="..\..\src\Catga.Cluster\Catga.Cluster.csproj" />
     <ProjectReference Include="..\..\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj" />

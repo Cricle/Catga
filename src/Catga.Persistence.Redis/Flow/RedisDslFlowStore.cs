@@ -11,8 +11,10 @@ namespace Catga.Persistence.Redis.Flow;
 /// Redis DSL flow store with atomic Lua scripts.
 /// Supports distributed flow execution with WaitCondition for WhenAll/WhenAny.
 /// </summary>
-public sealed class RedisDslFlowStore : IDslFlowStore
+public sealed class RedisDslFlowStore : IDslFlowStore, IDslFlowStoreVersioning
 {
+    public DslFlowStoreVersioningMode VersioningMode => DslFlowStoreVersioningMode.StoreAdvancesVersion;
+
     private readonly IConnectionMultiplexer _redis;
     private readonly IMessageSerializer _serializer;
     private readonly string _prefix;
@@ -93,7 +95,6 @@ public sealed class RedisDslFlowStore : IDslFlowStore
             return false; // Deserialization error
         }
 
-        // Update with new version
         var newSnapshot = snapshot with { Version = snapshot.Version + 1, UpdatedAt = DateTime.UtcNow };
         var data = _serializer.Serialize(new StoredSnapshot<TState>(newSnapshot));
 
@@ -177,10 +178,29 @@ public sealed class RedisDslFlowStore : IDslFlowStore
         return results;
     }
 
+    public async Task<IReadOnlyList<WaitCondition>> GetWaitConditionsByFlowAsync(string flowId, CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var indexKey = _prefix + "wait:index";
+        var correlationIds = await db.SortedSetRangeByRankAsync(indexKey, 0, -1);
+
+        var results = new List<WaitCondition>();
+        foreach (var correlationId in correlationIds)
+        {
+            var condition = await GetWaitConditionAsync(correlationId!, ct);
+            if (condition != null && condition.FlowId == flowId)
+                results.Add(condition);
+        }
+
+        return results
+            .OrderBy(condition => condition.CreatedAt)
+            .ToList();
+    }
+
     public async Task SaveForEachProgressAsync(string flowId, int stepIndex, ForEachProgress progress, CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
-        var key = _prefix + "foreach:" + flowId + ":" + stepIndex;
+        var key = PersistenceKeyHelper.ForEachKey(_prefix, flowId, stepIndex);
 
         var data = _serializer.Serialize(progress);
         await db.StringSetAsync(key, data);
@@ -189,7 +209,7 @@ public sealed class RedisDslFlowStore : IDslFlowStore
     public async Task<ForEachProgress?> GetForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
-        var key = _prefix + "foreach:" + flowId + ":" + stepIndex;
+        var key = PersistenceKeyHelper.ForEachKey(_prefix, flowId, stepIndex);
 
         var data = await db.StringGetAsync(key);
         if (data.IsNullOrEmpty) return null;
@@ -200,7 +220,35 @@ public sealed class RedisDslFlowStore : IDslFlowStore
     public async Task ClearForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
-        var key = _prefix + "foreach:" + flowId + ":" + stepIndex;
+        var key = PersistenceKeyHelper.ForEachKey(_prefix, flowId, stepIndex);
+
+        await db.KeyDeleteAsync(key);
+    }
+
+    public async Task SaveParallelProgressAsync(string flowId, int stepIndex, ParallelProgress progress, CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var key = PersistenceKeyHelper.ParallelKey(_prefix, flowId, stepIndex);
+
+        var data = _serializer.Serialize(progress);
+        await db.StringSetAsync(key, data);
+    }
+
+    public async Task<ParallelProgress?> GetParallelProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var key = PersistenceKeyHelper.ParallelKey(_prefix, flowId, stepIndex);
+
+        var data = await db.StringGetAsync(key);
+        if (data.IsNullOrEmpty) return null;
+
+        return _serializer.Deserialize<ParallelProgress>((byte[])data!);
+    }
+
+    public async Task ClearParallelProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        var db = _redis.GetDatabase();
+        var key = PersistenceKeyHelper.ParallelKey(_prefix, flowId, stepIndex);
 
         await db.KeyDeleteAsync(key);
     }

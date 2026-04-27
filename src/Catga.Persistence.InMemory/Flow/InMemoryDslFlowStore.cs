@@ -9,11 +9,14 @@ namespace Catga.Persistence.InMemory.Flow;
 /// <summary>
 /// In-memory DSL flow store for development/testing.
 /// </summary>
-public sealed class InMemoryDslFlowStore : IDslFlowStore
+public sealed class InMemoryDslFlowStore : IDslFlowStore, IDslFlowStoreVersioning
 {
+    public DslFlowStoreVersioningMode VersioningMode => DslFlowStoreVersioningMode.CallerSuppliesNextVersion;
+
     private readonly ConcurrentDictionary<string, FlowEntry> _flows = new();
     private readonly ConcurrentDictionary<string, WaitCondition> _waitConditions = new();
     private readonly ConcurrentDictionary<string, ForEachProgress> _forEachProgress = new();
+    private readonly ConcurrentDictionary<string, ParallelProgress> _parallelProgress = new();
 
     // Internal wrapper to store flow metadata without reflection
     private sealed class FlowEntry
@@ -109,24 +112,54 @@ public sealed class InMemoryDslFlowStore : IDslFlowStore
         return Task.FromResult<IReadOnlyList<WaitCondition>>(timedOut);
     }
 
+    public Task<IReadOnlyList<WaitCondition>> GetWaitConditionsByFlowAsync(string flowId, CancellationToken ct = default)
+    {
+        var conditions = _waitConditions.Values
+            .Where(condition => condition.FlowId == flowId)
+            .OrderBy(condition => condition.CreatedAt)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<WaitCondition>>(conditions);
+    }
+
     public Task SaveForEachProgressAsync(string flowId, int stepIndex, ForEachProgress progress, CancellationToken ct = default)
     {
-        var key = $"{flowId}:{stepIndex}";
+        var key = Catga.Persistence.PersistenceKeyHelper.ForEachKey(flowId, stepIndex);
         _forEachProgress.AddOrUpdate(key, progress, (_, _) => progress);
         return Task.CompletedTask;
     }
 
     public Task<ForEachProgress?> GetForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
     {
-        var key = $"{flowId}:{stepIndex}";
+        var key = Catga.Persistence.PersistenceKeyHelper.ForEachKey(flowId, stepIndex);
         _forEachProgress.TryGetValue(key, out var progress);
         return Task.FromResult(progress);
     }
 
     public Task ClearForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
     {
-        var key = $"{flowId}:{stepIndex}";
+        var key = Catga.Persistence.PersistenceKeyHelper.ForEachKey(flowId, stepIndex);
         _forEachProgress.TryRemove(key, out _);
+        return Task.CompletedTask;
+    }
+
+    public Task SaveParallelProgressAsync(string flowId, int stepIndex, ParallelProgress progress, CancellationToken ct = default)
+    {
+        var key = Catga.Persistence.PersistenceKeyHelper.ParallelKey(flowId, stepIndex);
+        _parallelProgress.AddOrUpdate(key, progress, (_, _) => progress);
+        return Task.CompletedTask;
+    }
+
+    public Task<ParallelProgress?> GetParallelProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        var key = Catga.Persistence.PersistenceKeyHelper.ParallelKey(flowId, stepIndex);
+        _parallelProgress.TryGetValue(key, out var progress);
+        return Task.FromResult(progress);
+    }
+
+    public Task ClearParallelProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        var key = Catga.Persistence.PersistenceKeyHelper.ParallelKey(flowId, stepIndex);
+        _parallelProgress.TryRemove(key, out _);
         return Task.CompletedTask;
     }
 

@@ -18,6 +18,7 @@ public static class DslFlowServiceExtensions
     {
         services.TryAddSingleton<FlowResumeHandler>();
         services.TryAddSingleton<IEventHandler<FlowCompletedEvent>>(sp => sp.GetRequiredService<FlowResumeHandler>());
+        services.TryAddSingleton<IFlowResumeHandler, DefaultFlowResumeHandler>();
         return services;
     }
 
@@ -30,6 +31,7 @@ public static class DslFlowServiceExtensions
         services.TryAddSingleton<IDslFlowStore, TStore>();
         services.TryAddSingleton<FlowResumeHandler>();
         services.TryAddSingleton<IEventHandler<FlowCompletedEvent>>(sp => sp.GetRequiredService<FlowResumeHandler>());
+        services.TryAddSingleton<IFlowResumeHandler, DefaultFlowResumeHandler>();
         return services;
     }
 
@@ -52,6 +54,7 @@ public static class DslFlowServiceExtensions
         where TConfig : FlowConfig<TState>, new()
     {
         services.TryAddSingleton<TConfig>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IFlowResumeRegistration, FlowResumeRegistration<TState, TConfig>>());
         services.TryAddScoped<IFlow<TState>>(sp =>
         {
             var mediator = sp.GetRequiredService<ICatgaMediator>();
@@ -73,6 +76,8 @@ public static class DslFlowServiceExtensions
         where TConfig : FlowConfig<TState>
     {
         services.TryAddSingleton(configFactory);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IFlowResumeRegistration>(sp =>
+            new FlowResumeRegistration<TState, TConfig>()));
         services.TryAddScoped<IFlow<TState>>(sp =>
         {
             var mediator = sp.GetRequiredService<ICatgaMediator>();

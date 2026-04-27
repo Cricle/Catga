@@ -13,8 +13,10 @@ namespace Catga.Persistence.Nats.Flow;
 /// NATS KV-based DSL flow store with revision-based optimistic locking.
 /// Supports distributed flow execution with WaitCondition for WhenAll/WhenAny.
 /// </summary>
-public sealed class NatsDslFlowStore : IDslFlowStore
+public sealed class NatsDslFlowStore : IDslFlowStore, IDslFlowStoreVersioning
 {
+    public DslFlowStoreVersioningMode VersioningMode => DslFlowStoreVersioningMode.StoreAdvancesVersion;
+
     private readonly INatsConnection _nats;
     private readonly IMessageSerializer _serializer;
     private readonly string _bucketName;
@@ -35,6 +37,7 @@ public sealed class NatsDslFlowStore : IDslFlowStore
 
     private static string EncodeKey(string id) => PersistenceKeyHelper.EncodeNatsKey(id);
     private static string EncodeKey(string flowId, int stepIndex) => PersistenceKeyHelper.EncodeNatsForEachKey(flowId, stepIndex);
+    private static string EncodeParallelKey(string flowId, int stepIndex) => PersistenceKeyHelper.EncodeNatsParallelKey(flowId, stepIndex);
 
     private async ValueTask EnsureInitializedAsync(CancellationToken ct)
     {
@@ -268,6 +271,30 @@ public sealed class NatsDslFlowStore : IDslFlowStore
         return results;
     }
 
+    public async Task<IReadOnlyList<WaitCondition>> GetWaitConditionsByFlowAsync(string flowId, CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync(ct);
+
+        var results = new List<WaitCondition>();
+        await foreach (var key in _waitStore!.GetKeysAsync(cancellationToken: ct))
+        {
+            try
+            {
+                var entry = await _waitStore.GetEntryAsync<byte[]>(key, cancellationToken: ct);
+                if (entry.Value == null) continue;
+
+                var condition = _serializer.Deserialize<WaitCondition>(entry.Value);
+                if (condition != null && condition.FlowId == flowId)
+                    results.Add(condition);
+            }
+            catch { /* ignore individual failures */ }
+        }
+
+        return results
+            .OrderBy(condition => condition.CreatedAt)
+            .ToList();
+    }
+
     public async Task SaveForEachProgressAsync(string flowId, int stepIndex, ForEachProgress progress, CancellationToken ct = default)
     {
         await EnsureInitializedAsync(ct);
@@ -313,6 +340,57 @@ public sealed class NatsDslFlowStore : IDslFlowStore
         await EnsureInitializedAsync(ct);
 
         var key = EncodeKey(flowId, stepIndex);
+        try
+        {
+            await _store!.DeleteAsync(key, cancellationToken: ct);
+        }
+        catch (NatsKVKeyNotFoundException) { /* already deleted */ }
+    }
+
+    public async Task SaveParallelProgressAsync(string flowId, int stepIndex, ParallelProgress progress, CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync(ct);
+
+        var key = EncodeParallelKey(flowId, stepIndex);
+        var data = _serializer.Serialize(progress);
+
+        try
+        {
+            await _store!.CreateAsync(key, data, cancellationToken: ct);
+        }
+        catch (NatsKVCreateException)
+        {
+            try
+            {
+                var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
+                await _store!.UpdateAsync(key, data, entry.Revision, cancellationToken: ct);
+            }
+            catch { /* ignore */ }
+        }
+    }
+
+    public async Task<ParallelProgress?> GetParallelProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync(ct);
+
+        var key = EncodeParallelKey(flowId, stepIndex);
+        try
+        {
+            var entry = await _store!.GetEntryAsync<byte[]>(key, cancellationToken: ct);
+            if (entry.Value == null) return null;
+            return _serializer.Deserialize<ParallelProgress>(entry.Value);
+        }
+        catch (NatsKVKeyNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    public async Task ClearParallelProgressAsync(string flowId, int stepIndex, CancellationToken ct = default)
+    {
+        await EnsureInitializedAsync(ct);
+
+        var key = EncodeParallelKey(flowId, stepIndex);
         try
         {
             await _store!.DeleteAsync(key, cancellationToken: ct);

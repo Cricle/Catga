@@ -1,5 +1,4 @@
 using Catga.Configuration;
-using Catga.Flow.Dsl;
 using Catga.Observability;
 using Catga.Resilience;
 using Microsoft.Extensions.DependencyInjection;
@@ -230,15 +229,6 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
     public CatgaServiceBuilder UseEventSourcing()
     {
         Services.AddEventSourcing();
-        return this;
-    }
-
-    /// <summary>
-    /// Enable Flow DSL support for workflow orchestration.
-    /// </summary>
-    public CatgaServiceBuilder AddFlows()
-    {
-        Services.AddFlowDsl();
         return this;
     }
 

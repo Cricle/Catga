@@ -11,7 +11,7 @@ internal abstract class StepBuilderBase<TState, TSelf>
     where TSelf : StepBuilderBase<TState, TSelf>
 {
     protected readonly FlowBuilder<TState>? Builder;
-    protected readonly FlowStep Step;
+    internal readonly FlowStep Step;
 
     protected StepBuilderBase(FlowBuilder<TState>? builder, FlowStep step)
     {
@@ -31,6 +31,7 @@ internal abstract class StepBuilderBase<TState, TSelf>
     {
         Step.HasCondition = true;
         Step.ConditionFactory = condition;
+        Step.EvaluateCondition = state => condition((TState)state);
         return Self;
     }
 

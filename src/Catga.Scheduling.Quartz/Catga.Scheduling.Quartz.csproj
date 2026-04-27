@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Catga\Catga.csproj" />
+    <ProjectReference Include="..\Catga.Flow\Catga.Flow.csproj" />
     <PackageReference Include="Quartz.Extensions.Hosting" />
   </ItemGroup>
 

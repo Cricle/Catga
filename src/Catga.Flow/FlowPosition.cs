@@ -66,3 +66,28 @@ public record ForEachProgress
     /// <summary>Indices of failed items.</summary>
     public List<int> FailedIndices { get; init; } = [];
 }
+
+/// <summary>Status of a persisted parallel branch.</summary>
+public enum ParallelBranchStatus
+{
+    Pending,
+    Suspended,
+    Completed,
+    Failed
+}
+
+/// <summary>Persisted progress for a single parallel branch.</summary>
+public record ParallelBranchProgress
+{
+    public int BranchIndex { get; init; }
+    public ParallelBranchStatus Status { get; init; } = ParallelBranchStatus.Pending;
+    public FlowPosition? Position { get; init; }
+    public string? Error { get; init; }
+}
+
+/// <summary>Persisted progress for a Parallel.WaitAll step.</summary>
+public record ParallelProgress
+{
+    public int BranchCount { get; init; }
+    public List<ParallelBranchProgress> Branches { get; init; } = [];
+}

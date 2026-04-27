@@ -60,9 +60,23 @@ public sealed class FlowExecutorService : IFlowExecutor
         var cancelled = snapshot with
         {
             Status = DslFlowStatus.Cancelled,
-            UpdatedAt = DateTime.UtcNow
+            UpdatedAt = DateTime.UtcNow,
+            Version = snapshot.Version + 1
         };
 
-        return await _store.UpdateAsync(cancelled, cancellationToken);
+        var versioning = _store as IDslFlowStoreVersioning;
+        if (versioning != null)
+        {
+            var snapshotToPersist = versioning.VersioningMode == DslFlowStoreVersioningMode.StoreAdvancesVersion
+                ? cancelled with { Version = snapshot.Version }
+                : cancelled;
+            return await _store.UpdateAsync(snapshotToPersist, cancellationToken);
+        }
+
+        if (await _store.UpdateAsync(cancelled, cancellationToken))
+            return true;
+
+        var currentVersionCancelled = cancelled with { Version = snapshot.Version };
+        return await _store.UpdateAsync(currentVersionCancelled, cancellationToken);
     }
 }

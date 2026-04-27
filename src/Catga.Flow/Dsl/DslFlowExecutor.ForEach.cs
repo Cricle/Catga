@@ -27,17 +27,23 @@ public partial class DslFlowExecutor<TState, TConfig>
             }
 
             var items = enumerable.Cast<object>().ToList();
+            var flowId = state.FlowId ?? throw new InvalidOperationException("FlowId is required for ForEach execution");
             if (items.Count == 0)
             {
                 step.InvokeComplete?.Invoke(state);
+                await _store.ClearForEachProgressAsync(flowId, stepIndex, cancellationToken);
                 return StepResult.Succeeded();
             }
 
             var maxDegreeOfParallelism = step.MaxDegreeOfParallelism ?? 1;
-
-            return maxDegreeOfParallelism <= 1
-                ? await ProcessItemsSequentially(state, step, items, cancellationToken)
+            var result = maxDegreeOfParallelism <= 1
+                ? await ProcessItemsSequentially(state, step, items, flowId, stepIndex, initialProgress: null, cancellationToken)
                 : await ProcessItemsInParallel(state, step, items, maxDegreeOfParallelism, cancellationToken);
+
+            if (result.Success)
+                await _store.ClearForEachProgressAsync(flowId, stepIndex, cancellationToken);
+
+            return result;
         }
         catch (Exception ex)
         {
@@ -49,11 +55,26 @@ public partial class DslFlowExecutor<TState, TConfig>
         TState state,
         FlowStep step,
         List<object> items,
+        string flowId,
+        int stepIndex,
+        ForEachProgress? initialProgress,
         CancellationToken cancellationToken)
     {
+        var progress = CreateForEachProgress(items.Count, 0, initialProgress);
+
         foreach (var (item, index) in items.Select((item, index) => (item, index)))
         {
             var result = await ProcessSingleItemAsync(state, step, item, index, cancellationToken);
+            progress = result.Success
+                ? AdvanceForEachProgress(progress, index, success: true, continueFromNextItem: true)
+                : AdvanceForEachProgress(
+                    progress,
+                    index,
+                    success: false,
+                    continueFromNextItem: step.FailureHandling == ForEachFailureHandling.ContinueOnFailure);
+
+            await _store.SaveForEachProgressAsync(flowId, stepIndex, progress, cancellationToken);
+
             if (!result.Success && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
             {
                 return result;
@@ -119,10 +140,22 @@ public partial class DslFlowExecutor<TState, TConfig>
             {
                 var tempBuilder = new FlowBuilder<TState>();
                 step.ConfigureItemSteps(item, tempBuilder);
+                var unsupportedStep = FindFirstSuspendingStep(tempBuilder.Steps);
+                if (unsupportedStep != null)
+                {
+                    return StepResult.Failed(
+                        $"ForEach failed on item {index}: {BuildUnsupportedSuspendingStepMessage("ForEach", unsupportedStep.Type)}");
+                }
 
                 foreach (var configuredStep in tempBuilder.Steps)
                 {
                     var stepResult = await ExecuteStepAsync(state, configuredStep, index, cancellationToken);
+                    if (stepResult.IsSuspended)
+                    {
+                        return StepResult.Failed(
+                            $"ForEach failed on item {index}: {BuildUnsupportedSuspendingStepMessage("ForEach", configuredStep.Type)}");
+                    }
+
                     if (!stepResult.Success)
                     {
                         step.InvokeItemFail?.Invoke(state, item, stepResult.Error);
@@ -172,23 +205,24 @@ public partial class DslFlowExecutor<TState, TConfig>
 
             var flowId = state.FlowId ?? throw new InvalidOperationException("FlowId is required for ForEach recovery");
             var progress = await _store.GetForEachProgressAsync(flowId, stepIndex, cancellationToken);
-            if (progress == null)
-            {
-                return await ExecuteForEachAsync(state, step, stepIndex, cancellationToken);
-            }
-
-            var startIndex = progress.CurrentIndex;
+            var startIndex = progress?.CurrentIndex
+                ?? (position.Path.Length > 1 ? position.Path[^1] : 0);
             if (startIndex >= items.Count)
             {
                 step.InvokeComplete?.Invoke(state);
+                await _store.ClearForEachProgressAsync(flowId, stepIndex, cancellationToken);
                 return StepResult.Succeeded();
             }
 
             var maxDegreeOfParallelism = step.MaxDegreeOfParallelism ?? 1;
-
-            return maxDegreeOfParallelism <= 1
-                ? await ProcessItemsSequentiallyFromIndex(state, step, items, startIndex, cancellationToken)
+            var result = maxDegreeOfParallelism <= 1
+                ? await ProcessItemsSequentiallyFromIndex(state, step, items, startIndex, flowId, stepIndex, progress, cancellationToken)
                 : await ProcessItemsInParallelFromIndex(state, step, items, startIndex, maxDegreeOfParallelism, cancellationToken);
+
+            if (result.Success)
+                await _store.ClearForEachProgressAsync(flowId, stepIndex, cancellationToken);
+
+            return result;
         }
         catch (Exception ex)
         {
@@ -201,11 +235,26 @@ public partial class DslFlowExecutor<TState, TConfig>
         FlowStep step,
         List<object> items,
         int startIndex,
+        string flowId,
+        int stepIndex,
+        ForEachProgress? initialProgress,
         CancellationToken cancellationToken)
     {
+        var progress = CreateForEachProgress(items.Count, startIndex, initialProgress);
+
         for (int i = startIndex; i < items.Count; i++)
         {
             var result = await ProcessSingleItemAsync(state, step, items[i], i, cancellationToken);
+            progress = result.Success
+                ? AdvanceForEachProgress(progress, i, success: true, continueFromNextItem: true)
+                : AdvanceForEachProgress(
+                    progress,
+                    i,
+                    success: false,
+                    continueFromNextItem: step.FailureHandling == ForEachFailureHandling.ContinueOnFailure);
+
+            await _store.SaveForEachProgressAsync(flowId, stepIndex, progress, cancellationToken);
+
             if (!result.Success && step.FailureHandling == ForEachFailureHandling.StopOnFirstFailure)
             {
                 return result;
@@ -332,5 +381,57 @@ public partial class DslFlowExecutor<TState, TConfig>
         {
             semaphore.Release();
         }
+    }
+
+    private static ForEachProgress CreateForEachProgress(
+        int totalCount,
+        int startIndex,
+        ForEachProgress? existingProgress)
+    {
+        if (existingProgress != null)
+        {
+            return existingProgress with
+            {
+                TotalCount = totalCount,
+                CompletedIndices = [.. existingProgress.CompletedIndices],
+                FailedIndices = [.. existingProgress.FailedIndices]
+            };
+        }
+
+        return new ForEachProgress
+        {
+            CurrentIndex = startIndex,
+            TotalCount = totalCount,
+            CompletedIndices = Enumerable.Range(0, startIndex).ToList(),
+            FailedIndices = []
+        };
+    }
+
+    private static ForEachProgress AdvanceForEachProgress(
+        ForEachProgress progress,
+        int itemIndex,
+        bool success,
+        bool continueFromNextItem)
+    {
+        var completed = new List<int>(progress.CompletedIndices);
+        var failed = new List<int>(progress.FailedIndices);
+
+        if (success)
+        {
+            if (!completed.Contains(itemIndex))
+                completed.Add(itemIndex);
+            failed.Remove(itemIndex);
+        }
+        else if (!failed.Contains(itemIndex))
+        {
+            failed.Add(itemIndex);
+        }
+
+        return progress with
+        {
+            CurrentIndex = continueFromNextItem ? itemIndex + 1 : itemIndex,
+            CompletedIndices = completed,
+            FailedIndices = failed
+        };
     }
 }

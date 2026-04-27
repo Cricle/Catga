@@ -17,6 +17,7 @@ internal class WhenAllBuilder<TState>(FlowStep step) : IWhenAllBuilder<TState> w
     {
         step.HasCompensation = true;
         step.CompensationFactory = factory;
+        step.CreateCompensation = state => factory((TState)state);
         return this;
     }
 

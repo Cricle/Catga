@@ -89,6 +89,11 @@ public static class FlowBuilderExtensions
             Type = StepType.WhenAll,
             ChildRequestCount = requests.Length,
             ChildRequestFactories = requests.Cast<Delegate>().ToList(),
+            StartChildRequests = requests.Select<Func<TState, IRequest>, Func<ICatgaMediator, object, CancellationToken, ValueTask>>(
+                factory => async (mediator, state, ct) =>
+                {
+                    await mediator.SendAsync(factory((TState)state), ct);
+                }).ToList(),
             CreateChildRequests = requests.Select<Func<TState, IRequest>, Func<object, IRequest>>(
                 f => state => f((TState)state)).ToList()
         };
@@ -108,6 +113,11 @@ public static class FlowBuilderExtensions
             Type = StepType.WhenAny,
             ChildRequestCount = requests.Length,
             ChildRequestFactories = requests.Cast<Delegate>().ToList(),
+            StartChildRequests = requests.Select<Func<TState, IRequest>, Func<ICatgaMediator, object, CancellationToken, ValueTask>>(
+                factory => async (mediator, state, ct) =>
+                {
+                    await mediator.SendAsync(factory((TState)state), ct);
+                }).ToList(),
             CreateChildRequests = requests.Select<Func<TState, IRequest>, Func<object, IRequest>>(
                 f => state => f((TState)state)).ToList()
         };
@@ -116,7 +126,7 @@ public static class FlowBuilderExtensions
     }
 
     /// <summary>Add a WhenAny step with result.</summary>
-    public static IWhenAnyBuilder<TState, TResult> WhenAny<TState, TResult>(
+    public static IWhenAnyBuilder<TState, TResult> WhenAny<TState, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResult>(
         this IFlowBuilder<TState> builder,
         params Func<TState, IRequest<TResult>>[] requests)
         where TState : class, IFlowState
@@ -128,8 +138,11 @@ public static class FlowBuilderExtensions
             ChildRequestCount = requests.Length,
             HasResult = true,
             ChildRequestFactories = requests.Cast<Delegate>().ToList(),
-            CreateChildRequests = requests.Select<Func<TState, IRequest<TResult>>, Func<object, IRequest>>(
-                f => state => (IRequest)f((TState)state)).ToList()
+            StartChildRequests = requests.Select<Func<TState, IRequest<TResult>>, Func<ICatgaMediator, object, CancellationToken, ValueTask>>(
+                factory => async (mediator, state, ct) =>
+                {
+                    await mediator.SendAsync<IRequest<TResult>, TResult>(factory((TState)state), ct);
+                }).ToList()
         };
         flowBuilder.Steps.Add(step);
         return new WhenAnyBuilder<TState, TResult>(step);
@@ -222,5 +235,108 @@ public static class FlowBuilderExtensions
         if (builder is FlowBuilder<TState> flowBuilder)
             return flowBuilder;
         throw new InvalidOperationException("Builder must be FlowBuilder<TState>");
+    }
+
+    /// <summary>
+    /// Add a Parallel step that executes multiple independent step branches concurrently.
+    /// Unlike WhenAll (which runs multiple requests), Parallel runs full step sequences.
+    /// </summary>
+    public static IParallelBuilder<TState> Parallel<TState>(
+        this IFlowBuilder<TState> builder)
+        where TState : class, IFlowState
+    {
+        var flowBuilder = GetFlowBuilder(builder);
+        var step = new FlowStep { Type = StepType.Parallel, ParallelWaitAll = true };
+        flowBuilder.Steps.Add(step);
+        return new ParallelBuilder<TState>(flowBuilder, step);
+    }
+
+    /// <summary>
+    /// Add a Throttle step that limits concurrent execution of inner steps.
+    /// </summary>
+    public static IThrottleBuilder<TState> Throttle<TState>(
+        this IFlowBuilder<TState> builder,
+        int maxConcurrency)
+        where TState : class, IFlowState
+    {
+        var flowBuilder = GetFlowBuilder(builder);
+        var step = new FlowStep { Type = StepType.Throttle, ThrottleCount = maxConcurrency };
+        flowBuilder.Steps.Add(step);
+        return new ThrottleBuilder<TState>(flowBuilder, step);
+    }
+
+    /// <summary>
+    /// Add per-step retry configuration. Overrides global retry for this step.
+    /// </summary>
+    public static IStepBuilder<TState> Retry<TState>(
+        this IStepBuilder<TState> builder,
+        int maxAttempts,
+        TimeSpan? delay = null)
+        where TState : class, IFlowState
+    {
+        if (builder is StepBuilder<TState> sb)
+        {
+            sb.Step.RetryCount = maxAttempts;
+            sb.Step.RetryDelay = delay ?? TimeSpan.FromMilliseconds(100);
+        }
+        return builder;
+    }
+
+    /// <summary>
+    /// Add per-step retry configuration for steps with result.
+    /// </summary>
+    public static IStepBuilder<TState, TResult> Retry<TState, TResult>(
+        this IStepBuilder<TState, TResult> builder,
+        int maxAttempts,
+        TimeSpan? delay = null)
+        where TState : class, IFlowState
+    {
+        if (builder is StepBuilder<TState, TResult> sb)
+        {
+            sb.Step.RetryCount = maxAttempts;
+            sb.Step.RetryDelay = delay ?? TimeSpan.FromMilliseconds(100);
+        }
+        return builder;
+    }
+
+    /// <summary>
+    /// Add a RemoteSend step that calls a remote service via IRequestClientFactory
+    /// and awaits the response. Equivalent to MassTransit's Request/Response in a saga.
+    /// Requires IRequestClientFactory to be registered in DI.
+    /// </summary>
+    public static IStepBuilder<TState, TResult> RemoteSend<TState,
+        [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TRequest,
+        [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TResult>(
+        this IFlowBuilder<TState> builder,
+        Func<TState, TRequest> factory,
+        string? destination = null,
+        TimeSpan? timeout = null)
+        where TState : class, IFlowState
+        where TRequest : class, Catga.Abstractions.IRequest<TResult>
+        where TResult : class
+    {
+        var flowBuilder = GetFlowBuilder(builder);
+        var step = new FlowStep
+        {
+            Type = StepType.RemoteSend,
+            HasResult = true,
+            RequestFactory = factory,
+            CreateRequest = state => factory((TState)state),
+            ExecuteRequest = async (mediator, request, ct) =>
+            {
+                // Resolve IRequestClientFactory from mediator's service provider via a workaround:
+                // Store destination/timeout in step metadata for executor to use
+                var typedRequest = (TRequest)request;
+                var result = await mediator.SendAsync<TRequest, TResult>(typedRequest, ct);
+                return (result.IsSuccess, result.Error, result.Value);
+            }
+        };
+        // Store remote send metadata
+        step.Tags.Add($"__remote_dest:{destination ?? typeof(TRequest).Name}");
+        if (timeout.HasValue)
+            step.Timeout = timeout;
+
+        flowBuilder.Steps.Add(step);
+        return new StepBuilder<TState, TResult>(flowBuilder, step);
     }
 }

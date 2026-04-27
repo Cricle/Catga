@@ -37,6 +37,10 @@ public interface IDslFlowStore
     /// <summary>Get timed out wait conditions.</summary>
     Task<IReadOnlyList<WaitCondition>> GetTimedOutWaitConditionsAsync(CancellationToken ct = default);
 
+    /// <summary>Get active wait conditions for a flow.</summary>
+    Task<IReadOnlyList<WaitCondition>> GetWaitConditionsByFlowAsync(string flowId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<WaitCondition>>([]);
+
     /// <summary>Save ForEach progress for recovery.</summary>
     Task SaveForEachProgressAsync(string flowId, int stepIndex, ForEachProgress progress, CancellationToken ct = default);
 
@@ -45,6 +49,15 @@ public interface IDslFlowStore
 
     /// <summary>Clear ForEach progress.</summary>
     Task ClearForEachProgressAsync(string flowId, int stepIndex, CancellationToken ct = default);
+
+    /// <summary>Save Parallel progress for recovery.</summary>
+    Task SaveParallelProgressAsync(string flowId, int stepIndex, ParallelProgress progress, CancellationToken ct = default);
+
+    /// <summary>Get Parallel progress for recovery.</summary>
+    Task<ParallelProgress?> GetParallelProgressAsync(string flowId, int stepIndex, CancellationToken ct = default);
+
+    /// <summary>Clear Parallel progress.</summary>
+    Task ClearParallelProgressAsync(string flowId, int stepIndex, CancellationToken ct = default);
 
     /// <summary>Query flows by status.</summary>
     Task<IReadOnlyList<FlowSummary>> QueryByStatusAsync(DslFlowStatus status, CancellationToken ct = default);

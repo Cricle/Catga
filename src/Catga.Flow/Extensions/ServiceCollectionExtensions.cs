@@ -27,6 +27,9 @@ public static class ServiceCollectionExtensions
 
         // Register flow executor
         services.TryAddSingleton<IFlowExecutor, FlowExecutorService>();
+        services.TryAddSingleton<IFlowResumeHandler, DefaultFlowResumeHandler>();
+        services.TryAddSingleton<FlowResumeHandler>();
+        services.TryAddSingleton<IEventHandler<FlowCompletedEvent>>(sp => sp.GetRequiredService<FlowResumeHandler>());
 
         // Register mediator and pipeline behaviors
         services.AddCatga();
@@ -61,6 +64,7 @@ public static class ServiceCollectionExtensions
         // Register flow configuration
         services.Add(new ServiceDescriptor(typeof(FlowConfig<TState>), typeof(TFlow), lifetime));
         services.Add(new ServiceDescriptor(typeof(TFlow), typeof(TFlow), lifetime));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IFlowResumeRegistration, FlowResumeRegistration<TState, TFlow>>());
 
         // Register flow executor
         services.AddTransient<DslFlowExecutor<TState, TFlow>>();

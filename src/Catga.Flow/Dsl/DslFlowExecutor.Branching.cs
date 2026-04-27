@@ -9,15 +9,14 @@ public partial class DslFlowExecutor<TState, TConfig>
     private async Task<StepResult> ExecuteIfAsync(
         TState state,
         FlowStep step,
-        int stepIndex,
+        FlowPosition position,
         CancellationToken cancellationToken)
     {
         if (step.BranchCondition == null)
-            return StepResult.Failed("If step has no condition");
+            return StepResult.Failed("If step has no condition", position);
 
         var condition = (Func<TState, bool>)step.BranchCondition;
         var conditionResult = condition(state);
-
         List<FlowStep>? branchToExecute = null;
         int branchIndex = 0;
 
@@ -50,26 +49,25 @@ public partial class DslFlowExecutor<TState, TConfig>
 
         if (branchToExecute != null && branchToExecute.Count > 0)
         {
-            var branchPosition = new FlowPosition([stepIndex, branchIndex]);
-            var result = await ExecuteBranchStepsAsync(state, branchToExecute, branchPosition, cancellationToken);
-            if (!result.Success)
+            var branchPosition = position.EnterBranch(branchIndex);
+            var result = await ExecuteBranchStepsFromAsync(state, branchToExecute, branchPosition, 0, cancellationToken);
+            if (result.IsSuspended || (!result.Success && !result.Skipped))
                 return result;
         }
 
-        return StepResult.Succeeded();
+        return StepResult.Succeeded(position: position);
     }
 
     private async Task<StepResult> ExecuteSwitchAsync(
         TState state,
         FlowStep step,
-        int stepIndex,
+        FlowPosition position,
         CancellationToken cancellationToken)
     {
         if (step.EvaluateSwitchSelector == null)
-            return StepResult.Failed("Switch step has no selector");
+            return StepResult.Failed("Switch step has no selector", position);
 
         var selectorValue = step.EvaluateSwitchSelector(state);
-
         List<FlowStep>? branchToExecute = null;
         int caseIndex = -1;
 
@@ -96,13 +94,13 @@ public partial class DslFlowExecutor<TState, TConfig>
 
         if (branchToExecute != null && branchToExecute.Count > 0)
         {
-            var branchPosition = new FlowPosition([stepIndex, caseIndex]);
-            var result = await ExecuteBranchStepsAsync(state, branchToExecute, branchPosition, cancellationToken);
-            if (!result.Success)
+            var branchPosition = position.EnterBranch(caseIndex);
+            var result = await ExecuteBranchStepsFromAsync(state, branchToExecute, branchPosition, 0, cancellationToken);
+            if (result.IsSuspended || (!result.Success && !result.Skipped))
                 return result;
         }
 
-        return StepResult.Succeeded();
+        return StepResult.Succeeded(position: position);
     }
 
     private async Task<StepResult> ExecuteBranchStepsAsync(
@@ -110,12 +108,20 @@ public partial class DslFlowExecutor<TState, TConfig>
         List<FlowStep> steps,
         FlowPosition parentPosition,
         CancellationToken cancellationToken)
+        => await ExecuteBranchStepsFromAsync(state, steps, parentPosition, 0, cancellationToken);
+
+    private async Task<StepResult> ExecuteBranchStepsFromAsync(
+        TState state,
+        List<FlowStep> steps,
+        FlowPosition parentPosition,
+        int startIndex,
+        CancellationToken cancellationToken)
     {
-        for (int i = 0; i < steps.Count; i++)
+        for (int i = startIndex; i < steps.Count; i++)
         {
             var branchStep = steps[i];
             var nestedPosition = parentPosition.EnterBranch(i);
-            var result = await ExecuteStepAsync(state, branchStep, i, cancellationToken);
+            var result = await ExecuteStepAsync(state, branchStep, nestedPosition, cancellationToken);
 
             if (result.IsSuspended)
                 return result;
@@ -129,7 +135,7 @@ public partial class DslFlowExecutor<TState, TConfig>
             }
         }
 
-        return StepResult.Succeeded();
+        return StepResult.Succeeded(position: parentPosition);
     }
 
     private List<FlowStep>? GetBranchAtPosition(FlowStep step, int branchIndex)

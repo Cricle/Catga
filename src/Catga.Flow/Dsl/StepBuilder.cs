@@ -18,6 +18,7 @@ internal class StepBuilder<TState> : StepBuilderBase<TState, StepBuilder<TState>
     {
         Step.HasCompensation = true;
         Step.CompensationFactory = factory;
+        Step.CreateCompensation = state => factory((TState)state);
         return this;
     }
 
@@ -66,6 +67,7 @@ internal class StepBuilder<TState, TResult> : StepBuilderBase<TState, StepBuilde
     {
         Step.HasCompensation = true;
         Step.CompensationFactory = factory;
+        Step.CreateCompensation = state => factory((TState)state);
         return this;
     }
 
@@ -73,6 +75,7 @@ internal class StepBuilder<TState, TResult> : StepBuilderBase<TState, StepBuilde
     {
         Step.HasCompensation = true;
         Step.CompensationFactory = factory;
+        Step.CreateCompensation = state => factory((TState)state);
         return new StepBuilder<TState>(Step);
     }
 

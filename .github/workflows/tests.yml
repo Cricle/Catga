@@ -1,53 +1,222 @@
-name: Tests
+name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  TEST_REDIS_IMAGE: "redis:7-alpine"
+  TEST_NATS_IMAGE: "nats:2.10-alpine"
+  TEST_RABBITMQ_IMAGE: "rabbitmq:3.13-alpine"
 
 jobs:
-  unit:
-    uses: ./.github/workflows/reusable-tests.yml
-    with:
-      runner: ubuntu-latest
-      test_filter: '(Requires!=Docker) and not (FullyQualifiedName~Catga.Tests.Integration)'
-      enable_docker: false
-      results_dir: 'tests/Catga.Tests/TestResults'
-      upload_artifacts: true
-      artifact_name: test-results-unit-${{ github.run_attempt }}
+  build:
+    name: Build Solution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  integration:
-    needs: unit
-    uses: ./.github/workflows/reusable-tests.yml
-    with:
-      runner: ubuntu-latest
-      test_filter: '(Category=Integration) or (FullyQualifiedName~Catga.Tests.Integration)'
-      enable_docker: true
-      nats_image: 'nats:latest'
-      redis_image: 'redis:7-alpine'
-      results_dir: 'tests/Catga.Tests/TestResults'
-      upload_artifacts: true
-      artifact_name: test-results-integration-${{ github.run_attempt }}
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-  coverage:
-    needs: unit
-    uses: ./.github/workflows/reusable-tests.yml
-    with:
-      runner: ubuntu-latest
-      collect_coverage: true
-      enable_docker: false
-      coverage_dir: 'coverage'
-      results_dir: 'tests/Catga.Tests/TestResults'
-      upload_artifacts: true
-      artifact_name: coverage-report-coverage-${{ github.run_attempt }}
-      test_filter: '(Requires!=Docker) and (Category!=Integration) and not (FullyQualifiedName~Catga.Tests.Integration)'
+      - name: Restore
+        run: dotnet restore Catga.sln
+
+      - name: Build solution
+        run: dotnet build Catga.sln -c Release --no-restore -m:1
+
+  catga-tests:
+    name: Catga.Tests net10.0
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore tests/Catga.Tests/Catga.Tests.csproj
+
+      - name: Prepare broker images
+        run: |
+          docker info
+          docker pull "$TEST_REDIS_IMAGE"
+          docker pull "$TEST_NATS_IMAGE"
+          docker pull "$TEST_RABBITMQ_IMAGE"
+
+      - name: Run Catga.Tests
+        run: >
+          dotnet test tests/Catga.Tests/Catga.Tests.csproj
+          -c Release
+          --framework net10.0
+          --no-restore
+          -m:1
+          --logger "trx;LogFileName=catga-tests.trx"
+          --results-directory artifacts/test-results/catga-tests
+
+      - name: Upload Catga.Tests results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catga-tests-results
+          path: artifacts/test-results/catga-tests/**/*.trx
+          if-no-files-found: warn
+
+  order-system-e2e:
+    name: Catga.E2E.Tests net10.0
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore tests/Catga.E2E.Tests/Catga.E2E.Tests.csproj
+
+      - name: Prepare broker images
+        run: |
+          docker info
+          docker pull "$TEST_REDIS_IMAGE"
+          docker pull "$TEST_NATS_IMAGE"
+
+      - name: Run Catga.E2E.Tests
+        run: >
+          dotnet test tests/Catga.E2E.Tests/Catga.E2E.Tests.csproj
+          -c Release
+          --framework net10.0
+          --no-restore
+          -m:1
+          --logger "trx;LogFileName=catga-e2e.trx"
+          --results-directory artifacts/test-results/catga-e2e
+
+      - name: Upload Catga.E2E.Tests results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catga-e2e-results
+          path: artifacts/test-results/catga-e2e/**/*.trx
+          if-no-files-found: warn
+
+  flow-semantic-gap:
+    name: FlowSemanticGap net10.0
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore tests/Catga.E2E.Tests/FlowSemanticGap/Catga.FlowSemanticGap.Tests.csproj
+
+      - name: Run FlowSemanticGap tests
+        run: >
+          dotnet test tests/Catga.E2E.Tests/FlowSemanticGap/Catga.FlowSemanticGap.Tests.csproj
+          -c Release
+          --framework net10.0
+          --no-restore
+          -m:1
+          --logger "trx;LogFileName=flow-semantic-gap.trx"
+          --results-directory artifacts/test-results/flow-semantic-gap
+
+      - name: Upload FlowSemanticGap results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flow-semantic-gap-results
+          path: artifacts/test-results/flow-semantic-gap/**/*.trx
+          if-no-files-found: warn
+
+  broker-matrix:
+    name: Broker Matrix (${{ matrix.backend }})
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: inmemory
+            filter: "FullyQualifiedName~Catga.Tests.Transport.InMemoryMessageTransportTests|FullyQualifiedName~Catga.Tests.Flow.InMemoryFlowStoreTests|FullyQualifiedName~Catga.Tests.Flow.InMemoryDslFlowStoreTests|FullyQualifiedName~Catga.Tests.EventSourcing.InMemoryStoreTests"
+          - backend: redis
+            filter: "FullyQualifiedName~Catga.Tests.Integration.Redis.RedisTransportE2ETests|FullyQualifiedName~Catga.Tests.Integration.Redis.RedisPersistenceE2ETests|FullyQualifiedName~Catga.Tests.Integration.Redis.RedisNewFeaturesE2ETests|FullyQualifiedName~Catga.Tests.Integration.Redis.RedisSubscriptionLockE2ETests|FullyQualifiedName~Catga.Tests.Integration.RedisTransportIntegrationTests|FullyQualifiedName~Catga.Tests.Integration.RedisPersistenceIntegrationTests|FullyQualifiedName~Catga.Tests.Flow.RedisFlowStoreTests"
+          - backend: nats
+            filter: "FullyQualifiedName~Catga.Tests.Integration.Nats.NatsTransportE2ETests|FullyQualifiedName~Catga.Tests.Integration.Nats.NatsPersistenceE2ETests|FullyQualifiedName~Catga.Tests.Integration.Nats.NatsNewFeaturesE2ETests|FullyQualifiedName~Catga.Tests.Integration.Nats.NatsSubscriptionLockE2ETests|FullyQualifiedName~Catga.Tests.Integration.NatsTransportIntegrationTests|FullyQualifiedName~Catga.Tests.Integration.NatsPersistenceIntegrationTests|FullyQualifiedName~Catga.Tests.Integration.Nats.NatsConnectionManagementTests|FullyQualifiedName~Catga.Tests.Integration.Nats.NatsJetStreamFunctionalityTests|FullyQualifiedName~Catga.Tests.Integration.Nats.NatsKVFunctionalityTests|FullyQualifiedName~Catga.Tests.Integration.Nats.NatsMessageFunctionalityTests|FullyQualifiedName~Catga.Tests.Integration.E2E.NatsCrossComponentE2ETests|FullyQualifiedName~Catga.Tests.Integration.E2E.NatsFailoverE2ETests|FullyQualifiedName~Catga.Tests.Flow.NatsFlowStoreTests"
+          - backend: rabbitmq
+            filter: "FullyQualifiedName~Catga.Tests.Transport.RabbitMqTransportTests|FullyQualifiedName~Catga.Tests.Transport.RabbitMqCompetingConsumerTests|FullyQualifiedName~Catga.Tests.Integration.RabbitMQ.RabbitMqTransportE2ETests"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore tests/Catga.Tests/Catga.Tests.csproj
+
+      - name: Prepare broker images
+        shell: bash
+        run: |
+          docker info
+          case "${{ matrix.backend }}" in
+            redis)
+              docker pull "$TEST_REDIS_IMAGE"
+              ;;
+            nats)
+              docker pull "$TEST_NATS_IMAGE"
+              ;;
+            rabbitmq)
+              docker pull "$TEST_RABBITMQ_IMAGE"
+              ;;
+          esac
+
+      - name: Run broker matrix tests
+        run: >
+          dotnet test tests/Catga.Tests/Catga.Tests.csproj
+          -c Release
+          --framework net10.0
+          --no-restore
+          -m:1
+          --filter "${{ matrix.filter }}"
+          --logger "trx;LogFileName=${{ matrix.backend }}.trx"
+          --results-directory artifacts/test-results/broker-${{ matrix.backend }}
+
+      - name: Upload broker matrix results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: broker-matrix-${{ matrix.backend }}
+          path: artifacts/test-results/broker-${{ matrix.backend }}/**/*.trx
+          if-no-files-found: warn
 
   docfx:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
-    needs: [unit, integration]
+    needs: [build, catga-tests, order-system-e2e, flow-semantic-gap, broker-matrix]
     permissions:
       contents: read
       pages: write
@@ -63,12 +232,12 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Install DocFX
         run: dotnet tool install -g docfx
 
-      - name: Build DocFX site (skip metadata, use pre-generated api/)
+      - name: Build DocFX site
         run: |
           docfx build docfx.json --warningsAsErrors 2>&1 | tee docfx.log
 
@@ -83,10 +252,10 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '_site'
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
@@ -94,96 +263,91 @@ jobs:
 
   build-and-pack:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [unit, integration]
+    needs: [build, catga-tests, order-system-e2e, flow-semantic-gap, broker-matrix]
     name: Build and Create NuGet Packages
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '9.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: Extract version from tag
-      id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
-    - name: Restore dependencies
-      run: dotnet restore
+      - name: Restore
+        run: dotnet restore Catga.sln
 
-    - name: Build solution
-      run: dotnet build --no-restore --configuration Release
+      - name: Build solution
+        run: dotnet build Catga.sln -c Release --no-restore -m:1
 
-    - name: Pack NuGet packages
-      run: |
-        # Core packages
-        dotnet pack src/Catga/Catga.csproj --no-build --configuration Release --output ./artifacts
-        dotnet pack src/Catga.AspNetCore/Catga.AspNetCore.csproj --no-build --configuration Release --output ./artifacts
+      - name: Pack NuGet packages
+        run: |
+          dotnet pack src/Catga/Catga.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.AspNetCore/Catga.AspNetCore.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.Flow/Catga.Flow.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.Testing/Catga.Testing.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.Persistence.InMemory/Catga.Persistence.InMemory.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.Persistence.Nats/Catga.Persistence.Nats.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.Persistence.Redis/Catga.Persistence.Redis.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.Transport.InMemory/Catga.Transport.InMemory.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.Transport.Nats/Catga.Transport.Nats.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.Transport.Redis/Catga.Transport.Redis.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.Transport.RabbitMQ/Catga.Transport.RabbitMQ.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.Serialization.MemoryPack/Catga.Serialization.MemoryPack.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.Cluster/Catga.Cluster.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.Scheduling.Hangfire/Catga.Scheduling.Hangfire.csproj --no-build -c Release -o ./artifacts
+          dotnet pack src/Catga.Scheduling.Quartz/Catga.Scheduling.Quartz.csproj --no-build -c Release -o ./artifacts
 
-        # Persistence packages
-        dotnet pack src/Catga.Persistence.InMemory/Catga.Persistence.InMemory.csproj --no-build --configuration Release --output ./artifacts
-        dotnet pack src/Catga.Persistence.Nats/Catga.Persistence.Nats.csproj --no-build --configuration Release --output ./artifacts
-        dotnet pack src/Catga.Persistence.Redis/Catga.Persistence.Redis.csproj --no-build --configuration Release --output ./artifacts
+      - name: Upload NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: ./artifacts/*.nupkg
 
-        # Transport packages
-        dotnet pack src/Catga.Transport.InMemory/Catga.Transport.InMemory.csproj --no-build --configuration Release --output ./artifacts
-        dotnet pack src/Catga.Transport.Nats/Catga.Transport.Nats.csproj --no-build --configuration Release --output ./artifacts
-        dotnet pack src/Catga.Transport.Redis/Catga.Transport.Redis.csproj --no-build --configuration Release --output ./artifacts
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## Catga v${{ steps.get_version.outputs.VERSION }}
 
-        # Serialization packages
-        dotnet pack src/Catga.Serialization.MemoryPack/Catga.Serialization.MemoryPack.csproj --no-build --configuration Release --output ./artifacts
+            高性能、AOT 兼容的分布式 CQRS 框架
 
-        # Cluster packages
-        dotnet pack src/Catga.Cluster/Catga.Cluster.csproj --no-build --configuration Release --output ./artifacts
+            ### NuGet Packages
 
-        # Scheduling packages
-        dotnet pack src/Catga.Scheduling.Hangfire/Catga.Scheduling.Hangfire.csproj --no-build --configuration Release --output ./artifacts
-        dotnet pack src/Catga.Scheduling.Quartz/Catga.Scheduling.Quartz.csproj --no-build --configuration Release --output ./artifacts
+            此版本包含以下 NuGet 包：
+            - Catga
+            - Catga.AspNetCore
+            - Catga.Flow
+            - Catga.Testing
+            - Catga.Persistence.InMemory
+            - Catga.Persistence.Nats
+            - Catga.Persistence.Redis
+            - Catga.Transport.InMemory
+            - Catga.Transport.Nats
+            - Catga.Transport.Redis
+            - Catga.Transport.RabbitMQ
+            - Catga.Serialization.MemoryPack
+            - Catga.Cluster
+            - Catga.Scheduling.Hangfire
+            - Catga.Scheduling.Quartz
 
-    - name: Upload NuGet packages
-      uses: actions/upload-artifact@v4
-      with:
-        name: nuget-packages
-        path: ./artifacts/*.nupkg
+            ### Documentation
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        name: v${{ steps.get_version.outputs.VERSION }}
-        body: |
-          ## Catga v${{ steps.get_version.outputs.VERSION }}
-          
-          高性能、100% AOT 兼容的分布式 CQRS 框架
-          
-          ### 📦 NuGet 包
-          
-          此版本包含以下 NuGet 包：
-          - Catga
-          - Catga.AspNetCore
-          - Catga.Persistence.InMemory
-          - Catga.Persistence.Nats
-          - Catga.Persistence.Redis
-          - Catga.Transport.InMemory
-          - Catga.Transport.Nats
-          - Catga.Transport.Redis
-          - Catga.Serialization.MemoryPack
-          - Catga.Cluster
-          - Catga.Scheduling.Hangfire
-          - Catga.Scheduling.Quartz
-          
-          ### 📖 文档
-          
-          查看完整文档：https://cricle.github.io/Catga/
-        files: ./artifacts/*.nupkg
-        draft: false
-        prerelease: ${{ contains(github.ref, '-') }}
+            查看完整文档：https://cricle.github.io/Catga/
+          files: ./artifacts/*.nupkg
+          draft: false
+          prerelease: ${{ contains(github.ref, '-') }}
 
-    - name: Publish to NuGet.org
-      if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
-      run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+      - name: Publish to NuGet.org
+        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
+        run: dotnet nuget push ./artifacts/*.nupkg --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate

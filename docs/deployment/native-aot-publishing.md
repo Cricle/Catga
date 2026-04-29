@@ -3,16 +3,16 @@
 ## 概述
 
 本指南将帮助你将 Catga 应用发布为 Native AOT 二进制文件，获得：
-- 🚀 **24x 更快的启动时间**
-- 💾 **8.5x 更小的文件体积**
-- ⚡ **10-25x 更快的运行时性能**
+- 🚀 更快的启动
+- 💾 更小的部署产物
+- ⚡ 更低的运行时开销
 - 🔒 **更高的安全性**（无JIT，代码完全预编译）
 
 ## 前置要求
 
 ### 开发环境
 
-- **.NET 9.0 SDK** 或更高版本
+- **.NET 10.0 SDK** 或更高版本
 - **C++ 编译工具链**：
   - Windows: Visual Studio 2022 (含 C++ 桌面开发工作负载)
   - Linux: GCC 或 Clang
@@ -22,7 +22,7 @@
 
 ```bash
 # 验证 .NET SDK
-dotnet --version  # 应该是 9.0.0 或更高
+dotnet --version  # 应该是 10.0.0 或更高
 
 # Windows: 验证 Visual Studio C++ 工具
 where cl.exe
@@ -43,7 +43,7 @@ clang --version
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 
@@ -65,31 +65,24 @@ clang --version
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Catga packages (AOT-compatible) -->
-    <PackageReference Include="Catga.InMemory" Version="1.0.0" />
-    <PackageReference Include="Catga.SourceGenerator" Version="1.0.0" />
-
-    <!-- Optional: MemoryPack for serialization (recommended for AOT) -->
-    <PackageReference Include="Catga.Serialization.MemoryPack" Version="1.0.0" />
-    <PackageReference Include="MemoryPack" Version="1.21.1" />
-    <PackageReference Include="MemoryPack.Generator" Version="1.21.1" />
+    <PackageReference Include="Catga" Version="x.y.z" />
+    <PackageReference Include="Catga.Serialization.MemoryPack" Version="x.y.z" />
+    <PackageReference Include="Catga.Transport.InMemory" Version="x.y.z" />
   </ItemGroup>
 </Project>
 ```
 
 ### 2. 确保代码 AOT 兼容
 
-#### ✅ 使用源生成器注册 Handlers
+#### ✅ 使用当前推荐的最小 AOT 路线
 
 ```csharp
-// ❌ 不要使用反射扫描
-// services.AddCatga()
-//     .ScanHandlers();
+var catga = services.AddCatga()
+    .UseMemoryPack()
+    .UseInMemory()
+    .AddHostedServices();
 
-// ✅ 使用源生成器
-services.AddCatga()
-    .AddGeneratedHandlers()  // 自动生成的注册代码
-    .UseInMemoryTransport();
+services.AddInMemoryTransport();
 ```
 
 #### ✅ 使用 MemoryPack 序列化
@@ -105,18 +98,22 @@ public partial class CreateOrderCommand : IRequest<OrderResult>
 
 // 配置
 services.AddCatga()
-    .UseMemoryPack()  // AOT 友好的序列化器
-    .AddGeneratedHandlers();
+    .UseMemoryPack();  // AOT 友好的序列化器
 ```
 
 #### ✅ 使用生产级实现
 
 ```csharp
 services.AddCatga()
-    .UseInMemoryTransport()
-    .UseShardedIdempotencyStore()  // ✅ AOT 兼容
-    // 不要用 .UseMemoryIdempotencyStore()  // ❌ 仅供测试
-    .AddGeneratedHandlers();
+    .UseMemoryPack()
+    .UseRedis("localhost:6379")
+    .ForProduction()
+    .UseInbox()
+    .UseOutbox()
+    .UseDeadLetterQueue()
+    .AddHostedServices();
+
+services.AddRedisTransport("localhost:6379");
 ```
 
 ### 3. 发布为 Native AOT
@@ -132,7 +129,7 @@ dotnet publish -c Release -r linux-x64
 dotnet publish -c Release -r osx-arm64
 
 # 输出位置
-# bin/Release/net9.0/{runtime}/publish/
+# bin/Release/net10.0/{runtime}/publish/
 ```
 
 发布后的文件结构：
@@ -146,13 +143,13 @@ publish/
 
 ```bash
 # Windows
-.\bin\Release\net9.0\win-x64\publish\YourApp.exe
+.\bin\Release\net10.0\win-x64\publish\YourApp.exe
 
 # Linux / macOS
-./bin/Release/net9.0/linux-x64/publish/YourApp
+./bin/Release/net10.0/linux-x64/publish/YourApp
 
 # 查看文件大小
-ls -lh bin/Release/net9.0/*/publish/
+ls -lh bin/Release/net10.0/*/publish/
 ```
 
 ## 高级配置
@@ -219,9 +216,9 @@ warning IL2026: Using member 'X' which has 'RequiresUnreferencedCodeAttribute'
 **原因**: 使用了反射或动态代码生成
 
 **解决方案**:
-1. 使用 `AddGeneratedHandlers()` 替代 `ScanHandlers()`
-2. 使用 MemoryPack 替代 System.Text.Json (或配置 JsonSerializerContext)
-3. 使用 `ShardedIdempotencyStore` 替代 `MemoryIdempotencyStore`
+1. 优先使用 `UseMemoryPack()`
+2. 避免依赖运行时反射扫描
+3. 先用 `UseInMemory() + AddInMemoryTransport()` 跑通 AOT，再切生产 broker
 
 ### 问题 2: 编译失败 "native toolchain not found"
 
@@ -255,26 +252,22 @@ error : Native toolchain cannot be found
 3. 检查是否有反射使用
 4. 使用 `dotnet publish` 的 `-v:detailed` 选项查看详细输出
 
-## 性能基准
+## 性能说明
 
-### 典型 Catga 应用 (ASP.NET Core + CQRS)
+Native AOT 的实际收益高度依赖：
 
-| 指标 | 传统 .NET | Native AOT | 改进 |
-|------|-----------|------------|------|
-| 启动时间 | 1.2s | 0.05s | **24x** |
-| 内存占用 | 85 MB | 12 MB | **7x** |
-| 文件大小 | 68 MB | 8 MB | **8.5x** |
-| 首次请求 | 150ms | 5ms | **30x** |
-| 稳态吞吐量 | 50K req/s | 55K req/s | **1.1x** |
+- 你的依赖树
+- 是否是 ASP.NET Core 宿主
+- trimming 配置
+- serializer 与 transport/persistence 组合
 
-### 纯 Catga 服务 (无 ASP.NET Core)
+因此这里不再给固定倍数承诺。实际收益请在你的目标应用上实测。
 
-| 指标 | 传统 .NET | Native AOT | 改进 |
-|------|-----------|------------|------|
-| 启动时间 | 800ms | 20ms | **40x** |
-| 内存占用 | 45 MB | 5 MB | **9x** |
-| 文件大小 | 35 MB | 3 MB | **11.6x** |
-| Handler 注册 | 45ms | 0.5ms | **90x** |
+相关文档：
+
+- [Benchmark Results](../BENCHMARK-RESULTS.md)
+- [AOT 部署说明](../articles/aot-deployment.md)
+- [序列化 AOT 指南](../aot/serialization-aot-guide.md)
 
 ## 最佳实践
 
@@ -288,13 +281,12 @@ public static class ServiceCollectionExtensions
 #if AOT_BUILD
         // 生产 AOT 配置
         return services.AddCatga()
-            .UseMemoryPack()
-            .AddGeneratedHandlers();
+            .UseMemoryPack();
 #else
         // 开发配置 (更灵活)：示例使用自定义 JSON 序列化器手动注册
         services.AddCatga();
         services.AddSingleton<IMessageSerializer, CustomSerializer>();
-        return services.ScanCurrentAssembly();
+        return services;
 #endif
     }
 }
@@ -386,17 +378,11 @@ ls -lh YourApp
 
 ## 总结
 
-Catga 为 Native AOT 提供了完整的支持：
+Catga 为 Native AOT 提供了清晰的落地路径：
 
-✅ **核心库 100% AOT 兼容**
-✅ **生产实现完全优化**
-✅ **源生成器自动化**
-✅ **多种序列化选项**
-✅ **详细的文档和示例**
+✅ **优先推荐 `UseMemoryPack()`**
+✅ **可先用 `UseInMemory()` 验证最小 AOT 路线**
+✅ **再切换到 Redis / NATS 等生产组合**
+✅ **文档已覆盖发布、序列化和排障路径**
 
-从传统 .NET 迁移到 Native AOT 通常只需 **5-10 分钟**，即可获得 **10-40x 的性能提升**！
-
-开始你的 Native AOT 之旅吧！🚀
-
-
-
+下一步应该是：在你的目标宿主、发布参数和 broker 组合上做一次真实发布与实测。

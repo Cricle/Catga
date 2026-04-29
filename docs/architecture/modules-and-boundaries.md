@@ -24,7 +24,7 @@ Catga 的核心设计理念是 **专注、简洁、高性能**：
 
 ---
 
-## 总体架构 (2025-10)
+## 总体架构 (2026-04)
 
 ### 当前层次结构
 
@@ -32,14 +32,14 @@ Catga 的核心设计理念是 **专注、简洁、高性能**：
 ┌─────────────────────────────────────────┐
 │        Your Application                 │ ← 业务逻辑 + Handlers
 ├─────────────────────────────────────────┤
-│   Catga.Serialization.MemoryPack        │ ← 序列化（推荐 - 100% AOT）
+│   Catga.Serialization.MemoryPack        │ ← 序列化（推荐）
 │   Custom JSON (IMessageSerializer)      │   可选（源生成）
 ├─────────────────────────────────────────┤
-│      Catga.InMemory (Production)        │ ← 核心实现
+│      Catga Runtime / Builder            │ ← 核心运行时
 │  • CatgaMediator                        │   - Mediator
 │  • Pipeline Behaviors                   │   - Pipeline
-│  • Idempotency Store                    │   - 幂等性
-│  • Handler Cache                        │   - Handler 缓存
+│  • CatgaServiceBuilder                  │   - Fluent 配置
+│  • Reliability Behaviors                │   - Inbox / Outbox / DLQ
 ├─────────────────────────────────────────┤
 │         Catga (Abstractions)            │ ← 接口定义
 │  • IRequest / IEvent                    │   - 消息接口
@@ -48,17 +48,18 @@ Catga 的核心设计理念是 **专注、简洁、高性能**：
 │  • CatgaResult<T>                       │   - 结果类型
 ├─────────────────────────────────────────┤
 │      Catga.SourceGenerator              │ ← 编译时代码生成
-│  • Handler 自动注册                     │   - 零反射
-│  • Type 缓存生成                        │   - 100% AOT
+│  • AddCatgaServices() 生成扩展          │   - 零反射注册
+│  • 路由/初始化代码生成                  │   - AOT 友好
 │  • Roslyn 分析器                        │   - 编译时检查
 └─────────────────────────────────────────┘
 
         可选扩展（基础设施无关）
 ┌──────────────────┬───────────────────────┐
 │  Transport       │  Persistence          │
-│  - Nats          │  - Redis Outbox       │
-│  - (Redis)       │  - Redis Inbox        │
-│                  │  - Redis Cache        │
+│  - InMemory      │  - InMemory           │
+│  - Redis         │  - Redis              │
+│  - NATS          │  - NATS               │
+│  - RabbitMQ      │                       │
 └──────────────────┴───────────────────────┘
 
         编排层（外部平台）
@@ -71,7 +72,7 @@ Catga 的核心设计理念是 **专注、简洁、高性能**：
 └─────────────────────────────────────────┘
 ```
 
-### 关键变化 (2025-10)
+### 关键变化 (2026-04)
 
 **移除的组件** ❌:
 - ~~Catga.Distributed.Nats~~ - 节点发现交给 K8s
@@ -138,9 +139,9 @@ public interface ICatgaMediator
 
 ---
 
-### 2. Catga.InMemory - 核心实现
+### 2. Catga Runtime / Builder - 核心实现
 
-**职责**: 提供生产级的 CQRS 实现
+**职责**: 提供 CQRS 运行时、Pipeline 和 Fluent 配置入口
 
 **核心组件**:
 
@@ -175,22 +176,22 @@ public sealed class CatgaMediator : ICatgaMediator
 - ValidationBehavior<TRequest, TResponse>   // 数据验证
 ```
 
-#### Idempotency Store
+<a id="idempotency-store"></a>
+#### Reliability 能力
 ```csharp
-// 分片幂等性存储 - 无锁设计
-public sealed class ShardedIdempotencyStore : IIdempotencyStore
-{
-    private readonly ConcurrentDictionary<string, CachedResult>[] _shards;
-
-    // 使用分片减少锁竞争
-    private int GetShardIndex(string messageId)
-        => Math.Abs(messageId.GetHashCode()) % _shardCount;
-}
+var catga = services.AddCatga()
+    .UseMemoryPack()
+    .UseRedis("localhost:6379")
+    .ForProduction()
+    .UseInbox()
+    .UseOutbox()
+    .UseDeadLetterQueue()
+    .AddHostedServices();
 ```
 
 **性能优化**:
 - ✅ 静态泛型缓存 - 零反射查找
-- ✅ 无锁分片 - 高并发性能
+- ✅ 行为链按需启用 - 不把 broker/persistence 强耦合进核心
 - ✅ ArrayPool - 减少 GC 压力
 - ✅ ValueTask - 减少分配
 
@@ -202,18 +203,18 @@ public sealed class ShardedIdempotencyStore : IIdempotencyStore
 
 **生成内容**:
 
-#### Handler 注册代码
+#### 生成注册扩展
 ```csharp
 // 自动生成的注册代码
-public static class GeneratedHandlerRegistration
+public static class CatgaUnifiedRegistrations
 {
-    public static IServiceCollection AddGeneratedHandlers(
+    public static IServiceCollection AddCatgaServices(
         this IServiceCollection services)
     {
         // 编译时发现所有 Handler
-        services.AddTransient<IRequestHandler<CreateOrder, OrderResult>, CreateOrderHandler>();
-        services.AddTransient<IRequestHandler<GetOrder, Order>, GetOrderHandler>();
-        services.AddTransient<IEventHandler<OrderCreated>, OrderCreatedHandler>();
+        services.AddScoped<IRequestHandler<CreateOrder, OrderResult>, CreateOrderHandler>();
+        services.AddScoped<IRequestHandler<GetOrder, Order>, GetOrderHandler>();
+        services.AddScoped<IEventHandler<OrderCreated>, OrderCreatedHandler>();
         // ... 更多 Handler
 
         return services;
@@ -251,9 +252,9 @@ public class MissingSerializerRegistrationAnalyzer : DiagnosticAnalyzer
 ```
 
 **收益**:
-- ✅ 零反射 - 90x 性能提升
-- ✅ 编译时检查 - 减少运行时错误 90%
-- ✅ 100% AOT 兼容
+- ✅ 零反射注册 - 避免运行时扫描
+- ✅ 编译时检查 - 更早暴露配置错误
+- ✅ AOT 友好 - 更适合 Native AOT 发布
 
 ---
 

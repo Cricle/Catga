@@ -291,12 +291,12 @@ partial class CatgaJsonContext : JsonSerializerContext { }
 
 ### 基准测试结果
 
-| 操作 | 延迟 | 吞吐量 | 内存分配 |
-|------|------|--------|----------|
-| 本地命令 | ~50ns | 20M ops/s | 0B |
-| 本地查询 | ~55ns | 18M ops/s | 0B |
-| NATS 调用 | ~1.2ms | 800 ops/s | 384B |
-| Saga 事务 | ~2.5ms | 400 ops/s | 1.2KB |
+这里不再内嵌固定数字，避免和最新 benchmark 结果漂移。
+
+当前性能结论请直接看：
+
+- [Benchmark Results](../BENCHMARK-RESULTS.md)
+- [性能文档索引](../performance/README.md)
 
 ## 监控和可观测性
 

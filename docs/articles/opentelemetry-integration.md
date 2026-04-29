@@ -215,12 +215,14 @@ services:
 
 ### 2. Grafana Dashboard
 
-Catga 提供了预置的 Grafana Dashboard 模板，可以从项目仓库的 `docs/observability/dashboards` 目录获取。
+Catga 提供了预置的 Grafana Dashboard 模板，当前仓库位置是：
+
+- `src/Catga/Observability/GrafanaDashboard.json`
 
 导入步骤：
 1. 登录 Grafana
 2. 导航到 Dashboards → Import
-3. 上传 `catga-overview.json` 文件
+3. 上传 `GrafanaDashboard.json` 文件
 4. 选择 Prometheus 数据源
 5. 点击 Import
 
@@ -380,6 +382,5 @@ A:
 ---
 
 **下一步**: 查看 [配置指南](configuration.md) 了解更多 Catga 配置选项
-
 
 

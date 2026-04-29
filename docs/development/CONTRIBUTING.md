@@ -336,7 +336,7 @@ dotnet publish -c Release -r win-x64 /p:PublishAot=true
    ildasm YourAssembly.dll
 
    # 查看源生成器输出
-   # 在 obj/Debug/net9.0/generated/ 目录
+   # 在 obj/Debug/net10.0/generated/ 目录
    ```
 
 ## 🏆 成为贡献者
@@ -371,4 +371,3 @@ dotnet publish -c Release -r win-x64 /p:PublishAot=true
 ---
 
 **开始贡献吧！我们期待你的 Pull Request！** 🚀
-

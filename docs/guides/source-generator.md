@@ -97,20 +97,22 @@ The source generator runs during compilation and:
 
 ### Generated Files
 
-The source generator creates two files:
-
-#### `CatgaHandlerAttribute.g.cs`
-Defines an optional attribute for future customization:
-```csharp
-[CatgaHandler(ServiceLifetime.Scoped)]  // Optional - default is Scoped
-public class MyHandler : IRequestHandler<MyCommand, MyResponse>
-{
-    // ...
-}
-```
+当前主路径下，源生成器最重要的输出是：
 
 #### `CatgaUnifiedRegistrations.g.cs`
-Contains the `AddCatgaServices()` extension method with all discovered handlers and services.
+
+它会生成 `AddCatgaServices()`，把编译时发现的 handler / service 注册进 DI：
+
+```csharp
+public static class CatgaUnifiedRegistrations
+{
+    public static IServiceCollection AddCatgaServices(this IServiceCollection services)
+    {
+        services.AddScoped<IRequestHandler<MyCommand, MyResponse>, MyHandler>();
+        return services;
+    }
+}
+```
 
 ## 📂 View Generated Code
 
@@ -122,14 +124,13 @@ dotnet build /p:EmitCompilerGeneratedFiles=true
 
 Generated files location:
 ```
-obj/Debug/net9.0/generated/Catga.SourceGenerator/Catga.SourceGenerator.CatgaHandlerGenerator/
-├── CatgaHandlerAttribute.g.cs
-└── CatgaHandlerRegistration.g.cs
+obj/Debug/net10.0/generated/Catga.SourceGenerator/Catga.SourceGenerator.UnifiedRegistrationGenerator/
+└── CatgaUnifiedRegistrations.g.cs
 ```
 
 ## 🎯 AOT Compatibility
 
-The source generator approach is **fully Native AOT compatible**:
+The source generator approach is AOT-friendly:
 
 ### ✅ Benefits
 
@@ -248,5 +249,3 @@ services.AddScoped<IRequestHandler<ExternalCommand, ExternalResponse>, ExternalH
 ## 🤝 Contributing
 
 Found a bug or have a feature request? Please [open an issue](https://github.com/Cricle/Catga/issues).
-
-

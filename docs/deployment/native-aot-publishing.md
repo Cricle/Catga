@@ -316,7 +316,7 @@ public static class ServiceCollectionExtensions
   uses: actions/upload-artifact@v3
   with:
     name: app-native-aot
-    path: bin/Release/net9.0/linux-x64/publish/
+    path: bin/Release/net10.0/linux-x64/publish/
 ```
 
 ### 4. Docker 容器
@@ -335,8 +335,8 @@ ENTRYPOINT ["./YourApp"]
 ```
 
 **优势**:
-- 容器大小：~100MB (vs ~200MB 传统.NET)
-- 启动时间：~20ms (vs ~500ms)
+- 容器镜像通常更精简
+- 启动通常更快
 - 无需 .NET runtime
 
 ## 验证 AOT 编译

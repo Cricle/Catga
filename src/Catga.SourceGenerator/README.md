@@ -5,7 +5,7 @@
 Catga 源生成器在**编译时**自动发现并生成 Handler 注册代码，实现：
 - ✨ **零手动配置** - 实现接口即自动注册
 - 🚀 **编译时生成** - 零运行时开销
-- 🎯 **100% AOT 兼容** - 无反射，完全静态化
+- 🎯 **AOT 友好** - 无运行时扫描，更适合 Native AOT
 - 💎 **类型安全** - 编译时验证
 
 ## 📋 源生成器列表
@@ -242,26 +242,28 @@ services.AddSingleton<IRequestHandler<SpecialCommand, SpecialResponse>>(sp =>
     new SpecialHandler(sp.GetRequiredService<ISpecialDependency>()));
 ```
 
-## 📊 性能对比
+## 📊 性能说明
 
-| 方式 | 启动时间 | 运行时开销 | AOT 兼容 |
-|------|---------|----------|---------|
-| **源生成器** | ~50ms | 0 | ✅ 100% |
-| 反射扫描 | ~500ms | 高 | ❌ 不兼容 |
-| 手动注册 | ~50ms | 0 | ✅ 100% |
+这里不再给固定数字对比。
+
+更准确的结论是：
+
+- 源生成器路径避免了运行时扫描
+- 对启动路径和 AOT 兼容性通常更友好
+- 真正收益要看你的项目规模、Handler 数量和发布模式
 
 ## 🔍 调试生成的代码
 
 生成的代码位于：
 ```
-obj/Debug/net9.0/generated/Catga.SourceGenerator/Catga.SourceGenerator.UnifiedRegistrationGenerator/CatgaUnifiedRegistrations.g.cs
-obj/Debug/net9.0/generated/Catga.SourceGenerator/Catga.SourceGenerator.UnifiedModuleInitializerGenerator/CatgaGenerated.UnifiedModuleInitializer.g.cs
+obj/Debug/net10.0/generated/Catga.SourceGenerator/Catga.SourceGenerator.UnifiedRegistrationGenerator/CatgaUnifiedRegistrations.g.cs
+obj/Debug/net10.0/generated/Catga.SourceGenerator/Catga.SourceGenerator.UnifiedModuleInitializerGenerator/CatgaGenerated.UnifiedModuleInitializer.g.cs
 ```
 
 查看生成的代码：
 ```bash
 # 编译后查看
-cat obj/Debug/net9.0/generated/Catga.SourceGenerator/Catga.SourceGenerator.UnifiedRegistrationGenerator/CatgaUnifiedRegistrations.g.cs
+cat obj/Debug/net10.0/generated/Catga.SourceGenerator/Catga.SourceGenerator.UnifiedRegistrationGenerator/CatgaUnifiedRegistrations.g.cs
 ```
 
 ## 🎓 最佳实践
@@ -419,7 +421,7 @@ A: 检查以下几点：
 
 A: 查看生成的代码文件：
 ```
-obj/Debug/net9.0/generated/Catga.SourceGenerator/Catga.SourceGenerator.UnifiedRegistrationGenerator/CatgaUnifiedRegistrations.g.cs
+obj/Debug/net10.0/generated/Catga.SourceGenerator/Catga.SourceGenerator.UnifiedRegistrationGenerator/CatgaUnifiedRegistrations.g.cs
 ```
 
 ### Q: 源生成器会影响编译时间吗？

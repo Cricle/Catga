@@ -25,10 +25,6 @@
 - [serialization-aot-guide.md](../aot/serialization-aot-guide.md)
 - [aot-deployment.md](../articles/aot-deployment.md)
 
-### 我要做容器 / Kubernetes
-
-- [kubernetes.md](./kubernetes.md)
-
 ### 我要接标准 broker 上生产
 
 - [broker-production-overview.md](./broker-production-overview.md)
@@ -36,7 +32,7 @@
 - [rabbitmq-production.md](./rabbitmq-production.md)
 - [nats-production.md](./nats-production.md)
 
-### 我要同时看传输和持久化怎么组合
+### 我要同时看 transport 和 persistence 怎么组合
 
 - [broker-production-overview.md](./broker-production-overview.md)
 - [redis-production.md](./redis-production.md)
@@ -44,10 +40,14 @@
 - [nats-production.md](./nats-production.md)
 - [configuration.md](../articles/configuration.md)
 
+### 我要做容器 / Kubernetes
+
+- [kubernetes.md](./kubernetes.md)
+
 ### 我要一起看监控和部署
 
 - [可观测性索引](../observability/README.md)
-- [Monitoring Guide](../production/MONITORING-GUIDE.md)
+- [生产监控指南](../production/MONITORING-GUIDE.md)
 
 ---
 

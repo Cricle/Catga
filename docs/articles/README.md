@@ -54,3 +54,4 @@
 - 偏实操：看 [../guides/README.md](../guides/README.md)
 - 偏架构：看 [../architecture/README.md](../architecture/README.md)
 - 偏上线：先看 [../deployment/broker-production-overview.md](../deployment/broker-production-overview.md)，再看 [../deployment/README.md](../deployment/README.md)
+- 偏监控：看 [../observability/README.md](../observability/README.md)

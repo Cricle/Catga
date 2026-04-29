@@ -12,7 +12,7 @@
 1. [OpenTelemetry 集成](../articles/opentelemetry-integration.md)
 2. [分布式追踪指南](./DISTRIBUTED-TRACING-GUIDE.md)
 3. [Jaeger 完整指南](./JAEGER-COMPLETE-GUIDE.md)
-4. [Monitoring Guide](../production/MONITORING-GUIDE.md)
+4. [生产监控指南](../production/MONITORING-GUIDE.md)
 
 ---
 
@@ -29,11 +29,17 @@
 
 ### 我要上生产监控
 
-- [Monitoring Guide](../production/MONITORING-GUIDE.md)
+- [生产监控指南](../production/MONITORING-GUIDE.md)
+- [部署索引](../deployment/README.md)
+
+### 我要一起看健康检查和宿主生命周期
+
+- [Hosting 配置](../guides/hosting-configuration.md)
+- [生产监控指南](../production/MONITORING-GUIDE.md)
 
 ---
 
 ## 相关文档
 
 - 部署相关：看 [../deployment/README.md](../deployment/README.md)
-- Resilience / 运行时行为：看 [../guides/README.md](../guides/README.md)
+- 运行时与宿主：看 [../guides/README.md](../guides/README.md)

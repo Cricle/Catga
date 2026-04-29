@@ -96,11 +96,37 @@ dotnet run -c Release --framework net10.0 --project benchmarks/Catga.Benchmarks 
 
 ---
 
+## Catga 当前生产默认路径
+
+这部分不是再打一次分，而是把“真正落地时默认怎么选”说清楚。
+
+当前推荐顺序：
+
+1. `Redis + Redis`：默认生产答案
+2. `RabbitMQ + Redis`：企业标准 broker 答案
+3. `NATS + NATS`：一体化 broker 世界答案
+
+对应关系：
+
+- 你要最低决策成本、最高基础设施接受度：优先 `Redis + Redis`
+- 你所在组织已经标准化 RabbitMQ：优先 `RabbitMQ + Redis`
+- 你已经有 JetStream，并且希望 transport/persistence 一体化：优先 `NATS + NATS`
+
+详细展开见：
+
+- [标准 Broker 生产选型总览](../deployment/broker-production-overview.md)
+- [Redis 生产接入](../deployment/redis-production.md)
+- [RabbitMQ 生产接入](../deployment/rabbitmq-production.md)
+- [NATS 生产接入](../deployment/nats-production.md)
+
+---
+
 ## 一句话判断
 
 - 你要 `成熟总线平台`：选 **MassTransit**
 - 你要 `当前这个项目的技术路线`：选 **Catga**
-- 你要 `RabbitMQ + 标准企业集成 + 更少自建判断`：优先 **MassTransit**
+- 你要 `Redis 默认生产落地路径`：优先 **Catga**
+- 你要 `RabbitMQ 已是组织标准，但又要 Catga 持久化能力`：优先 **Catga 的 RabbitMQ + Redis 组合**
 - 你要 `NATS / Redis / RabbitMQ + CQRS / Event Sourcing / AOT`：优先 **Catga**
 
 ---
@@ -117,7 +143,7 @@ dotnet run -c Release --framework net10.0 --project benchmarks/Catga.Benchmarks 
 
 1. **生态成熟度不如 MassTransit**：社区案例、排障经验、第三方文章明显少。
 2. **测试工具和运维工具链仍偏轻**：能用，但不如 MassTransit 完整。
-3. **标准 broker 世界里的“默认答案”地位还没有建立起来**。
+3. **标准 broker 世界里的默认路径已经形成，但外部认知和行业心智还在建立中**。
 4. **部分高级能力仍更依赖仓库内部约定**，而不是大量外部实践验证。
 
 ## MassTransit 当前优势
@@ -143,3 +169,4 @@ dotnet run -c Release --framework net10.0 --project benchmarks/Catga.Benchmarks 
 - MassTransit Saga State Machine：<https://masstransit.io/documentation/configuration/sagas/state>
 - Catga 基准文档：[BENCHMARK-RESULTS.md](../BENCHMARK-RESULTS.md)
 - Catga 性能索引：[performance/README.md](../performance/README.md)
+- Catga Broker 生产选型总览：[broker-production-overview.md](../deployment/broker-production-overview.md)

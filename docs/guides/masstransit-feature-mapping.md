@@ -2,6 +2,7 @@
 
 > 面向“怎么从 MassTransit 的概念、配置和代码迁到 Catga”的对照页。
 > 如果你在找评分、取舍和 benchmark 结论，请看 [masstransit-scorecard.md](./masstransit-scorecard.md)。
+> 如果你在找 RabbitMQ / Redis / NATS 的生产默认接法，请看 [broker-production-overview.md](../deployment/broker-production-overview.md)。
 
 ---
 

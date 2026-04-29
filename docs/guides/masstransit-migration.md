@@ -13,6 +13,16 @@
 - 如果你要的是 `NATS / Redis / RabbitMQ + Native AOT + Event Sourcing + Flow DSL` 这条组合，**Catga** 更贴近当前项目目标。
 - 对当前仓库来说，`NATS / Redis / RabbitMQ` 这三条 transport 线已经补到可对标使用的程度：`request/reply`、`competing consumer`、`DLQ`、`priority/delay`、`context/trace propagation`、`external header interop` 基本都齐了。
 
+现在 Catga 在生产接入上的默认路径也已经明确：
+
+- `Redis + Redis`：默认生产答案
+- `RabbitMQ + Redis`：企业标准 broker 答案
+- `NATS + NATS`：一体化 broker 世界答案
+
+如果你是在做生产选型，而不是只看 API 迁移，先看：
+
+- [标准 Broker 生产选型总览](../deployment/broker-production-overview.md)
+
 ---
 
 ## 怎么读这组文档
@@ -81,5 +91,9 @@
 
 - [Benchmark Results](../BENCHMARK-RESULTS.md)
 - [性能索引](../performance/README.md)
+- [标准 Broker 生产选型总览](../deployment/broker-production-overview.md)
+- [Redis 生产接入](../deployment/redis-production.md)
+- [RabbitMQ 生产接入](../deployment/rabbitmq-production.md)
+- [NATS 生产接入](../deployment/nats-production.md)
 - [Flow DSL](./flow-dsl.md)
 - [架构索引](../architecture/README.md)

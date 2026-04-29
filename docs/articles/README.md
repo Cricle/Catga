@@ -27,6 +27,13 @@
 ### [configuration.md](./configuration.md)
 
 适合项目接入前统一配置口径。
+现在这篇已经明确区分：
+
+- serializer
+- transport
+- persistence
+- hosted services / health checks
+- 默认生产 broker 组合
 
 ### [event-sourcing.md](./event-sourcing.md)
 
@@ -46,4 +53,4 @@
 
 - 偏实操：看 [../guides/README.md](../guides/README.md)
 - 偏架构：看 [../architecture/README.md](../architecture/README.md)
-- 偏上线：看 [../deployment/README.md](../deployment/README.md)
+- 偏上线：先看 [../deployment/broker-production-overview.md](../deployment/broker-production-overview.md)，再看 [../deployment/README.md](../deployment/README.md)

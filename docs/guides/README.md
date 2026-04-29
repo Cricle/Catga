@@ -71,6 +71,7 @@
 适合解决：
 - Catga 和 MassTransit 的能力对照
 - 当前项目目标场景下的取舍
+- 结合 [标准 Broker 生产选型总览](../deployment/broker-production-overview.md) 看真实生产默认路径
 
 ---
 
@@ -103,4 +104,4 @@
 
 - 架构理解：看 [../architecture/README.md](../architecture/README.md)
 - 示例代码：看 [../examples/README.md](../examples/README.md)
-- 运维部署：看 [../observability/README.md](../observability/README.md) 和 [../deployment/README.md](../deployment/README.md)
+- 运维部署：先看 [../deployment/broker-production-overview.md](../deployment/broker-production-overview.md)，再看 [../observability/README.md](../observability/README.md) 和 [../deployment/README.md](../deployment/README.md)

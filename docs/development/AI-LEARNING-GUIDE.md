@@ -89,20 +89,20 @@ Catga 是一个现代化、高性能的 .NET CQRS/Event Sourcing 框架，具有
 // 命令/查询（有返回值）
 public interface IRequest<out TResponse> : IBaseRequest { }
 
-// 通知/事件（无返回值）
-public interface INotification : IBaseRequest { }
+// 事件（无返回值）
+public interface IEvent : IMessage { }
 
 // 命令/查询处理器
 public interface IRequestHandler<in TRequest, TResponse>
     where TRequest : IRequest<TResponse>
 {
-    Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
+    ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
 }
 
 // 事件处理器
-public interface IEventHandler<in TEvent> where TEvent : INotification
+public interface IEventHandler<in TEvent> where TEvent : IEvent
 {
-    Task HandleAsync(TEvent @event, CancellationToken cancellationToken = default);
+    ValueTask HandleAsync(TEvent @event, CancellationToken cancellationToken = default);
 }
 ```
 
@@ -200,7 +200,7 @@ Catga/
 │   ├── Catga/                          # 核心库
 │   │   ├── ICatgaMediator.cs          # 核心接口
 │   │   ├── IRequest.cs                # 请求接口
-│   │   ├── INotification.cs           # 通知接口
+│   │   ├── MessageContracts.cs        # IRequest / IEvent 等消息契约
 │   │   ├── Observability/             # 可观测性
 │   │   └── Serialization/             # 序列化抽象
 │   │
@@ -259,32 +259,32 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 注册 Catga + InMemory
 builder.Services.AddCatga()
-    .AddInMemoryTransport()      // 内存传输
-    .AddInMemoryPersistence();   // 内存持久化
+    .UseMemoryPack()
+    .UseInMemory()
+    .AddHostedServices();
+
+builder.Services.AddInMemoryTransport();   // 内存传输
 
 // 或者使用 Redis
 builder.Services.AddCatga()
-    .AddRedisTransport(options =>
-    {
-        options.Configuration = "localhost:6379";
-        options.DefaultQoS = QoSLevel.QoS1; // QoS0: Pub/Sub, QoS1: Streams
-    })
-    .AddRedisPersistence(options =>
-    {
-        options.Configuration = "localhost:6379";
-    });
+    .UseMemoryPack()
+    .UseRedis("localhost:6379")
+    .AddHostedServices();
+
+builder.Services.AddRedisTransport("localhost:6379");
 
 // 或者使用 NATS
+builder.Services.AddNatsConnection("nats://localhost:4222");
+
 builder.Services.AddCatga()
-    .AddNatsTransport(options =>
+    .UseMemoryPack()
+    .UseNats(options =>
     {
-        options.Url = "nats://localhost:4222";
+        options.EventStreamName = "CATGA_EVENTS";
     })
-    .AddNatsPersistence(options =>
-    {
-        options.Url = "nats://localhost:4222";
-        options.StreamName = "CATGA_EVENTS";
-    });
+    .AddHostedServices();
+
+builder.Services.AddNatsTransport("nats://localhost:4222");
 
 var app = builder.Build();
 app.Run();
@@ -307,10 +307,10 @@ public record OrderDto(Guid Id, string ProductName, decimal Amount, string Statu
 
 // 事件（已发生的事实）
 public record OrderCreatedEvent(Guid OrderId, string ProductName, decimal Amount)
-    : INotification;
+    : IEvent;
 
 public record OrderCancelledEvent(Guid OrderId, string Reason)
-    : INotification;
+    : IEvent;
 ```
 
 ### 3. 实现处理器
@@ -571,10 +571,9 @@ builder.Services.AddCatgaServices(); // Source Generator 自动生成的扩展�
    - 编译时生成代码
    - 避免运行时反射
 
-3. **序列化使用 JsonSerializerContext**:
+3. **序列化优先使用 `UseMemoryPack()`**:
    ```csharp
-   [JsonSerializable(typeof(CreateOrderCommand))]
-   public partial class AppJsonContext : JsonSerializerContext { }
+   builder.Services.AddCatga().UseMemoryPack();
    ```
 
 ### ⚠️ 内存优化
@@ -602,10 +601,10 @@ builder.Services.AddCatgaServices(); // Source Generator 自动生成的扩展�
    }
    ```
 
-3. **FusionCache 配置**:
-   - InMemory 实现使用 FusionCache
-   - **禁用** Fail-safe 机制（内存场景不需要）
-   - 配置合理的过期时间
+3. **缓存与状态存储分开理解**:
+   - `UseInMemory()` 适合开发/测试
+   - 生产状态存储优先 `UseRedis(...)` 或 `UseNats(...)`
+   - 不要把缓存配置和 Catga persistence API 混成同一层
 
 ---
 
@@ -865,10 +864,10 @@ context.Metadata["CorrelationId"] = correlationId;
 
 ```csharp
 // ❌ 错误 - 事件处理器不应该返回值
-public record OrderCreatedEvent : IRequest<bool> { } // 错误，应该是 INotification
+public record OrderCreatedEvent : IRequest<bool> { } // 错误，应该是 IEvent
 
 // ✅ 正确
-public record OrderCreatedEvent : INotification { }
+public record OrderCreatedEvent : IEvent { }
 ```
 
 ### ❌ 错误 5: 多个命令处理器
@@ -920,22 +919,17 @@ public ValueTask<OrderDto> GetFromCacheAsync(Guid orderId)
 }
 ```
 
-### 3. 配置 FusionCache
+### 3. 选择正确的 persistence
 
 ```csharp
 builder.Services.AddCatga()
-    .AddInMemoryPersistence(options =>
-    {
-        options.CacheOptions = new FusionCacheOptions
-        {
-            DefaultEntryOptions = new FusionCacheEntryOptions
-            {
-                Duration = TimeSpan.FromMinutes(30), // 缓存 30 分钟
-                Size = 1, // 每个条目的大小（用于 LRU）
-                Priority = CacheItemPriority.Normal
-            }
-        };
-    });
+    .UseMemoryPack()
+    .UseInMemory(); // 开发/测试
+
+// 生产更常见的写法
+builder.Services.AddCatga()
+    .UseMemoryPack()
+    .UseRedis("localhost:6379");
 ```
 
 ### 4. 使用连接池
@@ -944,16 +938,16 @@ builder.Services.AddCatga()
 // Redis 连接池配置
 builder.Services.AddRedisTransport(options =>
 {
-    options.Configuration = "localhost:6379";
     options.ConfigurationOptions = new ConfigurationOptions
     {
+        EndPoints = { "localhost:6379" },
         ConnectRetry = 3,
         ConnectTimeout = 5000,
         SyncTimeout = 5000,
         AbortOnConnectFail = false,
-        // 连接池配置
         KeepAlive = 60
     };
+    options.PoolSize = Math.Max(Environment.ProcessorCount, 4);
 });
 ```
 
@@ -992,23 +986,14 @@ builder.Services.AddLogging(logging =>
 **可能原因**:
 1. 使用了反射
 2. 使用了动态代码生成
-3. 序列化没有使用 JsonSerializerContext
+3. 序列化器没有按当前 AOT 路线配置
 
 **解决方案**:
 ```csharp
-// 1. 定义 JsonSerializerContext
-[JsonSerializable(typeof(CreateOrderCommand))]
-[JsonSerializable(typeof(CreateOrderResponse))]
-[JsonSerializable(typeof(OrderCreatedEvent))]
-public partial class AppJsonContext : JsonSerializerContext { }
+// 1. 优先使用 MemoryPack
+builder.Services.AddCatga().UseMemoryPack();
 
-// 2. 配置序列化器
-builder.Services.Configure<JsonSerializerOptions>(options =>
-{
-    options.TypeInfoResolverChain.Insert(0, AppJsonContext.Default);
-});
-
-// 3. 发布时启用 AOT
+// 2. 发布时启用 AOT
 dotnet publish -r win-x64 -c Release /p:PublishAot=true
 ```
 
@@ -1030,14 +1015,12 @@ public class MyEventHandler : IEventHandler<OrderCreatedEvent>, IDisposable
     }
 }
 
-// 2. 配置缓存过期
-options.CacheOptions = new FusionCacheOptions
-{
-    DefaultEntryOptions = new FusionCacheEntryOptions
-    {
-        Duration = TimeSpan.FromMinutes(30) // 设置过期时间
-    }
-};
+// 2. 配置真实的 persistence / transport
+builder.Services.AddCatga()
+    .UseMemoryPack()
+    .UseRedis("localhost:6379");
+
+builder.Services.AddRedisTransport("localhost:6379");
 
 // 3. 正确取消订阅
 var cts = new CancellationTokenSource();
@@ -1155,5 +1138,3 @@ docfx docfx.json --serve
 ---
 
 **Happy Coding with Catga!** 🚀
-
-

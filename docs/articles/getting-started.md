@@ -12,7 +12,7 @@ Welcome to Catga! This 5-minute guide will help you build your first high-perfor
 
 ## 📋 Prerequisites
 
-- ✅ [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) or later
+- ✅ [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or later
 - ✅ IDE: Visual Studio 2022+ / VS Code / Rider
 - ✅ Basic C# and ASP.NET Core knowledge
 
@@ -37,11 +37,11 @@ rm WeatherForecast.cs Controllers/WeatherForecastController.cs
 # Core package (required)
 dotnet add package Catga
 
+# Recommended serializer
+dotnet add package Catga.Serialization.MemoryPack
+
 # Transport layer (choose one)
 dotnet add package Catga.Transport.InMemory  # Recommended: dev and monolith apps
-
-# Optional: ASP.NET Core integration
-dotnet add package Catga.AspNetCore
 ```
 
 ---
@@ -51,30 +51,29 @@ dotnet add package Catga.AspNetCore
 Open `Program.cs` and configure Catga:
 
 ```csharp
-using Catga;
-using Catga.AspNetCore;
+using Catga.DependencyInjection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ⭐ Add Catga services (one line, auto-registers all handlers)
-// Use environment-based configuration for optimal performance
-builder.Services.AddCatga(options =>
+// Register Catga core + serializer + in-memory persistence
+var catga = builder.Services.AddCatga(options =>
 {
     if (builder.Environment.IsDevelopment())
         options.ForDevelopment();  // Detailed logging for debugging
     else
         options.Minimal();         // Max performance for production
 })
-.UseInMemory()              // Add persistence layer
-.AddInMemoryTransport()     // Add transport layer
+.UseMemoryPack()            // Recommended serializer
+.UseInMemory()              // Persistence layer
 .AddHostedServices();       // ⭐ Enable hosted services for lifecycle management
+
+// Register transport separately
+builder.Services.AddInMemoryTransport();
 
 // Add health checks with Catga integration
 builder.Services.AddHealthChecks()
     .AddCatgaHealthChecks();  // ⭐ Monitor transport, persistence, and recovery
-
-// Optional: Add ASP.NET Core endpoints
-builder.Services.AddCatgaEndpoints();
 
 // Add Controllers (for REST API)
 builder.Services.AddControllers();
@@ -96,9 +95,6 @@ app.MapControllers();
 
 // Map health check endpoints
 app.MapHealthChecks("/health");  // ⭐ Health check endpoint for monitoring
-
-// Optional: Map Catga diagnostic endpoints
-app.MapCatgaDiagnostics(); // Access /catga/health, /catga/metrics
 
 app.Run();
 ```
@@ -473,9 +469,11 @@ dotnet run -c Release --framework net10.0 --project benchmarks/Catga.Benchmarks 
 1. **Add Persistence**
    ```bash
    dotnet add package Catga.Persistence.Redis
+   dotnet add package Catga.Transport.Redis
    ```
    ```csharp
-   builder.Services.AddRedisPersistence("localhost:6379");
+   builder.Services.AddCatga().UseMemoryPack().UseRedis("localhost:6379");
+   builder.Services.AddRedisTransport("localhost:6379");
    ```
 
 2. **Add Distributed Messaging**

@@ -1,21 +1,34 @@
-# API Reference
+# API 索引
 
-Welcome to the Catga API Reference documentation.
+这一组文档只覆盖最核心的公共接口。
 
-## Core APIs
+如果你想先看“项目怎么接入”，优先去 [../guides/README.md](../guides/README.md)；
+如果你想查接口语义，再回到这里。
 
-- **[Mediator API](./mediator.md)** - ICatgaMediator interface and methods
-- **[Messages API](./messages.md)** - IRequest, IEvent, and IMessage interfaces
+## 先看哪篇
 
-## Overview
+1. [Mediator API](./mediator.md)
+2. [Messages API](./messages.md)
 
-Catga provides a clean and efficient API for building CQRS and event-driven applications:
+## 每篇解决什么问题
 
-- **ICatgaMediator** - The main entry point for sending commands, queries, and publishing events
-- **IRequest<TResponse>** - Base interface for command and query messages
-- **IEvent** - Base interface for domain events
-- **IEventHandler<TEvent>** - Handler for processing events
-- **IRequestHandler<TRequest, TResponse>** - Handler for processing requests
+### [mediator.md](./mediator.md)
 
-For detailed information about each API, please refer to the specific documentation pages.
+适合查：
 
+- `ICatgaMediator` 的职责
+- `SendAsync` / `PublishAsync` 的调用方式
+- mediator 在 DI 里的推荐接法
+
+### [messages.md](./messages.md)
+
+适合查：
+
+- `IRequest<TResponse>` / `IEvent` / `IMessage` 的语义
+- 消息类型该怎么设计
+- AOT / serializer 相关的消息约束
+
+## 下一步去哪
+
+- 想看配置和接入：看 [../guides/README.md](../guides/README.md)
+- 想看架构：看 [../architecture/README.md](../architecture/README.md)

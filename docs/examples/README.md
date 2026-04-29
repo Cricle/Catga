@@ -12,28 +12,19 @@
 
 ---
 
-## 每个示例适合什么场景
+## 怎么选示例
 
-### [basic-usage.md](./basic-usage.md)
+### 我要最快跑通最小闭环
 
-适合第一次上手。
+- [basic-usage.md](./basic-usage.md)
 
-重点是：
-- command / query / event 的最小闭环
-- 基本注册方式
-- 最短路径运行
+### 我要看完整调用链路
 
-### [e2e-scenarios.md](./e2e-scenarios.md)
+- [e2e-scenarios.md](./e2e-scenarios.md)
 
-适合想看“完整交互链路”的人。
+### 我要直接跑真实项目结构
 
-重点是：
-- 业务请求如何穿过 handler、transport、persistence
-- 多组件协同时的使用方式
-
-### [OrderSystem 示例](../../examples/README.md)
-
-适合直接跑真实项目结构。
+- [OrderSystem 示例](../../examples/README.md)
 
 ---
 

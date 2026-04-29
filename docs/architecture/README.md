@@ -6,7 +6,7 @@
 
 ---
 
-## 推荐顺序
+## 先读什么
 
 1. [系统概览](./overview.md)
 2. [整体架构总览](./ARCHITECTURE.md)
@@ -39,11 +39,9 @@
 
 ### [ARCHITECTURE.md](./ARCHITECTURE.md)
 
-这是新的“总览入口页”。
-
 适合：
-- 快速确定应该读哪篇子文档
-- 先看大图，再决定深入哪一层
+- 想先看“大图版导航”
+- 需要快速决定接下来深入模块层还是运行时层
 
 ### [modules-and-boundaries.md](./modules-and-boundaries.md)
 
@@ -72,7 +70,7 @@
 
 ---
 
-## 读完这一组之后看什么
+## 读完之后去哪
 
 - 想开始写业务代码：看 [开发指南索引](../guides/README.md)
 - 想直接跑示例：看 [示例索引](../examples/README.md)

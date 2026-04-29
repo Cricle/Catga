@@ -9,7 +9,7 @@
 ## 推荐顺序
 
 1. [贡献指南](./CONTRIBUTING.md)
-2. [Code Review Detailed](./CODE-REVIEW-DETAILED.md)
+2. [代码审查详细报告](./CODE-REVIEW-DETAILED.md)
 3. [AI Learning Guide](./AI-LEARNING-GUIDE.md)
 
 ---

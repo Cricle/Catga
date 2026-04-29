@@ -9,31 +9,24 @@
 
 ---
 
-## 先看哪篇
+## 先读什么
 
-### 你要最新结论
+### 我要最新 benchmark 结论
 
-先看：
 - [Benchmark Results](../BENCHMARK-RESULTS.md)
 
-这篇是当前主入口，优先反映最近一次有效 benchmark 结果。
-但要注意：它回答的是 `runtime benchmark`，不是 `broker 生产选型`。
+这篇回答的是 `runtime benchmark`，不是 broker 生产选型。
 
-如果你要的是“Redis / RabbitMQ / NATS 到底怎么选”，先看：
-- [标准 Broker 生产选型总览](../deployment/broker-production-overview.md)
+### 我要性能优化思路
 
-### 你要优化思路
-
-再看：
 - [性能优化指南](../performance-optimization-guide.md)
 - [内存优化指南](../guides/memory-optimization-guide.md)
 
-### 你要历史背景 / 老报告
+### 我要历史背景
 
-最后看：
 - [PERFORMANCE-REPORT.md](../topics/history/PERFORMANCE-REPORT.md)
 
-这篇属于历史报告，保留参考价值，但不应覆盖最新 benchmark 结论。
+历史报告可以参考，但不应覆盖最新 benchmark 结论。
 
 ---
 

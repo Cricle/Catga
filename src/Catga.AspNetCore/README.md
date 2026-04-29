@@ -1,176 +1,171 @@
 # Catga.AspNetCore
 
-ASP.NET Core integration for Catga CQRS framework.
+`Catga.AspNetCore` 提供的是 ASP.NET Core 集成辅助能力，不是一个完整的“HTTP 自动总线平台”。
 
-Inspired by [CAP](https://github.com/dotnetcore/CAP)'s simple and elegant API design.
+按当前仓库实现，最稳定的部分主要是：
 
-## Features
+- `CatgaResult<T> -> IResult` 映射
+- 相关 Swagger metadata 扩展
+- CorrelationId middleware
+- Endpoint error handling middleware
 
-- 🚀 **Minimal API Extensions**: Map CQRS commands/queries to HTTP endpoints with one line
-- 📊 **Built-in Diagnostics**: Health check and node info endpoints similar to CAP Dashboard
-- 🎯 **Simple Integration**: Works seamlessly with `ICatgaMediator` pattern
-- 📦 **Zero Config**: Auto-map diagnostics endpoints with `app.UseCatga()`
-
-## Installation
+## 安装
 
 ```bash
 dotnet add package Catga.AspNetCore
 ```
 
-## Usage
+## 推荐用法
 
-### 1. Basic Setup
+当前推荐的主路径是：
+
+- 业务消息仍走 `ICatgaMediator`
+- ASP.NET Core 只负责 HTTP 入口
+- 用 `ToHttpResult()` 做结果映射
+
+### 基本接法
 
 ```csharp
+using Catga.DependencyInjection;
+using Catga.AspNetCore.Extensions;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Catga
-builder.Services.AddCatga();
-builder.Services.AddCatgaServices();
+var catga = builder.Services
+    .AddCatga()
+    .UseMemoryPack()
+    .UseInMemory()
+    .AddHostedServices();
+
+builder.Services.AddInMemoryTransport();
+
+builder.Services.AddHealthChecks()
+    .AddCatgaHealthChecks();
 
 var app = builder.Build();
 
-// Enable Catga diagnostics (health/node info)
-app.UseCatga();
+app.UseCorrelationId();
+app.UseEndpointErrorHandling();
 
-app.Run();
-```
+app.MapHealthChecks("/health");
 
-### 2. Map CQRS Endpoints (CAP Style)
-
-```csharp
-// Map Command - automatically handles ICatgaMediator injection and result wrapping
-app.MapCatgaRequest<CreateOrderCommand, CreateOrderResult>("/api/orders");
-
-// Map Query
-app.MapCatgaQuery<GetOrderQuery, OrderDto>("/api/orders/{orderId}");
-
-// Map Event
-app.MapCatgaEvent<OrderCreatedEvent>("/api/events/order-created");
-```
-
-### 3. Manual ICatgaMediator Usage (Like CAP's ICapPublisher)
-
-```csharp
 app.MapPost("/api/orders", async (
-    CreateOrderCommand command,
-    ICatgaMediator mediator,  // Injected automatically
+    CreateOrder command,
+    ICatgaMediator mediator,
     CancellationToken ct) =>
 {
-    var result = await mediator.SendAsync<CreateOrderCommand, CreateOrderResult>(command, ct);
-    return result.ToHttpResult(); // Smart HTTP status code mapping
+    var result = await mediator.SendAsync<CreateOrder, OrderResult>(command, ct);
+    return result.ToHttpResult(201);
 });
-```
-
-### 4. Smart Result Mapping
-
-`ToHttpResult()` extension uses metadata to map `CatgaResult` to appropriate HTTP status codes:
-
-```csharp
-// In your handler, use factory methods to specify HTTP status:
-public async Task<CatgaResult<OrderDto>> HandleAsync(GetOrderQuery request)
-{
-    var order = await _db.Orders.FindAsync(request.OrderId);
-    
-    if (order == null)
-        return CatgaResultHttpExtensions.NotFound<OrderDto>("Order not found");
-    
-    if (order.Status == OrderStatus.Cancelled)
-        return CatgaResultHttpExtensions.Conflict<OrderDto>("Order is already cancelled");
-    
-    return CatgaResult<OrderDto>.Success(orderDto);
-}
-
-// Or use Metadata directly (requires using Catga.Results):
-var metadata = new ResultMetadata();
-metadata.Add("ErrorType", "Validation");  // Maps to 422 Unprocessable Entity
-return new CatgaResult<bool>
-{
-    IsSuccess = false,
-    Error = "Invalid operation",
-    Metadata = metadata
-};
-
-// Supported ErrorType values:
-// - "NotFound" → 404 Not Found
-// - "Conflict" → 409 Conflict  
-// - "Validation" → 422 Unprocessable Entity
-// - "Unauthorized" → 401 Unauthorized
-// - "Forbidden" → 403 Forbidden
-
-// Or specify HTTP status code directly:
-return CatgaResult<T>.Failure("Error").WithStatusCode(503);
-```
-
-### 5. Built-in Diagnostics
-
-Catga automatically adds these endpoints:
-
-- `GET /catga/health` - Health check
-- `GET /catga/node` - Node information (ID, machine, runtime, etc.)
-
-You can customize the prefix:
-
-```csharp
-app.UseCatga(options =>
-{
-    options.DashboardPathPrefix = "/diagnostics";
-    options.EnableDashboard = true;
-});
-```
-
-## Comparison with CAP
-
-| Feature | CAP | Catga |
-|---------|-----|-------|
-| Publisher Pattern | `ICapPublisher` | `ICatgaMediator` |
-| Subscriber Pattern | `[CapSubscribe]` | `[CatgaHandler]` (Source Generator) |
-| HTTP Integration | Manual | `MapCatgaRequest/Query/Event` |
-| Dashboard | ✅ Full UI | ✅ API Endpoints |
-| Message Transport | RabbitMQ, Kafka, etc. | NATS, Redis |
-| Distributed Transactions | ✅ | ✅ (via Outbox/Inbox) |
-
-## Example: OrderSystem
-
-```csharp
-var builder = WebApplication.CreateBuilder(args);
-
-// Add Catga with NATS cluster
-builder.Services.AddCatga();
-builder.Services.AddCatgaServices();
-builder.Services.AddNatsCluster("nats://localhost:4222", "node-1", "http://localhost:5000");
-
-var app = builder.Build();
-
-// Enable Catga diagnostics
-app.UseCatga();
-
-// Map CQRS endpoints (one-liner style)
-app.MapCatgaRequest<CreateOrderCommand, CreateOrderResult>("/api/orders");
-app.MapCatgaRequest<ProcessOrderCommand, bool>("/api/orders/process");
-app.MapCatgaQuery<GetOrderQuery, OrderDto>("/api/orders/{orderId}");
 
 app.Run();
 ```
 
-## AOT Compatibility
+## `ToHttpResult()` 映射
 
-The `MapCatgaRequest/Query/Event` methods use ASP.NET Core's Minimal API which requires reflection.
-These methods are marked with `[RequiresDynamicCode]` and `[RequiresUnreferencedCode]`.
-
-For full AOT support, inject `ICatgaMediator` directly and use it manually:
+`CatgaResult<T>` 可以直接映射成 ASP.NET Core `IResult`：
 
 ```csharp
-app.MapPost("/api/orders", async (
-    CreateOrderCommand command,
-    ICatgaMediator mediator) =>
+app.MapGet("/api/orders/{id}", async (
+    string id,
+    ICatgaMediator mediator,
+    CancellationToken ct) =>
 {
-    var result = await mediator.SendAsync<CreateOrderCommand, CreateOrderResult>(command);
-    return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
+    var result = await mediator.SendAsync<GetOrder, OrderDto?>(new GetOrder(id), ct);
+    return result.ToHttpResult();
 });
 ```
 
-## License
+默认错误码映射基于 `ErrorCode`：
 
-MIT
+- `ValidationFailed` -> `422`
+- `NotFound` -> `404`
+- `Conflict` -> `409`
+- `Unauthorized` -> `401`
+- `Forbidden` -> `403`
+- `PersistenceFailed / LockFailed / TransportFailed` -> `503`
 
+## 中间件
+
+### CorrelationId
+
+```csharp
+app.UseCorrelationId();
+```
+
+适合：
+
+- 希望 HTTP 请求带入 correlation id
+- 需要和 Catga tracing / logging 口径对齐
+
+### Endpoint Error Handling
+
+```csharp
+app.UseEndpointErrorHandling();
+```
+
+默认错误序列化器是纯文本格式；如果你需要自定义输出，可以注册：
+
+```csharp
+builder.Services.AddErrorResponseSerializer<MyErrorResponseSerializer>();
+```
+
+## Swagger Metadata
+
+如果你使用 Minimal API，可以给路由补 Catga 语义元数据：
+
+```csharp
+app.MapPost("/api/orders", async (
+    CreateOrder command,
+    ICatgaMediator mediator,
+    CancellationToken ct) =>
+{
+    var result = await mediator.SendAsync<CreateOrder, OrderResult>(command, ct);
+    return result.ToHttpResult(201);
+})
+.WithCatgaCommandMetadata<CreateOrder, OrderResult>();
+```
+
+可用扩展：
+
+- `WithCatgaCommandMetadata<TCommand, TResponse>()`
+- `WithCatgaQueryMetadata<TQuery, TResponse>()`
+- `WithCatgaEventMetadata<TEvent>()`
+
+## 关于 `UseCatga()`
+
+当前仓库里 `UseCatga()` 只是一个非常轻量的 application builder 扩展点，不应该再被当成“自动挂完整 dashboard / diagnostics endpoint”的稳定能力来理解。
+
+如果你要健康检查，请显式使用：
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddCatgaHealthChecks();
+
+app.MapHealthChecks("/health");
+```
+
+## 关于自动 HTTP 端点注册
+
+仓库里存在 endpoint 生成相关文档和占位文件，但按当前代码状态，不建议把它当成主推荐路径。
+
+当前更稳妥的做法仍然是：
+
+- 手写 Minimal API / Controller 入口
+- 注入 `ICatgaMediator`
+- 使用 `ToHttpResult()`
+
+## AOT 说明
+
+如果你追求最稳的 AOT 路线：
+
+- `Catga` 核心层优先 `UseMemoryPack()`
+- ASP.NET Core 入口尽量走显式 Minimal API
+- 不要把“自动 HTTP 端点生成”当作当前默认路径
+
+## 相关文档
+
+- `docs/articles/getting-started.md`
+- `docs/articles/configuration.md`
+- `docs/guides/hosting-configuration.md`

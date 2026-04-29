@@ -63,8 +63,8 @@ public interface ICatgaMediator
 ```
 IMessage (基础消息接口)
 ├── IRequest<TResponse> (请求接口)
-│   ├── IRequest<TResponse> (命令接口)
-│   └── IQuery<TResponse> (查询接口)
+│   ├── CreateOrder : IRequest<OrderResult>
+│   └── GetOrder : IRequest<OrderDto>
 └── IEvent (事件接口)
 ```
 
@@ -150,14 +150,14 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResul
 查询用于读取数据，不改变系统状态：
 
 ```csharp
-public record GetOrderQuery : MessageBase, IQuery<OrderDto>
+public record GetOrderQuery : IRequest<OrderDto>
 {
     public string OrderId { get; init; } = string.Empty;
 }
 
 public class GetOrderHandler : IRequestHandler<GetOrderQuery, OrderDto>
 {
-    public async Task<CatgaResult<OrderDto>> HandleAsync(
+    public async ValueTask<CatgaResult<OrderDto>> HandleAsync(
         GetOrderQuery request,
         CancellationToken cancellationToken = default)
     {
@@ -427,5 +427,4 @@ Catga 提供多个扩展点：
 5. **自定义监控集成**
 
 这种架构设计确保了 Catga 既强大又灵活，能够适应各种应用场景和部署需求。
-
 

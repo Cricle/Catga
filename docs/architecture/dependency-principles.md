@@ -96,13 +96,13 @@ services.AddWaitHandleDistributedLock(); // 仅测试用
 
 ```csharp
 // Catga.Persistence.InMemory
-services.AddInMemoryPersistence(); // 包含所有必要的服务
+services.AddCatga().UseMemoryPack().UseInMemory(); // 包含 InMemory persistence 组合
 
 // Catga.Persistence.Redis
-services.AddRedisPersistence(options => { ... });
+services.AddCatga().UseMemoryPack().UseRedis("localhost:6379");
 
 // Catga.Transport.Nats
-services.AddNatsTransport(options => { ... });
+services.AddNatsTransport("nats://localhost:4222");
 ```
 
 ## 测试依赖
@@ -135,4 +135,3 @@ dotnet list src/Catga/Catga.csproj package
 - **用户选择**：根据需求选择实现库组合
 - **测试友好**：InMemory 实现用于开发和测试
 - **序列化无关**：核心数据类型不依赖任何序列化库
-

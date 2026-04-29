@@ -95,16 +95,14 @@ public record OrderCreatedResult
 查询用于获取数据，不改变系统状态：
 
 ```csharp
-public interface IQuery<TResponse> : IRequest<TResponse> { }
-
 // 示例：获取订单查询
-public record GetOrderByIdQuery : MessageBase, IQuery<OrderDto>
+public record GetOrderByIdQuery : IRequest<OrderDto>
 {
     public string OrderId { get; init; } = string.Empty;
 }
 
 // 复杂查询示例
-public record GetOrdersQuery : MessageBase, IQuery<PagedResult<OrderSummaryDto>>
+public record GetOrdersQuery : IRequest<PagedResult<OrderSummaryDto>>
 {
     public string? CustomerId { get; init; }
     public DateTime? FromDate { get; init; }
@@ -697,5 +695,4 @@ public class OrderIntegrationTests : IClassFixture<WebApplicationFactory<Program
 - ✅ **去重处理**：事件处理器应支持重复事件
 
 这种 CQRS 架构设计确保了 Catga 既能处理复杂的业务逻辑，又能提供高性能的查询能力，同时保持良好的可维护性和可扩展性。
-
 

@@ -47,11 +47,12 @@ Catga 包含以下源生成器，实现零反射、AOT兼容的代码生成：
 // 🎯 无需任何特性标记，自动发现！
 public class CreateUserHandler : IRequestHandler<CreateUserCommand, UserResponse>
 {
-    public Task<CatgaResult<UserResponse>> HandleAsync(
+    public ValueTask<CatgaResult<UserResponse>> HandleAsync(
         CreateUserCommand request,
         CancellationToken cancellationToken = default)
     {
         // 业务逻辑
+        return ValueTask.FromResult(CatgaResult<UserResponse>.Success(new UserResponse()));
     }
 }
 ```
@@ -59,7 +60,10 @@ public class CreateUserHandler : IRequestHandler<CreateUserCommand, UserResponse
 ### 3. 注册 Handler 和 Service
 
 ```csharp
-// ✨ 一行代码，自动注册所有 Handler 和 Service
+// 先注册 Catga 核心和 serializer
+builder.Services.AddCatga().UseMemoryPack();
+
+// ✨ 再注册当前项目里由源生成器产出的 Handler / Service 扩展
 builder.Services.AddCatgaServices();
 ```
 
@@ -104,7 +108,12 @@ public static class CatgaUnifiedRegistrations
 
 ### 运行时
 
-调用 `AddCatgaServices()` 时，直接使用生成的代码，**零反射、零扫描**！
+调用 `AddCatgaServices()` 时，直接使用生成的代码，**零反射、零扫描**。
+
+注意：
+
+- `AddCatgaServices()` 是你应用项目里生成出来的扩展方法，不是 `Catga` 核心包手写提供的固定 API
+- 它通常和 `AddCatga().UseMemoryPack()` 配合使用
 
 ## 🎨 高级用法
 
@@ -222,6 +231,9 @@ public class CacheService
 ### 4. 组合使用
 
 ```csharp
+// 先注册 Catga 核心能力
+services.AddCatga().UseMemoryPack();
+
 // ✨ 自动注册（源生成器）
 services.AddCatgaServices();
 

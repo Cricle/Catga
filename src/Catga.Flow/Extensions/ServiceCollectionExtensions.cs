@@ -46,6 +46,8 @@ public static class ServiceCollectionExtensions
             services.AddSingleton(options.MetricsProvider);
         }
 
+        services.ValidateCatgaLifetimes();
+
         return services;
     }
 
@@ -69,7 +71,7 @@ public static class ServiceCollectionExtensions
         // Register flow executor
         services.AddTransient<DslFlowExecutor<TState, TFlow>>();
 
-        return services;
+        return services.ValidateCatgaLifetimes();
     }
 
     /// <summary>
@@ -88,7 +90,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddGeneratedFlows(this IServiceCollection services)
     {
-        return services;
+        return services.ValidateCatgaLifetimes();
     }
 
     /// <summary>

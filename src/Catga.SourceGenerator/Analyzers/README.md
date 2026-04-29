@@ -10,6 +10,7 @@ Analyzers/
 ├── BlockingCallAnalyzer.cs       # 检测阻塞调用
 ├── MultipleHandlersAnalyzer.cs   # 检测重复 Handler
 ├── NamingConventionAnalyzer.cs   # 命名约定检查
+├── ScopedLifetimeMismatchAnalyzer.cs # 检测 singleton -> scoped 生命周期误用
 └── README.md
 ```
 
@@ -121,4 +122,3 @@ private static bool IsHandler(ITypeSymbol type)
 ---
 
 **编写分析器，让 Catga 更易用！** 🎯
-

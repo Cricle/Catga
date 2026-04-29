@@ -148,9 +148,15 @@ public class RecoveryHostedServicePropertyTests
                 var startTask = service.StartAsync(cts.Token);
                 startTask.Wait(1000);
 
+                var expectedTimeout = TimeSpan.FromMilliseconds(
+                    Math.Max(
+                        3000,
+                        GetRecoveryAttemptTimeoutMs(maxRetryCount, options)));
+
                 var attemptedRecovery = WaitUntil(
                     () => Volatile.Read(ref recoveryAttempts) >= maxRetryCount,
-                    timeout: TimeSpan.FromSeconds(1));
+                    timeout: expectedTimeout,
+                    pollInterval: TimeSpan.FromMilliseconds(10));
 
                 cts.Cancel();
                 var stopTask = service.StopAsync(CancellationToken.None);
@@ -161,6 +167,12 @@ public class RecoveryHostedServicePropertyTests
 
                 return attemptedRecovery.Label($"Should attempt recovery at least {maxRetryCount} times, got {recoveryAttempts} attempts");
             });
+    }
+
+    private static double GetRecoveryAttemptTimeoutMs(int maxRetryCount, RecoveryOptions options)
+    {
+        var retryBudget = Math.Max(1, maxRetryCount) * (options.RetryDelay.TotalMilliseconds + 200);
+        return options.CheckInterval.TotalMilliseconds + retryBudget + 1000;
     }
 
     /// <summary>

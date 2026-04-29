@@ -24,7 +24,9 @@ public static class CatgaServiceBuilderFeatureExtensions
 
         builder.Services.TryAddSingleton<ICorrelationContext, CorrelationContext>();
         builder.Services.TryAddEnumerable(
-            ServiceDescriptor.Singleton(typeof(IPipelineBehavior<,>), typeof(CorrelationPropagationBehavior<,>)));
+            ServiceDescriptor.Scoped(typeof(IPipelineBehavior<,>), typeof(CorrelationPropagationBehavior<,>)));
+
+        builder.Services.ValidateCatgaLifetimes();
 
         return builder;
     }
@@ -39,6 +41,8 @@ public static class CatgaServiceBuilderFeatureExtensions
         builder.Services.RemoveAll<IRequestClientFactory>();
         builder.Services.AddSingleton<IRequestClientFactory>(sp =>
             new RequestClientFactory(sp.GetRequiredService<IMessageTransport>(), defaultTimeout));
+
+        builder.Services.ValidateCatgaLifetimes();
 
         return builder;
     }
@@ -58,6 +62,8 @@ public static class CatgaServiceBuilderFeatureExtensions
 
         builder.Services.RemoveAll<IMessageVersionMapper>();
         builder.Services.AddSingleton(mapper);
+
+        builder.Services.ValidateCatgaLifetimes();
 
         return builder;
     }
@@ -87,7 +93,9 @@ public static class CatgaServiceBuilderFeatureExtensions
         }
 
         builder.Services.TryAddEnumerable(
-            ServiceDescriptor.Singleton(typeof(IPipelineBehavior<,>), typeof(AuthorizationBehavior<,>)));
+            ServiceDescriptor.Scoped(typeof(IPipelineBehavior<,>), typeof(AuthorizationBehavior<,>)));
+
+        builder.Services.ValidateCatgaLifetimes();
 
         return builder;
     }
@@ -113,6 +121,8 @@ public static class CatgaServiceBuilderFeatureExtensions
         builder.Services.RemoveAll<IMessageSigner>();
         builder.Services.AddSingleton(options);
         builder.Services.AddSingleton<IMessageSigner>(_ => new HmacMessageSigner(options.SecretKey));
+
+        builder.Services.ValidateCatgaLifetimes();
 
         return builder;
     }

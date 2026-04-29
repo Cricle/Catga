@@ -1,7 +1,7 @@
 # Catga 分析器完整指南
 
 > **编译时代码检查** - 在编译时发现问题，而非运行时崩溃
-> 最后更新: 2025-10-14
+> 最后更新: 2026-04-29
 
 [返回主文档](../README.md) · [源生成器](./source-generator.md)
 
@@ -205,6 +205,125 @@ void RegisterSerializer(IServiceCollection services)
 
 ---
 
+### CAT2004: Singleton Catga 注册依赖 Scoped 服务
+
+**严重性**: Error
+**类别**: 依赖注入 / 生命周期
+**首次引入**: 2026-04-29
+
+#### 描述
+
+检测以下高风险误用：
+- `services.AddSingleton<IRequestHandler<...>, ...>()`
+- `services.AddSingleton<IEventHandler<...>, ...>()`
+- `services.AddSingleton(typeof(IPipelineBehavior<,>), ...)`
+- `services.AddSingleton<IFlowExecutor, ...>()`
+- `[CatgaLifetime(ServiceLifetime.Singleton)]`
+
+当这些 singleton 注册的实现类型构造函数**直接依赖**以下 scoped Catga 服务时，会在编译期报错：
+- `ICatgaMediator`
+- `IFlowExecutor`
+- `IFlow<T>`
+
+#### 为什么需要？
+
+这类问题以前通常要到应用启动时才会炸：
+- 宿主启动失败
+- DI 校验报 `singleton -> scoped`
+- 示例项目或生产环境才暴露
+
+现在会尽量前移到编译期。
+
+#### 示例
+
+**触发错误**:
+```csharp
+services.AddSingleton<IRequestHandler<CreateOrder, string>, BadHandler>();
+
+public sealed class BadHandler(ICatgaMediator mediator)
+    : IRequestHandler<CreateOrder, string>
+{
+    public ValueTask<CatgaResult<string>> HandleAsync(CreateOrder request, CancellationToken ct = default)
+        => new(CatgaResult<string>.Success("ok"));
+}
+```
+
+**修复方式**:
+```csharp
+services.AddScoped<IRequestHandler<CreateOrder, string>, GoodHandler>();
+```
+
+或：
+```csharp
+[CatgaLifetime(ServiceLifetime.Scoped)]
+public sealed class GoodHandler : IRequestHandler<CreateOrder, string> { ... }
+```
+
+#### 说明
+
+- 这个规则当前只在 analyzer **能证明** 生命周期冲突时才报错。
+- 运行时 `ValidateCatgaLifetimes()` 仍然保留，负责兜底更复杂的注册图。
+
+#### 常见误用与修复
+
+**误用 1: Singleton Handler 直接依赖 `ICatgaMediator`**
+```csharp
+services.AddSingleton<IRequestHandler<CreateOrder, string>, BadHandler>();
+
+public sealed class BadHandler(ICatgaMediator mediator)
+    : IRequestHandler<CreateOrder, string>
+{
+    public ValueTask<CatgaResult<string>> HandleAsync(CreateOrder request, CancellationToken ct = default)
+        => new(CatgaResult<string>.Success("ok"));
+}
+```
+
+```csharp
+services.AddScoped<IRequestHandler<CreateOrder, string>, GoodHandler>();
+```
+
+**误用 2: Singleton Flow 执行器依赖 scoped Flow 服务**
+```csharp
+services.AddSingleton<IFlowExecutor, CustomFlowExecutor>();
+```
+
+```csharp
+services.AddScoped<IFlowExecutor, CustomFlowExecutor>();
+```
+
+**误用 3: 自动注册类型被强制标成 Singleton**
+```csharp
+[CatgaLifetime(ServiceLifetime.Singleton)]
+public sealed class BadHandler(ICatgaMediator mediator)
+    : IRequestHandler<CreateOrder, string>
+{
+}
+```
+
+```csharp
+[CatgaLifetime(ServiceLifetime.Scoped)]
+public sealed class GoodHandler(ICatgaMediator mediator)
+    : IRequestHandler<CreateOrder, string>
+{
+}
+```
+
+**误用 4: 为了“复用实例”把 `IPipelineBehavior<,>` 改成 Singleton**
+```csharp
+services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+```
+
+```csharp
+services.AddScoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+```
+
+**判断原则**:
+- 只要构造函数里直接拿了 `ICatgaMediator`、`IFlowExecutor`、`IFlow<T>`，就不要注册成 `Singleton`
+- 对 Handler / Behavior / Flow 执行器，默认优先 `Scoped`
+- 如果你认为某个类型必须是 `Singleton`，那它就不应该再直接依赖 scoped Catga 入口服务
+
+---
+
 ## 📋 完整规则列表
 
 | ID | 规则名称 | 严重性 | 自动修复 | 版本 |
@@ -212,6 +331,7 @@ void RegisterSerializer(IServiceCollection services)
 | **新增** |
 | CATGA001 | 缺少 [MemoryPackable] | Info | ✅ | v2.0 |
 | CATGA002 | 缺少序列化器注册 | Warning | ✅ | v2.0 |
+| CAT2004 | Singleton Catga 注册依赖 Scoped 服务 | Error | ❌ | 2026-04-29 |
 | **已有** |
 | CAT1001 | Handler 未实现接口 | Error | ❌ | v1.0 |
 | CAT1002 | 多个 Handler 处理同一消息 | Warning | ❌ | v1.0 |
@@ -241,8 +361,8 @@ void RegisterSerializer(IServiceCollection services)
     <!-- 将所有分析器警告视为错误 (推荐生产环境) -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
-    <!-- 或只针对 Catga 分析器 -->
-    <WarningsAsErrors>CATGA002</WarningsAsErrors>
+    <!-- 或只阻断高风险 Catga 规则 -->
+    <WarningsAsErrors>CAT2004;CATGA002</WarningsAsErrors>
 
     <!-- 调整严重性 -->
     <!-- CATGA001 从 Info 提升到 Warning -->
@@ -277,6 +397,9 @@ dotnet_diagnostic.CATGA001.severity = suggestion
 
 # CATGA002: 序列化器注册
 dotnet_diagnostic.CATGA002.severity = error
+
+# CAT2004: singleton -> scoped 生命周期冲突
+dotnet_diagnostic.CAT2004.severity = error
 
 # CAT1001: Handler 实现
 dotnet_diagnostic.CAT1001.severity = error
@@ -318,6 +441,9 @@ public record MyMessage(...) : IRequest<MyResult>;
   <!-- 所有警告视为错误 -->
   <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
+  <!-- 保底阻断 singleton -> scoped Catga 误用 -->
+  <WarningsAsErrors>$(WarningsAsErrors);CAT2004</WarningsAsErrors>
+
   <!-- CATGA001 提升为警告 -->
   <CATGA001>warning</CATGA001>
 </PropertyGroup>
@@ -333,6 +459,7 @@ public record MyMessage(...) : IRequest<MyResult>;
   <!-- 逐步迁移，先显示信息 -->
   <CATGA001>suggestion</CATGA001>
   <CATGA002>warning</CATGA002>
+  <WarningsAsErrors>$(WarningsAsErrors);CAT2004</WarningsAsErrors>
 </PropertyGroup>
 ```
 
@@ -523,6 +650,7 @@ dotnet build /p:NoWarn=CATGA001
 <!-- 推荐生产配置 -->
 <PropertyGroup>
   <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  <WarningsAsErrors>$(WarningsAsErrors);CAT2004</WarningsAsErrors>
   <CATGA001>warning</CATGA001>
   <CATGA002>error</CATGA002>
 </PropertyGroup>
@@ -539,5 +667,3 @@ dotnet build /p:NoWarn=CATGA001
 **推荐**: 启用所有分析器，在编译时发现问题
 
 </div>
-
-

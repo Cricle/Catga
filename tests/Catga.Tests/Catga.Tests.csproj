@@ -81,6 +81,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="NATS.Client.Core" />
     <PackageReference Include="NATS.Client.JetStream" />
@@ -102,6 +103,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Catga\Catga.csproj" />
     <ProjectReference Include="..\..\src\Catga.Flow\Catga.Flow.csproj" />
+    <ProjectReference Include="..\..\src\Catga.SourceGenerator\Catga.SourceGenerator.csproj" />
     <ProjectReference Include="..\..\src\Catga.Testing\Catga.Testing.csproj" />
     <ProjectReference Include="..\..\src\Catga.Transport.InMemory\Catga.Transport.InMemory.csproj" />
     <ProjectReference Include="..\..\src\Catga.Persistence.InMemory\Catga.Persistence.InMemory.csproj" />

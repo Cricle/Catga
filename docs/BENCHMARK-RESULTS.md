@@ -8,31 +8,31 @@
 
 | Framework | Mean | Allocated | Ratio |
 |-----------|------|-----------|-------|
-| **Catga** | 232.4 ns | 88 B | 1.00x |
-| MediatR | 127.5 ns | 288 B | 0.55x |
-| MassTransit | 97,693.8 ns | 12,478 B | 420.64x |
+| **Catga** | 149.72 ns | 88 B | 1.00x |
+| MediatR | 96.93 ns | 288 B | 0.65x |
+| MassTransit | 33,382.25 ns | 12,470 B | 223.01x |
 
 ### Event/Notification Performance
 
 | Framework | Mean | Allocated | Ratio |
 |-----------|------|-----------|-------|
-| **Catga** | 112.3 ns | 64 B | 1.00x |
-| MediatR | 167.0 ns | 288 B | 1.49x |
+| **Catga** | 87.23 ns | 64 B | 1.00x |
+| MediatR | 111.54 ns | 288 B | 1.28x |
 
 ### Batch 100 Commands
 
 | Framework | Mean | Allocated | Ratio |
 |-----------|------|-----------|-------|
-| **Catga** | 18.64 μs | 8,800 B | 1.00x |
-| MediatR | 13.35 μs | 28,800 B | 0.72x |
-| MassTransit | 1,862.79 μs | 1,224,220 B | 99.97x |
+| **Catga** | 13.24 μs | 8,800 B | 1.00x |
+| MediatR | 9.67 μs | 28,800 B | 0.73x |
+| MassTransit | 1,250.85 μs | 1,224,240 B | 94.53x |
 
 ### Key Insights
 
 - **Catga** remains the lowest-allocation option in all measured framework-comparison scenarios
-- **MediatR** is faster for the single in-process command path, but with ~3.3x higher allocation than Catga
+- **MediatR** is faster for the single in-process command path and for the batch-100 in-process path, but with materially higher allocation than Catga
 - **Catga** is faster than MediatR for event publish and keeps allocation much lower
-- **MassTransit** is substantially heavier in this mediator/request-reply benchmark and should not be read as a broker round-trip benchmark
+- **MassTransit** is still substantially heavier in this mediator/request-reply benchmark and should not be read as a broker round-trip benchmark
 
 ## Core CQRS Performance
 
@@ -48,9 +48,9 @@
 
 | Scenario | Latency | Throughput |
 |----------|---------|------------|
-| Single Command | 232.4 ns | **4.3M ops/sec** |
-| Single Event | 112.3 ns | **8.9M ops/sec** |
-| Batch 100 Commands | 18.64 μs | **5.4M ops/sec** |
+| Single Command | 149.72 ns | **6.7M ops/sec** |
+| Single Event | 87.23 ns | **11.5M ops/sec** |
+| Batch 100 Commands | 13.24 μs | **7.6M ops/sec** |
 
 ## Memory Efficiency
 
@@ -58,7 +58,7 @@
 |-----------|---------|-------|-----------|
 | **Catga** | 88 B | 64 B | 8,800 B |
 | MediatR | 288 B | 288 B | 28,800 B |
-| MassTransit | 12,478 B | - | 1,224,220 B |
+| MassTransit | 12,470 B | - | 1,224,240 B |
 
 ## Run Benchmarks
 

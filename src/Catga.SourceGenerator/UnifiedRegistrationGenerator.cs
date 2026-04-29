@@ -1,7 +1,9 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Catga.SourceGenerator.Analyzers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
@@ -24,6 +26,10 @@ public sealed class UnifiedRegistrationGenerator : IIncrementalGenerator
     private const string PipelineBehavior = "Catga.Pipeline.IPipelineBehavior<TRequest, TResponse>";
     private const string Projection = "Catga.EventSourcing.IProjection";
     private const string EventUpgrader = "Catga.EventSourcing.IEventUpgrader";
+    private const string SingletonLifetime = "Singleton";
+    private const string CatgaMediatorTypeName = "Catga.ICatgaMediator";
+    private const string FlowExecutorTypeName = "Catga.Flow.Dsl.IFlowExecutor";
+    private const string FlowTypeName = "Catga.Flow.IFlow<TState>";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -34,43 +40,61 @@ public sealed class UnifiedRegistrationGenerator : IIncrementalGenerator
         });
 
         // Discover all registrations (handlers + services)
-        var registrations = context.SyntaxProvider
+        var discoveries = context.SyntaxProvider
             .CreateSyntaxProvider(
                 static (node, _) => node is ClassDeclarationSyntax { BaseList: not null },
                 static (ctx, _) => ExtractAllRegistrations(ctx))
-            .Where(static r => r is not null && r.Count > 0)
+            .Where(static r => r is not null && (r.Registrations.Count > 0 || r.Diagnostics.Count > 0))
             .Collect();
 
-        context.RegisterSourceOutput(registrations, static (spc, items) =>
+        context.RegisterSourceOutput(discoveries, static (spc, items) =>
         {
-            var list = items.Where(i => i is not null).SelectMany(i => i!).ToList();
+            foreach (var diagnostic in items.Where(static i => i is not null).SelectMany(static i => i!.Diagnostics))
+            {
+                spc.ReportDiagnostic(diagnostic);
+            }
+
+            var list = items.Where(static i => i is not null).SelectMany(static i => i!.Registrations).ToList();
             spc.AddSource("CatgaUnifiedRegistrations.g.cs",
-                SourceText.From(GenerateRegistrations(list!), Encoding.UTF8));
+                SourceText.From(GenerateRegistrations(list), Encoding.UTF8));
         });
     }
 
     /// <summary>
     /// Extracts ALL registrations from a single class (handlers + services).
     /// </summary>
-    private static List<RegistrationInfo>? ExtractAllRegistrations(GeneratorSyntaxContext context)
+    private static DiscoveryResult? ExtractAllRegistrations(GeneratorSyntaxContext context)
     {
         var classDecl = (ClassDeclarationSyntax)context.Node;
         if (context.SemanticModel.GetDeclaredSymbol(classDecl) is not INamedTypeSymbol { IsAbstract: false } symbol)
             return null;
 
         var registrations = new List<RegistrationInfo>();
+        var diagnostics = new List<Diagnostic>();
 
         // Try to extract handler registrations
         var handlerRegs = ExtractHandlerRegistrations(symbol);
         if (handlerRegs != null)
+        {
             registrations.AddRange(handlerRegs);
+            var handlerDiagnostic = CreateSingletonScopedDependencyDiagnostic(symbol, GetHandlerLifetime(symbol));
+            if (handlerDiagnostic != null)
+                diagnostics.Add(handlerDiagnostic);
+        }
 
         // Try to extract service registrations
-        var serviceReg = ExtractServiceRegistration(symbol);
+        var serviceReg = ExtractServiceRegistration(symbol, out var implementationSymbol, out var serviceLifetime);
         if (serviceReg != null)
+        {
             registrations.Add(serviceReg);
+            var serviceDiagnostic = CreateSingletonScopedDependencyDiagnostic(implementationSymbol ?? symbol, serviceLifetime);
+            if (serviceDiagnostic != null)
+                diagnostics.Add(serviceDiagnostic);
+        }
 
-        return registrations.Count > 0 ? registrations : null;
+        return registrations.Count > 0 || diagnostics.Count > 0
+            ? new DiscoveryResult(registrations, diagnostics)
+            : null;
     }
 
     /// <summary>
@@ -83,13 +107,7 @@ public sealed class UnifiedRegistrationGenerator : IIncrementalGenerator
             return null;
 
         // Get lifetime from [CatgaLifetime] attribute (default: Scoped)
-        var lifetime = "Scoped";
-        var lifetimeAttr = symbol.GetAttributes()
-            .FirstOrDefault(a => a.AttributeClass?.Name == "CatgaLifetimeAttribute");
-        if (lifetimeAttr?.ConstructorArguments.Length > 0 && lifetimeAttr.ConstructorArguments[0].Value is int lt)
-        {
-            lifetime = lt switch { 0 => "Singleton", 2 => "Transient", _ => "Scoped" };
-        }
+        var lifetime = GetHandlerLifetime(symbol);
 
         // Get order from [CatgaOrder] attribute (default: 0)
         var order = 0;
@@ -196,15 +214,20 @@ public sealed class UnifiedRegistrationGenerator : IIncrementalGenerator
     /// <summary>
     /// Extract service registration (from ServiceRegistrationGenerator logic).
     /// </summary>
-    private static RegistrationInfo? ExtractServiceRegistration(INamedTypeSymbol symbol)
+    private static RegistrationInfo? ExtractServiceRegistration(
+        INamedTypeSymbol symbol,
+        out INamedTypeSymbol? implementationSymbol,
+        out string lifetime)
     {
+        implementationSymbol = null;
+        lifetime = "Scoped";
+
         // Check for [CatgaService] attribute
         var attribute = symbol.GetAttributes()
             .FirstOrDefault(a => a.AttributeClass?.Name == "CatgaServiceAttribute");
 
         if (attribute == null) return null;
 
-        var lifetime = "Scoped";
         var autoRegister = true;
         string? serviceType = null;
         string? implType = null;
@@ -237,6 +260,7 @@ public sealed class UnifiedRegistrationGenerator : IIncrementalGenerator
         if (implTypeArg.Value.Value is INamedTypeSymbol implTypeSymbol)
         {
             implType = implTypeSymbol.ToDisplayString();
+            implementationSymbol = implTypeSymbol;
         }
 
         // Read AutoRegister
@@ -251,6 +275,7 @@ public sealed class UnifiedRegistrationGenerator : IIncrementalGenerator
 
         // Determine implementation type (defaults to marked class)
         var implementationType = implType ?? symbol.ToDisplayString();
+        implementationSymbol ??= symbol;
 
         // Determine service type
         var finalServiceType = serviceType ?? implementationType;
@@ -263,6 +288,62 @@ public sealed class UnifiedRegistrationGenerator : IIncrementalGenerator
             0, // Services don't have order
             false
         );
+    }
+
+    private static string GetHandlerLifetime(INamedTypeSymbol symbol)
+    {
+        var lifetime = "Scoped";
+        var lifetimeAttr = symbol.GetAttributes()
+            .FirstOrDefault(a => a.AttributeClass?.Name == "CatgaLifetimeAttribute");
+        if (lifetimeAttr?.ConstructorArguments.Length > 0 && lifetimeAttr.ConstructorArguments[0].Value is int lt)
+        {
+            lifetime = lt switch { 0 => SingletonLifetime, 2 => "Transient", _ => "Scoped" };
+        }
+
+        return lifetime;
+    }
+
+    private static Diagnostic? CreateSingletonScopedDependencyDiagnostic(INamedTypeSymbol symbol, string lifetime)
+    {
+        if (lifetime != SingletonLifetime)
+            return null;
+
+        var constructors = symbol.InstanceConstructors
+            .Where(static ctor => ctor.DeclaredAccessibility == Accessibility.Public && !ctor.IsImplicitlyDeclared)
+            .ToArray();
+
+        if (constructors.Length == 0)
+            return null;
+
+        var safeConstructorExists = constructors.Any(static ctor => ctor.Parameters.All(parameter => !IsScopedCatgaDependency(parameter.Type)));
+        if (safeConstructorExists)
+            return null;
+
+        foreach (var constructor in constructors)
+        {
+            var riskyParameter = constructor.Parameters.FirstOrDefault(static parameter => IsScopedCatgaDependency(parameter.Type));
+            if (riskyParameter != null)
+            {
+                return Diagnostic.Create(
+                    CatgaAnalyzerRules.SingletonDependsOnScopedCatgaService,
+                    symbol.Locations.FirstOrDefault(),
+                    symbol.ToDisplayString(),
+                    riskyParameter.Type.ToDisplayString());
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsScopedCatgaDependency(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is not INamedTypeSymbol namedTypeSymbol)
+            return false;
+
+        var display = namedTypeSymbol.OriginalDefinition.ToDisplayString();
+        return display == CatgaMediatorTypeName ||
+               display == FlowExecutorTypeName ||
+               display == FlowTypeName;
     }
 
     private static string GenerateRegistrations(IReadOnlyList<RegistrationInfo> registrations)
@@ -392,7 +473,7 @@ public sealed class UnifiedRegistrationGenerator : IIncrementalGenerator
             sb.AppendLine();
         }
 
-        sb.AppendLine("        return services;");
+        sb.AppendLine("        return services.ValidateCatgaLifetimes();");
         sb.AppendLine("    }");
         sb.AppendLine();
 
@@ -538,6 +619,18 @@ public sealed class UnifiedRegistrationGenerator : IIncrementalGenerator
             Lifetime = lifetime;
             Order = order;
             IsOpenGeneric = isOpenGeneric;
+        }
+    }
+
+    internal sealed class DiscoveryResult
+    {
+        public IReadOnlyList<RegistrationInfo> Registrations { get; }
+        public IReadOnlyList<Diagnostic> Diagnostics { get; }
+
+        public DiscoveryResult(IReadOnlyList<RegistrationInfo> registrations, IReadOnlyList<Diagnostic> diagnostics)
+        {
+            Registrations = registrations;
+            Diagnostics = diagnostics;
         }
     }
 }

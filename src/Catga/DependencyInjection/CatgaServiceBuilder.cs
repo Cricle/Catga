@@ -105,8 +105,9 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
         if (enabled)
         {
             // Register distributed tracing behavior for rich trace data in Jaeger
-            Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.DistributedTracingBehavior<,>));
+            Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.DistributedTracingBehavior<,>));
             ObservabilityHooks.Enable();
+            Services.ValidateCatgaLifetimes();
         }
 
         return this;
@@ -168,6 +169,8 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
         Services.AddSingleton<Catga.DistributedId.IDistributedIdGenerator>(sp =>
             new Catga.DistributedId.SnowflakeIdGenerator(workerId));
 
+        Services.ValidateCatgaLifetimes();
+
         return this;
     }
 
@@ -187,20 +190,23 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
 
     public CatgaServiceBuilder UseInbox()
     {
-        Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.InboxBehavior<,>));
+        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.InboxBehavior<,>));
+        Services.ValidateCatgaLifetimes();
         return this;
     }
 
     public CatgaServiceBuilder UseOutbox()
     {
-        Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.OutboxBehavior<,>));
+        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.OutboxBehavior<,>));
+        Services.ValidateCatgaLifetimes();
         return this;
     }
 
     public CatgaServiceBuilder UseDeadLetterQueue()
     {
-        Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.DeadLetterBehavior<,>));
-        Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<>), typeof(Catga.Pipeline.Behaviors.DeadLetterBehavior<>));
+        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.DeadLetterBehavior<,>));
+        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<>), typeof(Catga.Pipeline.Behaviors.DeadLetterBehavior<>));
+        Services.ValidateCatgaLifetimes();
         return this;
     }
 
@@ -210,7 +216,8 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
     /// </summary>
     public CatgaServiceBuilder UseAutoCompensation()
     {
-        Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.CompensationBehavior<,>));
+        Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.CompensationBehavior<,>));
+        Services.ValidateCatgaLifetimes();
         return this;
     }
 
@@ -220,6 +227,7 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
     public CatgaServiceBuilder UseResilience(Action<CatgaResilienceOptions>? configure = null)
     {
         Services.AddCatgaResilience(configure);
+        Services.ValidateCatgaLifetimes();
         return this;
     }
 
@@ -253,8 +261,10 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
             Services.TryAddSingleton<CatgaResilienceOptions>(_ => new CatgaResilienceOptions());
             Services.TryAddSingleton<IResiliencePipelineProvider>(sp => new DefaultResiliencePipelineProvider(sp.GetRequiredService<CatgaResilienceOptions>()));
 
-            Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.AutoBatchingBehavior<,>));
+            Services.AddScoped(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.AutoBatchingBehavior<,>));
         }
+
+        Services.ValidateCatgaLifetimes();
 
         return this;
     }

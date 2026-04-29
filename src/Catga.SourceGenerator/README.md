@@ -134,6 +134,43 @@ public class OrderHandler : IRequestHandler<CreateOrderCommand, OrderResponse>
 }
 ```
 
+> 注意：
+> 如果你把自动注册类型标成 `Singleton`，但它的构造函数直接依赖 `ICatgaMediator`、`IFlowExecutor` 或 `IFlow<T>`，源生成阶段会直接报 `CAT2004`，而不是等到应用启动时再炸。
+
+**推荐的默认约束**:
+
+```xml
+<PropertyGroup>
+  <WarningsAsErrors>$(WarningsAsErrors);CAT2004</WarningsAsErrors>
+</PropertyGroup>
+```
+
+**常见修复**:
+
+```csharp
+// ❌ 不要这样
+[CatgaLifetime(ServiceLifetime.Singleton)]
+public sealed class BadHandler(ICatgaMediator mediator)
+    : IRequestHandler<CreateOrderCommand, OrderResponse>
+{
+}
+
+// ✅ 改成 Scoped
+[CatgaLifetime(ServiceLifetime.Scoped)]
+public sealed class GoodHandler(ICatgaMediator mediator)
+    : IRequestHandler<CreateOrderCommand, OrderResponse>
+{
+}
+```
+
+```csharp
+// ❌ 不要把依赖 scoped 入口服务的 behavior 注册成 singleton
+services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+
+// ✅ 默认使用 scoped
+services.AddScoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+```
+
 ### 2. 禁用自动注册
 
 ```csharp
@@ -246,7 +283,7 @@ public class CreateUserHandler : IRequestHandler<CreateUserCommand, UserResponse
 | 生命周期 | 适用场景 | 注意事项 |
 |---------|---------|---------|
 | **Scoped** (默认) | 大多数业务逻辑 | 一次请求内共享 |
-| **Singleton** | 无状态、线程安全 | 避免状态，注意线程安全 |
+| **Singleton** | 无状态、线程安全 | 避免状态，注意线程安全；不要直接依赖 scoped Catga 服务 |
 | **Transient** | 需要独立状态 | 每次创建，开销稍高 |
 
 ### 3. 命名约定
@@ -394,4 +431,3 @@ A: 可以，但已标记为 `[Obsolete]`。建议迁移到新的 `AddCatgaServic
 ---
 
 **Catga 源生成器 - 编译时魔法，运行时零开销！** ✨
-

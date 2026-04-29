@@ -54,6 +54,8 @@ public static class CatgaHostingExtensions
             builder.Services.AddSingleton(options.OutboxProcessor);
             builder.Services.AddHostedService<OutboxProcessorService>();
         }
+
+        builder.Services.ValidateCatgaLifetimes();
         
         return builder;
     }

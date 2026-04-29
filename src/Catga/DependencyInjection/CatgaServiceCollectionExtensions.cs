@@ -38,6 +38,8 @@ public static class CatgaServiceCollectionExtensions
         if (conv is not null && options.EndpointNamingConvention is null)
             options.EndpointNamingConvention = conv;
 
+        services.ValidateCatgaLifetimes();
+
         return new CatgaServiceBuilder(services, options);
     }
 
@@ -77,6 +79,8 @@ public static class CatgaServiceCollectionExtensions
         var conv = Catga.Generated.GeneratedBootstrapRegistry.EndpointConvention;
         if (conv is not null && options.EndpointNamingConvention is null)
             options.EndpointNamingConvention = conv;
+
+        services.ValidateCatgaLifetimes();
 
         return new CatgaServiceBuilder(services, options);
     }

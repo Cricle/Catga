@@ -64,6 +64,15 @@ internal static class CatgaAnalyzerRules
         description: "Requests can only have one handler. Use INotification for multiple handlers.",
         customTags: "CompilationEnd");
 
+    public static readonly DiagnosticDescriptor SingletonDependsOnScopedCatgaService = new(
+        id: "CAT2004",
+        title: "Singleton Catga registration depends on scoped service",
+        messageFormat: "Singleton registration '{0}' depends on scoped Catga service '{1}'. Register it as Scoped/Transient or remove the scoped dependency.",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "Catga handlers, behaviors, and flow executors must not be registered as singletons when they depend on scoped services such as ICatgaMediator.");
+
     // Design rules (CAT3xxx)
     public static readonly DiagnosticDescriptor CommandShouldNotReturnData = new(
         id: "CAT3001",
@@ -148,4 +157,3 @@ internal static class CatgaAnalyzerRules
         isEnabledByDefault: true,
         description: "Classes with [CatgaHandler] must implement IRequestHandler interface.");
 }
-

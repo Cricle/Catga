@@ -35,6 +35,7 @@
 
     <!-- Compiler Options -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors>$(WarningsAsErrors);CAT2004</WarningsAsErrors>
     <NoWarn>$(NoWarn);CS1591;RS2008</NoWarn>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>

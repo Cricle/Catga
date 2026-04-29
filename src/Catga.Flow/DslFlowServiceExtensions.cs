@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Catga.Abstractions;
+using Catga.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -19,7 +20,7 @@ public static class DslFlowServiceExtensions
         services.TryAddSingleton<FlowResumeHandler>();
         services.TryAddSingleton<IEventHandler<FlowCompletedEvent>>(sp => sp.GetRequiredService<FlowResumeHandler>());
         services.TryAddSingleton<IFlowResumeHandler, DefaultFlowResumeHandler>();
-        return services;
+        return services.ValidateCatgaLifetimes();
     }
 
     /// <summary>
@@ -32,7 +33,7 @@ public static class DslFlowServiceExtensions
         services.TryAddSingleton<FlowResumeHandler>();
         services.TryAddSingleton<IEventHandler<FlowCompletedEvent>>(sp => sp.GetRequiredService<FlowResumeHandler>());
         services.TryAddSingleton<IFlowResumeHandler, DefaultFlowResumeHandler>();
-        return services;
+        return services.ValidateCatgaLifetimes();
     }
 
     /// <summary>
@@ -43,7 +44,7 @@ public static class DslFlowServiceExtensions
         if (configure != null)
             services.Configure(configure);
         services.AddSingleton<FlowTimeoutService>();
-        return services;
+        return services.ValidateCatgaLifetimes();
     }
 
     /// <summary>
@@ -64,7 +65,7 @@ public static class DslFlowServiceExtensions
             var requestClientFactory = sp.GetService<IRequestClientFactory>();
             return new DslFlowExecutor<TState, TConfig>(mediator, store, config, scheduler, requestClientFactory);
         });
-        return services;
+        return services.ValidateCatgaLifetimes();
     }
 
     /// <summary>
@@ -88,7 +89,7 @@ public static class DslFlowServiceExtensions
             var requestClientFactory = sp.GetService<IRequestClientFactory>();
             return new DslFlowExecutor<TState, TConfig>(mediator, store, config, scheduler, requestClientFactory);
         });
-        return services;
+        return services.ValidateCatgaLifetimes();
     }
 
     /// <summary>
@@ -97,6 +98,6 @@ public static class DslFlowServiceExtensions
     public static IServiceCollection AddFlowResumeHandler(this IServiceCollection services)
     {
         services.TryAddSingleton<IFlowResumeHandler, DefaultFlowResumeHandler>();
-        return services;
+        return services.ValidateCatgaLifetimes();
     }
 }

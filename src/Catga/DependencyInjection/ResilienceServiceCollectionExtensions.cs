@@ -27,10 +27,12 @@ public static class ResilienceServiceCollectionExtensions
 
         services.AddSingleton(options);
         services.AddSingleton<IResiliencePipelineProvider>(sp => new DefaultResiliencePipelineProvider(options));
-        services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(PollyBehavior<,>));
+        services.AddScoped(typeof(IPipelineBehavior<,>), typeof(PollyBehavior<,>));
         // Note: IDistributedLockProvider must be registered by implementation libraries
         // (e.g., Catga.Persistence.InMemory, Catga.Persistence.Redis)
-        services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(AttributeDrivenBehavior<,>));
+        services.AddScoped(typeof(IPipelineBehavior<,>), typeof(AttributeDrivenBehavior<,>));
+
+        services.ValidateCatgaLifetimes();
 
         return services;
     }

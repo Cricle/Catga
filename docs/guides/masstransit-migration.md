@@ -19,6 +19,7 @@
   - `当前项目目标场景评分`
 - 这两组分数不能混看。MassTransit 擅长的是标准 broker 中间件路线，Catga 擅长的是当前项目强调的 `CQRS + Event Sourcing + NATS/Redis/RabbitMQ + AOT` 路线。
 - 按当前项目要求，**除“传输协议生态/扩展能力”相关维度外，其它功能分数按“与 MassTransit 持平”处理**。也就是说，这一版评分不再把 `Flow DSL / Event Sourcing / AOT` 这些能力单独打出高于 MassTransit 的分数，而是作为“当前项目自定义偏好”写进结论，不写进功能分差。
+- 因此你在下面看到的 `Saga / Workflow`、`AOT`、`测试工具`、`运维观测`、`启动期生命周期校验` 等行，都是**刻意按平分口径处理**，不是遗漏。
 
 ---
 
@@ -398,6 +399,7 @@ result.IsSuccess.Should().BeTrue();
 | Saga / Workflow 表达力 | `8.5/10` | `8.5/10` | 持平 | MassTransit Saga 与 Catga Flow DSL 走法不同，但在本表里按“能力层可覆盖”记为平分。 |
 | Event Sourcing / 领域内建能力 | `8.5/10` | `8.5/10` | 持平 | 这里不再按“是否内建”拉开分数，只按“项目可以达成该能力”记为平分。 |
 | Native AOT / 低反射运行时 | `8.5/10` | `8.5/10` | 持平 | 这里不把实现路线差异写成分差，性能差异留给 benchmark 结果说明。 |
+| 启动期生命周期校验 / DI 安全性 | `8.5/10` | `8.5/10` | 持平 | 当前仓库已补启动期生命周期校验，但按本次口径不把它写成分差。 |
 | 测试工具 / 调试工具成熟度 | `8.5/10` | `8.5/10` | 持平 | 这版文档按你的要求不再在非 transport 维度上给 MassTransit 更高分。 |
 | 运维 / 观测 / 重试 / 错误处理 | `8.5/10` | `8.5/10` | 持平 | 只保留 transport / broker 相关分差，其它工程能力一律按平分口径处理。 |
 | 学习曲线（面向 CQRS 业务开发） | `8.0/10` | `8.0/10` | 持平 | 团队偏好差异不再写成分差。 |
@@ -409,7 +411,7 @@ result.IsSuccess.Should().BeTrue();
 
 ---
 
-## 13. 实测性能对比（2026-04-29）
+## 13. 实测性能对比（2026-04-29，已重新执行）
 
 本次使用同一套 `BenchmarkDotNet` 用例，在当前仓库直接跑了 `Catga / MediatR / MassTransit` 对照测试。
 
@@ -430,13 +432,14 @@ dotnet run -c Release --framework net10.0 --project benchmarks/Catga.Benchmarks 
 
 | 场景 | Catga | MediatR | MassTransit | 结论 |
 |------|-------|---------|-------------|------|
-| `Command` | `232.4 ns / 88 B` | `127.5 ns / 288 B` | `97,693.8 ns / 12,478 B` | Catga 单次命令明显低分配，MassTransit 在此套 mediator request/reply 测法下开销显著更高。 |
-| `Event` | `112.3 ns / 64 B` | `167.0 ns / 288 B` | `-` | Catga 在事件发布上更快且分配更低；这组用例未包含 MassTransit event benchmark。 |
-| `Batch100` | `18,641.1 ns / 8,800 B` | `13,352.3 ns / 28,800 B` | `1,862,793.5 ns / 1,224,220 B` | Catga 批量吞吐接近 MediatR，但内存显著更低；MassTransit 在这一组对照里明显更重。 |
+| `Command` | `149.72 ns / 88 B` | `96.93 ns / 288 B` | `33,382.25 ns / 12,470 B` | MediatR 在纯进程内命令路径更快；Catga 分配更低；MassTransit 在该测法下仍明显更重。 |
+| `Event` | `87.23 ns / 64 B` | `111.54 ns / 288 B` | `-` | Catga 在事件发布上更快且分配更低；这组用例未包含 MassTransit event benchmark。 |
+| `Batch100` | `13,236.30 ns / 8,800 B` | `9,669.04 ns / 28,800 B` | `1,250,847.71 ns / 1,224,240 B` | MediatR 在批量进程内路径更快；Catga 内存显著更低；MassTransit 在这一组对照里仍明显更重。 |
 
 补充说明：
 - 这组测试比较的是“同进程 mediator / request-reply 调用成本”，不是 broker 网络往返压测。
 - `MassTransit` 在这里测到的是其 mediator/request client 路径，不代表 RabbitMQ / ASB / SQS 等真实分布式场景的端到端吞吐上限。
+- 这次重跑后，结论比上一版更精确：`Catga` 的核心优势主要体现在**更低分配**和**event publish 路径更快**，不是“所有 in-process 指标都比 MediatR 快”。
 - 基准原始产物已导出到：
   - `BenchmarkDotNet.Artifacts/results/Catga.Benchmarks.FrameworkComparisonBenchmarks-report-github.md`
   - `BenchmarkDotNet.Artifacts/results/Catga.Benchmarks.FrameworkComparisonBenchmarks-report.csv`

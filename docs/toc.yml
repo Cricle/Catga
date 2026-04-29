@@ -76,6 +76,12 @@
   items:
     - name: 部署索引
       href: deployment/README.md
+    - name: RabbitMQ 生产接入
+      href: deployment/rabbitmq-production.md
+    - name: NATS 生产接入
+      href: deployment/nats-production.md
+    - name: Redis 生产接入
+      href: deployment/redis-production.md
     - name: Native AOT
       href: deployment/native-aot-publishing.md
     - name: Kubernetes

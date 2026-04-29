@@ -61,6 +61,9 @@ Catga 现在的文档量已经不少，但并不是每篇都适合第一次阅�
 - [可观测性索引](./observability/README.md)
 - [部署索引](./deployment/README.md)
 - [监控指南](./production/MONITORING-GUIDE.md)
+- [RabbitMQ 生产接入](./deployment/rabbitmq-production.md)
+- [NATS 生产接入](./deployment/nats-production.md)
+- [Redis 生产接入](./deployment/redis-production.md)
 - [Native AOT 发布](./deployment/native-aot-publishing.md)
 - [Kubernetes 部署](./deployment/kubernetes.md)
 
@@ -93,6 +96,9 @@ Catga 现在的文档量已经不少，但并不是每篇都适合第一次阅�
 
 - [observability/README.md](./observability/README.md)
 - [deployment/README.md](./deployment/README.md)
+- [deployment/rabbitmq-production.md](./deployment/rabbitmq-production.md)
+- [deployment/nats-production.md](./deployment/nats-production.md)
+- [deployment/redis-production.md](./deployment/redis-production.md)
 - [production/MONITORING-GUIDE.md](./production/MONITORING-GUIDE.md)
 
 ### 4. 专题 / 深挖 / 历史文档
@@ -130,7 +136,10 @@ Catga 现在的文档量已经不少，但并不是每篇都适合第一次阅�
 1. [配置指南](./articles/configuration.md)
 2. [可观测性索引](./observability/README.md)
 3. [部署索引](./deployment/README.md)
-4. [监控指南](./production/MONITORING-GUIDE.md)
+4. [RabbitMQ 生产接入](./deployment/rabbitmq-production.md)
+5. [NATS 生产接入](./deployment/nats-production.md)
+6. [Redis 生产接入](./deployment/redis-production.md)
+7. [监控指南](./production/MONITORING-GUIDE.md)
 
 ---
 

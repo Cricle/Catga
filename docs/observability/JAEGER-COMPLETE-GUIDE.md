@@ -336,18 +336,13 @@ histogram_quantile(0.95, duration) > 1000  # P95 > 1秒
 
 ---
 
-## 🆚 Catga.Debugger vs Jaeger
+## 为什么现在用 Jaeger
 
-| 功能 | Catga.Debugger (已删除) | Jaeger (现在使用) |
-|------|----------------------|-------------------|
-| **时间旅行调试** | 自己实现 | ❌ Jaeger历史查询更强 |
-| **性能分析** | 自己实现 | ✅ 火焰图+Grafana |
-| **分布式追踪** | 不支持 | ✅ 完美支持 |
-| **UI** | 自己的Vue UI | ✅ Jaeger UI（专业） |
-| **事务流程** | 需手动拼接 | ✅ 自动Span树 |
-| **搜索/过滤** | 基础功能 | ✅ 强大查询语言 |
-| **告警** | 不支持 | ✅ Grafana Alerts |
-| **生产就绪** | ⚠️ 实验性 | ✅ 业界标准 |
+当前路线的核心原因很简单：
+
+- Jaeger + OpenTelemetry 是标准生态，能直接接进现有 tracing / metrics / alerting 体系
+- Catga 不再维护自定义调试产品形态，而是把观测能力对齐到标准工具
+- 对生产排障来说，跨服务 trace、搜索、采样、存储和可视化都应尽量复用成熟组件
 
 ---
 
@@ -372,7 +367,7 @@ histogram_quantile(0.95, duration) > 1000  # P95 > 1秒
 **A:** Correlation ID 会自动通过 Baggage 跨服务传播，只要所有服务都配置了相同的 Jaeger Collector。
 
 ### Q: 性能开销如何？
-**A:** OpenTelemetry 开销极低（<1%），生产环境建议1-5%采样率。
+**A:** 开销取决于采样率、exporter、后端和标签规模。生产里通常先从低采样开始，再按排障需求逐步上调。
 
 ---
 
@@ -384,7 +379,6 @@ histogram_quantile(0.95, duration) > 1000  # P95 > 1秒
 4. ✅ 尝试不同的搜索条件
 5. ✅ 集成到你的项目中
 
-**开始探索 Jaeger + Catga 的强大组合！** 🎯
-
+开始把 Jaeger 接到你的实际服务链路里，再结合 Grafana / Prometheus 看完整运行状态。
 
 

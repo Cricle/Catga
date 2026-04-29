@@ -52,15 +52,31 @@ public static class RedisTransportServiceCollectionExtensions
 
     /// <summary>注册 Redis Transport (使用已有的 ConnectionMultiplexer)</summary>
     public static IServiceCollection AddRedisTransport(this IServiceCollection services, IConnectionMultiplexer connectionMultiplexer, string? consumerGroup = null, string? consumerName = null)
+        => services.AddRedisTransport(connectionMultiplexer, new RedisTransportOptions(), consumerGroup, consumerName);
+
+    /// <summary>注册 Redis Transport (使用已有的 ConnectionMultiplexer 和显式选项)</summary>
+    public static IServiceCollection AddRedisTransport(this IServiceCollection services, IConnectionMultiplexer connectionMultiplexer, RedisTransportOptions options, string? consumerGroup = null, string? consumerName = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(connectionMultiplexer);
+        ArgumentNullException.ThrowIfNull(options);
         services.TryAddSingleton(connectionMultiplexer);
+        services.TryAddSingleton(options);
         services.TryAddSingleton<IMessageTransport>(sp =>
         {
             var serializer = sp.GetRequiredService<IMessageSerializer>();
             var provider = sp.GetRequiredService<IResiliencePipelineProvider>();
-            return new RedisMessageTransport(connectionMultiplexer, serializer, provider, null, consumerGroup, consumerName);
+            var catgaOptions = sp.GetRequiredService<CatgaOptions>();
+            if (options.Naming is null && catgaOptions.EndpointNamingConvention is not null)
+                options.Naming = catgaOptions.EndpointNamingConvention;
+
+            return new RedisMessageTransport(
+                connectionMultiplexer,
+                serializer,
+                provider,
+                options,
+                consumerGroup ?? options.ConsumerGroup,
+                consumerName ?? options.ConsumerName);
         });
         return services;
     }

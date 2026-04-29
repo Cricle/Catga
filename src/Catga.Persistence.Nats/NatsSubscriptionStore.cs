@@ -4,12 +4,14 @@ using Catga.Resilience;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.KeyValueStore;
+using System.Text;
 
 namespace Catga.Persistence.Nats;
 
 /// <summary>NATS KV-based subscription store.</summary>
-public sealed class NatsSubscriptionStore(INatsConnection nats, IMessageSerializer serializer, IResiliencePipelineProvider provider, string bucketName = "subscriptions") : ISubscriptionStore
+public sealed class NatsSubscriptionStore(INatsConnection nats, IMessageSerializer serializer, IResiliencePipelineProvider provider, string bucketName = "subscriptions", TimeSpan? lockExpiry = null) : ISubscriptionStore
 {
+    private readonly TimeSpan _lockExpiry = lockExpiry ?? TimeSpan.FromSeconds(30);
     private volatile INatsKVStore? _kvStore;
     private Task? _initTask;
 
@@ -30,6 +32,7 @@ public sealed class NatsSubscriptionStore(INatsConnection nats, IMessageSerializ
             var kv = new NatsKVContext(new NatsJSContext(nats));
             try { _kvStore = await kv.GetStoreAsync(bucketName, ct); }
             catch (NatsKVException) { _kvStore = await kv.CreateStoreAsync(new NatsKVConfig(bucketName), ct); }
+            catch (NatsJSApiException ex) when (ex.Error.Code == 404) { _kvStore = await kv.CreateStoreAsync(new NatsKVConfig(bucketName), ct); }
             tcs.SetResult();
         }
         catch (Exception ex)
@@ -73,7 +76,7 @@ public sealed class NatsSubscriptionStore(INatsConnection nats, IMessageSerializ
             var subs = new List<PersistentSubscription>();
             await foreach (var key in _kvStore!.GetKeysAsync(cancellationToken: ct))
             {
-                if (key.StartsWith("lock:")) continue;
+                if (key.StartsWith("lock.", StringComparison.Ordinal)) continue;
                 var sub = await LoadAsync(key, ct);
                 if (sub != null) subs.Add(sub);
             }
@@ -84,23 +87,108 @@ public sealed class NatsSubscriptionStore(INatsConnection nats, IMessageSerializ
         => await provider.ExecutePersistenceAsync(async _ =>
         {
             await EnsureInitializedAsync(ct);
-            try { await _kvStore!.CreateAsync($"lock:{subscriptionName}", System.Text.Encoding.UTF8.GetBytes(consumerId), cancellationToken: ct); return true; }
-            catch (NatsKVCreateException) { return false; }
+            var lockKey = GetLockKey(subscriptionName);
+            var lockData = new SubscriptionLockData
+            {
+                ConsumerId = consumerId,
+                ExpiresAtTicks = DateTime.UtcNow.Add(_lockExpiry).Ticks
+            };
+            var payload = SerializeLockData(lockData);
+
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                try
+                {
+                    await _kvStore!.CreateAsync(lockKey, payload, cancellationToken: ct);
+                    return true;
+                }
+                catch (NatsKVCreateException)
+                {
+                    try
+                    {
+                        var entry = await _kvStore!.GetEntryAsync<byte[]>(lockKey, cancellationToken: ct);
+                        var currentLock = entry.Value is { Length: > 0 }
+                            ? DeserializeLockData(entry.Value)
+                            : null;
+
+                        if (currentLock is { ExpiresAtTicks: > 0 } && currentLock.ExpiresAtTicks > DateTime.UtcNow.Ticks)
+                            return false;
+
+                        await _kvStore.UpdateAsync(lockKey, payload, entry.Revision, cancellationToken: ct);
+                        return true;
+                    }
+                    catch (NatsKVWrongLastRevisionException)
+                    {
+                        continue;
+                    }
+                    catch (NatsKVKeyNotFoundException)
+                    {
+                        continue;
+                    }
+                    catch (NatsKVKeyDeletedException)
+                    {
+                        continue;
+                    }
+                }
+            }
+
+            return false;
         }, ct);
 
     public async ValueTask ReleaseLockAsync(string subscriptionName, string consumerId, CancellationToken ct = default)
         => await provider.ExecutePersistenceAsync(async _ =>
         {
             await EnsureInitializedAsync(ct);
-            var lockKey = $"lock:{subscriptionName}";
+            var lockKey = GetLockKey(subscriptionName);
             try
             {
                 var entry = await _kvStore!.GetEntryAsync<byte[]>(lockKey, cancellationToken: ct);
-                if (entry.Value != null && System.Text.Encoding.UTF8.GetString(entry.Value) == consumerId)
+                var currentLock = entry.Value is { Length: > 0 }
+                    ? DeserializeLockData(entry.Value)
+                    : null;
+                if (currentLock?.ConsumerId == consumerId)
                     await _kvStore.DeleteAsync(lockKey, cancellationToken: ct);
             }
             catch (NatsKVKeyNotFoundException) { }
+            catch (NatsKVKeyDeletedException) { }
         }, ct);
+
+    private static string GetLockKey(string subscriptionName)
+        => $"lock.{Convert.ToHexString(Encoding.UTF8.GetBytes(subscriptionName))}";
+
+    private static byte[] SerializeLockData(SubscriptionLockData data)
+        => Encoding.UTF8.GetBytes($"{data.ExpiresAtTicks}:{Convert.ToHexString(Encoding.UTF8.GetBytes(data.ConsumerId))}");
+
+    private static SubscriptionLockData? DeserializeLockData(byte[] payload)
+    {
+        var text = Encoding.UTF8.GetString(payload);
+        var separatorIndex = text.IndexOf(':');
+        if (separatorIndex <= 0 || separatorIndex >= text.Length - 1)
+            return null;
+
+        if (!long.TryParse(text[..separatorIndex], out var expiresAtTicks))
+            return null;
+
+        try
+        {
+            var consumerIdBytes = Convert.FromHexString(text[(separatorIndex + 1)..]);
+            return new SubscriptionLockData
+            {
+                ExpiresAtTicks = expiresAtTicks,
+                ConsumerId = Encoding.UTF8.GetString(consumerIdBytes)
+            };
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
+    private sealed class SubscriptionLockData
+    {
+        public string ConsumerId { get; set; } = "";
+        public long ExpiresAtTicks { get; set; }
+    }
 
     private sealed class SubscriptionData { public string Name { get; set; } = ""; public string StreamPattern { get; set; } = ""; public long Position { get; set; } public List<string> EventTypeFilter { get; set; } = []; public long ProcessedCount { get; set; } public long LastProcessedAtTicks { get; set; } public long CreatedAtTicks { get; set; } }
 }

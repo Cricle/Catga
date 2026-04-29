@@ -49,7 +49,7 @@ public sealed class NatsJSIdempotencyStore(INatsConnection connection, IMessageS
                     },
                     ct);
 
-                await foreach (var msg in consumer.FetchAsync<byte[]>(
+                await foreach (var msg in consumer.FetchNoWaitAsync<byte[]>(
                     new NatsJSFetchOpts { MaxMsgs = 1 },
                     cancellationToken: ct))
                 {
@@ -127,7 +127,7 @@ public sealed class NatsJSIdempotencyStore(INatsConnection connection, IMessageS
                     },
                     ct);
 
-                await foreach (var msg in consumer.FetchAsync<byte[]>(
+                await foreach (var msg in consumer.FetchNoWaitAsync<byte[]>(
                     new NatsJSFetchOpts { MaxMsgs = 1 },
                     cancellationToken: ct))
                 {
@@ -149,4 +149,3 @@ public sealed class NatsJSIdempotencyStore(INatsConnection connection, IMessageS
         }, cancellationToken);
     }
 }
-

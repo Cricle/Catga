@@ -71,7 +71,7 @@ public class RedisContainerFixture : IAsyncLifetime
 /// <summary>
 /// Redis 属性测试集合定义
 /// </summary>
-[CollectionDefinition("RedisPropertyTests")]
+[CollectionDefinition("RedisPropertyTests", DisableParallelization = true)]
 public class RedisPropertyTestsCollection : ICollectionFixture<RedisContainerFixture>
 {
 }

@@ -23,6 +23,7 @@ public class OutboxBehaviorTests
     private readonly IOutboxStore _mockStore;
     private readonly IMessageTransport _mockTransport;
     private readonly IMessageSerializer _mockSerializer;
+    private readonly IMessageTypeRegistry _mockMessageTypeRegistry;
     private readonly OutboxBehavior<TestEvent, EmptyResponse> _behavior;
 
     public OutboxBehaviorTests()
@@ -32,15 +33,18 @@ public class OutboxBehaviorTests
         _mockStore = Substitute.For<IOutboxStore>();
         _mockTransport = Substitute.For<IMessageTransport>();
         _mockSerializer = Substitute.For<IMessageSerializer>();
+        _mockMessageTypeRegistry = Substitute.For<IMessageTypeRegistry>();
 
         _mockTransport.Name.Returns("MockTransport");
+        _mockMessageTypeRegistry.GetTypeName(typeof(TestEvent)).Returns(typeof(TestEvent).FullName!);
 
         _behavior = new OutboxBehavior<TestEvent, EmptyResponse>(
             _mockLogger,
             _mockIdGenerator,
             _mockStore,
             _mockTransport,
-            _mockSerializer);
+            _mockSerializer,
+            _mockMessageTypeRegistry);
     }
 
     #region Constructor Tests
@@ -54,7 +58,8 @@ public class OutboxBehaviorTests
             _mockIdGenerator,
             _mockStore,
             _mockTransport,
-            _mockSerializer);
+            _mockSerializer,
+            _mockMessageTypeRegistry);
         act.Should().Throw<ArgumentNullException>().WithParameterName("logger");
     }
 
@@ -67,7 +72,8 @@ public class OutboxBehaviorTests
             null!,
             _mockStore,
             _mockTransport,
-            _mockSerializer);
+            _mockSerializer,
+            _mockMessageTypeRegistry);
         act.Should().Throw<ArgumentNullException>().WithParameterName("idGenerator");
     }
 
@@ -80,7 +86,8 @@ public class OutboxBehaviorTests
             _mockIdGenerator,
             null!,
             _mockTransport,
-            _mockSerializer);
+            _mockSerializer,
+            _mockMessageTypeRegistry);
         act.Should().Throw<ArgumentNullException>().WithParameterName("persistence");
     }
 
@@ -93,7 +100,8 @@ public class OutboxBehaviorTests
             _mockIdGenerator,
             _mockStore,
             null!,
-            _mockSerializer);
+            _mockSerializer,
+            _mockMessageTypeRegistry);
         act.Should().Throw<ArgumentNullException>().WithParameterName("transport");
     }
 
@@ -106,8 +114,22 @@ public class OutboxBehaviorTests
             _mockIdGenerator,
             _mockStore,
             _mockTransport,
-            null!);
+            null!,
+            _mockMessageTypeRegistry);
         act.Should().Throw<ArgumentNullException>().WithParameterName("serializer");
+    }
+
+    [Fact]
+    public void Constructor_WithNullMessageTypeRegistry_ShouldThrowArgumentNullException()
+    {
+        var act = () => new OutboxBehavior<TestEvent, EmptyResponse>(
+            _mockLogger,
+            _mockIdGenerator,
+            _mockStore,
+            _mockTransport,
+            _mockSerializer,
+            null!);
+        act.Should().Throw<ArgumentNullException>().WithParameterName("messageTypeRegistry");
     }
 
     #endregion
@@ -123,7 +145,8 @@ public class OutboxBehaviorTests
             _mockIdGenerator,
             _mockStore,
             _mockTransport,
-            _mockSerializer);
+            _mockSerializer,
+            _mockMessageTypeRegistry);
 
         var request = new NonEventRequest { Data = "test" };
         var expectedResponse = new TestResponse { Result = "OK" };
@@ -433,8 +456,6 @@ public class OutboxBehaviorTests
 
     #endregion
 }
-
-
 
 
 

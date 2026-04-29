@@ -95,7 +95,7 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
                     new ConsumerConfig { Name = $"temp-{streamId}-{Guid.NewGuid():N}", FilterSubject = subject, AckPolicy = ConsumerConfigAckPolicy.None, DeliverPolicy = ConsumerConfigDeliverPolicy.All }, ct);
 
                 long currentVersion = -1;
-                await foreach (var msg in consumer.FetchAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = maxCount }, cancellationToken: ct))
+                await foreach (var msg in consumer.FetchNoWaitAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = maxCount }, cancellationToken: ct))
                 {
                     if (msg.Data is { Length: > 0 })
                     {
@@ -135,33 +135,21 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
                 var consumer = await JetStream.CreateOrUpdateConsumerAsync(StreamName,
                     new ConsumerConfig { Name = $"ver-{streamId}-{Guid.NewGuid():N}", FilterSubject = subject, AckPolicy = ConsumerConfigAckPolicy.None, DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject }, ct);
 
-                // Use a short timeout to avoid waiting for messages that don't exist
-                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                timeoutCts.CancelAfter(TimeSpan.FromMilliseconds(100));
+                await foreach (var msg in consumer.FetchNoWaitAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = 1 }, cancellationToken: ct))
+                {
+                    // We need to count all messages to get the actual version
+                    var countConsumer = await JetStream.CreateOrUpdateConsumerAsync(StreamName,
+                        new ConsumerConfig { Name = $"count-{streamId}-{Guid.NewGuid():N}", FilterSubject = subject, AckPolicy = ConsumerConfigAckPolicy.None, DeliverPolicy = ConsumerConfigDeliverPolicy.All }, ct);
 
-                try
-                {
-                    await foreach (var msg in consumer.FetchAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = 1 }, cancellationToken: timeoutCts.Token))
+                    long count = 0;
+                    await foreach (var countMsg in countConsumer.FetchNoWaitAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = int.MaxValue }, cancellationToken: ct))
                     {
-                        // We need to count all messages to get the actual version
-                        // Create a new consumer to count all messages
-                        var countConsumer = await JetStream.CreateOrUpdateConsumerAsync(StreamName,
-                            new ConsumerConfig { Name = $"count-{streamId}-{Guid.NewGuid():N}", FilterSubject = subject, AckPolicy = ConsumerConfigAckPolicy.None, DeliverPolicy = ConsumerConfigDeliverPolicy.All }, ct);
-                        
-                        long count = 0;
-                        await foreach (var countMsg in countConsumer.FetchAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = int.MaxValue }, cancellationToken: timeoutCts.Token))
-                        {
-                            count++;
-                        }
-                        
-                        CatgaDiagnostics.EventStoreReads.Add(1);
-                        CatgaDiagnostics.EventStoreReadDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
-                        return count - 1; // Version is 0-based
+                        count++;
                     }
-                }
-                catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
-                {
-                    // Timeout occurred, no messages exist for this stream
+
+                    CatgaDiagnostics.EventStoreReads.Add(1);
+                    CatgaDiagnostics.EventStoreReadDuration.Record((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+                    return count - 1; // Version is 0-based
                 }
 
                 CatgaDiagnostics.EventStoreReads.Add(1);
@@ -201,7 +189,7 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
                     new ConsumerConfig { Name = $"ttv-{streamId}-{Guid.NewGuid():N}", FilterSubject = subject, AckPolicy = ConsumerConfigAckPolicy.None, DeliverPolicy = ConsumerConfigDeliverPolicy.All }, ct);
 
                 long currentVersion = -1;
-                await foreach (var msg in consumer.FetchAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = (int)(toVersion + 1) }, cancellationToken: ct))
+                await foreach (var msg in consumer.FetchNoWaitAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = (int)(toVersion + 1) }, cancellationToken: ct))
                 {
                     if (msg.Data is { Length: > 0 })
                     {
@@ -239,7 +227,7 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
                     new ConsumerConfig { Name = $"ttt-{streamId}-{Guid.NewGuid():N}", FilterSubject = subject, AckPolicy = ConsumerConfigAckPolicy.None, DeliverPolicy = ConsumerConfigDeliverPolicy.All }, ct);
 
                 long currentVersion = -1;
-                await foreach (var msg in consumer.FetchAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = int.MaxValue }, cancellationToken: ct))
+                await foreach (var msg in consumer.FetchNoWaitAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = int.MaxValue }, cancellationToken: ct))
                 {
                     if (msg.Data is { Length: > 0 })
                     {
@@ -277,7 +265,7 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
                     new ConsumerConfig { Name = $"hist-{streamId}-{Guid.NewGuid():N}", FilterSubject = subject, AckPolicy = ConsumerConfigAckPolicy.None, DeliverPolicy = ConsumerConfigDeliverPolicy.All }, ct);
 
                 long currentVersion = -1;
-                await foreach (var msg in consumer.FetchAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = int.MaxValue }, cancellationToken: ct))
+                await foreach (var msg in consumer.FetchNoWaitAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = int.MaxValue }, cancellationToken: ct))
                 {
                     if (msg.Data is { Length: > 0 })
                     {
@@ -308,7 +296,7 @@ public sealed class NatsJSEventStore(INatsConnection connection, IMessageSeriali
                 var consumer = await JetStream.CreateOrUpdateConsumerAsync(StreamName,
                     new ConsumerConfig { Name = $"proj-scan-{Guid.NewGuid():N}", AckPolicy = ConsumerConfigAckPolicy.None, DeliverPolicy = ConsumerConfigDeliverPolicy.All }, ct);
 
-                await foreach (var msg in consumer.FetchAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = 10000 }, cancellationToken: ct))
+                await foreach (var msg in consumer.FetchNoWaitAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = 10000 }, cancellationToken: ct))
                 {
                     var subject = msg.Subject;
                     if (subject.StartsWith(StreamName + ".")) streamIds.Add(subject[(StreamName.Length + 1)..]);

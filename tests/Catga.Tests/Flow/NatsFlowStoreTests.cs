@@ -421,6 +421,95 @@ public class NatsFlowStoreTests : IAsyncLifetime
     }
 
     [SkippableFact]
+    public async Task CreateAsync_SetsInitialVersion()
+    {
+        SkipIfNoNats();
+
+        var state = CreateState("initial-version");
+        state.Version = 999;
+
+        await _store!.CreateAsync(state);
+
+        var stored = await _store.GetAsync("initial-version");
+        stored!.Version.Should().Be(0);
+    }
+
+    [SkippableFact]
+    public async Task GetAsync_ReturnsIndependentCopy_ModificationsDoNotAffectStore()
+    {
+        SkipIfNoNats();
+
+        var state = CreateState("independent-copy");
+        state.Step = 5;
+        await _store!.CreateAsync(state);
+
+        var retrieved = await _store.GetAsync("independent-copy");
+        retrieved!.Step = 999;
+        retrieved.Status = FlowStatus.Failed;
+        retrieved.Data = [9, 9, 9];
+
+        var stored = await _store.GetAsync("independent-copy");
+        stored.Should().NotBeSameAs(retrieved);
+        stored!.Step.Should().Be(5);
+        stored.Status.Should().Be(FlowStatus.Running);
+        stored.Data.Should().BeNull();
+    }
+
+    [SkippableFact]
+    public async Task CreateAsync_ExternalMutationAfterCreate_DoesNotAffectStoredState()
+    {
+        SkipIfNoNats();
+
+        var state = CreateState("create-mutation");
+        state.Owner = "node-1";
+        state.Data = [1, 2, 3];
+
+        await _store!.CreateAsync(state);
+
+        state.Owner = "mutated-owner";
+        state.Status = FlowStatus.Failed;
+        state.Data[0] = 9;
+
+        var stored = await _store.GetAsync("create-mutation");
+        stored!.Owner.Should().Be("node-1");
+        stored.Status.Should().Be(FlowStatus.Running);
+        stored.Data.Should().BeEquivalentTo(new byte[] { 1, 2, 3 });
+    }
+
+    [SkippableFact]
+    public async Task UpdateAsync_ExternalMutationAfterUpdate_DoesNotAffectStoredState()
+    {
+        SkipIfNoNats();
+
+        var state = CreateState("update-mutation");
+        await _store!.CreateAsync(state);
+
+        var update = new FlowState
+        {
+            Id = "update-mutation",
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 3,
+            Version = 0,
+            Owner = "node-2",
+            Data = [4, 5, 6]
+        };
+
+        var updated = await _store.UpdateAsync(update);
+        updated.Should().BeTrue();
+
+        update.Owner = "mutated-owner";
+        update.Status = FlowStatus.Failed;
+        update.Data![0] = 8;
+
+        var stored = await _store.GetAsync("update-mutation");
+        stored!.Owner.Should().Be("node-2");
+        stored.Status.Should().Be(FlowStatus.Running);
+        stored.Step.Should().Be(3);
+        stored.Data.Should().BeEquivalentTo(new byte[] { 4, 5, 6 });
+    }
+
+    [SkippableFact]
     public async Task E2E_LargeDataPayload()
     {
         SkipIfNoNats();
@@ -493,20 +582,28 @@ public class NatsFlowStoreTests : IAsyncLifetime
             NodeId = "cancel-node"
         });
 
-        using var cts = new CancellationTokenSource(500); // Give enough time for NATS operations
+        using var cts = new CancellationTokenSource();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var result = await executor.ExecuteAsync(
+        var executionTask = executor.ExecuteAsync(
             "cancel-flow",
             "TestFlow",
             ReadOnlyMemory<byte>.Empty,
             async (state, ct) =>
             {
-                await Task.Delay(2000, ct); // Longer than cancellation
+                started.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, ct);
                 return new FlowResult(true, 1, TimeSpan.Zero);
             },
             cts.Token);
 
+        await started.Task;
+        cts.Cancel();
+
+        var result = await executionTask;
         result.IsSuccess.Should().BeFalse();
+        var stored = await _store.GetAsync("cancel-flow");
+        stored!.Status.Should().Be(FlowStatus.Failed);
     }
 
     [SkippableFact]
@@ -588,7 +685,6 @@ public class NatsFlowStoreTests : IAsyncLifetime
         HeartbeatAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
     };
 }
-
 
 
 

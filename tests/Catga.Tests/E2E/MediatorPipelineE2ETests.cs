@@ -1,9 +1,10 @@
 using Catga.Abstractions;
+using Catga.Core;
 using Catga.DependencyInjection;
 using Catga.Pipeline;
+using Catga.Pipeline.Behaviors;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Catga.Tests.E2E;
@@ -20,6 +21,7 @@ public class MediatorPipelineE2ETests
         // Arrange
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
         services.AddSingleton<IRequestHandler<TestQuery, TestResult>, TestQueryHandler>();
 
@@ -42,6 +44,7 @@ public class MediatorPipelineE2ETests
         // Arrange
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
         services.AddSingleton<IRequestHandler<TestCommand, string>, TestCommandHandler>();
 
@@ -65,6 +68,7 @@ public class MediatorPipelineE2ETests
 
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
         services.AddSingleton<IEventHandler<TestEvent>>(new DelegateEventHandler<TestEvent>(_ => handler1Called = true));
         services.AddSingleton<IEventHandler<TestEvent>>(new DelegateEventHandler<TestEvent>(_ => handler2Called = true));
@@ -86,9 +90,11 @@ public class MediatorPipelineE2ETests
         // Arrange
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
         services.AddSingleton<IRequestHandler<ValidatedCommand, string>, ValidatedCommandHandler>();
         services.AddSingleton<IValidator<ValidatedCommand>, ValidatedCommandValidator>();
+        services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
         var sp = services.BuildServiceProvider();
         var mediator = sp.GetRequiredService<ICatgaMediator>();
@@ -107,9 +113,11 @@ public class MediatorPipelineE2ETests
         // Arrange
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
         services.AddSingleton<IRequestHandler<ValidatedCommand, string>, ValidatedCommandHandler>();
         services.AddSingleton<IValidator<ValidatedCommand>, ValidatedCommandValidator>();
+        services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
         var sp = services.BuildServiceProvider();
         var mediator = sp.GetRequiredService<ICatgaMediator>();
@@ -128,6 +136,7 @@ public class MediatorPipelineE2ETests
         // Arrange
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
         services.AddSingleton<IRequestHandler<TestQuery, TestResult>, TestQueryHandler>();
 
@@ -154,6 +163,7 @@ public class MediatorPipelineE2ETests
 
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
         services.AddSingleton<IEventHandler<TestEvent>>(new DelegateEventHandler<TestEvent>(e =>
         {
@@ -180,6 +190,7 @@ public class MediatorPipelineE2ETests
         // Arrange
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
         services.AddSingleton<IRequestHandler<FailingCommand, string>, FailingCommandHandler>();
 
@@ -200,6 +211,7 @@ public class MediatorPipelineE2ETests
         // Arrange
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
         // Note: No handler registered for UnhandledQuery
 
@@ -215,22 +227,36 @@ public class MediatorPipelineE2ETests
 
     #region Test Types
 
-    public record TestQuery(string QueryId) : IRequest<TestResult>;
-    public record TestResult(string QueryId, string Data);
-
-    public record TestCommand(string CommandId, string Data) : IRequest<string>;
-
-    public record TestEvent : IEvent
+    public record TestQuery(string QueryId) : IRequest<TestResult>
     {
         public long MessageId { get; init; }
+    }
+    public record TestResult(string QueryId, string Data);
+
+    public record TestCommand(string CommandId, string Data) : IRequest<string>
+    {
+        public long MessageId { get; init; }
+    }
+
+    public record TestEvent : EventBase
+    {
         public string EventId { get; init; } = "";
     }
 
-    public record ValidatedCommand(string Name, int Value) : IRequest<string>;
+    public record ValidatedCommand(string Name, int Value) : IRequest<string>
+    {
+        public long MessageId { get; init; }
+    }
 
-    public record FailingCommand : IRequest<string>;
+    public record FailingCommand : IRequest<string>
+    {
+        public long MessageId { get; init; }
+    }
 
-    public record UnhandledQuery : IRequest<string>;
+    public record UnhandledQuery : IRequest<string>
+    {
+        public long MessageId { get; init; }
+    }
 
     public class TestQueryHandler : IRequestHandler<TestQuery, TestResult>
     {
@@ -258,17 +284,17 @@ public class MediatorPipelineE2ETests
 
     public class ValidatedCommandValidator : IValidator<ValidatedCommand>
     {
-        public ValueTask<IReadOnlyList<ValidationError>> ValidateAsync(ValidatedCommand request, CancellationToken ct = default)
+        public ValueTask<List<string>> ValidateAsync(ValidatedCommand request, CancellationToken ct = default)
         {
-            var errors = new List<ValidationError>();
+            var errors = new List<string>();
 
             if (string.IsNullOrWhiteSpace(request.Name))
-                errors.Add(new ValidationError("Name", "Name is required"));
+                errors.Add("Name is required");
 
             if (request.Value <= 0)
-                errors.Add(new ValidationError("Value", "Value must be positive"));
+                errors.Add("Value must be positive");
 
-            return ValueTask.FromResult<IReadOnlyList<ValidationError>>(errors);
+            return ValueTask.FromResult(errors);
         }
     }
 

@@ -403,6 +403,31 @@ public class InMemorySubscriptionStoreExtendedTests
     }
 
     [Fact]
+    public async Task ReleaseLockAsync_WrongConsumer_ShouldNotUnlock()
+    {
+        var store = new InMemorySubscriptionStore();
+        await store.TryAcquireLockAsync("sub-1", "consumer-1");
+
+        await store.ReleaseLockAsync("sub-1", "consumer-2");
+
+        var result = await store.TryAcquireLockAsync("sub-1", "consumer-3");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TryAcquireLockAsync_ConcurrentConsumers_OnlyOneSucceeds()
+    {
+        var store = new InMemorySubscriptionStore();
+
+        var acquireTasks = Enumerable.Range(1, 16)
+            .Select(i => store.TryAcquireLockAsync("sub-1", $"consumer-{i}").AsTask());
+
+        var results = await Task.WhenAll(acquireTasks);
+
+        results.Count(static acquired => acquired).Should().Be(1);
+    }
+
+    [Fact]
     public async Task Clear_ShouldRemoveAllSubscriptions()
     {
         var store = new InMemorySubscriptionStore();

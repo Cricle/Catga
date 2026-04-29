@@ -26,7 +26,7 @@ public static class ServiceCollectionExtensions
         // or use the combined method from the persistence package
 
         // Register flow executor
-        services.TryAddSingleton<IFlowExecutor, FlowExecutorService>();
+        services.TryAddScoped<IFlowExecutor, FlowExecutorService>();
         services.TryAddSingleton<IFlowResumeHandler, DefaultFlowResumeHandler>();
         services.TryAddSingleton<FlowResumeHandler>();
         services.TryAddSingleton<IEventHandler<FlowCompletedEvent>>(sp => sp.GetRequiredService<FlowResumeHandler>());
@@ -102,8 +102,9 @@ public static class ServiceCollectionExtensions
         var mediator = provider.GetRequiredService<ICatgaMediator>();
         var store = provider.GetRequiredService<IDslFlowStore>();
         var config = provider.GetService<TFlow>() ?? new TFlow();
+        var requestClientFactory = provider.GetService<IRequestClientFactory>();
 
-        return new DslFlowExecutor<TState, TFlow>(mediator, store, config);
+        return new DslFlowExecutor<TState, TFlow>(mediator, store, config, requestClientFactory: requestClientFactory);
     }
 
     /// <summary>

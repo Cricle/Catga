@@ -13,12 +13,11 @@ using Catga.Persistence.Nats.Stores;
 using Catga.Persistence.Stores;
 using Catga.Resilience;
 using Catga.Serialization.MemoryPack;
-using DotNet.Testcontainers.Builders;
-using DotNet.Testcontainers.Containers;
 using FluentAssertions;
 using MemoryPack;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Catga.Tests.Integration;
 using NATS.Client.Core;
 
 namespace Catga.Tests.Integration.Nats;
@@ -29,36 +28,24 @@ namespace Catga.Tests.Integration.Nats;
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Requires", "Docker")]
-public sealed class NatsPersistenceE2ETests : IAsyncLifetime
+[Collection("IntegrationTests")]
+public sealed class NatsPersistenceE2ETests
 {
-    private IContainer? _container;
-    private NatsConnection? _nats;
+    private readonly global::Catga.Tests.Integration.SharedIntegrationFixture _fixture;
+    private NatsConnection? _nats => _fixture.NatsConnection;
     private readonly IMessageSerializer _serializer = new MemoryPackMessageSerializer();
-    private readonly IResiliencePipelineProvider _provider = new DefaultResiliencePipelineProvider();
+    private readonly IMessageSerializer _jsonSerializer = new Catga.Tests.Helpers.TestMessageSerializer();
+    private readonly IResiliencePipelineProvider _provider = new DefaultResiliencePipelineProvider(
+        new CatgaResilienceOptions
+        {
+            PersistenceTimeout = TimeSpan.FromMinutes(2),
+            MediatorTimeout = TimeSpan.FromMinutes(2),
+            TransportTimeout = TimeSpan.FromMinutes(2)
+        });
 
-    public async Task InitializeAsync()
+    public NatsPersistenceE2ETests(global::Catga.Tests.Integration.SharedIntegrationFixture fixture)
     {
-        if (!IsDockerRunning()) return;
-        var image = ResolveImage("TEST_NATS_IMAGE", "nats:latest");
-        if (image is null) return;
-
-        _container = new ContainerBuilder()
-            .WithImage(image)
-            .WithPortBinding(4222, true)
-            .WithPortBinding(8222, true)
-            .WithCommand("-js", "-m", "8222")
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8222).ForPath("/varz")))
-            .Build();
-        await _container.StartAsync();
-        var port = _container.GetMappedPublicPort(4222);
-        _nats = new NatsConnection(new NatsOpts { Url = $"nats://localhost:{port}", ConnectTimeout = TimeSpan.FromSeconds(10) });
-        await _nats.ConnectAsync();
-    }
-
-    public async Task DisposeAsync()
-    {
-        if (_nats is not null) await _nats.DisposeAsync();
-        if (_container is not null) await _container.DisposeAsync();
+        _fixture = fixture;
     }
 
     #region NatsJSIdempotencyStore Tests
@@ -68,12 +55,13 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
     {
         if (_nats is null) return;
         var streamName = $"IDEM_{Guid.NewGuid():N}";
-        var store = new NatsJSIdempotencyStore(_nats, _serializer, _provider, streamName);
+        var store = new NatsJSIdempotencyStore(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { IdempotencyStreamName = streamName }));
         var messageId = MessageExtensions.NewMessageId();
 
         await store.MarkAsProcessedAsync(messageId, new NatsTestResult { Value = 42 });
-        await Task.Delay(200);
-        var result = await store.HasBeenProcessedAsync(messageId);
+        var result = await AsyncTestWait.WaitUntilAsync(
+            () => store.HasBeenProcessedAsync(messageId),
+            processed => processed);
 
         result.Should().BeTrue();
     }
@@ -83,7 +71,7 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
     {
         if (_nats is null) return;
         var streamName = $"IDEM_NOT_{Guid.NewGuid():N}";
-        var store = new NatsJSIdempotencyStore(_nats, _serializer, _provider, streamName);
+        var store = new NatsJSIdempotencyStore(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { IdempotencyStreamName = streamName }));
         var messageId = MessageExtensions.NewMessageId();
 
         var result = await store.HasBeenProcessedAsync(messageId);
@@ -96,13 +84,14 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
     {
         if (_nats is null) return;
         var streamName = $"IDEM_CACHE_{Guid.NewGuid():N}";
-        var store = new NatsJSIdempotencyStore(_nats, _serializer, _provider, streamName);
+        var store = new NatsJSIdempotencyStore(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { IdempotencyStreamName = streamName }));
         var messageId = MessageExtensions.NewMessageId();
         var expected = new NatsTestResult { Value = 123 };
 
         await store.MarkAsProcessedAsync(messageId, expected);
-        await Task.Delay(200);
-        var cached = await store.GetCachedResultAsync<NatsTestResult>(messageId);
+        var cached = await AsyncTestWait.WaitUntilAsync(
+            () => store.GetCachedResultAsync<NatsTestResult>(messageId),
+            result => result?.Value == 123);
 
         cached.Should().NotBeNull();
         cached!.Value.Should().Be(123);
@@ -129,8 +118,9 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
         };
 
         await outbox.AddAsync(message);
-        await Task.Delay(200);
-        var pending = await outbox.GetPendingMessagesAsync(10);
+        var pending = await AsyncTestWait.WaitUntilAsync(
+            () => outbox.GetPendingMessagesAsync(10).AsTask(),
+            messages => messages.Count > 0);
 
         pending.Should().NotBeEmpty();
     }
@@ -152,9 +142,9 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
         };
 
         await outbox.AddAsync(message);
-        await Task.Delay(100);
         await outbox.MarkAsPublishedAsync(messageId);
-        await Task.Delay(100);
+        await AsyncTestWait.WaitUntilAsync(
+            async () => !(await outbox.GetPendingMessagesAsync(10)).Any(m => m.MessageId == messageId));
 
         // After marking as published, it should not appear in pending
     }
@@ -176,7 +166,6 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
         };
 
         await outbox.AddAsync(message);
-        await Task.Delay(100);
         await outbox.MarkAsFailedAsync(messageId, "Test error");
 
         // Should still be retrievable for retry
@@ -216,8 +205,9 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
 
         await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
         await inbox.MarkAsProcessedAsync(inboxMsg);
-        await Task.Delay(200);
-        var processed = await inbox.HasBeenProcessedAsync(messageId);
+        var processed = await AsyncTestWait.WaitUntilAsync(
+            () => inbox.HasBeenProcessedAsync(messageId).AsTask(),
+            result => result);
 
         processed.Should().BeTrue();
     }
@@ -246,12 +236,13 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
     {
         if (_nats is null) return;
         var streamName = $"DLQ_{Guid.NewGuid():N}";
-        var dlq = new NatsJSDeadLetterQueue(_nats, _serializer, _provider, streamName);
+        var dlq = new NatsJSDeadLetterQueue(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { DlqStreamName = streamName }));
         var message = new NatsTestMessage { MessageId = MessageExtensions.NewMessageId(), Data = "dlq-test" };
 
         await dlq.SendAsync(message, new Exception("Test error"), retryCount: 3);
-        await Task.Delay(200);
-        var failed = await dlq.GetFailedMessagesAsync(10);
+        var failed = await AsyncTestWait.WaitUntilAsync(
+            () => dlq.GetFailedMessagesAsync(10),
+            messages => messages.Count > 0);
 
         failed.Should().NotBeEmpty();
     }
@@ -261,7 +252,7 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
     {
         if (_nats is null) return;
         var streamName = $"DLQ_MULTI_{Guid.NewGuid():N}";
-        var dlq = new NatsJSDeadLetterQueue(_nats, _serializer, _provider, streamName);
+        var dlq = new NatsJSDeadLetterQueue(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { DlqStreamName = streamName }));
 
         for (int i = 0; i < 3; i++)
         {
@@ -269,8 +260,9 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
             await dlq.SendAsync(message, new Exception($"Error {i}"), retryCount: i);
         }
 
-        await Task.Delay(300);
-        var failed = await dlq.GetFailedMessagesAsync(10);
+        var failed = await AsyncTestWait.WaitUntilAsync(
+            () => dlq.GetFailedMessagesAsync(10),
+            messages => messages.Count >= 3);
 
         failed.Count.Should().BeGreaterOrEqualTo(3);
     }
@@ -293,8 +285,9 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
         };
 
         await eventStore.AppendAsync(streamId, events);
-        await Task.Delay(200);
-        var stream = await eventStore.ReadAsync(streamId);
+        var stream = await AsyncTestWait.WaitUntilAsync(
+            () => eventStore.ReadAsync(streamId).AsTask(),
+            value => value.Events.Count >= 2);
 
         stream.Events.Should().HaveCountGreaterOrEqualTo(2);
     }
@@ -314,8 +307,9 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
         };
 
         await eventStore.AppendAsync(streamId, events);
-        await Task.Delay(200);
-        var version = await eventStore.GetVersionAsync(streamId);
+        var version = await AsyncTestWait.WaitUntilAsync(
+            () => eventStore.GetVersionAsync(streamId).AsTask(),
+            value => value >= 0);
 
         version.Should().BeGreaterOrEqualTo(0);
     }
@@ -331,14 +325,14 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
         // Append initial events
         var events1 = new List<IEvent> { new NatsTestEvent { MessageId = MessageExtensions.NewMessageId(), Data = "first" } };
         await eventStore.AppendAsync(streamId, events1);
-        await Task.Delay(100);
 
         // Append more events
         var events2 = new List<IEvent> { new NatsTestEvent { MessageId = MessageExtensions.NewMessageId(), Data = "second" } };
         await eventStore.AppendAsync(streamId, events2);
-        await Task.Delay(100);
 
-        var stream = await eventStore.ReadAsync(streamId, fromVersion: 0);
+        var stream = await AsyncTestWait.WaitUntilAsync(
+            () => eventStore.ReadAsync(streamId, fromVersion: 0).AsTask(),
+            value => value.Events.Count > 0);
 
         stream.Events.Should().NotBeEmpty();
     }
@@ -480,7 +474,7 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
     public async Task DslFlowStore_CreateAndGet_ShouldWork()
     {
         if (_nats is null) return;
-        var store = new NatsDslFlowStore(_nats, _serializer, $"dslflows_{Guid.NewGuid():N}");
+        var store = new NatsDslFlowStore(_nats, _jsonSerializer, $"dslflows_{Guid.NewGuid():N}");
         var flowId = $"dsl-{Guid.NewGuid():N}";
         var snapshot = FlowSnapshot<NatsTestFlowState>.Create(
             flowId,
@@ -499,7 +493,7 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
     public async Task DslFlowStore_Update_ShouldWork()
     {
         if (_nats is null) return;
-        var store = new NatsDslFlowStore(_nats, _serializer, $"dslflows_upd_{Guid.NewGuid():N}");
+        var store = new NatsDslFlowStore(_nats, _jsonSerializer, $"dslflows_upd_{Guid.NewGuid():N}");
         var flowId = $"dsl-{Guid.NewGuid():N}";
         var snapshot = FlowSnapshot<NatsTestFlowState>.Create(
             flowId,
@@ -517,7 +511,7 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
     public async Task DslFlowStore_WaitCondition_ShouldWork()
     {
         if (_nats is null) return;
-        var store = new NatsDslFlowStore(_nats, _serializer, $"dslflows_wait_{Guid.NewGuid():N}");
+        var store = new NatsDslFlowStore(_nats, _jsonSerializer, $"dslflows_wait_{Guid.NewGuid():N}");
         var correlationId = $"corr-{Guid.NewGuid():N}";
         var flowId = $"flow-{Guid.NewGuid():N}";
         var condition = new WaitCondition
@@ -548,7 +542,7 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
     public async Task SnapshotStore_SaveAndLoad_ShouldWork()
     {
         if (_nats is null) return;
-        var store = new NatsSnapshotStore(_nats, _serializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
+        var store = new NatsSnapshotStore(_nats, _jsonSerializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
         var streamId = $"stream-{Guid.NewGuid():N}";
         var aggregate = new NatsTestAggregate { Id = "agg-1", Counter = 42 };
 
@@ -564,7 +558,7 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
     public async Task SnapshotStore_Delete_ShouldRemoveSnapshot()
     {
         if (_nats is null) return;
-        var store = new NatsSnapshotStore(_nats, _serializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
+        var store = new NatsSnapshotStore(_nats, _jsonSerializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
         var streamId = $"stream-del-{Guid.NewGuid():N}";
         var aggregate = new NatsTestAggregate { Id = "agg-del", Counter = 99 };
 
@@ -579,7 +573,7 @@ public sealed class NatsPersistenceE2ETests : IAsyncLifetime
     public async Task SnapshotStore_LoadNonExistent_ShouldReturnNull()
     {
         if (_nats is null) return;
-        var store = new NatsSnapshotStore(_nats, _serializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
+        var store = new NatsSnapshotStore(_nats, _jsonSerializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
 
         var snapshot = await store.LoadAsync<NatsTestAggregate>("non-existent-stream");
 

@@ -146,6 +146,33 @@ public class MemoryInboxStoreTests
     }
 
     [Fact]
+    public async Task HasBeenProcessedAsync_WithLockedMessage_ShouldReturnFalse()
+    {
+        var store = CreateStore();
+        await store.TryLockMessageAsync(123, TimeSpan.FromMinutes(5));
+
+        var result = await store.HasBeenProcessedAsync(123);
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TryLockMessageAsync_WithProcessedMessage_ShouldReturnFalse()
+    {
+        var store = CreateStore();
+        await store.MarkAsProcessedAsync(new InboxMessage
+        {
+            MessageId = 123,
+            MessageType = "TestMessage",
+            Payload = [1, 2, 3]
+        });
+
+        var result = await store.TryLockMessageAsync(123, TimeSpan.FromMinutes(5));
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task ReleaseLockAsync_ShouldAllowRelock()
     {
         var store = CreateStore();

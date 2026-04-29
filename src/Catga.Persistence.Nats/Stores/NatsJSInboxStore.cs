@@ -15,6 +15,13 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
 {
     protected override string[] GetSubjects() => [$"{StreamName}.>"];
 
+    protected override StreamConfig CreateStreamConfig()
+    {
+        var config = base.CreateStreamConfig();
+        config.MaxMsgsPerSubject = 1;
+        return config;
+    }
+
     public async ValueTask<bool> TryLockMessageAsync(long messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
     {
         // No retry for lock operations - they are not idempotent
@@ -24,7 +31,8 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
             await EnsureInitializedAsync(ct);
             var subject = $"{StreamName}.{messageId}";
 
-            var existing = await GetMessageAsync(messageId, ct);
+            var current = await GetMessageStateAsync(messageId, ct);
+            var existing = current?.Message;
             if (existing != null)
             {
                 if (existing.Status == InboxStatus.Processed) return false;
@@ -36,7 +44,11 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
             message.LockExpiresAt = DateTime.UtcNow.Add(lockDuration);
 
             var data = serializer.Serialize(message);
-            var ack = await JetStream.PublishAsync(subject, data, cancellationToken: ct);
+            var ack = await JetStream.PublishAsync(
+                subject,
+                data,
+                opts: new NatsJSPubOpts { ExpectedLastSubjectSequence = current?.Sequence ?? 0 },
+                cancellationToken: ct);
             if (ack.Error == null) CatgaDiagnostics.InboxLocksAcquired.Add(1);
             return ack.Error == null;
         }, cancellationToken);
@@ -56,7 +68,12 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
 
             var subject = $"{StreamName}.{message.MessageId}";
             var data = serializer.Serialize(message);
-            await JetStream.PublishAsync(subject, data, cancellationToken: ct);
+            var current = await GetMessageStateAsync(message.MessageId, ct);
+            await JetStream.PublishAsync(
+                subject,
+                data,
+                opts: new NatsJSPubOpts { ExpectedLastSubjectSequence = current?.Sequence ?? 0 },
+                cancellationToken: ct);
             CatgaDiagnostics.InboxProcessed.Add(1);
         }, cancellationToken);
     }
@@ -66,8 +83,8 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
         return await provider.ExecutePersistenceAsync(async ct =>
         {
             await EnsureInitializedAsync(ct);
-            var message = await GetMessageAsync(messageId, ct);
-            return message?.Status == InboxStatus.Processed;
+            var current = await GetMessageStateAsync(messageId, ct);
+            return current is { } state && state.Message.Status == InboxStatus.Processed;
         }, cancellationToken);
     }
 
@@ -76,8 +93,8 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
         return await provider.ExecutePersistenceAsync(async ct =>
         {
             await EnsureInitializedAsync(ct);
-            var message = await GetMessageAsync(messageId, ct);
-            return message?.Status == InboxStatus.Processed ? message.ProcessingResult : null;
+            var current = await GetMessageStateAsync(messageId, ct);
+            return current is { } state && state.Message.Status == InboxStatus.Processed ? state.Message.ProcessingResult : null;
         }, cancellationToken);
     }
 
@@ -86,14 +103,18 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
         await provider.ExecutePersistenceAsync(async ct =>
         {
             await EnsureInitializedAsync(ct);
-            var message = await GetMessageAsync(messageId, ct);
-            if (message != null)
+            var current = await GetMessageStateAsync(messageId, ct);
+            if (current is { } state)
             {
-                message.Status = InboxStatus.Pending;
-                message.LockExpiresAt = null;
+                state.Message.Status = InboxStatus.Pending;
+                state.Message.LockExpiresAt = null;
                 var subject = $"{StreamName}.{messageId}";
-                var data = serializer.Serialize(message);
-                await JetStream.PublishAsync(subject, data, cancellationToken: ct);
+                var data = serializer.Serialize(state.Message);
+                await JetStream.PublishAsync(
+                    subject,
+                    data,
+                    opts: new NatsJSPubOpts { ExpectedLastSubjectSequence = state.Sequence },
+                    cancellationToken: ct);
                 CatgaDiagnostics.InboxLocksReleased.Add(1);
             }
         }, cancellationToken);
@@ -101,7 +122,7 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
 
     public ValueTask DeleteProcessedMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
 
-    private async Task<InboxMessage?> GetMessageAsync(long messageId, CancellationToken cancellationToken)
+    private async Task<(InboxMessage Message, ulong Sequence)?> GetMessageStateAsync(long messageId, CancellationToken cancellationToken)
     {
         try
         {
@@ -109,10 +130,31 @@ public sealed class NatsJSInboxStore(INatsConnection connection, IMessageSeriali
             var consumer = await JetStream.CreateOrUpdateConsumerAsync(StreamName,
                 new ConsumerConfig { Name = $"inbox-get-{Guid.NewGuid():N}", FilterSubject = subject, AckPolicy = ConsumerConfigAckPolicy.None, DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject }, cancellationToken);
 
-            await foreach (var msg in consumer.FetchAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = 1 }, cancellationToken: cancellationToken))
-                if (msg.Data is { Length: > 0 }) return (InboxMessage?)serializer.Deserialize(msg.Data, typeof(InboxMessage));
+            try
+            {
+                await foreach (var msg in consumer.FetchNoWaitAsync<byte[]>(
+                    new NatsJSFetchOpts { MaxMsgs = 1 },
+                    cancellationToken: cancellationToken))
+                {
+                    if (msg.Data is not { Length: > 0 })
+                    {
+                        continue;
+                    }
+
+                    var message = (InboxMessage?)serializer.Deserialize(msg.Data, typeof(InboxMessage));
+                    if (message != null && msg.Metadata is { Sequence.Stream: > 0 } metadata)
+                    {
+                        return (message, metadata.Sequence.Stream);
+                    }
+                }
+            }
+            finally
+            {
+                try { await JetStream.DeleteConsumerAsync(StreamName, consumer.Info.Name, cancellationToken); } catch { }
+            }
         }
         catch (NatsJSApiException ex) when (ex.Error.Code == 404) { }
+
         return null;
     }
 }

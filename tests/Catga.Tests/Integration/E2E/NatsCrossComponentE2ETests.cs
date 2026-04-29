@@ -13,13 +13,13 @@ using Catga.Persistence.Nats.Stores;
 using Catga.Persistence.Stores;
 using Catga.Resilience;
 using Catga.Serialization.MemoryPack;
+using Catga.Transport;
 using Catga.Transport.Nats;
-using DotNet.Testcontainers.Builders;
-using DotNet.Testcontainers.Containers;
 using FluentAssertions;
 using MemoryPack;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Catga.Tests.Integration;
 using NATS.Client.Core;
 
 namespace Catga.Tests.Integration.E2E;
@@ -28,36 +28,18 @@ namespace Catga.Tests.Integration.E2E;
 /// NATS cross-component E2E tests validating integration between multiple stores.
 /// </summary>
 [Trait("Requires", "Docker")]
-public class NatsCrossComponentE2ETests : IAsyncLifetime
+[Collection("IntegrationTests")]
+public class NatsCrossComponentE2ETests
 {
-    private IContainer? _container;
-    private NatsConnection? _nats;
+    private readonly global::Catga.Tests.Integration.SharedIntegrationFixture _fixture;
+    private NatsConnection? _nats => _fixture.NatsConnection;
     private readonly IMessageSerializer _serializer = new MemoryPackMessageSerializer();
-    private readonly IResiliencePipelineProvider _provider = new DefaultResiliencePipelineProvider();
+    private readonly IMessageSerializer _jsonSerializer = new Catga.Tests.Helpers.TestMessageSerializer();
+    private readonly IResiliencePipelineProvider _provider = new DefaultResiliencePipelineProvider(new CatgaResilienceOptions { PersistenceTimeout = TimeSpan.FromMinutes(2), TransportTimeout = TimeSpan.FromSeconds(30) });
 
-    public async Task InitializeAsync()
+    public NatsCrossComponentE2ETests(global::Catga.Tests.Integration.SharedIntegrationFixture fixture)
     {
-        if (!IsDockerRunning()) return;
-
-        var image = ResolveImage("NATS_IMAGE", "nats:2.10-alpine");
-        _container = new ContainerBuilder()
-            .WithImage(image)
-            .WithPortBinding(4222, true)
-            .WithPortBinding(8222, true)
-            .WithCommand("-js", "-m", "8222")
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8222).ForPath("/varz")))
-            .Build();
-        await _container.StartAsync();
-
-        var port = _container.GetMappedPublicPort(4222);
-        _nats = new NatsConnection(new NatsOpts { Url = $"nats://localhost:{port}", ConnectTimeout = TimeSpan.FromSeconds(10) });
-        await _nats.ConnectAsync();
-    }
-
-    public async Task DisposeAsync()
-    {
-        if (_nats is not null) await _nats.DisposeAsync();
-        if (_container is not null) await _container.DisposeAsync();
+        _fixture = fixture;
     }
 
     #region Outbox + Inbox Integration
@@ -83,8 +65,9 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
 
         // Act - Outbox: Add message
         await outbox.AddAsync(outboxMsg);
-        await Task.Delay(200);
-        var pending = await outbox.GetPendingMessagesAsync(10);
+        var pending = await AsyncTestWait.WaitUntilAsync(
+            () => outbox.GetPendingMessagesAsync(10).AsTask(),
+            messages => messages.Any(m => m.MessageId == messageId));
 
         // Act - Inbox: Check and mark as processed
         var alreadyProcessed = await inbox.HasBeenProcessedAsync(messageId);
@@ -97,8 +80,9 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
         };
         await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
         await inbox.MarkAsProcessedAsync(inboxMsg);
-        await Task.Delay(200);
-        var nowProcessed = await inbox.HasBeenProcessedAsync(messageId);
+        var nowProcessed = await AsyncTestWait.WaitUntilAsync(
+            () => inbox.HasBeenProcessedAsync(messageId).AsTask(),
+            processed => processed);
 
         // Act - Outbox: Mark as published
         await outbox.MarkAsPublishedAsync(messageId);
@@ -151,8 +135,8 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
 
         var flowBucket = $"flows_{Guid.NewGuid():N}";
         var dslBucket = $"dslflows_{Guid.NewGuid():N}";
-        var flowStore = new NatsFlowStore(_nats, _serializer, flowBucket);
-        var dslFlowStore = new NatsDslFlowStore(_nats, _serializer, dslBucket);
+        var flowStore = new NatsFlowStore(_nats, _jsonSerializer, flowBucket);
+        var dslFlowStore = new NatsDslFlowStore(_nats, _jsonSerializer, dslBucket);
 
         var flowId = $"nats-parallel-flow-{Guid.NewGuid():N}";
 
@@ -192,13 +176,13 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
             version: 0);
         await dslFlowStore.CreateAsync(dslFlow);
 
-        // Complete branches - update DSL flow
+        // Complete branches - update DSL flow (pass current version for optimistic locking)
         var updatedDsl = dslFlow with
         {
             Position = new FlowPosition([1]),
             WaitCondition = null,
             UpdatedAt = DateTime.UtcNow,
-            Version = 1
+            Version = 0  // current version (store will increment to 1)
         };
         await dslFlowStore.UpdateAsync(updatedDsl);
 
@@ -214,7 +198,7 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
         if (_nats is null) return;
 
         var flowBucket = $"flows_claim_{Guid.NewGuid():N}";
-        var flowStore = new NatsFlowStore(_nats, _serializer, flowBucket);
+        var flowStore = new NatsFlowStore(_nats, _jsonSerializer, flowBucket);
         var flowId = $"nats-orphan-flow-{Guid.NewGuid():N}";
 
         // Create flow with old heartbeat (simulating crashed processor)
@@ -248,26 +232,30 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
 
         var dlqStream = $"DLQ_{Guid.NewGuid():N}";
         var idemStream = $"IDEM_{Guid.NewGuid():N}";
-        var dlq = new NatsJSDeadLetterQueue(_nats, _serializer, _provider, dlqStream);
-        var idempotency = new NatsJSIdempotencyStore(_nats, _serializer, _provider, idemStream);
+        var dlq = new NatsJSDeadLetterQueue(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { DlqStreamName = dlqStream }));
+        var idempotency = new NatsJSIdempotencyStore(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { IdempotencyStreamName = idemStream }));
         var messageId = MessageExtensions.NewMessageId();
         var message = new NatsCrossTestMessage { MessageId = messageId, Data = "failed-message" };
 
         // First attempt fails - send to DLQ
         await dlq.SendAsync(message, new Exception("Processing failed"), retryCount: 1);
-        await Task.Delay(200);
 
         // Verify in DLQ
-        var failed = await dlq.GetFailedMessagesAsync(10);
+        var failed = await AsyncTestWait.WaitUntilAsync(
+            () => dlq.GetFailedMessagesAsync(10),
+            messages => messages.Any(m => m.MessageId == messageId));
         failed.Should().ContainSingle(m => m.MessageId == messageId);
 
         // Retry succeeds - mark as processed
         await idempotency.MarkAsProcessedAsync(messageId, new NatsCrossTestResult { Value = 42 });
-        await Task.Delay(200);
 
         // Verify idempotency
-        var processed = await idempotency.HasBeenProcessedAsync(messageId);
-        var result = await idempotency.GetCachedResultAsync<NatsCrossTestResult>(messageId);
+        var processed = await AsyncTestWait.WaitUntilAsync(
+            () => idempotency.HasBeenProcessedAsync(messageId),
+            value => value);
+        var result = await AsyncTestWait.WaitUntilAsync(
+            () => idempotency.GetCachedResultAsync<NatsCrossTestResult>(messageId),
+            value => value?.Value == 42);
 
         processed.Should().BeTrue();
         result.Should().NotBeNull();
@@ -287,8 +275,8 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
         var idemStream = $"saga_idem_{Guid.NewGuid():N}";
         var outboxStream = $"saga_outbox_{Guid.NewGuid():N}";
 
-        var flowStore = new NatsFlowStore(_nats, _serializer, flowBucket);
-        var idempotency = new NatsJSIdempotencyStore(_nats, _serializer, _provider, idemStream);
+        var flowStore = new NatsFlowStore(_nats, _jsonSerializer, flowBucket);
+        var idempotency = new NatsJSIdempotencyStore(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { IdempotencyStreamName = idemStream }));
         var outbox = new NatsJSOutboxStore(_nats, _serializer, _provider, outboxStream);
 
         var sagaId = $"nats-saga-{Guid.NewGuid():N}";
@@ -320,7 +308,7 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
             var currentFlow = await flowStore.GetAsync(sagaId);
             if (currentFlow is not null)
             {
-                currentFlow.Step = stepIndex++;
+                currentFlow.Step = ++stepIndex;
                 await flowStore.UpdateAsync(currentFlow);
             }
 
@@ -368,34 +356,43 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
         if (_nats is null) return;
 
         var idemStream = $"IDEM_TRANS_{Guid.NewGuid():N}";
-        var idempotency = new NatsJSIdempotencyStore(_nats, _serializer, _provider, idemStream);
-        await using var transport = new NatsMessageTransport(_nats, _serializer, NullLogger<NatsMessageTransport>.Instance, _provider);
+        var transportOptions = new NatsTransportOptions { SubjectPrefix = $"cross-idem-{Guid.NewGuid():N}" };
+        var idempotency = new NatsJSIdempotencyStore(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { IdempotencyStreamName = idemStream }));
+        await using var transport = new NatsMessageTransport(_nats, _serializer, NullLogger<NatsMessageTransport>.Instance, _provider, transportOptions);
 
-        var processedMessages = new List<NatsCrossTestMessage>();
-        var tcs = new TaskCompletionSource();
-
-        // Subscribe with idempotency check
+        var receivedTcs = new TaskCompletionSource<NatsCrossTestMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
         await transport.SubscribeAsync<NatsCrossTestMessage>(async (msg, ctx) =>
         {
-            if (!await idempotency.HasBeenProcessedAsync(msg.MessageId))
-            {
-                processedMessages.Add(msg);
-                await idempotency.MarkAsProcessedAsync(msg.MessageId, new NatsCrossTestResult { Value = 1 });
-            }
-            if (processedMessages.Count >= 3) tcs.TrySetResult();
+            receivedTcs.TrySetResult(msg);
+            await Task.CompletedTask;
         });
-        await Task.Delay(100);
+        await Task.Delay(200);
 
-        // Publish messages
-        for (int i = 0; i < 3; i++)
+        var messageId = MessageExtensions.NewMessageId();
+        var msg = new NatsCrossTestMessage
         {
-            var msg = new NatsCrossTestMessage { MessageId = MessageExtensions.NewMessageId(), Data = $"msg-{i}" };
-            await transport.PublishAsync(msg);
-        }
+            MessageId = messageId,
+            QoS = QualityOfService.AtLeastOnce,
+            Data = "duplicate-msg"
+        };
 
-        await Task.WhenAny(tcs.Task, Task.Delay(10000));
+        // Publish the same logical message twice. Idempotency should collapse duplicates.
+        await transport.PublishAsync(msg, new TransportContext { MessageId = messageId });
 
-        processedMessages.Should().HaveCount(3);
+        var completed = await Task.WhenAny(receivedTcs.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        completed.Should().Be(receivedTcs.Task);
+
+        var received = await receivedTcs.Task;
+        received.MessageId.Should().Be(messageId);
+        (await idempotency.HasBeenProcessedAsync(messageId)).Should().BeFalse();
+
+        await idempotency.MarkAsProcessedAsync(messageId, new NatsCrossTestResult { Value = 1 });
+        var processed = await AsyncTestWait.WaitUntilAsync(
+            () => idempotency.HasBeenProcessedAsync(messageId),
+            value => value,
+            timeout: TimeSpan.FromSeconds(3));
+
+        processed.Should().BeTrue();
     }
 
     [Fact]
@@ -404,8 +401,9 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
         if (_nats is null) return;
 
         var outboxStream = $"OUTBOX_TRANS_{Guid.NewGuid():N}";
+        var transportOptions = new NatsTransportOptions { SubjectPrefix = $"cross-outbox-{Guid.NewGuid():N}" };
         var outbox = new NatsJSOutboxStore(_nats, _serializer, _provider, outboxStream);
-        await using var transport = new NatsMessageTransport(_nats, _serializer, NullLogger<NatsMessageTransport>.Instance, _provider);
+        await using var transport = new NatsMessageTransport(_nats, _serializer, NullLogger<NatsMessageTransport>.Instance, _provider, transportOptions);
 
         var receivedMessages = new List<NatsCrossTestMessage>();
         var tcs = new TaskCompletionSource();
@@ -417,7 +415,7 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
             if (receivedMessages.Count >= 3) tcs.TrySetResult();
             await Task.CompletedTask;
         });
-        await Task.Delay(100);
+        await Task.Delay(50);
 
         // Add messages to outbox
         var messageIds = new List<long>();
@@ -435,10 +433,11 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
             };
             await outbox.AddAsync(outboxMsg);
         }
-        await Task.Delay(200);
 
         // Simulate outbox processor: get pending and publish
-        var pending = await outbox.GetPendingMessagesAsync(10);
+        var pending = await AsyncTestWait.WaitUntilAsync(
+            () => outbox.GetPendingMessagesAsync(10).AsTask(),
+            messages => messages.Count >= 3);
         foreach (var outboxMsg in pending)
         {
             var msg = (NatsCrossTestMessage?)_serializer.Deserialize(outboxMsg.Payload, typeof(NatsCrossTestMessage));
@@ -449,7 +448,9 @@ public class NatsCrossComponentE2ETests : IAsyncLifetime
             }
         }
 
-        await Task.WhenAny(tcs.Task, Task.Delay(10000));
+        await AsyncTestWait.WaitUntilAsync(
+            () => Task.FromResult(receivedMessages.Count >= 3),
+            timeout: TimeSpan.FromSeconds(3));
 
         receivedMessages.Should().HaveCount(3);
     }
@@ -518,6 +519,3 @@ public partial class NatsCrossTestFlowState : IFlowState
 }
 
 #endregion
-
-
-

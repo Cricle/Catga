@@ -6,7 +6,6 @@ using Catga.Observability;
 using Catga.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -30,12 +29,6 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
 
     /// <summary>Initial size for event handler array pool.</summary>
     private const int InitialEventHandlerPoolSize = 8;
-
-    /// <summary>Static handler cache shared across all instances for zero-allocation dispatch.</summary>
-    private static readonly ConcurrentDictionary<Type, object?> _handlerCache = new();
-
-    /// <summary>Static behavior cache shared across all instances.</summary>
-    private static readonly ConcurrentDictionary<Type, object?> _behaviorCache = new();
 
     #endregion
 
@@ -87,7 +80,12 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         if (handler == null)
             return CatgaResult.Failure($"No handler for {TypeNameCache<TRequest>.Name}", new HandlerNotFoundException(TypeNameCache<TRequest>.Name));
 
-        return await handler.HandleAsync(request, cancellationToken);
+        var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest>>();
+        var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest>> ?? behaviors.ToArray();
+
+        return behaviorsList.Count == 0
+            ? await ExecuteHandlerAsync(handler, request, cancellationToken).ConfigureAwait(false)
+            : await ExecutePipelineAsync(handler, request, behaviorsList, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -146,6 +144,64 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(events);
         await events.ExecuteBatchAsync(@event => PublishAsync(@event, cancellationToken));
+    }
+
+    /// <inheritdoc />
+    public async Task<long> SendAtAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(
+        TRequest request,
+        DateTimeOffset scheduledAt,
+        CancellationToken cancellationToken = default)
+        where TRequest : IRequest
+    {
+        var outbox = _serviceProvider.GetService<Catga.Outbox.IOutboxStore>()
+            ?? throw new InvalidOperationException("IOutboxStore not registered. Call UseOutbox() to enable scheduling.");
+        var serializer = _serviceProvider.GetRequiredService<IMessageSerializer>();
+        var idGen = _serviceProvider.GetRequiredService<Catga.DistributedId.IDistributedIdGenerator>();
+        var typeRegistry = _serviceProvider.GetRequiredService<IMessageTypeRegistry>();
+
+        var msg = new Catga.Outbox.OutboxMessage
+        {
+            MessageId = idGen.NextId(),
+            MessageType = typeRegistry.GetTypeName(typeof(TRequest)),
+            Payload = serializer.Serialize(request),
+            ScheduledAt = scheduledAt,
+            CreatedAt = DateTime.UtcNow
+        };
+        await outbox.AddAsync(msg, cancellationToken);
+        return msg.MessageId;
+    }
+
+    /// <inheritdoc />
+    public async Task<long> PublishAtAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(
+        TEvent @event,
+        DateTimeOffset scheduledAt,
+        CancellationToken cancellationToken = default)
+        where TEvent : IEvent
+    {
+        var outbox = _serviceProvider.GetService<Catga.Outbox.IOutboxStore>()
+            ?? throw new InvalidOperationException("IOutboxStore not registered. Call UseOutbox() to enable scheduling.");
+        var serializer = _serviceProvider.GetRequiredService<IMessageSerializer>();
+        var idGen = _serviceProvider.GetRequiredService<Catga.DistributedId.IDistributedIdGenerator>();
+        var typeRegistry = _serviceProvider.GetRequiredService<IMessageTypeRegistry>();
+
+        var msg = new Catga.Outbox.OutboxMessage
+        {
+            MessageId = idGen.NextId(),
+            MessageType = typeRegistry.GetTypeName(typeof(TEvent)),
+            Payload = serializer.Serialize(@event),
+            ScheduledAt = scheduledAt,
+            CreatedAt = DateTime.UtcNow
+        };
+        await outbox.AddAsync(msg, cancellationToken);
+        return msg.MessageId;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> CancelScheduledAsync(long scheduleId, CancellationToken cancellationToken = default)
+    {
+        var outbox = _serviceProvider.GetService<Catga.Outbox.IOutboxStore>();
+        if (outbox == null) return false;
+        return await outbox.CancelScheduledAsync(scheduleId, cancellationToken);
     }
 
     #endregion
@@ -217,6 +273,27 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static async ValueTask<CatgaResult> ExecuteHandlerAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(
+        IRequestHandler<TRequest> handler,
+        TRequest request,
+        CancellationToken cancellationToken)
+        where TRequest : IRequest
+    {
+        try
+        {
+            return await handler.HandleAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (CatgaException ex)
+        {
+            return CatgaResult.Failure($"Handler failed: {ex.Message}", ex);
+        }
+        catch (Exception ex)
+        {
+            return CatgaResult.Failure($"Handler failed: {ex.Message}");
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static async ValueTask<CatgaResult<TResponse>> ExecutePipelineAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(
         IRequestHandler<TRequest, TResponse> handler,
         TRequest request,
@@ -225,6 +302,24 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         where TRequest : IRequest<TResponse>
     {
         PipelineDelegate<TResponse> next = () => handler.HandleAsync(request, cancellationToken);
+        for (var i = behaviors.Count - 1; i >= 0; i--)
+        {
+            var behavior = behaviors[i];
+            var currentNext = next;
+            next = () => behavior.HandleAsync(request, currentNext, cancellationToken);
+        }
+        return await next().ConfigureAwait(false);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static async ValueTask<CatgaResult> ExecutePipelineAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest>(
+        IRequestHandler<TRequest> handler,
+        TRequest request,
+        IList<IPipelineBehavior<TRequest>> behaviors,
+        CancellationToken cancellationToken)
+        where TRequest : IRequest
+    {
+        PipelineDelegate next = () => handler.HandleAsync(request, cancellationToken);
         for (var i = behaviors.Count - 1; i >= 0; i--)
         {
             var behavior = behaviors[i];
@@ -485,36 +580,10 @@ public sealed class CatgaMediator : ICatgaMediator, IDisposable
         GetHandlerAndBehaviors<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>()
         where TRequest : IRequest<TResponse>
     {
-        var handler = GetCachedHandler<TRequest, TResponse>();
-        var behaviors = GetCachedBehaviors<TRequest, TResponse>();
-        return (handler, behaviors);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IRequestHandler<TRequest, TResponse>? GetCachedHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>()
-        where TRequest : IRequest<TResponse>
-    {
-        var key = typeof(TRequest);
-        if (_handlerCache.TryGetValue(key, out var cached))
-            return cached as IRequestHandler<TRequest, TResponse>;
-
         var handler = _serviceProvider.GetService<IRequestHandler<TRequest, TResponse>>();
-        _handlerCache.TryAdd(key, handler);
-        return handler;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IList<IPipelineBehavior<TRequest, TResponse>> GetCachedBehaviors<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRequest, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>()
-        where TRequest : IRequest<TResponse>
-    {
-        var key = typeof(TRequest);
-        if (_behaviorCache.TryGetValue(key, out var cached))
-            return (cached as IList<IPipelineBehavior<TRequest, TResponse>>) ?? Array.Empty<IPipelineBehavior<TRequest, TResponse>>();
-
         var behaviors = _serviceProvider.GetServices<IPipelineBehavior<TRequest, TResponse>>();
         var behaviorsList = behaviors as IList<IPipelineBehavior<TRequest, TResponse>> ?? behaviors.ToArray();
-        _behaviorCache.TryAdd(key, behaviorsList);
-        return behaviorsList;
+        return (handler, behaviorsList);
     }
 
     #endregion

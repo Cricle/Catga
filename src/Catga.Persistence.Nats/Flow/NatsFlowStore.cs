@@ -72,7 +72,7 @@ public sealed class NatsFlowStore : IFlowStore
         await EnsureInitializedAsync(ct);
 
         var key = EncodeId(state.Id);
-        var data = _serializer.Serialize(state);
+        var data = _serializer.Serialize(CloneState(state, version: 0));
 
         try
         {
@@ -274,4 +274,18 @@ public sealed class NatsFlowStore : IFlowStore
             return [];
         }
     }
+
+    private static FlowState CloneState(FlowState source, long? version = null)
+        => new()
+        {
+            Id = source.Id,
+            Type = source.Type,
+            Status = source.Status,
+            Step = source.Step,
+            Version = version ?? source.Version,
+            Owner = source.Owner,
+            HeartbeatAt = source.HeartbeatAt,
+            Data = source.Data?.ToArray(),
+            Error = source.Error
+        };
 }

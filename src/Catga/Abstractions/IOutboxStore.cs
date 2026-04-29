@@ -40,6 +40,23 @@ public interface IOutboxStore
     public ValueTask DeletePublishedMessagesAsync(
         TimeSpan retentionPeriod,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get scheduled messages that are now due for delivery.
+    /// </summary>
+    public ValueTask<IReadOnlyList<OutboxMessage>> GetDueScheduledMessagesAsync(
+        int maxCount = 100,
+        CancellationToken cancellationToken = default)
+        => GetPendingMessagesAsync(maxCount, cancellationToken); // default: same as pending
+
+    /// <summary>
+    /// Cancel a scheduled message before it is delivered.
+    /// Returns false if already delivered or not found.
+    /// </summary>
+    public ValueTask<bool> CancelScheduledAsync(
+        long messageId,
+        CancellationToken cancellationToken = default)
+        => ValueTask.FromResult(false); // default: not supported
 }
 
 /// <summary>
@@ -101,6 +118,18 @@ public class OutboxMessage
     /// Optional metadata (JSON)
     /// </summary>
     public string? Metadata { get; init; }
+
+    /// <summary>
+    /// Scheduled delivery time. Null = deliver immediately.
+    /// Messages with ScheduledAt in the future are held until that time.
+    /// </summary>
+    public DateTimeOffset? ScheduledAt { get; init; }
+
+    /// <summary>Whether this is a scheduled (delayed) message.</summary>
+    public bool IsScheduled => ScheduledAt.HasValue;
+
+    /// <summary>Whether the message is ready to be delivered (past scheduled time or immediate).</summary>
+    public bool IsReadyToDeliver => !ScheduledAt.HasValue || ScheduledAt.Value <= DateTimeOffset.UtcNow;
 }
 
 /// <summary>

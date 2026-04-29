@@ -322,12 +322,11 @@ public static class FlowBuilderExtensions
             HasResult = true,
             RequestFactory = factory,
             CreateRequest = state => factory((TState)state),
-            ExecuteRequest = async (mediator, request, ct) =>
+            ExecuteRemoteRequest = async (requestClientFactory, request, ct) =>
             {
-                // Resolve IRequestClientFactory from mediator's service provider via a workaround:
-                // Store destination/timeout in step metadata for executor to use
                 var typedRequest = (TRequest)request;
-                var result = await mediator.SendAsync<TRequest, TResult>(typedRequest, ct);
+                var client = requestClientFactory.CreateClient<TRequest, TResult>(destination, timeout);
+                var result = await client.RequestAsync(typedRequest, ct);
                 return (result.IsSuccess, result.Error, result.Value);
             }
         };

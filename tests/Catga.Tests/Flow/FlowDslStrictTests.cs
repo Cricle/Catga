@@ -1,8 +1,12 @@
 using Catga.Abstractions;
 using Catga.Core;
+using Catga.Flow;
 using Catga.Flow.Dsl;
 using Catga.Persistence.InMemory.Flow;
+using Catga.Tests.Helpers;
 using MemoryPack;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
 
@@ -260,6 +264,102 @@ public class FlowDslStrictTests
     }
 
     #endregion
+
+    #region 9. Regression Tests
+
+    [Fact]
+    public async Task RunAsync_WithStrictOptimisticStore_PersistsCompletedSnapshot()
+    {
+        var mediator = Substitute.For<ICatgaMediator>();
+        mediator.SendAsync(Arg.Any<NoOpCmd>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
+
+        var store = new StrictOptimisticDslFlowStore();
+        var executor = new DslFlowExecutor<SimpleState, SimpleFlow>(mediator, store, new SimpleFlow());
+        var state = new SimpleState { FlowId = "strict-flow" };
+
+        var result = await executor.RunAsync(state);
+        var snapshot = await store.GetAsync<SimpleState>(state.FlowId);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(snapshot);
+        Assert.Equal(0, store.RejectedUpdateCount);
+        Assert.Equal(DslFlowStatus.Completed, snapshot!.Status);
+        Assert.Equal(1, snapshot.Version);
+    }
+
+    [Fact]
+    public async Task FlowCompletedEvent_WhenLastChildCompletes_ResumesParentFlow()
+    {
+        var mediator = Substitute.For<ICatgaMediator>();
+        mediator.SendAsync(Arg.Any<ChildWorkCmd>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
+        mediator.SendAsync(Arg.Any<AfterResumeCmd>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
+
+        var store = TestStoreExtensions.CreateTestFlowStore();
+        var services = new ServiceCollection();
+        services.AddSingleton(mediator);
+        services.AddSingleton<IDslFlowStore>(store);
+        services.AddSingleton(Substitute.For<ILogger<DefaultFlowResumeHandler>>());
+        services.AddFlow<SimpleState, WhenAllThenSendFlow>();
+        services.AddFlowResumeHandler();
+
+        var serviceProvider = services.BuildServiceProvider();
+        var executor = serviceProvider.GetRequiredService<IFlow<SimpleState>>();
+        var state = new SimpleState { FlowId = "parent-flow" };
+
+        var initialRun = await executor.RunAsync(state);
+        Assert.Equal(DslFlowStatus.Suspended, initialRun.Status);
+
+        var resumeHandler = serviceProvider.GetRequiredService<IFlowResumeHandler>();
+        var handler = new FlowResumeHandler(store, resumeHandler);
+        await handler.HandleAsync(new FlowCompletedEvent("child-1", $"{state.FlowId}-step-0", true, null, null));
+
+        var snapshot = await store.GetAsync<SimpleState>(state.FlowId);
+        Assert.NotNull(snapshot);
+        Assert.Equal(DslFlowStatus.Completed, snapshot!.Status);
+        await mediator.Received(1).SendAsync(Arg.Any<AfterResumeCmd>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DefaultFlowResumeHandler_ForDelayStep_CompletesSuspendedFlow()
+    {
+        var mediator = Substitute.For<ICatgaMediator>();
+        mediator.SendAsync(Arg.Any<AfterResumeCmd>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
+
+        var store = TestStoreExtensions.CreateTestFlowStore();
+        var scheduler = Substitute.For<IFlowScheduler>();
+        scheduler.ScheduleResumeAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(ValueTask.FromResult("schedule-1"));
+
+        var services = new ServiceCollection();
+        services.AddSingleton(mediator);
+        services.AddSingleton<IDslFlowStore>(store);
+        services.AddSingleton(scheduler);
+        services.AddSingleton(Substitute.For<ILogger<DefaultFlowResumeHandler>>());
+        services.AddFlow<SimpleState, DelayThenSendFlow>();
+        services.AddFlowResumeHandler();
+
+        var serviceProvider = services.BuildServiceProvider();
+        using var scope = serviceProvider.CreateScope();
+        var executor = scope.ServiceProvider.GetRequiredService<IFlow<SimpleState>>();
+        var state = new SimpleState { FlowId = "delay-flow" };
+
+        var initialRun = await executor.RunAsync(state);
+        Assert.Equal(DslFlowStatus.Suspended, initialRun.Status);
+
+        var handler = serviceProvider.GetRequiredService<IFlowResumeHandler>();
+        await handler.ResumeFlowAsync(state.FlowId!, state.FlowId!);
+
+        var snapshot = await store.GetAsync<SimpleState>(state.FlowId);
+        Assert.NotNull(snapshot);
+        Assert.Equal(DslFlowStatus.Completed, snapshot!.Status);
+        await mediator.Received(1).SendAsync(Arg.Any<AfterResumeCmd>(), Arg.Any<CancellationToken>());
+    }
+
+    #endregion
 }
 
 
@@ -355,6 +455,18 @@ public partial record TestEvent(string Data) : IEvent
     public long MessageId { get; init; }
 }
 
+[MemoryPackable]
+public partial record ChildWorkCmd : IRequest
+{
+    public long MessageId { get; init; }
+}
+
+[MemoryPackable]
+public partial record AfterResumeCmd : IRequest
+{
+    public long MessageId { get; init; }
+}
+
 #endregion
 
 #region Test Flow Configs
@@ -431,6 +543,24 @@ public class PublishEventFlow : FlowConfig<EventState>
     protected override void Configure(IFlowBuilder<EventState> flow)
     {
         flow.Publish<EventState, TestEvent>(s => new TestEvent(s.EventData));
+    }
+}
+
+public class WhenAllThenSendFlow : FlowConfig<SimpleState>
+{
+    protected override void Configure(IFlowBuilder<SimpleState> flow)
+    {
+        flow.WhenAll(s => new ChildWorkCmd());
+        flow.Send<SimpleState, AfterResumeCmd>(s => new AfterResumeCmd());
+    }
+}
+
+public class DelayThenSendFlow : FlowConfig<SimpleState>
+{
+    protected override void Configure(IFlowBuilder<SimpleState> flow)
+    {
+        flow.Delay(TimeSpan.FromMinutes(5));
+        flow.Send<SimpleState, AfterResumeCmd>(s => new AfterResumeCmd());
     }
 }
 

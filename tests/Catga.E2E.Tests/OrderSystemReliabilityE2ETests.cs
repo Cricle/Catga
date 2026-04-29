@@ -170,7 +170,7 @@ public class OrderSystemReliabilityE2ETests
         var responses = await Task.WhenAll(tasks);
 
         // 至少有一个操作应该成功
-        Assert.True(responses.Any(r => r.IsSuccessStatusCode));
+        Assert.Contains(responses, response => response.IsSuccessStatusCode);
 
         // 最终状态应该是一致的
         var finalOrder = await GetOrder(order.OrderId);

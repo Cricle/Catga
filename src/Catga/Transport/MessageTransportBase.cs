@@ -245,6 +245,81 @@ public abstract class MessageTransportBase : IMessageTransport
         Func<TMessage, TransportContext, Task> handler,
         CancellationToken cancellationToken = default) where TMessage : class;
 
+    public virtual Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+        string destination,
+        Func<TMessage, TransportContext, Task> handler,
+        CancellationToken cancellationToken = default) where TMessage : class
+        => SubscribeAsync(handler, cancellationToken);
+
+    #endregion
+
+    #region Request/Response (cross-service)
+
+    // Pending replies: correlationId -> TaskCompletionSource<byte[]>
+    private readonly ConcurrentDictionary<long, TaskCompletionSource<byte[]>> _pendingReplies = new();
+
+    /// <summary>
+    /// Send a request and await a correlated response.
+    /// Derived transports should override to use transport-native reply mechanisms (e.g. NATS reply-to).
+    /// Default implementation uses a reply subscription on a per-request subject.
+    /// </summary>
+    public virtual async Task<TResponse?> RequestAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(
+        TMessage message,
+        string destination,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+        where TMessage : class
+        where TResponse : class
+    {
+        var correlationId = DateTime.UtcNow.Ticks; // simple unique id
+        var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pendingReplies[correlationId] = tcs;
+
+        var replySubject = $"{Prefix}reply.{correlationId}";
+        var ctx = new TransportContext { CorrelationId = correlationId, MessageType = TypeNameCache<TMessage>.Name };
+
+        // Subscribe to reply subject before sending
+        await SubscribeAsync<TResponse>(async (reply, _) =>
+        {
+            var bytes = Serializer.Serialize(reply);
+            if (_pendingReplies.TryRemove(correlationId, out var pending))
+                pending.TrySetResult(bytes);
+            await Task.CompletedTask;
+        }, cancellationToken);
+
+        await SendAsync(message, destination, ctx, cancellationToken);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(timeout);
+        cts.Token.Register(() =>
+        {
+            if (_pendingReplies.TryRemove(correlationId, out var pending))
+                pending.TrySetCanceled();
+        });
+
+        try
+        {
+            var bytes = await tcs.Task;
+            return Serializer.Deserialize<TResponse>(bytes);
+        }
+        catch (OperationCanceledException)
+        {
+            _pendingReplies.TryRemove(correlationId, out _);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Complete a pending reply. Called by transport implementations when a reply arrives.
+    /// </summary>
+    protected void CompleteReply(long correlationId, byte[] payload)
+    {
+        if (_pendingReplies.TryRemove(correlationId, out var tcs))
+            tcs.TrySetResult(payload);
+    }
+
     #endregion
 
     #region Batch Operations (Default Implementation)

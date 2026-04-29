@@ -20,6 +20,28 @@ dotnet test tests/Catga.Tests/Catga.Tests.csproj --filter "Category=Property"
 dotnet test tests/Catga.Tests/Catga.Tests.csproj --filter "Category=Integration"
 ```
 
+### 运行当前主闭环快回归
+```bash
+# 核心闭环：FlowDsl / CQRS / Mediator / Pipeline / Outbox-Inbox / Redis/NATS FlowStore
+scripts/test-fast-regression.sh core
+
+# 支持后端闭环：Redis + NATS transport / persistence / lock / batching / failover
+scripts/test-fast-regression.sh backends
+
+# 合并闭环：当前主功能 + Redis/NATS 支持后端
+scripts/test-fast-regression.sh all
+```
+
+当前已验证的规模：
+- `core`: 128 tests
+- `backends`: 245 tests
+- `all`: 373 tests
+
+说明：
+- 以上快回归固定使用 `net8.0` 和单进程 test 参数，优先减少本地抖动与编译开销。
+- 脚本默认会在本机缺少 Redis(`127.0.0.1:6379`) / NATS(`127.0.0.1:4222`) 时自动尝试用 Docker 拉起 `catga-redis-test` 和 `catga-nats-test`。
+- 如需禁用自动拉起，可设置 `CATGA_AUTO_START_BACKENDS=0`。
+
 ## 性能优化
 
 测试已经过性能优化，使用共享容器基础设施：

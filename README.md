@@ -87,6 +87,7 @@ var result = await mediator.SendAsync<CreateOrder, Order>(new("PROD-001", 5));
 | `Catga.Transport.InMemory` | In-memory transport |
 | `Catga.Transport.Redis` | Redis Streams |
 | `Catga.Transport.Nats` | NATS JetStream |
+| `Catga.Transport.RabbitMQ` | RabbitMQ AMQP |
 | `Catga.Persistence.InMemory` | In-memory persistence |
 | `Catga.Persistence.Redis` | Redis persistence |
 | `Catga.Persistence.Nats` | NATS persistence |
@@ -236,4 +237,3 @@ builder.Services.AddCatga()
 ## 📄 License
 
 [MIT](LICENSE)
-

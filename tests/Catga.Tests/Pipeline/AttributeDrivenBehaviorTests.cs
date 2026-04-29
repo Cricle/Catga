@@ -4,6 +4,7 @@ using Catga.Core;
 using Catga.Idempotency;
 using Catga.Pipeline.Behaviors;
 using Medallion.Threading;
+using Medallion.Threading.FileSystem;
 using Medallion.Threading.WaitHandles;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -62,7 +63,7 @@ public class AttributeDrivenBehaviorTests
     public async Task HandleAsync_WithDistributedLock_AcquiresLock()
     {
         // Arrange
-        var lockProvider = new WaitHandleDistributedSynchronizationProvider();
+        var lockProvider = CreateDistributedLockProvider();
         var behavior = new AttributeDrivenBehavior<LockedRequest, string>(
             NullLogger<AttributeDrivenBehavior<LockedRequest, string>>.Instance,
             lockProvider: lockProvider);
@@ -79,6 +80,16 @@ public class AttributeDrivenBehaviorTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.True(executed);
+    }
+
+    private static IDistributedLockProvider CreateDistributedLockProvider()
+    {
+        if (OperatingSystem.IsWindows())
+            return new WaitHandleDistributedSynchronizationProvider();
+
+        var dir = new DirectoryInfo(Path.Combine(Path.GetTempPath(), "catga-lock-tests", Guid.NewGuid().ToString("N")));
+        dir.Create();
+        return new FileDistributedSynchronizationProvider(dir);
     }
 
     [Fact]
@@ -318,7 +329,6 @@ file class InMemoryIdempotencyStore : IIdempotencyStore
         return Task.FromResult(default(T));
     }
 }
-
 
 
 

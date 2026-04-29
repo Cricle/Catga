@@ -14,7 +14,7 @@ public sealed class InMemoryFlowStore : IFlowStore
 
     public ValueTask<bool> CreateAsync(FlowState state, CancellationToken ct = default)
     {
-        var entry = new FlowStateEntry(state);
+        var entry = new FlowStateEntry(CloneState(state, version: 0));
         if (!_flows.TryAdd(state.Id, entry))
             return ValueTask.FromResult(false);
 
@@ -43,7 +43,7 @@ public sealed class InMemoryFlowStore : IFlowStore
         entry.State.Owner = state.Owner;
         entry.State.HeartbeatAt = state.HeartbeatAt;
         entry.State.Error = state.Error;
-        entry.State.Data = state.Data;
+        entry.State.Data = state.Data?.ToArray();
         state.Version = entry.Version;
 
         return ValueTask.FromResult(true);
@@ -53,8 +53,7 @@ public sealed class InMemoryFlowStore : IFlowStore
     {
         if (_flows.TryGetValue(id, out var entry))
         {
-            entry.State.Version = entry.Version;
-            return ValueTask.FromResult<FlowState?>(entry.State);
+            return ValueTask.FromResult<FlowState?>(CloneState(entry.State, entry.Version));
         }
         return ValueTask.FromResult<FlowState?>(null);
     }
@@ -87,8 +86,7 @@ public sealed class InMemoryFlowStore : IFlowStore
                 {
                     entry.State.Owner = owner;
                     entry.State.HeartbeatAt = nowMs;
-                    entry.State.Version = entry.Version;
-                    return ValueTask.FromResult<FlowState?>(entry.State);
+                    return ValueTask.FromResult<FlowState?>(CloneState(entry.State, entry.Version));
                 }
             }
         }
@@ -118,4 +116,18 @@ public sealed class InMemoryFlowStore : IFlowStore
         public FlowState State { get; } = state;
         public long Version;
     }
+
+    private static FlowState CloneState(FlowState source, long? version = null)
+        => new()
+        {
+            Id = source.Id,
+            Type = source.Type,
+            Status = source.Status,
+            Step = source.Step,
+            Version = version ?? source.Version,
+            Owner = source.Owner,
+            HeartbeatAt = source.HeartbeatAt,
+            Data = source.Data?.ToArray(),
+            Error = source.Error
+        };
 }

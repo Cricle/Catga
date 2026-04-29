@@ -13,6 +13,24 @@ public class RecoveryHostedServiceTests
     private readonly ILogger<RecoveryHostedService> _logger;
     private readonly RecoveryOptions _options;
 
+    private static bool WaitUntil(Func<bool> condition, TimeSpan timeout, TimeSpan? pollInterval = null)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        var pause = pollInterval ?? TimeSpan.FromMilliseconds(10);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition())
+            {
+                return true;
+            }
+
+            Thread.Sleep(pause);
+        }
+
+        return condition();
+    }
+
     public RecoveryHostedServiceTests()
     {
         _logger = Substitute.For<ILogger<RecoveryHostedService>>();
@@ -175,7 +193,9 @@ public class RecoveryHostedServiceTests
 
         // Act
         await service.StartAsync(cts.Token);
-        await Task.Delay(500); // 等待足够的时间进行重试
+        var observedRetries = WaitUntil(
+            () => component.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "RecoverAsync") >= _options.MaxRetries,
+            timeout: TimeSpan.FromSeconds(1));
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
@@ -184,7 +204,7 @@ public class RecoveryHostedServiceTests
         // 在 500ms 内，大约有 5 个检查周期（每 100ms 一次）
         // 所以总调用次数应该是 MaxRetries * 检查周期数
         var callCount = component.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "RecoverAsync");
-        Assert.True(callCount >= _options.MaxRetries, $"Expected at least {_options.MaxRetries} calls, got {callCount}");
+        Assert.True(observedRetries && callCount >= _options.MaxRetries, $"Expected at least {_options.MaxRetries} calls, got {callCount}");
     }
 
     [Fact]
@@ -213,7 +233,9 @@ public class RecoveryHostedServiceTests
 
         // Act
         await service.StartAsync(cts.Token);
-        await Task.Delay(500);
+        WaitUntil(
+            () => Volatile.Read(ref callCount) >= 2,
+            timeout: TimeSpan.FromMilliseconds(750));
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 

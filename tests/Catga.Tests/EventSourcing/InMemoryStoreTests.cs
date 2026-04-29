@@ -389,6 +389,22 @@ public class InMemoryStoreTests
         result.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task SubscriptionStore_WrongConsumerCannotReleaseLock()
+    {
+        // Arrange
+        var store = new InMemorySubscriptionStore();
+        await store.SaveAsync(new PersistentSubscription("test-sub", "*"));
+        await store.TryAcquireLockAsync("test-sub", "consumer-1");
+
+        // Act
+        await store.ReleaseLockAsync("test-sub", "consumer-2");
+        var result = await store.TryAcquireLockAsync("test-sub", "consumer-3");
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
     #endregion
 
     #region InMemoryProjectionCheckpointStore Tests

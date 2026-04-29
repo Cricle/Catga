@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Catga.Abstractions;
 using Catga.Core;
 
 namespace Catga.Flow.Dsl;
@@ -11,12 +12,18 @@ public sealed class FlowExecutorService : IFlowExecutor
     private readonly ICatgaMediator _mediator;
     private readonly IDslFlowStore _store;
     private readonly IFlowScheduler? _scheduler;
+    private readonly IRequestClientFactory? _requestClientFactory;
 
-    public FlowExecutorService(ICatgaMediator mediator, IDslFlowStore store, IFlowScheduler? scheduler = null)
+    public FlowExecutorService(
+        ICatgaMediator mediator,
+        IDslFlowStore store,
+        IFlowScheduler? scheduler = null,
+        IRequestClientFactory? requestClientFactory = null)
     {
         _mediator = mediator;
         _store = store;
         _scheduler = scheduler;
+        _requestClientFactory = requestClientFactory;
     }
 
     public async Task<DslFlowResult<TState>> ExecuteAsync<TFlow, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TState>(
@@ -26,7 +33,7 @@ public sealed class FlowExecutorService : IFlowExecutor
         where TState : class, IFlowState, new()
     {
         var config = new TFlow();
-        var executor = new DslFlowExecutor<TState, TFlow>(_mediator, _store, config, _scheduler);
+        var executor = new DslFlowExecutor<TState, TFlow>(_mediator, _store, config, _scheduler, _requestClientFactory);
         return await executor.RunAsync(initialState, cancellationToken);
     }
 
@@ -37,7 +44,7 @@ public sealed class FlowExecutorService : IFlowExecutor
         where TState : class, IFlowState, new()
     {
         var config = new TFlow();
-        var executor = new DslFlowExecutor<TState, TFlow>(_mediator, _store, config, _scheduler);
+        var executor = new DslFlowExecutor<TState, TFlow>(_mediator, _store, config, _scheduler, _requestClientFactory);
         return await executor.ResumeAsync(flowId, cancellationToken);
     }
 

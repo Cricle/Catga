@@ -82,13 +82,13 @@ public sealed class UnifiedRegistrationGenerator : IIncrementalGenerator
         if (symbol.GetAttributes().Any(a => a.AttributeClass?.Name == "CatgaIgnoreAttribute"))
             return null;
 
-        // Get lifetime from [CatgaLifetime] attribute (default: Singleton)
-        var lifetime = "Singleton";
+        // Get lifetime from [CatgaLifetime] attribute (default: Scoped)
+        var lifetime = "Scoped";
         var lifetimeAttr = symbol.GetAttributes()
             .FirstOrDefault(a => a.AttributeClass?.Name == "CatgaLifetimeAttribute");
         if (lifetimeAttr?.ConstructorArguments.Length > 0 && lifetimeAttr.ConstructorArguments[0].Value is int lt)
         {
-            lifetime = lt switch { 1 => "Scoped", 2 => "Transient", _ => "Singleton" };
+            lifetime = lt switch { 0 => "Singleton", 2 => "Transient", _ => "Scoped" };
         }
 
         // Get order from [CatgaOrder] attribute (default: 0)

@@ -30,19 +30,21 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
     private readonly IDslFlowStore _store;
     private readonly TConfig _config;
     private readonly IFlowScheduler? _scheduler;
+    private readonly IRequestClientFactory? _requestClientFactory;
     private readonly List<ExecutedStep> _executedSteps = [];
 
-    public DslFlowExecutor(ICatgaMediator mediator, IDslFlowStore store, TConfig config)
-        : this(mediator, store, config, null)
-    {
-    }
-
-    public DslFlowExecutor(ICatgaMediator mediator, IDslFlowStore store, TConfig config, IFlowScheduler? scheduler)
+    public DslFlowExecutor(
+        ICatgaMediator mediator,
+        IDslFlowStore store,
+        TConfig config,
+        IFlowScheduler? scheduler = null,
+        IRequestClientFactory? requestClientFactory = null)
     {
         _mediator = mediator;
         _store = store;
         _config = config;
         _scheduler = scheduler;
+        _requestClientFactory = requestClientFactory;
         _config.Build();
     }
 
@@ -432,7 +434,7 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
                 StepType.ScheduleAt => await ExecuteScheduleAtAsync(state, step, position, cancellationToken),
                 StepType.Parallel => await ExecuteParallelAsync(state, step, stepIndex, cancellationToken),
                 StepType.Throttle => await ExecuteThrottleAsync(state, step, position, cancellationToken),
-                StepType.RemoteSend => await ExecuteSendAsync(state, step, stepIndex, cancellationToken),
+                StepType.RemoteSend => await ExecuteRemoteSendAsync(state, step, stepIndex, cancellationToken),
                 _ => StepResult.Failed($"Unknown step type: {step.Type}", position)
             };
         }
@@ -509,6 +511,53 @@ public partial class DslFlowExecutor<[DynamicallyAccessedMembers(DynamicallyAcce
         {
             _executedSteps.Add(new ExecutedStep(stepIndex, step));
         }
+
+        return StepResult.Succeeded(resultValue);
+    }
+
+    private async Task<StepResult> ExecuteRemoteSendAsync(
+        TState state,
+        FlowStep step,
+        int stepIndex,
+        CancellationToken cancellationToken)
+    {
+        if (step.CreateRequest == null)
+            return StepResult.Failed("No request factory configured");
+
+        if (_requestClientFactory == null)
+            return StepResult.Failed("IRequestClientFactory not registered. Call UseRequestClient() to enable RemoteSend.");
+
+        var request = step.CreateRequest(state);
+        if (request == null)
+            return StepResult.Failed("Request factory returned null");
+
+        if (step.ExecuteRemoteRequest == null)
+            return StepResult.Failed("No remote request executor configured");
+
+        var (isSuccess, error, resultValue) = await step.ExecuteRemoteRequest(
+            _requestClientFactory,
+            request,
+            cancellationToken);
+
+        if (!isSuccess)
+        {
+            if (step.IsOptional)
+                return StepResult.Skip();
+            return StepResult.Failed(error ?? "Remote request failed");
+        }
+
+        if (step.HasFailCondition && step.EvaluateFailCondition != null && resultValue != null)
+        {
+            var shouldFail = step.EvaluateFailCondition(state, resultValue);
+            if (shouldFail)
+                return StepResult.Failed(step.FailConditionMessage ?? "FailIf condition met");
+        }
+
+        if (step.SetResult != null && resultValue != null)
+            step.SetResult(state, resultValue);
+
+        if (step.HasCompensation)
+            _executedSteps.Add(new ExecutedStep(stepIndex, step));
 
         return StepResult.Succeeded(resultValue);
     }

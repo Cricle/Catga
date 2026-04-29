@@ -134,6 +134,10 @@ public sealed partial class NatsSnapshotStore : ISnapshotStore
         {
             return null;
         }
+        catch (NATS.Client.KeyValueStore.NatsKVKeyDeletedException)
+        {
+            return null;
+        }
     }
 
     public async ValueTask DeleteAsync(string streamId, CancellationToken ct = default)

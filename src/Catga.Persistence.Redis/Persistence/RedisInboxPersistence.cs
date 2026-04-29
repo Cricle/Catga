@@ -13,7 +13,7 @@ namespace Catga.Persistence.Redis.Persistence;
 public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSerializer serializer, ILogger<RedisInboxPersistence> logger, IResiliencePipelineProvider provider, IOptions<RedisPersistenceOptions>? options = null)
     : RedisStoreBase(redis, serializer, options?.Value.InboxKeyPrefix ?? "catga:inbox:"), IInboxStore
 {
-    private const string TryLockScript = "local e=redis.call('GET',KEYS[1]) if e then return 0 end redis.call('SET',KEYS[1],ARGV[3],'EX',ARGV[2]) return 1";
+    private const string TryLockScript = "local e=redis.call('GET',KEYS[1]) if e then return 0 end redis.call('SET',KEYS[1],ARGV[3],'PX',ARGV[2]) return 1";
 
     public async ValueTask<bool> TryLockMessageAsync(long messageId, TimeSpan lockDuration, CancellationToken cancellationToken = default)
     {
@@ -23,10 +23,11 @@ public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSeriali
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Redis.Inbox.TryLock", ActivityKind.Internal);
             var db = GetDatabase();
             var key = GetMessageKey(messageId);
+            var lockDurationMs = Math.Max(1L, (long)Math.Ceiling(lockDuration.TotalMilliseconds));
 
             var message = new InboxMessage { MessageId = messageId, MessageType = "", Payload = [], Status = InboxStatus.Processing, LockExpiresAt = DateTime.UtcNow.Add(lockDuration) };
             var data = Serializer.Serialize(message);
-            var result = await db.ScriptEvaluateAsync(TryLockScript, [key], [messageId, (RedisValue)(int)lockDuration.TotalSeconds, data]);
+            var result = await db.ScriptEvaluateAsync(TryLockScript, [key], [messageId, (RedisValue)lockDurationMs, data]);
             var locked = (int)result == 1;
 
             if (locked)
@@ -66,7 +67,11 @@ public class RedisInboxPersistence(IConnectionMultiplexer redis, IMessageSeriali
         return await provider.ExecutePersistenceAsync(async ct =>
         {
             var db = GetDatabase();
-            return await db.KeyExistsAsync(GetMessageKey(messageId));
+            var data = await db.StringGetAsync(GetMessageKey(messageId));
+            if (!data.HasValue) return false;
+
+            var message = (InboxMessage?)Serializer.Deserialize((byte[])data!, typeof(InboxMessage));
+            return message?.Status == InboxStatus.Processed;
         }, cancellationToken);
     }
 

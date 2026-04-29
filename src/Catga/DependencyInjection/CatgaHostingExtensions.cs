@@ -1,4 +1,6 @@
 using Catga.Hosting;
+using Catga.Abstractions;
+using Catga.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -29,7 +31,9 @@ public static class CatgaHostingExtensions
         options.Validate();
         
         // 注册配置选项
+        builder.Services.TryAddSingleton(builder.Options);
         builder.Services.AddSingleton(options);
+        builder.Services.TryAddSingleton<IMessageTypeRegistry, DefaultMessageTypeRegistry>();
         
         // 注册恢复服务
         if (options.EnableAutoRecovery)

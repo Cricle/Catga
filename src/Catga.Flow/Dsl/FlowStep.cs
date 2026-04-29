@@ -105,6 +105,7 @@ public class FlowStep
 
     // AOT-compatible request executor (no reflection)
     internal Func<ICatgaMediator, object, CancellationToken, ValueTask<(bool Success, string? Error, object? Value)>>? ExecuteRequest { get; set; }
+    internal Func<IRequestClientFactory, object, CancellationToken, ValueTask<(bool Success, string? Error, object? Value)>>? ExecuteRemoteRequest { get; set; }
 
     // WhenAll/WhenAny specific
     internal List<Delegate>? ChildRequestFactories { get; set; }

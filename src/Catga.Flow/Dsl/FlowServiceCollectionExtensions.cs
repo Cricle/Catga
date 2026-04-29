@@ -16,7 +16,7 @@ public static class FlowServiceCollectionExtensions
     public static IServiceCollection AddFlowDsl(this IServiceCollection services)
     {
         // Register flow executor
-        services.TryAddSingleton<IFlowExecutor, FlowExecutorService>();
+        services.TryAddScoped<IFlowExecutor, FlowExecutorService>();
 
         return services;
     }
@@ -28,7 +28,7 @@ public static class FlowServiceCollectionExtensions
         where TStore : class, IDslFlowStore
     {
         services.TryAddSingleton<IDslFlowStore, TStore>();
-        services.TryAddSingleton<IFlowExecutor, FlowExecutorService>();
+        services.TryAddScoped<IFlowExecutor, FlowExecutorService>();
 
         return services;
     }

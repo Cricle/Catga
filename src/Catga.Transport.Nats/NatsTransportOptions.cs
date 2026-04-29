@@ -20,5 +20,9 @@ public record NatsTransportOptions
     /// Upper bound on pending queue length when auto-batching is enabled. Oldest items will be dropped when exceeded.
     /// </summary>
     public int MaxQueueLength { get; init; } = 10000;
-}
 
+    /// <summary>
+    /// Default timeout used by request clients when no explicit timeout is provided.
+    /// </summary>
+    public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromSeconds(30);
+}

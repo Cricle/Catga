@@ -6,8 +6,6 @@ using Catga.Outbox;
 using Catga.Persistence;
 using Catga.Persistence.Stores;
 using Catga.Serialization.MemoryPack;
-using DotNet.Testcontainers.Builders;
-using DotNet.Testcontainers.Containers;
 using FluentAssertions;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
@@ -22,84 +20,16 @@ namespace Catga.Tests.Integration;
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Requires", "Docker")]
-public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
+[Collection("IntegrationTests")]
+public partial class NatsPersistenceIntegrationTests
 {
-    private IContainer? _natsContainer;
-    private NatsConnection? _natsConnection;
-    private IMessageSerializer? _serializer;
+    private readonly global::Catga.Tests.Integration.SharedIntegrationFixture _fixture;
+    private NatsConnection? _natsConnection => _fixture.NatsConnection;
+    private readonly IMessageSerializer _serializer = new MemoryPackMessageSerializer();
 
-    public async Task InitializeAsync()
+    public NatsPersistenceIntegrationTests(global::Catga.Tests.Integration.SharedIntegrationFixture fixture)
     {
-        // 跳过测试如果 Docker 未运行
-        if (!IsDockerRunning())
-        {
-            // Docker 未运行时，测试会在后续操作时自动失败并跳过
-            return;
-        }
-
-        // 启动 NATS 容器 (with JetStream enabled)
-        var natsImage = Environment.GetEnvironmentVariable("TEST_NATS_IMAGE") ?? "nats:latest";
-        _natsContainer = new ContainerBuilder()
-            .WithImage(natsImage)
-            .WithPortBinding(4222, true)
-            .WithPortBinding(8222, true)
-            .WithCommand("-js", "-m", "8222") // Enable JetStream and monitoring
-                                              // 使用 HTTP 监控端点作为就绪检查，避免容器内缺少 /bin/sh 或 nc 带来的探测失败
-            .WithWaitStrategy(Wait.ForUnixContainer()
-                .UntilHttpRequestIsSucceeded(r => r
-                    .ForPort(8222)
-                    .ForPath("/varz")))
-            .Build();
-
-        await _natsContainer.StartAsync();
-
-        // 等待 NATS 完全启动
-        await Task.Delay(2000);
-
-        // 连接到 NATS
-        var port = _natsContainer.GetMappedPublicPort(4222);
-        var opts = new NatsOpts
-        {
-            Url = $"nats://localhost:{port}",
-            ConnectTimeout = TimeSpan.FromSeconds(10)
-        };
-
-        _natsConnection = new NatsConnection(opts);
-        await _natsConnection.ConnectAsync();
-
-        // 创建序列化器
-        _serializer = new MemoryPackMessageSerializer();
-    }
-
-    public async Task DisposeAsync()
-    {
-        if (_natsConnection != null)
-            await _natsConnection.DisposeAsync();
-
-        if (_natsContainer != null)
-            await _natsContainer.DisposeAsync();
-    }
-
-    private static bool IsDockerRunning()
-    {
-        try
-        {
-            var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "docker",
-                Arguments = "info",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            });
-            process?.WaitForExit(5000);
-            return process?.ExitCode == 0;
-        }
-        catch
-        {
-            return false;
-        }
+        _fixture = fixture;
     }
 
     #region Outbox Tests
@@ -161,10 +91,10 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
             await outbox.AddAsync(msg);
         }
 
-        await Task.Delay(500); // Allow JetStream to persist
-
         // Act
-        var pending = await outbox.GetPendingMessagesAsync(10);
+        var pending = await AsyncTestWait.WaitUntilAsync(
+            () => outbox.GetPendingMessagesAsync(10).AsTask(),
+            messages => messages.Count >= 3);
 
         // Assert
         pending.Should().NotBeNull();
@@ -187,7 +117,6 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
 
         var message = CreateOutboxMessage(2000L, OutboxStatus.Pending);
         await outbox.AddAsync(message);
-        await Task.Delay(300);
 
         // Act
         await outbox.MarkAsPublishedAsync(message.MessageId);
@@ -243,7 +172,6 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
 
         // Act - First lock
         var firstLock = await inbox.TryLockMessageAsync(messageId, lockDuration);
-        await Task.Delay(200);
 
         // Act - Second lock (duplicate)
         var secondLock = await inbox.TryLockMessageAsync(messageId, lockDuration);
@@ -251,6 +179,30 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
         // Assert
         firstLock.Should().BeTrue();
         secondLock.Should().BeFalse("duplicate lock should fail");
+    }
+
+    [Fact]
+    public async Task Inbox_TryLockMessageAsync_ExpiredLock_ShouldSucceed()
+    {
+        if (_natsConnection is null) return;
+
+        var streamName = $"TEST_INBOX_{Guid.NewGuid():N}";
+        var inbox = new NatsJSInboxStore(
+            _natsConnection!,
+            _serializer!,
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
+
+        var messageId = MessageExtensions.NewMessageId();
+
+        var firstLock = await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMilliseconds(100));
+        firstLock.Should().BeTrue();
+
+        await Task.Delay(200);
+
+        var secondLock = await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
+        secondLock.Should().BeTrue("expired lock should allow reacquisition");
     }
 
     [Fact]
@@ -329,13 +281,69 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
         };
 
         await inbox.MarkAsProcessedAsync(message);
-        await Task.Delay(300);
 
         // Act
-        var hasBeenProcessed = await inbox.HasBeenProcessedAsync(messageId);
+        var hasBeenProcessed = await AsyncTestWait.WaitUntilAsync(
+            () => inbox.HasBeenProcessedAsync(messageId).AsTask(),
+            value => value);
 
         // Assert
         hasBeenProcessed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Inbox_HasBeenProcessedAsync_LockedMessage_ShouldReturnFalse()
+    {
+        if (_natsConnection is null) return;
+
+        var streamName = $"TEST_INBOX_{Guid.NewGuid():N}";
+        var inbox = new NatsJSInboxStore(
+            _natsConnection!,
+            _serializer!,
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
+
+        var messageId = MessageExtensions.NewMessageId();
+        await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
+
+        var hasBeenProcessed = await inbox.HasBeenProcessedAsync(messageId);
+
+        hasBeenProcessed.Should().BeFalse("locked message should not be treated as processed");
+    }
+
+    [Fact]
+    public async Task Inbox_TryLockMessageAsync_ProcessedMessage_ShouldFail()
+    {
+        if (_natsConnection is null) return;
+
+        var streamName = $"TEST_INBOX_{Guid.NewGuid():N}";
+        var inbox = new NatsJSInboxStore(
+            _natsConnection!,
+            _serializer!,
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
+
+        var messageId = MessageExtensions.NewMessageId();
+        await inbox.MarkAsProcessedAsync(new InboxMessage
+        {
+            MessageId = messageId,
+            MessageType = typeof(TestEvent).FullName!,
+            Payload = _serializer!.Serialize(new TestEvent
+            {
+                MessageId = messageId,
+                Id = "processed-lock-test",
+                Data = "processed"
+            }),
+            Status = InboxStatus.Processed,
+            ReceivedAt = DateTime.UtcNow,
+            ProcessedAt = DateTime.UtcNow
+        });
+
+        var locked = await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
+
+        locked.Should().BeFalse("processed message must not be locked again");
     }
 
     [Fact]
@@ -356,15 +364,40 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
 
         // Lock first
         await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
-        await Task.Delay(200);
 
         // Act
         await inbox.ReleaseLockAsync(messageId);
-        await Task.Delay(200);
 
         // Assert - Should be able to lock again
-        var canLockAgain = await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
+        var canLockAgain = await AsyncTestWait.WaitUntilAsync(
+            () => inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5)).AsTask(),
+            value => value,
+            timeout: TimeSpan.FromSeconds(2));
         canLockAgain.Should().BeTrue("lock should be released");
+    }
+
+    [Fact]
+    public async Task Inbox_ConcurrentLocking_OnlyOneSucceeds()
+    {
+        if (_natsConnection is null) return;
+
+        var streamName = $"TEST_INBOX_{Guid.NewGuid():N}";
+        var inbox = new NatsJSInboxStore(
+            _natsConnection!,
+            _serializer!,
+            streamName: streamName,
+            options: null,
+            provider: new Catga.Resilience.DiagnosticResiliencePipelineProvider());
+
+        var messageId = MessageExtensions.NewMessageId();
+        var tasks = Enumerable.Range(0, 10)
+            .Select(_ => inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5)).AsTask())
+            .ToArray();
+
+        var results = await Task.WhenAll(tasks);
+
+        results.Count(static r => r).Should().Be(1, "only one concurrent lock should succeed");
+        results.Count(static r => !r).Should().Be(9, "remaining lock attempts should fail");
     }
 
     #endregion
@@ -437,10 +470,11 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
         };
 
         await eventStore.AppendAsync(streamId, events);
-        await Task.Delay(300);
 
         // Act
-        var eventStream = await eventStore.ReadAsync(streamId);
+        var eventStream = await AsyncTestWait.WaitUntilAsync(
+            () => eventStore.ReadAsync(streamId).AsTask(),
+            stream => stream.Events.Count >= 1);
 
         // Assert
         eventStream.Should().NotBeNull();
@@ -474,10 +508,11 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
         };
 
         await eventStore.AppendAsync(streamId, events);
-        await Task.Delay(300);
 
         // Act
-        var version = await eventStore.GetVersionAsync(streamId);
+        var version = await AsyncTestWait.WaitUntilAsync(
+            () => eventStore.GetVersionAsync(streamId).AsTask(),
+            value => value >= 0);
 
         // Assert
         version.Should().BeGreaterOrEqualTo(0);
@@ -510,7 +545,6 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
             }
         };
         await eventStore.AppendAsync(streamId, events1);
-        await Task.Delay(300);
 
         // Act - Try to append with wrong expected version
         var events2 = new List<IEvent>
@@ -568,4 +602,3 @@ public partial class NatsPersistenceIntegrationTests : IAsyncLifetime
 
     #endregion
 }
-

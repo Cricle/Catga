@@ -4,6 +4,7 @@ using Xunit;
 using NSubstitute;
 using Catga.Abstractions;
 using Catga.Core;
+using Catga.Tests.Helpers;
 
 namespace Catga.Tests.Flow.TDD;
 
@@ -288,7 +289,7 @@ public class ForEachRecoveryTests
         result.State.Results.Should().HaveCount(20, "all items should have results");
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData("InMemory")]
     [InlineData("Redis")]
     [InlineData("Nats")]
@@ -296,8 +297,8 @@ public class ForEachRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = CreateStore(storeType);
-        var config = new TestForEachFlow();
+        var store = await DistributedDslFlowStoreFactory.CreateAsync(storeType);
+        var config = new PersistedForEachFlow();
 
         var state = new TestForEachState
         {
@@ -312,13 +313,10 @@ public class ForEachRecoveryTests
             .Returns(callInfo =>
             {
                 var cmd = callInfo.Arg<ProcessItemCommand>();
-                var result = $"processed-{cmd.Item}";
-                state.ProcessedItems.Add(cmd.Item);
-                state.Results[cmd.Item] = result;
-                return new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success(result));
+                return new ValueTask<CatgaResult<string>>(CatgaResult<string>.Success($"processed-{cmd.Item}"));
             });
 
-        var executor = new DslFlowExecutor<TestForEachState, TestForEachFlow>(mediator, store, config);
+        var executor = new DslFlowExecutor<TestForEachState, PersistedForEachFlow>(mediator, store, config);
 
         // Create interrupted snapshot
         var forEachProgress = new ForEachProgress
@@ -349,16 +347,6 @@ public class ForEachRecoveryTests
         result.State.ProcessedItems.Should().HaveCount(3, $"all items should be processed in {storeType}");
     }
 
-    private static IDslFlowStore CreateStore(string storeType)
-    {
-        return storeType switch
-        {
-            "InMemory" => TestStoreExtensions.CreateTestFlowStore(),
-            "Redis" => TestStoreExtensions.CreateTestFlowStore(), // TODO: Replace with actual Redis store
-            "Nats" => TestStoreExtensions.CreateTestFlowStore(),  // TODO: Replace with actual NATS store
-            _ => throw new ArgumentException($"Unknown store type: {storeType}")
-        };
-    }
 }
 
 /// <summary>
@@ -395,7 +383,7 @@ public class TestForEachFlow : FlowConfig<TestForEachState>
         flow.Name("test-foreach-flow");
 
         flow.ForEach(s => s.Items)
-            .Configure((item, f) => f.Send(s => new ProcessItemCommand { Item = item }))
+            .Configure((item, f) => f.Send<TestForEachState, ProcessItemCommand, string>(s => new ProcessItemCommand { Item = item }))
             .EndForEach();
     }
 }
@@ -411,7 +399,7 @@ public class TestParallelForEachFlow : FlowConfig<TestForEachState>
 
         flow.ForEach(s => s.Items)
             .WithParallelism(1) // Keep sequential for now, parallel has issues
-            .Configure((item, f) => f.Send(s => new ProcessItemCommand { Item = item }))
+            .Configure((item, f) => f.Send<TestForEachState, ProcessItemCommand, string>(s => new ProcessItemCommand { Item = item }))
             .EndForEach();
     }
 }
@@ -427,7 +415,7 @@ public class TestForEachWithErrorHandlingFlow : FlowConfig<TestForEachState>
 
         flow.ForEach(s => s.Items)
             .ContinueOnFailure()
-            .Configure((item, f) => f.Send(s => new ProcessItemCommand { Item = item }))
+            .Configure((item, f) => f.Send<TestForEachState, ProcessItemCommand, string>(s => new ProcessItemCommand { Item = item }))
             .OnItemFail((s, item, error) => s.FailedItems.Add(item))
             .EndForEach();
     }
@@ -444,7 +432,28 @@ public class TestBatchForEachFlow : FlowConfig<TestForEachState>
 
         flow.ForEach(s => s.Items)
             .WithBatchSize(5)
-            .Configure((item, f) => f.Send(s => new ProcessItemCommand { Item = item }))
+            .Configure((item, f) => f.Send<TestForEachState, ProcessItemCommand, string>(s => new ProcessItemCommand { Item = item }))
+            .EndForEach();
+    }
+}
+
+/// <summary>
+/// Flow variant used by distributed store recovery tests.
+/// State updates happen through DSL callbacks rather than captured object references.
+/// </summary>
+public class PersistedForEachFlow : FlowConfig<TestForEachState>
+{
+    protected override void Configure(IFlowBuilder<TestForEachState> flow)
+    {
+        flow.Name("persisted-foreach-flow");
+
+        flow.ForEach(s => s.Items)
+            .Configure((item, f) => f.Send<TestForEachState, ProcessItemCommand, string>(s => new ProcessItemCommand { Item = item }))
+            .OnItemSuccess((state, item, result) =>
+            {
+                state.ProcessedItems.Add(item);
+                state.Results[item] = (string)result;
+            })
             .EndForEach();
     }
 }

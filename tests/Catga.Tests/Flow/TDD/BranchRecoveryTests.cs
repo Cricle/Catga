@@ -4,6 +4,7 @@ using Xunit;
 using NSubstitute;
 using Catga.Abstractions;
 using Catga.Core;
+using Catga.Tests.Helpers;
 
 namespace Catga.Tests.Flow.TDD;
 
@@ -169,7 +170,7 @@ public class BranchRecoveryTests
         {
             FlowId = state.FlowId,
             State = state,
-            Position = new FlowPosition([0, 2]), // Step 0 (Switch), Case 2
+            Position = new FlowPosition([0, 1, 0]), // Step 0 (Switch), second case, first step
             Status = DslFlowStatus.Running
         };
 
@@ -232,7 +233,7 @@ public class BranchRecoveryTests
         result.State.NestedThenExecuted.Should().BeTrue("Nested Then branch should be executed after resume");
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData("InMemory")]
     [InlineData("Redis")]
     [InlineData("Nats")]
@@ -240,8 +241,8 @@ public class BranchRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = CreateStore(storeType);
-        var config = new TestIfFlow();
+        var store = await DistributedDslFlowStoreFactory.CreateAsync(storeType);
+        var config = new PersistedBranchFlow();
 
         var state = new TestBranchState
         {
@@ -251,20 +252,12 @@ public class BranchRecoveryTests
         };
 
         // Setup mediator to handle test commands successfully and modify state
-        mediator.SendAsync(Arg.Any<MarkThenExecutedCommand>(), Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                state.ThenExecuted = true;
-                return new ValueTask<CatgaResult>(CatgaResult.Success());
-            });
-        mediator.SendAsync(Arg.Any<MarkElseExecutedCommand>(), Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                state.ElseExecuted = true;
-                return new ValueTask<CatgaResult>(CatgaResult.Success());
-            });
+        mediator.SendAsync<MarkThenExecutedQuery, bool>(Arg.Any<MarkThenExecutedQuery>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<CatgaResult<bool>>(CatgaResult<bool>.Success(true)));
+        mediator.SendAsync<MarkElseExecutedQuery, bool>(Arg.Any<MarkElseExecutedQuery>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<CatgaResult<bool>>(CatgaResult<bool>.Success(true)));
 
-        var executor = new DslFlowExecutor<TestBranchState, TestIfFlow>(mediator, store, config);
+        var executor = new DslFlowExecutor<TestBranchState, PersistedBranchFlow>(mediator, store, config);
 
         // Create interrupted snapshot
         var interruptedSnapshot = new FlowSnapshot<TestBranchState>
@@ -286,16 +279,6 @@ public class BranchRecoveryTests
         result.State.ThenExecuted.Should().BeTrue($"Then branch should be executed after resume in {storeType}");
     }
 
-    private static IDslFlowStore CreateStore(string storeType)
-    {
-        return storeType switch
-        {
-            "InMemory" => TestStoreExtensions.CreateTestFlowStore(),
-            "Redis" => TestStoreExtensions.CreateTestFlowStore(), // TODO: Replace with actual Redis store
-            "Nats" => TestStoreExtensions.CreateTestFlowStore(),  // TODO: Replace with actual NATS store
-            _ => throw new ArgumentException($"Unknown store type: {storeType}")
-        };
-    }
 }
 
 /// <summary>
@@ -375,13 +358,43 @@ public class TestNestedBranchFlow : FlowConfig<TestBranchState>
     }
 }
 
+/// <summary>
+/// Flow variant used by distributed store recovery tests.
+/// State updates are persisted via typed result mapping.
+/// </summary>
+public class PersistedBranchFlow : FlowConfig<TestBranchState>
+{
+    protected override void Configure(IFlowBuilder<TestBranchState> flow)
+    {
+        flow.Name("persisted-branch-flow");
+
+        flow.If(s => s.ShouldExecuteThen)
+            .Send<MarkThenExecutedQuery, bool>(s => new MarkThenExecutedQuery())
+            .Into((state, result) => state.ThenExecuted = result)
+        .Else()
+            .Send<MarkElseExecutedQuery, bool>(s => new MarkElseExecutedQuery())
+            .Into((state, result) => state.ElseExecuted = result)
+        .EndIf();
+    }
+}
+
 // Test commands
 public record MarkThenExecutedCommand : IRequest
 {
     public long MessageId { get; init; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 
+public record MarkThenExecutedQuery : IRequest<bool>
+{
+    public long MessageId { get; init; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+}
+
 public record MarkElseExecutedCommand : IRequest
+{
+    public long MessageId { get; init; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+}
+
+public record MarkElseExecutedQuery : IRequest<bool>
 {
     public long MessageId { get; init; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }

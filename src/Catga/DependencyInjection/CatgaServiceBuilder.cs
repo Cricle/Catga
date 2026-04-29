@@ -199,7 +199,8 @@ public class CatgaServiceBuilder(IServiceCollection services, CatgaOptions optio
 
     public CatgaServiceBuilder UseDeadLetterQueue()
     {
-        // No-op: concrete DeadLetterBehavior not provided; keep API for compatibility
+        Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<,>), typeof(Catga.Pipeline.Behaviors.DeadLetterBehavior<,>));
+        Services.AddSingleton(typeof(Catga.Pipeline.IPipelineBehavior<>), typeof(Catga.Pipeline.Behaviors.DeadLetterBehavior<>));
         return this;
     }
 

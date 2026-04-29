@@ -16,9 +16,12 @@ using Catga.DependencyInjection;
 using Catga.DistributedId;
 using Catga.EventSourcing;
 using Catga.Flow;
+using Catga.Flow.DependencyInjection;
 using Catga.Flow.Dsl;
+using Catga.Flow.StateMachine;
 using Catga.Idempotency;
 using Catga.Persistence.InMemory;
+using Catga.Persistence.InMemory.Flow;
 using Catga.Persistence.Redis;
 using Catga.Resilience;
 using Catga.Serialization.MemoryPack;
@@ -214,12 +217,29 @@ async Task TestInMemoryBackend(AotTester t)
         services.AddInMemoryPersistence();
         services.AddInMemoryTransport();
         services.AddCatgaResilience();
+        services.AddSingleton<IDslFlowStore, InMemoryDslFlowStore>();
+        services.AddStateMachine<AotEnrollmentState, AotEnrollmentStatus, AotEnrollmentStateMachine>();
         
         sp = services.BuildServiceProvider();
         await t.TestAsync("InMemory: DI Setup", () => sp != null);
         
         var mediator = sp.GetService<ICatgaMediator>();
         await t.TestAsync("InMemory: ICatgaMediator", () => mediator != null);
+
+        var stateMachineExecutor = sp.GetService<StateMachineExecutor<AotEnrollmentState, AotEnrollmentStatus, AotEnrollmentStateMachine>>();
+        await t.TestAsync("InMemory: StateMachine executor", () => stateMachineExecutor != null);
+        if (mediator != null && stateMachineExecutor != null)
+        {
+            var enrollmentId = $"aot-enrollment-{Guid.NewGuid():N}";
+            await mediator.PublishAsync(new AotEnrollmentActivatedEvent(enrollmentId, "account-aot", "PAY-AOT"));
+            var state = await stateMachineExecutor.GetStateAsync(enrollmentId);
+
+            await t.TestAsync("InMemory: StateMachine initial factory publish", () =>
+                state?.FlowId == enrollmentId
+                && state.AccountId == "account-aot"
+                && state.LastPaymentReference == "PAY-AOT"
+                && state.CurrentState == AotEnrollmentStatus.Active);
+        }
         
         // Event Store
         var eventStore = sp.GetService<IEventStore>();
@@ -599,3 +619,47 @@ public class TestJsonObject { public int Id { get; set; } public string Name { g
 
 [JsonSerializable(typeof(TestJsonObject))]
 public partial class AotJsonContext : JsonSerializerContext { }
+
+public enum AotEnrollmentStatus
+{
+    None = 0,
+    AwaitingActivation = 1,
+    Active = 2
+}
+
+public sealed class AotEnrollmentState : IStateMachineState<AotEnrollmentStatus>
+{
+    public string? FlowId { get; set; }
+    public AotEnrollmentStatus CurrentState { get; set; } = AotEnrollmentStatus.None;
+    public string? AccountId { get; set; }
+    public string? LastPaymentReference { get; set; }
+    public bool HasChanges => true;
+    public int GetChangedMask() => 0;
+    public bool IsFieldChanged(int fieldIndex) => false;
+    public void ClearChanges() { }
+    public void MarkChanged(int fieldIndex) { }
+    public IEnumerable<string> GetChangedFieldNames() => [];
+}
+
+public sealed record AotEnrollmentActivatedEvent(string EnrollmentId, string AccountId, string PaymentReference) : IEvent
+{
+    public long MessageId => 0;
+}
+
+public sealed class AotEnrollmentStateMachine : StateMachineConfig<AotEnrollmentState, AotEnrollmentStatus>
+{
+    protected override void Configure()
+    {
+        State(AotEnrollmentStatus.AwaitingActivation)
+            .On<AotEnrollmentActivatedEvent>()
+            .StartsNew(
+                e => e.EnrollmentId,
+                (e, instanceId) => new AotEnrollmentState
+                {
+                    FlowId = instanceId,
+                    AccountId = e.AccountId
+                })
+            .Execute((state, @event) => state.LastPaymentReference = @event.PaymentReference)
+            .TransitionTo(AotEnrollmentStatus.Active);
+    }
+}

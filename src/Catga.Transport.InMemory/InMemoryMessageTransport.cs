@@ -208,6 +208,40 @@ public sealed class InMemoryMessageTransport(
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// InMemory RequestAsync: directly invokes the registered handler and captures the response
+    /// via a TaskCompletionSource, avoiding serialization overhead.
+    /// </summary>
+    public override async Task<TResponse?> RequestAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(
+        TMessage message,
+        string destination,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+        where TMessage : class
+        where TResponse : class
+    {
+        var tcs = new TaskCompletionSource<TResponse?>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // Register a one-shot reply handler
+        TypedSubscribers<TResponse>.AddHandler((reply, _) =>
+        {
+            tcs.TrySetResult(reply);
+            return Task.CompletedTask;
+        });
+
+        // Send the request (will invoke TMessage handlers which should publish TResponse)
+        await PublishAsync(message, new TransportContext { MessageType = TypeNameCache<TMessage>.Name }, cancellationToken);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(timeout);
+        cts.Token.Register(() => tcs.TrySetCanceled());
+
+        try { return await tcs.Task; }
+        catch (OperationCanceledException) { return null; }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static async Task ExecuteHandlersAsync<TMessage>(
         IReadOnlyList<Func<TMessage, TransportContext, Task>> handlers,

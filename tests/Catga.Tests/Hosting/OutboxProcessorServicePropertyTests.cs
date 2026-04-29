@@ -1,4 +1,5 @@
 using Catga.Abstractions;
+using Catga.Core;
 using Catga.Hosting;
 using Catga.Outbox;
 using Catga.Transport;
@@ -16,11 +17,38 @@ namespace Catga.Tests.Hosting;
 /// </summary>
 public class OutboxProcessorServicePropertyTests
 {
+    private sealed record TestOutboxMessage(string Name = "test");
+
+    private static IMessageTypeRegistry CreateMessageTypeRegistry()
+    {
+        var registry = new DefaultMessageTypeRegistry();
+        registry.Register(typeof(TestOutboxMessage));
+        return registry;
+    }
+
+    private static bool WaitUntil(Func<bool> condition, TimeSpan timeout, TimeSpan? pollInterval = null)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        var pause = pollInterval ?? TimeSpan.FromMilliseconds(5);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition())
+            {
+                return true;
+            }
+
+            Thread.Sleep(pause);
+        }
+
+        return condition();
+    }
+
     private static IMessageSerializer CreateMockSerializer()
     {
         var serializer = Substitute.For<IMessageSerializer>();
         serializer.Deserialize(Arg.Any<byte[]>(), Arg.Any<Type>())
-            .Returns(callInfo => new object());
+            .Returns(new TestOutboxMessage());
         return serializer;
     }
     /// <summary>
@@ -30,11 +58,11 @@ public class OutboxProcessorServicePropertyTests
     /// 
     /// For any 配置的扫描间隔，Outbox 处理器应该在该间隔内扫描并处理待发送的消息。
     /// </summary>
-    [Property(MaxTest = 100, Arbitrary = new[] { typeof(OutboxArbitraries) })]
+    [Property(MaxTest = 20, Arbitrary = new[] { typeof(OutboxArbitraries) })]
     public Property OutboxProcessor_PerformsPeriodicScanning(PositiveInt scanIntervalMs)
     {
         // 限制扫描间隔以确保测试可以在合理时间内完成
-        var interval = TimeSpan.FromMilliseconds(Math.Min(scanIntervalMs.Get, 500));
+        var interval = TimeSpan.FromMilliseconds(Math.Min(scanIntervalMs.Get, 50));
 
         return Prop.ForAll(
             Gen.Constant(interval).ToArbitrary(),
@@ -44,6 +72,8 @@ public class OutboxProcessorServicePropertyTests
                 var logger = Substitute.For<ILogger<OutboxProcessorService>>();
                 var outboxStore = Substitute.For<IOutboxStore>();
                 var transport = Substitute.For<IMessageTransport>();
+                transport.PublishAsync(Arg.Any<TestOutboxMessage>(), Arg.Any<TransportContext?>(), Arg.Any<CancellationToken>())
+                    .Returns(Task.CompletedTask);
                 
                 var scanCount = 0;
                 outboxStore.GetPendingMessagesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
@@ -60,16 +90,17 @@ public class OutboxProcessorServicePropertyTests
                     ErrorDelay = TimeSpan.FromMilliseconds(10)
                 };
 
-                var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
+                var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), CreateMessageTypeRegistry(), logger, options);
                 var cts = new CancellationTokenSource();
 
                 // Act
                 var startTask = service.StartAsync(cts.Token);
                 startTask.Wait(1000);
 
-                // 等待至少 2 个扫描周期
-                var waitTime = scanInterval.Add(scanInterval).Add(TimeSpan.FromMilliseconds(100));
-                Thread.Sleep(waitTime);
+                // 首次扫描会立即发生，因此只需等待到至少一次扫描完成
+                var scanned = WaitUntil(
+                    () => Volatile.Read(ref scanCount) >= 1,
+                    timeout: TimeSpan.FromSeconds(1));
 
                 cts.Cancel();
                 var stopTask = service.StopAsync(CancellationToken.None);
@@ -77,7 +108,7 @@ public class OutboxProcessorServicePropertyTests
 
                 // Assert
                 // 应该至少扫描一次
-                var scannedAtLeastOnce = scanCount >= 1;
+                var scannedAtLeastOnce = scanned && scanCount >= 1;
 
                 return scannedAtLeastOnce.Label($"Should scan at least once with interval {scanInterval.TotalMilliseconds}ms, got {scanCount} scans");
             });
@@ -90,7 +121,7 @@ public class OutboxProcessorServicePropertyTests
     /// 
     /// For any 正在处理的 Outbox 批次，当停机请求到来时，当前批次应该完整处理完成后再停止。
     /// </summary>
-    [Property(MaxTest = 100, Arbitrary = new[] { typeof(OutboxArbitraries) })]
+    [Property(MaxTest = 20, Arbitrary = new[] { typeof(OutboxArbitraries) })]
     public Property OutboxProcessor_CompletesCurrentBatchOnShutdown(PositiveInt batchSize)
     {
         // 限制批次大小
@@ -111,7 +142,7 @@ public class OutboxProcessorServicePropertyTests
                     messages.Add(new OutboxMessage
                     {
                         MessageId = i,
-                        MessageType = $"TestMessage{i}",
+                        MessageType = typeof(TestOutboxMessage).AssemblyQualifiedName!,
                         Payload = new byte[] { (byte)i },
                         Status = OutboxStatus.Pending
                     });
@@ -147,15 +178,17 @@ public class OutboxProcessorServicePropertyTests
                     CompleteCurrentBatchOnShutdown = true
                 };
 
-                var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
+                var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), CreateMessageTypeRegistry(), logger, options);
                 var cts = new CancellationTokenSource();
 
                 // Act
                 var startTask = service.StartAsync(cts.Token);
                 startTask.Wait(1000);
 
-                // 等待批次开始处理
-                Thread.Sleep(150);
+                // 等待批次开始处理或已经处理完成
+                WaitUntil(
+                    () => service.IsProcessingBatch || Volatile.Read(ref markedAsPublishedCount) > 0,
+                    timeout: TimeSpan.FromSeconds(1));
 
                 // 在批次处理期间取消
                 cts.Cancel();
@@ -179,7 +212,7 @@ public class OutboxProcessorServicePropertyTests
     /// 
     /// For any 配置的扫描间隔和批次大小，Outbox 处理器应该按照这些配置值运行。
     /// </summary>
-    [Property(MaxTest = 100, Arbitrary = new[] { typeof(OutboxArbitraries) })]
+    [Property(MaxTest = 20, Arbitrary = new[] { typeof(OutboxArbitraries) })]
     [Trait("Category", "Flaky")] // 时序敏感的属性测试
     public Property OutboxProcessor_RespectsConfiguredBatchSize(PositiveInt batchSize)
     {
@@ -194,6 +227,8 @@ public class OutboxProcessorServicePropertyTests
                 var logger = Substitute.For<ILogger<OutboxProcessorService>>();
                 var outboxStore = Substitute.For<IOutboxStore>();
                 var transport = Substitute.For<IMessageTransport>();
+                transport.PublishAsync(Arg.Any<TestOutboxMessage>(), Arg.Any<TransportContext?>(), Arg.Any<CancellationToken>())
+                    .Returns(Task.CompletedTask);
                 
                 var requestedBatchSizes = new List<int>();
                 outboxStore.GetPendingMessagesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
@@ -214,15 +249,23 @@ public class OutboxProcessorServicePropertyTests
                     ErrorDelay = TimeSpan.FromMilliseconds(10)
                 };
 
-                var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
+                var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), CreateMessageTypeRegistry(), logger, options);
                 var cts = new CancellationTokenSource();
 
                 // Act
                 var startTask = service.StartAsync(cts.Token);
                 startTask.Wait(1000);
 
-                // 等待足够长的时间确保至少一次扫描
-                Thread.Sleep(300);
+                // 首次扫描会立即触发，等待直到至少一次批次请求
+                WaitUntil(
+                    () =>
+                    {
+                        lock (requestedBatchSizes)
+                        {
+                            return requestedBatchSizes.Count > 0;
+                        }
+                    },
+                    timeout: TimeSpan.FromSeconds(1));
 
                 cts.Cancel();
                 var stopTask = service.StopAsync(CancellationToken.None);

@@ -508,6 +508,25 @@ public class CatgaServiceBuilderTests
         result.Should().BeSameAs(builder);
     }
 
+    [Fact]
+    public void UseDeadLetterQueue_ShouldRegisterDeadLetterBehavior()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        var builder = services.AddCatga();
+
+        // Act
+        builder.UseDeadLetterQueue();
+
+        // Assert
+        services.Should().Contain(sd =>
+            sd.ServiceType.IsGenericType &&
+            sd.ServiceType.GetGenericTypeDefinition().Name.Contains("IPipelineBehavior") &&
+            sd.ImplementationType != null &&
+            sd.ImplementationType.IsGenericType &&
+            sd.ImplementationType.GetGenericTypeDefinition().Name.Contains("DeadLetterBehavior"));
+    }
+
     #endregion
 
     #region WorkerId Configuration Tests
@@ -733,7 +752,6 @@ public class CatgaServiceBuilderTests
 
     #endregion
 }
-
 
 
 

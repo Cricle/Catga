@@ -118,6 +118,39 @@ public class CompetingConsumerTests
     }
 
     [Fact]
+    public async Task TryProcessNextAsync_WhileAnotherConsumerHoldsLock_DoesNotProcessDuplicate()
+    {
+        // Arrange
+        await _eventStore.AppendAsync("stream-1", [new TestEvent("a")]);
+        await _subscriptionStore.SaveAsync(new PersistentSubscription("test-sub", "*"));
+
+        var enteredHandler = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseHandler = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var blockingHandler = new BlockingHandler(enteredHandler, releaseHandler);
+        var waitingHandler = new CountingHandler();
+
+        var consumer1 = new CompetingConsumer(
+            _eventStore, _subscriptionStore, blockingHandler, "test-sub", "consumer-1");
+        var consumer2 = new CompetingConsumer(
+            _eventStore, _subscriptionStore, waitingHandler, "test-sub", "consumer-2");
+
+        var firstRun = consumer1.TryProcessNextAsync().AsTask();
+        await enteredHandler.Task;
+
+        // Act
+        var secondResult = await consumer2.TryProcessNextAsync();
+        releaseHandler.SetResult();
+        var firstResult = await firstRun;
+
+        // Assert
+        firstResult.Should().BeTrue();
+        secondResult.Should().BeFalse();
+        blockingHandler.ProcessedCount.Should().Be(1);
+        waitingHandler.ProcessedCount.Should().Be(0);
+    }
+
+    [Fact]
     public async Task TryProcessNextAsync_MatchesStreamPattern()
     {
         // Arrange
@@ -165,6 +198,18 @@ public class CompetingConsumerTests
             if (@event is TestEvent te)
                 Events.Add(te.Data);
             return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class BlockingHandler(TaskCompletionSource enteredHandler, TaskCompletionSource releaseHandler) : IEventHandler
+    {
+        public int ProcessedCount { get; private set; }
+
+        public async ValueTask HandleAsync(IEvent @event, CancellationToken ct = default)
+        {
+            ProcessedCount++;
+            enteredHandler.TrySetResult();
+            await releaseHandler.Task.WaitAsync(ct);
         }
     }
 

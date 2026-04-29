@@ -12,7 +12,7 @@ namespace Catga.Tests.Integration;
 /// 共享的Integration测试基础设施
 /// 所有Integration测试共享同一个Redis和NATS容器，大幅提升测试速度
 /// </summary>
-[CollectionDefinition("IntegrationTests")]
+[CollectionDefinition("IntegrationTests", DisableParallelization = true)]
 public class IntegrationTestsCollection : ICollectionFixture<SharedIntegrationFixture>
 {
 }
@@ -136,24 +136,12 @@ public class SharedIntegrationFixture : IAsyncLifetime
                 .Build();
 
             await _natsContainer.StartAsync();
-            
-            // 等待 NATS 完全启动
-            await Task.Delay(2000);
 
             var host = _natsContainer.Hostname;
             var port = _natsContainer.GetMappedPublicPort(4222);
             NatsConnectionString = $"nats://{host}:{port}";
 
-            var opts = new NatsOpts
-            {
-                Url = NatsConnectionString,
-                ConnectTimeout = TimeSpan.FromSeconds(10)
-            };
-
-            NatsConnection = new NatsConnection(opts);
-            await NatsConnection.ConnectAsync();
-
-            JetStreamContext = new NatsJSContext(NatsConnection);
+            await ConnectToNatsWithRetryAsync(NatsConnectionString);
 
             Console.WriteLine($"✓ NATS container started: {NatsConnectionString}");
         }
@@ -161,6 +149,43 @@ public class SharedIntegrationFixture : IAsyncLifetime
         {
             Console.WriteLine($"⚠ NATS container failed: {ex.Message}");
         }
+    }
+
+    private async Task ConnectToNatsWithRetryAsync(string connectionString)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(15);
+        Exception? lastError = null;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                var connection = new NatsConnection(new NatsOpts
+                {
+                    Url = connectionString,
+                    ConnectTimeout = TimeSpan.FromSeconds(2)
+                });
+
+                await connection.ConnectAsync();
+
+                NatsConnection = connection;
+                JetStreamContext = new NatsJSContext(connection);
+                return;
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+                if (NatsConnection != null)
+                {
+                    try { await NatsConnection.DisposeAsync(); } catch { }
+                    NatsConnection = null;
+                }
+
+                await Task.Delay(200);
+            }
+        }
+
+        throw new InvalidOperationException("Timed out waiting for NATS connection to become ready.", lastError);
     }
 
     public async Task DisposeAsync()
@@ -256,5 +281,65 @@ public class SharedIntegrationFixture : IAsyncLifetime
     public static string GenerateKeyPrefix(string testName)
     {
         return $"test:{testName}:{Guid.NewGuid():N}:";
+    }
+}
+
+public static class AsyncTestWait
+{
+    public static async Task WaitUntilAsync(
+        Func<Task<bool>> condition,
+        TimeSpan? timeout = null,
+        TimeSpan? pollInterval = null)
+    {
+        var waitTimeout = timeout ?? TimeSpan.FromSeconds(3);
+        var waitPollInterval = pollInterval ?? TimeSpan.FromMilliseconds(25);
+        var deadline = DateTime.UtcNow + waitTimeout;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            if (await condition())
+            {
+                return;
+            }
+
+            await Task.Delay(waitPollInterval);
+        }
+
+        if (await condition())
+        {
+            return;
+        }
+
+        throw new TimeoutException($"Condition was not satisfied within {waitTimeout}.");
+    }
+
+    public static async Task<T> WaitUntilAsync<T>(
+        Func<Task<T>> valueFactory,
+        Func<T, bool> predicate,
+        TimeSpan? timeout = null,
+        TimeSpan? pollInterval = null)
+    {
+        var waitTimeout = timeout ?? TimeSpan.FromSeconds(3);
+        var waitPollInterval = pollInterval ?? TimeSpan.FromMilliseconds(25);
+        var deadline = DateTime.UtcNow + waitTimeout;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            var value = await valueFactory();
+            if (predicate(value))
+            {
+                return value;
+            }
+
+            await Task.Delay(waitPollInterval);
+        }
+
+        var finalValue = await valueFactory();
+        if (predicate(finalValue))
+        {
+            return finalValue;
+        }
+
+        throw new TimeoutException($"Condition was not satisfied within {waitTimeout}.");
     }
 }

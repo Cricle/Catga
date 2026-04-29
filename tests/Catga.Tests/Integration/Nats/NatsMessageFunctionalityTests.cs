@@ -1,10 +1,9 @@
 using Catga.Abstractions;
 using Catga.Core;
 using Catga.Serialization.MemoryPack;
-using DotNet.Testcontainers.Builders;
-using DotNet.Testcontainers.Containers;
 using FluentAssertions;
 using MemoryPack;
+using Catga.Tests.Integration;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
@@ -20,77 +19,40 @@ namespace Catga.Tests.Integration.Nats;
 [Trait("Category", "Integration")]
 [Trait("Backend", "NATS")]
 [Trait("Requires", "Docker")]
-public partial class NatsMessageFunctionalityTests : IAsyncLifetime
+[Collection("IntegrationTests")]
+public partial class NatsMessageFunctionalityTests
 {
-    private IContainer? _natsContainer;
-    private NatsConnection? _natsConnection;
-    private INatsJSContext? _jetStream;
-    private IMessageSerializer? _serializer;
+    private readonly global::Catga.Tests.Integration.SharedIntegrationFixture _fixture;
+    private NatsConnection? _natsConnection => _fixture.NatsConnection;
+    private INatsJSContext? _jetStream => _fixture.JetStreamContext;
+    private readonly IMessageSerializer _serializer = new MemoryPackMessageSerializer();
 
-    public async Task InitializeAsync()
+    public NatsMessageFunctionalityTests(global::Catga.Tests.Integration.SharedIntegrationFixture fixture)
     {
-        if (!IsDockerRunning())
-        {
-            return;
-        }
-
-        var natsImage = Environment.GetEnvironmentVariable("TEST_NATS_IMAGE") ?? "nats:latest";
-        _natsContainer = new ContainerBuilder()
-            .WithImage(natsImage)
-            .WithPortBinding(4222, true)
-            .WithPortBinding(8222, true)
-            .WithCommand("-js", "-m", "8222")
-            .WithWaitStrategy(Wait.ForUnixContainer()
-                .UntilHttpRequestIsSucceeded(r => r
-                    .ForPort(8222)
-                    .ForPath("/varz")))
-            .Build();
-
-        await _natsContainer.StartAsync();
-        await Task.Delay(2000);
-
-        var port = _natsContainer.GetMappedPublicPort(4222);
-        var opts = new NatsOpts
-        {
-            Url = $"nats://localhost:{port}",
-            ConnectTimeout = TimeSpan.FromSeconds(10)
-        };
-
-        _natsConnection = new NatsConnection(opts);
-        await _natsConnection.ConnectAsync();
-        _jetStream = new NatsJSContext(_natsConnection);
-        _serializer = new MemoryPackMessageSerializer();
+        _fixture = fixture;
     }
 
-    public async Task DisposeAsync()
-    {
-        if (_natsConnection != null)
-            await _natsConnection.DisposeAsync();
-
-        if (_natsContainer != null)
-            await _natsContainer.DisposeAsync();
-    }
-
-    private static bool IsDockerRunning()
-    {
-        try
+    private ValueTask<INatsJSStream> CreateTestStreamAsync(string streamName)
+        => _jetStream!.CreateStreamAsync(new StreamConfig(streamName, [$"{streamName}.>"])
         {
-            var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "docker",
-                Arguments = "info",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            });
-            process?.WaitForExit(5000);
-            return process?.ExitCode == 0;
-        }
-        catch
+            Storage = StreamConfigStorage.Memory
+        });
+
+    private static async Task WaitForNoPendingAcksAsync(INatsJSStream stream, string consumerName, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+
+        while (DateTime.UtcNow < deadline)
         {
-            return false;
+            var consumer = await stream.GetConsumerAsync(consumerName);
+            if (consumer.Info.NumAckPending == 0)
+                return;
+
+            await Task.Delay(100);
         }
+
+        var finalConsumer = await stream.GetConsumerAsync(consumerName);
+        finalConsumer.Info.NumAckPending.Should().Be(0);
     }
 
     #region Durable Consumer
@@ -106,7 +68,7 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
 
         // Arrange
         var streamName = $"TEST_DURABLE_{Guid.NewGuid():N}";
-        var stream = await _jetStream.CreateStreamAsync(new StreamConfig(streamName, [$"{streamName}.>"]));
+        var stream = await CreateTestStreamAsync(streamName);
 
         // Publish messages FIRST
         for (int i = 1; i <= 5; i++)
@@ -118,8 +80,6 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
                 Data = $"message {i}"
             }));
         }
-
-        await Task.Delay(500);
 
         // Create durable consumer AFTER messages are published
         var consumerName = $"durable_{Guid.NewGuid():N}";
@@ -154,7 +114,7 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
             // Expected when we cancel
         }
 
-        await Task.Delay(1000); // Wait for ack to be processed
+        await Task.Delay(1000); // Allow durable consumer ack state to settle before reconnect
 
         // Reconnect with same durable name
         var reconnectedConsumer = await stream.GetConsumerAsync(consumerName);
@@ -201,7 +161,7 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
 
         // Arrange
         var streamName = $"TEST_STATE_{Guid.NewGuid():N}";
-        var stream = await _jetStream.CreateStreamAsync(new StreamConfig(streamName, [$"{streamName}.>"]));
+        var stream = await CreateTestStreamAsync(streamName);
 
         var durableName = $"state_{Guid.NewGuid():N}";
         var consumerConfig = new ConsumerConfig(durableName)
@@ -220,8 +180,6 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
             Data = "test data"
         }));
 
-        await Task.Delay(300);
-
         await foreach (var msg in consumer.ConsumeAsync<byte[]>().WithCancellation(new CancellationTokenSource(2000).Token))
         {
             await msg.AckAsync();
@@ -229,11 +187,7 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
         }
 
         // Act - Get consumer info
-        var consumerInfo = await stream.GetConsumerAsync(durableName);
-
-        // Assert
-        consumerInfo.Should().NotBeNull();
-        consumerInfo.Info.NumAckPending.Should().Be(0); // All messages acked
+        await WaitForNoPendingAcksAsync(stream, durableName, TimeSpan.FromSeconds(3));
     }
 
     #endregion
@@ -289,8 +243,6 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
             }
         });
 
-        await Task.Delay(500); // Allow subscriptions to be ready
-
         // Act - Publish 10 messages
         for (int i = 1; i <= 10; i++)
         {
@@ -300,7 +252,6 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
                 Id = $"queue-{i}",
                 Data = $"message {i}"
             }));
-            await Task.Delay(50);
         }
 
         await Task.WhenAny(
@@ -353,8 +304,6 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
             }
         });
 
-        await Task.Delay(500);
-
         // Act - Publish 5 messages
         for (int i = 1; i <= 5; i++)
         {
@@ -364,7 +313,6 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
                 Id = $"compare-{i}",
                 Data = $"message {i}"
             }));
-            await Task.Delay(50);
         }
 
         await Task.WhenAny(
@@ -392,7 +340,7 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
 
         // Arrange
         var streamName = $"TEST_SIZE_{Guid.NewGuid():N}";
-        var stream = await _jetStream.CreateStreamAsync(new StreamConfig(streamName, [$"{streamName}.>"]));
+        var stream = await CreateTestStreamAsync(streamName);
 
         // Act - Publish message with 128KB payload (reduced to account for serialization overhead)
         // NATS default max payload is 1MB, but serialization adds overhead
@@ -407,8 +355,6 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
         };
 
         await _jetStream.PublishAsync($"{streamName}.test", _serializer!.Serialize(largeEvent));
-
-        await Task.Delay(500);
 
         // Assert - Should be able to retrieve large message
         var consumerConfig = new ConsumerConfig($"consumer_{Guid.NewGuid():N}")
@@ -442,7 +388,7 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
 
         // Arrange
         var streamName = $"TEST_SMALL_{Guid.NewGuid():N}";
-        var stream = await _jetStream.CreateStreamAsync(new StreamConfig(streamName, [$"{streamName}.>"]));
+        var stream = await CreateTestStreamAsync(streamName);
 
         // Act - Publish small message
         var smallEvent = new TestEvent
@@ -453,8 +399,6 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
         };
 
         await _jetStream.PublishAsync($"{streamName}.test", _serializer!.Serialize(smallEvent));
-
-        await Task.Delay(300);
 
         // Assert
         var consumerConfig = new ConsumerConfig($"consumer_{Guid.NewGuid():N}")
@@ -492,7 +436,7 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
 
         // Arrange
         var streamName = $"TEST_ACK_{Guid.NewGuid():N}";
-        var stream = await _jetStream.CreateStreamAsync(new StreamConfig(streamName, [$"{streamName}.>"]));
+        var stream = await CreateTestStreamAsync(streamName);
 
         await _jetStream.PublishAsync($"{streamName}.test", _serializer!.Serialize(new TestEvent
         {
@@ -500,8 +444,6 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
             Id = "ack-test",
             Data = "test data"
         }));
-
-        await Task.Delay(300);
 
         var consumerConfig = new ConsumerConfig($"consumer_{Guid.NewGuid():N}")
         {
@@ -524,8 +466,7 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
         acked.Should().BeTrue();
 
         // Verify no pending acks
-        var consumerInfo = await stream.GetConsumerAsync(consumerConfig.Name!);
-        consumerInfo.Info.NumAckPending.Should().Be(0);
+        await WaitForNoPendingAcksAsync(stream, consumerConfig.Name!, TimeSpan.FromSeconds(3));
     }
 
     /// <summary>
@@ -539,7 +480,7 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
 
         // Arrange
         var streamName = $"TEST_NAK_{Guid.NewGuid():N}";
-        var stream = await _jetStream.CreateStreamAsync(new StreamConfig(streamName, [$"{streamName}.>"]));
+        var stream = await CreateTestStreamAsync(streamName);
 
         await _jetStream.PublishAsync($"{streamName}.test", _serializer!.Serialize(new TestEvent
         {
@@ -547,8 +488,6 @@ public partial class NatsMessageFunctionalityTests : IAsyncLifetime
             Id = "nak-test",
             Data = "test data"
         }));
-
-        await Task.Delay(300);
 
         var consumerConfig = new ConsumerConfig($"consumer_{Guid.NewGuid():N}")
         {

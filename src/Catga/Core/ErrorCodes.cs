@@ -1,95 +1,56 @@
 namespace Catga.Core;
 
-// ========== Error Codes ==========
-
 /// <summary>
-/// Catga core error codes - simple and focused
+/// Catga unified error codes. All error codes in the framework use these constants.
 /// </summary>
 public static class ErrorCodes
 {
-    /// <summary>Validation failed</summary>
-    public const string ValidationFailed = "VALIDATION_FAILED";
-
-    /// <summary>Handler execution failed</summary>
-    public const string HandlerFailed = "HANDLER_FAILED";
-
-    /// <summary>Pipeline execution failed</summary>
-    public const string PipelineFailed = "PIPELINE_FAILED";
-
-    /// <summary>Inbox/Outbox persistence failed</summary>
-    public const string PersistenceFailed = "PERSISTENCE_FAILED";
-
-    /// <summary>Failed to acquire lock</summary>
-    public const string LockFailed = "LOCK_FAILED";
-
-    /// <summary>Message transport failed</summary>
-    public const string TransportFailed = "TRANSPORT_FAILED";
-
-    /// <summary>Serialization/Deserialization failed</summary>
+    // ── Core ──────────────────────────────────────────────────────────────────
+    public const string ValidationFailed    = "VALIDATION_FAILED";
+    public const string HandlerFailed       = "HANDLER_FAILED";
+    public const string HandlerNotFound     = "HANDLER_NOT_FOUND";
+    public const string PipelineFailed      = "PIPELINE_FAILED";
+    public const string PersistenceFailed   = "PERSISTENCE_FAILED";
+    public const string LockFailed          = "LOCK_FAILED";
+    public const string TransportFailed     = "TRANSPORT_FAILED";
     public const string SerializationFailed = "SERIALIZATION_FAILED";
+    public const string Timeout             = "TIMEOUT";
+    public const string Cancelled           = "CANCELLED";
+    public const string InternalError       = "INTERNAL_ERROR";
 
-    /// <summary>Operation timeout</summary>
-    public const string Timeout = "TIMEOUT";
+    // ── HTTP / Domain ─────────────────────────────────────────────────────────
+    public const string NotFound            = "NOT_FOUND";
+    public const string Conflict            = "CONFLICT";
+    public const string Unauthorized        = "UNAUTHORIZED";
+    public const string Forbidden           = "FORBIDDEN";
 
-    /// <summary>Operation cancelled</summary>
-    public const string Cancelled = "CANCELLED";
-
-    /// <summary>Unknown/Internal error</summary>
-    public const string InternalError = "INTERNAL_ERROR";
+    // ── Flow DSL ──────────────────────────────────────────────────────────────
+    public const string FlowFailed          = "FLOW_FAILED";
+    public const string FlowCancelled       = "FLOW_CANCELLED";
+    public const string FlowTimeout         = "FLOW_TIMEOUT";
+    public const string FlowCompensating    = "FLOW_COMPENSATING";
 }
 
-// ========== Error Information ==========
-
 /// <summary>
-/// Error information - structured error without exception allocation
+/// Structured error information - zero-allocation struct.
 /// </summary>
 public readonly struct ErrorInfo
 {
-    // ========== Properties ==========
-
-    /// <summary>Error code (e.g., CATGA_1001)</summary>
     public required string Code { get; init; }
-
-    /// <summary>Human-readable error message</summary>
     public required string Message { get; init; }
-
-    /// <summary>Is this error retryable?</summary>
     public bool IsRetryable { get; init; }
-
-    /// <summary>Original exception (if any)</summary>
     public Exception? Exception { get; init; }
-
-    /// <summary>Additional context details</summary>
     public string? Details { get; init; }
 
-    // ========== Factory Methods ==========
-
-    /// <summary>Create error from exception</summary>
     public static ErrorInfo FromException(Exception ex, string? code = null, bool isRetryable = false)
-        => new()
-        {
-            Code = code ?? ErrorCodes.InternalError,
-            Message = ex.Message,
-            IsRetryable = isRetryable,
-            Exception = ex
-        };
+        => new() { Code = code ?? ErrorCodes.InternalError, Message = ex.Message, IsRetryable = isRetryable, Exception = ex };
 
-    /// <summary>Create validation error</summary>
     public static ErrorInfo Validation(string message, string? details = null)
-        => new()
-        {
-            Code = ErrorCodes.ValidationFailed,
-            Message = message,
-            IsRetryable = false,
-            Details = details
-        };
+        => new() { Code = ErrorCodes.ValidationFailed, Message = message, IsRetryable = false, Details = details };
 
-    /// <summary>Create timeout error</summary>
     public static ErrorInfo Timeout(string message)
-        => new()
-        {
-            Code = ErrorCodes.Timeout,
-            Message = message,
-            IsRetryable = true
-        };
+        => new() { Code = ErrorCodes.Timeout, Message = message, IsRetryable = true };
+
+    public static ErrorInfo NotFound(string message)
+        => new() { Code = ErrorCodes.NotFound, Message = message, IsRetryable = false };
 }

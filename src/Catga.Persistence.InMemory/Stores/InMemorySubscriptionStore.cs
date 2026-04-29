@@ -14,6 +14,12 @@ public sealed class InMemorySubscriptionStore : ISubscriptionStore
     public ValueTask DeleteAsync(string name, CancellationToken ct = default) { _subscriptions.TryRemove(name, out _); return ValueTask.CompletedTask; }
     public ValueTask<IReadOnlyList<PersistentSubscription>> ListAsync(CancellationToken ct = default) => ValueTask.FromResult<IReadOnlyList<PersistentSubscription>>([.. _subscriptions.Values]);
     public ValueTask<bool> TryAcquireLockAsync(string subscriptionName, string consumerId, CancellationToken ct = default) => ValueTask.FromResult(_locks.TryAdd(subscriptionName, consumerId));
-    public ValueTask ReleaseLockAsync(string subscriptionName, string consumerId, CancellationToken ct = default) { _locks.TryRemove(subscriptionName, out _); return ValueTask.CompletedTask; }
+    public ValueTask ReleaseLockAsync(string subscriptionName, string consumerId, CancellationToken ct = default)
+    {
+        if (_locks.TryGetValue(subscriptionName, out var owner) && owner == consumerId)
+            _locks.TryRemove(subscriptionName, out _);
+
+        return ValueTask.CompletedTask;
+    }
     public void Clear() { _subscriptions.Clear(); _locks.Clear(); }
 }

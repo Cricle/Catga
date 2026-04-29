@@ -1,6 +1,6 @@
 # Benchmark Results
 
-> BenchmarkDotNet v0.14.0, Windows 10, AMD Ryzen 7 5800H, .NET 9.0.8
+> Framework comparison section below reflects the latest run on 2026-04-29 with BenchmarkDotNet v0.14.0, Debian 12, Intel Xeon Platinum 8457C, .NET SDK 10.0.201, .NET Runtime 10.0.5.
 
 ## Framework Comparison (Catga vs MediatR vs MassTransit)
 
@@ -8,31 +8,31 @@
 
 | Framework | Mean | Allocated | Ratio |
 |-----------|------|-----------|-------|
-| **Catga** | 154 ns | 88 B | 1.00x |
-| MediatR | 122 ns | 352 B | 0.79x |
-| MassTransit | 28,912 ns | 12,800 B | 187.87x |
+| **Catga** | 232.4 ns | 88 B | 1.00x |
+| MediatR | 127.5 ns | 288 B | 0.55x |
+| MassTransit | 97,693.8 ns | 12,478 B | 420.64x |
 
 ### Event/Notification Performance
 
 | Framework | Mean | Allocated | Ratio |
 |-----------|------|-----------|-------|
-| **Catga** | 111 ns | 64 B | 1.00x |
-| MediatR | 137 ns | 288 B | 1.24x |
+| **Catga** | 112.3 ns | 64 B | 1.00x |
+| MediatR | 167.0 ns | 288 B | 1.49x |
 
 ### Batch 100 Commands
 
 | Framework | Mean | Allocated | Ratio |
 |-----------|------|-----------|-------|
-| **Catga** | 15.8 μs | 8,800 B | 1.00x |
-| MediatR | 12.2 μs | 35,200 B | 0.77x |
-| MassTransit | 2,399 μs | 1,255,459 B | 151.78x |
+| **Catga** | 18.64 μs | 8,800 B | 1.00x |
+| MediatR | 13.35 μs | 28,800 B | 0.72x |
+| MassTransit | 1,862.79 μs | 1,224,220 B | 99.97x |
 
 ### Key Insights
 
-- **Catga** has the lowest memory allocation (4x less than MediatR)
-- **MediatR** is slightly faster for single commands but allocates 4x more memory
-- **Catga** is faster for events/notifications
-- **MassTransit** is designed for distributed messaging, not in-process mediator (hence higher overhead)
+- **Catga** remains the lowest-allocation option in all measured framework-comparison scenarios
+- **MediatR** is faster for the single in-process command path, but with ~3.3x higher allocation than Catga
+- **Catga** is faster than MediatR for event publish and keeps allocation much lower
+- **MassTransit** is substantially heavier in this mediator/request-reply benchmark and should not be read as a broker round-trip benchmark
 
 ## Core CQRS Performance
 
@@ -48,23 +48,23 @@
 
 | Scenario | Latency | Throughput |
 |----------|---------|------------|
-| Single Command | 154 ns | **6.5M ops/sec** |
-| Single Event | 111 ns | **9.0M ops/sec** |
-| Batch 100 Commands | 15.8 μs | **6.3M ops/sec** |
+| Single Command | 232.4 ns | **4.3M ops/sec** |
+| Single Event | 112.3 ns | **8.9M ops/sec** |
+| Batch 100 Commands | 18.64 μs | **5.4M ops/sec** |
 
 ## Memory Efficiency
 
 | Framework | Command | Event | Batch 100 |
 |-----------|---------|-------|-----------|
 | **Catga** | 88 B | 64 B | 8,800 B |
-| MediatR | 352 B | 288 B | 35,200 B |
-| MassTransit | 12,800 B | - | 1,255,459 B |
+| MediatR | 288 B | 288 B | 28,800 B |
+| MassTransit | 12,478 B | - | 1,224,220 B |
 
 ## Run Benchmarks
 
 ```bash
 # Framework comparison
-dotnet run -c Release --project benchmarks/Catga.Benchmarks -- --filter *FrameworkComparison*
+dotnet run -c Release --framework net10.0 --project benchmarks/Catga.Benchmarks -- --filter *FrameworkComparison*
 
 # Core CQRS
 dotnet run -c Release --project benchmarks/Catga.Benchmarks -- --filter *Core*

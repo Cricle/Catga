@@ -71,7 +71,7 @@ public sealed class NatsJSDeadLetterQueue(INatsConnection connection, IMessageSe
                     ct);
 
                 var count = 0;
-                await foreach (var msg in consumer.FetchAsync<byte[]>(opts: new NatsJSFetchOpts { MaxMsgs = maxCount }, cancellationToken: ct))
+                await foreach (var msg in consumer.FetchNoWaitAsync<byte[]>(opts: new NatsJSFetchOpts { MaxMsgs = maxCount }, cancellationToken: ct))
                 {
                     if (count >= maxCount)
                         break;

@@ -12,12 +12,11 @@ using Catga.Persistence.Nats.Stores;
 using Catga.Persistence.Stores;
 using Catga.Resilience;
 using Catga.Serialization.MemoryPack;
-using DotNet.Testcontainers.Builders;
-using DotNet.Testcontainers.Containers;
 using FluentAssertions;
 using MemoryPack;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Catga.Tests.Integration;
 using NATS.Client.Core;
 
 namespace Catga.Tests.Integration.E2E;
@@ -26,36 +25,18 @@ namespace Catga.Tests.Integration.E2E;
 /// TDD-style E2E tests for NATS failover, recovery, and edge case scenarios.
 /// </summary>
 [Trait("Requires", "Docker")]
-public class NatsFailoverE2ETests : IAsyncLifetime
+[Collection("IntegrationTests")]
+public class NatsFailoverE2ETests
 {
-    private IContainer? _container;
-    private NatsConnection? _nats;
+    private readonly global::Catga.Tests.Integration.SharedIntegrationFixture _fixture;
+    private NatsConnection? _nats => _fixture.NatsConnection;
     private readonly IMessageSerializer _serializer = new MemoryPackMessageSerializer();
-    private readonly IResiliencePipelineProvider _provider = new DefaultResiliencePipelineProvider();
+    private readonly IMessageSerializer _jsonSerializer = new Catga.Tests.Helpers.TestMessageSerializer();
+    private readonly IResiliencePipelineProvider _provider = new DefaultResiliencePipelineProvider(new CatgaResilienceOptions { PersistenceTimeout = TimeSpan.FromMinutes(2), TransportTimeout = TimeSpan.FromSeconds(30) });
 
-    public async Task InitializeAsync()
+    public NatsFailoverE2ETests(global::Catga.Tests.Integration.SharedIntegrationFixture fixture)
     {
-        if (!IsDockerRunning()) return;
-
-        var image = ResolveImage("NATS_IMAGE", "nats:2.10-alpine");
-        _container = new ContainerBuilder()
-            .WithImage(image)
-            .WithPortBinding(4222, true)
-            .WithPortBinding(8222, true)
-            .WithCommand("-js", "-m", "8222")
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8222).ForPath("/varz")))
-            .Build();
-        await _container.StartAsync();
-
-        var port = _container.GetMappedPublicPort(4222);
-        _nats = new NatsConnection(new NatsOpts { Url = $"nats://localhost:{port}", ConnectTimeout = TimeSpan.FromSeconds(10) });
-        await _nats.ConnectAsync();
-    }
-
-    public async Task DisposeAsync()
-    {
-        if (_nats is not null) await _nats.DisposeAsync();
-        if (_container is not null) await _container.DisposeAsync();
+        _fixture = fixture;
     }
 
     #region Outbox Failover Tests
@@ -84,11 +65,12 @@ public class NatsFailoverE2ETests : IAsyncLifetime
             };
             await outbox.AddAsync(msg);
         }
-        await Task.Delay(200);
 
         // Simulate crash - create new outbox instance
         var recoveredOutbox = new NatsJSOutboxStore(_nats, _serializer, _provider, streamName);
-        var pending = await recoveredOutbox.GetPendingMessagesAsync(100);
+        var pending = await AsyncTestWait.WaitUntilAsync(
+            () => recoveredOutbox.GetPendingMessagesAsync(100).AsTask(),
+            messages => messages.Count == 5);
 
         pending.Should().HaveCount(5);
         foreach (var msgId in messageIds)
@@ -120,14 +102,14 @@ public class NatsFailoverE2ETests : IAsyncLifetime
             };
             await outbox.AddAsync(msg);
         }
-        await Task.Delay(200);
 
         // Partial publish - only first 2
         await outbox.MarkAsPublishedAsync(messageIds[0]);
         await outbox.MarkAsPublishedAsync(messageIds[1]);
-        await Task.Delay(100);
-
-        var pending = await outbox.GetPendingMessagesAsync(100);
+        var pending = await AsyncTestWait.WaitUntilAsync(
+            () => outbox.GetPendingMessagesAsync(100).AsTask(),
+            messages => messages.Count == 3
+                && messages.All(m => m.MessageId != messageIds[0] && m.MessageId != messageIds[1]));
 
         pending.Should().HaveCount(3);
         pending.Should().NotContain(m => m.MessageId == messageIds[0]);
@@ -148,11 +130,12 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         var messageId = MessageExtensions.NewMessageId();
 
         // First processor acquires lock with short duration
-        var locked = await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMilliseconds(100));
+        var lockDuration = TimeSpan.FromMilliseconds(100);
+        var locked = await inbox.TryLockMessageAsync(messageId, lockDuration);
         locked.Should().BeTrue();
 
         // Wait for lock to expire
-        await Task.Delay(200);
+        await Task.Delay(lockDuration + TimeSpan.FromMilliseconds(50));
 
         // Second processor should be able to acquire
         var reacquired = await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
@@ -194,7 +177,7 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         if (_nats is null) return;
 
         var bucket = $"flows_orphan_{Guid.NewGuid():N}";
-        var flowStore = new NatsFlowStore(_nats, _serializer, bucket);
+        var flowStore = new NatsFlowStore(_nats, _jsonSerializer, bucket);
         var flowId = $"orphan-flow-{Guid.NewGuid():N}";
 
         // Create flow with old heartbeat
@@ -224,7 +207,7 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         if (_nats is null) return;
 
         var bucket = $"flows_active_{Guid.NewGuid():N}";
-        var flowStore = new NatsFlowStore(_nats, _serializer, bucket);
+        var flowStore = new NatsFlowStore(_nats, _jsonSerializer, bucket);
         var flowId = $"active-flow-{Guid.NewGuid():N}";
 
         // Create flow with recent heartbeat
@@ -256,7 +239,7 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         if (_nats is null) return;
 
         var bucket = $"flows_hb_{Guid.NewGuid():N}";
-        var flowStore = new NatsFlowStore(_nats, _serializer, bucket);
+        var flowStore = new NatsFlowStore(_nats, _jsonSerializer, bucket);
         var flowId = $"hb-flow-{Guid.NewGuid():N}";
 
         var oldHeartbeat = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeMilliseconds();
@@ -291,7 +274,7 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         if (_nats is null) return;
 
         var bucket = $"dslflows_crash_{Guid.NewGuid():N}";
-        var dslFlowStore = new NatsDslFlowStore(_nats, _serializer, bucket);
+        var dslFlowStore = new NatsDslFlowStore(_nats, _jsonSerializer, bucket);
         var flowId = $"dsl-crash-{Guid.NewGuid():N}";
 
         // Create flow with state
@@ -308,7 +291,7 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         await dslFlowStore.CreateAsync(snapshot);
 
         // Simulate crash - create new store instance
-        var recoveredStore = new NatsDslFlowStore(_nats, _serializer, bucket);
+        var recoveredStore = new NatsDslFlowStore(_nats, _jsonSerializer, bucket);
         var recovered = await recoveredStore.GetAsync<NatsFailoverTestFlowState>(flowId);
 
         recovered.Should().NotBeNull();
@@ -323,7 +306,7 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         if (_nats is null) return;
 
         var bucket = $"dslflows_concurrent_{Guid.NewGuid():N}";
-        var dslFlowStore = new NatsDslFlowStore(_nats, _serializer, bucket);
+        var dslFlowStore = new NatsDslFlowStore(_nats, _jsonSerializer, bucket);
         var flowId = $"dsl-concurrent-{Guid.NewGuid():N}";
 
         var snapshot = FlowSnapshot<NatsFailoverTestFlowState>.Create(
@@ -348,8 +331,7 @@ public class NatsFailoverE2ETests : IAsyncLifetime
             {
                 var updated = current with
                 {
-                    State = new NatsFailoverTestFlowState { Counter = i },
-                    Version = current.Version + 1
+                    State = new NatsFailoverTestFlowState { Counter = i }
                 };
                 var result = await dslFlowStore.UpdateAsync(updated);
                 if (result) Interlocked.Increment(ref successCount);
@@ -372,7 +354,7 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         if (_nats is null) return;
 
         var streamName = $"IDEM_CONCURRENT_{Guid.NewGuid():N}";
-        var idempotency = new NatsJSIdempotencyStore(_nats, _serializer, _provider, streamName);
+        var idempotency = new NatsJSIdempotencyStore(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { IdempotencyStreamName = streamName }));
         var messageId = MessageExtensions.NewMessageId();
 
         var tasks = Enumerable.Range(0, 10).Select(async i =>
@@ -384,9 +366,10 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         });
 
         await Task.WhenAll(tasks);
-        await Task.Delay(200);
 
-        var processed = await idempotency.HasBeenProcessedAsync(messageId);
+        var processed = await AsyncTestWait.WaitUntilAsync(
+            () => idempotency.HasBeenProcessedAsync(messageId),
+            result => result);
         processed.Should().BeTrue();
     }
 
@@ -396,13 +379,14 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         if (_nats is null) return;
 
         var streamName = $"IDEM_CACHE_{Guid.NewGuid():N}";
-        var idempotency = new NatsJSIdempotencyStore(_nats, _serializer, _provider, streamName);
+        var idempotency = new NatsJSIdempotencyStore(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { IdempotencyStreamName = streamName }));
         var messageId = MessageExtensions.NewMessageId();
 
         await idempotency.MarkAsProcessedAsync(messageId, new NatsFailoverTestResult { Value = 99 });
-        await Task.Delay(200);
 
-        var result = await idempotency.GetCachedResultAsync<NatsFailoverTestResult>(messageId);
+        var result = await AsyncTestWait.WaitUntilAsync(
+            () => idempotency.GetCachedResultAsync<NatsFailoverTestResult>(messageId),
+            value => value?.Value == 99);
 
         result.Should().NotBeNull();
         result!.Value.Should().Be(99);
@@ -418,16 +402,17 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         if (_nats is null) return;
 
         var streamName = $"DLQ_MULTI_{Guid.NewGuid():N}";
-        var dlq = new NatsJSDeadLetterQueue(_nats, _serializer, _provider, streamName);
+        var dlq = new NatsJSDeadLetterQueue(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { DlqStreamName = streamName }));
         var messageId = MessageExtensions.NewMessageId();
         var message = new NatsFailoverTestMessage { MessageId = messageId, Data = "dlq-test" };
 
         await dlq.SendAsync(message, new Exception("Failure 1"), retryCount: 1);
         await dlq.SendAsync(message, new Exception("Failure 2"), retryCount: 2);
         await dlq.SendAsync(message, new Exception("Failure 3"), retryCount: 3);
-        await Task.Delay(200);
 
-        var failed = await dlq.GetFailedMessagesAsync(100);
+        var failed = await AsyncTestWait.WaitUntilAsync(
+            () => dlq.GetFailedMessagesAsync(100),
+            messages => messages.Any(m => m.MessageId == messageId));
 
         failed.Should().NotBeEmpty();
         failed.Should().Contain(m => m.MessageId == messageId);
@@ -439,15 +424,16 @@ public class NatsFailoverE2ETests : IAsyncLifetime
         if (_nats is null) return;
 
         var streamName = $"DLQ_RECOVER_{Guid.NewGuid():N}";
-        var dlq = new NatsJSDeadLetterQueue(_nats, _serializer, _provider, streamName);
+        var dlq = new NatsJSDeadLetterQueue(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { DlqStreamName = streamName }));
         var messageId = MessageExtensions.NewMessageId();
 
         await dlq.SendAsync(new NatsFailoverTestMessage { MessageId = messageId, Data = "persist" }, new Exception("Error"), retryCount: 1);
-        await Task.Delay(200);
 
         // Simulate restart - new instance
-        var recoveredDlq = new NatsJSDeadLetterQueue(_nats, _serializer, _provider, streamName);
-        var failed = await recoveredDlq.GetFailedMessagesAsync(100);
+        var recoveredDlq = new NatsJSDeadLetterQueue(_nats, _serializer, _provider, Microsoft.Extensions.Options.Options.Create(new Catga.Persistence.NatsJSStoreOptions { DlqStreamName = streamName }));
+        var failed = await AsyncTestWait.WaitUntilAsync(
+            () => recoveredDlq.GetFailedMessagesAsync(100),
+            messages => messages.Any(m => m.MessageId == messageId));
 
         failed.Should().Contain(m => m.MessageId == messageId);
     }
@@ -461,13 +447,13 @@ public class NatsFailoverE2ETests : IAsyncLifetime
     {
         if (_nats is null) return;
 
-        var snapshotStore = new NatsSnapshotStore(_nats, _serializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
+        var snapshotStore = new NatsSnapshotStore(_nats, _jsonSerializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
         var streamId = $"stream-{Guid.NewGuid():N}";
 
         await snapshotStore.SaveAsync(streamId, new NatsFailoverTestAggregate { Id = streamId, Counter = 100 }, version: 10);
 
         // Simulate crash - new instance
-        var recoveredStore = new NatsSnapshotStore(_nats, _serializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
+        var recoveredStore = new NatsSnapshotStore(_nats, _jsonSerializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
         var snapshot = await recoveredStore.LoadAsync<NatsFailoverTestAggregate>(streamId);
 
         snapshot.Should().NotBeNull();
@@ -480,7 +466,7 @@ public class NatsFailoverE2ETests : IAsyncLifetime
     {
         if (_nats is null) return;
 
-        var snapshotStore = new NatsSnapshotStore(_nats, _serializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
+        var snapshotStore = new NatsSnapshotStore(_nats, _jsonSerializer, Options.Create(new SnapshotOptions()), NullLogger<NatsSnapshotStore>.Instance);
         var streamId = $"stream-{Guid.NewGuid():N}";
 
         await snapshotStore.SaveAsync(streamId, new NatsFailoverTestAggregate { Id = streamId, Counter = 1 }, version: 1);
@@ -564,6 +550,3 @@ public partial class NatsFailoverTestAggregate
 }
 
 #endregion
-
-
-

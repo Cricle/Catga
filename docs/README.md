@@ -85,6 +85,7 @@
 | [配置指南](./articles/configuration.md) | 框架配置详解 |
 | [依赖注入](./guides/auto-di-registration.md) | Handler 自动注册 |
 | [错误处理](./guides/error-handling.md) | 异常处理和回滚 |
+| [MassTransit 迁移对照](./guides/masstransit-migration.md) | 对照表、评分、迁移建议 |
 | [Resilience (Polly)](./Resilience.md) | 弹性策略（重试/超时/断路/舱壁） |
 
 #### 高级功能
@@ -332,7 +333,7 @@ builder.Services.AddRedisTransport(o =>
 提示：
 
 - 未调用 `.WithTracing()` 时，不会创建 Activity，也不会注入/读取 `traceparent`/`tracestate`。
-- NATS 通过消息头传播 W3C 追踪；Redis 的头传播仅在 Streams 路径写入字段（Pub/Sub 无原生头）。
+- NATS 与 RabbitMQ 会通过消息头传播 `TransportContext.Metadata` 和 W3C 追踪；Redis 的头传播仅在 Streams 路径写入字段（Pub/Sub 无原生头）。
 
 #### 诊断规则
 
@@ -505,5 +506,3 @@ docs/
 Made with ❤️ by the Catga Team
 
 </div>
-
-

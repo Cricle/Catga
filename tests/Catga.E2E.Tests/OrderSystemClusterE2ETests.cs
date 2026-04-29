@@ -1,8 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
-using OrderSystem.Commands;
+using System.Text.Json.Serialization;
 using OrderSystem.Dtos;
 using OrderSystem.Models;
 using Xunit;
@@ -14,16 +13,22 @@ namespace Catga.E2E.Tests;
 /// E2E tests for OrderSystem in cluster mode.
 /// Tests all cluster features: leader election, request forwarding, health checks.
 /// </summary>
-public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFactory<Program>>, IDisposable
+[Collection("OrderSystem")]
+public sealed class OrderSystemClusterE2ETests : IDisposable
 {
-    private readonly WebApplicationFactory<Program> _factory;
     private readonly ITestOutputHelper _output;
     private readonly List<HttpClient> _clients = new();
-
-    public OrderSystemClusterE2ETests(WebApplicationFactory<Program> factory, ITestOutputHelper output)
+    private readonly JsonSerializerOptions _jsonOptions = new()
     {
-        _factory = factory;
+        PropertyNameCaseInsensitive = true
+    };
+    private readonly OrderSystemFixture _fixture;
+
+    public OrderSystemClusterE2ETests(OrderSystemFixture fixture, ITestOutputHelper output)
+    {
+        _fixture = fixture;
         _output = output;
+        _jsonOptions.Converters.Add(new JsonStringEnumConverter<OrderStatus>());
     }
 
     [Fact]
@@ -34,7 +39,7 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
 
         // Act
         var response = await client.GetAsync("/");
-        var info = await response.Content.ReadFromJsonAsync<SystemInfoResponse>();
+        var info = await ReadAsync<SystemInfoResponse>(response);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -105,7 +110,7 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
 
         // Act
         var response = await client.PostAsJsonAsync("/orders", request);
-        var result = await response.Content.ReadFromJsonAsync<OrderCreatedResult>();
+        var result = await ReadAsync<OrderCreatedResponse>(response);
 
         // Assert
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -127,11 +132,11 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
             Items: new List<OrderItem> { new("ITEM-003", "Product C", 1, 99.99m) }
         );
         var createResponse = await client.PostAsJsonAsync("/orders", createRequest);
-        var created = await createResponse.Content.ReadFromJsonAsync<OrderCreatedResult>();
+        var created = await ReadAsync<OrderCreatedResponse>(createResponse);
 
         // Act
         var response = await client.GetAsync($"/orders/{created!.OrderId}");
-        var order = await response.Content.ReadFromJsonAsync<Order>();
+        var order = await ReadAsync<Order>(response);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -171,7 +176,7 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
 
         // Act
         var response = await client.GetAsync("/orders");
-        var orders = await response.Content.ReadFromJsonAsync<List<Order>>();
+        var orders = await ReadAsync<List<Order>>(response);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -191,11 +196,11 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
             new List<OrderItem> { new("ITEM-PAY", "Product Pay", 1, 50m) }
         );
         var createResponse = await client.PostAsJsonAsync("/orders", createRequest);
-        var created = await createResponse.Content.ReadFromJsonAsync<OrderCreatedResult>();
+        var created = await ReadAsync<OrderCreatedResponse>(createResponse);
 
         // Act
         var response = await client.PostAsync($"/orders/{created!.OrderId}/pay", null);
-        var order = await response.Content.ReadFromJsonAsync<Order>();
+        var order = await ReadAsync<Order>(response);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -215,14 +220,14 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
             new List<OrderItem> { new("ITEM-SHIP", "Product Ship", 1, 75m) }
         );
         var createResponse = await client.PostAsJsonAsync("/orders", createRequest);
-        var created = await createResponse.Content.ReadFromJsonAsync<OrderCreatedResult>();
+        var created = await ReadAsync<OrderCreatedResponse>(createResponse);
 
         // Pay first
         await client.PostAsync($"/orders/{created!.OrderId}/pay", null);
 
         // Act
         var response = await client.PostAsync($"/orders/{created.OrderId}/ship", null);
-        var order = await response.Content.ReadFromJsonAsync<Order>();
+        var order = await ReadAsync<Order>(response);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -243,11 +248,11 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
             new List<OrderItem> { new("ITEM-CANCEL", "Product Cancel", 1, 25m) }
         );
         var createResponse = await client.PostAsJsonAsync("/orders", createRequest);
-        var created = await createResponse.Content.ReadFromJsonAsync<OrderCreatedResult>();
+        var created = await ReadAsync<OrderCreatedResponse>(createResponse);
 
         // Act
         var response = await client.PostAsync($"/orders/{created!.OrderId}/cancel", null);
-        var order = await response.Content.ReadFromJsonAsync<Order>();
+        var order = await ReadAsync<Order>(response);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -267,7 +272,7 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
             new List<OrderItem> { new("ITEM-HISTORY", "Product History", 1, 100m) }
         );
         var createResponse = await client.PostAsJsonAsync("/orders", createRequest);
-        var created = await createResponse.Content.ReadFromJsonAsync<OrderCreatedResult>();
+        var created = await ReadAsync<OrderCreatedResponse>(createResponse);
 
         // Perform some actions
         await client.PostAsync($"/orders/{created!.OrderId}/pay", null);
@@ -303,7 +308,7 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
 
         // Act
         var response = await client.GetAsync("/stats");
-        var stats = await response.Content.ReadFromJsonAsync<StatsResponse>();
+        var stats = await ReadAsync<StatsResponse>(response);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -332,7 +337,7 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
         // Act & Assert - Create
         _output.WriteLine("=== Step 1: Create Order ===");
         var createResponse = await client.PostAsJsonAsync("/orders", createRequest);
-        var created = await createResponse.Content.ReadFromJsonAsync<OrderCreatedResult>();
+        var created = await ReadAsync<OrderCreatedResponse>(createResponse);
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
         Assert.NotNull(created);
         _output.WriteLine($"Created: {created.OrderId}, Total: {created.Total:C}");
@@ -340,7 +345,7 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
         // Act & Assert - Get
         _output.WriteLine("\n=== Step 2: Get Order ===");
         var getResponse = await client.GetAsync($"/orders/{created.OrderId}");
-        var order = await getResponse.Content.ReadFromJsonAsync<Order>();
+        var order = await ReadAsync<Order>(getResponse);
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
         Assert.Equal(OrderStatus.Pending, order!.Status);
         _output.WriteLine($"Status: {order.Status}");
@@ -348,7 +353,7 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
         // Act & Assert - Pay
         _output.WriteLine("\n=== Step 3: Pay Order ===");
         var payResponse = await client.PostAsync($"/orders/{created.OrderId}/pay", null);
-        var paidOrder = await payResponse.Content.ReadFromJsonAsync<Order>();
+        var paidOrder = await ReadAsync<Order>(payResponse);
         Assert.Equal(HttpStatusCode.OK, payResponse.StatusCode);
         Assert.Equal(OrderStatus.Paid, paidOrder!.Status);
         _output.WriteLine($"Status: {paidOrder.Status}");
@@ -356,7 +361,7 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
         // Act & Assert - Ship
         _output.WriteLine("\n=== Step 4: Ship Order ===");
         var shipResponse = await client.PostAsync($"/orders/{created.OrderId}/ship", null);
-        var shippedOrder = await shipResponse.Content.ReadFromJsonAsync<Order>();
+        var shippedOrder = await ReadAsync<Order>(shipResponse);
         Assert.Equal(HttpStatusCode.OK, shipResponse.StatusCode);
         Assert.Equal(OrderStatus.Shipped, shippedOrder!.Status);
         Assert.NotNull(shippedOrder.TrackingNumber);
@@ -409,13 +414,27 @@ public sealed class OrderSystemClusterE2ETests : IClassFixture<WebApplicationFac
             new List<OrderItem> { new("ITEM", "Product", 1, amount) }
         );
         var response = await client.PostAsJsonAsync("/orders", request);
-        var result = await response.Content.ReadFromJsonAsync<OrderCreatedResult>();
+        var result = await ReadAsync<OrderCreatedResponse>(response);
         return result!.OrderId;
+    }
+
+    private async Task<T?> ReadAsync<T>(HttpResponseMessage response)
+    {
+        var body = await response.Content.ReadAsStringAsync();
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(body, _jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            throw new JsonException($"Failed to deserialize {typeof(T).Name} from body: {body}", ex);
+        }
     }
 
     private HttpClient CreateClient()
     {
-        var client = _factory.CreateClient();
+        var client = _fixture.CreateClient();
         _clients.Add(client);
         return client;
     }
@@ -445,4 +464,11 @@ public record StatsResponse(
     Dictionary<string, int> ByStatus,
     decimal TotalRevenue,
     DateTime Timestamp
+);
+
+public record OrderCreatedResponse(
+    string OrderId,
+    string CustomerId,
+    decimal Total,
+    DateTime CreatedAt
 );

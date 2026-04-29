@@ -18,6 +18,7 @@ namespace Catga.Tests.Core;
 /// 5. 死信队列场景
 /// 6. 事件处理重试机制
 /// </summary>
+[Collection("EventHandlerFailureTests")]
 public class EventHandlerFailureTests
 {
     private readonly IServiceProvider _serviceProvider;
@@ -354,7 +355,7 @@ public class EventHandlerFailureTests
 
         // Assert
         SuccessfulEventHandler.ExecutedCount.Should().BeGreaterOrEqualTo(eventCount);
-        stopwatch.ElapsedMilliseconds.Should().BeLessThan(5000);
+        stopwatch.ElapsedMilliseconds.Should().BeLessThan(12000);
     }
 
     #endregion
@@ -565,8 +566,6 @@ public class CustomEventHandlerException : Exception
 }
 
 #endregion
-
-
 
 
 

@@ -50,7 +50,7 @@ public class OrderSystemStressTests
                         CustomerId = $"stress-{workerId}-{i}",
                         Items = new[]
                         {
-                            new { ProductId = "STRESS-001", ProductName = "Stress Product", Quantity = 1, UnitPrice = 10.00m }
+                            new { ProductId = "STRESS-001", Name = "Stress Product", Quantity = 1, Price = 10.00m }
                         }
                     };
 
@@ -94,16 +94,16 @@ public class OrderSystemStressTests
     [Trait("Category", "Stress")]
     public async Task ConcurrentReadOperations_HighThroughput()
     {
-        // First create some orders
-        for (int i = 0; i < 5; i++)
+        // Seed a known order so the read path does not depend on global stats state
+        var createResponse = await _client.PostAsJsonAsync("/orders", new
         {
-            var request = new
-            {
-                CustomerId = $"read-test-{i}",
-                Items = new[] { new { ProductId = "READ-001", ProductName = "Read Product", Quantity = 1, UnitPrice = 10.00m } }
-            };
-            await _client.PostAsJsonAsync("/orders", request);
-        }
+            CustomerId = $"read-test-{Guid.NewGuid():N}",
+            Items = new[] { new { ProductId = "READ-001", Name = "Read Product", Quantity = 1, Price = 10.00m } }
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var created = await createResponse.Content.ReadFromJsonAsync<OrderCreatedResponse>(_jsonOptions);
+        Assert.NotNull(created);
 
         var concurrency = 5;
         var requestsPerWorker = 10;
@@ -117,7 +117,7 @@ public class OrderSystemStressTests
                 var reqSw = Stopwatch.StartNew();
                 try
                 {
-                    var response = await _client.GetAsync("/stats");
+                    var response = await _client.GetAsync($"/orders/{created!.OrderId}");
                     reqSw.Stop();
                     results.Add((response.IsSuccessStatusCode, reqSw.ElapsedMilliseconds));
                 }
@@ -176,7 +176,7 @@ public class OrderSystemStressTests
                         var request = new
                         {
                             CustomerId = $"mixed-{workerId}-{Guid.NewGuid():N}",
-                            Items = new[] { new { ProductId = "MIX-001", ProductName = "Mixed", Quantity = 1, UnitPrice = 10.00m } }
+                            Items = new[] { new { ProductId = "MIX-001", Name = "Mixed", Quantity = 1, Price = 10.00m } }
                         };
                         var response = await _client.PostAsJsonAsync("/orders", request, cts.Token);
                         reqSw.Stop();
@@ -234,7 +234,7 @@ public class OrderSystemStressTests
                     var createRequest = new
                     {
                         CustomerId = $"lifecycle-{workerId}-{i}",
-                        Items = new[] { new { ProductId = "LIFE-001", ProductName = "Lifecycle", Quantity = 1, UnitPrice = 100.00m } }
+                        Items = new[] { new { ProductId = "LIFE-001", Name = "Lifecycle", Quantity = 1, Price = 100.00m } }
                     };
                     var createResponse = await _client.PostAsJsonAsync("/orders", createRequest);
                     if (!createResponse.IsSuccessStatusCode) { results.Add((false, sw.ElapsedMilliseconds)); continue; }
@@ -291,7 +291,7 @@ public class OrderSystemStressTests
                 var request = new
                 {
                     CustomerId = $"burst-{i}",
-                    Items = new[] { new { ProductId = "BURST-001", ProductName = "Burst", Quantity = 1, UnitPrice = 10.00m } }
+                    Items = new[] { new { ProductId = "BURST-001", Name = "Burst", Quantity = 1, Price = 10.00m } }
                 };
                 var response = await _client.PostAsJsonAsync("/orders", request);
                 reqSw.Stop();
@@ -318,5 +318,5 @@ public class OrderSystemStressTests
         Assert.True(successRate >= 90, "Burst success rate should be at least 90%");
     }
 
-    private record OrderCreatedResponse(string OrderId, decimal TotalAmount, DateTime CreatedAt);
+    private record OrderCreatedResponse(string OrderId, decimal Total, DateTime CreatedAt);
 }

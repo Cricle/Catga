@@ -15,19 +15,23 @@ public static class CatgaResultExtensions
         var error = result.Error ?? "An error occurred";
         var errorCode = result.ErrorCode;
 
-        // Map Catga error codes to HTTP status codes
         return errorCode switch
         {
-            ErrorCodes.ValidationFailed => Results.UnprocessableEntity(new { error, errorCode }),
-            ErrorCodes.Timeout => Results.Problem(detail: error, statusCode: 408),
-            ErrorCodes.Cancelled => Results.Problem(detail: error, statusCode: 408),
-            ErrorCodes.HandlerFailed => Results.BadRequest(new { error, errorCode }),
-            ErrorCodes.PipelineFailed => Results.BadRequest(new { error, errorCode }),
-            ErrorCodes.PersistenceFailed => Results.Problem(detail: error, statusCode: 503),
-            ErrorCodes.LockFailed => Results.Problem(detail: error, statusCode: 503),
-            ErrorCodes.TransportFailed => Results.Problem(detail: error, statusCode: 503),
+            ErrorCodes.ValidationFailed    => Results.UnprocessableEntity(new { error, errorCode }),
+            ErrorCodes.Timeout             => Results.Problem(detail: error, statusCode: 408),
+            ErrorCodes.Cancelled           => Results.Problem(detail: error, statusCode: 408),
+            ErrorCodes.HandlerFailed       => Results.BadRequest(new { error, errorCode }),
+            ErrorCodes.HandlerNotFound     => Results.NotFound(new { error, errorCode }),
+            ErrorCodes.PipelineFailed      => Results.BadRequest(new { error, errorCode }),
+            ErrorCodes.PersistenceFailed   => Results.Problem(detail: error, statusCode: 503),
+            ErrorCodes.LockFailed          => Results.Problem(detail: error, statusCode: 503),
+            ErrorCodes.TransportFailed     => Results.Problem(detail: error, statusCode: 503),
             ErrorCodes.SerializationFailed => Results.BadRequest(new { error, errorCode }),
-            _ => Results.BadRequest(new { error, errorCode })
+            ErrorCodes.NotFound            => Results.NotFound(new { error, errorCode }),
+            ErrorCodes.Conflict            => Results.Conflict(new { error, errorCode }),
+            ErrorCodes.Unauthorized        => Results.Unauthorized(),
+            ErrorCodes.Forbidden           => Results.Forbid(),
+            _                              => Results.BadRequest(new { error, errorCode })
         };
     }
 
@@ -40,7 +44,7 @@ public static class CatgaResultExtensions
                 201 => Results.Created(string.Empty, result.Value),
                 202 => Results.Accepted(string.Empty, result.Value),
                 204 => Results.NoContent(),
-                _ => Results.StatusCode(successStatusCode)
+                _   => Results.StatusCode(successStatusCode)
             };
         }
         return result.ToHttpResult();
@@ -55,68 +59,33 @@ public static class CatgaResultExtensions
     }
 }
 
-/// <summary>CatgaResult factory extensions with HTTP status code hints</summary>
-/// <remarks>
-/// These are custom error codes outside the core Catga error codes.
-/// They map to HTTP status codes for ASP.NET Core convenience.
-/// </remarks>
+/// <summary>CatgaResult factory extensions for common HTTP/domain error scenarios</summary>
 public static class CatgaResultHttpExtensions
 {
-    // Custom HTTP error codes (not in core ErrorCodes)
-    public const string HttpNotFound = "HTTP_NOT_FOUND";
-    public const string HttpConflict = "HTTP_CONFLICT";
-    public const string HttpUnauthorized = "HTTP_UNAUTHORIZED";
-    public const string HttpForbidden = "HTTP_FORBIDDEN";
+    // Keep old constants as aliases for backward compatibility
+    [Obsolete("Use ErrorCodes.NotFound")] public const string HttpNotFound    = ErrorCodes.NotFound;
+    [Obsolete("Use ErrorCodes.Conflict")] public const string HttpConflict    = ErrorCodes.Conflict;
+    [Obsolete("Use ErrorCodes.Unauthorized")] public const string HttpUnauthorized = ErrorCodes.Unauthorized;
+    [Obsolete("Use ErrorCodes.Forbidden")] public const string HttpForbidden  = ErrorCodes.Forbidden;
 
     public static CatgaResult<T> NotFound<T>(string error)
-        => new() { IsSuccess = false, Error = error, ErrorCode = HttpNotFound };
+        => new() { IsSuccess = false, Error = error, ErrorCode = ErrorCodes.NotFound };
 
     public static CatgaResult<T> Conflict<T>(string error)
-        => new() { IsSuccess = false, Error = error, ErrorCode = HttpConflict };
+        => new() { IsSuccess = false, Error = error, ErrorCode = ErrorCodes.Conflict };
 
     public static CatgaResult<T> ValidationError<T>(string error)
         => new() { IsSuccess = false, Error = error, ErrorCode = ErrorCodes.ValidationFailed };
 
     public static CatgaResult<T> Unauthorized<T>(string error)
-        => new() { IsSuccess = false, Error = error, ErrorCode = HttpUnauthorized };
+        => new() { IsSuccess = false, Error = error, ErrorCode = ErrorCodes.Unauthorized };
 
     public static CatgaResult<T> Forbidden<T>(string error)
-        => new() { IsSuccess = false, Error = error, ErrorCode = HttpForbidden };
+        => new() { IsSuccess = false, Error = error, ErrorCode = ErrorCodes.Forbidden };
 }
 
-/// <summary>Extended HTTP result conversion with custom HTTP error codes</summary>
+/// <summary>Extended HTTP result conversion (delegates to ToHttpResult which now handles all codes)</summary>
 public static class CatgaResultHttpConversionExtensions
 {
-    public static IResult ToHttpResultEx<T>(this CatgaResult<T> result)
-    {
-        if (result.IsSuccess)
-            return result.Value is null ? Results.NoContent() : Results.Ok(result.Value);
-
-        var error = result.Error ?? "An error occurred";
-        var errorCode = result.ErrorCode;
-
-        // Map all error codes (core + HTTP custom) to HTTP status codes
-        return errorCode switch
-        {
-            // Custom HTTP error codes
-            CatgaResultHttpExtensions.HttpNotFound => Results.NotFound(new { error, errorCode }),
-            CatgaResultHttpExtensions.HttpConflict => Results.Conflict(new { error, errorCode }),
-            CatgaResultHttpExtensions.HttpUnauthorized => Results.Unauthorized(),
-            CatgaResultHttpExtensions.HttpForbidden => Results.Forbid(),
-
-            // Core Catga error codes
-            ErrorCodes.ValidationFailed => Results.UnprocessableEntity(new { error, errorCode }),
-            ErrorCodes.Timeout => Results.Problem(detail: error, statusCode: 408),
-            ErrorCodes.Cancelled => Results.Problem(detail: error, statusCode: 408),
-            ErrorCodes.HandlerFailed => Results.BadRequest(new { error, errorCode }),
-            ErrorCodes.PipelineFailed => Results.BadRequest(new { error, errorCode }),
-            ErrorCodes.PersistenceFailed => Results.Problem(detail: error, statusCode: 503),
-            ErrorCodes.LockFailed => Results.Problem(detail: error, statusCode: 503),
-            ErrorCodes.TransportFailed => Results.Problem(detail: error, statusCode: 503),
-            ErrorCodes.SerializationFailed => Results.BadRequest(new { error, errorCode }),
-
-            _ => Results.BadRequest(new { error, errorCode })
-        };
-    }
+    public static IResult ToHttpResultEx<T>(this CatgaResult<T> result) => result.ToHttpResult();
 }
-

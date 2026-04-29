@@ -1,5 +1,7 @@
 using Catga.Abstractions;
+using Catga.Core;
 using Catga.DependencyInjection;
+using Catga.Pipeline;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -18,6 +20,7 @@ public class CqrsE2ETests
         // Arrange
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
 
         services.AddSingleton<IRequestHandler<CreateOrderCommand, OrderResult>, CreateOrderHandler>();
@@ -28,12 +31,13 @@ public class CqrsE2ETests
         var command = new CreateOrderCommand("CUST-001", 199.99m);
 
         // Act
-        var result = await mediator.SendAsync(command);
+        var result = await mediator.SendAsync<CreateOrderCommand, OrderResult>(command);
 
         // Assert
-        result.Should().NotBeNull();
-        result.OrderId.Should().NotBeNullOrEmpty();
-        result.Status.Should().Be("Created");
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value!.OrderId.Should().NotBeNullOrEmpty();
+        result.Value.Status.Should().Be("Created");
     }
 
     [Fact]
@@ -42,6 +46,7 @@ public class CqrsE2ETests
         // Arrange
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
 
         services.AddSingleton<IRequestHandler<GetOrderQuery, OrderDto?>, GetOrderHandler>();
@@ -52,11 +57,12 @@ public class CqrsE2ETests
         var query = new GetOrderQuery("ORD-001");
 
         // Act
-        var result = await mediator.SendAsync(query);
+        var result = await mediator.SendAsync<GetOrderQuery, OrderDto?>(query);
 
         // Assert
-        result.Should().NotBeNull();
-        result!.OrderId.Should().Be("ORD-001");
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value!.OrderId.Should().Be("ORD-001");
     }
 
     [Fact]
@@ -66,6 +72,7 @@ public class CqrsE2ETests
         var handlerCallCount = 0;
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
 
         services.AddSingleton<IEventHandler<OrderCreatedEvent>>(new CountingEventHandler(() => Interlocked.Increment(ref handlerCallCount)));
@@ -90,6 +97,7 @@ public class CqrsE2ETests
         var behaviorExecuted = false;
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
 
         services.AddSingleton<IRequestHandler<CreateOrderCommand, OrderResult>, CreateOrderHandler>();
@@ -102,7 +110,7 @@ public class CqrsE2ETests
         var command = new CreateOrderCommand("CUST-001", 99.99m);
 
         // Act
-        await mediator.SendAsync(command);
+        await mediator.SendAsync<CreateOrderCommand, OrderResult>(command);
 
         // Assert
         behaviorExecuted.Should().BeTrue();
@@ -114,6 +122,7 @@ public class CqrsE2ETests
         // Arrange
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
 
         services.AddSingleton<IRequestHandler<CreateOrderCommand, OrderResult>, CreateOrderHandler>();
@@ -129,16 +138,16 @@ public class CqrsE2ETests
         };
 
         // Act
-        var results = new List<OrderResult>();
-        foreach (var command in commands)
-        {
-            var result = await mediator.SendAsync(command);
-            results.Add(result);
-        }
+        var results = await mediator.SendBatchAsync<CreateOrderCommand, OrderResult>(commands);
 
         // Assert
         results.Should().HaveCount(3);
-        results.Should().AllSatisfy(r => r.Status.Should().Be("Created"));
+        results.Should().AllSatisfy(r =>
+        {
+            r.IsSuccess.Should().BeTrue();
+            r.Value.Should().NotBeNull();
+            r.Value!.Status.Should().Be("Created");
+        });
     }
 
     [Fact]
@@ -147,6 +156,7 @@ public class CqrsE2ETests
         // Arrange
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
 
         services.AddSingleton<IRequestHandler<CreateOrderCommand, OrderResult>, CreateOrderHandler>();
@@ -157,11 +167,10 @@ public class CqrsE2ETests
 
         var invalidCommand = new CreateOrderCommand("", -100m); // Invalid: empty customer, negative amount
 
-        // Act & Assert
-        await Assert.ThrowsAsync<ValidationException>(async () =>
-        {
-            await mediator.SendAsync(invalidCommand);
-        });
+        var result = await mediator.SendAsync<CreateOrderCommand, OrderResult>(invalidCommand);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Contain("CustomerId");
     }
 
     [Fact]
@@ -171,6 +180,7 @@ public class CqrsE2ETests
         var executed = false;
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
 
         services.AddSingleton<IRequestHandler<DeleteOrderCommand>>(new DeleteOrderHandler(() => executed = true));
@@ -196,6 +206,7 @@ public class CqrsE2ETests
 
         var services = new ServiceCollection();
         services.AddCatga(opt => opt.ForDevelopment())
+            .UseMemoryPack()
             .UseInMemory();
 
         services.AddSingleton<IEventHandler<OrderCreatedEvent>>(new CountingEventHandler(() => orderCreatedHandled = true));
@@ -215,35 +226,32 @@ public class CqrsE2ETests
 
     #region Test Types
 
-    public record CreateOrderCommand(string CustomerId, decimal Amount) : IRequest<OrderResult>;
-    public record GetOrderQuery(string OrderId) : IRequest<OrderDto?>;
-    public record DeleteOrderCommand(string OrderId) : IRequest;
+    public record CreateOrderCommand(string CustomerId, decimal Amount) : IRequest<OrderResult>
+    {
+        public long MessageId { get; init; }
+    }
+
+    public record GetOrderQuery(string OrderId) : QueryBase<OrderDto?>;
+    public record DeleteOrderCommand(string OrderId) : CommandBase;
     public record OrderResult(string OrderId, string Status);
     public record OrderDto(string OrderId, string CustomerId, decimal Amount);
 
-    public record OrderCreatedEvent(string OrderId, string CustomerId, decimal Amount) : IEvent
-    {
-        public long MessageId { get; init; }
-    }
-
-    public record OrderShippedEvent(string OrderId, string TrackingNumber) : IEvent
-    {
-        public long MessageId { get; init; }
-    }
+    public record OrderCreatedEvent(string OrderId, string CustomerId, decimal Amount) : EventBase;
+    public record OrderShippedEvent(string OrderId, string TrackingNumber) : EventBase;
 
     public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderResult>
     {
-        public ValueTask<OrderResult> HandleAsync(CreateOrderCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<OrderResult>> HandleAsync(CreateOrderCommand request, CancellationToken ct = default)
         {
-            return ValueTask.FromResult(new OrderResult($"ORD-{Guid.NewGuid():N}"[..12], "Created"));
+            return ValueTask.FromResult(CatgaResult<OrderResult>.Success(new OrderResult($"ORD-{Guid.NewGuid():N}"[..12], "Created")));
         }
     }
 
     public class GetOrderHandler : IRequestHandler<GetOrderQuery, OrderDto?>
     {
-        public ValueTask<OrderDto?> HandleAsync(GetOrderQuery request, CancellationToken ct = default)
+        public ValueTask<CatgaResult<OrderDto?>> HandleAsync(GetOrderQuery request, CancellationToken ct = default)
         {
-            return ValueTask.FromResult<OrderDto?>(new OrderDto(request.OrderId, "CUST-001", 199.99m));
+            return ValueTask.FromResult(CatgaResult<OrderDto?>.Success(new OrderDto(request.OrderId, "CUST-001", 199.99m)));
         }
     }
 
@@ -252,10 +260,10 @@ public class CqrsE2ETests
         private readonly Action _onExecute;
         public DeleteOrderHandler(Action onExecute) => _onExecute = onExecute;
 
-        public ValueTask HandleAsync(DeleteOrderCommand request, CancellationToken ct = default)
+        public ValueTask<CatgaResult> HandleAsync(DeleteOrderCommand request, CancellationToken ct = default)
         {
             _onExecute();
-            return ValueTask.CompletedTask;
+            return ValueTask.FromResult(CatgaResult.Success());
         }
     }
 
@@ -289,7 +297,7 @@ public class CqrsE2ETests
         private readonly Action _onExecute;
         public TestBehavior(Action onExecute) => _onExecute = onExecute;
 
-        public async ValueTask<TResponse> HandleAsync(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken ct = default)
         {
             _onExecute();
             return await next();
@@ -298,20 +306,15 @@ public class CqrsE2ETests
 
     public class ValidationBehavior : IPipelineBehavior<CreateOrderCommand, OrderResult>
     {
-        public async ValueTask<OrderResult> HandleAsync(CreateOrderCommand request, RequestHandlerDelegate<OrderResult> next, CancellationToken ct = default)
+        public async ValueTask<CatgaResult<OrderResult>> HandleAsync(CreateOrderCommand request, PipelineDelegate<OrderResult> next, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(request.CustomerId))
-                throw new ValidationException("CustomerId is required");
+                return CatgaResult<OrderResult>.Failure("CustomerId is required");
             if (request.Amount <= 0)
-                throw new ValidationException("Amount must be positive");
+                return CatgaResult<OrderResult>.Failure("Amount must be positive");
 
             return await next();
         }
-    }
-
-    public class ValidationException : Exception
-    {
-        public ValidationException(string message) : base(message) { }
     }
 
     #endregion

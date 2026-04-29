@@ -21,6 +21,7 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
     private readonly IOutboxStore _persistence;
     private readonly IMessageTransport _transport;
     private readonly IMessageSerializer _serializer;
+    private readonly IMessageTypeRegistry _messageTypeRegistry;
     private readonly IDistributedIdGenerator _idGenerator;
     private readonly ILogger<OutboxBehavior<TRequest, TResponse>> _logger;
 
@@ -31,13 +32,15 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
         IDistributedIdGenerator idGenerator,
         IOutboxStore persistence,
         IMessageTransport transport,
-        IMessageSerializer serializer)
+        IMessageSerializer serializer,
+        IMessageTypeRegistry messageTypeRegistry)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _idGenerator = idGenerator ?? throw new ArgumentNullException(nameof(idGenerator));
         _persistence = persistence ?? throw new ArgumentNullException(nameof(persistence));
         _transport = transport ?? throw new ArgumentNullException(nameof(transport));
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
+        _messageTypeRegistry = messageTypeRegistry ?? throw new ArgumentNullException(nameof(messageTypeRegistry));
     }
 
     public async ValueTask<CatgaResult<TResponse>> HandleAsync(TRequest request, PipelineDelegate<TResponse> next, CancellationToken cancellationToken = default)
@@ -54,7 +57,7 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
             var outboxMessage = new OutboxMessage
             {
                 MessageId = messageId,
-                MessageType = TypeNameCache<TRequest>.FullName,
+                MessageType = _messageTypeRegistry.GetTypeName(typeof(TRequest)),
                 Payload = payload,
                 CreatedAt = DateTime.UtcNow,
                 Status = OutboxStatus.Pending,
@@ -106,4 +109,3 @@ public class OutboxBehavior<[System.Diagnostics.CodeAnalysis.DynamicallyAccessed
         }
     }
 }
-

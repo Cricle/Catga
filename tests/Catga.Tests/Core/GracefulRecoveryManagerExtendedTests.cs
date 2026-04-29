@@ -14,6 +14,24 @@ public class GracefulRecoveryManagerExtendedTests
     private readonly Mock<ILogger<GracefulRecoveryManager>> _loggerMock;
     private readonly GracefulRecoveryManager _manager;
 
+    private static bool WaitUntil(Func<bool> condition, TimeSpan timeout, TimeSpan? pollInterval = null)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        var pause = pollInterval ?? TimeSpan.FromMilliseconds(10);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition())
+            {
+                return true;
+            }
+
+            Thread.Sleep(pause);
+        }
+
+        return condition();
+    }
+
     public GracefulRecoveryManagerExtendedTests()
     {
         _loggerMock = new Mock<ILogger<GracefulRecoveryManager>>();
@@ -158,14 +176,19 @@ public class GracefulRecoveryManagerExtendedTests
         _manager.RegisterComponent(component);
 
         using var cts = new CancellationTokenSource();
-        cts.CancelAfter(300);
-
-        await _manager.StartAutoRecoveryAsync(
+        var autoRecoveryTask = _manager.StartAutoRecoveryAsync(
             TimeSpan.FromMilliseconds(50),
             maxRetries: 1,
             cts.Token);
 
-        // 组件应该被恢复至少一次
+        var recovered = WaitUntil(
+            () => component.RecoverCallCount > 0,
+            TimeSpan.FromSeconds(1));
+
+        cts.Cancel();
+        await autoRecoveryTask;
+
+        recovered.Should().BeTrue();
         component.RecoverCallCount.Should().BeGreaterThan(0);
     }
 
@@ -198,15 +221,20 @@ public class GracefulRecoveryManagerExtendedTests
         _manager.RegisterComponent(component);
 
         using var cts = new CancellationTokenSource();
-        cts.CancelAfter(600);
-
-        await _manager.StartAutoRecoveryAsync(
-            TimeSpan.FromMilliseconds(50),
+        var autoRecoveryTask = _manager.StartAutoRecoveryAsync(
+            TimeSpan.FromMilliseconds(10),
             maxRetries: 3,
             cts.Token);
 
-        // 由于组件持续不健康且恢复失败，应该有多次重试
-        component.RecoverCallCount.Should().BeGreaterThanOrEqualTo(1);
+        var retried = WaitUntil(
+            () => component.RecoverCallCount >= 2,
+            TimeSpan.FromSeconds(3));
+
+        cts.Cancel();
+        await autoRecoveryTask;
+
+        retried.Should().BeTrue();
+        component.RecoverCallCount.Should().BeGreaterThanOrEqualTo(2);
     }
 
     [Fact]

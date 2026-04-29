@@ -87,7 +87,7 @@ public class NatsContainerFixture : IAsyncLifetime
 /// <summary>
 /// NATS 属性测试集合定义
 /// </summary>
-[CollectionDefinition("NatsPropertyTests")]
+[CollectionDefinition("NatsPropertyTests", DisableParallelization = true)]
 public class NatsPropertyTestsCollection : ICollectionFixture<NatsContainerFixture>
 {
 }
@@ -129,6 +129,30 @@ public class NatsEventStorePropertyTests
             options: null);
     }
 
+    private static T WaitUntil<T>(Func<T> valueFactory, Func<T, bool> predicate, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            var value = valueFactory();
+            if (predicate(value))
+            {
+                return value;
+            }
+
+            Thread.Sleep(25);
+        }
+
+        var finalValue = valueFactory();
+        if (predicate(finalValue))
+        {
+            return finalValue;
+        }
+
+        throw new TimeoutException($"Condition was not satisfied within {timeout}.");
+    }
+
     /// <summary>
     /// Property 1: EventStore Round-Trip Consistency (NATS)
     /// 
@@ -138,7 +162,7 @@ public class NatsEventStorePropertyTests
     /// 
     /// **Validates: Requirements 13.15**
     /// </summary>
-    [Property(MaxTest = PropertyTestConfig.QuickMaxTest, Skip = "Requires Docker")]
+    [Property(MaxTest = PropertyTestConfig.QuickMaxTest)]
     public Property NATS_EventStore_RoundTrip_PreservesAllEventData()
     {
         if (_fixture.NatsConnection == null)
@@ -156,10 +180,10 @@ public class NatsEventStorePropertyTests
                 // Arrange & Act
                 store.AppendAsync(streamId, events).AsTask().GetAwaiter().GetResult();
 
-                // Wait for JetStream to persist
-                Task.Delay(500).GetAwaiter().GetResult();
-
-                var result = store.ReadAsync(streamId).AsTask().GetAwaiter().GetResult();
+                var result = WaitUntil(
+                    () => store.ReadAsync(streamId).AsTask().GetAwaiter().GetResult(),
+                    stream => stream.Events.Count == events.Count,
+                    timeout: TimeSpan.FromSeconds(1));
 
                 // Assert - Verify round-trip consistency
                 var loadedEvents = result.Events;
@@ -226,7 +250,7 @@ public class NatsEventStorePropertyTests
     /// 
     /// **Validates: Requirements 13.15**
     /// </summary>
-    [Property(MaxTest = PropertyTestConfig.QuickMaxTest, Skip = "Requires Docker")]
+    [Property(MaxTest = PropertyTestConfig.QuickMaxTest)]
     public Property NATS_EventStore_Version_EqualsEventCountMinusOne()
     {
         if (_fixture.NatsConnection == null)
@@ -244,10 +268,10 @@ public class NatsEventStorePropertyTests
                 // Arrange & Act
                 store.AppendAsync(streamId, events).AsTask().GetAwaiter().GetResult();
 
-                // Wait for JetStream to persist
-                Task.Delay(500).GetAwaiter().GetResult();
-
-                var version = store.GetVersionAsync(streamId).AsTask().GetAwaiter().GetResult();
+                var version = WaitUntil(
+                    () => store.GetVersionAsync(streamId).AsTask().GetAwaiter().GetResult(),
+                    value => value == events.Count - 1,
+                    timeout: TimeSpan.FromSeconds(1));
 
                 // Assert - Version should equal event count minus 1 (0-based indexing)
                 return version == events.Count - 1;
@@ -262,7 +286,7 @@ public class NatsEventStorePropertyTests
     /// 
     /// **Validates: Requirements 13.15**
     /// </summary>
-    [Property(MaxTest = PropertyTestConfig.QuickMaxTest, Skip = "Requires Docker")]
+    [Property(MaxTest = PropertyTestConfig.QuickMaxTest)]
     public Property NATS_EventStore_Read_PreservesAppendOrder()
     {
         if (_fixture.NatsConnection == null)
@@ -280,10 +304,10 @@ public class NatsEventStorePropertyTests
                 // Arrange & Act
                 store.AppendAsync(streamId, events).AsTask().GetAwaiter().GetResult();
 
-                // Wait for JetStream to persist
-                Task.Delay(500).GetAwaiter().GetResult();
-
-                var result = store.ReadAsync(streamId).AsTask().GetAwaiter().GetResult();
+                var result = WaitUntil(
+                    () => store.ReadAsync(streamId).AsTask().GetAwaiter().GetResult(),
+                    stream => stream.Events.Count == events.Count,
+                    timeout: TimeSpan.FromSeconds(1));
 
                 // Assert - Verify ordering is preserved
                 var loadedEvents = result.Events;
@@ -337,6 +361,30 @@ public class NatsSnapshotStorePropertyTests
             logger);
     }
 
+    private static T WaitUntil<T>(Func<T> valueFactory, Func<T, bool> predicate, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            var value = valueFactory();
+            if (predicate(value))
+            {
+                return value;
+            }
+
+            Thread.Sleep(25);
+        }
+
+        var finalValue = valueFactory();
+        if (predicate(finalValue))
+        {
+            return finalValue;
+        }
+
+        throw new TimeoutException($"Condition was not satisfied within {timeout}.");
+    }
+
     /// <summary>
     /// Property 5: SnapshotStore Round-Trip Consistency (NATS)
     /// 
@@ -345,7 +393,7 @@ public class NatsSnapshotStorePropertyTests
     /// 
     /// **Validates: Requirements 14.11**
     /// </summary>
-    [Property(MaxTest = PropertyTestConfig.QuickMaxTest, Skip = "Requires Docker")]
+    [Property(MaxTest = PropertyTestConfig.QuickMaxTest)]
     public Property NATS_SnapshotStore_RoundTrip_PreservesAllData()
     {
         if (_fixture.NatsConnection == null)
@@ -363,10 +411,10 @@ public class NatsSnapshotStorePropertyTests
                 // Arrange & Act
                 store.SaveAsync(aggregateId, snapshot, version).AsTask().GetAwaiter().GetResult();
 
-                // Wait for KV Store to persist
-                Task.Delay(500).GetAwaiter().GetResult();
-
-                var loaded = store.LoadAsync<TestSnapshot>(aggregateId).AsTask().GetAwaiter().GetResult();
+                var loaded = WaitUntil(
+                    () => store.LoadAsync<TestSnapshot>(aggregateId).AsTask().GetAwaiter().GetResult(),
+                    value => value is not null && value.Value.Version == version,
+                    timeout: TimeSpan.FromSeconds(1));
 
                 // Assert
                 if (loaded == null) return false;
@@ -386,7 +434,7 @@ public class NatsSnapshotStorePropertyTests
     /// 
     /// **Validates: Requirements 14.11**
     /// </summary>
-    [Property(MaxTest = PropertyTestConfig.QuickMaxTest, Skip = "Requires Docker")]
+    [Property(MaxTest = PropertyTestConfig.QuickMaxTest)]
     public Property NATS_SnapshotStore_Load_ReturnsLatestVersion()
     {
         if (_fixture.NatsConnection == null)
@@ -404,16 +452,13 @@ public class NatsSnapshotStorePropertyTests
                 // Arrange - Save two versions
                 store.SaveAsync(aggregateId, snapshot1, 1).AsTask().GetAwaiter().GetResult();
 
-                // Wait for KV Store to persist
-                Task.Delay(300).GetAwaiter().GetResult();
-
                 store.SaveAsync(aggregateId, snapshot2, 2).AsTask().GetAwaiter().GetResult();
 
-                // Wait for KV Store to persist
-                Task.Delay(300).GetAwaiter().GetResult();
-
                 // Act
-                var loaded = store.LoadAsync<TestSnapshot>(aggregateId).AsTask().GetAwaiter().GetResult();
+                var loaded = WaitUntil(
+                    () => store.LoadAsync<TestSnapshot>(aggregateId).AsTask().GetAwaiter().GetResult(),
+                    value => value is not null && value.Value.Version == 2,
+                    timeout: TimeSpan.FromSeconds(1));
 
                 // Assert - Should return the latest version (version 2)
                 if (loaded == null) return false;

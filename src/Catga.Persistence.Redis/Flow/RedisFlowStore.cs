@@ -82,18 +82,19 @@ public sealed class RedisFlowStore : IFlowStore
         var db = _redis.GetDatabase();
         var key = _prefix + state.Id;
         var typeKey = _prefix + "type:" + state.Type;
+        var initialState = CloneState(state, version: 0);
 
         var result = await db.ScriptEvaluateAsync(CreateScript,
             [key, typeKey],
             [
-                state.Type,
-                ((int)state.Status).ToString(),
-                state.Step.ToString(),
-                state.Version.ToString(),
-                state.Owner ?? "",
-                state.HeartbeatAt.ToString(),
-                state.Data != null ? Convert.ToBase64String(state.Data) : "",
-                state.Error ?? ""
+                initialState.Type,
+                ((int)initialState.Status).ToString(),
+                initialState.Step.ToString(),
+                initialState.Version.ToString(),
+                initialState.Owner ?? "",
+                initialState.HeartbeatAt.ToString(),
+                initialState.Data != null ? Convert.ToBase64String(initialState.Data) : "",
+                initialState.Error ?? ""
             ]);
 
         return (long)result! == 1;
@@ -190,4 +191,18 @@ public sealed class RedisFlowStore : IFlowStore
 
         return (long)result! == 1;
     }
+
+    private static FlowState CloneState(FlowState source, long? version = null)
+        => new()
+        {
+            Id = source.Id,
+            Type = source.Type,
+            Status = source.Status,
+            Step = source.Step,
+            Version = version ?? source.Version,
+            Owner = source.Owner,
+            HeartbeatAt = source.HeartbeatAt,
+            Data = source.Data?.ToArray(),
+            Error = source.Error
+        };
 }

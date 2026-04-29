@@ -78,6 +78,11 @@ public sealed class RedisTransportOptions
     public int MaxQueueLength { get; set; } = 10000;
 
     /// <summary>
+    /// Default timeout used by request clients when no explicit timeout is provided.
+    /// </summary>
+    public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// Whether to register the connection pool in DI
     /// </summary>
     public bool RegistConnection { get; set; } = true;
@@ -97,4 +102,3 @@ public sealed class RedisTransportOptions
     /// </summary>
     public ConnectionSelectionStrategy SelectionStrategy { get; set; } = ConnectionSelectionStrategy.RoundRobin;
 }
-

@@ -2,6 +2,7 @@ using Catga.DeadLetter;
 using Catga.EventSourcing;
 using Catga.Flow;
 using Catga.Flow.Dsl;
+using Catga.Flow.Persistence;
 using Catga.Idempotency;
 using Catga.Inbox;
 using Catga.Outbox;
@@ -16,12 +17,12 @@ namespace Catga.Tests.Persistence;
 public class PersistenceBuilderTests
 {
     private readonly IServiceCollection _services;
-    private readonly IPersistenceProvider _provider;
+    private readonly IFlowPersistenceProvider _provider;
 
     public PersistenceBuilderTests()
     {
         _services = new ServiceCollection();
-        _provider = Substitute.For<IPersistenceProvider>();
+        _provider = Substitute.For<IFlowPersistenceProvider>();
         _provider.Name.Returns("TestProvider");
     }
 
@@ -159,7 +160,6 @@ public class PersistenceBuilderTests
     [Fact]
     public void AddAll_RegistersAllAvailableStores()
     {
-        var dslFlowStore = Substitute.For<IDslFlowStore>();
         var outboxStore = Substitute.For<IOutboxStore>();
         var inboxStore = Substitute.For<IInboxStore>();
         var eventStore = Substitute.For<IEventStore>();
@@ -167,10 +167,8 @@ public class PersistenceBuilderTests
         var dlq = Substitute.For<IDeadLetterQueue>();
         var snapshotStore = Substitute.For<ISnapshotStore>();
         var lockProvider = Substitute.For<IDistributedLockProvider>();
-        var flowStore = Substitute.For<IFlowStore>();
         var checkpointStore = Substitute.For<IProjectionCheckpointStore>();
 
-        _provider.CreateDslFlowStore().Returns(dslFlowStore);
         _provider.CreateOutboxStore().Returns(outboxStore);
         _provider.CreateInboxStore().Returns(inboxStore);
         _provider.CreateEventStore().Returns(eventStore);
@@ -178,13 +176,11 @@ public class PersistenceBuilderTests
         _provider.CreateDeadLetterQueue().Returns(dlq);
         _provider.CreateSnapshotStore().Returns(snapshotStore);
         _provider.CreateDistributedLockProvider().Returns(lockProvider);
-        _provider.CreateFlowStore().Returns(flowStore);
         _provider.CreateProjectionCheckpointStore().Returns(checkpointStore);
 
         _services.AddPersistence(_provider).AddAll();
 
         var sp = _services.BuildServiceProvider();
-        sp.GetService<IDslFlowStore>().Should().Be(dslFlowStore);
         sp.GetService<IOutboxStore>().Should().Be(outboxStore);
         sp.GetService<IInboxStore>().Should().Be(inboxStore);
         sp.GetService<IEventStore>().Should().Be(eventStore);
@@ -192,7 +188,6 @@ public class PersistenceBuilderTests
         sp.GetService<IDeadLetterQueue>().Should().Be(dlq);
         sp.GetService<ISnapshotStore>().Should().Be(snapshotStore);
         sp.GetService<IDistributedLockProvider>().Should().Be(lockProvider);
-        sp.GetService<IFlowStore>().Should().Be(flowStore);
         sp.GetService<IProjectionCheckpointStore>().Should().Be(checkpointStore);
     }
 
@@ -200,13 +195,7 @@ public class PersistenceBuilderTests
     public void FluentChaining_ReturnsBuilder()
     {
         var builder = _services.AddPersistence(_provider);
-
-        var result = builder
-            .AddDslFlowStore()
-            .AddOutbox()
-            .AddInbox()
-            .AddEventStore();
-
+        var result = builder.AddDslFlowStore().AddOutbox().AddInbox().AddEventStore();
         result.Should().BeSameAs(builder);
     }
 
@@ -216,9 +205,7 @@ public class PersistenceBuilderTests
         var store = Substitute.For<IDslFlowStore>();
         _provider.CreateDslFlowStore().Returns(store);
 
-        _services.AddPersistence(_provider)
-            .AddDslFlowStore()
-            .AddDslFlowStore();
+        _services.AddPersistence(_provider).AddDslFlowStore().AddDslFlowStore();
 
         _services.Count(s => s.ServiceType == typeof(IDslFlowStore)).Should().Be(1);
     }

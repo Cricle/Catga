@@ -4,6 +4,7 @@ using Xunit;
 using NSubstitute;
 using Catga.Abstractions;
 using Catga.Core;
+using Catga.Tests.Helpers;
 
 namespace Catga.Tests.Flow.TDD;
 
@@ -231,7 +232,7 @@ public class ParallelRecoveryTests
         result.Error.Should().Contain("timeout", "error should indicate timeout occurred");
     }
 
-    [Theory]
+    [SkippableTheory]
     [InlineData("InMemory")]
     [InlineData("Redis")]
     [InlineData("Nats")]
@@ -239,8 +240,8 @@ public class ParallelRecoveryTests
     {
         // Arrange
         var mediator = Substitute.For<ICatgaMediator>();
-        var store = CreateStore(storeType);
-        var config = new TestWhenAllFlow();
+        var store = await DistributedDslFlowStoreFactory.CreateAsync(storeType);
+        var config = new PersistedWhenAllFlow();
 
         var state = new TestParallelState
         {
@@ -253,14 +254,10 @@ public class ParallelRecoveryTests
             .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
         mediator.SendAsync(Arg.Any<WhenAllTask2Command>(), Arg.Any<CancellationToken>())
             .Returns(new ValueTask<CatgaResult>(CatgaResult.Success()));
-        mediator.SendAsync(Arg.Any<AllCompletedCommand>(), Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                state.AllCompleted = true;
-                return new ValueTask<CatgaResult>(CatgaResult.Success());
-            });
+        mediator.SendAsync<MarkAllCompletedQuery, bool>(Arg.Any<MarkAllCompletedQuery>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<CatgaResult<bool>>(CatgaResult<bool>.Success(true)));
 
-        var executor = new DslFlowExecutor<TestParallelState, TestWhenAllFlow>(mediator, store, config);
+        var executor = new DslFlowExecutor<TestParallelState, PersistedWhenAllFlow>(mediator, store, config);
 
         // Create suspended snapshot
         var waitCondition = new WaitCondition
@@ -301,16 +298,6 @@ public class ParallelRecoveryTests
         result.State.AllCompleted.Should().BeTrue($"WhenAll should complete in {storeType}");
     }
 
-    private static IDslFlowStore CreateStore(string storeType)
-    {
-        return storeType switch
-        {
-            "InMemory" => TestStoreExtensions.CreateTestFlowStore(),
-            "Redis" => TestStoreExtensions.CreateTestFlowStore(), // TODO: Replace with actual Redis store
-            "Nats" => TestStoreExtensions.CreateTestFlowStore(),  // TODO: Replace with actual NATS store
-            _ => throw new ArgumentException($"Unknown store type: {storeType}")
-        };
-    }
 }
 
 /// <summary>
@@ -363,10 +350,10 @@ public class TestWhenAnyFlow : FlowConfig<TestParallelState>
     {
         flow.Name("test-whenany-flow");
 
-        flow.WhenAny<string>(
+        flow.WhenAny<TestParallelState, string>(
             s => new WhenAnyTask1Command(),
             s => new WhenAnyTask2Command()
-        ).Into(s => s.FirstResult);
+        ).Into((s, winner) => s.FirstResult = winner);
 
         flow.Send(s => new AnyCompletedCommand());
     }
@@ -387,6 +374,26 @@ public class TestWhenAllWithTimeoutFlow : FlowConfig<TestParallelState>
         )
         .Timeout(TimeSpan.FromMinutes(10))
         .IfAnyFail(s => new TimeoutCompensationCommand());
+    }
+}
+
+/// <summary>
+/// Flow variant used by distributed store recovery tests.
+/// Final state mutation is persisted via result mapping.
+/// </summary>
+public class PersistedWhenAllFlow : FlowConfig<TestParallelState>
+{
+    protected override void Configure(IFlowBuilder<TestParallelState> flow)
+    {
+        flow.Name("persisted-whenall-flow");
+
+        flow.WhenAll(
+            s => new WhenAllTask1Command(),
+            s => new WhenAllTask2Command()
+        );
+
+        flow.Send<TestParallelState, MarkAllCompletedQuery, bool>(s => new MarkAllCompletedQuery())
+            .Into((state, result) => state.AllCompleted = result);
     }
 }
 
@@ -413,6 +420,11 @@ public record WhenAnyTask2Command : IRequest<string>
 }
 
 public record AllCompletedCommand : IRequest
+{
+    public long MessageId { get; init; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+}
+
+public record MarkAllCompletedQuery : IRequest<bool>
 {
     public long MessageId { get; init; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }

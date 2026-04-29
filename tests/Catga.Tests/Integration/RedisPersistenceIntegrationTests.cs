@@ -240,6 +240,23 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Inbox_TryLockMessageAsync_ExpiredLock_ShouldSucceed()
+    {
+        if (_redis is null) return;
+
+        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
+        var messageId = MessageExtensions.NewMessageId();
+
+        var firstLock = await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMilliseconds(100));
+        firstLock.Should().BeTrue();
+
+        await Task.Delay(200);
+
+        var secondLock = await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
+        secondLock.Should().BeTrue("expired lock should allow reacquisition");
+    }
+
+    [Fact]
     public async Task Inbox_MarkAsProcessedAsync_ShouldUpdateMessage()
     {
         if (_redis is null) return;
@@ -311,6 +328,49 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
 
         // Assert
         hasBeenProcessed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Inbox_HasBeenProcessedAsync_LockedMessage_ShouldReturnFalse()
+    {
+        if (_redis is null) return;
+
+        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
+        var messageId = MessageExtensions.NewMessageId();
+
+        await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
+
+        var hasBeenProcessed = await inbox.HasBeenProcessedAsync(messageId);
+
+        hasBeenProcessed.Should().BeFalse("locked message should not be treated as processed");
+    }
+
+    [Fact]
+    public async Task Inbox_TryLockMessageAsync_ProcessedMessage_ShouldFail()
+    {
+        if (_redis is null) return;
+
+        var inbox = new RedisInboxPersistence(_redis!, _serializer!, _inboxLogger!, options: null, provider: new DiagnosticResiliencePipelineProvider());
+        var messageId = MessageExtensions.NewMessageId();
+
+        await inbox.MarkAsProcessedAsync(new InboxMessage
+        {
+            MessageId = messageId,
+            MessageType = typeof(TestEvent).FullName!,
+            Payload = _serializer!.Serialize(new TestEvent
+            {
+                MessageId = messageId,
+                Id = "processed-lock-test",
+                Data = "processed"
+            }),
+            Status = InboxStatus.Processed,
+            ReceivedAt = DateTime.UtcNow,
+            ProcessedAt = DateTime.UtcNow
+        });
+
+        var locked = await inbox.TryLockMessageAsync(messageId, TimeSpan.FromMinutes(5));
+
+        locked.Should().BeFalse("processed message must not be locked again");
     }
 
     [Fact]
@@ -394,7 +454,5 @@ public partial class RedisPersistenceIntegrationTests : IAsyncLifetime
 
     #endregion
 }
-
-
 
 

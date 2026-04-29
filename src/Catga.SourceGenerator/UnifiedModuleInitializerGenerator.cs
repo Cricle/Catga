@@ -17,10 +17,18 @@ public sealed class UnifiedModuleInitializerGenerator : IIncrementalGenerator
 {
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
+        // Discover message types
+        var messageTypes = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                static (node, _) => IsMessageCandidate(node),
+                static (ctx, _) => GetMessageType(ctx))
+            .Where(static t => t is not null)
+            .Collect();
+
         // Discover event types
         var eventTypes = context.SyntaxProvider
             .CreateSyntaxProvider(
-                static (node, _) => IsEventCandidate(node),
+                static (node, _) => IsMessageCandidate(node),
                 static (ctx, _) => GetEventType(ctx))
             .Where(static t => t is not null)
             .Collect();
@@ -35,19 +43,20 @@ public sealed class UnifiedModuleInitializerGenerator : IIncrementalGenerator
 
         // Combine both and generate unified module initializer
         context.RegisterSourceOutput(
-            eventTypes.Combine(batchProfiles),
+            messageTypes.Combine(eventTypes.Combine(batchProfiles)),
             static (spc, data) =>
             {
-                var events = data.Left.Where(i => i is not null).Select(i => i!).ToList();
-                var batches = data.Right.Where(i => i is not null).Select(i => i!).ToList();
+                var messages = data.Left.Where(i => i is not null).Select(i => i!).ToList();
+                var events = data.Right.Left.Where(i => i is not null).Select(i => i!).ToList();
+                var batches = data.Right.Right.Where(i => i is not null).Select(i => i!).ToList();
                 spc.AddSource("CatgaGenerated.UnifiedModuleInitializer.g.cs",
-                    SourceText.From(GenerateModuleInitializer(events, batches), Encoding.UTF8));
+                    SourceText.From(GenerateModuleInitializer(messages, events, batches), Encoding.UTF8));
             });
     }
 
     #region Event Type Discovery (from EventTypeRegistryGenerator)
 
-    private static bool IsEventCandidate(SyntaxNode node)
+    private static bool IsMessageCandidate(SyntaxNode node)
     {
         if (node is not TypeDeclarationSyntax t) return false;
         if (t.BaseList is null || t.BaseList.Types.Count == 0) return false;
@@ -55,11 +64,25 @@ public sealed class UnifiedModuleInitializerGenerator : IIncrementalGenerator
         return true;
     }
 
+    private static string? GetMessageType(GeneratorSyntaxContext context)
+    {
+        var t = (TypeDeclarationSyntax)context.Node;
+        var symbol = context.SemanticModel.GetDeclaredSymbol(t) as INamedTypeSymbol;
+        if (symbol is null || symbol.IsAbstract || symbol.TypeKind == TypeKind.Interface) return null;
+        var implementsMessage = symbol.AllInterfaces.Any(i => i.Name == "IMessage");
+        if (!implementsMessage) return null;
+
+        var fullName = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        if (fullName.StartsWith("global::"))
+            fullName = fullName.Substring(8);
+        return fullName;
+    }
+
     private static string? GetEventType(GeneratorSyntaxContext context)
     {
         var t = (TypeDeclarationSyntax)context.Node;
         var symbol = context.SemanticModel.GetDeclaredSymbol(t) as INamedTypeSymbol;
-        if (symbol is null) return null;
+        if (symbol is null || symbol.IsAbstract || symbol.TypeKind == TypeKind.Interface) return null;
         var implementsEvent = symbol.AllInterfaces.Any(i => i.Name == "IEvent");
         if (!implementsEvent) return null;
         // Use ToDisplayString with FullyQualifiedFormat to get proper type name
@@ -143,6 +166,7 @@ public sealed class UnifiedModuleInitializerGenerator : IIncrementalGenerator
     #region Code Generation
 
     private static string GenerateModuleInitializer(
+        IReadOnlyList<string> messageTypes,
         IReadOnlyList<string> eventTypes,
         IReadOnlyList<BatchProfileInfo> batchProfiles)
     {
@@ -161,6 +185,17 @@ public sealed class UnifiedModuleInitializerGenerator : IIncrementalGenerator
         sb.AppendLine("        [ModuleInitializer]");
         sb.AppendLine("        internal static void Initialize()");
         sb.AppendLine("        {");
+
+        // Register message types
+        if (messageTypes.Count > 0)
+        {
+            sb.AppendLine("            // Register message types");
+            foreach (var fullName in messageTypes.Distinct().OrderBy(n => n))
+            {
+                sb.AppendLine($"            Catga.Generated.MessageTypeRegistry.Register<global::{fullName}>();");
+            }
+            sb.AppendLine();
+        }
 
         // Register event types
         if (eventTypes.Count > 0)
@@ -222,9 +257,9 @@ public sealed class UnifiedModuleInitializerGenerator : IIncrementalGenerator
             }
         }
 
-        if (eventTypes.Count == 0 && batchProfiles.Count == 0)
+        if (messageTypes.Count == 0 && eventTypes.Count == 0 && batchProfiles.Count == 0)
         {
-            sb.AppendLine("            // No event types or batch profiles discovered");
+            sb.AppendLine("            // No message types, event types, or batch profiles discovered");
         }
 
         sb.AppendLine("        }");

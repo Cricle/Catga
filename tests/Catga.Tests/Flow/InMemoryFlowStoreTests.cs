@@ -565,8 +565,59 @@ public class InMemoryFlowStoreTests
 
         // Get again - should have original values (or store values)
         var stored = await _store.GetAsync("independent-flow");
-        // Note: InMemoryFlowStore returns same reference, so this test documents current behavior
-        // If we want isolation, we need to clone in GetAsync
+        stored.Should().NotBeSameAs(retrieved);
+        stored!.Step.Should().Be(5);
+        stored.Status.Should().Be(FlowStatus.Running);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ExternalMutationAfterCreate_DoesNotAffectStoredState()
+    {
+        var state = CreateState("created-copy-flow");
+        state.Owner = "node-1";
+        state.Data = [1, 2, 3];
+
+        await _store.CreateAsync(state);
+
+        state.Owner = "mutated-owner";
+        state.Status = FlowStatus.Failed;
+        state.Data[0] = 9;
+
+        var stored = await _store.GetAsync("created-copy-flow");
+        stored!.Owner.Should().Be("node-1");
+        stored.Status.Should().Be(FlowStatus.Running);
+        stored.Data.Should().BeEquivalentTo(new byte[] { 1, 2, 3 });
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ExternalMutationAfterUpdate_DoesNotAffectStoredState()
+    {
+        var state = CreateState("updated-copy-flow");
+        await _store.CreateAsync(state);
+
+        var update = new FlowState
+        {
+            Id = "updated-copy-flow",
+            Type = "TestFlow",
+            Status = FlowStatus.Running,
+            Step = 3,
+            Version = 0,
+            Owner = "node-2",
+            Data = [4, 5, 6]
+        };
+
+        var updated = await _store.UpdateAsync(update);
+        updated.Should().BeTrue();
+
+        update.Owner = "mutated-owner";
+        update.Status = FlowStatus.Failed;
+        update.Data![0] = 8;
+
+        var stored = await _store.GetAsync("updated-copy-flow");
+        stored!.Owner.Should().Be("node-2");
+        stored.Status.Should().Be(FlowStatus.Running);
+        stored.Step.Should().Be(3);
+        stored.Data.Should().BeEquivalentTo(new byte[] { 4, 5, 6 });
     }
 
     [Fact]
@@ -672,20 +723,28 @@ public class InMemoryFlowStoreTests
             NodeId = "cancel-node"
         });
 
-        using var cts = new CancellationTokenSource(50);
+        using var cts = new CancellationTokenSource();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var result = await executor.ExecuteAsync(
+        var executionTask = executor.ExecuteAsync(
             "cancel-flow",
             "TestFlow",
             ReadOnlyMemory<byte>.Empty,
             async (state, ct) =>
             {
-                await Task.Delay(200, ct); // Longer than cancellation
+                started.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, ct);
                 return new FlowResult(true, 1, TimeSpan.Zero);
             },
             cts.Token);
 
+        await started.Task;
+        cts.Cancel();
+
+        var result = await executionTask;
         result.IsSuccess.Should().BeFalse();
+        var stored = await _store.GetAsync("cancel-flow");
+        stored!.Status.Should().Be(FlowStatus.Failed);
     }
 
     #endregion
@@ -701,8 +760,6 @@ public class InMemoryFlowStoreTests
         HeartbeatAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
     };
 }
-
-
 
 
 

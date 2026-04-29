@@ -78,6 +78,8 @@ public sealed class RedisOutboxStore : RedisStoreBase, IOutboxStore, IHealthChec
                     entries.Add(new HashEntry("CorrelationId", message.CorrelationId.Value));
                 if (message.Metadata != null)
                     entries.Add(new HashEntry("Metadata", message.Metadata));
+                if (message.ScheduledAt.HasValue)
+                    entries.Add(new HashEntry("ScheduledAt", message.ScheduledAt.Value.UtcTicks));
 
                 await db.HashSetAsync(key, entries.ToArray());
                 await db.SortedSetAddAsync(_pendingSetKey, message.MessageId, (double)message.CreatedAt.Ticks);
@@ -129,7 +131,9 @@ public sealed class RedisOutboxStore : RedisStoreBase, IOutboxStore, IHealthChec
                         MaxRetries = maxRetries,
                         LastError = dict.TryGetValue("LastError", out var le) ? le.ToString() : null,
                         CorrelationId = dict.TryGetValue("CorrelationId", out var ci) ? (long)ci : null,
-                        Metadata = dict.TryGetValue("Metadata", out var md) ? md.ToString() : null
+                        Metadata = dict.TryGetValue("Metadata", out var md) ? md.ToString() : null,
+                        ScheduledAt = dict.TryGetValue("ScheduledAt", out var sa) && !sa.IsNull
+                            ? new DateTimeOffset(new DateTime((long)sa, DateTimeKind.Utc)) : null
                     });
                 }
             }

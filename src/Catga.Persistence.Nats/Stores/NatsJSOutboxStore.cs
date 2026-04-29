@@ -15,6 +15,13 @@ public sealed class NatsJSOutboxStore(INatsConnection connection, IMessageSerial
 {
     protected override string[] GetSubjects() => [$"{StreamName}.>"];
 
+    protected override StreamConfig CreateStreamConfig()
+    {
+        var config = base.CreateStreamConfig();
+        config.MaxMsgsPerSubject = 1;
+        return config;
+    }
+
     public async ValueTask AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
     {
         await provider.ExecutePersistenceAsync(async ct =>
@@ -42,12 +49,26 @@ public sealed class NatsJSOutboxStore(INatsConnection connection, IMessageSerial
             try
             {
                 var consumer = await JetStream.CreateOrUpdateConsumerAsync(StreamName,
-                    new ConsumerConfig { Name = $"outbox-reader-{Guid.NewGuid():N}", AckPolicy = ConsumerConfigAckPolicy.None, DeliverPolicy = ConsumerConfigDeliverPolicy.All }, ct);
-
-                await foreach (var msg in consumer.FetchAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = maxCount * 2 }, cancellationToken: ct))
-                {
-                    if (msg.Data is { Length: > 0 })
+                    new ConsumerConfig
                     {
+                        Name = $"outbox-reader-{Guid.NewGuid():N}",
+                        FilterSubject = $"{StreamName}.>",
+                        AckPolicy = ConsumerConfigAckPolicy.None,
+                        DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject
+                    },
+                    ct);
+
+                try
+                {
+                    await foreach (var msg in consumer.FetchNoWaitAsync<byte[]>(
+                        new NatsJSFetchOpts { MaxMsgs = Math.Max(maxCount * 10, 1000) },
+                        cancellationToken: ct))
+                    {
+                        if (msg.Data is not { Length: > 0 })
+                        {
+                            continue;
+                        }
+
                         var outboxMsg = (OutboxMessage?)serializer.Deserialize(msg.Data, typeof(OutboxMessage));
                         if (outboxMsg is { Status: OutboxStatus.Pending } && outboxMsg.RetryCount < outboxMsg.MaxRetries)
                         {
@@ -55,6 +76,10 @@ public sealed class NatsJSOutboxStore(INatsConnection connection, IMessageSerial
                             if (messages.Count >= maxCount) break;
                         }
                     }
+                }
+                finally
+                {
+                    try { await JetStream.DeleteConsumerAsync(StreamName, consumer.Info.Name, ct); } catch { }
                 }
             }
             catch (NatsJSApiException ex) when (ex.Error.Code == 404) { }
@@ -71,33 +96,23 @@ public sealed class NatsJSOutboxStore(INatsConnection connection, IMessageSerial
             using var activity = CatgaDiagnostics.ActivitySource.StartActivity("Persistence.Outbox.MarkPublished", ActivityKind.Internal);
             await EnsureInitializedAsync(ct);
             var subject = $"{StreamName}.{messageId}";
-
-            try
+            var current = await GetLatestMessageAsync(messageId, ct);
+            if (current is null)
             {
-                var consumer = await JetStream.CreateOrUpdateConsumerAsync(StreamName,
-                    new ConsumerConfig { Name = $"outbox-publisher-{Guid.NewGuid():N}", AckPolicy = ConsumerConfigAckPolicy.Explicit, FilterSubjects = [subject] }, ct);
-
-                await foreach (var msg in consumer.FetchAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = 1 }, cancellationToken: ct))
-                {
-                    if (msg.Data is { Length: > 0 })
-                    {
-                        var outboxMsg = (OutboxMessage?)serializer.Deserialize(msg.Data, typeof(OutboxMessage));
-                        if (outboxMsg != null && outboxMsg.MessageId == messageId)
-                        {
-                            outboxMsg.Status = OutboxStatus.Published;
-                            outboxMsg.PublishedAt = DateTime.UtcNow;
-                            var updatedData = serializer.Serialize(outboxMsg);
-                            var ack = await JetStream.PublishAsync(subject, updatedData, cancellationToken: ct);
-                            if (ack.Error != null) throw new InvalidOperationException($"Failed to mark outbox message as published: {ack.Error.Description}");
-                            await msg.AckAsync(cancellationToken: ct);
-                            CatgaDiagnostics.OutboxPublished.Add(1);
-                            break;
-                        }
-                    }
-                }
-                await JetStream.DeleteConsumerAsync(StreamName, consumer.Info.Name, ct);
+                return;
             }
-            catch (NatsJSApiException ex) when (ex.Error.Code == 404) { }
+
+            var latest = current.Value;
+            latest.Message.Status = OutboxStatus.Published;
+            latest.Message.PublishedAt = DateTime.UtcNow;
+            var updatedData = serializer.Serialize(latest.Message);
+            var ack = await JetStream.PublishAsync(
+                subject,
+                updatedData,
+                opts: new NatsJSPubOpts { ExpectedLastSubjectSequence = latest.Sequence },
+                cancellationToken: ct);
+            if (ack.Error != null) throw new InvalidOperationException($"Failed to mark outbox message as published: {ack.Error.Description}");
+            CatgaDiagnostics.OutboxPublished.Add(1);
         }, cancellationToken);
     }
 
@@ -109,34 +124,24 @@ public sealed class NatsJSOutboxStore(INatsConnection connection, IMessageSerial
             ArgumentNullException.ThrowIfNull(errorMessage);
             await EnsureInitializedAsync(ct);
             var subject = $"{StreamName}.{messageId}";
-
-            try
+            var current = await GetLatestMessageAsync(messageId, ct);
+            if (current is null)
             {
-                var consumer = await JetStream.CreateOrUpdateConsumerAsync(StreamName,
-                    new ConsumerConfig { Name = $"outbox-updater-{Guid.NewGuid():N}", AckPolicy = ConsumerConfigAckPolicy.Explicit, FilterSubjects = [subject] }, ct);
-
-                await foreach (var msg in consumer.FetchAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = 1 }, cancellationToken: ct))
-                {
-                    if (msg.Data is { Length: > 0 })
-                    {
-                        var outboxMsg = (OutboxMessage?)serializer.Deserialize(msg.Data, typeof(OutboxMessage));
-                        if (outboxMsg != null && outboxMsg.MessageId == messageId)
-                        {
-                            outboxMsg.RetryCount++;
-                            outboxMsg.LastError = errorMessage;
-                            outboxMsg.Status = outboxMsg.RetryCount >= outboxMsg.MaxRetries ? OutboxStatus.Failed : OutboxStatus.Pending;
-                            var updatedData = serializer.Serialize(outboxMsg);
-                            var ack = await JetStream.PublishAsync(subject, updatedData, cancellationToken: ct);
-                            if (ack.Error != null) throw new InvalidOperationException($"Failed to update outbox message: {ack.Error.Description}");
-                            await msg.AckAsync(cancellationToken: ct);
-                            CatgaDiagnostics.OutboxFailed.Add(1);
-                            break;
-                        }
-                    }
-                }
-                await JetStream.DeleteConsumerAsync(StreamName, consumer.Info.Name, ct);
+                return;
             }
-            catch (NatsJSApiException ex) when (ex.Error.Code == 404) { }
+
+            var latest = current.Value;
+            latest.Message.RetryCount++;
+            latest.Message.LastError = errorMessage;
+            latest.Message.Status = latest.Message.RetryCount >= latest.Message.MaxRetries ? OutboxStatus.Failed : OutboxStatus.Pending;
+            var updatedData = serializer.Serialize(latest.Message);
+            var ack = await JetStream.PublishAsync(
+                subject,
+                updatedData,
+                opts: new NatsJSPubOpts { ExpectedLastSubjectSequence = latest.Sequence },
+                cancellationToken: ct);
+            if (ack.Error != null) throw new InvalidOperationException($"Failed to update outbox message: {ack.Error.Description}");
+            CatgaDiagnostics.OutboxFailed.Add(1);
         }, cancellationToken);
     }
 
@@ -154,7 +159,9 @@ public sealed class NatsJSOutboxStore(INatsConnection connection, IMessageSerial
                     new ConsumerConfig { Name = $"outbox-cleaner-{Guid.NewGuid():N}", AckPolicy = ConsumerConfigAckPolicy.None, DeliverPolicy = ConsumerConfigDeliverPolicy.All }, ct);
 
                 var toDelete = new List<ulong>();
-                await foreach (var msg in consumer.FetchAsync<byte[]>(new NatsJSFetchOpts { MaxMsgs = 1000 }, cancellationToken: ct))
+                await foreach (var msg in consumer.FetchNoWaitAsync<byte[]>(
+                    new NatsJSFetchOpts { MaxMsgs = 1000 },
+                    cancellationToken: ct))
                 {
                     if (msg.Data is { Length: > 0 })
                     {
@@ -171,5 +178,50 @@ public sealed class NatsJSOutboxStore(INatsConnection connection, IMessageSerial
             }
             catch (NatsJSApiException ex) when (ex.Error.Code == 404) { }
         }, cancellationToken);
+    }
+
+    private async Task<(OutboxMessage Message, ulong Sequence)?> GetLatestMessageAsync(long messageId, CancellationToken cancellationToken)
+    {
+        var subject = $"{StreamName}.{messageId}";
+
+        try
+        {
+            var consumer = await JetStream.CreateOrUpdateConsumerAsync(
+                StreamName,
+                new ConsumerConfig
+                {
+                    Name = $"outbox-get-{Guid.NewGuid():N}",
+                    FilterSubject = subject,
+                    AckPolicy = ConsumerConfigAckPolicy.None,
+                    DeliverPolicy = ConsumerConfigDeliverPolicy.LastPerSubject
+                },
+                cancellationToken);
+
+            try
+            {
+                await foreach (var msg in consumer.FetchNoWaitAsync<byte[]>(
+                    new NatsJSFetchOpts { MaxMsgs = 1 },
+                    cancellationToken: cancellationToken))
+                {
+                    if (msg.Data is not { Length: > 0 })
+                    {
+                        continue;
+                    }
+
+                    var outboxMsg = (OutboxMessage?)serializer.Deserialize(msg.Data, typeof(OutboxMessage));
+                    if (outboxMsg != null && msg.Metadata is { Sequence.Stream: > 0 } metadata)
+                    {
+                        return (outboxMsg, metadata.Sequence.Stream);
+                    }
+                }
+            }
+            finally
+            {
+                try { await JetStream.DeleteConsumerAsync(StreamName, consumer.Info.Name, cancellationToken); } catch { }
+            }
+        }
+        catch (NatsJSApiException ex) when (ex.Error.Code == 404) { }
+
+        return null;
     }
 }

@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging;
 using Catga.Abstractions;
 using Catga.Outbox;
 using Catga.Transport;
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 
 namespace Catga.Hosting;
 
@@ -14,6 +16,7 @@ public sealed partial class OutboxProcessorService : BackgroundService
     private readonly IOutboxStore _outboxStore;
     private readonly IMessageTransport _transport;
     private readonly IMessageSerializer _serializer;
+    private readonly IMessageTypeRegistry _messageTypeRegistry;
     private readonly ILogger<OutboxProcessorService> _logger;
     private readonly OutboxProcessorOptions _options;
     private volatile int _isProcessingBatch;
@@ -24,12 +27,14 @@ public sealed partial class OutboxProcessorService : BackgroundService
         IOutboxStore outboxStore,
         IMessageTransport transport,
         IMessageSerializer serializer,
+        IMessageTypeRegistry messageTypeRegistry,
         ILogger<OutboxProcessorService> logger,
         OutboxProcessorOptions options)
     {
         _outboxStore = outboxStore ?? throw new ArgumentNullException(nameof(outboxStore));
         _transport = transport ?? throw new ArgumentNullException(nameof(transport));
         _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
+        _messageTypeRegistry = messageTypeRegistry ?? throw new ArgumentNullException(nameof(messageTypeRegistry));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         
@@ -111,12 +116,13 @@ public sealed partial class OutboxProcessorService : BackgroundService
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             
-            // 获取待处理的消息
-            var messages = await _outboxStore.GetPendingMessagesAsync(_options.BatchSize, cancellationToken);
+            // Get pending messages — filter out scheduled ones not yet due
+            var allMessages = await _outboxStore.GetPendingMessagesAsync(_options.BatchSize, cancellationToken);
+            var messages = allMessages.Where(m => m.IsReadyToDeliver).ToList();
             
             if (messages.Count == 0)
             {
-                return; // 没有待处理的消息
+                return;
             }
 
             LogProcessingBatch(messages.Count);
@@ -193,12 +199,12 @@ public sealed partial class OutboxProcessorService : BackgroundService
     {
         // 从完整类型名称获取 Type 对象
         // 格式应该是: "Namespace.TypeName, AssemblyName"
-        var messageType = Type.GetType(message.MessageType);
+        var messageType = _messageTypeRegistry.Resolve(message.MessageType);
         if (messageType == null)
         {
             throw new InvalidOperationException(
                 $"Cannot resolve message type: {message.MessageType}. " +
-                $"Ensure the type is available and properly referenced.");
+                "Ensure the message type is registered and properly referenced.");
         }
 
         try
@@ -218,29 +224,8 @@ public sealed partial class OutboxProcessorService : BackgroundService
                 CorrelationId = message.CorrelationId
             };
 
-            // 使用反射调用 PublishAsync<T>
-            // 这是必需的，因为我们在运行时才知道消息类型
-            var publishMethod = _transport.GetType()
-                .GetMethod(nameof(IMessageTransport.PublishAsync))
-                ?.MakeGenericMethod(messageType);
-
-            if (publishMethod == null)
-            {
-                throw new InvalidOperationException(
-                    $"Cannot find PublishAsync method on transport {_transport.GetType().Name}");
-            }
-
-            // 调用 PublishAsync<T>(message, context, cancellationToken)
-            var publishTask = publishMethod.Invoke(_transport, new[] { deserializedMessage, context, cancellationToken });
-            if (publishTask is Task task)
-            {
-                await task.ConfigureAwait(false);
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    $"PublishAsync did not return a Task for message {message.MessageId}");
-            }
+            await InvokePublishAsync(_transport, messageType, deserializedMessage, context, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -248,6 +233,31 @@ public sealed partial class OutboxProcessorService : BackgroundService
                 $"Failed to publish outbox message {message.MessageId} of type {message.MessageType}",
                 ex);
         }
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Outbox dispatch resolves already-registered message types at runtime.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "PublishAsync generic method is resolved from IMessageTransport by contract.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Runtime outbox dispatch intentionally closes PublishAsync<T> using registered message types.")]
+    private static Task InvokePublishAsync(
+        IMessageTransport transport,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type messageType,
+        object message,
+        TransportContext context,
+        CancellationToken cancellationToken)
+    {
+        var publishMethod = typeof(IMessageTransport)
+            .GetMethod(nameof(IMessageTransport.PublishAsync), BindingFlags.Instance | BindingFlags.Public);
+
+        if (publishMethod is null)
+        {
+            throw new InvalidOperationException(
+                $"Cannot find {nameof(IMessageTransport.PublishAsync)} method on transport contract.");
+        }
+
+        var closedMethod = publishMethod.MakeGenericMethod(messageType);
+        var publishTask = closedMethod.Invoke(transport, new[] { message, context, cancellationToken });
+        return publishTask as Task
+            ?? throw new InvalidOperationException("PublishAsync did not return a Task.");
     }
 
     #region Logging

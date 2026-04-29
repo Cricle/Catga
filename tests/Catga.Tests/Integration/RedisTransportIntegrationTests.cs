@@ -248,7 +248,7 @@ public partial class RedisTransportIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task SendAsync_ShouldDelegateToPublishAsync()
+    public async Task SendAsync_ShouldWriteToDestinationStream_AndDeliverToDestinationSubscriber()
     {
         // Arrange
         var destination = "worker-queue";
@@ -261,7 +261,7 @@ public partial class RedisTransportIntegrationTests : IAsyncLifetime
         };
 
         var received = false;
-        await _transport!.SubscribeAsync<TestEvent>(async (msg, ctx) =>
+        await _transport!.SubscribeAsync<TestEvent>(destination, async (msg, ctx) =>
         {
             received = true;
             await Task.CompletedTask;
@@ -270,10 +270,13 @@ public partial class RedisTransportIntegrationTests : IAsyncLifetime
 
         // Act
         await _transport.SendAsync(testEvent, destination);
-        await Task.Delay(200);
+        await Task.Delay(400);
 
-        // Assert - message should be delivered via PubSub (like PublishAsync)
-        received.Should().BeTrue("SendAsync should delegate to PublishAsync");
+        var entries = await _redis!.GetDatabase().StreamReadAsync($"stream:{destination}", "0-0");
+
+        // Assert
+        received.Should().BeTrue("SendAsync should deliver to the destination stream consumer");
+        entries.Should().NotBeEmpty("SendAsync should write to the destination stream");
     }
 
     #region Test Models
@@ -306,7 +309,6 @@ public partial class RedisTransportIntegrationTests : IAsyncLifetime
 
     #endregion
 }
-
 
 
 

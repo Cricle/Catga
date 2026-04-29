@@ -60,8 +60,9 @@ public static class DslFlowServiceExtensions
             var mediator = sp.GetRequiredService<ICatgaMediator>();
             var store = sp.GetRequiredService<IDslFlowStore>();
             var config = sp.GetRequiredService<TConfig>();
-            var scheduler = sp.GetService<IFlowScheduler>(); // Optional
-            return new DslFlowExecutor<TState, TConfig>(mediator, store, config, scheduler);
+            var scheduler = sp.GetService<IFlowScheduler>();
+            var requestClientFactory = sp.GetService<IRequestClientFactory>();
+            return new DslFlowExecutor<TState, TConfig>(mediator, store, config, scheduler, requestClientFactory);
         });
         return services;
     }
@@ -83,8 +84,9 @@ public static class DslFlowServiceExtensions
             var mediator = sp.GetRequiredService<ICatgaMediator>();
             var store = sp.GetRequiredService<IDslFlowStore>();
             var config = sp.GetRequiredService<TConfig>();
-            var scheduler = sp.GetService<IFlowScheduler>(); // Optional
-            return new DslFlowExecutor<TState, TConfig>(mediator, store, config, scheduler);
+            var scheduler = sp.GetService<IFlowScheduler>();
+            var requestClientFactory = sp.GetService<IRequestClientFactory>();
+            return new DslFlowExecutor<TState, TConfig>(mediator, store, config, scheduler, requestClientFactory);
         });
         return services;
     }

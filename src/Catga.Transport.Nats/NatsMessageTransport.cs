@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using Catga.Abstractions;
 using Catga.Configuration;
@@ -18,7 +19,7 @@ namespace Catga.Transport.Nats;
 
 /// <summary>NATS transport with QoS support (Core Pub/Sub + JetStream).</summary>
 public class NatsMessageTransport(INatsConnection connection, IMessageSerializer serializer, ILogger<NatsMessageTransport> logger, IResiliencePipelineProvider provider, NatsTransportOptions? options = null)
-    : IMessageTransport, IAsyncInitializable, IStoppable, IWaitable, IHealthCheckable, IAsyncDisposable
+    : IMessageTransport, IRequestTimeoutDefaults, IAsyncInitializable, IStoppable, IWaitable, IHealthCheckable, IAsyncDisposable
 {
     private readonly NatsJSContext _js = new(connection);
     private readonly string _prefix = (options?.SubjectPrefix ?? "catga").TrimEnd('.');
@@ -36,9 +37,7 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
     private readonly object _flushLock = new();
     private volatile bool _jsReady;
     private int _batchCount;
-    private readonly Timer? _timer = options?.Batch is { EnableAutoBatching: true } b
-        ? new Timer(static s => { try { ((NatsMessageTransport)s!).TryFlushBatchTimer(); } catch { } }, null, b.BatchTimeout, b.BatchTimeout)
-        : null;
+    private Timer? _timer;
 
     // IStoppable implementation
     private volatile bool _acceptingMessages = true;
@@ -51,8 +50,9 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
     private DateTimeOffset? _lastHealthCheck;
 
     public string Name => "NATS";
-    public BatchTransportOptions? BatchOptions => null;
+    public BatchTransportOptions? BatchOptions => options?.Batch;
     public CompressionTransportOptions? CompressionOptions => null;
+    public TimeSpan DefaultRequestTimeout => options?.RequestTimeout ?? TimeSpan.FromSeconds(30);
     
     // IStoppable properties
     public bool IsAcceptingMessages => _acceptingMessages;
@@ -89,6 +89,7 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
             // Ensure JetStream is ready if needed
             if (options?.Batch is { EnableAutoBatching: true })
             {
+                EnsureBatchTimer();
                 await EnsureStreamAsync(cancellationToken);
             }
         }
@@ -198,6 +199,22 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
     }
 
     public async Task PublishAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
+        => await PublishCoreAsync(message, GetSubjectCached<TMessage>(), context, cancellationToken);
+
+    public async Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
+        => await PublishCoreAsync(message, ResolveSubject<TMessage>(destination), context, cancellationToken);
+
+    public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(Func<TMessage, TransportContext, Task> handler, CancellationToken cancellationToken = default) where TMessage : class
+        => SubscribeCoreAsync(GetSubjectCached<TMessage>(), handler, cancellationToken);
+
+    public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(string destination, Func<TMessage, TransportContext, Task> handler, CancellationToken cancellationToken = default) where TMessage : class
+        => SubscribeCoreAsync(ResolveSubject<TMessage>(destination), handler, cancellationToken);
+
+    private async Task PublishCoreAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+        TMessage message,
+        string subject,
+        TransportContext? context,
+        CancellationToken cancellationToken) where TMessage : class
     {
         // Check if accepting messages
         if (!_acceptingMessages)
@@ -208,11 +225,13 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
         Interlocked.Increment(ref _pendingOperations);
         try
         {
-            var subject = GetSubjectCached<TMessage>();
             var qos = message is IEvent ev
                 ? ev.QoS
                 : (message as IMessage)?.QoS ?? QualityOfService.AtLeastOnce;
-            var ctx = context ?? new TransportContext { MessageId = MessageExtensions.NewMessageId(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow };
+            var ctx = TransportMessageContextAccessor.EnrichOutgoing(
+                message,
+                context ?? new TransportContext { MessageId = MessageExtensions.NewMessageId(), MessageType = TypeNameCache<TMessage>.FullName, SentAt = DateTime.UtcNow });
+            TransportMessageContextAccessor.ApplyToMessage(message, ctx);
 
             using var activity = ObservabilityHooks.IsEnabled ? CatgaDiagnostics.ActivitySource.StartActivity("Messaging.Publish", ActivityKind.Producer) : null;
             if (activity != null)
@@ -233,6 +252,11 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
             };
             if (ctx.CorrelationId.HasValue)
                 headers["CorrelationId"] = ctx.CorrelationId.Value.ToString();
+            if (ctx.Metadata is { Count: > 0 })
+            {
+                foreach (var (key, value) in ctx.Metadata)
+                    headers[$"meta.{key}"] = value;
+            }
             // W3C trace propagation (if any)
             var current = Activity.Current;
             if (ObservabilityHooks.IsEnabled && current != null)
@@ -250,6 +274,7 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
             // Optional auto-batching
             if (options?.Batch is { EnableAutoBatching: true } batchOptions)
             {
+                EnsureBatchTimer();
                 Enqueue(subject, payload, headers, qos, batchOptions);
                 System.Diagnostics.Activity.Current?.AddActivityEvent(NatsActivityEvents.NatsPublishEnqueued,
                     ("subject", subject),
@@ -303,6 +328,17 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                         break;
                 }
 
+                if (ctx.Metadata is { Count: > 0 } metadata &&
+                    metadata.TryGetValue("reply_to", out var replyTo) &&
+                    !string.IsNullOrWhiteSpace(replyTo))
+                {
+                    await connection.PublishAsync(
+                        replyTo,
+                        payload,
+                        headers: headers,
+                        cancellationToken: cancellationToken);
+                }
+
                 if (ObservabilityHooks.IsEnabled)
                 {
                     CatgaDiagnostics.MessagesPublished.Add(1, tag_component, tag_type, tag_dest, tag_qos);
@@ -330,12 +366,11 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
         }
     }
 
-    public Task SendAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(TMessage message, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
-        => PublishAsync(message, context, cancellationToken);
-
-    public Task SubscribeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(Func<TMessage, TransportContext, Task> handler, CancellationToken cancellationToken = default) where TMessage : class
+    private Task SubscribeCoreAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(
+        string subject,
+        Func<TMessage, TransportContext, Task> handler,
+        CancellationToken cancellationToken) where TMessage : class
     {
-        var subject = GetSubjectCached<TMessage>();
         var task = Task.Factory.StartNew(async () =>
         {
             var ct = _cts.Token;
@@ -391,7 +426,7 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                         ("payload.size", msg.Data.Length));
                     if (activity != null)
                     {
-                        var headerType = msg.Headers?["MessageType"].ToString();
+                        var headerType = GetHeaderValue(msg.Headers, "MessageType", "message_type");
                         if (!string.IsNullOrEmpty(headerType)) activity.SetTag(CatgaActivitySource.Tags.MessageType, headerType);
                     }
                     if (message == null)
@@ -406,21 +441,21 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                         }
                         continue;
                     }
-                    var sentAtValue = msg.Headers?["SentAt"];
+                    var sentAtValue = GetHeaderValue(msg.Headers, "SentAt", "sent_at");
                     DateTime? sentAt = null;
-                    if (sentAtValue.HasValue && DateTime.TryParse(sentAtValue.Value.ToString(), out var parsed))
+                    if (!string.IsNullOrWhiteSpace(sentAtValue) && TryParseRoundtripDateTime(sentAtValue, out var parsed))
                         sentAt = parsed;
                     long? messageId = null;
-                    if (msg.Headers?["MessageId"] is var msgIdHeader && long.TryParse(msgIdHeader.ToString(), out var parsedMsgId))
+                    if (long.TryParse(GetHeaderValue(msg.Headers, "MessageId", "message_id"), out var parsedMsgId))
                         messageId = parsedMsgId;
 
                     long? correlationId = null;
-                    if (msg.Headers?["CorrelationId"] is var corrIdHeader && long.TryParse(corrIdHeader.ToString(), out var parsedCorrId))
+                    if (long.TryParse(GetHeaderValue(msg.Headers, "CorrelationId", "correlation_id"), out var parsedCorrId))
                         correlationId = parsedCorrId;
 
                     // Dedup for QoS0 (AtMostOnce) and QoS2 (ExactlyOnce)
                     int qosHeader = 0;
-                    if (msg.Headers?["QoS"] is var qosVal && int.TryParse(qosVal.ToString(), out var parsedQos))
+                    if (int.TryParse(GetHeaderValue(msg.Headers, "QoS", "qos"), out var parsedQos))
                         qosHeader = parsedQos;
                     if ((qosHeader == (int)QualityOfService.ExactlyOnce || qosHeader == (int)QualityOfService.AtMostOnce) && messageId.HasValue)
                     {
@@ -451,11 +486,13 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                     var context = new TransportContext
                     {
                         MessageId = messageId,
-                        MessageType = msg.Headers?["MessageType"],
+                        MessageType = GetHeaderValue(msg.Headers, "MessageType", "message_type"),
                         CorrelationId = correlationId,
-                        SentAt = sentAt
+                        SentAt = sentAt,
+                        Metadata = BuildMetadata(msg.Headers, msg.ReplyTo)
                     };
                     var handlerStart = Stopwatch.GetTimestamp();
+                    using var scope = TransportMessageContextAccessor.Push(context);
                     await handler(message, context);
                     var handlerMs = (Stopwatch.GetTimestamp() - handlerStart) * 1000.0 / Stopwatch.Frequency;
                     activity?.AddActivityEvent(NatsActivityEvents.NatsReceiveHandler,
@@ -488,6 +525,32 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
         if (newCount >= batch.MaxBatchSize)
         {
             TryFlushBatchImmediate(batch);
+        }
+    }
+
+    private void EnsureBatchTimer()
+    {
+        if (_timer != null)
+            return;
+
+        var batch = options?.Batch;
+        if (batch is not { EnableAutoBatching: true })
+            return;
+
+        lock (_flushLock)
+        {
+            _timer ??= new Timer(
+                static state =>
+                {
+                    if (state is not NatsMessageTransport transport)
+                        return;
+
+                    try { transport.TryFlushBatchTimer(); }
+                    catch { }
+                },
+                this,
+                batch.BatchTimeout,
+                batch.BatchTimeout);
         }
     }
 
@@ -558,6 +621,19 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
                             ("dup", ack.Duplicate));
                         break;
                 }
+
+                if (Headers.TryGetValue("meta.reply_to", out var replyToHeader))
+                {
+                    var replyTo = replyToHeader.ToString();
+                    if (!string.IsNullOrWhiteSpace(replyTo))
+                    {
+                        await connection.PublishAsync(
+                            replyTo,
+                            Payload,
+                            headers: Headers,
+                            cancellationToken: _cts.Token);
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -601,12 +677,245 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
             m => PublishAsync(m, context, cancellationToken));
     }
 
-    public Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
-        => PublishBatchAsync(messages, context, cancellationToken);
+    public async Task SendBatchAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(IEnumerable<TMessage> messages, string destination, TransportContext? context = null, CancellationToken cancellationToken = default) where TMessage : class
+    {
+        await BatchOperationHelper.ExecuteBatchAsync(
+            messages,
+            destination,
+            (message, dest) => SendAsync(message, dest, context, cancellationToken));
+    }
+
+    /// <summary>
+    /// NATS-native request/reply. Uses NATS built-in request/reply mechanism for optimal performance.
+    /// </summary>
+    public async Task<TResponse?> RequestAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TResponse>(
+        TMessage message,
+        string destination,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+        where TMessage : class
+        where TResponse : class
+    {
+        if (!_acceptingMessages)
+            throw new InvalidOperationException("Transport is not accepting new messages");
+
+        Interlocked.Increment(ref _pendingOperations);
+        try
+        {
+            var context = TransportMessageContextAccessor.EnrichOutgoing(message, new TransportContext
+            {
+                MessageId = MessageExtensions.NewMessageId(),
+                CorrelationId = MessageExtensions.NewCorrelationId(),
+                MessageType = TypeNameCache<TMessage>.FullName,
+                SentAt = DateTime.UtcNow
+            });
+            TransportMessageContextAccessor.ApplyToMessage(message, context);
+
+            var headers = new NatsHeaders
+            {
+                ["MessageId"] = context.MessageId?.ToString() ?? string.Empty,
+                ["MessageType"] = context.MessageType ?? TypeNameCache<TMessage>.FullName,
+                ["SentAt"] = context.SentAt?.ToString("O") ?? DateTime.UtcNow.ToString("O")
+            };
+            if (context.CorrelationId.HasValue)
+                headers["CorrelationId"] = context.CorrelationId.Value.ToString();
+            if (context.Metadata is { Count: > 0 })
+            {
+                foreach (var (key, value) in context.Metadata)
+                    headers[$"meta.{key}"] = value;
+            }
+            var current = Activity.Current;
+            if (ObservabilityHooks.IsEnabled && current != null)
+            {
+                headers["traceparent"] = current.Id;
+                if (!string.IsNullOrWhiteSpace(current.TraceStateString))
+                    headers["tracestate"] = current.TraceStateString;
+            }
+
+            var payload = serializer.Serialize(message);
+            var subject = ResolveSubject<TMessage>(destination);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(timeout);
+
+            var reply = await connection.RequestAsync<byte[], byte[]>(
+                subject, payload, headers: headers, cancellationToken: cts.Token);
+            return reply.Data != null ? serializer.Deserialize<TResponse>(reply.Data) : null;
+        }
+        catch (OperationCanceledException) { return null; }
+        finally
+        {
+            Interlocked.Decrement(ref _pendingOperations);
+        }
+    }
+
+    private static Dictionary<string, string>? BuildMetadata(NatsHeaders? headers, string? replyTo = null)
+    {
+        if ((headers is null || headers.Count == 0) && string.IsNullOrWhiteSpace(replyTo))
+            return null;
+
+        Dictionary<string, string>? metadata = null;
+        if (headers is { Count: > 0 })
+        {
+            foreach (var entry in headers)
+            {
+                if (!TryGetMetadataKey(entry.Key, out var key))
+                    continue;
+
+                metadata ??= new Dictionary<string, string>(StringComparer.Ordinal);
+                metadata[key] = entry.Value.ToString();
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(replyTo))
+        {
+            metadata ??= new Dictionary<string, string>(StringComparer.Ordinal);
+            metadata["reply_to"] = replyTo!;
+        }
+
+        return NormalizeReplyMetadata(metadata);
+    }
+
+    private static bool TryParseRoundtripDateTime(string? value, out DateTime parsed)
+        => DateTime.TryParse(
+            value,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind,
+            out parsed);
+
+    private static string? GetHeaderValue(NatsHeaders? headers, params string[] candidates)
+    {
+        if (headers is null || headers.Count == 0)
+            return null;
+
+        foreach (var candidate in candidates)
+        {
+            if (headers.TryGetValue(candidate, out var value))
+                return value.ToString();
+        }
+
+        foreach (var entry in headers)
+        {
+            if (candidates.Any(candidate => MatchesHeaderKey(entry.Key, candidate)))
+                return entry.Value.ToString();
+        }
+
+        return null;
+    }
+
+    private static bool TryGetMetadataKey(string key, [NotNullWhen(true)] out string? metadataKey)
+    {
+        if (key.Length > 5 &&
+            key.StartsWith("meta", StringComparison.OrdinalIgnoreCase) &&
+            key[4] is '.' or '-' or '_')
+        {
+            metadataKey = key[5..];
+            return !string.IsNullOrWhiteSpace(metadataKey);
+        }
+
+        metadataKey = null;
+        return false;
+    }
+
+    private static Dictionary<string, string>? NormalizeReplyMetadata(Dictionary<string, string>? metadata)
+    {
+        if (metadata is not { Count: > 0 })
+            return metadata;
+
+        NormalizeReplyAlias(metadata, "reply-to", "reply_to");
+        NormalizeReplyAlias(metadata, "reply-subject", "reply_subject");
+
+        if (metadata.TryGetValue("reply_to", out var replyTo) && !string.IsNullOrWhiteSpace(replyTo))
+            metadata.TryAdd("reply_subject", replyTo);
+        else if (metadata.TryGetValue("reply_subject", out var replySubject) && !string.IsNullOrWhiteSpace(replySubject))
+            metadata.TryAdd("reply_to", replySubject);
+
+        return metadata;
+    }
+
+    private static void NormalizeReplyAlias(Dictionary<string, string> metadata, string alias, string canonical)
+    {
+        if (TryGetMetadataValue(metadata, canonical, out _))
+            return;
+
+        if (TryGetMetadataValue(metadata, alias, out var value) &&
+            !string.IsNullOrWhiteSpace(value))
+        {
+            metadata[canonical] = value;
+        }
+    }
+
+    private static bool TryGetMetadataValue(
+        Dictionary<string, string> metadata,
+        string key,
+        [NotNullWhen(true)] out string? value)
+    {
+        if (metadata.TryGetValue(key, out value))
+            return true;
+
+        foreach (var entry in metadata)
+        {
+            if (string.Equals(entry.Key, key, StringComparison.OrdinalIgnoreCase))
+            {
+                value = entry.Value;
+                return true;
+            }
+        }
+
+        value = null;
+        return false;
+    }
+
+    private static bool MatchesHeaderKey(string key, string candidate)
+    {
+        if (string.Equals(key, candidate, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        Span<char> normalizedKey = stackalloc char[key.Length];
+        var keyLength = 0;
+        foreach (var ch in key)
+        {
+            if (ch is '_' or '-')
+                continue;
+
+            normalizedKey[keyLength++] = char.ToLowerInvariant(ch);
+        }
+
+        Span<char> normalizedCandidate = stackalloc char[candidate.Length];
+        var candidateLength = 0;
+        foreach (var ch in candidate)
+        {
+            if (ch is '_' or '-')
+                continue;
+
+            normalizedCandidate[candidateLength++] = char.ToLowerInvariant(ch);
+        }
+
+        return normalizedKey[..keyLength].SequenceEqual(normalizedCandidate[..candidateLength]);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private string ResolveSubject<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>(string destination)
+    {
+        if (string.Equals(destination, TypeNameCache<TMessage>.Name, StringComparison.Ordinal))
+            return GetSubjectCached<TMessage>();
+
+        var normalizedPrefix = $"{_prefix}.";
+        if (destination.StartsWith(normalizedPrefix, StringComparison.Ordinal))
+            return destination;
+
+        return $"{normalizedPrefix}{destination.TrimStart('.')}";
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private string GetSubjectCached<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>()
-        => SubjectCache<TMessage>.Subject ??= BuildSubject<TMessage>();
+    {
+        // Only use static cache for default prefix — custom prefixes must not be cached globally
+        if (_prefix == "catga")
+            return SubjectCache<TMessage>.Subject ??= BuildSubject<TMessage>();
+        return BuildSubject<TMessage>();
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private string BuildSubject<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TMessage>()
@@ -620,4 +929,7 @@ public class NatsMessageTransport(INatsConnection connection, IMessageSerializer
 internal static class SubjectCache<T>
 {
     public static string? Subject;
+
+    /// <summary>Clear cached subject (for testing with different prefixes).</summary>
+    public static void Clear() => Subject = null;
 }

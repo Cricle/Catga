@@ -1,8 +1,10 @@
 using Catga;
+using Catga.Flow.Dsl;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using OrderSystem.Commands;
 using OrderSystem.Configuration;
 using OrderSystem.Dtos;
+using OrderSystem.Flows;
 using OrderSystem.Models;
 using OrderSystem.Queries;
 
@@ -57,6 +59,41 @@ public static class EndpointExtensions
         {
             var result = await mediator.SendAsync<GetAllOrdersQuery, List<Order>>(new GetAllOrdersQuery());
             return Results.Ok(result.Value ?? new List<Order>());
+        });
+
+        app.MapGet("/orders/customer/{customerId}", async (string customerId, ICatgaMediator mediator) =>
+        {
+            var result = await mediator.SendAsync<GetAllOrdersQuery, List<Order>>(new GetAllOrdersQuery());
+            var orders = result.Value ?? [];
+            return Results.Ok(orders.Where(order => order.CustomerId == customerId).ToList());
+        });
+
+        app.MapPost("/orders/flow", async (
+            CreateOrderRequest req,
+            IFlowExecutor executor,
+            OrderStore store) =>
+        {
+            var state = new OrderFulfillmentState
+            {
+                CustomerId = req.CustomerId,
+                Items = req.Items
+            };
+
+            var result = await executor.ExecuteAsync<OrderFulfillmentFlow, OrderFulfillmentState>(state);
+            if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.State?.OrderId))
+            {
+                return Results.BadRequest(result.Error);
+            }
+
+            var order = store.Get(result.State.OrderId);
+            return order is not null
+                ? Results.Created($"/orders/{order.Id}", new
+                {
+                    orderId = order.Id,
+                    total = order.Total,
+                    createdAt = order.CreatedAt
+                })
+                : Results.NotFound();
         });
 
         app.MapPost("/orders/{id}/pay", async (string id, ICatgaMediator mediator, OrderStore store) =>

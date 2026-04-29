@@ -87,7 +87,7 @@ public class OrderSystemE2ETests
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    [Fact(Skip = "Endpoint /orders/customer/{id} not implemented yet")]
+    [Fact]
     public async Task GetUserOrders_ReturnsOrdersForCustomer()
     {
         // Arrange - create orders for a customer
@@ -174,4 +174,3 @@ public class OrderSystemE2ETests
         public string OrderId => Id;
     }
 }
-

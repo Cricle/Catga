@@ -215,7 +215,7 @@ public class BackendTestFixture : IAsyncLifetime
 /// <summary>
 /// Redis 集合定义（用于 xUnit 集合夹具）
 /// </summary>
-[CollectionDefinition("Redis")]
+[CollectionDefinition("Redis", DisableParallelization = true)]
 public class RedisCollection : ICollectionFixture<RedisTestFixture>
 {
 }
@@ -223,7 +223,7 @@ public class RedisCollection : ICollectionFixture<RedisTestFixture>
 /// <summary>
 /// NATS 集合定义（用于 xUnit 集合夹具）
 /// </summary>
-[CollectionDefinition("Nats")]
+[CollectionDefinition("Nats", DisableParallelization = true)]
 public class NatsCollection : ICollectionFixture<NatsTestFixture>
 {
 }

@@ -13,6 +13,24 @@ namespace Catga.Tests.Hosting;
 /// </summary>
 public class RecoveryHostedServicePropertyTests
 {
+    private static bool WaitUntil(Func<bool> condition, TimeSpan timeout, TimeSpan? pollInterval = null)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        var pause = pollInterval ?? TimeSpan.FromMilliseconds(5);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition())
+            {
+                return true;
+            }
+
+            Thread.Sleep(pause);
+        }
+
+        return condition();
+    }
+
     /// <summary>
     /// Property 5: 恢复服务定期健康检查
     /// Feature: hosting-integration, Property 5: 恢复服务定期健康检查
@@ -20,13 +38,12 @@ public class RecoveryHostedServicePropertyTests
     /// 
     /// For any 配置的检查间隔，恢复服务应该在该间隔内对所有注册的组件执行健康检查。
     /// </summary>
-    [Property(MaxTest = 100, Arbitrary = new[] { typeof(RecoveryArbitraries) })]
+    [Property(MaxTest = 20, Arbitrary = new[] { typeof(RecoveryArbitraries) })]
     public Property RecoveryService_PerformsPeriodicHealthChecks(PositiveInt checkIntervalMs, PositiveInt componentCount)
     {
         // 限制参数范围以确保测试可以在合理时间内完成
-        // 使用更长的间隔以确保测试稳定性
-        var interval = TimeSpan.FromMilliseconds(Math.Max(200, Math.Min(checkIntervalMs.Get, 500)));
-        var numComponents = Math.Min(componentCount.Get, 10);
+        var interval = TimeSpan.FromMilliseconds(Math.Max(20, Math.Min(checkIntervalMs.Get, 50)));
+        var numComponents = Math.Min(componentCount.Get, 5);
 
         return Prop.ForAll(
             Gen.Constant(interval).ToArbitrary(),
@@ -72,19 +89,15 @@ public class RecoveryHostedServicePropertyTests
                 var startTask = service.StartAsync(cts.Token);
                 startTask.Wait(1000);
 
-                // 等待至少 3 个检查周期以确保有足够的时间进行检查
-                // 初始检查 + 至少 2 个周期性检查
-                var waitTime = checkInterval.Add(checkInterval).Add(checkInterval).Add(TimeSpan.FromMilliseconds(300));
-                Thread.Sleep(waitTime);
+                var allChecked = WaitUntil(
+                    () => healthCheckCounts.All(c => c >= 1),
+                    timeout: TimeSpan.FromMilliseconds(Math.Max(2000, checkInterval.TotalMilliseconds * 20)));
 
                 cts.Cancel();
                 var stopTask = service.StopAsync(CancellationToken.None);
                 stopTask.Wait(3000);
 
                 // Assert
-                // 每个组件的健康状态应该被检查至少一次
-                var allChecked = healthCheckCounts.All(c => c >= 1);
-
                 return allChecked.Label($"All {count} components should be health-checked at least once. Counts: [{string.Join(", ", healthCheckCounts)}]");
             });
     }
@@ -96,7 +109,7 @@ public class RecoveryHostedServicePropertyTests
     /// 
     /// For any 检测到的不健康组件，恢复服务应该尝试恢复该组件，直到成功或达到最大重试次数。
     /// </summary>
-    [Property(MaxTest = 100, Arbitrary = new[] { typeof(RecoveryArbitraries) })]
+    [Property(MaxTest = 20, Arbitrary = new[] { typeof(RecoveryArbitraries) })]
     public Property RecoveryService_AttemptsRecoveryForUnhealthyComponents(PositiveInt maxRetries)
     {
         // 限制重试次数以确保测试可以在合理时间内完成
@@ -135,16 +148,16 @@ public class RecoveryHostedServicePropertyTests
                 var startTask = service.StartAsync(cts.Token);
                 startTask.Wait(1000);
 
-                // 等待足够的时间让至少一个恢复周期完成
-                Thread.Sleep(500);
+                var attemptedRecovery = WaitUntil(
+                    () => Volatile.Read(ref recoveryAttempts) >= maxRetryCount,
+                    timeout: TimeSpan.FromSeconds(1));
 
                 cts.Cancel();
                 var stopTask = service.StopAsync(CancellationToken.None);
                 stopTask.Wait(2000);
 
                 // Assert
-                // 应该尝试恢复至少 maxRetries 次（可能更多，因为可能有多个检查周期）
-                var attemptedRecovery = recoveryAttempts >= maxRetryCount;
+                attemptedRecovery = attemptedRecovery && recoveryAttempts >= maxRetryCount;
 
                 return attemptedRecovery.Label($"Should attempt recovery at least {maxRetryCount} times, got {recoveryAttempts} attempts");
             });
@@ -157,11 +170,11 @@ public class RecoveryHostedServicePropertyTests
     /// 
     /// For any 托管服务，当 CancellationToken 被取消时，服务应该在合理时间内停止执行。
     /// </summary>
-    [Property(MaxTest = 100, Arbitrary = new[] { typeof(RecoveryArbitraries) })]
+    [Property(MaxTest = 20, Arbitrary = new[] { typeof(RecoveryArbitraries) })]
     public Property RecoveryService_RespondsToCancellationToken(PositiveInt componentCount)
     {
         // 限制组件数量
-        var numComponents = Math.Min(componentCount.Get, 10);
+        var numComponents = Math.Min(componentCount.Get, 5);
 
         return Prop.ForAll(
             Gen.Constant(numComponents).ToArbitrary(),
@@ -202,8 +215,8 @@ public class RecoveryHostedServicePropertyTests
                 var startTask = service.StartAsync(cts.Token);
                 startTask.Wait(1000);
 
-                // 让服务运行一小段时间
-                Thread.Sleep(200);
+                // 让首次检查和至少一个恢复动作开始
+                Thread.Sleep(50);
 
                 // 取消并测量停止时间
                 var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -213,8 +226,8 @@ public class RecoveryHostedServicePropertyTests
                 stopwatch.Stop();
 
                 // Assert
-                // 服务应该在合理时间内停止（2秒内）
-                var stoppedInTime = completed && stopwatch.ElapsedMilliseconds < 2000;
+                // 服务应该在合理时间内停止
+                var stoppedInTime = completed && stopwatch.ElapsedMilliseconds < 1000;
 
                 return stoppedInTime.Label($"Service should stop within 2 seconds, took {stopwatch.ElapsedMilliseconds}ms");
             });

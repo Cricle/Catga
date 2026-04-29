@@ -30,8 +30,9 @@ internal sealed class FlowResumeRegistration<[DynamicallyAccessedMembers(Dynamic
         var store = scopedProvider.GetRequiredService<IDslFlowStore>();
         var config = scopedProvider.GetRequiredService<TFlow>();
         var scheduler = scopedProvider.GetService<IFlowScheduler>();
+        var requestClientFactory = scopedProvider.GetService<IRequestClientFactory>();
 
-        var executor = new DslFlowExecutor<TState, TFlow>(mediator, store, config, scheduler);
+        var executor = new DslFlowExecutor<TState, TFlow>(mediator, store, config, scheduler, requestClientFactory);
         await executor.ResumeAsync(flowId, ct);
     }
 }

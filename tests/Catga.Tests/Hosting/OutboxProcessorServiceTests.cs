@@ -1,4 +1,5 @@
 using Catga.Abstractions;
+using Catga.Core;
 using Catga.Hosting;
 using Catga.Outbox;
 using Catga.Transport;
@@ -13,11 +14,20 @@ namespace Catga.Tests.Hosting;
 /// </summary>
 public class OutboxProcessorServiceTests
 {
+    private sealed record TestOutboxMessage(string Name = "test");
+
+    private static IMessageTypeRegistry CreateMessageTypeRegistry()
+    {
+        var registry = new DefaultMessageTypeRegistry();
+        registry.Register(typeof(TestOutboxMessage));
+        return registry;
+    }
+
     private static IMessageSerializer CreateMockSerializer()
     {
         var serializer = Substitute.For<IMessageSerializer>();
         serializer.Deserialize(Arg.Any<byte[]>(), Arg.Any<Type>())
-            .Returns(callInfo => new object()); // 返回一个简单的对象
+            .Returns(new TestOutboxMessage());
         return serializer;
     }
     /// <summary>
@@ -31,20 +41,22 @@ public class OutboxProcessorServiceTests
         var logger = Substitute.For<ILogger<OutboxProcessorService>>();
         var outboxStore = Substitute.For<IOutboxStore>();
         var transport = Substitute.For<IMessageTransport>();
+        transport.PublishAsync(Arg.Any<TestOutboxMessage>(), Arg.Any<TransportContext?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
 
         var messages = new List<OutboxMessage>
         {
             new OutboxMessage
             {
                 MessageId = 1,
-                MessageType = "TestMessage1",
+                MessageType = typeof(TestOutboxMessage).AssemblyQualifiedName!,
                 Payload = new byte[] { 1 },
                 Status = OutboxStatus.Pending
             },
             new OutboxMessage
             {
                 MessageId = 2,
-                MessageType = "TestMessage2",
+                MessageType = typeof(TestOutboxMessage).AssemblyQualifiedName!,
                 Payload = new byte[] { 2 },
                 Status = OutboxStatus.Pending
             }
@@ -71,7 +83,7 @@ public class OutboxProcessorServiceTests
             ErrorDelay = TimeSpan.FromMilliseconds(10)
         };
 
-        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
+        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), CreateMessageTypeRegistry(), logger, options);
         var cts = new CancellationTokenSource();
 
         // Act
@@ -103,27 +115,29 @@ public class OutboxProcessorServiceTests
         var logger = Substitute.For<ILogger<OutboxProcessorService>>();
         var outboxStore = Substitute.For<IOutboxStore>();
         var transport = Substitute.For<IMessageTransport>();
+        transport.PublishAsync(Arg.Any<TestOutboxMessage>(), Arg.Any<TransportContext?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
 
         var messages = new List<OutboxMessage>
         {
             new OutboxMessage
             {
                 MessageId = 1,
-                MessageType = "TestMessage1",
+                MessageType = typeof(TestOutboxMessage).AssemblyQualifiedName!,
                 Payload = new byte[] { 1 },
                 Status = OutboxStatus.Pending
             },
             new OutboxMessage
             {
                 MessageId = 2,
-                MessageType = "TestMessage2",
+                MessageType = typeof(TestOutboxMessage).AssemblyQualifiedName!,
                 Payload = new byte[] { 2 },
                 Status = OutboxStatus.Pending
             },
             new OutboxMessage
             {
                 MessageId = 3,
-                MessageType = "TestMessage3",
+                MessageType = typeof(TestOutboxMessage).AssemblyQualifiedName!,
                 Payload = new byte[] { 3 },
                 Status = OutboxStatus.Pending
             }
@@ -151,7 +165,7 @@ public class OutboxProcessorServiceTests
             CompleteCurrentBatchOnShutdown = true
         };
 
-        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
+        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), CreateMessageTypeRegistry(), logger, options);
         var cts = new CancellationTokenSource();
 
         // Act
@@ -182,13 +196,15 @@ public class OutboxProcessorServiceTests
         var logger = Substitute.For<ILogger<OutboxProcessorService>>();
         var outboxStore = Substitute.For<IOutboxStore>();
         var transport = Substitute.For<IMessageTransport>();
+        transport.PublishAsync(Arg.Any<TestOutboxMessage>(), Arg.Any<TransportContext?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
 
         var messages = new List<OutboxMessage>
         {
             new OutboxMessage
             {
                 MessageId = 1,
-                MessageType = "TestMessage1",
+                MessageType = typeof(TestOutboxMessage).AssemblyQualifiedName!,
                 Payload = new byte[] { 1 },
                 Status = OutboxStatus.Pending
             }
@@ -211,7 +227,7 @@ public class OutboxProcessorServiceTests
             ErrorDelay = TimeSpan.FromMilliseconds(10)
         };
 
-        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
+        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), CreateMessageTypeRegistry(), logger, options);
         var cts = new CancellationTokenSource();
 
         // Act
@@ -242,6 +258,8 @@ public class OutboxProcessorServiceTests
         var logger = Substitute.For<ILogger<OutboxProcessorService>>();
         var outboxStore = Substitute.For<IOutboxStore>();
         var transport = Substitute.For<IMessageTransport>();
+        transport.PublishAsync(Arg.Any<TestOutboxMessage>(), Arg.Any<TransportContext?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
 
         outboxStore.GetPendingMessagesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult<IReadOnlyList<OutboxMessage>>(Array.Empty<OutboxMessage>()));
@@ -253,7 +271,7 @@ public class OutboxProcessorServiceTests
             ErrorDelay = TimeSpan.FromMilliseconds(10)
         };
 
-        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
+        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), CreateMessageTypeRegistry(), logger, options);
         var cts = new CancellationTokenSource();
 
         // Act
@@ -291,7 +309,7 @@ public class OutboxProcessorServiceTests
             new OutboxMessage
             {
                 MessageId = 1,
-                MessageType = "TestMessage1",
+                MessageType = typeof(TestOutboxMessage).AssemblyQualifiedName!,
                 Payload = new byte[] { 1 },
                 Status = OutboxStatus.Pending
             }
@@ -317,7 +335,7 @@ public class OutboxProcessorServiceTests
             ErrorDelay = TimeSpan.FromMilliseconds(10)
         };
 
-        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
+        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), CreateMessageTypeRegistry(), logger, options);
         var cts = new CancellationTokenSource();
 
         // Act
@@ -334,6 +352,61 @@ public class OutboxProcessorServiceTests
         // 由于并发保护，同一时间应该只有一个批次在处理
         // processingCount 应该始终 <= 1
         Assert.True(processingCount <= 1, $"Concurrent processing detected: {processingCount}");
+    }
+
+    [Fact]
+    public async Task ProcessBatch_ResolvesLegacySimpleTypeNames()
+    {
+        var logger = Substitute.For<ILogger<OutboxProcessorService>>();
+        var outboxStore = Substitute.For<IOutboxStore>();
+        var transport = Substitute.For<IMessageTransport>();
+        transport.PublishAsync(Arg.Any<TestOutboxMessage>(), Arg.Any<TransportContext?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        var messages = new List<OutboxMessage>
+        {
+            new OutboxMessage
+            {
+                MessageId = 10,
+                MessageType = typeof(TestOutboxMessage).Name,
+                Payload = new byte[] { 1 },
+                Status = OutboxStatus.Pending
+            }
+        };
+
+        var callCount = 0;
+        outboxStore.GetPendingMessagesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                callCount++;
+                return callCount == 1
+                    ? ValueTask.FromResult<IReadOnlyList<OutboxMessage>>(messages)
+                    : ValueTask.FromResult<IReadOnlyList<OutboxMessage>>(Array.Empty<OutboxMessage>());
+            });
+        outboxStore.MarkAsPublishedAsync(Arg.Any<long>(), Arg.Any<CancellationToken>())
+            .Returns(ValueTask.CompletedTask);
+
+        var options = new OutboxProcessorOptions
+        {
+            ScanInterval = TimeSpan.FromMilliseconds(50),
+            BatchSize = 10,
+            ErrorDelay = TimeSpan.FromMilliseconds(10)
+        };
+
+        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), CreateMessageTypeRegistry(), logger, options);
+        var cts = new CancellationTokenSource();
+
+        await service.StartAsync(cts.Token);
+        await Task.Delay(250);
+
+        cts.Cancel();
+        await service.StopAsync(CancellationToken.None);
+
+        await transport.Received(1).PublishAsync(
+            Arg.Any<TestOutboxMessage>(),
+            Arg.Any<TransportContext?>(),
+            Arg.Any<CancellationToken>());
+        await outboxStore.Received(1).MarkAsPublishedAsync(10, Arg.Any<CancellationToken>());
     }
 
     /// <summary>
@@ -356,7 +429,7 @@ public class OutboxProcessorServiceTests
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, invalidOptions));
+            new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), CreateMessageTypeRegistry(), logger, invalidOptions));
     }
 
     /// <summary>
@@ -381,7 +454,7 @@ public class OutboxProcessorServiceTests
             ErrorDelay = TimeSpan.FromMilliseconds(10)
         };
 
-        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), logger, options);
+        var service = new OutboxProcessorService(outboxStore, transport, CreateMockSerializer(), CreateMessageTypeRegistry(), logger, options);
         var cts = new CancellationTokenSource();
 
         // Act

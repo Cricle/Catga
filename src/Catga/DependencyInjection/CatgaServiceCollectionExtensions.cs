@@ -5,6 +5,8 @@ using Catga.DistributedId;
 using Catga.EventSourcing;
 using Catga.Observability;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Catga.Abstractions;
 using Catga.Core;
 
@@ -20,13 +22,16 @@ public static class CatgaServiceCollectionExtensions
 
         var options = new CatgaOptions();
         services.TryAddSingleton(options);
-        services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
+        services.TryAddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
+        services.TryAdd(ServiceDescriptor.Singleton(typeof(ILogger<>), typeof(NullLogger<>)));
+        services.TryAddScoped<ICatgaMediator, CatgaMediator>();
         services.TryAddSingleton<IDistributedIdGenerator>(sp => new SnowflakeIdGenerator(GetWorkerIdFromEnvironmentOrRandom("CATGA_WORKER_ID")));
 
         if (options.EnableTracing)
             ObservabilityHooks.Enable();
 
         services.TryAddSingleton<IEventTypeRegistry, DefaultEventTypeRegistry>();
+        services.TryAddSingleton<IMessageTypeRegistry, DefaultMessageTypeRegistry>();
 
         Catga.Generated.GeneratedBootstrapRegistry.Apply(services);
         var conv = Catga.Generated.GeneratedBootstrapRegistry.EndpointConvention;
@@ -57,13 +62,16 @@ public static class CatgaServiceCollectionExtensions
         var options = new CatgaOptions();
         configure(options);
         services.TryAddSingleton(options);
-        services.TryAddSingleton<ICatgaMediator, CatgaMediator>();
+        services.TryAddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
+        services.TryAdd(ServiceDescriptor.Singleton(typeof(ILogger<>), typeof(NullLogger<>)));
+        services.TryAddScoped<ICatgaMediator, CatgaMediator>();
         services.TryAddSingleton<IDistributedIdGenerator>(sp => new SnowflakeIdGenerator(GetWorkerIdFromEnvironmentOrRandom("CATGA_WORKER_ID")));
 
         if (options.EnableTracing)
             ObservabilityHooks.Enable();
 
         services.TryAddSingleton<IEventTypeRegistry, DefaultEventTypeRegistry>();
+        services.TryAddSingleton<IMessageTypeRegistry, DefaultMessageTypeRegistry>();
 
         Catga.Generated.GeneratedBootstrapRegistry.Apply(services);
         var conv = Catga.Generated.GeneratedBootstrapRegistry.EndpointConvention;

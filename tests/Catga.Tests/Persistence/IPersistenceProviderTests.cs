@@ -2,6 +2,7 @@ using Catga.DeadLetter;
 using Catga.EventSourcing;
 using Catga.Flow;
 using Catga.Flow.Dsl;
+using Catga.Flow.Persistence;
 using Catga.Idempotency;
 using Catga.Inbox;
 using Catga.Outbox;
@@ -19,35 +20,31 @@ public class IPersistenceProviderTests
     {
         var provider = Substitute.For<IPersistenceProvider>();
         provider.Name.Returns("TestProvider");
-
         provider.Name.Should().Be("TestProvider");
     }
 
     [Fact]
-    public void Provider_CreateDslFlowStore_CanReturnNull()
+    public void FlowProvider_CreateDslFlowStore_CanReturnNull()
     {
-        var provider = Substitute.For<IPersistenceProvider>();
+        var provider = Substitute.For<IFlowPersistenceProvider>();
         provider.CreateDslFlowStore().Returns((IDslFlowStore?)null);
-
         provider.CreateDslFlowStore().Should().BeNull();
     }
 
     [Fact]
-    public void Provider_CreateDslFlowStore_CanReturnStore()
+    public void FlowProvider_CreateDslFlowStore_CanReturnStore()
     {
-        var provider = Substitute.For<IPersistenceProvider>();
+        var provider = Substitute.For<IFlowPersistenceProvider>();
         var store = Substitute.For<IDslFlowStore>();
         provider.CreateDslFlowStore().Returns(store);
-
         provider.CreateDslFlowStore().Should().Be(store);
     }
 
     [Fact]
     public void Provider_AllMethodsReturnOptional()
     {
-        var provider = Substitute.For<IPersistenceProvider>();
+        var provider = Substitute.For<IFlowPersistenceProvider>();
 
-        // Configure substitute to return null explicitly
         provider.CreateDslFlowStore().Returns((IDslFlowStore?)null);
         provider.CreateOutboxStore().Returns((IOutboxStore?)null);
         provider.CreateInboxStore().Returns((IInboxStore?)null);
@@ -60,22 +57,11 @@ public class IPersistenceProviderTests
         provider.CreateProjectionCheckpointStore().Returns((IProjectionCheckpointStore?)null);
 
         provider.CreateDslFlowStore().Should().BeNull();
-        provider.CreateOutboxStore().Should().BeNull();
-        provider.CreateInboxStore().Should().BeNull();
-        provider.CreateEventStore().Should().BeNull();
-        provider.CreateIdempotencyStore().Should().BeNull();
-        provider.CreateDeadLetterQueue().Should().BeNull();
-        provider.CreateSnapshotStore().Should().BeNull();
-        provider.CreateDistributedLockProvider().Should().BeNull();
         provider.CreateFlowStore().Should().BeNull();
-        provider.CreateProjectionCheckpointStore().Should().BeNull();
     }
 }
 
-/// <summary>
-/// Example implementation for testing
-/// </summary>
-public class TestPersistenceProvider : IPersistenceProvider
+public class TestPersistenceProvider : IFlowPersistenceProvider
 {
     public string Name => "Test";
 
@@ -89,6 +75,7 @@ public class TestPersistenceProvider : IPersistenceProvider
     }
 
     public IDslFlowStore? CreateDslFlowStore() => _dslFlowStore;
+    public IFlowStore? CreateFlowStore() => null;
     public IOutboxStore? CreateOutboxStore() => _outboxStore;
     public IInboxStore? CreateInboxStore() => null;
     public IEventStore? CreateEventStore() => null;
@@ -96,7 +83,6 @@ public class TestPersistenceProvider : IPersistenceProvider
     public IDeadLetterQueue? CreateDeadLetterQueue() => null;
     public ISnapshotStore? CreateSnapshotStore() => null;
     public IDistributedLockProvider? CreateDistributedLockProvider() => null;
-    public IFlowStore? CreateFlowStore() => null;
     public IProjectionCheckpointStore? CreateProjectionCheckpointStore() => null;
 }
 
@@ -114,7 +100,6 @@ public class TestPersistenceProviderTests
     {
         var store = Substitute.For<IDslFlowStore>();
         var provider = new TestPersistenceProvider(dslFlowStore: store);
-
         provider.CreateDslFlowStore().Should().Be(store);
     }
 

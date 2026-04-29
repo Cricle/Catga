@@ -1,6 +1,8 @@
 using MemoryPack;
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
+using Catga.Flow;
+using Catga.Flow.Dsl;
 
 namespace Catga.Serialization.MemoryPack;
 
@@ -22,7 +24,11 @@ public class MemoryPackMessageSerializer : MessageSerializerBase
 {
     static MemoryPackMessageSerializer()
     {
+        MemoryPackFormatterProvider.RegisterGenericType(typeof(StoredSnapshot<>), typeof(StoredSnapshotFormatter<>));
         MemoryPackFormatterProvider.Register(new FlowStateFormatter());
+        MemoryPackFormatterProvider.Register(new NatsStoredSnapshotFormatter());
+        MemoryPackFormatterProvider.Register(new StoredSnapshotMetadataFormatter());
+        MemoryPackFormatterProvider.Register(new ForEachProgressFormatter());
         MemoryPackFormatterProvider.Register(new OutboxMessageFormatter());
         MemoryPackFormatterProvider.Register(new InboxMessageFormatter());
         MemoryPackFormatterProvider.Register(new DeadLetterMessageFormatter());

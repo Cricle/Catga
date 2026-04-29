@@ -445,29 +445,23 @@ info: MyFirstCatgaApp.Handlers.UserCreatedEventHandler[0]
 
 ## 📊 Performance Benchmarks
 
-Catga delivers excellent performance with minimal memory allocation:
+Treat this page as an onboarding guide, not the benchmark authority.
 
-### Real Benchmark Results
+Current benchmark snapshot:
 
-> BenchmarkDotNet on AMD Ryzen 7 5800H, .NET 9.0.8
+| Operation | Catga |
+|-----------|-------|
+| **Command** | `149.72 ns / 88 B` |
+| **Event** | `87.23 ns / 64 B` |
+| **Batch 100 Commands** | `13.24 μs / 8,800 B` |
 
-| Operation | Catga (minimal) | MediatR | Memory Savings |
-|-----------|-----------------|---------|----------------|
-| **Command** | 206 ns | 185 ns | **88 B vs 424 B (4.8x less)** |
-| **Query** | 205 ns | 208 ns | **32 B vs 368 B (11.5x less)** |
-| **Event** | **119 ns** | 147 ns | **64 B vs 288 B (4.5x less)** |
-| **Batch 100** | 13.9 μs | 13.4 μs | **8.8 KB vs 35.2 KB (4x less)** |
-
-### Key Highlights
-
-- ✅ **Event publishing 19% faster** than MediatR
-- ✅ **Query performance on par** with MediatR
-- ✅ **4-11x less memory allocation** across all operations
+For the latest comparison details, always check:
+- [Benchmark Results](../BENCHMARK-RESULTS.md)
+- [Performance Index](../performance/README.md)
 
 Run benchmarks yourself:
 ```bash
-cd benchmarks/Catga.Benchmarks
-dotnet run -c Release --filter *MediatRComparison*
+dotnet run -c Release --framework net10.0 --project benchmarks/Catga.Benchmarks -- --filter *FrameworkComparison*
 ```
 
 ---
@@ -622,7 +616,7 @@ See [Hosting Configuration Guide](../guides/hosting-configuration.md)
 
 Check out the complete production-level example:
 
-- **OrderSystem**: [OrderSystem 示例](/examples/README.md)
+- **OrderSystem**: [OrderSystem 示例](../../examples/README.md)
   - Complete e-commerce order system
   - Distributed deployment (3-node cluster)
   - Monitoring and tracing
@@ -648,5 +642,3 @@ Now start building your high-performance CQRS application!
 [Full Documentation](../README.md) · [Examples](../examples/basic-usage.md) · [Benchmarks](../BENCHMARK-RESULTS.md)
 
 </div>
-
-

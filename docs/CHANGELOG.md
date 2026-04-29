@@ -208,8 +208,8 @@
 ### Documentation
 
 - 📖 **完整的中文文档**
-  - README.md - 30 秒快速开始
-  - INDEX.md - 5 分钟速查手册
+  - README.md - 仓库主入口
+  - docs/README.md - 文档索引与快速导航
   - 架构设计文档
   - API 参考文档
   - 部署指南 (K8s, Docker)
@@ -270,6 +270,5 @@
 [Unreleased]: https://github.com/Cricle/Catga/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/Cricle/Catga/releases/tag/v1.0.0
 [0.9.0-rc.1]: https://github.com/Cricle/Catga/releases/tag/v0.9.0-rc.1
-
 
 

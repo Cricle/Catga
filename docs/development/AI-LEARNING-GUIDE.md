@@ -1148,13 +1148,12 @@ docfx docfx.json --serve
 
 1. 阅读完整文档: `docs/`
 2. 运行示例项目: `examples/`
-3. 查看最佳实践: `README.md`
+3. 查看文档入口: `docs/README.md`
 4. 配置 OpenTelemetry
 5. 实现你的第一个 CQRS 应用！
 
 ---
 
 **Happy Coding with Catga!** 🚀
-
 
 

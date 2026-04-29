@@ -20,18 +20,19 @@
 
 ## ⚡ Performance
 
-> BenchmarkDotNet on AMD Ryzen 7 5800H, .NET 9.0.8
+> Latest benchmark snapshot: 2026-04-29, BenchmarkDotNet v0.14.0, Debian 12, Intel Xeon Platinum 8457C, .NET SDK 10.0.201, .NET Runtime 10.0.5.
 
-| Scenario | Latency | Memory | Throughput |
-|----------|---------|--------|------------|
-| Create Order (Command) | **351 ns** | 104 B | 2.8M ops/sec |
-| Get Order (Query) | **337 ns** | 80 B | 2.9M ops/sec |
-| Event (3 handlers) | **352 ns** | 208 B | 2.8M ops/sec |
-| Complete Flow (Command + Event) | **729 ns** | 312 B | 1.4M ops/sec |
-| E-Commerce (Order + Payment + Query) | **923 ns** | 416 B | 1.1M ops/sec |
-| Batch 10 Flows | **10.2 μs** | 4.2 KB | 98K flows/sec |
-| Concurrent 10 Flows | **9.3 μs** | 4.3 KB | 108K flows/sec |
-| High-Throughput 20 Orders | **5.8 μs** | 5.4 KB | 172K ops/sec |
+| Scenario | Result |
+|----------|--------|
+| Command | `149.72 ns / 88 B` |
+| Event | `87.23 ns / 64 B` |
+| Batch 100 Commands | `13.24 μs / 8,800 B` |
+| MediatR comparison | Faster on single-command and batch-100 path, but allocates more |
+| MassTransit comparison | Much heavier in this mediator/request-reply benchmark |
+
+Authoritative benchmark docs:
+- [Benchmark Results](./docs/BENCHMARK-RESULTS.md)
+- [Performance Index](./docs/performance/README.md)
 
 ---
 
@@ -226,10 +227,13 @@ builder.Services.AddCatga()
 
 ## 📚 Documentation
 
+- [Documentation Home](./docs/README.md)
 - [Getting Started](./docs/articles/getting-started.md)
-- [Flow DSL Guide](./docs/guides/flow-dsl.md)
-- [Event Sourcing](./docs/articles/event-sourcing.md)
-- [Architecture](./docs/architecture/ARCHITECTURE.md)
+- [Architecture Index](./docs/architecture/README.md)
+- [Guides Index](./docs/guides/README.md)
+- [Performance Index](./docs/performance/README.md)
+- [MassTransit Migration / Comparison](./docs/guides/masstransit-migration.md)
+- [Benchmark Results](./docs/BENCHMARK-RESULTS.md)
 - [API Reference](https://cricle.github.io/Catga/api/)
 
 ---

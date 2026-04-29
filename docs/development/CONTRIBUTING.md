@@ -254,7 +254,7 @@ dotnet run -c Release --project benchmarks/Catga.Benchmarks
 新功能需要更新文档：
 
 1. **README.md** - 主要特性
-2. **INDEX.md** - 文档索引与快速导航
+2. **docs/README.md** - 文档索引与快速导航
 3. **docs/** - 详细指南
 
 文档格式：
@@ -371,5 +371,4 @@ dotnet publish -c Release -r win-x64 /p:PublishAot=true
 ---
 
 **开始贡献吧！我们期待你的 Pull Request！** 🚀
-
 

@@ -154,7 +154,7 @@ dotnet publish -c Release
 
 ## 📚 更多资源
 
-- [性能报告](../PERFORMANCE-REPORT.md)
+- [性能报告](../topics/history/PERFORMANCE-REPORT.md)
 - [源生成器使用指南](../guides/source-generator.md)
 - [Native AOT 最佳实践](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
 - [System.Text.Json 源生成器](https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/source-generation)
@@ -206,6 +206,5 @@ Catga 的核心已经为 Native AOT 做好了充分准备！
 - 🔒 **更安全**（无动态代码生成）
 
 开始你的 AOT 之旅吧！🎊
-
 
 

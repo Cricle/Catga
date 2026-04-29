@@ -1,6 +1,7 @@
 # Benchmark Results
 
 > Framework comparison section below reflects the latest run on 2026-04-29 with BenchmarkDotNet v0.14.0, Debian 12, Intel Xeon Platinum 8457C, .NET SDK 10.0.201, .NET Runtime 10.0.5.
+> This file is the current benchmark source of truth for Catga. Other docs should link here instead of repeating old numbers.
 
 ## Framework Comparison (Catga vs MediatR vs MassTransit)
 

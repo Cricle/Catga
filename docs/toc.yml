@@ -1,44 +1,118 @@
-- name: Getting Started
-  href: articles/getting-started.md
-- name: Core
+- name: 文档首页
+  href: README.md
+- name: 快速开始
   items:
-    - name: Architecture
-      href: architecture/ARCHITECTURE.md
-    - name: CQRS Pattern
-      href: architecture/cqrs.md
-    - name: Configuration
+    - name: 文章索引
+      href: articles/README.md
+    - name: 快速开始
+      href: articles/getting-started.md
+    - name: 基础示例
+      href: examples/basic-usage.md
+    - name: 配置指南
       href: articles/configuration.md
-- name: Features
+- name: 架构
   items:
-    - name: Event Sourcing
-      href: articles/event-sourcing.md
+    - name: 架构索引
+      href: architecture/README.md
+    - name: 完整架构
+      href: architecture/ARCHITECTURE.md
+    - name: 模块与边界
+      href: architecture/modules-and-boundaries.md
+    - name: 运行时与扩展点
+      href: architecture/runtime-and-extensibility.md
+    - name: 系统概览
+      href: architecture/overview.md
+    - name: CQRS 模式
+      href: architecture/cqrs.md
+    - name: 职责边界
+      href: architecture/RESPONSIBILITY-BOUNDARY.md
+- name: 开发指南
+  items:
+    - name: 指南索引
+      href: guides/README.md
+    - name: 源生成器
+      href: guides/source-generator.md
+    - name: 自动 DI 注册
+      href: guides/auto-di-registration.md
+    - name: 分析器
+      href: guides/analyzers.md
+    - name: 分析器规则参考
+      href: guides/analyzers-rules.md
+    - name: 分析器配置与接入
+      href: guides/analyzers-configuration.md
+    - name: 错误处理
+      href: guides/error-handling.md
+    - name: 序列化
+      href: guides/serialization.md
+    - name: Hosting 配置
+      href: guides/hosting-configuration.md
     - name: Flow DSL
       href: guides/flow-dsl.md
-    - name: Resilience
+    - name: Flow DSL 最佳实践
+      href: guides/flow-dsl-best-practices.md
+    - name: MassTransit 迁移对照
+      href: guides/masstransit-migration.md
+    - name: MassTransit 能力映射
+      href: guides/masstransit-feature-mapping.md
+    - name: MassTransit 评分与结论
+      href: guides/masstransit-scorecard.md
+- name: 核心能力
+  items:
+    - name: 事件溯源
+      href: articles/event-sourcing.md
+    - name: 弹性与恢复
       href: Resilience.md
-- name: Guides
+    - name: 分布式事务
+      href: patterns/DISTRIBUTED-TRANSACTION-V2.md
+- name: 可观测性
   items:
-    - name: Source Generator
-      href: guides/source-generator.md
-    - name: Error Handling
-      href: guides/error-handling.md
-    - name: Serialization
-      href: guides/serialization.md
-- name: Observability
-  items:
+    - name: 可观测性索引
+      href: observability/README.md
     - name: OpenTelemetry
       href: articles/opentelemetry-integration.md
-    - name: Distributed Tracing
+    - name: 分布式追踪
       href: observability/DISTRIBUTED-TRACING-GUIDE.md
-- name: Deployment
+- name: 部署
   items:
+    - name: 部署索引
+      href: deployment/README.md
     - name: Native AOT
       href: deployment/native-aot-publishing.md
     - name: Kubernetes
       href: deployment/kubernetes.md
-- name: Examples
+- name: 示例
   items:
+    - name: 示例索引
+      href: examples/README.md
     - name: OrderSystem
       href: ../examples/README.md
-- name: API Reference
+- name: 性能
+  items:
+    - name: 性能索引
+      href: performance/README.md
+    - name: Benchmark 结果
+      href: BENCHMARK-RESULTS.md
+    - name: 性能优化
+      href: performance-optimization-guide.md
+- name: 开发者
+  items:
+    - name: 开发者索引
+      href: development/README.md
+    - name: 贡献指南
+      href: development/CONTRIBUTING.md
+    - name: AI 学习指南
+      href: development/AI-LEARNING-GUIDE.md
+- name: 专题与历史
+  items:
+    - name: 专题索引
+      href: topics/README.md
+    - name: Flow 专题
+      href: topics/flow/README.md
+    - name: Read Model 专题
+      href: topics/read-model/README.md
+    - name: 历史文档索引
+      href: topics/history/README.md
+    - name: 更新日志
+      href: CHANGELOG.md
+- name: API 参考
   href: api/index.md

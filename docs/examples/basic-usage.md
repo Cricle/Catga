@@ -202,7 +202,7 @@ namespace MyApp.Controllers
 ```csharp
 using Catga.Messages;
 
-public record GetOrderQuery : MessageBase, IQuery<OrderDto>
+public record GetOrderQuery : IRequest<OrderDto>
 {
     public string OrderId { get; init; } = string.Empty;
 }
@@ -506,6 +506,5 @@ builder.Services.AddCatga(options =>
 - [API 参考](../api/index.md)
 - [高级用法](../guides/source-generator.md)
 - [最佳实践](../guides/memory-optimization-guide.md)
-
 
 

@@ -231,40 +231,26 @@ public class OrderSaga : ICatGaTransaction
 ### NATS 集成
 
 ```csharp
-public class NatsCatgaMediator : ICatgaMediator
-{
-    // 实现分布式消息传递
-    // 支持发布/订阅模式
-    // 自动序列化/反序列化
-}
+builder.Services.AddNatsConnection("nats://localhost:4222");
 
-// 配置
-builder.Services.AddNatsCatga(options =>
-{
-    options.Url = "nats://localhost:4222";
-    options.MaxReconnect = 10;
-});
+builder.Services.AddCatga()
+    .UseMemoryPack()
+    .UseNats(options =>
+    {
+        options.EventStreamName = "CATGA_EVENTS";
+    });
+
+builder.Services.AddNatsTransport("nats://localhost:4222");
 ```
 
 ### Redis 集成
 
 ```csharp
-public class RedisIdempotencyStore : IIdempotencyStore
-{
-    // Redis 实现的幂等性存储
-}
+builder.Services.AddCatga()
+    .UseMemoryPack()
+    .UseRedis("localhost:6379");
 
-public class RedisCatGaStore : ICatGaStore
-{
-    // Redis 实现的 Saga 持久化
-}
-
-// 配置
-builder.Services.AddRedisCatga(options =>
-{
-    options.Configuration = "localhost:6379";
-    options.IdempotencyExpiration = TimeSpan.FromHours(24);
-});
+builder.Services.AddRedisTransport("localhost:6379");
 ```
 
 ## AOT 兼容性
@@ -347,18 +333,17 @@ builder.Services.AddCatga();
 ### 微服务
 
 ```csharp
-builder.Services.AddNatsCatga(options =>
-{
-    options.Url = "nats://message-broker:4222";
-});
+builder.Services.AddNatsConnection("nats://message-broker:4222");
+builder.Services.AddCatga().UseMemoryPack().UseNats();
+builder.Services.AddNatsTransport("nats://message-broker:4222");
 ```
 
 ### 混合部署
 
 ```csharp
-builder.Services.AddCatga();
-builder.Services.AddNatsCatga();   // 跨服务通信
-builder.Services.AddRedisCatga();  // 状态持久化
+builder.Services.AddNatsConnection("nats://message-broker:4222");
+builder.Services.AddCatga().UseMemoryPack().UseRedis("localhost:6379");
+builder.Services.AddNatsTransport("nats://message-broker:4222");   // 跨服务通信
 ```
 
 ## 最佳实践
@@ -427,4 +412,3 @@ Catga 提供多个扩展点：
 5. **自定义监控集成**
 
 这种架构设计确保了 Catga 既强大又灵活，能够适应各种应用场景和部署需求。
-

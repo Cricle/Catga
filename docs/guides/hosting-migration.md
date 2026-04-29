@@ -63,16 +63,19 @@ app.Run();
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
-// 使用 Catga 扩展方法注册所有服务
+builder.Services.AddNatsConnection("nats://localhost:4222");
+
 builder.Services.AddCatga()
-    .AddNatsTransport(options => { /* 配置 */ })
-    .AddNatsPersistence(options => { /* 配置 */ })
+    .UseMemoryPack()
+    .UseNats(options => { /* 配置 */ })
     .AddHostedServices(options =>
     {
         options.EnableAutoRecovery = true;
         options.EnableTransportHosting = true;
         options.EnableOutboxProcessor = true;
     });
+
+builder.Services.AddNatsTransport("nats://localhost:4222");
 
 var app = builder.Build();
 
@@ -124,11 +127,14 @@ builder.Services.AddHealthChecks()
 **之后 (新 API):**
 
 ```csharp
-// 使用内置健康检查
+builder.Services.AddNatsConnection("nats://localhost:4222");
+
 builder.Services.AddCatga()
-    .AddNatsTransport()
-    .AddNatsPersistence()
+    .UseMemoryPack()
+    .UseNats()
     .AddHostedServices();
+
+builder.Services.AddNatsTransport("nats://localhost:4222");
 
 // 添加 Catga 健康检查
 builder.Services.AddHealthChecks()
@@ -211,10 +217,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 
 // 添加 Catga 服务
+builder.Services.AddNatsConnection("nats://localhost:4222");
 builder.Services.AddCatga()
-    .AddNatsTransport()
-    .AddNatsPersistence()
+    .UseMemoryPack()
+    .UseNats()
     .AddHostedServices();
+builder.Services.AddNatsTransport("nats://localhost:4222");
 
 // 添加健康检查
 builder.Services.AddHealthChecks()
@@ -253,10 +261,12 @@ await host.RunAsync();
 var builder = Host.CreateApplicationBuilder(args);
 
 // 添加 Catga 服务
+builder.Services.AddNatsConnection("nats://localhost:4222");
 builder.Services.AddCatga()
-    .AddNatsTransport()
-    .AddNatsPersistence()
+    .UseMemoryPack()
+    .UseNats()
     .AddHostedServices();
+builder.Services.AddNatsTransport("nats://localhost:4222");
 
 builder.Services.AddHostedService<MyWorker>();
 
@@ -460,11 +470,12 @@ builder.Services.AddCatga()
 **解决方案**: 检查组件是否正确初始化：
 
 ```csharp
-// 确保所有必需的服务都已注册
+builder.Services.AddNatsConnection("nats://localhost:4222");
 builder.Services.AddCatga()
-    .AddNatsTransport() // 必须注册传输层
-    .AddNatsPersistence() // 必须注册持久化层
+    .UseMemoryPack()
+    .UseNats() // 持久化层
     .AddHostedServices();
+builder.Services.AddNatsTransport("nats://localhost:4222"); // 传输层
 ```
 
 ### 问题: 停机时消息丢失

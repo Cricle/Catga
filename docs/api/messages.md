@@ -245,7 +245,7 @@ namespace MyApp.Orders.Commands
 // Queries
 namespace MyApp.Orders.Queries
 {
-    public record GetOrderQuery : MessageBase, IQuery<OrderDto> { }
+    public record GetOrderQuery : IRequest<OrderDto> { }
 }
 
 // Events
@@ -315,6 +315,5 @@ partial class MyJsonContext : JsonSerializerContext { }
 - [Mediator](mediator.md)
 - [架构总览与 Pipeline](../architecture/ARCHITECTURE.md)
 - [错误处理指南](../guides/error-handling.md)
-
 
 

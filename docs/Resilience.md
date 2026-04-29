@@ -34,19 +34,19 @@ All persistence stores are wrapped with `IResiliencePipelineProvider`. When `Use
 
 - InMemory
 ```csharp
-services.AddInMemoryPersistence(); // EventStore + Outbox + Inbox + DLQ
+services.AddCatga().UseMemoryPack().UseInMemory(); // InMemory persistence 组合
 ```
 
 - NATS JetStream
 ```csharp
 // Prerequisites: IMessageSerializer, INatsConnection
-services.AddNatsPersistence(); // EventStore + Outbox + Inbox + DLQ + Idempotency
+services.AddCatga().UseMemoryPack().UseNats(); // NATS persistence 组合
 ```
 
 - Redis
 ```csharp
 // Prerequisites: IMessageSerializer, IConnectionMultiplexer
-services.AddRedisPersistence(); // Outbox + Inbox + Idempotency
+services.AddCatga().UseMemoryPack().UseRedis("localhost:6379"); // Redis persistence 组合
 ```
 
 ## Observability
@@ -87,5 +87,4 @@ services.AddRedisPersistence(); // Outbox + Inbox + Idempotency
 
 - If you see no bulkhead rejections, your limits may be too high for the test load; try lowering concurrency and queue limits.
 - Ensure IMessageSerializer and the transport/persistence client dependencies are registered for NATS/Redis scenarios.
-
 

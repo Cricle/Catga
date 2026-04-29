@@ -304,20 +304,12 @@ services.AddSingleton<IMessageSerializer>(sp => new CustomJsonMessageSerializer(
 #### Transport Layer
 ```csharp
 // NATS Transport
-services.AddCatga()
-    .UseMemoryPack()
-    .UseNatsTransport(options =>
-    {
-        options.Url = "nats://nats:4222";  // K8s Service
-    });
+services.AddCatga().UseMemoryPack();
+services.AddNatsTransport("nats://nats:4222");  // K8s Service
 
 // Redis Transport (Streams)
-services.AddCatga()
-    .UseMemoryPack()
-    .UseRedisTransport(options =>
-    {
-        options.ConnectionString = "redis:6379";
-    });
+services.AddCatga().UseMemoryPack();
+services.AddRedisTransport("redis:6379");
 ```
 
 #### Persistence Layer

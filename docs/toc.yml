@@ -72,6 +72,8 @@
       href: articles/opentelemetry-integration.md
     - name: 分布式追踪
       href: observability/DISTRIBUTED-TRACING-GUIDE.md
+    - name: 生产监控指南
+      href: production/MONITORING-GUIDE.md
 - name: 部署
   items:
     - name: 部署索引
@@ -123,4 +125,10 @@
     - name: 更新日志
       href: CHANGELOG.md
 - name: API 参考
-  href: api/index.md
+  items:
+    - name: API 索引
+      href: api/index.md
+    - name: Mediator API
+      href: api/mediator.md
+    - name: 消息类型
+      href: api/messages.md

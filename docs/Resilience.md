@@ -1,90 +1,154 @@
-# Catga Resilience Guide
+# Catga 弹性与恢复指南
 
-This guide explains Catga's Polly-based resilience setup. Resilience is opt-in via UseResilience. It is AOT- and trimming-friendly, with zero reflection and no build warnings across net6/net8/net9.
+这篇文档解决的是：`UseResilience()` 什么时候需要显式调用，Catga 当前到底把哪些重试 / 超时 / 熔断能力接进了运行时。
 
-- Opt-in resilience via UseResilience: retry, timeout, circuit breaker, bulkhead (v8 concurrency limiter).
-- No default fallback provider is registered by AddCatga. If you use transports/persistence via DI, you must call UseResilience to register the provider.
-- Multi-TFM: Polly v7 for net6; Polly v8 for net8+.
+## 当前结论
 
-## Quick start
+Catga 的弹性能力基于 Polly，入口是：
 
-### Enable resilience
 ```csharp
 services.AddCatga()
-    .UseResilience(o =>
-    {
-        // Transport (example values)
-        o.TransportRetryCount = 3;
-        o.TransportRetryDelay = TimeSpan.FromMilliseconds(200);
+    .UseResilience();
+```
 
-        // Persistence bulkhead (optional – see notes below)
-        // var c = Math.Max(Environment.ProcessorCount * 2, 16);
-        // o.PersistenceBulkheadConcurrency = c;
-        // o.PersistenceBulkheadQueueLimit = c;
+它主要覆盖：
+
+- retry
+- timeout
+- circuit breaker
+- bulkhead / concurrency limiter
+
+## 什么时候需要显式调用 `UseResilience()`
+
+### 需要显式调用
+
+如果你只是：
+
+- `AddCatga()`
+- 接 serializer
+- 接 transport 或其他自定义基础设施
+
+并且希望有完整弹性策略，就应该显式调用：
+
+```csharp
+services.AddCatga()
+    .UseMemoryPack()
+    .UseResilience();
+```
+
+### 通常不需要单独再调
+
+当前这些 persistence 组合会自动确保默认 resilience provider 已注册：
+
+- `UseInMemory()`
+- `UseRedis(...)`
+- `UseNats(...)`
+
+例如：
+
+```csharp
+services.AddCatga()
+    .UseMemoryPack()
+    .UseRedis(redisConnectionString);
+```
+
+这类组合已经会把 resilience 主路径接起来。
+
+### 特殊情况
+
+`UseMediatorAutoBatching(...)` 在启用自动批处理时，也会确保默认 provider 存在。
+
+但如果你需要明确控制策略参数，仍然建议显式写出 `UseResilience(...)`。
+
+## 推荐接法
+
+### 最小显式配置
+
+```csharp
+services.AddCatga()
+    .UseMemoryPack()
+    .UseResilience(options =>
+    {
+        options.TransportRetryCount = 3;
+        options.TransportRetryDelay = TimeSpan.FromMilliseconds(200);
     });
 ```
 
-Notes:
-- On net8+, if you do not explicitly set persistence bulkhead values, Catga applies conservative defaults: `PermitLimit = QueueLimit = max(CPU*2, 16)`.
-- On net6, bulkhead for persistence is not applied (Polly v7 path). Other policies are supported via PolicyWrap.
+### 和生产 persistence 组合使用
 
-## DI extensions (persistence)
-
-All persistence stores are wrapped with `IResiliencePipelineProvider`. When `UseResilience` is not called, no provider is registered via DI. If you construct transports/persistence manually (e.g., in tests), you may pass an instance such as `DiagnosticResiliencePipelineProvider` or `DefaultResiliencePipelineProvider` explicitly.
-
-- InMemory
 ```csharp
-services.AddCatga().UseMemoryPack().UseInMemory(); // InMemory persistence 组合
+services.AddCatga()
+    .UseMemoryPack()
+    .UseResilience(options =>
+    {
+        options.TransportRetryCount = 3;
+        options.TransportRetryDelay = TimeSpan.FromMilliseconds(200);
+    })
+    .UseRedis(redisConnectionString)
+    .ForProduction()
+    .UseInbox()
+    .UseOutbox()
+    .UseDeadLetterQueue()
+    .AddHostedServices();
 ```
 
-- NATS JetStream
-```csharp
-// Prerequisites: IMessageSerializer, INatsConnection
-services.AddCatga().UseMemoryPack().UseNats(); // NATS persistence 组合
-```
+## 当前运行时行为
 
-- Redis
-```csharp
-// Prerequisites: IMessageSerializer, IConnectionMultiplexer
-services.AddCatga().UseMemoryPack().UseRedis("localhost:6379"); // Redis persistence 组合
-```
+Catga 里和弹性相关的主路径包括：
 
-## Observability
+- mediator pipeline
+- transport publish / send
+- persistence 访问
+- mediator auto-batching 刷新
 
-- Metrics (System.Diagnostics.Metrics)
-  - catga.resilience.retries
-  - catga.resilience.timeouts
-  - catga.resilience.circuit.opened
-  - catga.resilience.circuit.half_opened
-  - catga.resilience.circuit.closed
-  - catga.resilience.bulkhead.rejected
-  - Most counters include a `component` tag: Mediator, Transport.Publish/Send, Persistence
+不同 TFM 下底层实现会有差异：
 
-- Tracing (System.Diagnostics.Activity via CatgaActivitySource)
-  - resilience.retry (v8 includes `attempt` tag)
-  - resilience.timeout
-  - resilience.circuit.open / resilience.circuit.halfopen / resilience.circuit.closed
-  - resilience.bulkhead.rejected
+- `net6`: Polly v7 路径
+- `net8+`: Polly v8 `ResiliencePipeline` 路径
 
-## Policies per area (v8)
+文档层面更重要的结论是：业务接入时不用围着 TFM 分支写代码，直接围绕 `UseResilience()` 配置即可。
 
-- Mediator: Concurrency limiter (bulkhead), CircuitBreaker, Timeout
-- Transport: Concurrency limiter (bulkhead), CircuitBreaker, Timeout, Retry
-- Persistence: CircuitBreaker, Timeout, Retry; optional Concurrency limiter when configured
+## 可观测性
 
-## Performance guidance
+当前 resilience 相关指标 / 事件会进入标准 observability 路径。
 
-- Enable UseResilience when you need policy enforcement.
-- For manual composition (non-DI), a diagnostic no-op provider can be passed to minimize overhead in benchmarks.
-- Persistence bulkhead defaults are conservative; tune based on throughput and datastore behavior.
+常见指标包括：
 
-## Compatibility
+- `catga.resilience.retries`
+- `catga.resilience.timeouts`
+- `catga.resilience.circuit.opened`
+- `catga.resilience.bulkhead.rejected`
 
-- net6: Polly v7 PolicyWrap path.
-- net8+: Polly v8 ResiliencePipeline path (with RateLimiter bulkhead and enhanced callbacks/tags).
+如果你要把这些指标接进 tracing / monitoring，继续看：
 
-## Troubleshooting
+- [可观测性索引](./observability/README.md)
+- [生产监控指南](./production/MONITORING-GUIDE.md)
 
-- If you see no bulkhead rejections, your limits may be too high for the test load; try lowering concurrency and queue limits.
-- Ensure IMessageSerializer and the transport/persistence client dependencies are registered for NATS/Redis scenarios.
+## 常见问题
 
+### Q: 为什么我没调 `UseResilience()` 也能跑？
+
+A: 因为某些 `UseXxx()` persistence 组合会自动补默认 provider。
+
+### Q: 那为什么还建议显式写？
+
+A: 因为显式写出来更清楚：
+
+- 配置意图更明确
+- 策略参数更可控
+- 文档和代码更容易对齐
+
+### Q: 什么时候最该显式启用？
+
+A: 这几类场景最值得显式写出：
+
+- 生产 broker 接入
+- 需要自定义 retry / timeout / bulkhead 参数
+- 使用 mediator auto-batching
+- 需要把 resilience 作为可观测性重点关注项
+
+## 下一步看什么
+
+- 宿主与后台服务：看 [guides/hosting-configuration.md](./guides/hosting-configuration.md)
+- broker 生产接入：看 [deployment/broker-production-overview.md](./deployment/broker-production-overview.md)
+- 监控与 tracing：看 [observability/README.md](./observability/README.md)

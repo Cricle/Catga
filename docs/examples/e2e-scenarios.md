@@ -84,8 +84,7 @@
 
 ## 运行提示
 
-- 弹性与限流：参阅 ../Resilience.md。
+- 弹性与限流：参阅 [弹性与恢复指南](../Resilience.md)。
 - 观测与指标：参阅 ../production/MONITORING-GUIDE.md。
 - AOT/发布：参阅 ../deployment/native-aot-publishing.md。
-
 

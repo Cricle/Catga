@@ -38,10 +38,12 @@
 - [hosting-configuration.md](./hosting-configuration.md)
 - [hosting-migration.md](./hosting-migration.md)
 - [mediator-auto-batching.md](./mediator-auto-batching.md)
+- [../Resilience.md](../Resilience.md)
 
 适合解决：
 - 宿主里怎么接入
 - 后台服务、生命周期、批处理怎么配置
+- 重试、超时、熔断、限流怎么落地
 
 ### 数据与序列化
 
@@ -88,6 +90,7 @@
 
 先看：
 - [hosting-configuration.md](./hosting-configuration.md)
+- [../Resilience.md](../Resilience.md)
 - [serialization.md](./serialization.md)
 - [source-generator.md](./source-generator.md)
 - [analyzers-configuration.md](./analyzers-configuration.md)

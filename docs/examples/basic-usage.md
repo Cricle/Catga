@@ -1,510 +1,201 @@
 # 基本使用示例
 
-本文档展示 Catga 的基本使用方法。
+这篇示例只展示当前最短主路径：
 
-## 目录
+1. 定义消息
+2. 实现 handler
+3. 注册 Catga
+4. 通过 `ICatgaMediator` 调用
 
-- [简单的命令](#simple-command)
-- [查询数据](#query-data)
-- [发布事件](#publish-event)
-- [错误处理](#error-handling)
-- [Pipeline Behaviors](#pipeline-behaviors)
-
-<a id="simple-command"></a>
-## 简单的命令 {#simple-command}
-
-### 1. 定义命令和响应
+## 1. 定义消息
 
 ```csharp
-using Catga.Messages;
+using Catga.Abstractions;
+using MemoryPack;
 
-namespace MyApp.Orders.Commands
+[MemoryPackable]
+public partial record CreateOrder(string OrderId, decimal Amount)
+    : IRequest<OrderResult>;
+
+[MemoryPackable]
+public partial record GetOrder(string OrderId)
+    : IRequest<OrderDto>;
+
+[MemoryPackable]
+public partial record OrderCreated(string OrderId, decimal Amount)
+    : IEvent;
+
+[MemoryPackable]
+public partial record OrderResult(string OrderId, bool Success);
+
+[MemoryPackable]
+public partial record OrderDto(string OrderId, decimal Amount, string Status);
+```
+
+## 2. 实现 handler
+
+### Command handler
+
+```csharp
+using Catga;
+using Catga.Abstractions;
+using Catga.Core;
+
+public sealed class CreateOrderHandler : IRequestHandler<CreateOrder, OrderResult>
 {
-    // 命令
-    public record CreateOrderCommand : MessageBase, IRequest<CreateOrderResult>
+    private readonly ICatgaMediator _mediator;
+
+    public CreateOrderHandler(ICatgaMediator mediator)
     {
-        public string CustomerId { get; init; } = string.Empty;
-        public string ProductId { get; init; } = string.Empty;
-        public int Quantity { get; init; }
+        _mediator = mediator;
     }
 
-    // 响应
-    public record CreateOrderResult
+    public async ValueTask<CatgaResult<OrderResult>> HandleAsync(
+        CreateOrder request,
+        CancellationToken cancellationToken = default)
     {
-        public string OrderId { get; init; } = string.Empty;
-        public decimal TotalAmount { get; init; }
-        public DateTime CreatedAt { get; init; }
+        var created = new OrderResult(request.OrderId, Success: true);
+
+        await _mediator.PublishAsync(
+            new OrderCreated(request.OrderId, request.Amount),
+            cancellationToken);
+
+        return CatgaResult<OrderResult>.Success(created);
     }
 }
 ```
 
-### 2. 实现处理器
+### Query handler
 
 ```csharp
-using Catga.Handlers;
-using Catga.Results;
+using Catga.Abstractions;
+using Catga.Core;
 
-namespace MyApp.Orders.Handlers
+public sealed class GetOrderHandler : IRequestHandler<GetOrder, OrderDto>
 {
-    public class CreateOrderHandler
-        : IRequestHandler<CreateOrderCommand, CreateOrderResult>
+    public ValueTask<CatgaResult<OrderDto>> HandleAsync(
+        GetOrder request,
+        CancellationToken cancellationToken = default)
     {
-        private readonly IOrderRepository _orderRepository;
-        private readonly IProductRepository _productRepository;
-        private readonly ILogger<CreateOrderHandler> _logger;
-
-        public CreateOrderHandler(
-            IOrderRepository orderRepository,
-            IProductRepository productRepository,
-            ILogger<CreateOrderHandler> logger)
-        {
-            _orderRepository = orderRepository;
-            _productRepository = productRepository;
-            _logger = logger;
-        }
-
-        public async Task<CatgaResult<CreateOrderResult>> HandleAsync(
-            CreateOrderCommand request,
-            CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                // 1. 验证产品
-                var product = await _productRepository.GetByIdAsync(
-                    request.ProductId,
-                    cancellationToken);
-
-                if (product == null)
-                {
-                    return CatgaResult<CreateOrderResult>.Failure(
-                        "Product not found");
-                }
-
-                // 2. 检查库存
-                if (product.Stock < request.Quantity)
-                {
-                    return CatgaResult<CreateOrderResult>.Failure(
-                        "Insufficient stock");
-                }
-
-                // 3. 创建订单
-                var order = new Order
-                {
-                    OrderId = Guid.NewGuid().ToString("N"),
-                    CustomerId = request.CustomerId,
-                    ProductId = request.ProductId,
-                    Quantity = request.Quantity,
-                    TotalAmount = product.Price * request.Quantity,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                await _orderRepository.AddAsync(order, cancellationToken);
-
-                // 4. 更新库存
-                product.Stock -= request.Quantity;
-                await _productRepository.UpdateAsync(product, cancellationToken);
-
-                _logger.LogInformation(
-                    "Order created: {OrderId}",
-                    order.OrderId);
-
-                // 5. 返回结果
-                return CatgaResult<CreateOrderResult>.Success(
-                    new CreateOrderResult
-                    {
-                        OrderId = order.OrderId,
-                        TotalAmount = order.TotalAmount,
-                        CreatedAt = order.CreatedAt
-                    });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to create order");
-                return CatgaResult<CreateOrderResult>.Failure(
-                    "Failed to create order",
-                    new CatgaException("Order creation failed", ex));
-            }
-        }
+        var dto = new OrderDto(request.OrderId, 99.5m, "Created");
+        return ValueTask.FromResult(CatgaResult<OrderDto>.Success(dto));
     }
 }
 ```
 
-### 3. 配置服务
+### Event handler
 
 ```csharp
-// Program.cs 或 Startup.cs
+using Catga.Abstractions;
+
+public sealed class OrderCreatedHandler : IEventHandler<OrderCreated>
+{
+    public ValueTask HandleAsync(
+        OrderCreated @event,
+        CancellationToken cancellationToken = default)
+    {
+        return ValueTask.CompletedTask;
+    }
+}
+```
+
+## 3. 注册服务
+
+开发 / 测试最小接法：
+
+```csharp
 using Catga.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 注册 Catga
-builder.Services.AddCatga();
+builder.Services
+    .AddCatga()
+    .UseMemoryPack()
+    .UseInMemory()
+    .AddHostedServices();
 
-// 注册处理器
-builder.Services.AddScoped<IRequestHandler<CreateOrderCommand, CreateOrderResult>,
-    CreateOrderHandler>();
+builder.Services.AddInMemoryTransport();
 
-// 注册其他服务
-builder.Services.AddScoped<IOrderRepository, OrderRepository>();
-builder.Services.AddScoped<IProductRepository, ProductRepository>();
-
-var app = builder.Build();
+// 如果接入了源生成器，优先使用生成的注册扩展
+builder.Services.AddCatgaServices();
 ```
 
-### 4. 使用 Mediator
+如果你还没接源生成器，也可以先手动注册：
+
+```csharp
+builder.Services.AddScoped<IRequestHandler<CreateOrder, OrderResult>, CreateOrderHandler>();
+builder.Services.AddScoped<IRequestHandler<GetOrder, OrderDto>, GetOrderHandler>();
+builder.Services.AddScoped<IEventHandler<OrderCreated>, OrderCreatedHandler>();
+```
+
+## 4. 调用 mediator
 
 ```csharp
 using Catga;
 using Microsoft.AspNetCore.Mvc;
 
-namespace MyApp.Controllers
+[ApiController]
+[Route("orders")]
+public sealed class OrdersController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class OrdersController : ControllerBase
+    private readonly ICatgaMediator _mediator;
+
+    public OrdersController(ICatgaMediator mediator)
     {
-        private readonly ICatgaMediator _mediator;
-
-        public OrdersController(ICatgaMediator mediator)
-        {
-            _mediator = mediator;
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> CreateOrder(
-            [FromBody] CreateOrderCommand command,
-            CancellationToken cancellationToken)
-        {
-            var result = await _mediator.SendAsync<CreateOrderCommand, CreateOrderResult>(
-                command,
-                cancellationToken);
-
-            if (result.IsSuccess)
-            {
-                return Ok(result.Value);
-            }
-
-            return BadRequest(new
-            {
-                error = result.Error,
-                details = result.Exception?.Message
-            });
-        }
-    }
-}
-```
-
-<a id="query-data"></a>
-## 查询数据 {#query-data}
-
-### 1. 定义查询
-
-```csharp
-using Catga.Messages;
-
-public record GetOrderQuery : IRequest<OrderDto>
-{
-    public string OrderId { get; init; } = string.Empty;
-}
-
-public record OrderDto
-{
-    public string OrderId { get; init; } = string.Empty;
-    public string CustomerId { get; init; } = string.Empty;
-    public string ProductId { get; init; } = string.Empty;
-    public int Quantity { get; init; }
-    public decimal TotalAmount { get; init; }
-    public string Status { get; init; } = string.Empty;
-    public DateTime CreatedAt { get; init; }
-}
-```
-
-### 2. 实现查询处理器
-
-```csharp
-public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, OrderDto>
-{
-    private readonly IOrderRepository _orderRepository;
-
-    public GetOrderQueryHandler(IOrderRepository orderRepository)
-    {
-        _orderRepository = orderRepository;
+        _mediator = mediator;
     }
 
-    public async Task<CatgaResult<OrderDto>> HandleAsync(
-        GetOrderQuery request,
-        CancellationToken cancellationToken = default)
+    [HttpPost("{orderId}")]
+    public async Task<IResult> Create(string orderId, CancellationToken cancellationToken)
     {
-        var order = await _orderRepository.GetByIdAsync(
-            request.OrderId,
+        var result = await _mediator.SendAsync<CreateOrder, OrderResult>(
+            new CreateOrder(orderId, 99.5m),
             cancellationToken);
 
-        if (order == null)
-        {
-            return CatgaResult<OrderDto>.Failure("Order not found");
-        }
-
-        var dto = new OrderDto
-        {
-            OrderId = order.OrderId,
-            CustomerId = order.CustomerId,
-            ProductId = order.ProductId,
-            Quantity = order.Quantity,
-            TotalAmount = order.TotalAmount,
-            Status = order.Status,
-            CreatedAt = order.CreatedAt
-        };
-
-        return CatgaResult<OrderDto>.Success(dto);
-    }
-}
-```
-
-### 3. 使用查询
-
-```csharp
-[HttpGet("{orderId}")]
-public async Task<IActionResult> GetOrder(string orderId)
-{
-    var query = new GetOrderQuery { OrderId = orderId };
-    var result = await _mediator.SendAsync<GetOrderQuery, OrderDto>(query);
-
-    return result.IsSuccess
-        ? Ok(result.Value)
-        : NotFound(result.Error);
-}
-```
-
-<a id="publish-event"></a>
-## 发布事件 {#publish-event}
-
-### 1. 定义事件
-
-```csharp
-using Catga.Messages;
-
-public record OrderCreatedEvent : EventBase
-{
-    public string OrderId { get; init; } = string.Empty;
-    public string CustomerId { get; init; } = string.Empty;
-    public decimal TotalAmount { get; init; }
-}
-```
-
-### 2. 实现事件处理器
-
-```csharp
-using Catga.Handlers;
-using Catga.Results;
-
-// 发送邮件通知
-public class SendOrderEmailHandler : IEventHandler<OrderCreatedEvent>
-{
-    private readonly IEmailService _emailService;
-    private readonly ILogger<SendOrderEmailHandler> _logger;
-
-    public SendOrderEmailHandler(
-        IEmailService emailService,
-        ILogger<SendOrderEmailHandler> logger)
-    {
-        _emailService = emailService;
-        _logger = logger;
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.BadRequest(result.Error);
     }
 
-    public async Task<CatgaResult> HandleAsync(
-        OrderCreatedEvent @event,
-        CancellationToken cancellationToken = default)
+    [HttpGet("{orderId}")]
+    public async Task<IResult> Get(string orderId, CancellationToken cancellationToken)
     {
-        try
-        {
-            await _emailService.SendOrderConfirmationAsync(
-                @event.CustomerId,
-                @event.OrderId,
-                cancellationToken);
-
-            _logger.LogInformation(
-                "Order confirmation email sent for {OrderId}",
-                @event.OrderId);
-
-            return CatgaResult.Success();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send order email");
-            return CatgaResult.Failure("Failed to send email");
-        }
-    }
-}
-
-// 更新库存
-public class UpdateInventoryHandler : IEventHandler<OrderCreatedEvent>
-{
-    private readonly IInventoryService _inventoryService;
-
-    public UpdateInventoryHandler(IInventoryService inventoryService)
-    {
-        _inventoryService = inventoryService;
-    }
-
-    public async Task<CatgaResult> HandleAsync(
-        OrderCreatedEvent @event,
-        CancellationToken cancellationToken = default)
-    {
-        await _inventoryService.ReserveStockAsync(
-            @event.OrderId,
+        var result = await _mediator.SendAsync<GetOrder, OrderDto>(
+            new GetOrder(orderId),
             cancellationToken);
 
-        return CatgaResult.Success();
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : Results.NotFound(result.Error);
     }
 }
 ```
 
-### 3. 发布事件
+## 5. 常见扩展
+
+如果你要继续往生产配置走，常见会补这些：
 
 ```csharp
-// 在命令处理器中发布事件
-public async Task<CatgaResult<CreateOrderResult>> HandleAsync(
-    CreateOrderCommand request,
-    CancellationToken cancellationToken = default)
-{
-    // ... 创建订单 ...
+builder.Services
+    .AddCatga()
+    .UseMemoryPack()
+    .UseRedis(redisConnectionString)
+    .UseResilience()
+    .WithTracing()
+    .WithValidation()
+    .ForProduction()
+    .UseInbox()
+    .UseOutbox()
+    .UseDeadLetterQueue()
+    .AddHostedServices();
 
-    // 发布事件
-    var @event = new OrderCreatedEvent
-    {
-        OrderId = order.OrderId,
-        CustomerId = order.CustomerId,
-        TotalAmount = order.TotalAmount
-    };
-
-    await _mediator.PublishAsync(@event, cancellationToken);
-
-    return CatgaResult<CreateOrderResult>.Success(result);
-}
+builder.Services.AddRedisTransport(redisConnectionString);
+builder.Services.AddCatgaServices();
 ```
 
-<a id="error-handling"></a>
-## 错误处理 {#error-handling}
+## 下一步看什么
 
-### 方式 1: 返回失败结果
-
-```csharp
-public async Task<CatgaResult<OrderDto>> HandleAsync(
-    GetOrderQuery request,
-    CancellationToken cancellationToken = default)
-{
-    var order = await _orderRepository.GetByIdAsync(request.OrderId);
-
-    if (order == null)
-    {
-        // 返回失败结果
-        return CatgaResult<OrderDto>.Failure("Order not found");
-    }
-
-    return CatgaResult<OrderDto>.Success(MapToDto(order));
-}
-```
-
-### 方式 2: 使用异常
-
-```csharp
-public async Task<CatgaResult<OrderDto>> HandleAsync(
-    GetOrderQuery request,
-    CancellationToken cancellationToken = default)
-{
-    try
-    {
-        var order = await _orderRepository.GetByIdAsync(request.OrderId);
-        return CatgaResult<OrderDto>.Success(MapToDto(order));
-    }
-    catch (OrderNotFoundException ex)
-    {
-        return CatgaResult<OrderDto>.Failure(
-            "Order not found",
-            new CatgaException("Order not found", ex));
-    }
-}
-```
-
-### 方式 3: 在控制器中处理
-
-```csharp
-[HttpGet("{orderId}")]
-public async Task<IActionResult> GetOrder(string orderId)
-{
-    var query = new GetOrderQuery { OrderId = orderId };
-    var result = await _mediator.SendAsync<GetOrderQuery, OrderDto>(query);
-
-    if (result.IsSuccess)
-    {
-        return Ok(result.Value);
-    }
-
-    // 根据错误类型返回不同的状态码
-    if (result.Error.Contains("not found", StringComparison.OrdinalIgnoreCase))
-    {
-        return NotFound(result.Error);
-    }
-
-    return BadRequest(result.Error);
-}
-```
-
-## Pipeline Behaviors
-
-### 添加日志记录
-
-```csharp
-builder.Services.AddCatga(options =>
-{
-    options.AddLogging();
-    options.AddTracing();
-});
-```
-
-### 添加验证
-
-```csharp
-using System.ComponentModel.DataAnnotations;
-
-public record CreateOrderCommand : MessageBase, IRequest<CreateOrderResult>
-{
-    [Required]
-    [StringLength(50)]
-    public string CustomerId { get; init; } = string.Empty;
-
-    [Required]
-    [StringLength(50)]
-    public string ProductId { get; init; } = string.Empty;
-
-    [Range(1, 1000)]
-    public int Quantity { get; init; }
-}
-
-// 启用验证
-builder.Services.AddCatga(options =>
-{
-    options.AddValidation();
-});
-```
-
-### 添加重试
-
-```csharp
-builder.Services.AddCatga(options =>
-{
-    options.AddRetry(maxAttempts: 3);
-});
-```
-
-## 完整示例
-
-参考 [examples](../../examples/README.md) 文件夹中的完整示例项目。
-
-## 相关文档
-
-- [API 参考](../api/index.md)
-- [高级用法](../guides/source-generator.md)
-- [最佳实践](../guides/memory-optimization-guide.md)
-
-
+- 想看配置细节：看 [配置指南](../articles/configuration.md)
+- 想看自动注册：看 [自动 DI / 自动注册](../guides/auto-di-registration.md)
+- 想看序列化：看 [序列化指南](../guides/serialization.md)
+- 想看完整场景：看 [端到端场景](./e2e-scenarios.md)

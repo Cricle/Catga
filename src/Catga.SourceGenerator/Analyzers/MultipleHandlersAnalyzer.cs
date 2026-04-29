@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Catga.SourceGenerator.Analyzers;
 
-/// <summary>Detects multiple handlers for the same IRequest (only allowed for INotification)</summary>
+/// <summary>Detects multiple handlers for the same IRequest (fan-out should use IEvent/IEventHandler)</summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class MultipleHandlersAnalyzer : DiagnosticAnalyzer
 {
@@ -41,4 +41,3 @@ public class MultipleHandlersAnalyzer : DiagnosticAnalyzer
                         group.Key?.Name ?? "Unknown"));
     }
 }
-

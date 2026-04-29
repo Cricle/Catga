@@ -31,7 +31,8 @@ public interface IIdempotencyStore
 /// </summary>
 /// <remarks>
 /// ⚠️ This is a basic implementation for testing purposes.
-/// For production use, use ShardedIdempotencyStore or FusionCacheIdempotencyStore from Catga.Transport.InMemory package.
+/// For production use, prefer the persistence-backed idempotency stores registered by
+/// <c>UseRedis(...)</c>, <c>UseNats(...)</c>, or other production persistence combinations.
 /// </remarks>
 public class MemoryIdempotencyStore : IIdempotencyStore
 {

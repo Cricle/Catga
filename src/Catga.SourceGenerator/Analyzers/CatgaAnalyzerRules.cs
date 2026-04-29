@@ -61,7 +61,7 @@ internal static class CatgaAnalyzerRules
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "Requests can only have one handler. Use INotification for multiple handlers.",
+        description: "Requests can only have one handler. Use IEvent with multiple IEventHandler<T> implementations for fan-out.",
         customTags: "CompilationEnd");
 
     public static readonly DiagnosticDescriptor SingletonDependsOnScopedCatgaService = new(

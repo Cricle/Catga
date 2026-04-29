@@ -30,7 +30,7 @@ public class BlockingCallAnalyzer : DiagnosticAnalyzer
 
         var methodSymbol = context.SemanticModel.GetDeclaredSymbol(methodDecl);
         if (methodSymbol?.ContainingType == null ||
-            !methodSymbol.ContainingType.AllInterfaces.Any(i => i.Name == "IRequestHandler" || i.Name == "INotificationHandler"))
+            !methodSymbol.ContainingType.AllInterfaces.Any(i => i.Name == "IRequestHandler" || i.Name == "IEventHandler"))
             return;
 
         foreach (var call in methodDecl.DescendantNodes().OfType<MemberAccessExpressionSyntax>()
@@ -44,4 +44,3 @@ public class BlockingCallAnalyzer : DiagnosticAnalyzer
         }
     }
 }
-

@@ -13,7 +13,7 @@ public static class DslFlowServiceExtensions
 {
     /// <summary>
     /// Adds DSL Flow core services. Requires IDslFlowStore to be registered separately.
-    /// Use AddInMemoryPersistence() from Catga.Persistence.InMemory package for development/testing.
+    /// For development/testing, a common path is AddCatga().UseInMemory().
     /// </summary>
     public static IServiceCollection AddDslFlow(this IServiceCollection services)
     {

@@ -28,12 +28,12 @@ public class NamingConventionAnalyzer : DiagnosticAnalyzer
         var typeSymbol = (INamedTypeSymbol)context.Symbol;
         var typeName = typeSymbol.Name;
         var isRequest = typeSymbol.AllInterfaces.Any(i => i.Name == "IRequest");
-        var isNotification = typeSymbol.AllInterfaces.Any(i => i.Name == "INotification");
+        var isEvent = typeSymbol.AllInterfaces.Any(i => i.Name == "IEvent");
 
-        if (!isRequest && !isNotification) return;
+        if (!isRequest && !isEvent) return;
 
         // Check Event naming (past tense)
-        if (isNotification && typeName.EndsWith("Event") &&
+        if (isEvent && typeName.EndsWith("Event") &&
             Verbs.Any(v => typeName.StartsWith(v) && !typeName.StartsWith(v + "d") && !typeName.StartsWith(v + "ed")))
         {
             context.ReportDiagnostic(Diagnostic.Create(
@@ -59,4 +59,3 @@ public class NamingConventionAnalyzer : DiagnosticAnalyzer
         }
     }
 }
-

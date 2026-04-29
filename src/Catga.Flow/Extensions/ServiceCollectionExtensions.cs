@@ -21,9 +21,10 @@ public static class ServiceCollectionExtensions
         var options = new FlowDslOptions();
         configure?.Invoke(options);
 
-        // Register core services - InMemory store requires Catga.Persistence.InMemory package
-        // Users should call AddInMemoryPersistence() from that package before AddFlowDsl()
-        // or use the combined method from the persistence package
+        // Register core services.
+        // Callers should register an IDslFlowStore separately, typically via
+        // AddCatga().UseInMemory(), AddCatga().UseRedis(...), or AddCatga().UseNats(...),
+        // before enabling Flow DSL.
 
         // Register flow executor
         services.TryAddScoped<IFlowExecutor, FlowExecutorService>();

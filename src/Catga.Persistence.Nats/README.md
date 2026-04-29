@@ -55,10 +55,17 @@ services.AddSingleton<INatsConnection>(sp =>
 ```csharp
 using Catga;
 
-// 方式1: 使用默认配置
-services.AddNatsPersistence();
+// 推荐路径：通过 Catga builder 统一接入
+services.AddCatga()
+    .UseMemoryPack()
+    .UseNats(options =>
+    {
+        options.EventStreamName = "MY_EVENTS";
+        options.OutboxStreamName = "MY_OUTBOX";
+        options.InboxStreamName = "MY_INBOX";
+    });
 
-// 方式2: 自定义 Stream 名称
+// 低层 API：直接注册 NATS persistence
 services.AddNatsPersistence(options =>
 {
     options.EventStreamName = "MY_EVENTS";
@@ -66,7 +73,7 @@ services.AddNatsPersistence(options =>
     options.InboxStreamName = "MY_INBOX";
 });
 
-// 方式3: 单独注册
+// 细粒度注册
 services.AddNatsEventStore("MY_EVENTS");
 services.AddNatsOutboxStore("MY_OUTBOX");
 services.AddNatsInboxStore("MY_INBOX");

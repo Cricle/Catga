@@ -301,7 +301,8 @@ public record CreateOrderCommand : MessageBase, IRequest<OrderResult>
 
 ## AOT 兼容性
 
-所有消息类型都是 100% AOT 兼容的。
+消息类型本身可以设计成 AOT 友好，但真正是否顺利发布 Native AOT，
+还取决于 serializer、transport / persistence 组合，以及是否使用源生成配置。
 
 ```csharp
 // 使用 JSON 源生成器进行序列化
@@ -315,5 +316,4 @@ partial class MyJsonContext : JsonSerializerContext { }
 - [Mediator](mediator.md)
 - [架构总览与 Pipeline](../architecture/ARCHITECTURE.md)
 - [错误处理指南](../guides/error-handling.md)
-
 

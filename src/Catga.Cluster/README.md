@@ -298,7 +298,7 @@ dotnet test --filter "FullyQualifiedName~Cluster"
 ## Performance Considerations
 
 1. **Leader Election**: Typical election time is 150-300ms with default settings
-2. **Heartbeat Overhead**: ~50ms intervals, minimal network traffic
+2. **Heartbeat Overhead**: Default settings use short heartbeat intervals; tune them for your failure-detection and network budget
 3. **Request Forwarding**: Adds one HTTP round-trip (~1-10ms on local network)
 4. **Persistent State**: Use SSD storage for best performance
 

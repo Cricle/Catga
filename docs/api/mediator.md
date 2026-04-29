@@ -161,7 +161,7 @@ public CatgaMediator(
 - ✅ 支持 Pipeline Behaviors
 - ✅ 完整的日志记录
 - ✅ 异常处理
-- ✅ 100% AOT 兼容
+- ✅ AOT 友好
 
 ### 内部实现
 
@@ -184,15 +184,11 @@ public CatgaMediator(
 
 ```csharp
 // 注册核心服务
-services.AddCatga();
+services.AddCatga()
+    .UseMemoryPack();
 
-// 注册处理器
-services.AddScoped<IRequestHandler<CreateOrderCommand, OrderResult>, CreateOrderHandler>();
-services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedEventHandler>();
-
-// 注册 Pipeline Behaviors
-services.AddScoped(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
-services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+// 如果接入了源生成器，优先使用生成的注册扩展
+services.AddCatgaServices();
 ```
 
 ## 最佳实践
@@ -275,6 +271,5 @@ public async Task<IActionResult> GetOrder(
 - [消息类型](messages.md)
 - [架构总览与 Pipeline](../architecture/ARCHITECTURE.md)
 - [错误处理指南](../guides/error-handling.md)
-
 
 

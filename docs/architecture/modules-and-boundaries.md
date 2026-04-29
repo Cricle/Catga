@@ -19,7 +19,7 @@ Catga 的核心设计理念是 **专注、简洁、高性能**：
 
 1. **专注核心价值** - 只做 CQRS 消息分发，不重复造轮子
 2. **简洁易用** - 3 行配置，30 秒上手
-3. **高性能优先** - 零反射、零分配、100% AOT
+3. **高性能优先** - 零反射、零分配、AOT 友好
 4. **职责清晰** - 明确的边界，依赖成熟生态
 
 ---
@@ -80,7 +80,7 @@ Catga 的核心设计理念是 **专注、简洁、高性能**：
 - ~~应用层节点发现~~ - 使用平台原生能力
 
 **新增的组件** ✅:
-- `Catga.Serialization.MemoryPack` - 100% AOT 序列化
+- `Catga.Serialization.MemoryPack` - 默认推荐的 AOT 友好序列化路径
 - 自定义 JSON 序列化（实现 `IMessageSerializer`）
 - `CatgaServiceBuilder` - Fluent API
 - Roslyn 分析器 - 编译时检查
@@ -266,7 +266,7 @@ public class MissingSerializerRegistrationAnalyzer : DiagnosticAnalyzer
 ```csharp
 public sealed class MemoryPackMessageSerializer : IMessageSerializer
 {
-    // 100% AOT 兼容，零反射
+    // AOT 友好，零反射
     public byte[] Serialize<T>(T message)
         => MemoryPackSerializer.Serialize(message);
 

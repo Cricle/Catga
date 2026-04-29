@@ -86,9 +86,9 @@ dotnet build
 #### 为什么需要？
 
 MemoryPack 是推荐的 AOT 序列化器，所有消息类型都应标注 `[MemoryPackable]` 以获得：
-- ✅ 100% AOT 兼容
-- ✅ 5x 性能提升
-- ✅ 40% 更小的 payload
+- ✅ 更直接的 AOT 路线
+- ✅ 更低的运行时开销潜力
+- ✅ 更紧凑的二进制 payload
 
 #### 示例
 

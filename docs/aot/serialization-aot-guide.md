@@ -14,9 +14,9 @@ Catga 当前最稳的 AOT 路线是：
 
 | 包 | AOT 状态 | 说明 |
 |---|---|---|
-| **Catga** | ✅ 100% 兼容 | 核心抽象和接口 |
+| **Catga** | ✅ AOT 友好 | 核心抽象和接口 |
 | **Catga.Transport.InMemory** | ✅ AOT 友好 | 开发/测试起步路径 |
-| **Catga.SourceGenerator** | ✅ 100% 兼容 | 编译时代码生成 |
+| **Catga.SourceGenerator** | ✅ AOT 友好 | 编译时代码生成 |
 | **自定义 JSON** | ⚠️ 需配置 | 需要 JsonSerializerContext |
 | **Catga.Serialization.MemoryPack** | ✅ AOT 友好 | MemoryPack 本身支持 AOT |
 | **Catga.Persistence.Redis** | ⚠️ 需配置 | 需要 JsonSerializerContext |
@@ -85,7 +85,7 @@ services.AddCatga()
 services.AddInMemoryTransport();
 ```
 
-✅ **100% AOT 兼容，适合单体应用或进程内消息**
+✅ **AOT 路径简单，适合单体应用或进程内消息**
 
 ## 🔍 验证 AOT 兼容性
 
@@ -166,7 +166,7 @@ dotnet publish -c Release
 
 ## ❓ 常见问题
 
-### Q: 为什么不让所有库都100% AOT兼容？
+### Q: 为什么不让所有库都走同一条 AOT 路线？
 
 A: Catga 采用分层设计：
 - **核心层**（Catga + MemoryPack 路线）：优先保证 AOT 友好

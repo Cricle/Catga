@@ -19,7 +19,7 @@
 ### 1. 使用高性能序列化器
 
 ```csharp
-// 使用 MemoryPack (推荐 - 100% AOT 兼容)
+// 使用 MemoryPack (推荐 - AOT 路线最直接)
 services.AddCatga()
     .UseMemoryPack();
 
@@ -92,11 +92,11 @@ using var large = MemoryPoolManager.RentArray(256 * 1024);  // 256KB
 ### MemoryPackMessageSerializer (推荐)
 
 **优势**:
-- ✅ 100% AOT 兼容（源生成器）
+- ✅ AOT 友好（源生成器）
 - ✅ 零反射
-- ✅ 最高性能（2-10x 快于 JSON）
+- ✅ 更低运行时开销
 - ✅ 完整池化支持
-- ✅ 二进制格式（更小）
+- ✅ 二进制格式（通常更紧凑）
 
 **使用场景**:
 - 微服务内部通信
@@ -308,7 +308,7 @@ Intel Core i9-13900K, 1 CPU, 32 logical and 24 physical cores
 public partial class MyMessage { }
 
 services.AddCatga()
-    .UseMemoryPack();  // 零反射，100% AOT
+    .UseMemoryPack();  // 零反射，AOT 路线直接
 
 // ✅ JsonMessageSerializer (泛型方法)
 [JsonSerializable(typeof(MyMessage))]
@@ -330,21 +330,22 @@ var msg = serializer.Deserialize<MyMessage>(bytes);  // AOT 安全
 
 ## 🎯 总结
 
-### 性能提升预期
+### 性能判断原则
 
-| 指标 | 优化幅度 |
-|------|---------|
-| 内存分配 | **-50% ~ -90%** |
-| GC 压力 | **-60% ~ -80%** |
-| 吞吐量 | **+30% ~ +150%** |
-| CPU 使用 | **-20% ~ -40%** |
+这里不再给统一的固定收益区间。
+
+更稳妥的理解是：
+
+- 优化重点通常会体现在内存分配、GC 压力和热点路径吞吐
+- 实际收益强依赖消息大小、分配模式、broker 组合和负载模型
+- 应该以你的目标服务压测结果为准
 
 ### 推荐配置
 
 **生产环境 (高性能)**:
 ```csharp
 services.AddCatga()
-    .UseMemoryPack();  // 最高性能 + 100% AOT
+    .UseMemoryPack();  // 默认推荐的高性能 / AOT 路线
 ```
 
 **开发环境 (可读性优先)**:
@@ -358,5 +359,4 @@ services.AddSingleton<IMessageSerializer, CustomSerializer>();
 **最后更新**: 2024-01-20
 **版本**: 2.0.0
 **维护者**: Catga Team
-
 

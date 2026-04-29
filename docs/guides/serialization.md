@@ -21,7 +21,7 @@ graph TD
     B --> E[所有消息标注 [MemoryPackable]]
     D --> F[配置 JsonSerializerContext]
 
-    E --> G[✅ 100% AOT 兼容]
+    E --> G[✅ AOT 友好]
     F --> H[⚠️ 需额外配置]
 
     style B fill:#90EE90
@@ -35,10 +35,10 @@ graph TD
 | 场景 | 推荐 | 理由 |
 |------|------|------|
 | **生产环境** | ✅ MemoryPack | 性能最优，AOT 友好 |
-| **Native AOT** | ✅ MemoryPack | 100% 兼容，零配置 |
+| **Native AOT** | ✅ MemoryPack | AOT 路线最直接 |
 | **开发调试** | ⚠️ JSON | 人类可读，便于调试 |
 | **跨语言** | ⚠️ JSON | 通用格式 |
-| **高性能** | ✅ MemoryPack | 5x 性能，40% 更小 |
+| **高性能** | ✅ MemoryPack | 二进制格式、运行时开销更低 |
 
 ---
 
@@ -47,9 +47,9 @@ graph TD
 ### 为什么选择 MemoryPack？
 
 **核心优势**:
-- ✅ **100% AOT 兼容** - 零反射，零动态代码生成
-- ✅ **5x 性能提升** - 比 JSON 快 5 倍
-- ✅ **40% 更小** - Payload 减少 40%
+- ✅ **AOT 友好** - 避免运行时反射和动态代码生成
+- ✅ **运行时开销更低** - 通常比 JSON 更适合高频消息
+- ✅ **Payload 更紧凑** - 二进制格式通常更省带宽
 - ✅ **零拷贝** - 反序列化零内存分配
 - ✅ **类型安全** - 编译时检查
 - ✅ **易于使用** - 一个属性搞定
@@ -109,9 +109,9 @@ using Catga.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 一行配置！
+// 最小推荐配置
 builder.Services.AddCatga()
-    .UseMemoryPack()      // ← 就这么简单
+    .UseMemoryPack()
     .ForProduction();
 
 var app = builder.Build();
@@ -224,16 +224,17 @@ public partial record User(
 );
 ```
 
-### 性能基准
+### 性能说明
 
-| 操作 | MemoryPack | JSON | 提升 |
-|------|-----------|------|------|
-| **序列化** | 50 ns | 250 ns | **5x** 🔥 |
-| **反序列化** | 40 ns | 200 ns | **5x** ⚡ |
-| **Payload 大小** | 60% | 100% | **40% ↓** 📦 |
-| **内存分配** | 0 B | 120 B | **100% ↓** 💾 |
+这里不再给固定倍数承诺。
 
-**测试环境**: .NET 9.0, 1000 次迭代平均值
+更稳妥的理解是：
+
+- MemoryPack 通常更适合高频、低开销的 .NET 内部消息
+- JSON 更适合人类可读、跨语言和外部系统集成
+- 真实差异取决于消息结构、发布参数和是否使用 AOT
+
+实际 benchmark 请以仓库里的最新性能文档和你的业务实测为准。
 
 ### AOT 验证
 
@@ -241,13 +242,11 @@ public partial record User(
 # 发布 AOT 应用
 dotnet publish -c Release -r linux-x64 --property:PublishAot=true
 
-# 验证启动时间
-time ./bin/Release/net9.0/linux-x64/publish/YourApp
-# 预期: < 50ms
+# 验证应用可启动
+time ./bin/Release/net10.0/linux-x64/publish/YourApp
 
-# 验证二进制大小
-ls -lh ./bin/Release/net9.0/linux-x64/publish/YourApp
-# 预期: < 10MB
+# 查看发布产物
+ls -lh ./bin/Release/net10.0/linux-x64/publish/YourApp
 ```
 
 ### 常见问题
@@ -392,15 +391,13 @@ builder.Services.AddCatga();
 builder.Services.AddSingleton<IMessageSerializer>(sp => new CustomSerializer(options));
 ```
 
-### 性能对比
+### 方案对比
 
-| 操作 | JSON (反射) | JSON (Source Gen) | MemoryPack |
-|------|------------|------------------|-----------|
-| **序列化** | 250 ns | 180 ns | **50 ns** |
-| **反序列化** | 200 ns | 150 ns | **40 ns** |
-| **Payload** | 100% | 100% | **60%** |
-| **AOT 兼容** | ❌ | ✅ | ✅ |
-| **配置复杂度** | 低 | 中 | **低** |
+| 方案 | AOT 兼容 | 人类可读 | 配置复杂度 | 适用场景 |
+|------|---------|---------|-----------|---------|
+| JSON（反射） | ❌ | ✅ | 低 | 仅限非 AOT、本地调试示例 |
+| JSON（源生成） | ✅ | ✅ | 中 | 跨语言、外部接口、文本排查 |
+| MemoryPack | ✅ | ❌ | 低 | 默认推荐、.NET 内部消息 |
 
 ### 常见问题
 
@@ -441,9 +438,9 @@ public partial class AppJsonContext : JsonSerializerContext { }
 
 | 特性 | MemoryPack | JSON |
 |------|-----------|------|
-| **AOT 兼容性** | ✅ 100% | ⚠️ 需配置 |
-| **性能** | 🔥 最快 (5x) | ⚡ 中等 |
-| **Payload 大小** | 📦 最小 (60%) | 📦 大 (100%) |
+| **AOT 兼容性** | ✅ 友好 | ⚠️ 需配置 |
+| **性能** | 🔥 通常更优 | ⚡ 取决于实现 |
+| **Payload 大小** | 📦 通常更紧凑 | 📦 通常更大 |
 | **人类可读** | ❌ 二进制 | ✅ 文本 |
 | **跨语言** | ❌ .NET Only | ✅ 通用 |
 | **配置复杂度** | ✅ 简单 | ⚠️ 中等 |
@@ -451,29 +448,15 @@ public partial class AppJsonContext : JsonSerializerContext { }
 | **版本兼容** | ✅ 支持 | ✅ 支持 |
 | **调试友好** | ❌ | ✅ |
 
-### 性能基准（详细）
+### 性能判断原则
 
-**测试场景**: 序列化 1000 个订单对象
+如果你需要：
 
-```csharp
-public record Order(
-    string OrderId,
-    string UserId,
-    List<OrderItem> Items,
-    decimal TotalAmount,
-    DateTime CreatedAt
-);
+- 最小运行时开销：优先 `MemoryPack`
+- 可读文本和跨语言：优先 JSON
+- Native AOT：优先 `MemoryPack`，或使用带 `JsonSerializerContext` 的自定义 JSON
 
-public record OrderItem(string ProductId, int Quantity, decimal Price);
-```
-
-| 指标 | MemoryPack | JSON (Source Gen) | JSON (反射) |
-|------|-----------|------------------|------------|
-| **序列化时间** | 50 ms | 180 ms | 250 ms |
-| **反序列化时间** | 40 ms | 150 ms | 200 ms |
-| **总 Payload** | 60 KB | 100 KB | 100 KB |
-| **内存分配** | 0 MB | 5 MB | 12 MB |
-| **GC 次数** | 0 | 2 | 5 |
+不要把文档里的历史示例数字直接当成你的系统收益。
 
 ### 使用建议
 
@@ -702,12 +685,11 @@ services.AddCatga().UseCustomSerializer();
 
 <div align="center">
 
-**🚀 选择正确的序列化器，获得最佳性能！**
+**选择和你的部署目标一致的序列化器**
 
 [返回主文档](../README.md) · [架构设计](../architecture/ARCHITECTURE.md)
 
-**推荐**: 生产环境使用 MemoryPack，开发调试使用 JSON
+**推荐**: 生产默认先用 MemoryPack；确实需要文本可读或跨语言时，再切自定义 JSON
 
 </div>
-
 

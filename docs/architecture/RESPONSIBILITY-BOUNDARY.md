@@ -300,8 +300,7 @@ public static partial class CatgaLog
 
 - [传输与持久化（架构总览）](./overview.md)
 - [K8s集成指南](../deployment/kubernetes.md)
-- [Pipeline Behaviors](./ARCHITECTURE.md#pipeline-behaviors)
-- [幂等性设计](./ARCHITECTURE.md#idempotency-store)
-
+- [Pipeline Behaviors](./modules-and-boundaries.md#pipeline-behaviors)
+- [幂等性设计](./modules-and-boundaries.md#idempotency-store)
 
 

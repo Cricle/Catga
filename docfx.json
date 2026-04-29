@@ -22,7 +22,7 @@
   "build": {
     "content": [
       {
-        "files": ["docs/toc.yml", "docs/**/*.md", "examples/README.md"],
+        "files": ["docs/toc.yml", "docs/**/*.md", "examples/**/*.md"],
         "exclude": ["docs/web/**", "**/bin/**", "**/obj/**"]
       },
       {
@@ -31,7 +31,7 @@
     ],
     "resource": [
       {
-        "files": ["docs/images/**", "docs/web/**"],
+        "files": ["docs/images/**", "docs/web/**", "examples/**/*.ps1", "examples/**/*.sh"],
         "exclude": ["docs/web/**/*.md"]
       }
     ],

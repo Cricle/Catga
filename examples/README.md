@@ -29,9 +29,9 @@ dotnet run
 - [README.md](OrderSystem/README.md) - Complete usage guide and API reference
 
 **Test Scripts**:
-- [quick-test.ps1](OrderSystem/quick-test.ps1) - Quick validation
-- [test-all.ps1](OrderSystem/test-all.ps1) - Comprehensive test suite
-- [test-apis.ps1](OrderSystem/test-apis.ps1) - API endpoint tests
+- [test.ps1](OrderSystem/test.ps1) - API validation and smoke tests
+- [run-cluster.ps1](OrderSystem/run-cluster.ps1) - Windows cluster startup
+- [run-cluster.sh](OrderSystem/run-cluster.sh) - Linux/macOS cluster startup
 
 **Deployment Modes**:
 
@@ -114,8 +114,8 @@ This starts:
 - [Catga Documentation](../docs/README.md)
 - [Getting Started Guide](../docs/articles/getting-started.md)
 - [Hosting Configuration](../docs/guides/hosting-configuration.md)
-- [CQRS Pattern](../docs/patterns/cqrs.md)
-- [Event Sourcing](../docs/patterns/event-sourcing.md)
+- [CQRS Pattern](../docs/architecture/cqrs.md)
+- [Event Sourcing](../docs/articles/event-sourcing.md)
 
 ## Contributing
 

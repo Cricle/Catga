@@ -15,3 +15,10 @@ k6 run scripts/load-test.js
 ```bash
 ./scripts/verify-deployment.sh
 ```
+
+## Documentation
+
+```bash
+python3 scripts/check_markdown_links.py
+~/.dotnet/tools/docfx build docfx.json --warningsAsErrors
+```

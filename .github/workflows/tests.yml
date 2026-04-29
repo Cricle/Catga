@@ -18,6 +18,36 @@ env:
   TEST_RABBITMQ_IMAGE: "rabbitmq:3.13-alpine"
 
 jobs:
+  docs-validate:
+    name: Docs Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Validate markdown and toc links
+        run: python3 scripts/check_markdown_links.py
+
+      - name: Install DocFX
+        run: dotnet tool install -g docfx
+
+      - name: Build DocFX site
+        run: |
+          ~/.dotnet/tools/docfx build docfx.json --warningsAsErrors 2>&1 | tee docfx.log
+
+      - name: Upload docfx.log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docfx-log
+          path: docfx.log
+          if-no-files-found: ignore
+
   build:
     name: Build Solution
     runs-on: ubuntu-latest
@@ -216,7 +246,7 @@ jobs:
 
   docfx:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
-    needs: [build, catga-tests, order-system-e2e, flow-semantic-gap, broker-matrix]
+    needs: [docs-validate, build, catga-tests, order-system-e2e, flow-semantic-gap, broker-matrix]
     permissions:
       contents: read
       pages: write
@@ -239,7 +269,7 @@ jobs:
 
       - name: Build DocFX site
         run: |
-          docfx build docfx.json --warningsAsErrors 2>&1 | tee docfx.log
+          ~/.dotnet/tools/docfx build docfx.json --warningsAsErrors 2>&1 | tee docfx.log
 
       - name: Upload docfx.log
         if: always()

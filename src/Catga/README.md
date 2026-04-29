@@ -1,226 +1,145 @@
 # Catga
 
-**简单、高性能、AOT 兼容的 CQRS 和分布式事务框架**
+面向现代 .NET 应用的 CQRS、消息协作和流程编排基础框架。
 
-## ✨ 核心特性
+Catga 当前的核心方向是：
 
-- ✅ **100% AOT 兼容** - 零反射，完全 NativeAOT 支持
-- ✅ **无锁设计** - 原子操作 + ConcurrentDictionary
-- ✅ **非阻塞异步** - 全异步，零阻塞
-- ✅ **极简 API** - 最少配置，合理默认值
-- ✅ **高性能** - 分片存储、并发控制、限流
-- ✅ **可观测性** - 分布式追踪、日志、指标
-- ✅ **弹性设计** - 熔断器、重试、死信队列
-- ✅ **双传输** - 内存 / NATS
+- `CQRS`
+- `Event Sourcing`
+- `Flow DSL`
+- `Native AOT`
+- `Redis / RabbitMQ / NATS` 生产接入
 
-## 🚀 快速开始
+## 快速开始
 
 ### 1. 定义消息
 
 ```csharp
-// 查询
-public record GetUserQuery(long UserId) : IQuery<User>;
+using Catga;
 
-// 命令
-public record CreateUserCommand(string Name) : ICommand<long>;
-
-// 事件
-public record UserCreatedEvent(long UserId) : IEvent;
+public record CreateOrder(string OrderId, decimal Amount) : IRequest<OrderResult>;
+public record OrderCreated(string OrderId, decimal Amount) : IEvent;
+public record OrderResult(string OrderId, bool Success);
 ```
 
 ### 2. 定义处理器
 
 ```csharp
-public class GetUserHandler : IRequestHandler<GetUserQuery, User>
+public sealed class CreateOrderHandler : IRequestHandler<CreateOrder, OrderResult>
 {
-    public async Task<CatgaResult<User>> HandleAsync(
-        GetUserQuery request,
-        CancellationToken ct)
+    public ValueTask<CatgaResult<OrderResult>> HandleAsync(CreateOrder request, CancellationToken ct)
     {
-        var user = await _db.GetUserAsync(request.UserId);
-        return CatgaResult<User>.Success(user);
+        var result = new OrderResult(request.OrderId, Success: true);
+        return ValueTask.FromResult(CatgaResult<OrderResult>.Success(result));
+    }
+}
+
+public sealed class OrderCreatedHandler : IEventHandler<OrderCreated>
+{
+    public ValueTask HandleAsync(OrderCreated @event, CancellationToken ct)
+    {
+        return ValueTask.CompletedTask;
     }
 }
 ```
 
 ### 3. 注册服务
 
-```csharp
-// 默认配置（推荐）
-services.AddCatga();
-
-// 自定义
-services.AddCatga(options =>
-{
-    options.MaxConcurrentRequests = 2000;
-    options.EnableCircuitBreaker = true;
-});
-
-// 或使用预设
-services.AddCatga(opt => opt.WithHighPerformance());
-services.AddCatga(opt => opt.WithResilience());
-services.AddCatga(opt => opt.ForDevelopment());
-
-// 注册处理器
-services.AddRequestHandler<GetUserQuery, User, GetUserHandler>();
-services.AddEventHandler<UserCreatedEvent, SendEmailHandler>();
-```
-
-### 4. 使用
+开发 / 测试最小接法：
 
 ```csharp
-public class UserService(ICatgaMediator mediator)
-{
-    public async Task<User> GetUserAsync(long id)
-    {
-        var result = await mediator.SendAsync<GetUserQuery, User>(
-            new GetUserQuery(id));
-        return result.Value;
-    }
-}
+using Catga.DependencyInjection;
+
+var catga = services
+    .AddCatga()
+    .UseMemoryPack()
+    .UseInMemory()
+    .AddHostedServices();
+
+services.AddInMemoryTransport();
 ```
 
-## 📊 功能特性
-
-### 🔄 Pipeline Behaviors（自动启用）
-
-- **Logging** - 结构化日志记录
-- **Tracing** - 分布式追踪（ActivitySource）
-- **Idempotency** - 消息去重（分片存储）
-- **Validation** - 请求验证
-- **Retry** - 指数退避重试
-
-### 🛡️ 弹性机制
+生产默认路径：
 
 ```csharp
-services.AddCatga(options =>
-{
-    // 重试
-    options.EnableRetry = true;
-    options.MaxRetryAttempts = 3;
-    options.RetryDelayMs = 100; // 指数退避
+using Catga.DependencyInjection;
 
-    // 熔断器
-    options.EnableCircuitBreaker = true;
-    options.CircuitBreakerFailureThreshold = 10;
+var catga = services
+    .AddCatga()
+    .UseMemoryPack()
+    .UseRedis(redisConnectionString)
+    .ForProduction()
+    .UseInbox()
+    .UseOutbox()
+    .UseDeadLetterQueue()
+    .AddHostedServices();
 
-    // 限流
-    options.EnableRateLimiting = true;
-    options.RateLimitRequestsPerSecond = 1000;
-
-    // 死信队列
-    options.EnableDeadLetterQueue = true;
-});
+services.AddRedisTransport(redisConnectionString);
 ```
 
-### ⚡ 性能优化
+## 关键规则
+
+### 1. 一定要先有 serializer
+
+`AddCatga()` 之后必须接上 serializer。当前默认推荐：
 
 ```csharp
-// 无锁并发控制
-options.MaxConcurrentRequests = 5000;
-
-// 分片幂等存储（减少锁竞争）
-options.IdempotencyShardCount = 64;
-options.IdempotencyRetentionHours = 24;
+services.AddCatga().UseMemoryPack();
 ```
 
-### 📈 可观测性
+### 2. transport 和 persistence 是两层
 
-**分布式追踪**（自动）
-```csharp
-options.EnableTracing = true; // ActivitySource
-```
+transport 负责消息收发：
 
-**死信队列检查**
-```csharp
-public class AdminController(IDeadLetterQueue dlq)
-{
-    public async Task<List<DeadLetterMessage>> GetFailedMessages()
-    {
-        return await dlq.GetFailedMessagesAsync(maxCount: 100);
-    }
-}
-```
+- `AddInMemoryTransport()`
+- `AddRedisTransport(...)`
+- `AddNatsTransport(...)`
+- `AddRabbitMqTransport(...)`
 
-## 🎯 配置预设
+persistence 负责状态和可靠性存储：
+
+- `UseInMemory()`
+- `UseRedis(...)`
+- `UseNats(...)`
+
+### 3. 生产里通常要补 hosting 和 health checks
 
 ```csharp
-// 开发环境（所有日志，无限流）
-services.AddCatga(opt => opt.ForDevelopment());
-
-// 高性能（5000 并发，64 分片）
-services.AddCatga(opt => opt.WithHighPerformance());
-
-// 完整弹性（熔断器 + 限流）
-services.AddCatga(opt => opt.WithResilience());
-
-// 最小化（零开销，最快）
-services.AddCatga(opt => opt.Minimal());
+services.AddHealthChecks()
+    .AddCatgaHealthChecks();
 ```
 
-## 🌐 NATS 传输
+## 常见生产路径
+
+- `Redis + Redis`：默认生产答案
+- `RabbitMQ + Redis`：企业标准 broker 路径
+- `NATS + NATS`：一体化 broker 路径
+
+## 可选能力
+
+常见能力扩展：
+
+- `UseRequestClient()`
+- `WithCorrelationPropagation()`
+- `WithMessageVersioning(...)`
+- `WithAuthorization(...)`
+- `AddFlows()`
+
+示例：
 
 ```csharp
-services.AddNatsCatga("nats://localhost:4222", opt =>
-{
-    opt.MaxConcurrentRequests = 1000;
-    opt.EnableCircuitBreaker = true;
-});
+var catga = services
+    .AddCatga()
+    .UseMemoryPack()
+    .UseRedis(redisConnectionString)
+    .UseRequestClient()
+    .WithCorrelationPropagation()
+    .AddHostedServices();
 ```
 
-## 🔧 AOT 兼容性
+## 文档入口
 
-- ✅ 零反射
-- ✅ 显式泛型注册
-- ✅ 编译时类型检查
-- ✅ 无 `object` 装箱
-- ✅ 强类型字典
-
-## 📈 性能指标
-
-| 传输 | 延迟 | 吞吐量 | 并发 |
-|------|------|--------|------|
-| Memory | < 1ms | 100K+ msg/s | 5000+ |
-| NATS | < 5ms | 50K+ msg/s | 5000+ |
-
-## 🏗️ 设计原则
-
-1. **简单优先** - 最少配置，开箱即用
-2. **性能优先** - 无锁、非阻塞、零分配
-3. **AOT 友好** - 显式注册，零反射
-4. **可观测性** - 内置追踪、日志、DLQ
-
-## 📚 高级特性
-
-### 自定义 Validator
-
-```csharp
-public class CreateUserValidator : IValidator<CreateUserCommand>
-{
-    public Task<List<string>> ValidateAsync(CreateUserCommand cmd, CancellationToken ct)
-    {
-        var errors = new List<string>();
-        if (string.IsNullOrEmpty(cmd.Name))
-            errors.Add("Name is required");
-        return Task.FromResult(errors);
-    }
-}
-
-services.AddValidator<CreateUserCommand, CreateUserValidator>();
-```
-
-### 死信队列处理
-
-```csharp
-// 自动发送到 DLQ（重试失败后）
-// 检查失败消息
-var failed = await dlq.GetFailedMessagesAsync();
-foreach (var msg in failed)
-{
-    Console.WriteLine($"Failed: {msg.MessageType} - {msg.ExceptionMessage}");
-}
-```
-
-## 📄 License
-
-MIT
+- 配置入口：`docs/articles/configuration.md`
+- broker 选型：`docs/deployment/broker-production-overview.md`
+- 托管服务：`docs/guides/hosting-configuration.md`
+- 性能基准：`docs/BENCHMARK-RESULTS.md`
